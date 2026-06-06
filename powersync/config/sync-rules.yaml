@@ -1,0 +1,420 @@
+# E-PILOTE CONGO — Règles de synchronisation PowerSync
+# https://docs.powersync.com/sync/streams/overview
+# Déployer via le dashboard PowerSync Cloud après chaque modification.
+# Edition 3 — Phases 1-8 complètes + navigation dynamique (40 tables)
+#
+# Périmètre de synchronisation (data-minimization) :
+#   • Tables sensibles par école → p.school_id = X.school_id UNIQUEMENT.
+#     Un agent d'une école ne télécharge JAMAIS les données des autres écoles
+#     du groupe (notes, paiements, paie, infirmerie, discipline, etc.).
+#   • Tables de niveau groupe (calendrier, écoles, transferts, paiements config,
+#     plan/modules) → portée groupe.
+#   • announcements / events → portée groupe (diffusion volontairement large).
+
+config:
+  edition: 3
+
+streams:
+
+  # ════════════════════════════════════════════════════════════════════════
+  # IDENTITÉ & NAVIGATION DYNAMIQUE
+  # ════════════════════════════════════════════════════════════════════════
+
+  # ── Profil de l'utilisateur connecté ──────────────────────────────────────
+  user_profile:
+    auto_subscribe: true
+    queries:
+      - SELECT * FROM profiles WHERE id = auth.user_id()
+
+  # ── Groupe scolaire de l'utilisateur ─────────────────────────────────────
+  # Nécessaire pour récupérer plan_id → navigation dynamique offline
+  school_groups:
+    auto_subscribe: true
+    queries:
+      - SELECT sg.* FROM school_groups sg
+        JOIN profiles p ON p.group_id = sg.id
+        WHERE p.id = auth.user_id()
+
+  # ── Catégories de modules (données globales plateforme) ───────────────────
+  module_categories:
+    auto_subscribe: true
+    queries:
+      - SELECT * FROM module_categories
+
+  # ── Modules actifs (données globales plateforme) ──────────────────────────
+  modules:
+    auto_subscribe: true
+    queries:
+      - SELECT * FROM modules WHERE is_active = true
+
+  # ── Modules du plan souscrit par le groupe ────────────────────────────────
+  plan_modules:
+    auto_subscribe: true
+    queries:
+      - SELECT pm.* FROM plan_modules pm
+        JOIN school_groups sg ON sg.plan_id = pm.plan_id
+        JOIN profiles p ON p.group_id = sg.id
+        WHERE p.id = auth.user_id()
+
+  # ════════════════════════════════════════════════════════════════════════
+  # PHASE 1 — STRUCTURE SCOLAIRE
+  # ════════════════════════════════════════════════════════════════════════
+
+  # ── Écoles du groupe ──────────────────────────────────────────────────────
+  schools:
+    auto_subscribe: true
+    queries:
+      - SELECT s.* FROM schools s
+        JOIN profiles p ON p.group_id = s.group_id
+        WHERE p.id = auth.user_id()
+        AND s.is_active = true
+
+  # ── Années académiques ────────────────────────────────────────────────────
+  academic_years:
+    auto_subscribe: true
+    queries:
+      - SELECT ay.* FROM academic_years ay
+        JOIN profiles p ON p.group_id = ay.group_id
+        WHERE p.id = auth.user_id()
+
+  # ── Trimestres ────────────────────────────────────────────────────────────
+  trimesters:
+    auto_subscribe: true
+    queries:
+      - SELECT t.* FROM trimesters t
+        JOIN profiles p ON p.group_id = t.group_id
+        WHERE p.id = auth.user_id()
+
+  # ── Séquences d'évaluation ────────────────────────────────────────────────
+  sequences:
+    auto_subscribe: true
+    queries:
+      - SELECT s.* FROM sequences s
+        JOIN profiles p ON p.group_id = s.group_id
+        WHERE p.id = auth.user_id()
+
+  # ── Classes (portée école) ────────────────────────────────────────────────
+  classes:
+    auto_subscribe: true
+    queries:
+      - SELECT c.* FROM classes c
+        JOIN profiles p ON p.school_id = c.school_id
+        WHERE p.id = auth.user_id()
+        AND c.is_active = true
+
+  # ── Inscriptions en classe (portée école) ─────────────────────────────────
+  class_enrollments:
+    auto_subscribe: true
+    queries:
+      - SELECT ce.* FROM class_enrollments ce
+        JOIN profiles p ON p.school_id = ce.school_id
+        WHERE p.id = auth.user_id()
+
+  # ════════════════════════════════════════════════════════════════════════
+  # PHASE 2 — ACTEURS
+  # ════════════════════════════════════════════════════════════════════════
+
+  # ── Élèves (portée école) ─────────────────────────────────────────────────
+  students:
+    auto_subscribe: true
+    queries:
+      - SELECT s.* FROM students s
+        JOIN profiles p ON p.school_id = s.school_id
+        WHERE p.id = auth.user_id()
+        AND s.is_active = true
+
+  # ── Tuteurs / parents (portée école via l'élève) ──────────────────────────
+  student_tutors:
+    auto_subscribe: true
+    queries:
+      - SELECT t.* FROM student_tutors t
+        JOIN students s ON s.id = t.student_id
+        JOIN profiles p ON p.school_id = s.school_id
+        WHERE p.id = auth.user_id()
+
+  # ── Personnel scolaire (portée école) ─────────────────────────────────────
+  staff_members:
+    auto_subscribe: true
+    queries:
+      - SELECT sm.* FROM staff_members sm
+        JOIN profiles p ON p.school_id = sm.school_id
+        WHERE p.id = auth.user_id()
+        AND sm.is_active = true
+
+  # ── Affectations enseignants / matières (portée école) ────────────────────
+  teacher_subjects:
+    auto_subscribe: true
+    queries:
+      - SELECT ts.* FROM teacher_subjects ts
+        JOIN profiles p ON p.school_id = ts.school_id
+        WHERE p.id = auth.user_id()
+
+  # ── Matières (portée école) ───────────────────────────────────────────────
+  subjects:
+    auto_subscribe: true
+    queries:
+      - SELECT sub.* FROM subjects sub
+        JOIN profiles p ON p.school_id = sub.school_id
+        WHERE p.id = auth.user_id()
+        AND sub.is_active = true
+
+  # ════════════════════════════════════════════════════════════════════════
+  # PHASE 3 — QUOTIDIEN
+  # ════════════════════════════════════════════════════════════════════════
+
+  # ── Emploi du temps (portée école) ────────────────────────────────────────
+  timetable_slots:
+    auto_subscribe: true
+    queries:
+      - SELECT ts.* FROM timetable_slots ts
+        JOIN profiles p ON p.school_id = ts.school_id
+        WHERE p.id = auth.user_id()
+        AND ts.is_active = true
+
+  # ── Cahier de textes / cours dispensés (portée école) ─────────────────────
+  lesson_entries:
+    auto_subscribe: true
+    queries:
+      - SELECT le.* FROM lesson_entries le
+        JOIN profiles p ON p.school_id = le.school_id
+        WHERE p.id = auth.user_id()
+
+  # ── Feuilles de présence (en-têtes, portée école) ─────────────────────────
+  attendance_records:
+    auto_subscribe: true
+    queries:
+      - SELECT ar.* FROM attendance_records ar
+        JOIN profiles p ON p.school_id = ar.school_id
+        WHERE p.id = auth.user_id()
+
+  # ── Entrées de présence (par élève, portée école) ─────────────────────────
+  attendance_entries:
+    auto_subscribe: true
+    queries:
+      - SELECT ae.* FROM attendance_entries ae
+        JOIN profiles p ON p.school_id = ae.school_id
+        WHERE p.id = auth.user_id()
+
+  # ════════════════════════════════════════════════════════════════════════
+  # PHASE 4 — ÉVALUATION
+  # ════════════════════════════════════════════════════════════════════════
+
+  # ── Évaluations (contrôles, devoirs, examens — portée école) ──────────────
+  evaluations:
+    auto_subscribe: true
+    queries:
+      - SELECT ev.* FROM evaluations ev
+        JOIN profiles p ON p.school_id = ev.school_id
+        WHERE p.id = auth.user_id()
+
+  # ── Notes (portée école) ──────────────────────────────────────────────────
+  grades:
+    auto_subscribe: true
+    queries:
+      - SELECT g.* FROM grades g
+        JOIN profiles p ON p.school_id = g.school_id
+        WHERE p.id = auth.user_id()
+
+  # ── Notes par compétences (portée école) ──────────────────────────────────
+  competence_grades:
+    auto_subscribe: true
+    queries:
+      - SELECT cg.* FROM competence_grades cg
+        JOIN profiles p ON p.school_id = cg.school_id
+        WHERE p.id = auth.user_id()
+
+  # ── Bulletins (portée école) ──────────────────────────────────────────────
+  bulletins:
+    auto_subscribe: true
+    queries:
+      - SELECT b.* FROM bulletins b
+        JOIN profiles p ON p.school_id = b.school_id
+        WHERE p.id = auth.user_id()
+
+  # ── Lignes de bulletin (par matière) ──────────────────────────────────────
+  # Pas de school_id direct — jointure via bulletins (portée école)
+  bulletin_subject_lines:
+    auto_subscribe: true
+    queries:
+      - SELECT bsl.* FROM bulletin_subject_lines bsl
+        JOIN bulletins b ON b.id = bsl.bulletin_id
+        JOIN profiles p ON p.school_id = b.school_id
+        WHERE p.id = auth.user_id()
+
+  # ════════════════════════════════════════════════════════════════════════
+  # PHASE 5 — FINANCE
+  # ════════════════════════════════════════════════════════════════════════
+
+  # ── Grilles de frais scolaires (portée école) ─────────────────────────────
+  fee_structures:
+    auto_subscribe: true
+    queries:
+      - SELECT fs.* FROM fee_structures fs
+        JOIN profiles p ON p.school_id = fs.school_id
+        WHERE p.id = auth.user_id()
+        AND fs.is_active = true
+
+  # ── Configurations de paiement mobile ────────────────────────────────────
+  # ⚠️ api_key et api_secret exclus — ne jamais exposer sur mobile
+  payment_configs:
+    auto_subscribe: true
+    queries:
+      - SELECT pc.id, pc.group_id, pc.provider, pc.display_name,
+          pc.merchant_id, pc.webhook_url, pc.is_active, pc.is_test_mode,
+          pc.configured_by, pc.configured_at, pc.notes,
+          pc.created_at, pc.updated_at
+        FROM payment_configs pc
+        JOIN profiles p ON p.group_id = pc.group_id
+        WHERE p.id = auth.user_id()
+        AND pc.is_active = true
+
+  # ── Paiements élèves (portée école) ───────────────────────────────────────
+  student_payments:
+    auto_subscribe: true
+    queries:
+      - SELECT sp.* FROM student_payments sp
+        JOIN profiles p ON p.school_id = sp.school_id
+        WHERE p.id = auth.user_id()
+
+  # ── Lignes budgétaires (portée école) ─────────────────────────────────────
+  budget_lines:
+    auto_subscribe: true
+    queries:
+      - SELECT bl.* FROM budget_lines bl
+        JOIN profiles p ON p.school_id = bl.school_id
+        WHERE p.id = auth.user_id()
+
+  # ── Dépenses (portée école) ───────────────────────────────────────────────
+  expenses:
+    auto_subscribe: true
+    queries:
+      - SELECT e.* FROM expenses e
+        JOIN profiles p ON p.school_id = e.school_id
+        WHERE p.id = auth.user_id()
+
+  # ── Paie du personnel (portée école) ──────────────────────────────────────
+  payroll:
+    auto_subscribe: true
+    queries:
+      - SELECT pr.* FROM payroll pr
+        JOIN profiles p ON p.school_id = pr.school_id
+        WHERE p.id = auth.user_id()
+
+  # ════════════════════════════════════════════════════════════════════════
+  # PHASE 6 — VIE SCOLAIRE
+  # ════════════════════════════════════════════════════════════════════════
+
+  # ── Incidents disciplinaires (portée école) ───────────────────────────────
+  discipline_incidents:
+    auto_subscribe: true
+    queries:
+      - SELECT di.* FROM discipline_incidents di
+        JOIN profiles p ON p.school_id = di.school_id
+        WHERE p.id = auth.user_id()
+
+  # ── Visites à l'infirmerie (portée école) ─────────────────────────────────
+  infirmary_visits:
+    auto_subscribe: true
+    queries:
+      - SELECT iv.* FROM infirmary_visits iv
+        JOIN profiles p ON p.school_id = iv.school_id
+        WHERE p.id = auth.user_id()
+
+  # ── Présences à la cantine (portée école) ─────────────────────────────────
+  canteen_records:
+    auto_subscribe: true
+    queries:
+      - SELECT cr.* FROM canteen_records cr
+        JOIN profiles p ON p.school_id = cr.school_id
+        WHERE p.id = auth.user_id()
+
+  # ── Ouvrages / ressources bibliothèque (portée école) ─────────────────────
+  library_items:
+    auto_subscribe: true
+    queries:
+      - SELECT li.* FROM library_items li
+        JOIN profiles p ON p.school_id = li.school_id
+        WHERE p.id = auth.user_id()
+        AND li.is_active = true
+
+  # ── Emprunts bibliothèque (portée école) ──────────────────────────────────
+  library_loans:
+    auto_subscribe: true
+    queries:
+      - SELECT ll.* FROM library_loans ll
+        JOIN profiles p ON p.school_id = ll.school_id
+        WHERE p.id = auth.user_id()
+
+  # ════════════════════════════════════════════════════════════════════════
+  # PHASE 7 — COMMUNICATION
+  # ════════════════════════════════════════════════════════════════════════
+
+  # ── Annonces publiées (portée groupe — diffusion volontairement large) ────
+  announcements:
+    auto_subscribe: true
+    queries:
+      - SELECT ann.* FROM announcements ann
+        JOIN profiles p ON (p.school_id = ann.school_id OR p.group_id = ann.group_id)
+        WHERE p.id = auth.user_id()
+        AND ann.is_published = true
+
+  # ── Événements publiés (portée groupe — diffusion volontairement large) ───
+  events:
+    auto_subscribe: true
+    queries:
+      - SELECT ev.* FROM events ev
+        JOIN profiles p ON (p.school_id = ev.school_id OR p.group_id = ev.group_id)
+        WHERE p.id = auth.user_id()
+        AND ev.is_published = true
+
+  # ── Messages privés (envoyés OU reçus) ───────────────────────────────────
+  messages:
+    auto_subscribe: true
+    queries:
+      - SELECT m.* FROM messages m
+        WHERE m.sender_id = auth.user_id()
+        OR m.recipient_id = auth.user_id()
+
+  # ── Notifications push de l'utilisateur ──────────────────────────────────
+  notifications:
+    auto_subscribe: true
+    queries:
+      - SELECT n.* FROM notifications n
+        WHERE n.recipient_id = auth.user_id()
+
+  # ════════════════════════════════════════════════════════════════════════
+  # PHASE 8 — DOCUMENTS & MOBILITÉ
+  # ════════════════════════════════════════════════════════════════════════
+
+  # ── Documents scolaires des élèves (portée école) ─────────────────────────
+  student_documents:
+    auto_subscribe: true
+    queries:
+      - SELECT sd.* FROM student_documents sd
+        JOIN profiles p ON p.school_id = sd.school_id
+        WHERE p.id = auth.user_id()
+
+  # ── Orientations pédagogiques (portée école) ──────────────────────────────
+  student_orientations:
+    auto_subscribe: true
+    queries:
+      - SELECT so.* FROM student_orientations so
+        JOIN profiles p ON p.school_id = so.school_id
+        WHERE p.id = auth.user_id()
+
+  # ── Transferts d'élèves ───────────────────────────────────────────────────
+  # Pas de school_id direct — jointure via group_id uniquement
+  student_transfers:
+    auto_subscribe: true
+    queries:
+      - SELECT st.* FROM student_transfers st
+        JOIN profiles p ON p.group_id = st.group_id
+        WHERE p.id = auth.user_id()
+
+  # ── Demandes de congé du personnel (portée école) ─────────────────────────
+  leave_requests:
+    auto_subscribe: true
+    queries:
+      - SELECT lr.* FROM leave_requests lr
+        JOIN profiles p ON p.school_id = lr.school_id
+        WHERE p.id = auth.user_id()

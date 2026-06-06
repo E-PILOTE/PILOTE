@@ -1,0 +1,85 @@
+name: epilote
+description: "E-PILOTE CONGO v3.0 — Plateforme de gestion scolaire multi-tenant"
+publish_to: 'none'
+version: 3.0.0+1
+
+environment:
+  sdk: ^3.12.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # === SUPABASE (Auth + DB + Storage) ===
+  supabase_flutter: ^2.8.4
+  postgrest: ^2.7.0   # requis pour CountOption
+  realtime_client: ^2.4.0   # requis pour PostgresChangeEvent
+
+  # === STATE MANAGEMENT ===
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # === NAVIGATION ===
+  go_router: ^14.8.1
+
+  # === UI / DESIGN ===
+  cupertino_icons: ^1.0.8
+  shimmer: ^3.0.0
+  cached_network_image: ^3.4.1
+  intl: ^0.20.2
+  google_fonts: ^6.2.1
+  flutter_svg: ^2.0.10+1
+  flutter_animate: ^4.5.2
+  calendar_date_picker2: ^3.0.0
+  flutter_animated_button: ^2.0.4
+
+  # === UTILS ===
+  # shared_preferences: ^2.3.5  ← à ajouter quand réseau OK
+  uuid: ^4.5.1
+  logger: ^2.5.0
+  connectivity_plus: ^6.1.4
+  url_launcher: ^6.3.1
+  powersync: ^1.18.0
+  fl_chart: ^1.2.0
+  syncfusion_flutter_charts: ^33.2.8
+  path_provider: ^2.1.5
+  path: ^1.9.1
+  shared_preferences: ^2.5.5
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.0
+  http: ^1.6.0
+
+  # ── Phase 2 (décommenter quand besoin) ──────────────────────────────────
+  # powersync: ^1.18.0          ← offline-first sync
+  # fl_chart: ^0.69.0           ← graphiques
+  # reactive_forms: ^17.0.1     ← formulaires avancés
+  # image_picker: ^1.1.2        ← photo élèves
+  file_picker: ^8.1.7         # upload logos groupes
+  pdf: ^3.12.0                # génération PDF
+  printing: ^5.14.3           # impression + téléchargement PDF
+  # path_provider: ^2.1.5       ← chemins fichiers
+  # path: ^1.9.1
+  # firebase_core: ^3.13.0      ← notifications push
+  # firebase_messaging: ^15.2.5
+  # flutter_local_notifications: ^18.0.1
+  # pdf: ^3.11.3                ← bulletins PDF
+  # printing: ^5.13.1
+  # flutter_animate: ^4.5.2     ← animations
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.14
+  riverpod_generator: ^2.6.1
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/icons/logo.svg
+    - assets/geo/

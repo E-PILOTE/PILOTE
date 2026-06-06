@@ -1,0 +1,62 @@
+version: '3.8'
+
+# ─── E-PILOTE CONGO — PowerSync Auto-hébergé ─────────────────────────────────
+# Stack : PowerSync Service + PostgreSQL (stockage interne)
+# Supabase (hébergé) = source de données distante
+#
+# Démarrage : docker compose up -d
+# Arrêt     : docker compose down
+# Logs      : docker compose logs -f powersync
+
+services:
+
+  # ── Service PowerSync ──────────────────────────────────────────────────────
+  powersync:
+    image: journeyapps/powersync-service:latest
+    container_name: epilote_powersync
+    restart: unless-stopped
+    ports:
+      - "8080:80"           # API PowerSync → accessible sur http://localhost:8080
+    volumes:
+      - ./config:/config:ro  # Fichiers de configuration montés en lecture seule
+    environment:
+      POWERSYNC_CONFIG_PATH: /config/powersync.yaml
+    env_file:
+      - .env                 # Secrets : SUPABASE_DB_PASSWORD, SUPABASE_JWT_SECRET
+    depends_on:
+      storage-db:
+        condition: service_healthy
+    networks:
+      - powersync_net
+
+  # ── Base PostgreSQL de stockage interne PowerSync ─────────────────────────
+  # IMPORTANT : Ce PostgreSQL est SÉPARÉ de Supabase.
+  # Il stocke uniquement les "buckets" de données PowerSync (sync state).
+  storage-db:
+    image: postgres:16-alpine
+    container_name: epilote_powersync_storage
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       powersync_storage
+      POSTGRES_USER:     powersync
+      POSTGRES_PASSWORD: ${STORAGE_DB_PASSWORD:-powersync_storage_pwd}
+    volumes:
+      - powersync_storage_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U powersync -d powersync_storage"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - powersync_net
+
+volumes:
+  powersync_storage_data:
+    driver: local
+
+networks:
+  powersync_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: "172.21.0.0/16"

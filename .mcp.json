@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "mux": {
+      "command": "npx",
+      "args": ["-y", "@mux/mcp", "--client=claude"],
+      "env": {
+        "MUX_TOKEN_ID": "ced6964e-8f95-462b-b399-4997ccb9876e",
+        "MUX_TOKEN_SECRET": "0SjrcRyvYpjgz/+MgIyD5r7TNxp32m/VTqKGe79IGDpK+c9Vr4x2QZb3MkZzSY/Cmm1CL+QRjBt"
+      }
+    },
+    "dart": {
+      "command": "/home/melack/flutter/bin/dart",
+      "args": ["mcp-server"]
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    }
+  }
+}

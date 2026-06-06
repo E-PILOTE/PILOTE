@@ -1,0 +1,50 @@
+# ─── PowerSync Service — Configuration principale ────────────────────────────
+# Projet : E-PILOTE CONGO v3.0
+# Stack  : Supabase (source) → PowerSync → SQLite local (Flutter)
+
+# ── Réplication : Source de données = Supabase PostgreSQL ────────────────────
+replication:
+  connections:
+    - type: postgresql
+      # ⚠️  NÉCESSITE IPv4 add-on Supabase ($4/mois)
+      # Connexion directe DB (supporte la réplication logique)
+      # Après activation add-on : remplacer par l'URL directe DB
+      hostname: db.wqpdamlnrwgozfvzjjpo.supabase.co
+      port: 5432
+      database: postgres
+      username: powersync_role
+      password: "Epilote_PowerSync_2026!"
+      sslmode: verify-full
+      # Publication créée dans Supabase : CREATE PUBLICATION powersync FOR ALL TABLES
+      publication: powersync
+
+# ── Stockage interne PowerSync (PostgreSQL séparé, local) ────────────────────
+storage:
+  type: postgresql
+  hostname: storage-db
+  port: 5432
+  database: powersync_storage
+  username: powersync
+  password: epilote_storage_2026
+  sslmode: disable
+
+# ── Port d'écoute de l'API PowerSync ─────────────────────────────────────────
+port: 80
+
+# ── Règles de synchronisation (quelles données → quels utilisateurs) ─────────
+sync_rules:
+  path: /config/sync-rules.yaml
+
+# ── Authentification clients (JWT Supabase) ───────────────────────────────────
+client_auth:
+  supabase: true
+  supabase_jwt_secret: !env_sub "${SUPABASE_JWT_SECRET}"
+  # JWKS auto-discovery (projets Supabase récents — désactiver si jwt_secret suffit)
+  # jwks:
+  #   - jwks_uri: "https://wqpdamlnrwgozfvzjjpo.supabase.co/rest/v1/auth/v1/.well-known/jwks.json"
+
+# ── Journalisation ────────────────────────────────────────────────────────────
+system:
+  logging:
+    level: info    # Options : debug / info / warn / error
+    format: text   # Options : text / json

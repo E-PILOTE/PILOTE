@@ -1,0 +1,52 @@
+# ─── Secrets & Credentials ────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+**/.env
+**/secrets.dart
+**/google-services.json
+**/GoogleService-Info.plist
+
+# ─── Flutter / Dart ────────────────────────────────────────────────────────────
+**/build/
+**/.dart_tool/
+**/.pub-cache/
+**/.pub/
+**/doc/api/
+**/.flutter-plugins-dependencies
+**/.flutter-plugins
+**/coverage/
+**/app.*.symbols
+**/app.*.map.json
+**/ios/Flutter/.last_build_id
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+
+# ─── SQLite / PowerSync local databases ───────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ─── IDE ───────────────────────────────────────────────────────────────────────
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+.DS_Store
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+*.pyc
+*.class
+
+# ─── Claude Code (config locale) ──────────────────────────────────────────────
+.claude/
+.remember/
+
+# ─── OS ───────────────────────────────────────────────────────────────────────
+Thumbs.db
+.Spotlight-V100
+.Trashes

@@ -1,0 +1,282 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
+
+import '../../../data/models/class_model.dart';
+import '../../../features/auth/providers/auth_provider.dart';
+import '../../../services/powersync/powersync_service.dart';
+
+const _uuid = Uuid();
+
+// ─── Liste des classes ────────────────────────────────────────────────────────
+
+/// Classes actives de l'école, avec le nombre d'élèves inscrits (actifs).
+/// Utilise un JOIN SQLite local — fonctionne 100% hors-ligne.
+final classesProvider =
+    StreamProvider.autoDispose<List<ClassModel>>((ref) {
+  final profile = ref.watch(authNotifierProvider).valueOrNull;
+  if (profile?.schoolId == null || profile!.schoolId!.isEmpty) {
+    return Stream.value([]);
+  }
+
+  return db
+      .watch(
+        '''
+        SELECT c.*,
+               COALESCE(ec.cnt, 0) AS student_count
+        FROM   classes c
+        LEFT JOIN (
+          SELECT class_id, COUNT(*) AS cnt
+          FROM   class_enrollments
+          WHERE  status = 'active'
+          GROUP  BY class_id
+        ) ec ON ec.class_id = c.id
+        WHERE  c.school_id = ?
+        AND    c.is_active  = 1
+        ORDER  BY c.name
+        ''',
+        parameters: [profile.schoolId],
+      )
+      .map((rows) => rows.map(ClassModel.fromMap).toList());
+});
+
+// ─── Classe par ID ────────────────────────────────────────────────────────────
+
+final classByIdProvider =
+    StreamProvider.autoDispose.family<ClassModel?, String>((ref, classId) {
+  return db
+      .watch(
+        '''
+        SELECT c.*,
+               COALESCE(ec.cnt, 0) AS student_count
+        FROM   classes c
+        LEFT JOIN (
+          SELECT class_id, COUNT(*) AS cnt
+          FROM   class_enrollments
+          WHERE  status = 'active'
+          GROUP  BY class_id
+        ) ec ON ec.class_id = c.id
+        WHERE  c.id = ?
+        LIMIT  1
+        ''',
+        parameters: [classId],
+      )
+      .map((rows) => rows.isEmpty ? null : ClassModel.fromMap(rows.first));
+});
+
+// ─── Élèves inscrits dans une classe ─────────────────────────────────────────
+
+/// Inscriptions actives d'une classe, avec les infos élèves (JOIN local).
+final classEnrollmentsProvider = StreamProvider.autoDispose
+    .family<List<ClassEnrollmentModel>, String>((ref, classId) {
+  return db
+      .watch(
+        '''
+        SELECT ce.*,
+               s.first_name,
+               s.last_name,
+               s.matricule,
+               s.photo_url,
+               s.gender
+        FROM   class_enrollments ce
+        JOIN   students s ON s.id = ce.student_id
+        WHERE  ce.class_id = ?
+        AND    ce.status   = 'active'
+        ORDER  BY s.last_name, s.first_name
+        ''',
+        parameters: [classId],
+      )
+      .map((rows) => rows.map(ClassEnrollmentModel.fromMap).toList());
+});
+
+// ─── Stats globales ───────────────────────────────────────────────────────────
+
+/// Nombre total de classes actives pour l'école courante.
+final classCountProvider = StreamProvider.autoDispose<int>((ref) {
+  final profile = ref.watch(authNotifierProvider).valueOrNull;
+  if (profile?.schoolId == null || profile!.schoolId!.isEmpty) {
+    return Stream.value(0);
+  }
+  return db
+      .watch(
+        'SELECT COUNT(*) AS cnt FROM classes WHERE school_id = ? AND is_active = 1',
+        parameters: [profile.schoolId],
+      )
+      .map((rows) => rows.isEmpty ? 0 : (rows.first['cnt'] as int? ?? 0));
+});
+
+/// Nombre total d'élèves inscrits (actifs) pour l'école courante.
+final enrolledStudentCountProvider = StreamProvider.autoDispose<int>((ref) {
+  final profile = ref.watch(authNotifierProvider).valueOrNull;
+  if (profile?.schoolId == null || profile!.schoolId!.isEmpty) {
+    return Stream.value(0);
+  }
+  return db
+      .watch(
+        'SELECT COUNT(*) AS cnt FROM class_enrollments WHERE school_id = ? AND status = \'active\'',
+        parameters: [profile.schoolId],
+      )
+      .map((rows) => rows.isEmpty ? 0 : (rows.first['cnt'] as int? ?? 0));
+});
+
+// ─── Mutations (offline-first) ────────────────────────────────────────────────
+
+/// Crée une classe dans SQLite local — PowerSync la synchronise vers Supabase
+/// dès que la connexion est disponible.
+Future<String> createClass({
+  required String schoolId,
+  required String groupId,
+  required String academicYearId,
+  required String name,
+  int? capacity,
+  String? mainTeacherId,
+  String? room,
+  String? levelId,
+}) async {
+  final id  = _uuid.v4();
+  final now = DateTime.now().toIso8601String();
+  await db.execute(
+    '''
+    INSERT INTO classes
+      (id, school_id, group_id, academic_year_id, name, capacity,
+       main_teacher_id, room, level_id, is_active, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+    ''',
+    [id, schoolId, groupId, academicYearId, name,
+     capacity, mainTeacherId, room, levelId, now, now],
+  );
+  return id;
+}
+
+/// Archive une classe (soft delete — is_active = 0).
+Future<void> archiveClass(String classId) async {
+  final now = DateTime.now().toIso8601String();
+  await db.execute(
+    'UPDATE classes SET is_active = 0, updated_at = ? WHERE id = ?',
+    [now, classId],
+  );
+}
+
+// ─── Inscriptions en attente de validation ────────────────────────────────────
+
+/// Inscriptions `pending_validation` de l'école courante (tableau du directeur).
+final pendingEnrollmentsProvider =
+    StreamProvider.autoDispose<List<ClassEnrollmentModel>>((ref) {
+  final profile = ref.watch(authNotifierProvider).valueOrNull;
+  if (profile?.schoolId == null || profile!.schoolId!.isEmpty) {
+    return Stream.value([]);
+  }
+  return db
+      .watch(
+        '''
+        SELECT ce.*,
+               s.first_name,
+               s.last_name,
+               s.matricule,
+               s.photo_url,
+               s.gender
+        FROM   class_enrollments ce
+        JOIN   students s ON s.id = ce.student_id
+        WHERE  ce.school_id = ?
+        AND    ce.status    = 'pending_validation'
+        ORDER  BY ce.created_at DESC
+        ''',
+        parameters: [profile.schoolId],
+      )
+      .map((rows) => rows.map(ClassEnrollmentModel.fromMap).toList());
+});
+
+/// Inscrit un élève dans une classe avec statut `pending_validation`.
+/// Le directeur devra valider ou rejeter via [validateEnrollment]/[rejectEnrollment].
+Future<String> enrollStudent({
+  required String schoolId,
+  required String groupId,
+  required String studentId,
+  required String classId,
+  required String academicYearId,
+  bool isRepeating = false,
+  String? previousClassId,
+  String inscriptionType = 'new',        // new | reinscription | transfer
+  String? previousSchoolName,
+  String? previousClassName,
+}) async {
+  final id    = _uuid.v4();
+  final now   = DateTime.now().toIso8601String();
+  final today = now.substring(0, 10);
+  await db.execute(
+    '''
+    INSERT INTO class_enrollments
+      (id, group_id, school_id, student_id, class_id, academic_year_id,
+       enrollment_date, status, is_repeating, previous_class_id,
+       inscription_type, previous_school_name, previous_class_name,
+       created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending_validation', ?, ?, ?, ?, ?, ?, ?)
+    ''',
+    [
+      id, groupId, schoolId, studentId, classId, academicYearId,
+      today, isRepeating ? 1 : 0, previousClassId,
+      inscriptionType, previousSchoolName, previousClassName,
+      now, now,
+    ],
+  );
+  return id;
+}
+
+/// Valide une inscription (pending_validation → active).
+Future<void> validateEnrollment({
+  required String enrollmentId,
+  required String validatedBy,
+}) async {
+  final now = DateTime.now().toIso8601String();
+  await db.execute(
+    '''
+    UPDATE class_enrollments
+    SET    status       = 'active',
+           validated_at = ?,
+           validated_by = ?,
+           updated_at   = ?
+    WHERE  id = ?
+    ''',
+    [now, validatedBy, now, enrollmentId],
+  );
+}
+
+/// Rejette une inscription (pending_validation → rejected).
+Future<void> rejectEnrollment({
+  required String enrollmentId,
+  required String rejectionReason,
+  required String validatedBy,
+}) async {
+  final now = DateTime.now().toIso8601String();
+  await db.execute(
+    '''
+    UPDATE class_enrollments
+    SET    status           = 'rejected',
+           rejection_reason = ?,
+           validated_at     = ?,
+           validated_by     = ?,
+           updated_at       = ?
+    WHERE  id = ?
+    ''',
+    [rejectionReason, now, validatedBy, now, enrollmentId],
+  );
+}
+
+/// Retire un élève d'une classe (status → withdrawn).
+Future<void> withdrawStudent({
+  required String enrollmentId,
+  required String reason,
+}) async {
+  final now   = DateTime.now().toIso8601String();
+  final today = now.substring(0, 10);
+  await db.execute(
+    '''
+    UPDATE class_enrollments
+    SET    status = 'withdrawn',
+           withdrawal_date   = ?,
+           withdrawal_reason = ?,
+           updated_at        = ?
+    WHERE  id = ?
+    ''',
+    [today, reason, now, enrollmentId],
+  );
+}
