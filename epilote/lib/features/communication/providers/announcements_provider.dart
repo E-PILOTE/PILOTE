@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import 'communication_scope.dart';
 
 // ─── Modèle AnnouncementDetail ────────────────────────────────────────────────
 
@@ -114,6 +115,7 @@ final announcementsProvider =
     FutureProvider.autoDispose<AnnouncementsData>((ref) async {
   ref.keepAlive();
   final client = ref.watch(supabaseClientProvider);
+  final ctx    = ref.watch(communicationContextProvider);
 
   // Realtime
   Timer? debounce;
@@ -138,28 +140,32 @@ final announcementsProvider =
   } catch (_) {}
 
   // ── Annonces (avec nom du groupe) ───────────────────────────────────────────
+  // Scope : admin_groupe ne voit/gère que les annonces de SON groupe.
   List<AnnouncementDetail> announcements = [];
   try {
-    final rows = await client
+    final sel = client
         .from('announcements')
         .select('id, group_id, school_id, title, content, target_audience, '
             'is_pinned, is_published, published_at, expires_at, '
             'created_by, created_at, updated_at, '
-            'group:school_groups(name)')
-        .order('is_pinned',    ascending: false)
-        .order('created_at',   ascending: false) as List;
+            'group:school_groups(name)');
+    final rows = await (ctx.isGroup && ctx.groupId != null
+            ? sel.eq('group_id', ctx.groupId!)
+            : sel)
+        .order('is_pinned',  ascending: false)
+        .order('created_at', ascending: false) as List;
     announcements = rows.map((r) => AnnouncementDetail.fromMap(
         Map<String, dynamic>.from(r as Map))).toList();
   } catch (_) {}
 
-  // ── Groupes disponibles (pour le formulaire) ────────────────────────────────
+  // ── Groupes disponibles (sélecteur du formulaire) ───────────────────────────
+  // platform → tous les groupes ; group → uniquement le sien (sélecteur verrouillé).
   List<GroupOption> groups = [];
   try {
-    final rows = await client
-        .from('school_groups')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name') as List;
+    final sel = client.from('school_groups').select('id, name');
+    final rows = await (ctx.isGroup && ctx.groupId != null
+            ? sel.eq('id', ctx.groupId!)
+            : sel.eq('is_active', true).order('name')) as List;
     groups = rows.map((r) {
       final m = Map<String, dynamic>.from(r as Map);
       return GroupOption(id: m['id'] as String, name: m['name'] as String? ?? '');

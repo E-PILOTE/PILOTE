@@ -15,7 +15,7 @@ import '../../features/super_admin/screens/modules_screen.dart';
 import '../../features/super_admin/screens/plans_screen.dart';
 import '../../features/super_admin/screens/subscriptions_screen.dart';
 import '../../features/super_admin/screens/audit_screen.dart';
-import '../../features/super_admin/screens/announcements_screen.dart';
+import '../../features/communication/screens/announcements_screen.dart';
 import '../../features/super_admin/screens/invoices_screen.dart';
 import '../../features/super_admin/screens/receipts_screen.dart';
 import '../../features/super_admin/screens/payment_methods_screen.dart';
@@ -251,7 +251,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       // Communication native (admin groupe) — module partagé scope-aware
       GoRoute(path: Routes.adminNotifications, builder: (_, _) => const NotificationsScreen()),
-      _placeholder(Routes.adminAnnonces,      'Annonces'),
+      GoRoute(path: Routes.adminAnnonces,      builder: (_, _) => const AnnouncementsScreen()),
       _placeholder(Routes.adminMessagerie,    'Messagerie'),
       _placeholder(Routes.adminEvenements,    'Événements'),
 
