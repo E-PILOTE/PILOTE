@@ -256,7 +256,7 @@ final plansProvider = FutureProvider.autoDispose<PlansData>((ref) async {
 });
 
 /// Renvoie les IDs des modules liés à un plan (pour pré-remplir le formulaire).
-Future<Set<String>> fetchPlanModuleIds(ref, String planId) async {
+Future<Set<String>> fetchPlanModuleIds(WidgetRef ref, String planId) async {
   try {
     final client = ref.read(supabaseClientProvider);
     final rows = await client

@@ -39,6 +39,9 @@ import '../../features/admin_groupe/screens/admin_profile_screen.dart';
 import '../../features/admin_groupe/screens/admin_module_screen.dart';
 import '../../features/admin_groupe/screens/admin_modules_screen.dart';
 import '../../features/students/screens/inscriptions_screen.dart';
+import '../../features/user/screens/user_dashboard_screen.dart';
+import '../../features/classes/screens/classes_screen.dart';
+import '../../features/classes/screens/classe_detail_screen.dart';
 
 // ─── Couleurs Design System ───────────────────────────────────────────────────
 const _kNavy    = Color(0xFF1E3A5F);
@@ -245,9 +248,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.adminModuleDetail,
         builder: (_, state) => AdminModuleScreen(slug: state.pathParameters['slug']!),
       ),
+      // Communication native (admin groupe) — écrans à construire
+      _placeholder(Routes.adminNotifications, 'Notifications'),
+      _placeholder(Routes.adminAnnonces,      'Annonces'),
+      _placeholder(Routes.adminMessagerie,    'Messagerie'),
+      _placeholder(Routes.adminEvenements,    'Événements'),
 
       // ── Utilisateur École ─────────────────────────────────────────────
-      _placeholder(Routes.userDashboard,     'Tableau de Bord'),
+      GoRoute(
+        path: Routes.userDashboard,
+        builder: (_, _) => const UserDashboardScreen(),
+      ),
       _placeholder(Routes.eleves,            'Élèves'),
       GoRoute(
         path: Routes.eleveDetail,
@@ -258,11 +269,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.inscriptions,
         builder: (_, _) => const InscriptionsScreen(),
       ),
-      _placeholder(Routes.classes,           'Classes'),
+      GoRoute(
+        path: Routes.classes,
+        builder: (_, _) => const ClassesScreen(),
+      ),
       GoRoute(
         path: Routes.classeDetail,
         builder: (_, state) =>
-            _PlaceholderScreen(title: 'Classe · ${state.pathParameters['id']}'),
+            ClasseDetailScreen(classId: state.pathParameters['id']!),
       ),
       _placeholder(Routes.notes,             'Notes & Bulletins'),
       _placeholder(Routes.bulletins,         'Bulletins'),
@@ -271,7 +285,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _placeholder(Routes.discipline,        'Discipline'),
       _placeholder(Routes.paiements,         'Paiements Scolarité'),
       _placeholder(Routes.personnel,         'Personnel'),
+      // Communication native (personnel école / parent) — écrans à construire
       _placeholder(Routes.annonces,          'Annonces'),
+      _placeholder(Routes.notifications,     'Notifications'),
+      _placeholder(Routes.messagerie,        'Messagerie'),
+      _placeholder(Routes.evenements,        'Événements'),
+      _placeholder(Routes.espaceParent,      'Espace Parent'),
       _placeholder(Routes.userRapports,      'Rapports'),
       _placeholder(Routes.userParametres,    'Paramètres'),
     ],

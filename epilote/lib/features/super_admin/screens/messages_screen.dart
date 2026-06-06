@@ -915,9 +915,9 @@ class _ComposeDialogState extends ConsumerState<_ComposeDialog> {
               const SizedBox(height: 6),
               groupsAsync.when(
                 loading: () => const LinearProgressIndicator(),
-                error: (e, _) => Text('Erreur chargement groupes', style: TextStyle(color: _kRed, fontSize: 12)),
+                error: (e, _) => const Text('Erreur chargement groupes', style: TextStyle(color: _kRed, fontSize: 12)),
                 data: (data) => DropdownButtonFormField<String>(
-                  value: _groupId,
+                  initialValue: _groupId,
                   hint: const Text('Sélectionner un groupe…', style: TextStyle(fontSize: 12)),
                   onChanged: (v) => setState(() => _groupId = v),
                   items: data.groups.map((g) => DropdownMenuItem(

@@ -150,7 +150,7 @@ Future<void> sendMessage({
     'body':               body.trim(),
     'is_read':            false,
     'is_archived':        false,
-    if (parentId != null) 'parent_message_id': parentId,
+    'parent_message_id': ?parentId,
     'created_at':         now,
     'updated_at':         now,
   });

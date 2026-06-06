@@ -191,7 +191,7 @@ class _PendingList extends ConsumerWidget {
         return ListView.separated(
           padding: const EdgeInsets.all(16),
           itemCount: items.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
           itemBuilder: (_, i) => _PendingCard(
             enrollment: items[i],
             validatedBy: ref.read(authNotifierProvider).valueOrNull?.id ?? '',
@@ -446,7 +446,7 @@ class _ValidatedList extends ConsumerWidget {
         return ListView.separated(
           padding: const EdgeInsets.all(16),
           itemCount: items.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
           itemBuilder: (_, i) => _ValidatedCard(enrollment: items[i]),
         );
       },

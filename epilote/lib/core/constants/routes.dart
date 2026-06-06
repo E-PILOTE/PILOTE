@@ -44,6 +44,11 @@ class Routes {
   static const String adminProfil       = '/admin/profil';
   static const String adminModules      = '/admin/modules';
   static const String adminModuleDetail = '/admin/modules/:slug';
+  // Communication native (admin groupe)
+  static const String adminAnnonces      = '/admin/annonces';
+  static const String adminMessagerie    = '/admin/messagerie';
+  static const String adminNotifications = '/admin/notifications';
+  static const String adminEvenements    = '/admin/evenements';
 
   // ── Modules (utilisateur école) ─────────────────────────────────────────
   static const String userDashboard   = '/user/dashboard';
@@ -61,5 +66,10 @@ class Routes {
   static const String discipline      = '/user/discipline';
   static const String paiements       = '/user/paiements';
   static const String personnel       = '/user/personnel';
+  // Communication native (personnel école / parent)
   static const String annonces        = '/user/annonces';
+  static const String notifications   = '/user/notifications';
+  static const String messagerie      = '/user/messagerie';
+  static const String evenements      = '/user/evenements';
+  static const String espaceParent    = '/user/espace-parent';
 }

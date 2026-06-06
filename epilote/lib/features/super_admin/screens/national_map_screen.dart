@@ -583,17 +583,17 @@ class _NationalAnalytics extends StatelessWidget {
                 begin: Alignment.topLeft, end: Alignment.bottomRight,
               ),
             ),
-            child: Column(
+            child: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(children: [
+                Row(children: [
                   Icon(Icons.analytics_rounded, color: Colors.white, size: 16),
                   SizedBox(width: 8),
                   Text('Analyse Nationale', style: TextStyle(
                     color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
                 ]),
-                const SizedBox(height: 4),
-                const Text('Statistiques en temps réel',
+                SizedBox(height: 4),
+                Text('Statistiques en temps réel',
                     style: TextStyle(color: Colors.white60, fontSize: 10)),
               ],
             ),
@@ -655,7 +655,7 @@ class _NationalAnalytics extends StatelessWidget {
                           Expanded(child: Text(d.dept, style: const TextStyle(
                             fontSize: 11, fontWeight: FontWeight.w600, color: _kText),
                               maxLines: 1, overflow: TextOverflow.ellipsis)),
-                          Text('${d.groupCount}', style: TextStyle(
+                          Text('${d.groupCount}', style: const TextStyle(
                             fontSize: 11, fontWeight: FontWeight.w800, color: _kNavy)),
                         ]),
                         const SizedBox(height: 4),

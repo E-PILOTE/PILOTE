@@ -10,6 +10,13 @@
 #   • Tables de niveau groupe (calendrier, écoles, transferts, paiements config,
 #     plan/modules) → portée groupe.
 #   • announcements / events → portée groupe (diffusion volontairement large).
+#   • Tables SENSIBLES → portée école ET restreintes par RÔLE (data-minimization,
+#     plateforme gouvernementale — protection des mineurs et des données RH) :
+#       - Finance (payroll, expenses, budget_lines, staff_members[salaire/IBAN])
+#         → comptable, directeur, proviseur UNIQUEMENT
+#       - Médical (infirmary_visits) → infirmier, directeur, proviseur UNIQUEMENT
+#       - Discipline (discipline_incidents) → cpe, surveillant, directeur, proviseur
+#     ⚠️ Après modif : redéployer via le dashboard PowerSync Cloud.
 
 config:
   edition: 3
@@ -132,14 +139,18 @@ streams:
         JOIN profiles p ON p.school_id = s.school_id
         WHERE p.id = auth.user_id()
 
-  # ── Personnel scolaire (portée école) ─────────────────────────────────────
+  # ── Personnel scolaire (portée école + RÔLE) ──────────────────────────────
+  # ⚠️ Contient base_salary_xaf + iban → RH/direction/finance UNIQUEMENT.
+  # PowerSync ne supporte pas `role IN (liste)` → une requête par rôle (union).
   staff_members:
     auto_subscribe: true
     queries:
-      - SELECT sm.* FROM staff_members sm
-        JOIN profiles p ON p.school_id = sm.school_id
-        WHERE p.id = auth.user_id()
-        AND sm.is_active = true
+      - SELECT sm.* FROM staff_members sm JOIN profiles p ON p.school_id = sm.school_id
+        WHERE p.id = auth.user_id() AND p.role = 'comptable' AND sm.is_active = true
+      - SELECT sm.* FROM staff_members sm JOIN profiles p ON p.school_id = sm.school_id
+        WHERE p.id = auth.user_id() AND p.role = 'directeur' AND sm.is_active = true
+      - SELECT sm.* FROM staff_members sm JOIN profiles p ON p.school_id = sm.school_id
+        WHERE p.id = auth.user_id() AND p.role = 'proviseur' AND sm.is_active = true
 
   # ── Affectations enseignants / matières (portée école) ────────────────────
   teacher_subjects:
@@ -269,6 +280,9 @@ streams:
         AND pc.is_active = true
 
   # ── Paiements élèves (portée école) ───────────────────────────────────────
+  # 🔎 À RESTREINDRE (revue dédiée) : idéalement finance/admin + parent (son
+  #    propre enfant via student_tutors). Non gaté ici pour ne pas casser le
+  #    futur Espace Parent tant que le chemin parent n'est pas implémenté.
   student_payments:
     auto_subscribe: true
     queries:
@@ -276,49 +290,68 @@ streams:
         JOIN profiles p ON p.school_id = sp.school_id
         WHERE p.id = auth.user_id()
 
-  # ── Lignes budgétaires (portée école) ─────────────────────────────────────
+  # ── Lignes budgétaires (portée école + RÔLE finance) ──────────────────────
   budget_lines:
     auto_subscribe: true
     queries:
-      - SELECT bl.* FROM budget_lines bl
-        JOIN profiles p ON p.school_id = bl.school_id
-        WHERE p.id = auth.user_id()
+      - SELECT bl.* FROM budget_lines bl JOIN profiles p ON p.school_id = bl.school_id
+        WHERE p.id = auth.user_id() AND p.role = 'comptable'
+      - SELECT bl.* FROM budget_lines bl JOIN profiles p ON p.school_id = bl.school_id
+        WHERE p.id = auth.user_id() AND p.role = 'directeur'
+      - SELECT bl.* FROM budget_lines bl JOIN profiles p ON p.school_id = bl.school_id
+        WHERE p.id = auth.user_id() AND p.role = 'proviseur'
 
-  # ── Dépenses (portée école) ───────────────────────────────────────────────
+  # ── Dépenses (portée école + RÔLE finance) ────────────────────────────────
   expenses:
     auto_subscribe: true
     queries:
-      - SELECT e.* FROM expenses e
-        JOIN profiles p ON p.school_id = e.school_id
-        WHERE p.id = auth.user_id()
+      - SELECT e.* FROM expenses e JOIN profiles p ON p.school_id = e.school_id
+        WHERE p.id = auth.user_id() AND p.role = 'comptable'
+      - SELECT e.* FROM expenses e JOIN profiles p ON p.school_id = e.school_id
+        WHERE p.id = auth.user_id() AND p.role = 'directeur'
+      - SELECT e.* FROM expenses e JOIN profiles p ON p.school_id = e.school_id
+        WHERE p.id = auth.user_id() AND p.role = 'proviseur'
 
-  # ── Paie du personnel (portée école) ──────────────────────────────────────
+  # ── Paie du personnel (portée école + RÔLE finance) ───────────────────────
+  # ⚠️ Salaires nets/bruts → comptable + direction UNIQUEMENT.
   payroll:
     auto_subscribe: true
     queries:
-      - SELECT pr.* FROM payroll pr
-        JOIN profiles p ON p.school_id = pr.school_id
-        WHERE p.id = auth.user_id()
+      - SELECT pr.* FROM payroll pr JOIN profiles p ON p.school_id = pr.school_id
+        WHERE p.id = auth.user_id() AND p.role = 'comptable'
+      - SELECT pr.* FROM payroll pr JOIN profiles p ON p.school_id = pr.school_id
+        WHERE p.id = auth.user_id() AND p.role = 'directeur'
+      - SELECT pr.* FROM payroll pr JOIN profiles p ON p.school_id = pr.school_id
+        WHERE p.id = auth.user_id() AND p.role = 'proviseur'
 
   # ════════════════════════════════════════════════════════════════════════
   # PHASE 6 — VIE SCOLAIRE
   # ════════════════════════════════════════════════════════════════════════
 
-  # ── Incidents disciplinaires (portée école) ───────────────────────────────
+  # ── Incidents disciplinaires (portée école + RÔLE vie scolaire) ───────────
   discipline_incidents:
     auto_subscribe: true
     queries:
-      - SELECT di.* FROM discipline_incidents di
-        JOIN profiles p ON p.school_id = di.school_id
-        WHERE p.id = auth.user_id()
+      - SELECT di.* FROM discipline_incidents di JOIN profiles p ON p.school_id = di.school_id
+        WHERE p.id = auth.user_id() AND p.role = 'cpe'
+      - SELECT di.* FROM discipline_incidents di JOIN profiles p ON p.school_id = di.school_id
+        WHERE p.id = auth.user_id() AND p.role = 'surveillant'
+      - SELECT di.* FROM discipline_incidents di JOIN profiles p ON p.school_id = di.school_id
+        WHERE p.id = auth.user_id() AND p.role = 'directeur'
+      - SELECT di.* FROM discipline_incidents di JOIN profiles p ON p.school_id = di.school_id
+        WHERE p.id = auth.user_id() AND p.role = 'proviseur'
 
-  # ── Visites à l'infirmerie (portée école) ─────────────────────────────────
+  # ── Visites à l'infirmerie (portée école + RÔLE médical) ──────────────────
+  # ⚠️ Données médicales de mineurs → infirmier + direction UNIQUEMENT.
   infirmary_visits:
     auto_subscribe: true
     queries:
-      - SELECT iv.* FROM infirmary_visits iv
-        JOIN profiles p ON p.school_id = iv.school_id
-        WHERE p.id = auth.user_id()
+      - SELECT iv.* FROM infirmary_visits iv JOIN profiles p ON p.school_id = iv.school_id
+        WHERE p.id = auth.user_id() AND p.role = 'infirmier'
+      - SELECT iv.* FROM infirmary_visits iv JOIN profiles p ON p.school_id = iv.school_id
+        WHERE p.id = auth.user_id() AND p.role = 'directeur'
+      - SELECT iv.* FROM infirmary_visits iv JOIN profiles p ON p.school_id = iv.school_id
+        WHERE p.id = auth.user_id() AND p.role = 'proviseur'
 
   # ── Présences à la cantine (portée école) ─────────────────────────────────
   canteen_records:

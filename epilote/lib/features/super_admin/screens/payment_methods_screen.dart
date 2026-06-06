@@ -74,9 +74,9 @@ class _Body extends ConsumerWidget {
       children: [
         _KpiSection(data: data),
         _ProviderOverview(data: data),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: const _FilterBar(),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: _FilterBar(),
         ),
         Expanded(child: _ConfigList(configs: configs, ref: ref)),
       ],

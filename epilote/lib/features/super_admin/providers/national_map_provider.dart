@@ -42,11 +42,11 @@ class DeptMapEntry {
   final int              schoolCount;
   final int              studentCount;
   final int              activeGroups;
-  final List<_GroupPin>  groups;
+  final List<GroupPin>  groups;
 }
 
-class _GroupPin {
-  const _GroupPin({required this.name, required this.status, required this.planName});
+class GroupPin {
+  const GroupPin({required this.name, required this.status, required this.planName});
   final String name;
   final String status;
   final String planName;
@@ -132,7 +132,7 @@ final nationalMapProvider = FutureProvider.autoDispose<NationalMapData>((ref) as
       activeGroups: dGroups.where((g) => g['subscription_status'] == 'active').length,
       groups:       dGroups.map((g) {
         final plan = g['subscription_plans'] as Map? ?? {};
-        return _GroupPin(
+        return GroupPin(
           name:     g['name'] as String? ?? '—',
           status:   g['subscription_status'] as String? ?? 'unknown',
           planName: plan['name'] as String? ?? '—',

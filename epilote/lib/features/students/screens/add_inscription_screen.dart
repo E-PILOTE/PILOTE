@@ -371,7 +371,7 @@ class _NavBar extends StatelessWidget {
     final isLast = currentStep == totalSteps - 1;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: _kBorder)),
       ),
@@ -458,7 +458,7 @@ class _Step1EleveState extends State<_Step1Eleve> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionTitle('Identité'),
+          const _SectionTitle('Identité'),
           _Field(
             ctrl: _firstNameCtrl,
             label: 'Prénom *',
@@ -495,7 +495,7 @@ class _Step1EleveState extends State<_Step1Eleve> {
             onChanged: (v) { s.placeOfBirth = v.isEmpty ? null : v; widget.onChanged(); },
           ),
           const SizedBox(height: 16),
-          _SectionTitle('Situation familiale'),
+          const _SectionTitle('Situation familiale'),
           _DropdownField<String>(
             label: 'Situation familiale',
             value: s.situationFamiliale,
@@ -510,7 +510,7 @@ class _Step1EleveState extends State<_Step1Eleve> {
             onChanged: (v) { s.situationFamiliale = v; widget.onChanged(); },
           ),
           const SizedBox(height: 16),
-          _SectionTitle('Statuts particuliers'),
+          const _SectionTitle('Statuts particuliers'),
           _CheckTile(
             label: 'Pensionnaire / Interne',
             value: s.isBoarder,
@@ -538,7 +538,7 @@ class _Step1EleveState extends State<_Step1Eleve> {
             onChanged: (v) { s.hasSocialAid = v!; widget.onChanged(); },
           ),
           const SizedBox(height: 16),
-          _SectionTitle('Santé & Adresse'),
+          const _SectionTitle('Santé & Adresse'),
           _Field(
             ctrl: _allergiesCtrl,
             label: 'Allergies / Antécédents médicaux',
@@ -790,7 +790,7 @@ class _Step3ScolariteState extends ConsumerState<_Step3Scolarite> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionTitle('Type d\'inscription'),
+          const _SectionTitle('Type d\'inscription'),
           _DropdownField<String>(
             label: 'Type',
             value: s.inscriptionType,
@@ -802,7 +802,7 @@ class _Step3ScolariteState extends ConsumerState<_Step3Scolarite> {
             onChanged: (v) { s.inscriptionType = v!; widget.onChanged(); },
           ),
           const SizedBox(height: 12),
-          _SectionTitle('Affectation'),
+          const _SectionTitle('Affectation'),
           yearsAsync.when(
             loading: () => const LinearProgressIndicator(),
             error:   (e, _) => Text('Erreur : $e', style: const TextStyle(color: _kRed)),
@@ -846,7 +846,7 @@ class _Step3ScolariteState extends ConsumerState<_Step3Scolarite> {
           ),
           if (s.inscriptionType == 'transfer') ...[
             const SizedBox(height: 12),
-            _SectionTitle('École d\'origine'),
+            const _SectionTitle('École d\'origine'),
             _Field(
               ctrl: _prevSchoolCtrl,
               label: 'Nom de l\'école précédente',
@@ -894,13 +894,13 @@ class _Step4DocumentsState extends State<_Step4Documents> {
       itemCount: _docs.length + 1,
       itemBuilder: (_, i) {
         if (i == 0) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
+          return const Padding(
+            padding: EdgeInsets.only(bottom: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _SectionTitle('Pièces justificatives'),
-                const Text(
+                Text(
                   'Cochez les documents fournis par la famille.',
                   style: TextStyle(color: _kMuted, fontSize: 13),
                 ),
@@ -942,7 +942,7 @@ class _Step5Resume extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionTitle('Résumé de l\'inscription'),
+          const _SectionTitle('Résumé de l\'inscription'),
           _ResumeCard(
             title: 'Élève',
             icon: Icons.person_outline,
@@ -962,7 +962,7 @@ class _Step5Resume extends StatelessWidget {
             rows: state.tutors
                 .where((t) => t.firstName.isNotEmpty)
                 .map((t) => (
-                  '${t.isPrimary ? "Principal" : "Contact"}',
+                  (t.isPrimary ? 'Principal' : 'Contact'),
                   '${t.firstName} ${t.lastName} (${t.relationship})',
                 ))
                 .toList(),
@@ -1162,7 +1162,7 @@ class _DropdownField<T> extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: DropdownButtonFormField<T>(
-        value: value,
+        initialValue: value,
         decoration: InputDecoration(
           labelText: label,
           border: OutlineInputBorder(

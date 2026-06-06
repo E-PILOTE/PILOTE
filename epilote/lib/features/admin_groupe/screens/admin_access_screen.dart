@@ -1930,7 +1930,7 @@ final _kPresets = <_Preset>[
     color: const Color(0xFF4F46E5),
     description: 'Chef d\'établissement (lycée). Autorité complète sur l\'ensemble des modules de l\'école.',
     categories: {
-      for (final c in const ['scolarisation','pedagogie','vie-scolaire','finance','rh','communication','ressources','ia'])
+      for (final c in const ['scolarite','enseignement','evaluation','vie-scolaire','finance','rh'])
         c: _Grant.full(),
     },
   ),
@@ -1940,7 +1940,7 @@ final _kPresets = <_Preset>[
     color: const Color(0xFF1D4ED8),
     description: 'Chef d\'établissement (collège / école professionnelle). Gestion complète de l\'école.',
     categories: {
-      for (final c in const ['scolarisation','pedagogie','vie-scolaire','finance','rh','communication','ressources','ia'])
+      for (final c in const ['scolarite','enseignement','evaluation','vie-scolaire','finance','rh'])
         c: _Grant.full(),
     },
   ),
@@ -1950,12 +1950,10 @@ final _kPresets = <_Preset>[
     color: const Color(0xFF0D9488),
     description: 'Pilotage pédagogique : programmes, évaluations, bulletins, conseils de classe.',
     categories: {
-      'scolarisation': _Grant.manageData(),
-      'pedagogie': _Grant.full(),
+      'scolarite': _Grant.manageData(),
+      'enseignement': _Grant.full(),
+      'evaluation': _Grant.full(),
       'vie-scolaire': _Grant.contribute(),
-      'communication': _Grant.contribute(),
-      'ressources': _Grant.readOnly(),
-      'ia': _Grant.readExport(),
     },
   ),
   _Preset(
@@ -1964,10 +1962,10 @@ final _kPresets = <_Preset>[
     color: const Color(0xFFB45309),
     description: 'Coordination de l\'enseignement technique : matières, emplois du temps, programmes.',
     categories: {
-      'scolarisation': _Grant.readExport(),
-      'pedagogie': _Grant.teach(scope: 'own_school'),
+      'scolarite': _Grant.readExport(),
+      'enseignement': _Grant.teach(scope: 'own_school'),
+      'evaluation': _Grant.teach(scope: 'own_school'),
       'rh': _Grant.readOnly(),
-      'communication': _Grant.contribute(),
     },
     modules: {
       'matieres': _Grant.manageData(),
@@ -1981,11 +1979,10 @@ final _kPresets = <_Preset>[
     color: const Color(0xFF7C3AED),
     description: 'Dossiers élèves, inscriptions, documents administratifs et messagerie.',
     categories: {
-      'scolarisation': _Grant.manageData(),
-      'pedagogie': _Grant.readExport(),
+      'scolarite': _Grant.manageData(),
+      'enseignement': _Grant.readExport(),
+      'evaluation': _Grant.readExport(),
       'vie-scolaire': _Grant.readOnly(),
-      'communication': _Grant.contribute(),
-      'ressources': _Grant.readOnly(),
     },
   ),
   _Preset(
@@ -1995,8 +1992,7 @@ final _kPresets = <_Preset>[
     description: 'Paiements, facturation, budgets, dépenses et comptabilité. Validation financière.',
     categories: {
       'finance': _Grant.financial(),
-      'scolarisation': _Grant.readOnly(),
-      'communication': _Grant.contribute(),
+      'scolarite': _Grant.readOnly(),
     },
   ),
   _Preset(
@@ -2005,10 +2001,10 @@ final _kPresets = <_Preset>[
     color: const Color(0xFF059669),
     description: 'Notes, cahier de textes, évaluations et présences de ses classes uniquement.',
     categories: {
-      'pedagogie': _Grant.teach(),
-      'scolarisation': _Grant.readOnly(scope: 'own_classes'),
+      'enseignement': _Grant.teach(),
+      'evaluation': _Grant.teach(),
+      'scolarite': _Grant.readOnly(scope: 'own_classes'),
       'vie-scolaire': _Grant.readOnly(scope: 'own_classes'),
-      'communication': _Grant.contribute(scope: 'own_classes'),
     },
   ),
   _Preset(
@@ -2018,8 +2014,7 @@ final _kPresets = <_Preset>[
     description: 'Présences, discipline, infirmerie, cantine et vie scolaire au quotidien.',
     categories: {
       'vie-scolaire': _Grant.manageData(),
-      'scolarisation': _Grant.readOnly(),
-      'communication': _Grant.contribute(),
+      'scolarite': _Grant.readOnly(),
     },
     modules: {
       'presences-eleves': _Grant.contribute(),
@@ -2031,7 +2026,7 @@ final _kPresets = <_Preset>[
     color: const Color(0xFF475569),
     description: 'Observateur / analyste : lecture et export de tous les modules, sans modification.',
     categories: {
-      for (final c in const ['scolarisation','pedagogie','vie-scolaire','finance','rh','communication','ressources','ia'])
+      for (final c in const ['scolarite','enseignement','evaluation','vie-scolaire','finance','rh'])
         c: _Grant.readExport(),
     },
   ),

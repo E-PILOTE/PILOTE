@@ -124,7 +124,9 @@ class StudentModel {
     final now = DateTime.now();
     int a = now.year - dateOfBirth!.year;
     if (now.month < dateOfBirth!.month ||
-        (now.month == dateOfBirth!.month && now.day < dateOfBirth!.day)) a--;
+        (now.month == dateOfBirth!.month && now.day < dateOfBirth!.day)) {
+      a--;
+    }
     return a;
   }
 

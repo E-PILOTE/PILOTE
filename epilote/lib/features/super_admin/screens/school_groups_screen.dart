@@ -94,9 +94,13 @@ class _GroupsBodyState extends ConsumerState<_GroupsBody> {
           final ae = a.subscriptionEnd, be = b.subscriptionEnd;
           if (ae == null && be == null) {
             c = 0;
-          } else if (ae == null) c = 1;
-          else if (be == null) c = -1;
-          else c = ae.compareTo(be);
+          } else if (ae == null) {
+            c = 1;
+          } else if (be == null) {
+            c = -1;
+          } else {
+            c = ae.compareTo(be);
+          }
           break;
         default:           c = a.createdAt.compareTo(b.createdAt);
       }
@@ -817,34 +821,6 @@ class _ToggleViewBtn extends StatelessWidget {
             size: 18, color: _kNavy,
           ),
         ),
-      ),
-    ),
-  );
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({required this.label, required this.active, required this.onTap});
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => MouseRegion(
-    cursor: SystemMouseCursors.click,
-    child: GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 140),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? _kNavy : _kSurface,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: active ? _kNavy : _kBorder),
-        ),
-        child: Text(label, style: TextStyle(
-          color: active ? Colors.white : _kMuted,
-          fontSize: 12, fontWeight: FontWeight.w600,
-        )),
       ),
     ),
   );
@@ -3576,13 +3552,13 @@ class _LogoUploadBox extends StatelessWidget {
             child: CircularProgressIndicator(strokeWidth: 2, color: _kNavy),
           ),
         ),
-        errorWidget: (_, _, _) => _initials_widget(),
+        errorWidget: (_, _, _) => _initialsWidget(),
       );
     }
-    return _initials_widget();
+    return _initialsWidget();
   }
 
-  Widget _initials_widget() => Center(
+  Widget _initialsWidget() => Center(
     child: Column(mainAxisSize: MainAxisSize.min, children: [
       Icon(Icons.add_photo_alternate_rounded,
           size: 22, color: _kMuted.withValues(alpha: 0.5)),

@@ -192,7 +192,7 @@ class _SendNotifDialogState extends ConsumerState<_SendNotifDialog> {
               Builder(builder: (context) {
                 final groups = ref.watch(schoolGroupsProvider).valueOrNull?.groups ?? [];
                 return DropdownButtonFormField<String>(
-                  value: _target,
+                  initialValue: _target,
                   isExpanded: true,
                   onChanged: (v) => setState(() => _target = v ?? _target),
                   items: [
@@ -214,7 +214,7 @@ class _SendNotifDialogState extends ConsumerState<_SendNotifDialog> {
               const Text('Type', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kNavy)),
               const SizedBox(height: 6),
               DropdownButtonFormField<String>(
-                value: _type,
+                initialValue: _type,
                 onChanged: (v) => setState(() => _type = v ?? _type),
                 items: const [
                   DropdownMenuItem(value: 'system',       child: Text('Système',      style: TextStyle(fontSize: 12))),
@@ -675,8 +675,11 @@ class _DayHeader extends StatelessWidget {
     String label;
     if (d == today) {
       label = "Aujourd'hui";
-    } else if (d == today.subtract(const Duration(days: 1))) label = 'Hier';
-    else                                          label = _fmtDay.format(date);
+    } else if (d == today.subtract(const Duration(days: 1))) {
+      label = 'Hier';
+    } else {
+      label = _fmtDay.format(date);
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),

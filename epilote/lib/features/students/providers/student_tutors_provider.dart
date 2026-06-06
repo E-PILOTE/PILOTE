@@ -106,13 +106,13 @@ Future<void> updateTutor({
   final now = DateTime.now().toIso8601String();
 
   final fields = <String, dynamic>{
-    if (firstName          != null) 'first_name':          firstName,
-    if (lastName           != null) 'last_name':           lastName,
-    if (relationship       != null) 'relationship':        relationship,
-    if (phonePrimary       != null) 'phone_primary':       phonePrimary,
-    if (phoneSecondary     != null) 'phone_secondary':     phoneSecondary,
-    if (email              != null) 'email':               email,
-    if (profession         != null) 'profession':          profession,
+    'first_name':          ?firstName,
+    'last_name':           ?lastName,
+    'relationship':        ?relationship,
+    'phone_primary':       ?phonePrimary,
+    'phone_secondary':     ?phoneSecondary,
+    'email':               ?email,
+    'profession':          ?profession,
     if (isPrimaryContact   != null) 'is_primary_contact':  isPrimaryContact ? 1 : 0,
     if (hasAppAccess       != null) 'has_app_access':      hasAppAccess ? 1 : 0,
     if (isEmergencyContact != null) 'is_emergency_contact': isEmergencyContact ? 1 : 0,

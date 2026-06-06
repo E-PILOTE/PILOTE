@@ -105,13 +105,21 @@ List<_NavItem> _navItemsFor(ProfileModel profile) {
         _NavItem.section('PILOTAGE'),
         const _NavItem(icon: Icons.bar_chart_rounded,  label: 'Rapports',          route: Routes.adminRapports),
         const _NavItem(icon: Icons.credit_card_rounded,label: 'Abonnement',        route: Routes.adminAbonnement),
+        // Communication = tissu natif de la plateforme (jamais vendu, non désactivable)
+        _NavItem.section('COMMUNICATION'),
+        const _NavItem(icon: Icons.notifications_rounded, label: 'Notifications', route: Routes.adminNotifications),
+        const _NavItem(icon: Icons.campaign_rounded,      label: 'Annonces',      route: Routes.adminAnnonces),
+        const _NavItem(icon: Icons.forum_rounded,         label: 'Messagerie',    route: Routes.adminMessagerie),
+        const _NavItem(icon: Icons.event_rounded,         label: 'Événements',    route: Routes.adminEvenements),
         _NavItem.section('SYSTÈME'),
         const _NavItem(icon: Icons.menu_book_rounded,  label: "Journal d'audit",   route: Routes.adminAudit),
         const _NavItem(icon: Icons.settings_rounded,   label: 'Paramètres',        route: Routes.adminParametres),
       ];
 
     default:
-      // Utilisateur école : items dynamiques selon access_profile
+      // Personnel école / parent / élève
+      final isEleve  = profile.role == AppConstants.roleEleve;
+      final isParent = profile.role == AppConstants.roleParent;
       return [
         const _NavItem(icon: Icons.dashboard_rounded,     label: 'Tableau de bord',   route: Routes.userDashboard),
         _NavItem.section('SCOLARITÉ'),
@@ -121,8 +129,19 @@ List<_NavItem> _navItemsFor(ProfileModel profile) {
         const _NavItem(icon: Icons.calendar_today_rounded,label: 'Présences',         route: Routes.presences),
         _NavItem.section('GESTION'),
         const _NavItem(icon: Icons.attach_money_rounded,  label: 'Finance',           route: Routes.paiements),
-        const _NavItem(icon: Icons.campaign_rounded,      label: 'Annonces',          route: Routes.annonces),
         const _NavItem(icon: Icons.bar_chart_rounded,     label: 'Rapports',          route: Routes.userRapports),
+        // Communication = tissu natif de la plateforme (jamais vendu, non désactivable)
+        _NavItem.section('COMMUNICATION'),
+        const _NavItem(icon: Icons.notifications_rounded, label: 'Notifications', route: Routes.notifications),
+        const _NavItem(icon: Icons.campaign_rounded,      label: 'Annonces',      route: Routes.annonces),
+        // Sauvegarde mineurs : les élèves n'ont pas la messagerie privée
+        if (!isEleve)
+          const _NavItem(icon: Icons.forum_rounded,       label: 'Messagerie',    route: Routes.messagerie),
+        const _NavItem(icon: Icons.event_rounded,         label: 'Événements',    route: Routes.evenements),
+        // Espace Parent : réservé aux comptes parents (désactivable par école — à câbler)
+        if (isParent)
+          const _NavItem(icon: Icons.family_restroom_rounded, label: 'Espace Parent', route: Routes.espaceParent),
+        _NavItem.section('SYSTÈME'),
         const _NavItem(icon: Icons.settings_rounded,      label: 'Paramètres',        route: Routes.userParametres),
       ];
   }
@@ -780,7 +799,8 @@ class _AppHeader extends ConsumerWidget {
     final initials    = _initials(displayName);
     final roleLabel   = _roleLabel(profile?.role);
     final avatarColor = _avatarColor(profile?.role);
-    final isSuper     = profile?.role == AppConstants.roleSuperAdmin;
+    final isSuper       = profile?.role == AppConstants.roleSuperAdmin;
+    final isAdminGroupe = profile?.role == AppConstants.roleAdminGroupe;
     final notifBadge  = isSuper ? ref.watch(notifBadgeProvider) : 0;
     final msgBadge    = isSuper
         ? (ref.watch(messagesProvider).valueOrNull?.unreadCount ?? 0)
@@ -840,6 +860,19 @@ class _AppHeader extends ConsumerWidget {
               badge: notifBadge,
               tooltip: 'Notifications',
               onPressed: () => context.go(Routes.superNotifications),
+            ),
+            const SizedBox(width: 4),
+          ] else if (isAdminGroupe) ...[
+            _HeaderBadgeButton(
+              icon: Icons.forum_outlined,
+              tooltip: 'Messagerie',
+              onPressed: () => context.go(Routes.adminMessagerie),
+            ),
+            const SizedBox(width: 4),
+            _HeaderBadgeButton(
+              icon: Icons.notifications_outlined,
+              tooltip: 'Notifications',
+              onPressed: () => context.go(Routes.adminNotifications),
             ),
             const SizedBox(width: 4),
           ],

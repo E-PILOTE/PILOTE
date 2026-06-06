@@ -10,9 +10,17 @@ import 'powersync_schema.dart';
 // ─── Base de données PowerSync (SQLite local) ──────────────────────────────
 
 /// Instance globale de la base de données PowerSync.
-/// Utilisée uniquement par le personnel scolaire (role = 'utilisateur').
-/// super_admin et admin_groupe utilisent Supabase direct.
+/// Utilisée uniquement par le personnel scolaire (tout rôle SAUF
+/// super_admin et admin_groupe, qui passent par Supabase direct).
 late PowerSyncDatabase db;
+
+/// Vrai si le rôle correspond au personnel scolaire (offline-first).
+/// super_admin et admin_groupe sont online/Supabase direct → exclus.
+/// ⚠️ La valeur 'utilisateur' N'EXISTE PAS dans l'enum user_role :
+/// le personnel = enseignant, secretaire, cpe, comptable, surveillant,
+/// directeur, proviseur, parent, eleve, infirmier, responsable_cantine.
+bool _isStaffRole(String? role) =>
+    role != null && role != 'super_admin' && role != 'admin_groupe';
 
 /// Rôle du dernier utilisateur connecté (mis en cache pour l'offline).
 String? _cachedRole;
@@ -29,10 +37,10 @@ Future<void> initPowerSync() async {
   final supabase  = Supabase.instance.client;
   final connector = SupabasePowerSyncConnector(supabase);
 
-  // Connexion au démarrage si session existante ET rôle utilisateur
+  // Connexion au démarrage si session existante ET rôle personnel scolaire
   if (supabase.auth.currentSession != null) {
     final role = await _resolveRole(supabase);
-    if (role == 'utilisateur') {
+    if (_isStaffRole(role)) {
       db.connect(connector: connector);
     }
   }
@@ -42,7 +50,7 @@ Future<void> initPowerSync() async {
     switch (data.event) {
       case AuthChangeEvent.signedIn:
         final role = await _resolveRole(supabase);
-        if (role == 'utilisateur') {
+        if (_isStaffRole(role)) {
           db.connect(connector: connector);
         }
       case AuthChangeEvent.signedOut:
@@ -100,7 +108,7 @@ final syncStatusProvider = StreamProvider<SyncStatus>((ref) {
 });
 
 /// Vrai quand la synchronisation PowerSync est active et connectée.
-/// N'est vrai que pour les utilisateurs de rôle 'utilisateur'.
+/// N'est vrai que pour le personnel scolaire (cf. _isStaffRole).
 final isSyncingProvider = Provider<bool>((ref) {
   return ref.watch(syncStatusProvider).valueOrNull?.connected ?? false;
 });
