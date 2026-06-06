@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
+import 'communication_scope.dart';
 
 // ─── Modèles ──────────────────────────────────────────────────────────────────
 
@@ -64,33 +65,42 @@ class NotificationsData {
   final int                     weekCount;
 }
 
-// ─── Providers ────────────────────────────────────────────────────────────────
+// ─── Filtres UI ────────────────────────────────────────────────────────────────
 
-final notifTypeFilterProvider  = StateProvider.autoDispose<String>((ref) => 'all');
-final notifReadFilterProvider   = StateProvider.autoDispose<String>((ref) => 'all');
-final notifSearchProvider       = StateProvider.autoDispose<String>((ref) => '');
+final notifTypeFilterProvider = StateProvider.autoDispose<String>((ref) => 'all');
+final notifReadFilterProvider = StateProvider.autoDispose<String>((ref) => 'all');
+final notifSearchProvider     = StateProvider.autoDispose<String>((ref) => '');
 
-final notificationsProvider = FutureProvider.autoDispose<NotificationsData>((ref) async {
+// ─── Provider principal (scope-aware) ───────────────────────────────────────────
+// super_admin → plateforme entière (RLS) · admin_groupe → son groupe.
+// (Le périmètre école/offline sera branché sur PowerSync lors du lot école.)
+
+final notificationsProvider =
+    FutureProvider.autoDispose<NotificationsData>((ref) async {
   ref.keepAlive();
   final client = ref.watch(supabaseClientProvider);
+  final ctx    = ref.watch(communicationContextProvider);
 
-  final rows = await client
+  var query = client
       .from('notifications')
       .select(
         'id, type, title, body, is_read, read_at, sent_at, created_at, '
         'group_id, recipient_id, data',
-      )
-      .order('created_at', ascending: false)
-      .limit(500);
+      );
+  // Restriction par périmètre groupe (admin_groupe)
+  if (ctx.isGroup && ctx.groupId != null) {
+    query = query.eq('group_id', ctx.groupId!);
+  }
+  final rows = await query.order('created_at', ascending: false).limit(500);
 
-  // Fetch group names for notifications that have group_id
+  // Noms des groupes (pour l'affichage plateforme)
   final groupIds = (rows as List)
       .map((r) => (r as Map)['group_id'] as String?)
       .whereType<String>()
       .toSet()
       .toList();
 
-  Map<String, String> groupNames = {};
+  final Map<String, String> groupNames = {};
   if (groupIds.isNotEmpty) {
     final groups = await client
         .from('school_groups')
@@ -143,7 +153,7 @@ final notificationsProvider = FutureProvider.autoDispose<NotificationsData>((ref
   );
 });
 
-// ─── Badge count (léger, sans keepAlive — se recalcule depuis le cache) ───────
+// ─── Badge (léger, depuis le cache) ──────────────────────────────────────────
 final notifBadgeProvider = Provider.autoDispose<int>((ref) {
   final async = ref.watch(notificationsProvider);
   return async.valueOrNull?.unread ?? 0;

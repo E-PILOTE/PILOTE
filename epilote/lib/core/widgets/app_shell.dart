@@ -11,7 +11,8 @@ import '../../features/super_admin/providers/super_dashboard_provider.dart';
 import '../../features/super_admin/providers/school_groups_provider.dart';
 import '../../features/super_admin/providers/administrators_provider.dart';
 import '../../features/super_admin/providers/modules_provider.dart';
-import '../../features/super_admin/providers/notifications_provider.dart';
+import '../../features/communication/providers/notifications_provider.dart';
+import '../../features/communication/providers/message_unread_provider.dart';
 import '../../features/super_admin/providers/messages_provider.dart';
 import '../../features/admin_groupe/providers/admin_dashboard_provider.dart';
 import '../../features/admin_groupe/providers/admin_nav_provider.dart';
@@ -801,9 +802,10 @@ class _AppHeader extends ConsumerWidget {
     final avatarColor = _avatarColor(profile?.role);
     final isSuper       = profile?.role == AppConstants.roleSuperAdmin;
     final isAdminGroupe = profile?.role == AppConstants.roleAdminGroupe;
-    final notifBadge  = isSuper ? ref.watch(notifBadgeProvider) : 0;
-    final msgBadge    = isSuper
-        ? (ref.watch(messagesProvider).valueOrNull?.unreadCount ?? 0)
+    final showComm    = isSuper || isAdminGroupe;
+    final notifBadge  = showComm ? ref.watch(notifBadgeProvider) : 0;
+    final msgBadge    = showComm
+        ? (ref.watch(unreadMessagesCountProvider).valueOrNull ?? 0)
         : 0;
     final profileRoute  = profile?.role == AppConstants.roleAdminGroupe
         ? Routes.adminProfil
@@ -865,12 +867,14 @@ class _AppHeader extends ConsumerWidget {
           ] else if (isAdminGroupe) ...[
             _HeaderBadgeButton(
               icon: Icons.forum_outlined,
+              badge: msgBadge,
               tooltip: 'Messagerie',
               onPressed: () => context.go(Routes.adminMessagerie),
             ),
             const SizedBox(width: 4),
             _HeaderBadgeButton(
               icon: Icons.notifications_outlined,
+              badge: notifBadge,
               tooltip: 'Notifications',
               onPressed: () => context.go(Routes.adminNotifications),
             ),

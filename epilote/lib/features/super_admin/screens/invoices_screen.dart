@@ -7,7 +7,7 @@ import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../providers/invoices_provider.dart';
 import '../providers/school_groups_provider.dart';
-import '../providers/notifications_provider.dart';
+import '../../communication/providers/notifications_provider.dart';
 import '../services/financial_pdf_service.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────

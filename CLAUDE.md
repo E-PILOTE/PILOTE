@@ -67,6 +67,15 @@ C'est `_isStaffRole` qui décide d'appeler `db.connect()` (= activer la synchro 
 
 Navigation : ajouter un écran = créer screen + provider, déclarer la route dans `core/router/app_router.dart` et la constante dans `core/constants/routes.dart`.
 
+## Conventions de code (RÈGLE GLOBALE)
+
+- **Taille de fichier : cible ≤ 500 lignes par fichier Dart** (alerte à 400). Au-delà, **découper par responsabilité** :
+  - widgets → `widgets/` (un gros widget = un fichier), sections d'écran → sous-widgets,
+  - logique d'état → `providers/`, modèles → `data/models/` ou `models/`.
+  - Ne jamais découper arbitrairement au milieu d'un widget : couper le long des coutures de cohésion.
+- Appliquer **systématiquement au code neuf** ; refondre les fichiers existants > 500 lignes **quand on les touche** (ex. factorisation). Plusieurs écrans hérités dépassent (super_admin : annonces ~1900, messagerie ~1150, etc.) → dette à résorber au fil des modifications.
+- Fonctionnalités transverses (communication : annonces/messagerie/notifications/événements) = **module partagé `features/communication/` scope-aware** (périmètre déduit du rôle), réutilisé par super_admin / admin_groupe / école ; **pas de duplication par espace**.
+
 ## Pièges spécifiques au projet
 
 - **Vérifier la base LIVE avant tout** : `schema.sql` et `docs/CONTEXTE.md` sont périmés. Interroger Supabase via le **MCP Supabase** (`list_tables`, `execute_sql`) ou `information_schema.columns`. État réel ≈ 66 tables / 49 migrations.

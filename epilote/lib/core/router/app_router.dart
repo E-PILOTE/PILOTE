@@ -26,7 +26,7 @@ import '../../features/super_admin/screens/messages_screen.dart';
 import '../../features/super_admin/screens/tickets_screen.dart';
 import '../../features/super_admin/screens/national_map_screen.dart';
 import '../../features/super_admin/screens/profile_screen.dart';
-import '../../features/super_admin/screens/notifications_screen.dart';
+import '../../features/communication/screens/notifications_screen.dart';
 import '../../features/admin_groupe/screens/admin_dashboard_screen.dart';
 import '../../features/admin_groupe/screens/admin_schools_screen.dart';
 import '../../features/admin_groupe/screens/admin_users_screen.dart';
@@ -39,6 +39,7 @@ import '../../features/admin_groupe/screens/admin_profile_screen.dart';
 import '../../features/admin_groupe/screens/admin_module_screen.dart';
 import '../../features/admin_groupe/screens/admin_modules_screen.dart';
 import '../../features/students/screens/inscriptions_screen.dart';
+import '../../features/students/screens/eleves_screen.dart';
 import '../../features/user/screens/user_dashboard_screen.dart';
 import '../../features/classes/screens/classes_screen.dart';
 import '../../features/classes/screens/classe_detail_screen.dart';
@@ -248,8 +249,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.adminModuleDetail,
         builder: (_, state) => AdminModuleScreen(slug: state.pathParameters['slug']!),
       ),
-      // Communication native (admin groupe) — écrans à construire
-      _placeholder(Routes.adminNotifications, 'Notifications'),
+      // Communication native (admin groupe) — module partagé scope-aware
+      GoRoute(path: Routes.adminNotifications, builder: (_, _) => const NotificationsScreen()),
       _placeholder(Routes.adminAnnonces,      'Annonces'),
       _placeholder(Routes.adminMessagerie,    'Messagerie'),
       _placeholder(Routes.adminEvenements,    'Événements'),
@@ -259,7 +260,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.userDashboard,
         builder: (_, _) => const UserDashboardScreen(),
       ),
-      _placeholder(Routes.eleves,            'Élèves'),
+      GoRoute(
+        path: Routes.eleves,
+        builder: (_, _) => const ElevesScreen(),
+      ),
       GoRoute(
         path: Routes.eleveDetail,
         builder: (_, state) =>
