@@ -228,6 +228,18 @@ Future<void> markMessageRead(dynamic client, String id) async {
   }).eq('id', id);
 }
 
+Future<void> markMessageUnread(dynamic client, String id) async {
+  await client.from('messages').update({
+    'is_read': false,
+    'read_at': null,
+    'updated_at': DateTime.now().toIso8601String(),
+  }).eq('id', id);
+}
+
+Future<void> deleteMessage(dynamic client, String id) async {
+  await client.from('messages').delete().eq('id', id);
+}
+
 Future<void> archiveMessage(dynamic client, String id) async {
   await client.from('messages').update({
     'is_archived': true,

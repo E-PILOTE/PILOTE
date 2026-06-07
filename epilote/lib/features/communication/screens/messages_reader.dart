@@ -23,6 +23,47 @@ class _MessageReaderState extends ConsumerState<_MessageReader> {
     ref.invalidate(messagesProvider);
   }
 
+  Future<void> _markUnread() async {
+    await markMessageUnread(ref.read(supabaseClientProvider), widget.msg.id);
+    ref.read(_selectedProv.notifier).state = null;
+    ref.invalidate(messagesProvider);
+  }
+
+  void _forward() {
+    final body = '\n\n──────────\nMessage transféré :\n${widget.msg.body}';
+    showDialog<void>(
+      context: context,
+      builder: (_) => _ComposeDialog(
+        onSent: () => ref.invalidate(messagesProvider),
+        initialSubject: 'TR: ${baseSubject(widget.msg.subject)}',
+        initialBody: body,
+      ),
+    );
+  }
+
+  Future<void> _delete() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text('Supprimer ce message ?'),
+        content: const Text('Cette action est irréversible.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: _kRed),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await deleteMessage(ref.read(supabaseClientProvider), widget.msg.id);
+    ref.read(_selectedProv.notifier).state = null;
+    ref.invalidate(messagesProvider);
+  }
+
   @override
   Widget build(BuildContext context) {
     final myId = ref.watch(supabaseClientProvider).auth.currentUser?.id ?? '';
@@ -60,12 +101,34 @@ class _MessageReaderState extends ConsumerState<_MessageReader> {
                     ),
                     const SizedBox(width: 4),
                     _ActionBtn(
+                      icon: Icons.forward_rounded,
+                      label: 'Transférer',
+                      color: _kNavy,
+                      onTap: _forward,
+                    ),
+                    const SizedBox(width: 4),
+                    if (widget.msg.isRead)
+                      _ActionBtn(
+                        icon: Icons.mark_email_unread_rounded,
+                        label: 'Marquer non lu',
+                        color: _kSub,
+                        onTap: _markUnread,
+                      ),
+                    if (widget.msg.isRead) const SizedBox(width: 4),
+                    _ActionBtn(
                       icon: widget.msg.isArchived
                           ? Icons.unarchive_rounded
                           : Icons.archive_rounded,
                       label: widget.msg.isArchived ? 'Désarchiver' : 'Archiver',
                       color: _kSub,
                       onTap: _toggleArchive,
+                    ),
+                    const SizedBox(width: 4),
+                    _ActionBtn(
+                      icon: Icons.delete_outline_rounded,
+                      label: 'Supprimer',
+                      color: _kRed,
+                      onTap: _delete,
                     ),
                     const SizedBox(width: 4),
                     IconButton(

@@ -113,6 +113,7 @@ List<_NavItem> _navItemsFor(ProfileModel profile) {
         const _NavItem(icon: Icons.forum_rounded,         label: 'Messagerie',    route: Routes.adminMessagerie),
         const _NavItem(icon: Icons.event_rounded,         label: 'Événements',    route: Routes.adminEvenements),
         _NavItem.section('SYSTÈME'),
+        const _NavItem(icon: Icons.support_agent_rounded, label: 'Support',         route: Routes.adminSupport),
         const _NavItem(icon: Icons.menu_book_rounded,  label: "Journal d'audit",   route: Routes.adminAudit),
         const _NavItem(icon: Icons.settings_rounded,   label: 'Paramètres',        route: Routes.adminParametres),
       ];

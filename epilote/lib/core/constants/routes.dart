@@ -49,6 +49,7 @@ class Routes {
   static const String adminMessagerie    = '/admin/messagerie';
   static const String adminNotifications = '/admin/notifications';
   static const String adminEvenements    = '/admin/evenements';
+  static const String adminSupport        = '/admin/support';
 
   // ── Modules (utilisateur école) ─────────────────────────────────────────
   static const String userDashboard   = '/user/dashboard';

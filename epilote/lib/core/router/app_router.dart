@@ -35,6 +35,7 @@ import '../../features/admin_groupe/screens/admin_reports_screen.dart';
 import '../../features/admin_groupe/screens/admin_subscription_screen.dart';
 import '../../features/admin_groupe/screens/admin_audit_screen.dart';
 import '../../features/admin_groupe/screens/admin_settings_screen.dart';
+import '../../features/admin_groupe/screens/admin_support_screen.dart';
 import '../../features/admin_groupe/screens/admin_profile_screen.dart';
 import '../../features/admin_groupe/screens/admin_module_screen.dart';
 import '../../features/admin_groupe/screens/admin_modules_screen.dart';
@@ -241,6 +242,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.adminRapports,     builder: (_, _) => const AdminReportsScreen()),
       GoRoute(path: Routes.adminAbonnement,   builder: (_, _) => const AdminSubscriptionScreen()),
       GoRoute(path: Routes.adminAudit,        builder: (_, _) => const AdminAuditScreen()),
+      GoRoute(path: Routes.adminSupport,      builder: (_, _) => const AdminSupportScreen()),
       GoRoute(path: Routes.adminParametres,   builder: (_, _) => const AdminSettingsScreen()),
       GoRoute(path: Routes.adminProfil,       builder: (_, _) => const AdminProfileScreen()),
       GoRoute(path: Routes.adminModules,      builder: (_, _) => const AdminModulesScreen()),

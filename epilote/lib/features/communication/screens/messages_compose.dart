@@ -2,16 +2,20 @@ part of 'messages_screen.dart';
 
 // ─── Dialogue de composition (scope-aware) ────────────────────────────────────
 class _ComposeDialog extends ConsumerStatefulWidget {
-  const _ComposeDialog({required this.onSent});
+  const _ComposeDialog({required this.onSent, this.initialSubject, this.initialBody});
   final VoidCallback onSent;
+  final String? initialSubject;
+  final String? initialBody;
 
   @override
   ConsumerState<_ComposeDialog> createState() => _ComposeDialogState();
 }
 
 class _ComposeDialogState extends ConsumerState<_ComposeDialog> {
-  final _subjectCtrl = TextEditingController();
-  final _bodyCtrl    = TextEditingController();
+  late final TextEditingController _subjectCtrl =
+      TextEditingController(text: widget.initialSubject ?? '');
+  late final TextEditingController _bodyCtrl =
+      TextEditingController(text: widget.initialBody ?? '');
   String? _recipientValue;
   bool    _sending = false;
 
