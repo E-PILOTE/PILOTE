@@ -16,17 +16,17 @@ import '../../features/super_admin/screens/plans_screen.dart';
 import '../../features/super_admin/screens/subscriptions_screen.dart';
 import '../../features/super_admin/screens/audit_screen.dart';
 import '../../features/communication/screens/announcements_screen.dart';
+import '../../features/communication/screens/events_screen.dart';
 import '../../features/super_admin/screens/invoices_screen.dart';
 import '../../features/super_admin/screens/receipts_screen.dart';
 import '../../features/super_admin/screens/payment_methods_screen.dart';
 import '../../features/super_admin/screens/reports_screen.dart';
 import '../../features/super_admin/screens/settings_screen.dart';
 import '../../features/super_admin/screens/ai_screen.dart';
-import '../../features/super_admin/screens/messages_screen.dart';
+import '../../features/communication/screens/messages_screen.dart';
 import '../../features/super_admin/screens/tickets_screen.dart';
 import '../../features/super_admin/screens/national_map_screen.dart';
 import '../../features/super_admin/screens/profile_screen.dart';
-import '../../features/communication/screens/notifications_screen.dart';
 import '../../features/admin_groupe/screens/admin_dashboard_screen.dart';
 import '../../features/admin_groupe/screens/admin_schools_screen.dart';
 import '../../features/admin_groupe/screens/admin_users_screen.dart';
@@ -226,7 +226,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.superMessagesInbox, builder: (_, _) => const MessagesScreen()),
       GoRoute(path: Routes.superTickets,       builder: (_, _) => const TicketsScreen()),
       GoRoute(path: Routes.superAnnonces, builder: (_, _) => const AnnouncementsScreen()),
-      GoRoute(path: Routes.superNotifications, builder: (_, _) => const NotificationsScreen()),
       GoRoute(path: Routes.superIa, builder: (_, _) => const AiScreen()),
       GoRoute(path: Routes.superAudit, builder: (_, _) => const AuditScreen()),
       GoRoute(path: Routes.superRapports,   builder: (_, _) => const ReportsScreen()),
@@ -250,10 +249,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => AdminModuleScreen(slug: state.pathParameters['slug']!),
       ),
       // Communication native (admin groupe) — module partagé scope-aware
-      GoRoute(path: Routes.adminNotifications, builder: (_, _) => const NotificationsScreen()),
       GoRoute(path: Routes.adminAnnonces,      builder: (_, _) => const AnnouncementsScreen()),
-      _placeholder(Routes.adminMessagerie,    'Messagerie'),
-      _placeholder(Routes.adminEvenements,    'Événements'),
+      GoRoute(path: Routes.adminMessagerie,    builder: (_, _) => const MessagesScreen()),
+      GoRoute(path: Routes.adminEvenements,    builder: (_, _) => const EventsScreen()),
 
       // ── Utilisateur École ─────────────────────────────────────────────
       GoRoute(

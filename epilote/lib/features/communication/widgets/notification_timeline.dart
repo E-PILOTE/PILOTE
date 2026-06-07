@@ -11,8 +11,16 @@ final _fmtDay  = DateFormat('EEEE d MMMM', 'fr_FR');
 
 // ─── Timeline groupée par jour ───────────────────────────────────────────────────
 class NotifTimeline extends StatelessWidget {
-  const NotifTimeline({super.key, required this.items});
+  const NotifTimeline({
+    super.key,
+    required this.items,
+    this.onTap,
+    this.padding = const EdgeInsets.all(20),
+  });
   final List<NotificationModel> items;
+  /// Optionnel : action au clic (ex. deep-link). Si null, marque seulement lu.
+  final void Function(NotificationModel)? onTap;
+  final EdgeInsets padding;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +32,7 @@ class NotifTimeline extends StatelessWidget {
     final days = grouped.entries.toList();
 
     return ListView.builder(
-      padding: const EdgeInsets.all(20),
+      padding: padding,
       itemCount: days.length,
       itemBuilder: (context, i) {
         final day = days[i];
@@ -33,7 +41,10 @@ class NotifTimeline extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _DayHeader(date: dt),
-            ...day.value.map((n) => NotifCard(notif: n)),
+            ...day.value.map((n) => NotifCard(
+                  notif: n,
+                  onTap: onTap == null ? null : () => onTap!(n),
+                )),
             const SizedBox(height: 8),
           ],
         );
@@ -82,8 +93,10 @@ class _DayHeader extends StatelessWidget {
 
 // ─── Carte notification ──────────────────────────────────────────────────────────
 class NotifCard extends ConsumerWidget {
-  const NotifCard({super.key, required this.notif});
+  const NotifCard({super.key, required this.notif, this.onTap});
   final NotificationModel notif;
+  /// Si fourni, remplace le comportement par défaut (qui marque seulement lu).
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -110,7 +123,7 @@ class NotifCard extends ConsumerWidget {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () async {
+        onTap: onTap ?? () async {
           if (!notif.isRead) {
             final client = ref.read(supabaseClientProvider);
             await markNotificationRead(client, notif.id);

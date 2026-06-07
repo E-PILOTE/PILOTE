@@ -13,7 +13,9 @@ import '../../features/super_admin/providers/administrators_provider.dart';
 import '../../features/super_admin/providers/modules_provider.dart';
 import '../../features/communication/providers/notifications_provider.dart';
 import '../../features/communication/providers/message_unread_provider.dart';
-import '../../features/super_admin/providers/messages_provider.dart';
+import '../../features/communication/widgets/notifications_drawer.dart';
+import '../../features/communication/widgets/notification_bell.dart';
+import '../../features/communication/providers/messages_provider.dart';
 import '../../features/admin_groupe/providers/admin_dashboard_provider.dart';
 import '../../features/admin_groupe/providers/admin_nav_provider.dart';
 import '../../services/powersync/powersync_service.dart';
@@ -87,7 +89,6 @@ List<_NavItem> _navItemsFor(ProfileModel profile) {
           _NavItem(icon: Icons.mail_rounded,             label: 'Messages',           route: Routes.superMessagesInbox),
           _NavItem(icon: Icons.campaign_rounded,         label: 'Annonces générales', route: Routes.superAnnonces),
         ]),
-        const _NavItem(icon: Icons.notifications_rounded,         label: 'Notifications',             route: Routes.superNotifications, badge: 2),
         const _NavItem(icon: Icons.psychology_rounded,            label: 'Intelligence Artificielle', route: Routes.superIa),
         _NavItem.section('RAPPORTS & SYSTÈME'),
         const _NavItem(icon: Icons.list_alt_rounded,              label: "Journal d'audit",           route: Routes.superAudit),
@@ -108,7 +109,6 @@ List<_NavItem> _navItemsFor(ProfileModel profile) {
         const _NavItem(icon: Icons.credit_card_rounded,label: 'Abonnement',        route: Routes.adminAbonnement),
         // Communication = tissu natif de la plateforme (jamais vendu, non désactivable)
         _NavItem.section('COMMUNICATION'),
-        const _NavItem(icon: Icons.notifications_rounded, label: 'Notifications', route: Routes.adminNotifications),
         const _NavItem(icon: Icons.campaign_rounded,      label: 'Annonces',      route: Routes.adminAnnonces),
         const _NavItem(icon: Icons.forum_rounded,         label: 'Messagerie',    route: Routes.adminMessagerie),
         const _NavItem(icon: Icons.event_rounded,         label: 'Événements',    route: Routes.adminEvenements),
@@ -246,8 +246,18 @@ class _AppShellState extends ConsumerState<AppShell> {
       }
     }
 
+    final canNotif = profile != null &&
+        (profile.role == AppConstants.roleSuperAdmin ||
+         profile.role == AppConstants.roleAdminGroupe);
+
+    // Badge messagerie déplacé du header vers la sidebar (signal conservé)
+    final msgUnread = profile != null
+        ? (ref.watch(unreadMessagesCountProvider).valueOrNull ?? 0)
+        : 0;
+
     return Scaffold(
       backgroundColor: _kSurface,
+      endDrawer: canNotif ? const NotificationsDrawer() : null,
       body: Row(
         children: [
           // ── Sidebar ────────────────────────────────────────────────────
@@ -263,7 +273,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                     child: ListView(
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       children: mainItems
-                          .map((item) => _buildNavItem(item, expanded, currentLoc))
+                          .map((item) => _buildNavItem(item, expanded, currentLoc, msgUnread))
                           .toList(),
                     ),
                   ),
@@ -272,7 +282,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                     Column(
                       mainAxisSize: MainAxisSize.min,
                       children: sysItems
-                          .map((item) => _buildNavItem(item, expanded, currentLoc))
+                          .map((item) => _buildNavItem(item, expanded, currentLoc, msgUnread))
                           .toList(),
                     ),
                   _SidebarFooter(
@@ -308,7 +318,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
   }
 
-  Widget _buildNavItem(_NavItem item, bool expanded, String currentLoc) {
+  Widget _buildNavItem(_NavItem item, bool expanded, String currentLoc, int msgUnread) {
     // ── Séparateur fin ─────────────────────────────────────────────────
     if (item.isDivider) {
       return Padding(
@@ -352,6 +362,14 @@ class _AppShellState extends ConsumerState<AppShell> {
       );
     }
 
+    // Badge messagerie dynamique (signal déplacé du header)
+    final isMsg = item.route == Routes.adminMessagerie ||
+        item.route == Routes.messagerie;
+    final effItem = (isMsg && msgUnread > 0)
+        ? _NavItem(
+            icon: item.icon, label: item.label, route: item.route, badge: msgUnread)
+        : item;
+
     final isActive    = currentLoc.startsWith(item.route) && item.route != '/';
     final hasChildren = item.children.isNotEmpty;
     final isMenuOpen  = _expandedMenus.contains(item.route);
@@ -359,7 +377,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     return Column(
       children: [
         _NavTile(
-          item: item,
+          item: effItem,
           isActive: isActive,
           expanded: expanded,
           trailing: hasChildren
@@ -725,56 +743,6 @@ class _SidebarFooter extends ConsumerWidget {
 
 }
 
-// ─── Header Badge Button ─────────────────────────────────────────────────
-class _HeaderBadgeButton extends StatelessWidget {
-  const _HeaderBadgeButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-    this.badge = 0,
-  });
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-  final int badge;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        IconButton(
-          icon: Icon(icon, color: _kTextMuted, size: 22),
-          onPressed: onPressed,
-          tooltip: tooltip,
-        ),
-        if (badge > 0)
-          Positioned(
-            top: 4, right: 4,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-              child: Text(
-                '$badge',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  height: 1.4,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 // ─── App Header ───────────────────────────────────────────────────────────
 class _AppHeader extends ConsumerWidget {
 
@@ -803,10 +771,6 @@ class _AppHeader extends ConsumerWidget {
     final isSuper       = profile?.role == AppConstants.roleSuperAdmin;
     final isAdminGroupe = profile?.role == AppConstants.roleAdminGroupe;
     final showComm    = isSuper || isAdminGroupe;
-    final notifBadge  = showComm ? ref.watch(notifBadgeProvider) : 0;
-    final msgBadge    = showComm
-        ? (ref.watch(unreadMessagesCountProvider).valueOrNull ?? 0)
-        : 0;
     final profileRoute  = profile?.role == AppConstants.roleAdminGroupe
         ? Routes.adminProfil
         : Routes.superProfil;
@@ -849,34 +813,11 @@ class _AppHeader extends ConsumerWidget {
           ),
           const Spacer(),
           ...?actions,
-          if (isSuper) ...[
-            _HeaderBadgeButton(
-              icon: Icons.forum_outlined,
-              badge: msgBadge,
-              tooltip: 'Messagerie',
-              onPressed: () => context.go(Routes.superMessagesInbox),
-            ),
-            const SizedBox(width: 4),
-            _HeaderBadgeButton(
-              icon: Icons.notifications_outlined,
-              badge: notifBadge,
-              tooltip: 'Notifications',
-              onPressed: () => context.go(Routes.superNotifications),
-            ),
-            const SizedBox(width: 4),
-          ] else if (isAdminGroupe) ...[
-            _HeaderBadgeButton(
-              icon: Icons.forum_outlined,
-              badge: msgBadge,
-              tooltip: 'Messagerie',
-              onPressed: () => context.go(Routes.adminMessagerie),
-            ),
-            const SizedBox(width: 4),
-            _HeaderBadgeButton(
-              icon: Icons.notifications_outlined,
-              badge: notifBadge,
-              tooltip: 'Notifications',
-              onPressed: () => context.go(Routes.adminNotifications),
+          if (showComm) ...[
+            Builder(
+              builder: (context) => NotificationBell(
+                onSeeAll: () => Scaffold.of(context).openEndDrawer(),
+              ),
             ),
             const SizedBox(width: 4),
           ],
