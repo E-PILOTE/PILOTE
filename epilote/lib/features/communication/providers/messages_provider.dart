@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:realtime_client/realtime_client.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
 import 'communication_scope.dart';
@@ -82,6 +85,27 @@ final messagesProvider = FutureProvider.autoDispose<MessagesData>((ref) async {
   final client = ref.watch(supabaseClientProvider);
   final ctx    = ref.watch(communicationContextProvider);
 
+  // ── Realtime : nouveaux messages / lectures / archivages en direct ──────────
+  Timer? debounce;
+  void scheduleInvalidate() {
+    debounce?.cancel();
+    debounce = Timer(const Duration(seconds: 1), () => ref.invalidateSelf());
+  }
+  try {
+    final channel = client.channel('comm_messages_list')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'messages',
+          callback: (_) => scheduleInvalidate(),
+        )
+        .subscribe();
+    ref.onDispose(() {
+      debounce?.cancel();
+      client.removeChannel(channel);
+    });
+  } catch (_) {}
+
   var query = client.from('messages').select(
     'id, subject, body, sender_id, recipient_id, group_id, is_read, is_archived, '
     'created_at, parent_message_id, '
@@ -160,6 +184,39 @@ final messageRecipientsProvider =
           ))
       .toList();
 });
+
+/// Reconstruit le fil de conversation contenant [m] à partir de la liste
+/// chargée : remonte la chaîne `parentId` jusqu'à la racine puis collecte
+/// tous les messages du fil, triés par date croissante.
+List<MessageModel> threadOf(List<MessageModel> all, MessageModel m) {
+  final byId = {for (final x in all) x.id: x};
+
+  String rootOf(MessageModel x) {
+    var cur = x;
+    final seen = <String>{};
+    while (cur.parentId != null &&
+        byId.containsKey(cur.parentId) &&
+        seen.add(cur.id)) {
+      cur = byId[cur.parentId]!;
+    }
+    return cur.id;
+  }
+
+  final root = rootOf(m);
+  final thread = all.where((x) => rootOf(x) == root).toList()
+    ..sort((a, b) => a.insertedAt.compareTo(b.insertedAt));
+  return thread.isEmpty ? [m] : thread;
+}
+
+/// Sujet de base d'un fil (sans les préfixes « RE: » accumulés).
+String baseSubject(String subject) {
+  var s = subject.trim();
+  final re = RegExp(r'^(re|rép|rep)\s*:\s*', caseSensitive: false);
+  while (re.hasMatch(s)) {
+    s = s.replaceFirst(re, '').trim();
+  }
+  return s.isEmpty ? subject : s;
+}
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
 

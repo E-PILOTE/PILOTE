@@ -26,6 +26,8 @@ class _MessageReaderState extends ConsumerState<_MessageReader> {
   @override
   Widget build(BuildContext context) {
     final myId = ref.watch(supabaseClientProvider).auth.currentUser?.id ?? '';
+    final all = ref.watch(messagesProvider).valueOrNull?.messages ?? [widget.msg];
+    final thread = threadOf(all, widget.msg);
     final dt = widget.msg.insertedAt.isNotEmpty
         ? DateTime.tryParse(widget.msg.insertedAt)
         : null;
@@ -46,7 +48,7 @@ class _MessageReaderState extends ConsumerState<_MessageReader> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: Text(widget.msg.subject,
+                      child: Text(baseSubject(widget.msg.subject),
                           style: const TextStyle(
                               fontSize: 18, fontWeight: FontWeight.w800, color: _kText)),
                     ),
@@ -78,6 +80,10 @@ class _MessageReaderState extends ConsumerState<_MessageReader> {
                   _MetaItem(icon: Icons.person_rounded, label: counterpart),
                   _MetaItem(icon: Icons.corporate_fare_rounded, label: widget.msg.groupName),
                   _MetaItem(icon: Icons.schedule_rounded, label: dateStr),
+                  if (thread.length > 1)
+                    _MetaItem(
+                        icon: Icons.forum_rounded,
+                        label: '${thread.length} messages'),
                   if (!widget.msg.isRead)
                     const _Pill(text: 'Non lu', color: _kNavy),
                   if (widget.msg.isArchived)
@@ -93,25 +99,7 @@ class _MessageReaderState extends ConsumerState<_MessageReader> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: _kCard,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _kBorder),
-                      boxShadow: [
-                        BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2))
-                      ],
-                    ),
-                    child: SelectableText(
-                      widget.msg.body,
-                      style: const TextStyle(fontSize: 14, color: _kText, height: 1.7),
-                    ),
-                  ),
+                  ...thread.map((m) => _Bubble(msg: m, mine: m.senderId == myId)),
                   if (_showReply) ...[
                     const SizedBox(height: 20),
                     _ReplyForm(
@@ -164,6 +152,54 @@ class _MessageReaderState extends ConsumerState<_MessageReader> {
               ]),
             ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Bulle de conversation ────────────────────────────────────────────────────
+class _Bubble extends StatelessWidget {
+  const _Bubble({required this.msg, required this.mine});
+  final MessageModel msg;
+  final bool mine;
+
+  @override
+  Widget build(BuildContext context) {
+    final dt = msg.insertedAt.isNotEmpty ? DateTime.tryParse(msg.insertedAt) : null;
+    final dateStr = dt != null ? _fmtFull.format(dt.toLocal()) : '';
+    final who = mine ? 'Moi' : msg.senderName;
+
+    return Align(
+      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 560),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: mine ? _kNavy.withValues(alpha: 0.07) : _kCard,
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(12),
+            topRight: const Radius.circular(12),
+            bottomLeft: Radius.circular(mine ? 12 : 2),
+            bottomRight: Radius.circular(mine ? 2 : 12),
+          ),
+          border: Border.all(color: mine ? _kNavy.withValues(alpha: 0.2) : _kBorder),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(who,
+                  style: TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w700, color: mine ? _kNavy : _kText)),
+              const SizedBox(width: 8),
+              Text(dateStr, style: const TextStyle(fontSize: 10, color: _kSub)),
+            ]),
+            const SizedBox(height: 6),
+            SelectableText(msg.body,
+                style: const TextStyle(fontSize: 14, color: _kText, height: 1.6)),
+          ],
+        ),
       ),
     );
   }

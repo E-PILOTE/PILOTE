@@ -8,6 +8,7 @@ import '../providers/communication_scope.dart';
 import '../providers/events_provider.dart';
 
 part 'event_form.dart';
+part 'event_calendar.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _kNavy   = Color(0xFF1E3A5F);
@@ -60,6 +61,8 @@ class _Body extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final filter = ref.watch(eventFilterProvider);
+    final view   = ref.watch(eventViewProvider);
+    final isPlatform = ref.watch(communicationContextProvider).isPlatform;
 
     var events = data.events;
     switch (filter) {
@@ -103,27 +106,41 @@ class _Body extends ConsumerWidget {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-          child: Wrap(spacing: 8, children: [
-            _FilterChip(label: 'À venir', value: 'upcoming', current: filter),
-            _FilterChip(label: 'Tous', value: 'all', current: filter),
-            _FilterChip(label: 'Publiés', value: 'published', current: filter),
-            _FilterChip(label: 'Brouillons', value: 'draft', current: filter),
-            _FilterChip(label: 'Passés', value: 'past', current: filter),
+          child: Row(children: [
+            if (view == 'list')
+              Expanded(
+                child: Wrap(spacing: 8, runSpacing: 6, children: [
+                  _FilterChip(label: 'À venir', value: 'upcoming', current: filter),
+                  _FilterChip(label: 'Tous', value: 'all', current: filter),
+                  _FilterChip(label: 'Publiés', value: 'published', current: filter),
+                  _FilterChip(label: 'Brouillons', value: 'draft', current: filter),
+                  _FilterChip(label: 'Passés', value: 'past', current: filter),
+                ]),
+              )
+            else
+              const Spacer(),
+            _ViewToggle(view: view),
           ]),
         ),
         const SizedBox(height: 8),
         Expanded(
-          child: events.isEmpty
-              ? const _Empty()
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
-                  itemCount: events.length,
-                  itemBuilder: (_, i) => _EventCard(
-                    event: events[i],
-                    showGroup: ref.watch(communicationContextProvider).isPlatform,
-                    onEdit: () => _showForm(context, ref, events[i]),
-                  ),
-                ),
+          child: view == 'calendar'
+              ? _EventCalendar(
+                  events: data.events,
+                  showGroup: isPlatform,
+                  onEdit: (e) => _showForm(context, ref, e),
+                )
+              : events.isEmpty
+                  ? const _Empty()
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
+                      itemCount: events.length,
+                      itemBuilder: (_, i) => _EventCard(
+                        event: events[i],
+                        showGroup: isPlatform,
+                        onEdit: () => _showForm(context, ref, events[i]),
+                      ),
+                    ),
         ),
       ],
     );
@@ -202,6 +219,50 @@ class _FilterChip extends ConsumerWidget {
               color: selected ? Colors.white : _kSub,
             )),
       ),
+    );
+  }
+}
+
+class _ViewToggle extends ConsumerWidget {
+  const _ViewToggle({required this.view});
+  final String view;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    Widget seg(String value, IconData icon, String label) {
+      final sel = view == value;
+      return GestureDetector(
+        onTap: () => ref.read(eventViewProvider.notifier).state = value,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: sel ? _kNavy : Colors.transparent,
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 15, color: sel ? Colors.white : _kSub),
+            const SizedBox(width: 6),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: sel ? Colors.white : _kSub)),
+          ]),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: _kBorder),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        seg('list', Icons.view_list_rounded, 'Liste'),
+        seg('calendar', Icons.calendar_month_rounded, 'Calendrier'),
+      ]),
     );
   }
 }

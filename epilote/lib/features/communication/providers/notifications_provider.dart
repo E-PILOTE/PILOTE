@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:realtime_client/realtime_client.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
 import 'communication_scope.dart';
@@ -80,6 +83,27 @@ final notificationsProvider =
   ref.keepAlive();
   final client = ref.watch(supabaseClientProvider);
   final ctx    = ref.watch(communicationContextProvider);
+
+  // ── Realtime : rafraîchit la liste dès qu'une notif est émise/lue ───────────
+  Timer? debounce;
+  void scheduleInvalidate() {
+    debounce?.cancel();
+    debounce = Timer(const Duration(seconds: 1), () => ref.invalidateSelf());
+  }
+  try {
+    final channel = client.channel('comm_notifications_list')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'notifications',
+          callback: (_) => scheduleInvalidate(),
+        )
+        .subscribe();
+    ref.onDispose(() {
+      debounce?.cancel();
+      client.removeChannel(channel);
+    });
+  } catch (_) {}
 
   var query = client
       .from('notifications')

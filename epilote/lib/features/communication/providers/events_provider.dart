@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:realtime_client/realtime_client.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
 import 'communication_scope.dart';
@@ -72,12 +75,35 @@ class EventsData {
 
 // ─── Filtres UI ────────────────────────────────────────────────────────────────
 final eventFilterProvider = StateProvider.autoDispose<String>((ref) => 'upcoming');
+/// Mode d'affichage : 'list' ou 'calendar'.
+final eventViewProvider = StateProvider.autoDispose<String>((ref) => 'list');
 
 // ─── Provider principal (scope-aware) ───────────────────────────────────────────
 final eventsProvider = FutureProvider.autoDispose<EventsData>((ref) async {
   ref.keepAlive();
   final client = ref.watch(supabaseClientProvider);
   final ctx    = ref.watch(communicationContextProvider);
+
+  // ── Realtime : créations / publications / suppressions en direct ────────────
+  Timer? debounce;
+  void scheduleInvalidate() {
+    debounce?.cancel();
+    debounce = Timer(const Duration(seconds: 1), () => ref.invalidateSelf());
+  }
+  try {
+    final channel = client.channel('comm_events_list')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'events',
+          callback: (_) => scheduleInvalidate(),
+        )
+        .subscribe();
+    ref.onDispose(() {
+      debounce?.cancel();
+      client.removeChannel(channel);
+    });
+  } catch (_) {}
 
   var query = client.from('events').select(
     'id, title, description, event_date, end_date, start_time, end_time, '
