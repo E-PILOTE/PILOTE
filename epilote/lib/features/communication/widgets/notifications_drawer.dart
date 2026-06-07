@@ -6,11 +6,11 @@ import '../../../features/auth/providers/auth_provider.dart';
 import '../providers/notifications_provider.dart';
 import 'notification_timeline.dart';
 import 'notification_types.dart';
-import 'send_notification_dialog.dart';
 
 /// Drawer latéral « Centre de notifications » (style Windows).
-/// Surface primaire : récentes + historique scrollable, actions, et
-/// **deep-link** au clic (via `data.route` de la notification).
+/// Surface **en lecture seule** : les notifications sont émises par le système
+/// (paiements, absences, bulletins, échéances…), jamais saisies à la main.
+/// Actions : filtrer, marquer lu, et **deep-link** au clic (via `data.route`).
 class NotificationsDrawer extends ConsumerStatefulWidget {
   const NotificationsDrawer({super.key});
 
@@ -96,22 +96,21 @@ class _NotificationsDrawerState extends ConsumerState<NotificationsDrawer> {
                   onTap: () => setState(() => _unreadOnly = true),
                 ),
                 const Spacer(),
-                IconButton(
-                  tooltip: 'Tout marquer lu',
-                  icon: const Icon(Icons.done_all_rounded, size: 20, color: kCommNavy),
-                  onPressed: () async {
-                    final client = ref.read(supabaseClientProvider);
-                    await markAllNotificationsRead(client);
-                    ref.invalidate(notificationsProvider);
-                  },
-                ),
-                IconButton(
-                  tooltip: 'Envoyer une notification',
-                  icon: const Icon(Icons.add_rounded, size: 20, color: kCommNavy),
-                  onPressed: () => showDialog<void>(
-                    context: context,
-                    builder: (_) => SendNotificationDialog(
-                        onSent: () => ref.invalidate(notificationsProvider)),
+                TextButton.icon(
+                  onPressed: unread == 0
+                      ? null
+                      : () async {
+                          final client = ref.read(supabaseClientProvider);
+                          await markAllNotificationsRead(client);
+                          ref.invalidate(notificationsProvider);
+                        },
+                  icon: const Icon(Icons.done_all_rounded, size: 16, color: kCommNavy),
+                  label: const Text('Tout marquer lu',
+                      style: TextStyle(fontSize: 11.5, color: kCommNavy)),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ),
               ]),

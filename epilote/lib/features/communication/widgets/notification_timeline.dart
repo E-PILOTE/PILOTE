@@ -162,9 +162,15 @@ class NotifCard extends ConsumerWidget {
                         const SizedBox(width: 6),
                         const Icon(Icons.school_outlined, size: 10, color: kCommSub),
                         const SizedBox(width: 3),
-                        Text(notif.groupName!, style: const TextStyle(fontSize: 10, color: kCommSub)),
-                      ],
-                      const Spacer(),
+                        Flexible(
+                          child: Text(notif.groupName!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 10, color: kCommSub)),
+                        ),
+                      ] else
+                        const Spacer(),
+                      const SizedBox(width: 6),
                       Text(dateStr, style: const TextStyle(fontSize: 10, color: kCommSub)),
                     ]),
                     const SizedBox(height: 5),
@@ -217,47 +223,3 @@ class NotifEmptyState extends StatelessWidget {
   );
 }
 
-class NotifSkeleton extends StatelessWidget {
-  const NotifSkeleton({super.key});
-
-  @override
-  Widget build(BuildContext context) => Row(children: [
-    SizedBox(width: 240, child: Container(color: kCommCard)),
-    const VerticalDivider(width: 1),
-    Expanded(
-      child: ListView.builder(
-        padding: const EdgeInsets.all(20),
-        itemCount: 8,
-        itemBuilder: (_, _) => Container(
-          height: 80, margin: const EdgeInsets.only(bottom: 8),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade200,
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-    ),
-  ]);
-}
-
-class NotifErrorView extends StatelessWidget {
-  const NotifErrorView({super.key, required this.error, required this.onRetry});
-  final String error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Column(mainAxisSize: MainAxisSize.min, children: [
-      const Icon(Icons.error_outline_rounded, size: 48, color: Color(0xFFEF4444)),
-      const SizedBox(height: 12),
-      Text(error, style: const TextStyle(fontSize: 12, color: kCommSub), textAlign: TextAlign.center),
-      const SizedBox(height: 16),
-      ElevatedButton.icon(
-        onPressed: onRetry,
-        icon: const Icon(Icons.refresh_rounded, size: 16),
-        label: const Text('Réessayer'),
-        style: ElevatedButton.styleFrom(backgroundColor: kCommNavy, foregroundColor: Colors.white),
-      ),
-    ]),
-  );
-}
