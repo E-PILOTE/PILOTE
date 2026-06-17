@@ -6,7 +6,7 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../providers/admin_reports_provider.dart';
 import '../services/reports_pdf_service.dart';
-import '../widgets/admin_ui.dart';
+import '../../../core/widgets/admin_ui.dart';
 
 // ─── Accents locaux (complètent la palette admin_ui) ────────────────────────
 const Color _kPurple = Color(0xFF7C3AED);

@@ -1,2 +1,7 @@
 # Secrets — ne JAMAIS committer
 .env
+cli.yaml
+service.yaml
+sync-config.yaml
+service-fetched.yaml
+sync-fetched.yaml

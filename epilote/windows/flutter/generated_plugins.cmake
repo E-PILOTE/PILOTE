@@ -4,10 +4,15 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   app_links
+  audioplayers_windows
   connectivity_plus
+  media_kit_libs_windows_video
+  media_kit_video
   powersync_flutter_libs
   printing
+  record_windows
   sqlite3_flutter_libs
+  syncfusion_pdfviewer_windows
   url_launcher_windows
 )
 

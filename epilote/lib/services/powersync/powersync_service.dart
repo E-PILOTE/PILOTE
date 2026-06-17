@@ -112,3 +112,22 @@ final syncStatusProvider = StreamProvider<SyncStatus>((ref) {
 final isSyncingProvider = Provider<bool>((ref) {
   return ref.watch(syncStatusProvider).valueOrNull?.connected ?? false;
 });
+
+/// État de synchro pour l'UI — logique OFFLINE-FIRST : « à jour » dès qu'une
+/// synchro a réussi (`lastSyncedAt != null`), même si la connexion live n'est
+/// pas active à l'instant T. Évite d'afficher « Hors ligne » alors que les
+/// données locales sont complètes et utilisables.
+enum SyncUiState { synced, syncing, offline }
+
+final syncUiStateProvider = Provider<SyncUiState>((ref) {
+  final s = ref.watch(syncStatusProvider).valueOrNull;
+  if (s == null) return SyncUiState.offline;
+  if (s.downloading || s.uploading || s.connecting) return SyncUiState.syncing;
+  if (s.lastSyncedAt != null) return SyncUiState.synced;
+  return s.connected ? SyncUiState.syncing : SyncUiState.offline;
+});
+
+/// Horodatage de la dernière synchro réussie (ou null).
+final lastSyncedAtProvider = Provider<DateTime?>((ref) {
+  return ref.watch(syncStatusProvider).valueOrNull?.lastSyncedAt;
+});

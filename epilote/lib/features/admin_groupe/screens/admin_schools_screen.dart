@@ -12,7 +12,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../providers/admin_schools_provider.dart';
 import '../providers/admin_users_provider.dart' show roleLabel;
 import '../providers/education_provider.dart';
-import '../widgets/admin_ui.dart';
+import '../../../core/widgets/admin_ui.dart';
 
 // ─── Couleurs locales (complètent admin_ui.dart) ─────────────────────────────
 const _kPurple = Color(0xFF7C3AED);

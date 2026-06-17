@@ -960,7 +960,7 @@ class _TableRowState extends State<_TableRow> {
               overflow: TextOverflow.ellipsis,
             )),
             // Statut
-            SizedBox(width: 80, child: _StatusBadge(status: inv.status)),
+            SizedBox(width: 96, child: _StatusBadge(status: inv.status)),
             // Action
             SizedBox(width: 36, child: Tooltip(
               message: 'Voir la facture',
@@ -1116,8 +1116,13 @@ class _StatusBadge extends StatelessWidget {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(_statusIcon(status), size: 11, color: color),
         const SizedBox(width: 4),
-        Text(_statusLabel(status), style: TextStyle(
-            fontSize: 10.5, fontWeight: FontWeight.w700, color: color)),
+        Flexible(
+          child: Text(_statusLabel(status),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: 10.5, fontWeight: FontWeight.w700, color: color)),
+        ),
       ]),
     );
   }

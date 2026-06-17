@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../features/auth/providers/auth_provider.dart';
 import '../providers/notifications_provider.dart';
 import 'notification_timeline.dart';
 import 'notification_types.dart';
@@ -22,10 +21,8 @@ class _NotificationsDrawerState extends ConsumerState<NotificationsDrawer> {
   bool _unreadOnly = false;
 
   Future<void> _openNotif(NotificationModel n) async {
-    final client = ref.read(supabaseClientProvider);
     if (!n.isRead) {
-      await markNotificationRead(client, n.id);
-      ref.invalidate(notificationsProvider);
+      await markNotifRead(ref, n.id);
     }
     final route = n.data?['route'] as String?;
     if (!mounted) return;
@@ -97,13 +94,7 @@ class _NotificationsDrawerState extends ConsumerState<NotificationsDrawer> {
                 ),
                 const Spacer(),
                 TextButton.icon(
-                  onPressed: unread == 0
-                      ? null
-                      : () async {
-                          final client = ref.read(supabaseClientProvider);
-                          await markAllNotificationsRead(client);
-                          ref.invalidate(notificationsProvider);
-                        },
+                  onPressed: unread == 0 ? null : () => markAllNotifRead(ref),
                   icon: const Icon(Icons.done_all_rounded, size: 16, color: kCommNavy),
                   label: const Text('Tout marquer lu',
                       style: TextStyle(fontSize: 11.5, color: kCommNavy)),

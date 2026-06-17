@@ -21,6 +21,16 @@ class AppConstants {
   static const String roleInfirmier        = 'infirmier';
   static const String roleResponsableCantine = 'responsable_cantine';
 
+  /// Rôles « direction » d'un établissement : seuls habilités à la config
+  /// native de l'école (ex. Calendrier scolaire). Source UNIQUE — utilisée
+  /// par le garde du routeur ET la sidebar, ne jamais dupliquer la liste.
+  static const Set<String> directionRoles = {
+    roleProviseur,
+    roleDirecteur,
+    'directeur_etudes',
+    roleSecretaire,
+  };
+
   // Durée token PowerSync
   static const int powersyncTokenDaysValidity = 30;
 

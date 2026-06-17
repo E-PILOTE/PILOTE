@@ -1,0 +1,174 @@
+part of 'user_dashboard_screen.dart';
+
+// ─── Bloc FINANCE (comptable / direction) ─────────────────────────────────────
+class _FinanceBlock extends ConsumerWidget {
+  const _FinanceBlock();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pay = ref.watch(paymentsSummaryProvider).valueOrNull ??
+        const PaymentsSummary(0, 0);
+    final dep = ref.watch(expensesTotalProvider).valueOrNull ?? 0;
+    final solde = pay.encaisse - dep;
+    final recouvre = pay.encaisse + pay.attente;
+
+    final cards = <Widget>[
+      AdminStatCard(
+        label: 'Encaissé',
+        value: _xaf(pay.encaisse),
+        subtitle: 'FCFA',
+        icon: Icons.payments_rounded,
+        color: kGreen,
+      ),
+      AdminStatCard(
+        label: 'En attente',
+        value: _xaf(pay.attente),
+        subtitle: 'FCFA',
+        icon: Icons.schedule_rounded,
+        color: kAccent,
+      ),
+      AdminStatCard(
+        label: 'Dépenses',
+        value: _xaf(dep),
+        subtitle: 'année · FCFA',
+        icon: Icons.trending_down_rounded,
+        color: const Color(0xFFEF4444),
+      ),
+      AdminStatCard(
+        label: 'Solde',
+        value: _xaf(solde),
+        subtitle: 'FCFA',
+        icon: Icons.account_balance_rounded,
+        color: kNavy,
+      ),
+    ];
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const AdminSectionTitle('Finances',
+          icon: Icons.account_balance_wallet_rounded),
+      const SizedBox(height: 14),
+      _StatGrid(cards),
+      if (recouvre > 0) ...[
+        const SizedBox(height: 14),
+        AdminCard(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const _ChartTitle('Recouvrement', Icons.donut_large_rounded),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 200,
+              child: SfCircularChart(
+                margin: EdgeInsets.zero,
+                legend: const Legend(
+                  isVisible: true,
+                  position: LegendPosition.bottom,
+                  textStyle: TextStyle(fontSize: 11, color: kTextMuted),
+                ),
+                tooltipBehavior: TooltipBehavior(enable: true),
+                series: <CircularSeries<DashboardSlice, String>>[
+                  DoughnutSeries<DashboardSlice, String>(
+                    dataSource: [
+                      DashboardSlice('Encaissé', pay.encaisse),
+                      DashboardSlice('En attente', pay.attente),
+                    ],
+                    xValueMapper: (s, _) => s.label,
+                    yValueMapper: (s, _) => s.value,
+                    pointColorMapper: (s, _) =>
+                        s.label == 'Encaissé' ? kGreen : kAccent,
+                    innerRadius: '62%',
+                  ),
+                ],
+              ),
+            ),
+          ]),
+        ),
+      ],
+      const SizedBox(height: 24),
+    ]);
+  }
+}
+
+// ─── Bloc MÉDICAL (infirmier / direction) ─────────────────────────────────────
+class _MedicalBlock extends ConsumerWidget {
+  const _MedicalBlock();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final m = ref.watch(medicalSummaryProvider).valueOrNull ??
+        const MedicalSummary(0, 0, 0);
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const AdminSectionTitle('Infirmerie', icon: Icons.local_hospital_rounded),
+      const SizedBox(height: 14),
+      if (m.total == 0)
+        const _EmptyMini(
+          icon: Icons.health_and_safety_outlined,
+          text: 'Aucune visite à l\'infirmerie enregistrée pour le moment.',
+        )
+      else
+        _StatGrid([
+          AdminStatCard(
+            label: 'Visites ce mois',
+            value: '${m.month}',
+            icon: Icons.medical_services_rounded,
+            color: const Color(0xFF0EA5E9),
+          ),
+          AdminStatCard(
+            label: 'Total visites',
+            value: '${m.total}',
+            icon: Icons.local_hospital_rounded,
+            color: kNavy,
+          ),
+          AdminStatCard(
+            label: 'Suivi requis',
+            value: '${m.followUp}',
+            icon: Icons.event_repeat_rounded,
+            color: m.followUp > 0 ? kAccent : kTextMuted,
+          ),
+        ]),
+      const SizedBox(height: 24),
+    ]);
+  }
+}
+
+// ─── Bloc DISCIPLINE (cpe / surveillant / direction) ──────────────────────────
+class _DisciplineBlock extends ConsumerWidget {
+  const _DisciplineBlock();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final d = ref.watch(disciplineSummaryProvider).valueOrNull ??
+        const DisciplineSummary(0, 0, 0);
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const AdminSectionTitle('Discipline', icon: Icons.gavel_rounded),
+      const SizedBox(height: 14),
+      if (d.yearTotal == 0)
+        const _EmptyMini(
+          icon: Icons.shield_outlined,
+          text: 'Aucun incident disciplinaire enregistré cette année.',
+        )
+      else
+        _StatGrid([
+          AdminStatCard(
+            label: 'Ce mois',
+            value: '${d.month}',
+            icon: Icons.report_problem_rounded,
+            color: const Color(0xFFEF4444),
+          ),
+          AdminStatCard(
+            label: 'Total (année)',
+            value: '${d.yearTotal}',
+            icon: Icons.gavel_rounded,
+            color: kNavy,
+          ),
+          AdminStatCard(
+            label: 'À notifier',
+            value: '${d.unnotified}',
+            icon: Icons.notification_important_rounded,
+            color: d.unnotified > 0 ? kAccent : kTextMuted,
+          ),
+        ]),
+      const SizedBox(height: 24),
+    ]);
+  }
+}

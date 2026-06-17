@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../../features/auth/providers/auth_provider.dart';
 import '../providers/notifications_provider.dart';
 import 'notification_types.dart';
 
@@ -125,9 +124,7 @@ class NotifCard extends ConsumerWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: onTap ?? () async {
           if (!notif.isRead) {
-            final client = ref.read(supabaseClientProvider);
-            await markNotificationRead(client, notif.id);
-            ref.invalidate(notificationsProvider);
+            await markNotifRead(ref, notif.id);
           }
         },
         child: Padding(

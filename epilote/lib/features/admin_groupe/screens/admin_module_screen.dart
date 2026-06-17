@@ -8,7 +8,7 @@ import '../providers/admin_access_provider.dart'
     show PermRow, accessProfilePermsProvider, adminAccessServiceProvider;
 import '../providers/admin_module_provider.dart';
 import '../providers/admin_nav_provider.dart';
-import '../widgets/admin_ui.dart';
+import '../../../core/widgets/admin_ui.dart';
 
 // ─── Design tokens locaux ─────────────────────────────────────────────────────
 const Color _kPurple = Color(0xFF7C3AED);

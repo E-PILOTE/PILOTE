@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/widgets/admin_ui.dart';
 import '../providers/mapillary_provider.dart';
-import 'admin_ui.dart';
 
 /// Panneau « Vue rue » intégré : affiche les photos Mapillary au sol les plus
 /// proches d'un point, défilables. Aucune redirection navigateur.

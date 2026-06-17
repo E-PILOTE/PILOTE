@@ -10,7 +10,7 @@ import '../../../core/constants/routes.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../providers/admin_dashboard_provider.dart';
 import '../providers/admin_geo_provider.dart';
-import '../widgets/admin_ui.dart';
+import '../../../core/widgets/admin_ui.dart';
 import 'admin_regional_view.dart';
 
 // ─── Accents locaux (complètent la palette admin_ui) ────────────────────────

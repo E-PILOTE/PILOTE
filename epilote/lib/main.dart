@@ -1,7 +1,13 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:pdfrx/pdfrx.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/constants/supabase_constants.dart';
@@ -13,7 +19,28 @@ import 'services/powersync/powersync_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ── 0. Initialiser les locales intl ───────────────────────────────────────
+  // ── 0. Lecteur vidéo natif multi-plateforme (Linux/Windows/Android/iOS/
+  //      macOS/Web via libmpv) — remplace video_player qui ne couvre pas le
+  //      desktop Linux/Windows. Doit précéder runApp.
+  MediaKit.ensureInitialized();
+
+  // ── 0·bis. Backend SQLite (FFI) pour desktop Linux/Windows — `sqflite` n'a
+  //   aucune implémentation native sur ces cibles, ce qui faisait échouer le
+  //   cache de `cached_network_image` → tous les avatars/logos tombaient sur
+  //   leur repli (initiales). On branche `databaseFactoryFfi` pour le rendre
+  //   fonctionnel en dev desktop. Sans effet sur mobile (déjà supporté).
+  if (!kIsWeb && (Platform.isLinux || Platform.isWindows)) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
+
+  // ── 0a. Moteur PDF (pdfium via pdfrx) — requis pour rendre l'aperçu 1re
+  //       page des PDF DANS le fil (PdfDocument.openUri direct). Sans cet
+  //       appel, l'init n'est déclenchée que par les widgets pdfrx → l'appel
+  //       direct échoue silencieusement (repli icône). Doit précéder runApp.
+  await pdfrxFlutterInitialize();
+
+  // ── 0b. Initialiser les locales intl ──────────────────────────────────────
   await initializeDateFormatting('fr_FR', null);
 
   // ── 1. Initialiser Supabase ────────────────────────────────────────────

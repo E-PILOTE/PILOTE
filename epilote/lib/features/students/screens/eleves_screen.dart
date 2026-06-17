@@ -1,9 +1,10 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/routes.dart';
-import '../../../core/widgets/app_shell.dart';
+import '../../navigation/widgets/module_scaffold.dart';
 import '../../../data/models/student_model.dart';
 import '../providers/students_provider.dart';
 
@@ -41,7 +42,8 @@ class _ElevesScreenState extends ConsumerState<ElevesScreen> {
         : ref.watch(studentsProvider);
     final countAsync = ref.watch(studentCountProvider);
 
-    return AppShell(
+    return ModuleScaffold(
+      slug: 'eleves',
       title: 'Élèves',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,8 +175,13 @@ class _StudentTile extends StatelessWidget {
               CircleAvatar(
                 radius: 22,
                 backgroundColor: avatarColor.withValues(alpha: 0.12),
+                // Cache disque : la photo reste visible HORS LIGNE après un
+                // 1er affichage en ligne ; repli = initiales (offline-first).
                 foregroundImage: (student.photoUrl != null && student.photoUrl!.isNotEmpty)
-                    ? NetworkImage(student.photoUrl!)
+                    ? CachedNetworkImageProvider(student.photoUrl!)
+                    : null,
+                onForegroundImageError: (student.photoUrl != null && student.photoUrl!.isNotEmpty)
+                    ? (_, _) {}
                     : null,
                 child: Text(
                   initials,

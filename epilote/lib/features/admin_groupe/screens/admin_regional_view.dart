@@ -11,7 +11,7 @@ import '../providers/admin_dashboard_provider.dart';
 import '../providers/admin_geo_provider.dart';
 import '../providers/admin_regional_provider.dart';
 import '../services/regional_pdf_service.dart';
-import '../widgets/admin_ui.dart';
+import '../../../core/widgets/admin_ui.dart';
 import '../widgets/mapillary_viewer.dart';
 
 const Color _kPurple = Color(0xFF7C3AED);

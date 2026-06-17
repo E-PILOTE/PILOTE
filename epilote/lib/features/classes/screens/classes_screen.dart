@@ -3,11 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/routes.dart';
-import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/loading_widget.dart';
+import '../../navigation/widgets/module_scaffold.dart';
 import '../../../data/models/class_model.dart';
 import '../../../features/auth/providers/auth_provider.dart';
-import '../../../features/structure/providers/academic_year_provider.dart';
+import '../../../features/structure/providers/academic_year_context.dart';
 import '../providers/class_provider.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -24,7 +24,8 @@ class ClassesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return const AppShell(
+    return const ModuleScaffold(
+      slug: 'classes',
       title: 'Classes',
       child: _ClassesBody(),
     );
@@ -37,12 +38,17 @@ class _ClassesBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final classesAsync = ref.watch(classesProvider);
-    final yearAsync    = ref.watch(currentAcademicYearProvider);
+    final activeYear   = ref.watch(activeYearProvider);
+    final readOnly     = ref.watch(yearReadOnlyProvider);
 
     return classesAsync.when(
       loading: () => const LoadingWidget(),
       error:   (e, _) => _ErrorState(message: e.toString()),
-      data:    (classes) => _ClassesList(classes: classes, yearAsync: yearAsync),
+      data:    (classes) => _ClassesList(
+        classes:   classes,
+        yearLabel: activeYear?.label ?? '—',
+        readOnly:  readOnly,
+      ),
     );
   }
 }
@@ -52,15 +58,16 @@ class _ClassesBody extends ConsumerWidget {
 class _ClassesList extends ConsumerWidget {
   const _ClassesList({
     required this.classes,
-    required this.yearAsync,
+    required this.yearLabel,
+    required this.readOnly,
   });
 
-  final List<ClassModel>              classes;
-  final AsyncValue<dynamic>           yearAsync;
+  final List<ClassModel> classes;
+  final String           yearLabel;
+  final bool             readOnly;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final yearLabel = yearAsync.valueOrNull?.label as String? ?? '—';
     final totalEleves = classes.fold<int>(
       0, (sum, c) => sum + (c.studentCount ?? 0));
     final totalCapacity = classes.fold<int>(
@@ -70,7 +77,7 @@ class _ClassesList extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ── En-tête ───────────────────────────────────────────────────────
-        _Header(yearLabel: yearLabel, classCount: classes.length),
+        _Header(yearLabel: yearLabel, classCount: classes.length, readOnly: readOnly),
 
         // ── Bande statistiques ────────────────────────────────────────────
         _StatsBar(
@@ -102,9 +109,10 @@ class _ClassesList extends ConsumerWidget {
 // ─── En-tête ──────────────────────────────────────────────────────────────────
 
 class _Header extends StatelessWidget {
-  const _Header({required this.yearLabel, required this.classCount});
+  const _Header({required this.yearLabel, required this.classCount, required this.readOnly});
   final String yearLabel;
   final int    classCount;
+  final bool   readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -137,12 +145,34 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: _kNavy),
-            onPressed: () => _showCreateClassDialog(context),
-            icon:  const Icon(Icons.add_rounded, size: 18),
-            label: const Text('Nouvelle classe'),
-          ),
+          if (readOnly)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFBBC04).withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.lock_clock_rounded, size: 15, color: Color(0xFFB45309)),
+                SizedBox(width: 6),
+                Text('Lecture seule',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF92400E))),
+              ]),
+            )
+          else
+            PermissionGate(
+              slug: 'classes',
+              action: 'create',
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(backgroundColor: _kNavy),
+                onPressed: () => _showCreateClassDialog(context),
+                icon:  const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Nouvelle classe'),
+              ),
+            ),
         ],
       ),
     );
@@ -501,13 +531,19 @@ class _CreateClassDialogState
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final profile  = ref.read(authNotifierProvider).valueOrNull;
-    final yearAsync = ref.read(currentAcademicYearProvider);
-    final year     = yearAsync.valueOrNull;
+    final year     = ref.read(activeYearProvider);
 
     if (profile?.schoolId == null || year == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(
             'Aucune école ou année académique active.')),
+      );
+      return;
+    }
+    if (ref.read(yearReadOnlyProvider)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(
+            'Année archivée — création impossible (lecture seule).')),
       );
       return;
     }

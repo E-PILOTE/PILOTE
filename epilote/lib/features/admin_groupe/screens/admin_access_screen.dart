@@ -4,7 +4,7 @@ import 'package:shimmer/shimmer.dart';
 
 import '../../../core/widgets/app_shell.dart';
 import '../providers/admin_access_provider.dart';
-import '../widgets/admin_ui.dart';
+import '../../../core/widgets/admin_ui.dart';
 
 // ─── Couleurs locales ─────────────────────────────────────────────────────────
 const _kPurple = Color(0xFF7C3AED);

@@ -3,10 +3,15 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  audioplayers_linux
   gtk
+  media_kit_libs_linux
+  media_kit_video
   powersync_flutter_libs
   printing
+  record_linux
   sqlite3_flutter_libs
+  syncfusion_pdfviewer_linux
   url_launcher_linux
 )
 

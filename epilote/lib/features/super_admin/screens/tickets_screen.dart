@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/widgets/app_shell.dart';
-import '../providers/tickets_provider.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../communication/providers/ticket_thread_provider.dart';
+import '../../communication/widgets/ticket_thread_view.dart';
+import '../providers/tickets_provider.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _kNavy   = Color(0xFF1E3A5F);
@@ -19,7 +21,8 @@ final _fmtShort = DateFormat('dd MMM', 'fr_FR');
 
 // ─── Local state ──────────────────────────────────────────────────────────────
 final _ticketSearchProv   = StateProvider.autoDispose<String>((ref) => '');
-final _selectedTicketProv = StateProvider.autoDispose<TicketModel?>((ref) => null);
+// Id du ticket sélectionné (pas le modèle → jamais périmé après realtime).
+final _selectedTicketProv = StateProvider.autoDispose<String?>((ref) => null);
 // 'recent' | 'old' | 'priority'
 final _ticketSortProv     = StateProvider.autoDispose<String>((ref) => 'recent');
 
@@ -161,11 +164,13 @@ class _Body extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final search   = ref.watch(_ticketSearchProv);
-    final selected = ref.watch(_selectedTicketProv);
-    final status   = ref.watch(ticketsStatusFilter);
-    final priority = ref.watch(ticketsPriorityFilter);
-    final sort     = ref.watch(_ticketSortProv);
+    final search     = ref.watch(_ticketSearchProv);
+    final selectedId = ref.watch(_selectedTicketProv);
+    final status     = ref.watch(ticketsStatusFilter);
+    final priority   = ref.watch(ticketsPriorityFilter);
+    final sort       = ref.watch(_ticketSortProv);
+    final selected   =
+        data.tickets.where((t) => t.id == selectedId).firstOrNull;
 
     var tickets = data.tickets;
     if (status   != 'all') tickets = tickets.where((t) => t.status == status).toList();
@@ -206,8 +211,8 @@ class _Body extends ConsumerWidget {
                           itemCount: tickets.length,
                           itemBuilder: (_, i) => _TicketTile(
                             ticket: tickets[i],
-                            isSelected: selected?.id == tickets[i].id,
-                            onTap: () => ref.read(_selectedTicketProv.notifier).state = tickets[i],
+                            isSelected: selectedId == tickets[i].id,
+                            onTap: () => ref.read(_selectedTicketProv.notifier).state = tickets[i].id,
                           ),
                         ),
                 ),
@@ -478,73 +483,48 @@ class _TicketDetailState extends ConsumerState<_TicketDetail> {
                   ),
                 ]),
                 const SizedBox(height: 8),
-                Wrap(spacing: 8, children: [
+                Wrap(spacing: 8, runSpacing: 6, children: [
                   _MetaBadge(icon: Icons.corporate_fare_rounded, label: t.groupName),
                   _MetaBadge(icon: Icons.label_rounded,          label: t.category),
                   _MetaBadge(icon: Icons.flag_rounded,           label: _priorityLabel(t.priority)),
                   _MetaBadge(icon: Icons.schedule_rounded,       label: date),
                 ]),
+                const SizedBox(height: 10),
+                // Statut modifiable en un clic — répercuté en temps réel.
+                _StatusChips(ticket: t),
               ],
             ),
           ),
           const Divider(height: 1, color: Color(0xFFE2E8F0)),
 
-          // ── Body ──────────────────────────────────────────────────────
+          // ── Conversation temps réel ───────────────────────────────────
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Message original
-                  const _SectionLabel(label: 'Demande originale'),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: _kCard,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)],
-                    ),
-                    child: Text(t.body, style: const TextStyle(fontSize: 13, color: _kText, height: 1.6)),
-                  ),
-
-                  if (t.response != null && t.response!.isNotEmpty) ...[
-                    const SizedBox(height: 20),
-                    const _SectionLabel(label: 'Réponse apportée'),
-                    const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: _kGreen.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: _kGreen.withValues(alpha: 0.2)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(children: [
-                            const Icon(Icons.check_circle_outline_rounded, size: 14, color: _kGreen),
-                            const SizedBox(width: 6),
-                            Text(t.resolvedAt != null
-                                ? 'Résolu le ${_fmtDate.format(DateTime.tryParse(t.resolvedAt!) ?? DateTime.now())}'
-                                : 'Répondu',
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kGreen)),
-                          ]),
-                          const SizedBox(height: 8),
-                          Text(t.response!, style: const TextStyle(fontSize: 13, color: _kText, height: 1.6)),
-                        ],
-                      ),
-                    ),
-                  ],
-
-                  const SizedBox(height: 24),
-                  const _SectionLabel(label: 'Répondre & changer le statut'),
-                  const SizedBox(height: 8),
-                  _ResponseForm(ticket: t),
-                ],
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+              child: TicketThreadView(
+                key: ValueKey(t.id),
+                ticketId: t.id,
+                ticketOwnerId: t.submittedBy ?? '',
+                groupId: t.groupId,
+                originalBody: t.body,
+                createdAt: t.createdAt,
+                originalAttachments: t.attachments,
+                viewerIsSupport: true,
+                closed: t.isClosed,
+                onSend: (body, attachments) async {
+                  // Première réponse sur un ticket ouvert → passe « En cours ».
+                  final newStatus =
+                      t.status == 'open' ? 'in_progress' : t.status;
+                  await sendSupportReply(
+                    ref,
+                    ticketId: t.id,
+                    ticketOwnerId: t.submittedBy ?? '',
+                    groupId: t.groupId,
+                    body: body,
+                    status: newStatus,
+                    attachments: attachments,
+                  );
+                },
               ),
             ),
           ),
@@ -563,120 +543,43 @@ class _TicketDetailState extends ConsumerState<_TicketDetail> {
   }
 }
 
-class _ResponseForm extends ConsumerStatefulWidget {
-  const _ResponseForm({required this.ticket});
+// ─── Chips de statut (mise à jour directe, realtime) ──────────────────────────
+
+class _StatusChips extends ConsumerWidget {
+  const _StatusChips({required this.ticket});
   final TicketModel ticket;
 
   @override
-  ConsumerState<_ResponseForm> createState() => _ResponseFormState();
-}
-
-class _ResponseFormState extends ConsumerState<_ResponseForm> {
-  final _ctrl    = TextEditingController();
-  String _status = 'in_progress';
-  bool   _sending = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _status = widget.ticket.status == 'open' ? 'in_progress' : widget.ticket.status;
-  }
-
-  @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Status selector
-        Wrap(spacing: 8, children: [
-          for (final (val, lbl, clr) in [
-            ('in_progress', 'En cours',  const Color(0xFFF59E0B)),
-            ('resolved',    'Résolu',    _kGreen),
-            ('closed',      'Fermé',     _kSub),
-          ])
-            ChoiceChip(
-              label: Text(lbl, style: TextStyle(fontSize: 11, color: _status == val ? Colors.white : _kSub)),
-              selected: _status == val,
-              selectedColor: clr,
-              backgroundColor: _kBg,
-              onSelected: (_) => setState(() => _status = val),
-              side: BorderSide(color: _status == val ? clr : const Color(0xFFE2E8F0)),
-              showCheckmark: false,
-            ),
-        ]),
-        const SizedBox(height: 10),
-        TextField(
-          controller: _ctrl,
-          maxLines: 4,
-          style: const TextStyle(fontSize: 13),
-          decoration: InputDecoration(
-            hintText: 'Votre réponse à l\'utilisateur…',
-            hintStyle: const TextStyle(fontSize: 12, color: _kSub),
-            border:         OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-            enabledBorder:  OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-            focusedBorder:  OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _kNavy)),
-            filled: true, fillColor: _kCard,
-            contentPadding: const EdgeInsets.all(12),
-          ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Wrap(spacing: 8, children: [
+      for (final (val, lbl, clr) in [
+        ('open',        'Ouvert',   const Color(0xFFEF4444)),
+        ('in_progress', 'En cours', const Color(0xFFF59E0B)),
+        ('resolved',    'Résolu',   _kGreen),
+        ('closed',      'Fermé',    _kSub),
+      ])
+        ChoiceChip(
+          label: Text(lbl,
+              style: TextStyle(
+                  fontSize: 11,
+                  color: ticket.status == val ? Colors.white : _kSub)),
+          selected: ticket.status == val,
+          selectedColor: clr,
+          backgroundColor: _kBg,
+          onSelected: (_) async {
+            if (ticket.status == val) return;
+            await updateTicketStatus(
+                ref.read(supabaseClientProvider), ticket.id, val);
+          },
+          side: BorderSide(
+              color: ticket.status == val ? clr : const Color(0xFFE2E8F0)),
+          showCheckmark: false,
         ),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            FilledButton.icon(
-              onPressed: _sending ? null : _submit,
-              icon: _sending
-                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.send_rounded, size: 16),
-              label: const Text('Envoyer la réponse'),
-              style: FilledButton.styleFrom(
-                backgroundColor: _kNavy, foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Future<void> _submit() async {
-    if (_ctrl.text.trim().isEmpty) return;
-    setState(() => _sending = true);
-    try {
-      final client = ref.read(supabaseClientProvider);
-      await updateTicketStatus(client, widget.ticket.id, _status, response: _ctrl.text.trim());
-      ref.invalidate(ticketsProvider);
-      _ctrl.clear();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Réponse envoyée !'), backgroundColor: _kGreen));
-        ref.read(_selectedTicketProv.notifier).state = null;
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red));
-      }
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
+    ]);
   }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label});
-  final String label;
-  @override
-  Widget build(BuildContext context) => Text(label,
-      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kText));
-}
 
 class _MetaBadge extends StatelessWidget {
   const _MetaBadge({required this.icon, required this.label});

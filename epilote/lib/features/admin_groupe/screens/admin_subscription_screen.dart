@@ -10,7 +10,7 @@ import '../../super_admin/providers/invoices_provider.dart' show InvoiceDetail;
 import '../../super_admin/providers/receipts_provider.dart' show ReceiptModel;
 import '../../super_admin/services/financial_pdf_service.dart';
 import '../providers/admin_subscription_provider.dart';
-import '../widgets/admin_ui.dart';
+import '../../../core/widgets/admin_ui.dart';
 
 class AdminSubscriptionScreen extends ConsumerWidget {
   const AdminSubscriptionScreen({super.key});

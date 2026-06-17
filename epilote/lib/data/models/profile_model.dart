@@ -21,6 +21,12 @@ class ProfileModel {
     required this.updatedAt,
   });
 
+  /// Construit un profil depuis une Map.
+  ///
+  /// Tolère **deux origines** : Supabase (online, `is_active` booléen, dates
+  /// ISO) ET la ligne SQLite locale PowerSync (offline, `is_active` entier 1/0,
+  /// dates en texte). Indispensable pour le bootstrap offline-first : au
+  /// démarrage sans réseau, le profil est relu depuis PowerSync local.
   factory ProfileModel.fromMap(Map<String, dynamic> map) {
     return ProfileModel(
       id:              map['id']               as String,
@@ -33,14 +39,26 @@ class ProfileModel {
       phone:           map['phone']            as String?,
       avatarUrl:       map['avatar_url']       as String?,
       employeeNumber:  map['employee_number']  as String?,
-      isActive:        map['is_active']        as bool? ?? true,
-      lastLogin:       map['last_login'] != null
-          ? DateTime.parse(map['last_login'] as String)
-          : null,
+      isActive:        _asBool(map['is_active']),
+      lastLogin:       _asDate(map['last_login']),
       fcmToken:        map['fcm_token']        as String?,
-      createdAt:       DateTime.parse(map['created_at'] as String),
-      updatedAt:       DateTime.parse(map['updated_at'] as String),
+      createdAt:       _asDate(map['created_at']) ?? DateTime.now(),
+      updatedAt:       _asDate(map['updated_at']) ?? DateTime.now(),
     );
+  }
+
+  /// `bool` (Supabase) OU `int` 1/0 (SQLite PowerSync) OU `null` → bool.
+  static bool _asBool(Object? v) {
+    if (v is bool) return v;
+    if (v is int) return v != 0;
+    if (v is String) return v == 'true' || v == '1';
+    return true;
+  }
+
+  /// Date ISO en `String` (les deux origines) → `DateTime?`, jamais throw.
+  static DateTime? _asDate(Object? v) {
+    if (v is String && v.isNotEmpty) return DateTime.tryParse(v);
+    return null;
   }
 
   final String id;

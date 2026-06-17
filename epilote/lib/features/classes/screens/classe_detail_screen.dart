@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/loading_widget.dart';
+import '../../navigation/widgets/module_scaffold.dart';
 import '../../../data/models/class_model.dart';
 import '../../../features/structure/providers/academic_year_provider.dart';
 import '../providers/class_provider.dart';
@@ -24,7 +24,8 @@ class ClasseDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final classAsync = ref.watch(classByIdProvider(classId));
 
-    return AppShell(
+    return ModuleScaffold(
+      slug: 'classes',
       title: classAsync.valueOrNull?.name ?? 'Classe',
       child: _DetailBody(classId: classId),
     );

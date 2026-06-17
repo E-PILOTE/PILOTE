@@ -24,6 +24,20 @@ final currentSchoolGroupProvider =
           rows.isEmpty ? null : SchoolGroupModel.fromMap(rows.first));
 });
 
+// ─── Indicateur de synchro conscient des données locales (offline-first) ─────
+
+/// État de synchro pour l'UI, enrichi de la présence de données locales.
+/// Logique offline-first : si la couche locale contient déjà les données du
+/// groupe (synchro précédente réussie), on affiche « à jour » même si la
+/// connexion stream live n'est pas active à l'instant T (réseau terrain
+/// instable). N'alarme avec « Hors ligne » que s'il n'y a vraiment rien.
+final syncIndicatorProvider = Provider<SyncUiState>((ref) {
+  final base = ref.watch(syncUiStateProvider);
+  if (base != SyncUiState.offline) return base; // synced / syncing
+  final hasLocalData = ref.watch(currentSchoolGroupProvider).valueOrNull != null;
+  return hasLocalData ? SyncUiState.synced : SyncUiState.offline;
+});
+
 // ─── Modules du plan courant (offline-first) ─────────────────────────────────
 
 /// Modules actifs auxquels le groupe a accès, enrichis de leur catégorie.

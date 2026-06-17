@@ -7,7 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/routes.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../providers/admin_settings_provider.dart';
-import '../widgets/admin_ui.dart';
+import '../../../core/widgets/admin_ui.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PARAMÈTRES — espace admin_groupe (online, scope group_id)

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../../features/auth/providers/auth_provider.dart';
 import '../providers/notifications_provider.dart';
 import 'notification_types.dart';
 
@@ -88,9 +87,7 @@ class _NotifDropdownPanel extends ConsumerWidget {
 
   Future<void> _open(BuildContext context, WidgetRef ref, NotificationModel n) async {
     if (!n.isRead) {
-      final client = ref.read(supabaseClientProvider);
-      await markNotificationRead(client, n.id);
-      ref.invalidate(notificationsProvider);
+      await markNotifRead(ref, n.id);
     }
     final route = n.data?['route'] as String?;
     if (!context.mounted) return;
@@ -142,11 +139,7 @@ class _NotifDropdownPanel extends ConsumerWidget {
               const Spacer(),
               if (unread > 0)
                 TextButton(
-                  onPressed: () async {
-                    final client = ref.read(supabaseClientProvider);
-                    await markAllNotificationsRead(client);
-                    ref.invalidate(notificationsProvider);
-                  },
+                  onPressed: () => markAllNotifRead(ref),
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     minimumSize: Size.zero,

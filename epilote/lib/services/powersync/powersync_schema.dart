@@ -38,6 +38,42 @@ const schema = Schema([
   ]),
 
   // ════════════════════════════════════════════════════════════════════════
+  // CONTRÔLE D'ACCÈS (profil du membre courant — verrous 3 & 4 offline)
+  // ════════════════════════════════════════════════════════════════════════
+
+  // Profil d'accès assigné au membre (sync-rules : uniquement le sien).
+  Table('access_profiles', [
+    Column.text('group_id'),
+    Column.text('name'),
+    Column.text('description'),
+    Column.text('role_type'),
+    Column.integer('is_active'),
+    Column.text('created_by'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  // Permissions module-par-module du profil (10 booléens + périmètre).
+  Table('profile_permissions', [
+    Column.text('profile_id'),
+    Column.text('module_id'),
+    Column.text('group_id'),
+    Column.integer('can_read'),
+    Column.integer('can_create'),
+    Column.integer('can_update'),
+    Column.integer('can_delete'),
+    Column.integer('can_export'),
+    Column.integer('can_import'),
+    Column.integer('can_validate'),
+    Column.integer('can_approve'),
+    Column.integer('can_manage'),
+    Column.integer('can_write'),
+    Column.text('data_scope'),       // own_classes | own_school
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  // ════════════════════════════════════════════════════════════════════════
   // IDENTITÉ (profil + groupe)
   // ════════════════════════════════════════════════════════════════════════
 
@@ -235,6 +271,7 @@ const schema = Schema([
   Table('staff_members', [
     Column.text('group_id'),
     Column.text('school_id'),
+    Column.text('profile_id'),       // lien vers le compte (périmètre own_classes)
     Column.text('job_title'),
     Column.text('hire_date'),
     Column.text('contract_type'),
@@ -258,12 +295,16 @@ const schema = Schema([
   ]),
 
   Table('subjects', [
-    Column.text('name'),
-    Column.text('code'),
-    Column.integer('coefficient'),
-    Column.text('school_id'),
     Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('level_id'),
+    Column.text('name'),
+    Column.text('slug'),
+    Column.integer('coefficient'),
     Column.integer('is_active'),
+    Column.integer('display_order'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
   ]),
 
   // ════════════════════════════════════════════════════════════════════════
@@ -326,7 +367,9 @@ const schema = Schema([
     Column.text('status'),
     Column.text('arrival_time'),
     Column.text('justification'),
+    Column.text('justification_doc_url'),
     Column.integer('parent_notified'),
+    Column.text('notified_at'),
     Column.text('created_at'),
     Column.text('updated_at'),
   ]),
@@ -358,23 +401,22 @@ const schema = Schema([
     Column.text('updated_at'),
   ]),
 
+  // ⚠️ Schéma aligné sur la base LIVE (2026-06-09) : grade NORMALISÉ → relié à
+  // l'évaluation par evaluation_id (l'année/trimestre/matière/classe vivent dans
+  // `evaluations`). L'ancienne définition dénormalisée (evaluation_name/date/
+  // trimester/class_id/subject_id/teacher_id/max_score/coefficient/status/
+  // academic_year_id) NE CORRESPONDAIT PLUS à la table réelle → corrigée.
   Table('grades', [
-    Column.text('student_id'),
-    Column.text('class_id'),
-    Column.text('subject_id'),
-    Column.text('teacher_id'),
-    Column.text('school_id'),
     Column.text('group_id'),
-    Column.text('academic_year_id'),
-    Column.text('evaluation_name'),
-    Column.text('evaluation_date'),
-    Column.text('trimester'),
+    Column.text('school_id'),
+    Column.text('evaluation_id'),
+    Column.text('student_id'),
+    Column.text('enrollment_id'),
     Column.real('score'),
-    Column.real('max_score'),
-    Column.integer('coefficient'),
-    Column.text('appreciation'),
-    Column.text('status'),
     Column.integer('is_absent'),
+    Column.text('appreciation'),
+    Column.text('teacher_comment'),
+    Column.text('created_by'),
     Column.text('created_at'),
     Column.text('updated_at'),
   ]),
@@ -633,6 +675,7 @@ const schema = Schema([
     Column.integer('is_published'),
     Column.text('published_at'),
     Column.text('expires_at'),
+    Column.text('attachments'), // jsonb [{name,url,mime,size,kind}] en TEXT
     Column.text('created_by'),
     Column.text('created_at'),
     Column.text('updated_at'),
@@ -650,24 +693,101 @@ const schema = Schema([
     Column.text('location'),
     Column.text('target_audience'),
     Column.integer('is_published'),
+    Column.text('attachments'), // jsonb [{name,url,mime,size,kind}] en TEXT
     Column.text('created_by'),
     Column.text('created_at'),
     Column.text('updated_at'),
   ]),
 
-  // Messages privés (sender ↔ recipient)
+  // Réactions aux annonces (like/love/clap — 1 par utilisateur par annonce)
+  Table('announcement_reactions', [
+    Column.text('announcement_id'),
+    Column.text('user_id'),
+    Column.text('group_id'),
+    Column.text('reaction'),
+    Column.text('created_at'),
+  ]),
+
+  // Commentaires sur annonces (avec support de réponses imbriquées via parent_id)
+  Table('announcement_comments', [
+    Column.text('announcement_id'),
+    Column.text('author_id'),
+    Column.text('group_id'),
+    Column.text('content'),
+    Column.text('parent_id'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  // Annonces enregistrées ("bookmarks") — 1 par utilisateur par annonce
+  Table('saved_announcements', [
+    Column.text('announcement_id'),
+    Column.text('user_id'),
+    Column.text('group_id'),
+    Column.text('created_at'),
+  ]),
+
+  // Stories éphémères 24h (type WhatsApp) — image/vidéo/texte, scope-aware
+  Table('stories', [
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('author_id'),
+    Column.text('media_url'),
+    Column.text('media_type'),     // image | video | text
+    Column.text('caption'),
+    Column.text('text_content'),
+    Column.text('bg_color'),
+    Column.text('created_at'),
+    Column.text('expires_at'),
+  ]),
+
+  // Vues de stories (« vu par ») — 1 par viewer par story
+  Table('story_views', [
+    Column.text('story_id'),
+    Column.text('group_id'),
+    Column.text('viewer_id'),
+    Column.text('viewed_at'),
+  ]),
+
+  // Messages privés (sender ↔ recipient) OU de groupe (conversation_id)
   Table('messages', [
     Column.text('group_id'),
     Column.text('sender_id'),
     Column.text('recipient_id'),
+    Column.text('conversation_id'),   // groupe : lien vers conversations
     Column.text('subject'),
     Column.text('body'),
     Column.integer('is_read'),
     Column.text('read_at'),
     Column.text('parent_message_id'),
     Column.integer('is_archived'),
+    Column.text('attachments'), // jsonb [{name,url,mime,size,kind}] en TEXT
+    Column.text('reactions'),   // jsonb { "👍": ["uid",...] } en TEXT
+    Column.text('edited_at'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ]),
+
+  // Conversations de groupe (chat multi-membres)
+  Table('conversations', [
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('title'),
+    Column.integer('is_group'),
+    Column.text('avatar_url'),
+    Column.text('created_by'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  // Membres d'une conversation de groupe
+  Table('conversation_members', [
+    Column.text('conversation_id'),
+    Column.text('user_id'),
+    Column.text('group_id'),
+    Column.text('role'),          // member | admin
+    Column.text('joined_at'),
+    Column.text('last_read_at'),
   ]),
 
   // Notifications push (jsonb data stocké en TEXT)
@@ -682,6 +802,38 @@ const schema = Schema([
     Column.text('read_at'),
     Column.text('sent_at'),
     Column.text('fcm_message_id'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  // Demandes au support plateforme (sync-rules : uniquement les siennes)
+  Table('support_tickets', [
+    Column.text('group_id'),
+    Column.text('submitted_by'),
+    Column.text('subject'),
+    Column.text('body'),
+    Column.text('category'),
+    Column.text('status'),
+    Column.text('priority'),
+    Column.text('assigned_to'),
+    Column.text('resolved_at'),
+    Column.text('response'),
+    Column.text('attachment_url'),
+    Column.text('attachments'), // jsonb [{name,url,mime,size,kind}] en TEXT
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  // Fil de conversation par ticket (chat support temps réel).
+  // ticket_owner_id dénormalisé pour le bucket by_user (pas de JOIN en sync-rules).
+  Table('support_ticket_messages', [
+    Column.text('ticket_id'),
+    Column.text('group_id'),
+    Column.text('ticket_owner_id'),
+    Column.text('author_id'),
+    Column.text('body'),
+    Column.integer('is_from_support'),
+    Column.text('attachments'), // jsonb [{name,url,mime,size,kind}] en TEXT
     Column.text('created_at'),
     Column.text('updated_at'),
   ]),

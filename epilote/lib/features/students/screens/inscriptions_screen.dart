@@ -3,11 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/routes.dart';
-import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/loading_widget.dart';
+import '../../navigation/widgets/module_scaffold.dart';
 import '../../../data/models/class_model.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/classes/providers/class_provider.dart';
+import '../../../features/structure/providers/academic_year_context.dart';
 import '../../../services/powersync/powersync_service.dart';
 import 'add_inscription_screen.dart';
 
@@ -50,19 +51,35 @@ class InscriptionsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return AppShell(
+    final readOnly = ref.watch(yearReadOnlyProvider);
+    return ModuleScaffold(
+      slug: 'inscriptions',
       title: 'Inscriptions',
       actions: [
-        IconButton(
-          icon: const Icon(Icons.add_circle_outline),
-          tooltip: 'Nouvelle inscription',
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              fullscreenDialog: true,
-              builder: (_) => const AddInscriptionScreen(),
+        // Année archivée/non courante → aucune écriture possible (verrou année).
+        if (readOnly)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12),
+            child: Tooltip(
+              message: 'Année en lecture seule',
+              child: Icon(Icons.lock_clock_rounded, color: _kGold, size: 20),
+            ),
+          )
+        else
+          PermissionGate(
+            slug: 'inscriptions',
+            action: 'create',
+            child: IconButton(
+              icon: const Icon(Icons.add_circle_outline),
+              tooltip: 'Nouvelle inscription',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  fullscreenDialog: true,
+                  builder: (_) => const AddInscriptionScreen(),
+                ),
+              ),
             ),
           ),
-        ),
       ],
       child: const _InscriptionsBody(),
     );

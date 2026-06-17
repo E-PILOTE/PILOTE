@@ -10,7 +10,7 @@ import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../providers/admin_audit_provider.dart';
 import '../providers/admin_users_provider.dart' show roleLabel;
-import '../widgets/admin_ui.dart';
+import '../../../core/widgets/admin_ui.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ÉCRAN PRINCIPAL

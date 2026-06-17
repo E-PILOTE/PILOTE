@@ -28,12 +28,24 @@ dependencies:
   cupertino_icons: ^1.0.8
   shimmer: ^3.0.0
   cached_network_image: ^3.4.1
+  # Backend SQLite pour flutter_cache_manager (cache de cached_network_image)
+  # sur desktop Linux/Windows — sans lui, les avatars/logos échouent en dev.
+  sqflite_common_ffi: ^2.3.3
   intl: ^0.20.2
   google_fonts: ^6.2.1
   flutter_svg: ^2.0.10+1
   flutter_animate: ^4.5.2
   calendar_date_picker2: ^3.0.0
   flutter_animated_button: ^2.0.4
+
+  # === MÉDIA RICHE (feed social + chat + stories) ===
+  video_player: ^2.9.2        # lecture vidéo (feed, chat, stories)
+  chewie: ^1.8.5              # contrôles vidéo Material (play/seek/plein écran)
+  story_view: ^0.16.6        # viewer Stories type WhatsApp/Instagram
+  syncfusion_flutter_pdfviewer: ^33.2.8  # visualisation PDF in-app (sans quitter)
+  image: ^4.3.0              # compression/redimensionnement image (pur Dart, universel)
+  video_compress: ^3.1.4     # transcodage vidéo (Android/iOS) façon WhatsApp
+  record: ^7.1.0             # enregistrement note vocale (appui maintenu façon WhatsApp)
 
   # === UTILS ===
   # shared_preferences: ^2.3.5  ← à ajouter quand réseau OK
@@ -59,6 +71,12 @@ dependencies:
   file_picker: ^8.1.7         # upload logos groupes
   pdf: ^3.12.0                # génération PDF
   printing: ^5.14.3           # impression + téléchargement PDF
+  pdfrx: ^2.4.4
+  audioplayers: ^6.7.1
+  media_kit: ^1.2.6
+  media_kit_video: ^2.0.1
+  media_kit_libs_video: ^1.0.7
+  visibility_detector: ^0.4.0+2
   # path_provider: ^2.1.5       ← chemins fichiers
   # path: ^1.9.1
   # firebase_core: ^3.13.0      ← notifications push

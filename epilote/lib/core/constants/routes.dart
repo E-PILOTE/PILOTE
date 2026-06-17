@@ -44,6 +44,7 @@ class Routes {
   static const String adminProfil       = '/admin/profil';
   static const String adminModules      = '/admin/modules';
   static const String adminModuleDetail = '/admin/modules/:slug';
+  static const String adminAnnees       = '/admin/annees';
   // Communication native (admin groupe)
   static const String adminAnnonces      = '/admin/annonces';
   static const String adminMessagerie    = '/admin/messagerie';
@@ -55,11 +56,14 @@ class Routes {
   static const String userDashboard   = '/user/dashboard';
   static const String userRapports    = '/user/rapports';
   static const String userParametres  = '/user/parametres';
+  static const String userProfil      = '/user/profil';
   static const String eleves          = '/user/eleves';
   static const String eleveDetail     = '/user/eleves/:id';
   static const String inscriptions    = '/user/inscriptions';
   static const String classes         = '/user/classes';
   static const String classeDetail    = '/user/classes/:id';
+  static const String calendrier      = '/user/calendrier'; // config direction (natif)
+  static const String matieres        = '/user/matieres';
   static const String notes           = '/user/notes';
   static const String bulletins       = '/user/bulletins';
   static const String presences       = '/user/presences';
@@ -73,4 +77,10 @@ class Routes {
   static const String messagerie      = '/user/messagerie';
   static const String evenements      = '/user/evenements';
   static const String espaceParent    = '/user/espace-parent';
+  static const String userSupport     = '/user/support';
+
+  /// Hôte générique des modules pas encore dotés d'un écran dédié.
+  /// `/user/m/:slug` → placeholder (la sidebar dynamique y route les modules
+  /// accordés mais non encore construits).
+  static const String moduleHost      = '/user/m/:slug';
 }

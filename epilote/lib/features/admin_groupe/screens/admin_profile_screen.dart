@@ -6,7 +6,7 @@ import '../../../features/auth/providers/auth_provider.dart';
 import '../providers/admin_profile_provider.dart';
 import '../providers/admin_settings_provider.dart';
 import '../providers/admin_users_provider.dart' show roleLabel;
-import '../widgets/admin_ui.dart';
+import '../../../core/widgets/admin_ui.dart';
 
 class AdminProfileScreen extends ConsumerWidget {
   const AdminProfileScreen({super.key});

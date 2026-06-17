@@ -4,8 +4,13 @@ import 'package:intl/intl.dart';
 
 import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../communication/providers/messages_provider.dart'
+    show MessageAttachment;
+import '../../communication/providers/ticket_thread_provider.dart';
+import '../../communication/widgets/comm_attachments.dart';
+import '../../communication/widgets/ticket_thread_view.dart';
 import '../providers/admin_support_provider.dart';
-import '../widgets/admin_ui.dart';
+import '../../../core/widgets/admin_ui.dart';
 
 final _fmt = DateFormat('dd/MM/yyyy HH:mm', 'fr_FR');
 
@@ -58,24 +63,48 @@ class _Body extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final filter = ref.watch(adminTicketStatusFilter);
+    final sort   = ref.watch(adminTicketSortProvider);
+    final query  = ref.watch(adminTicketSearchProvider).trim().toLowerCase();
     var tickets = data.tickets;
     if (filter != 'all') {
       tickets = filter == 'resolved'
           ? tickets.where((t) => t.isClosed).toList()
           : tickets.where((t) => t.status == filter).toList();
     }
+    if (query.isNotEmpty) {
+      tickets = tickets
+          .where((t) =>
+              t.subject.toLowerCase().contains(query) ||
+              t.body.toLowerCase().contains(query))
+          .toList();
+    }
+    tickets = sortTickets(tickets, sort);
 
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
+        const AdminSectionTitle(
+          'Demandes au support',
+          icon: Icons.support_agent_rounded,
+          subtitle: 'Posez vos questions et signalez vos problèmes à la plateforme',
+        ),
+        const SizedBox(height: 16),
         Row(children: [
-          const Expanded(
-            child: AdminSectionTitle(
-              'Demandes au support',
-              icon: Icons.support_agent_rounded,
-              subtitle: 'Posez vos questions et signalez vos problèmes à la plateforme',
-            ),
-          ),
+          Expanded(child: AdminStatCard(label: 'Total', value: '${data.total}', icon: Icons.confirmation_num_rounded, color: kNavy)),
+          const SizedBox(width: 12),
+          Expanded(child: AdminStatCard(label: 'Ouverts', value: '${data.open}', icon: Icons.markunread_mailbox_rounded, color: kAccent)),
+          const SizedBox(width: 12),
+          Expanded(child: AdminStatCard(label: 'En cours', value: '${data.inProgress}', icon: Icons.autorenew_rounded, color: kNavy)),
+          const SizedBox(width: 12),
+          Expanded(child: AdminStatCard(label: 'Traités', value: '${data.resolved}', icon: Icons.check_circle_rounded, color: kGreen)),
+        ]),
+        const SizedBox(height: 16),
+        // ── Barre de contrôle : recherche · tri · action ─────────────────────
+        Row(children: [
+          const Expanded(child: _SearchField()),
+          const SizedBox(width: 12),
+          _SortMenu(sort: sort),
+          const SizedBox(width: 12),
           FilledButton.icon(
             onPressed: () => _openCreate(context, ref),
             icon: const Icon(Icons.add_rounded, size: 18),
@@ -88,18 +117,9 @@ class _Body extends ConsumerWidget {
             ),
           ),
         ]),
-        const SizedBox(height: 16),
-        Row(children: [
-          Expanded(child: AdminStatCard(label: 'Total', value: '${data.total}', icon: Icons.confirmation_num_rounded, color: kNavy)),
-          const SizedBox(width: 12),
-          Expanded(child: AdminStatCard(label: 'Ouverts', value: '${data.open}', icon: Icons.markunread_mailbox_rounded, color: kAccent)),
-          const SizedBox(width: 12),
-          Expanded(child: AdminStatCard(label: 'En cours', value: '${data.inProgress}', icon: Icons.autorenew_rounded, color: kNavy)),
-          const SizedBox(width: 12),
-          Expanded(child: AdminStatCard(label: 'Traités', value: '${data.resolved}', icon: Icons.check_circle_rounded, color: kGreen)),
-        ]),
-        const SizedBox(height: 16),
-        Wrap(spacing: 8, children: [
+        const SizedBox(height: 12),
+        // ── Filtres de statut ────────────────────────────────────────────────
+        Wrap(spacing: 8, runSpacing: 8, children: [
           _Chip(label: 'Tous', value: 'all', current: filter),
           _Chip(label: 'Ouverts', value: 'open', current: filter),
           _Chip(label: 'En cours', value: 'in_progress', current: filter),
@@ -155,12 +175,136 @@ class _Chip extends ConsumerWidget {
   }
 }
 
-class _TicketCard extends StatelessWidget {
-  const _TicketCard({required this.ticket});
-  final AdminTicket ticket;
+class _SearchField extends ConsumerStatefulWidget {
+  const _SearchField();
+  @override
+  ConsumerState<_SearchField> createState() => _SearchFieldState();
+}
+
+class _SearchFieldState extends ConsumerState<_SearchField> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final query = ref.watch(adminTicketSearchProvider);
+    return TextField(
+      controller: _ctrl,
+      style: const TextStyle(fontSize: 13),
+      onChanged: (v) => ref.read(adminTicketSearchProvider.notifier).state = v,
+      decoration: InputDecoration(
+        hintText: 'Rechercher une demande…',
+        hintStyle: const TextStyle(fontSize: 13, color: kTextMuted),
+        prefixIcon: const Icon(Icons.search_rounded, size: 18, color: kTextMuted),
+        suffixIcon: query.isEmpty
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.close_rounded, size: 16, color: kTextMuted),
+                onPressed: () {
+                  _ctrl.clear();
+                  ref.read(adminTicketSearchProvider.notifier).state = '';
+                },
+              ),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        filled: true,
+        fillColor: kCardBg,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kNavy)),
+      ),
+    );
+  }
+}
+
+class _SortMenu extends ConsumerWidget {
+  const _SortMenu({required this.sort});
+  final String sort;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return PopupMenuButton<String>(
+      tooltip: 'Trier',
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      onSelected: (v) => ref.read(adminTicketSortProvider.notifier).state = v,
+      itemBuilder: (_) => adminTicketSortLabels.entries
+          .map((e) => PopupMenuItem(
+                value: e.key,
+                child: Row(children: [
+                  Icon(sort == e.key ? Icons.check_rounded : Icons.sort_rounded,
+                      size: 16, color: sort == e.key ? kGreen : kTextMuted),
+                  const SizedBox(width: 10),
+                  Text(e.value),
+                ]),
+              ))
+          .toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: kCardBg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.sort_rounded, size: 16, color: kTextMuted),
+          const SizedBox(width: 8),
+          Text(adminTicketSortLabels[sort] ?? 'Trier',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kTextPrimary)),
+          const SizedBox(width: 4),
+          const Icon(Icons.arrow_drop_down_rounded, size: 18, color: kTextMuted),
+        ]),
+      ),
+    );
+  }
+}
+
+class _TicketCard extends ConsumerWidget {
+  const _TicketCard({required this.ticket});
+  final AdminTicket ticket;
+
+  void _openThread(BuildContext context, WidgetRef ref) {
+    final st = _statusInfo(ticket.status);
+    final pr = _priorityInfo(ticket.priority);
+    final groupId = ref.read(authNotifierProvider).valueOrNull?.groupId;
+    final ownerId = ticket.submittedBy ?? '';
+    showDialog<void>(
+      context: context,
+      builder: (_) => TicketThreadDialog(
+        ticketId: ticket.id,
+        subject: ticket.subject,
+        statusLabel: st.label,
+        statusColor: st.color,
+        ticketOwnerId: ownerId,
+        groupId: groupId,
+        originalBody: ticket.body,
+        createdAt: ticket.createdAt,
+        originalAttachments: ticket.attachments,
+        closed: ticket.isClosed,
+        metaBadges: [
+          AdminBadge(adminTicketCategories[ticket.category] ?? ticket.category,
+              color: kNavy, icon: Icons.category_rounded),
+          AdminBadge(pr.label, color: pr.color, icon: Icons.flag_rounded),
+        ],
+        onSend: (body, attachments) => sendRequesterFollowUp(
+          ref,
+          ticketId: ticket.id,
+          ticketOwnerId: ownerId,
+          groupId: groupId,
+          body: body,
+          currentStatus: ticket.status,
+          attachments: attachments,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final st = _statusInfo(ticket.status);
     final pr = _priorityInfo(ticket.priority);
     final cat = adminTicketCategories[ticket.category] ?? ticket.category;
@@ -170,6 +314,7 @@ class _TicketCard extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: AdminCard(
         accent: st.color,
+        onTap: () => _openThread(context, ref),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -207,16 +352,28 @@ class _TicketCard extends StatelessWidget {
                     const Row(children: [
                       Icon(Icons.support_agent_rounded, size: 15, color: kGreen),
                       SizedBox(width: 6),
-                      Text('Réponse du support',
+                      Text('Dernière réponse du support',
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kGreen)),
                     ]),
                     const SizedBox(height: 6),
                     Text(ticket.response!,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 13, color: kTextPrimary, height: 1.5)),
                   ],
                 ),
               ),
             ],
+            const SizedBox(height: 10),
+            const Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+              Icon(Icons.forum_outlined, size: 14, color: kNavy),
+              SizedBox(width: 5),
+              Text('Ouvrir la conversation',
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: kNavy)),
+            ]),
           ],
         ),
       ),
@@ -250,6 +407,30 @@ class _CreateTicketDialogState extends ConsumerState<_CreateTicketDialog> {
   String _category = 'technique';
   String _priority = 'medium';
   bool   _saving = false;
+  bool   _uploading = false;
+  // Images / documents de plainte joints à la demande initiale.
+  final List<MessageAttachment> _pending = [];
+
+  Future<void> _pickAttachments({required bool imagesOnly}) async {
+    if (_uploading || _saving) return;
+    final groupId = ref.read(authNotifierProvider).valueOrNull?.groupId;
+    if (groupId == null) return;
+    setState(() => _uploading = true);
+    try {
+      final added = await pickAndUploadAttachments(
+        client: ref.read(supabaseClientProvider),
+        groupId: groupId,
+        imagesOnly: imagesOnly,
+      );
+      if (mounted && added.isNotEmpty) {
+        setState(() => _pending.addAll(added));
+      }
+    } on AttachmentUploadException catch (e) {
+      _toast(e.message);
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -318,6 +499,42 @@ class _CreateTicketDialogState extends ConsumerState<_CreateTicketDialog> {
               const SizedBox(height: 12),
               _label('Description'),
               TextField(controller: _bodyCtrl, maxLines: 5, style: const TextStyle(fontSize: 13), decoration: _deco('Décrivez votre demande en détail…')),
+              const SizedBox(height: 14),
+              _label('Pièces jointes (images, documents)'),
+              Row(children: [
+                OutlinedButton.icon(
+                  onPressed: _uploading ? null : () => _pickAttachments(imagesOnly: true),
+                  icon: const Icon(Icons.image_rounded, size: 16),
+                  label: const Text('Image'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: kNavy,
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: _uploading ? null : () => _pickAttachments(imagesOnly: false),
+                  icon: const Icon(Icons.attach_file_rounded, size: 16),
+                  label: const Text('Document'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: kNavy,
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+                if (_uploading) ...[
+                  const SizedBox(width: 12),
+                  const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                ],
+              ]),
+              if (_pending.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                CommAttachmentEditList(
+                  items: _pending,
+                  onRemove: (i) => setState(() => _pending.removeAt(i)),
+                ),
+              ],
               const SizedBox(height: 20),
               Row(children: [
                 Expanded(
@@ -399,6 +616,7 @@ class _CreateTicketDialogState extends ConsumerState<_CreateTicketDialog> {
         category: _category,
         priority: _priority,
         body: _bodyCtrl.text,
+        attachments: _pending,
       );
       ref.invalidate(adminTicketsProvider);
       if (mounted) {

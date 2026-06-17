@@ -3,9 +3,29 @@ import 'package:uuid/uuid.dart';
 
 import '../../../data/models/class_model.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../features/navigation/providers/permissions_provider.dart';
+import '../../../features/structure/providers/academic_year_context.dart';
 import '../../../services/powersync/powersync_service.dart';
 
 const _uuid = Uuid();
+
+// ─── Verrou 4 : périmètre de données (own_school vs own_classes) ──────────────
+
+/// Restriction de périmètre pour le module [slug].
+/// • `null`  → aucune restriction (`own_school`) : toute l'école.
+/// • liste   → uniquement ces `class_id` (peut être vide = aucune classe).
+///
+/// Pendant le chargement des ids d'un périmètre `own_classes`, retourne une
+/// liste vide plutôt que `null` : on ne laisse JAMAIS fuiter toute l'école à un
+/// enseignant le temps que ses classes se résolvent.
+List<String>? _scopeRestriction(Ref ref, String slug) {
+  final perm = ref.watch(modulePermissionProvider(slug));
+  if (perm == null || !perm.isOwnClasses) return null; // own_school → tout
+  return ref.watch(scopedClassIdsProvider(slug)).valueOrNull ?? const <String>[];
+}
+
+/// `?,?,?` pour un `IN (...)` paramétré.
+String _placeholders(int n) => List.filled(n, '?').join(',');
 
 // ─── Liste des classes ────────────────────────────────────────────────────────
 
@@ -14,9 +34,15 @@ const _uuid = Uuid();
 final classesProvider =
     StreamProvider.autoDispose<List<ClassModel>>((ref) {
   final profile = ref.watch(authNotifierProvider).valueOrNull;
-  if (profile?.schoolId == null || profile!.schoolId!.isEmpty) {
+  final yearId  = ref.watch(activeYearIdProvider);
+  if (profile?.schoolId == null || profile!.schoolId!.isEmpty || yearId == null) {
     return Stream.value([]);
   }
+
+  final scopeIds = _scopeRestriction(ref, 'classes');
+  if (scopeIds != null && scopeIds.isEmpty) return Stream.value([]);
+  final scopeClause =
+      scopeIds == null ? '' : 'AND c.id IN (${_placeholders(scopeIds.length)})';
 
   return db
       .watch(
@@ -31,10 +57,12 @@ final classesProvider =
           GROUP  BY class_id
         ) ec ON ec.class_id = c.id
         WHERE  c.school_id = ?
+        AND    c.academic_year_id = ?
         AND    c.is_active  = 1
+        $scopeClause
         ORDER  BY c.name
         ''',
-        parameters: [profile.schoolId],
+        parameters: [profile.schoolId, yearId, ...?scopeIds],
       )
       .map((rows) => rows.map(ClassModel.fromMap).toList());
 });
@@ -93,27 +121,39 @@ final classEnrollmentsProvider = StreamProvider.autoDispose
 /// Nombre total de classes actives pour l'école courante.
 final classCountProvider = StreamProvider.autoDispose<int>((ref) {
   final profile = ref.watch(authNotifierProvider).valueOrNull;
-  if (profile?.schoolId == null || profile!.schoolId!.isEmpty) {
+  final yearId  = ref.watch(activeYearIdProvider);
+  if (profile?.schoolId == null || profile!.schoolId!.isEmpty || yearId == null) {
     return Stream.value(0);
   }
+  final scopeIds = _scopeRestriction(ref, 'classes');
+  if (scopeIds != null && scopeIds.isEmpty) return Stream.value(0);
+  final scopeClause =
+      scopeIds == null ? '' : 'AND id IN (${_placeholders(scopeIds.length)})';
   return db
       .watch(
-        'SELECT COUNT(*) AS cnt FROM classes WHERE school_id = ? AND is_active = 1',
-        parameters: [profile.schoolId],
+        'SELECT COUNT(*) AS cnt FROM classes '
+        'WHERE school_id = ? AND academic_year_id = ? AND is_active = 1 $scopeClause',
+        parameters: [profile.schoolId, yearId, ...?scopeIds],
       )
       .map((rows) => rows.isEmpty ? 0 : (rows.first['cnt'] as int? ?? 0));
 });
 
-/// Nombre total d'élèves inscrits (actifs) pour l'école courante.
+/// Nombre total d'élèves inscrits (actifs) pour l'école et l'année actives.
 final enrolledStudentCountProvider = StreamProvider.autoDispose<int>((ref) {
   final profile = ref.watch(authNotifierProvider).valueOrNull;
-  if (profile?.schoolId == null || profile!.schoolId!.isEmpty) {
+  final yearId  = ref.watch(activeYearIdProvider);
+  if (profile?.schoolId == null || profile!.schoolId!.isEmpty || yearId == null) {
     return Stream.value(0);
   }
+  final scopeIds = _scopeRestriction(ref, 'eleves');
+  if (scopeIds != null && scopeIds.isEmpty) return Stream.value(0);
+  final scopeClause =
+      scopeIds == null ? '' : 'AND class_id IN (${_placeholders(scopeIds.length)})';
   return db
       .watch(
-        'SELECT COUNT(*) AS cnt FROM class_enrollments WHERE school_id = ? AND status = \'active\'',
-        parameters: [profile.schoolId],
+        'SELECT COUNT(*) AS cnt FROM class_enrollments '
+        'WHERE school_id = ? AND academic_year_id = ? AND status = \'active\' $scopeClause',
+        parameters: [profile.schoolId, yearId, ...?scopeIds],
       )
       .map((rows) => rows.isEmpty ? 0 : (rows.first['cnt'] as int? ?? 0));
 });
@@ -132,6 +172,18 @@ Future<String> createClass({
   String? room,
   String? levelId,
 }) async {
+  // Pré-validation anti-perte silencieuse : contrainte UNIQUE
+  // (school_id, academic_year_id, name). Sans ce contrôle, un doublon part en
+  // local « avec succès » puis est rejeté en silence (23505) à la synchro.
+  final dup = await db.getAll(
+    'SELECT 1 FROM classes '
+    'WHERE school_id = ? AND academic_year_id = ? AND name = ? LIMIT 1',
+    [schoolId, academicYearId, name],
+  );
+  if (dup.isNotEmpty) {
+    throw Exception('Une classe « $name » existe déjà pour cette année scolaire.');
+  }
+
   final id  = _uuid.v4();
   final now = DateTime.now().toIso8601String();
   await db.execute(
@@ -162,9 +214,14 @@ Future<void> archiveClass(String classId) async {
 final pendingEnrollmentsProvider =
     StreamProvider.autoDispose<List<ClassEnrollmentModel>>((ref) {
   final profile = ref.watch(authNotifierProvider).valueOrNull;
-  if (profile?.schoolId == null || profile!.schoolId!.isEmpty) {
+  final yearId  = ref.watch(activeYearIdProvider);
+  if (profile?.schoolId == null || profile!.schoolId!.isEmpty || yearId == null) {
     return Stream.value([]);
   }
+  final scopeIds = _scopeRestriction(ref, 'inscriptions');
+  if (scopeIds != null && scopeIds.isEmpty) return Stream.value([]);
+  final scopeClause =
+      scopeIds == null ? '' : 'AND ce.class_id IN (${_placeholders(scopeIds.length)})';
   return db
       .watch(
         '''
@@ -177,10 +234,12 @@ final pendingEnrollmentsProvider =
         FROM   class_enrollments ce
         JOIN   students s ON s.id = ce.student_id
         WHERE  ce.school_id = ?
+        AND    ce.academic_year_id = ?
         AND    ce.status    = 'pending_validation'
+        $scopeClause
         ORDER  BY ce.created_at DESC
         ''',
-        parameters: [profile.schoolId],
+        parameters: [profile.schoolId, yearId, ...?scopeIds],
       )
       .map((rows) => rows.map(ClassEnrollmentModel.fromMap).toList());
 });
@@ -199,6 +258,19 @@ Future<String> enrollStudent({
   String? previousSchoolName,
   String? previousClassName,
 }) async {
+  // Pré-validation anti-perte silencieuse : contrainte UNIQUE
+  // (student_id, academic_year_id) — un élève = une seule inscription par année
+  // (tout statut confondu). Sans ce contrôle, le doublon serait rejeté en
+  // silence (23505) à la synchro et l'inscription « disparaîtrait ».
+  final dup = await db.getAll(
+    'SELECT 1 FROM class_enrollments '
+    'WHERE student_id = ? AND academic_year_id = ? LIMIT 1',
+    [studentId, academicYearId],
+  );
+  if (dup.isNotEmpty) {
+    throw Exception('Cet élève est déjà inscrit pour cette année scolaire.');
+  }
+
   final id    = _uuid.v4();
   final now   = DateTime.now().toIso8601String();
   final today = now.substring(0, 10);
