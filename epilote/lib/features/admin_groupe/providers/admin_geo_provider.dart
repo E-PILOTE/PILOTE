@@ -313,7 +313,18 @@ class _PlacesNotifier
   Future<void> _refreshLive() async {
     try {
       final live = await _fetchLivePlaces();
-      state = AsyncData(live);
+      final current = state.valueOrNull ?? const <GeoPlace>[];
+      // Ne JAMAIS régresser sous la couverture embarquée. Overpass est souvent
+      // lent / rate-limité et peut renvoyer une réponse PARTIELLE (moins de
+      // localités que l'asset vérifié) → on n'accepte le live que s'il couvre
+      // au moins autant de lieux. Sinon « tous les villages ne s'affichent plus ».
+      // (Même protection que les départements, cf. _DeptsNotifier.)
+      if (live.length >= current.length) {
+        state = AsyncData(live);
+      } else {
+        appLogger.w('Localités live OSM (${live.length}) < asset embarqué '
+            '(${current.length}) — live rejeté, asset conservé (couverture villages préservée)');
+      }
     } catch (e, st) {
       appLogger.w('Localités live (Overpass) indisponibles — '
           'asset embarqué conservé', error: e, stackTrace: st);

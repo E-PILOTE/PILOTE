@@ -30,6 +30,7 @@ class SchoolDetail {
     this.foundedYear,
     this.directorId,
     this.logoUrl,
+    this.capacity,
   });
   final String id;
   final String name;
@@ -51,6 +52,11 @@ class SchoolDetail {
   final int? foundedYear;
   final String? directorId;
   final String? logoUrl;
+  final int? capacity;
+
+  /// Taux d'occupation = effectif / capacité. null si capacité non renseignée.
+  double? get occupancy =>
+      (capacity != null && capacity! > 0) ? students / capacity! : null;
 }
 
 class AdminSchoolsData {
@@ -154,7 +160,7 @@ final adminSchoolsProvider =
     final rows = await client.from('schools').select(
             'id, name, school_type, school_code, address, city, province, '
             'arrondissement, department, phone, email, website, motto, '
-            'founded_year, director_id, logo_url, is_active')
+            'founded_year, director_id, logo_url, is_active, capacity')
         .eq('group_id', groupId)
         .order('name') as List;
     for (final s in rows) {
@@ -176,6 +182,7 @@ final adminSchoolsProvider =
         foundedYear:    s['founded_year'] as int?,
         directorId:     s['director_id'] as String?,
         logoUrl:        s['logo_url'] as String?,
+        capacity:       s['capacity'] as int?,
         isActive:       s['is_active'] as bool? ?? true,
         students:       stu[id] ?? 0,
         staff:          sta[id] ?? 0,
@@ -222,6 +229,7 @@ class AdminSchoolsService {
     String? motto,
     int? foundedYear,
     String? logoUrl,
+    int? capacity,
   }) async {
     final client  = _ref.read(supabaseClientProvider);
     final groupId = _ref.read(authNotifierProvider).valueOrNull?.groupId;
@@ -241,6 +249,7 @@ class AdminSchoolsService {
       if (website != null && website.isNotEmpty) 'website': website,
       if (motto != null && motto.isNotEmpty) 'motto': motto,
       if (logoUrl != null && logoUrl.isNotEmpty) 'logo_url': logoUrl,
+      'capacity': ?capacity,
       'founded_year': ?foundedYear,
     }).select('id').single();
     _refreshAll();
@@ -263,6 +272,7 @@ class AdminSchoolsService {
     String? motto,
     int? foundedYear,
     String? logoUrl,
+    int? capacity,
   }) async {
     final client = _ref.read(supabaseClientProvider);
     await client.from('schools').update({
@@ -280,6 +290,7 @@ class AdminSchoolsService {
       'motto': (motto != null && motto.isNotEmpty) ? motto : null,
       'logo_url': (logoUrl != null && logoUrl.isNotEmpty) ? logoUrl : null,
       'founded_year': foundedYear,
+      'capacity': capacity,
       'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', id);
     _refreshAll();

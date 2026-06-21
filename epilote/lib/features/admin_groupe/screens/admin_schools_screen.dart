@@ -1462,6 +1462,36 @@ Color _schoolTypeColor(String t) => switch (t) {
   _        => _kGold,
 };
 
+// ─── API publique réutilisable (Vue régionale → tableau analytique) ──────────
+/// Libellé du type d'établissement (Public / Privé / Mixte).
+String schoolTypeLabel(String t) => _schoolTypeLabel(t);
+
+/// Couleur associée au type d'établissement.
+Color schoolTypeColor(String t) => _schoolTypeColor(t);
+
+/// Ouvre la fiche détaillée d'une école (4 onglets : Infos / Cycles /
+/// Utilisateurs / Stats) depuis n'importe quel écran admin_groupe. Réutilisée
+/// par le tableau analytique de la Vue régionale pour éviter toute duplication.
+Future<void> openSchoolDetailDialog(
+    BuildContext context, WidgetRef ref, SchoolDetail s) {
+  return showDialog(
+    context: context,
+    builder: (_) => _SchoolDetailModal(
+      school: s,
+      onEdit: () {
+        Navigator.of(context).pop();
+        showDialog(context: context, builder: (_) => SchoolFormDialog(school: s));
+      },
+      onToggle: () async {
+        Navigator.of(context).pop();
+        try {
+          await ref.read(adminSchoolsServiceProvider).setActive(s.id, !s.isActive);
+        } catch (_) {}
+      },
+    ),
+  );
+}
+
 class _SchoolDetailModal extends StatefulWidget {
   const _SchoolDetailModal({
     required this.school,
@@ -2105,6 +2135,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
   late final TextEditingController _email;
   late final TextEditingController _website;
   late final TextEditingController _founded;
+  late final TextEditingController _capacity;
   late final TextEditingController _motto;
   String  _type       = 'prive';
   String? _department;
@@ -2142,6 +2173,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
     _email          = TextEditingController(text: s?.email ?? '');
     _website        = TextEditingController(text: s?.website ?? '');
     _founded        = TextEditingController(text: s?.foundedYear?.toString() ?? '');
+    _capacity       = TextEditingController(text: s?.capacity?.toString() ?? '');
     _motto          = TextEditingController(text: s?.motto ?? '');
     _logoUrl        = s?.logoUrl;
     _type = s?.type ?? 'prive';
@@ -2176,7 +2208,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
   @override
   void dispose() {
     for (final c in [_name, _code, _city, _province, _arrondissement,
-                     _address, _phone, _email, _website, _founded, _motto]) {
+                     _address, _phone, _email, _website, _founded, _capacity, _motto]) {
       c.dispose();
     }
     _btnCtrl.dispose();
@@ -2226,6 +2258,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
       final svc    = ref.read(adminSchoolsServiceProvider);
       final eduSvc = ref.read(educationServiceProvider);
       final year   = int.tryParse(_founded.text.trim());
+      final cap    = int.tryParse(_capacity.text.trim());
       final String schoolId;
       if (_isEdit) {
         await svc.update(
@@ -2236,6 +2269,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
           department: _department, phone: _phone.text.trim(),
           email: _email.text.trim(), website: _website.text.trim(),
           motto: _motto.text.trim(), foundedYear: year, logoUrl: _logoUrl,
+          capacity: cap,
         );
         schoolId = widget.school!.id;
       } else {
@@ -2246,6 +2280,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
           department: _department, phone: _phone.text.trim(),
           email: _email.text.trim(), website: _website.text.trim(),
           motto: _motto.text.trim(), foundedYear: year, logoUrl: _logoUrl,
+          capacity: cap,
         );
       }
       // Enregistrer l'offre éducative (cycles / filières / niveaux).
@@ -2886,11 +2921,24 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
                   )),
                   const SizedBox(width: 12),
                   Expanded(child: TextFormField(
-                    controller: _website,
-                    keyboardType: TextInputType.url,
-                    decoration: _inputDec('Site web'),
+                    controller: _capacity,
+                    keyboardType: TextInputType.number,
+                    validator: (v) {
+                      final t = v?.trim() ?? '';
+                      if (t.isEmpty) return null;
+                      final n = int.tryParse(t);
+                      if (n == null || n < 0) return 'Nombre invalide';
+                      return null;
+                    },
+                    decoration: _inputDec("Capacité d'accueil (places)"),
                   )),
                 ]),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _website,
+                  keyboardType: TextInputType.url,
+                  decoration: _inputDec('Site web'),
+                ),
                 const _SchFormDivider(),
                 const _SchFormLabel('IDENTITÉ OFFICIELLE'),
                 const SizedBox(height: 14),

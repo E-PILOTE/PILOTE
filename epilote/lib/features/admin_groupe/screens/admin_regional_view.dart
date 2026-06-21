@@ -10,9 +10,13 @@ import 'package:latlong2/latlong.dart';
 import '../providers/admin_dashboard_provider.dart';
 import '../providers/admin_geo_provider.dart';
 import '../providers/admin_regional_provider.dart';
+import '../providers/admin_schools_provider.dart';
+import '../providers/regional_table_provider.dart';
 import '../services/regional_pdf_service.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../widgets/mapillary_viewer.dart';
+import 'admin_schools_screen.dart' show openSchoolDetailDialog;
+import 'regional_table_mode.dart';
 
 const Color _kPurple = Color(0xFF7C3AED);
 const Color _kBlue   = Color(0xFF0EA5E9);
@@ -62,6 +66,11 @@ extension RegionalSelectionX on RegionalSelection {
       };
 }
 
+// Mode d'affichage de la Vue régionale : carte interactive ou tableau analytique.
+enum RegionalViewMode { map, table }
+final _regionalModeProv =
+    StateProvider.autoDispose<RegionalViewMode>((ref) => RegionalViewMode.map);
+
 final _selectionProv = StateProvider.autoDispose<RegionalSelection>(
     (ref) => const SelectionNone());
 final _placementModeProv =
@@ -81,10 +90,17 @@ final _showProjLayerProv     = StateProvider.autoDispose<bool>((ref) => true);
 final _showPolygonsLayerProv = StateProvider.autoDispose<bool>((ref) => true);
 // Villes + bourgs (city/town) : actif par défaut
 final _showCitiesLayerProv   = StateProvider.autoDispose<bool>((ref) => true);
-// Villages : actif par défaut — CircleLayer léger (253 points, 2.5 px)
+// Villages/hameaux/localités : actif par défaut — ~1346 localités embarquées
+// (CircleLayer léger à zoom national, étiquettes à zoom ≥ 9.5)
 final _showVillagesLayerProv = StateProvider.autoDispose<bool>((ref) => true);
 // Réseau routier OSM (trunk/primary/secondary/tertiary) — OFF par défaut (chargement ~15 s)
 final _showRoadsLayerProv    = StateProvider.autoDispose<bool>((ref) => false);
+
+// Dimension de coloration des pins écoles : par type d'établissement (défaut)
+// ou par charge pédagogique (élèves/classe). Tier 4.
+enum _PinColorMode { type, load, occupancy }
+final _pinColorModeProv =
+    StateProvider.autoDispose<_PinColorMode>((ref) => _PinColorMode.type);
 
 // Rectangle couvrant tout le globe — anneau extérieur du masque géographique.
 // Le « trou » (frontière du Congo) laisse apparaître le pays en clair tandis
@@ -164,10 +180,97 @@ class AdminRegionalView extends ConsumerWidget {
     // se superposent dès que les données arrivent ; en cas de lenteur ou
     // d'erreur réseau, la carte du Congo reste visible — jamais d'écran vide.
     final async = ref.watch(adminRegionalProvider);
-    return _MapLayout(
-      data: async.valueOrNull ?? AdminRegionalData.empty,
-      dataLoading: async.isLoading,
-      dataError: async.hasError ? '${async.error}' : null,
+    final mode  = ref.watch(_regionalModeProv);
+    return Column(
+      children: [
+        const _ModeSwitch(),
+        const SizedBox(height: 12),
+        Expanded(
+          child: mode == RegionalViewMode.map
+              ? _MapLayout(
+                  data: async.valueOrNull ?? AdminRegionalData.empty,
+                  dataLoading: async.isLoading,
+                  dataError: async.hasError ? '${async.error}' : null,
+                )
+              : const RegionalTableMode(),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Bascule Carte / Tableau ─────────────────────────────────────────────────
+class _ModeSwitch extends ConsumerWidget {
+  const _ModeSwitch();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(_regionalModeProv);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: kSurface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: kBorder),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          _ModeBtn(
+            label: 'Carte',
+            icon: Icons.map_rounded,
+            selected: mode == RegionalViewMode.map,
+            onTap: () =>
+                ref.read(_regionalModeProv.notifier).state = RegionalViewMode.map,
+          ),
+          const SizedBox(width: 3),
+          _ModeBtn(
+            label: 'Tableau',
+            icon: Icons.table_rows_rounded,
+            selected: mode == RegionalViewMode.table,
+            onTap: () => ref.read(_regionalModeProv.notifier).state =
+                RegionalViewMode.table,
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _ModeBtn extends StatelessWidget {
+  const _ModeBtn({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? kNavy : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 15, color: selected ? Colors.white : kTextMuted),
+          const SizedBox(width: 7),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? Colors.white : kTextMuted)),
+        ]),
+      ),
     );
   }
 }
@@ -246,11 +349,13 @@ class _MapLayout extends ConsumerWidget {
                             children: [
                               _GlobalStats(data: view),
                               const Divider(height: 1, color: kBorder),
+                              const _PipelinePanel(),
+                              const Divider(height: 1, color: kBorder),
+                              _CoveragePanel(data: view),
+                              const Divider(height: 1, color: kBorder),
                               const _FilterBar(),
                               const Divider(height: 1, color: kBorder),
                               const _LayerToggleBar(),
-                              const Divider(height: 1, color: kBorder),
-                              _DeptList(data: view, embedded: true),
                             ],
                           ),
                         ),
@@ -662,8 +767,76 @@ class _LayerToggleBar extends ConsumerWidget {
                   if (!showRoads) ref.read(congoRoadsProvider);
                 }),
           ]),
+          const SizedBox(height: 10),
+          const Divider(height: 1, color: kBorder),
+          const SizedBox(height: 8),
+          // ── Coloration des écoles ──────────────────────────────────────────
+          const Row(children: [
+            Icon(Icons.palette_outlined, size: 13, color: kTextMuted),
+            SizedBox(width: 6),
+            Text('COULEUR DES ÉCOLES', style: sectionLabel),
+          ]),
+          const SizedBox(height: 6),
+          const _PinColorSwitch(),
         ],
       ),
+    );
+  }
+}
+
+// Segmenté : colorer les pins/grappes par type ou par charge (élèves/classe).
+class _PinColorSwitch extends ConsumerWidget {
+  const _PinColorSwitch();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(_pinColorModeProv);
+    Widget btn(String label, IconData icon, _PinColorMode m,
+        {bool first = false, bool last = false}) {
+      final active = mode == m;
+      final radius = BorderRadius.horizontal(
+          left: first ? const Radius.circular(6) : Radius.zero,
+          right: last ? const Radius.circular(6) : Radius.zero);
+      return Expanded(
+        child: InkWell(
+          onTap: () => ref.read(_pinColorModeProv.notifier).state = m,
+          borderRadius: radius,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: active ? kNavy : Colors.transparent,
+              borderRadius: radius,
+            ),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(icon,
+                  size: 13, color: active ? Colors.white : kTextMuted),
+              const SizedBox(width: 5),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: active ? Colors.white : kTextMuted)),
+            ]),
+          ),
+        ),
+      );
+    }
+
+    Widget sep() => Container(width: 1, height: 26, color: kBorder);
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: kBorder),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Row(children: [
+        btn('Type', Icons.category_outlined, _PinColorMode.type, first: true),
+        sep(),
+        btn('Charge', Icons.groups_2_outlined, _PinColorMode.load),
+        sep(),
+        btn('Occup.', Icons.event_seat_outlined, _PinColorMode.occupancy,
+            last: true),
+      ]),
     );
   }
 }
@@ -1002,11 +1175,12 @@ class _GeoLoadingOverlay extends StatelessWidget {
 }
 
 // ─── Légende ────────────────────────────────────────────────────────────────
-class _MapLegend extends StatelessWidget {
+class _MapLegend extends ConsumerWidget {
   const _MapLegend();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pinMode = ref.watch(_pinColorModeProv);
     Widget circle(Color c, double s) => Container(
           width: s, height: s,
           decoration: BoxDecoration(
@@ -1073,16 +1247,32 @@ class _MapLegend extends StatelessWidget {
             const Text('ÉCOLES & PROJETS',
                 style: TextStyle(fontSize: 7, fontWeight: FontWeight.w700,
                     color: kTextMuted, letterSpacing: 0.8)),
-            row(circle(kGreen, 11), 'École GPS (publique)'),
-            row(circle(_kBlue, 11), 'École GPS (privée)'),
-            row(sq(_kOrange, 10), 'Projet en cours'),
-            row(sq(kGreen, 10), 'Projet achevé'),
+            if (pinMode == _PinColorMode.type) ...[
+              row(circle(_kBlue, 11), 'École GPS (publique)'),
+              row(circle(kGreen, 11), 'École GPS (privée)'),
+              row(circle(_kPurple, 11), 'École GPS (mixte)'),
+            ] else if (pinMode == _PinColorMode.load) ...[
+              row(circle(kGreen, 11), 'Effectifs maîtrisés (<40/cl.)'),
+              row(circle(const Color(0xFFF59E0B), 11), 'Classes chargées (40–49)'),
+              row(circle(kRed, 11), 'Classes surchargées (≥50)'),
+              row(circle(kTextMuted, 11), 'Charge inconnue'),
+            ] else ...[
+              row(circle(const Color(0xFFF59E0B), 11), 'Sous-occupée (<70 %)'),
+              row(circle(kGreen, 11), 'Occupation optimale (70–99 %)'),
+              row(circle(kRed, 11), 'Capacité saturée (≥100 %)'),
+              row(circle(kTextMuted, 11), 'Capacité non renseignée'),
+            ],
+            row(circle(kRed, 11), 'École inactive'),
             row(
               Row(mainAxisSize: MainAxisSize.min, children: [
-                circle(kNavy, 8), const SizedBox(width: 2), circle(kNavy, 14),
+                circle(kNavy, 9),
+                const SizedBox(width: 1),
+                circle(kNavy, 14),
               ]),
-              'Taille ∝ élèves',
+              'Grappe (zoom < 9.5) · nb écoles',
             ),
+            row(sq(_kOrange, 10), 'Projet en cours'),
+            row(sq(kGreen, 10), 'Projet achevé'),
             // Localités
             const SizedBox(height: 3),
             const Text('LOCALITÉS',
@@ -1262,193 +1452,388 @@ class _RegionalExportBarState extends ConsumerState<_RegionalExportBar> {
   }
 }
 
-// ─── Liste des départements ─────────────────────────────────────────────────
-class _DeptList extends ConsumerWidget {
-  const _DeptList({required this.data, this.embedded = false});
-  final AdminRegionalData data;
+// ─── Pipeline d'expansion (projets de création d'école) ──────────────────────
+// Métier UNIQUE à la carte (ni la page Écoles ni le Dashboard ne le couvrent) :
+// suivre les projets de création — étude → validation → budgétisation →
+// construction → achevé. C'est le cœur du « pilote » territorial.
+const List<String> _kPipelineOrder = [
+  'etude', 'validation', 'budgetisation', 'construction', 'acheve',
+];
 
-  /// Quand true : rendu non défilant (shrinkWrap) pour s'insérer dans une
-  /// liste parente qui gère le défilement. Évite tout overflow vertical.
-  final bool embedded;
+class _PipelinePanel extends ConsumerWidget {
+  const _PipelinePanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(adminProjectsProvider);
+    final selectedId = ref.watch(_selectionProv).projectOrNull?.id;
+
+    return async.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 18),
+        child: Center(
+            child: SizedBox(
+                width: 18, height: 18,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: kNavy))),
+      ),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (projects) {
+        final active =
+            projects.where((p) => p.status != 'acheve').length;
+        final done = projects.where((p) => p.status == 'acheve').length;
+        final budget = projects.fold<int>(0, (s, p) => s + (p.budgetXaf ?? 0));
+        final fmt = NumberFormat.decimalPattern('fr');
+
+        final items = <Widget>[
+          // En-tête section
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+            child: Row(children: [
+              const Icon(Icons.rocket_launch_rounded, size: 12, color: _kOrange),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text("PIPELINE D'EXPANSION",
+                    style: TextStyle(
+                        fontSize: 9.5, fontWeight: FontWeight.w800,
+                        color: kTextMuted, letterSpacing: 0.8)),
+              ),
+              if (active > 0)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                      color: _kOrange.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20)),
+                  child: Text('$active actifs',
+                      style: const TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          color: _kOrange)),
+                ),
+            ]),
+          ),
+        ];
+
+        if (projects.isEmpty) {
+          items.add(const Padding(
+            padding: EdgeInsets.fromLTRB(14, 2, 14, 14),
+            child: Row(children: [
+              Icon(Icons.add_location_alt_outlined,
+                  size: 15, color: kTextMuted),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                    'Aucun projet. Bouton + sur la carte pour en placer un.',
+                    style: TextStyle(fontSize: 10.5, color: kTextMuted)),
+              ),
+            ]),
+          ));
+          return Column(mainAxisSize: MainAxisSize.min, children: items);
+        }
+
+        // Bandeau récap budget / achevés
+        items.add(Padding(
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+          child: Row(children: [
+            Expanded(
+              child: _PipelineStat(
+                  icon: Icons.account_balance_wallet_rounded,
+                  label: 'Budget cumulé',
+                  value: budget > 0 ? '${fmt.format(budget)} F' : '—',
+                  color: _kOrange),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _PipelineStat(
+                  icon: Icons.check_circle_rounded,
+                  label: 'Achevés',
+                  value: '$done',
+                  color: kGreen),
+            ),
+          ]),
+        ));
+
+        // Groupes par statut (ordre du pipeline)
+        for (final status in _kPipelineOrder) {
+          final inStatus =
+              projects.where((p) => p.status == status).toList();
+          if (inStatus.isEmpty) continue;
+          final color = _projectStatusColor(status);
+          items.add(Padding(
+            padding: const EdgeInsets.fromLTRB(14, 4, 14, 2),
+            child: Row(children: [
+              Icon(_projectStatusIcon(status), size: 12, color: color),
+              const SizedBox(width: 6),
+              Text(_projectStatusLabel(status).toUpperCase(),
+                  style: TextStyle(
+                      fontSize: 9, fontWeight: FontWeight.w800,
+                      color: color, letterSpacing: 0.5)),
+              const SizedBox(width: 6),
+              Text('${inStatus.length}',
+                  style: const TextStyle(
+                      fontSize: 9, fontWeight: FontWeight.w700,
+                      color: kTextMuted)),
+            ]),
+          ));
+          for (final p in inStatus) {
+            final isSel = selectedId == p.id;
+            items.add(InkWell(
+              onTap: () => ref.read(_selectionProv.notifier).state =
+                  isSel ? const SelectionNone() : SelectionProject(p),
+              child: Container(
+                padding:
+                    const EdgeInsets.fromLTRB(16, 6, 14, 6),
+                color: isSel
+                    ? color.withValues(alpha: 0.07)
+                    : Colors.transparent,
+                child: Row(children: [
+                  Container(
+                    width: 5, height: 5,
+                    decoration: BoxDecoration(
+                        color: color, shape: BoxShape.circle),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(p.name,
+                              style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: kTextPrimary),
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Text(
+                              [if (p.city != null) p.city!,
+                                if (p.department != null) p.department!]
+                                  .join(' · '),
+                              style: const TextStyle(
+                                  fontSize: 9, color: kTextMuted),
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ]),
+                  ),
+                  if (p.priority == 'haute')
+                    const Icon(Icons.priority_high_rounded,
+                        size: 13, color: kRed),
+                ]),
+              ),
+            ));
+          }
+        }
+
+        return Column(mainAxisSize: MainAxisSize.min, children: items);
+      },
+    );
+  }
+}
+
+class _PipelineStat extends StatelessWidget {
+  const _PipelineStat(
+      {required this.icon,
+      required this.label,
+      required this.value,
+      required this.color});
+  final IconData icon;
+  final String label, value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+        decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.07),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withValues(alpha: 0.18))),
+        child: Row(children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                          color: color)),
+                  Text(label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 8.5, color: kTextMuted)),
+                ]),
+          ),
+        ]),
+      );
+}
+
+// ─── Couverture territoriale ─────────────────────────────────────────────────
+// Vue d'ÉQUITÉ, pas un registre d'écoles : total réel par département (écoles
+// GPS + agrégées) classé pour repérer où le réseau est dense vs sous-doté.
+class _DeptCoverage {
+  _DeptCoverage(this.dept);
+  final String dept;
+  int total = 0;
+  int active = 0;
+  int students = 0;
+  LatLng? sumCoords;
+  int coordCount = 0;
+  final List<AdminSchoolPin> gpsSchools = [];
+  AdminDeptEntry? aggregated; // entrée non-GPS d'origine (pour sélection)
+
+  void addGps(AdminSchoolPin s) {
+    total += 1;
+    if (s.isActive) active += 1;
+    students += s.students;
+    gpsSchools.add(s);
+  }
+}
+
+class _CoveragePanel extends ConsumerWidget {
+  const _CoveragePanel({required this.data});
+  final AdminRegionalData data;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(_selectionProv).deptOrNull;
-    if (data.depts.isEmpty && data.gpsCount == 0) {
-      final empty = Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.filter_alt_off_rounded,
-              size: 26, color: kTextMuted.withValues(alpha: 0.6)),
-          const SizedBox(height: 8),
-          const Text('Aucun établissement\npour ce filtre',
+
+    // Fusion : départements agrégés (non-GPS) + écoles GPS regroupées.
+    final map = <String, _DeptCoverage>{};
+    for (final d in data.depts) {
+      final c = map.putIfAbsent(d.dept, () => _DeptCoverage(d.dept));
+      c.total += d.schoolCount;
+      c.active += d.activeCount;
+      c.students += d.studentCount;
+      c.aggregated = d;
+    }
+    for (final s in data.gpsSchools) {
+      final key = (s.department == null || s.department!.isEmpty)
+          ? 'Sans département'
+          : s.department!;
+      map.putIfAbsent(key, () => _DeptCoverage(key)).addGps(s);
+    }
+    final covs = map.values.toList()
+      ..sort((a, b) => b.total.compareTo(a.total));
+
+    if (covs.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(
+          child: Text('Aucun établissement\npour ce filtre',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 11.5, color: kTextMuted)),
-        ]),
+        ),
       );
-      return embedded ? empty : Center(child: empty);
     }
 
-    final items = <Widget>[];
+    final maxTotal = covs.first.total == 0 ? 1 : covs.first.total;
 
-    // Section GPS
-    if (data.gpsCount > 0) {
-      items.add(Padding(
-        padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+    final items = <Widget>[
+      Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
         child: Row(children: [
-          const Icon(Icons.gps_fixed_rounded, size: 11, color: kGreen),
-          const SizedBox(width: 5),
-          Text('GÉOLOCALISÉES (${data.gpsCount})',
-              style: const TextStyle(
-                  fontSize: 9, fontWeight: FontWeight.w700,
-                  color: kTextMuted, letterSpacing: 0.8)),
-        ]),
-      ));
-      for (final school in data.gpsSchools) {
-        final isSelected =
-            ref.watch(_selectionProv).schoolOrNull?.id == school.id;
-        items.add(InkWell(
-          onTap: () {
-            ref.read(_selectionProv.notifier).state =
-                isSelected ? const SelectionNone() : SelectionSchool(school);
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-            color: isSelected
-                ? kGreen.withValues(alpha: 0.06)
-                : Colors.transparent,
-            child: Row(children: [
-              Container(
-                width: 22, height: 22,
-                decoration: BoxDecoration(
-                  color: _typeColorForPin(school.type).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: Icon(Icons.school_rounded,
-                    size: 12, color: _typeColorForPin(school.type)),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(school.name,
-                          style: const TextStyle(
-                              fontSize: 11, fontWeight: FontWeight.w600,
-                              color: kTextPrimary),
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                      Text(
-                          [school.city, school.department]
-                              .whereType<String>()
-                              .where((s) => s.isNotEmpty)
-                              .join(' · '),
-                          style: const TextStyle(
-                              fontSize: 9, color: kTextMuted),
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ]),
-              ),
-              Container(
-                width: 6, height: 6,
-                decoration: BoxDecoration(
-                  color: school.isActive ? kGreen : kRed,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ]),
+          const Icon(Icons.travel_explore_rounded, size: 12, color: kNavy),
+          const SizedBox(width: 6),
+          const Expanded(
+            child: Text('COUVERTURE TERRITORIALE',
+                style: TextStyle(
+                    fontSize: 9.5, fontWeight: FontWeight.w800,
+                    color: kTextMuted, letterSpacing: 0.8)),
           ),
-        ));
-      }
-      if (data.depts.isNotEmpty) {
-        items.add(const Divider(height: 1, color: kBorder));
-      }
-    }
-
-    // Section départements
-    if (data.depts.isNotEmpty) {
-      items.add(Padding(
-        padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
-        child: Row(children: [
-          const Icon(Icons.map_outlined, size: 11, color: kNavy),
-          const SizedBox(width: 5),
-          Text('PAR DÉPARTEMENT (${data.depts.fold(0, (s, d) => s + d.schoolCount)})',
-              style: const TextStyle(
-                  fontSize: 9, fontWeight: FontWeight.w700,
-                  color: kTextMuted, letterSpacing: 0.8)),
+          Text('${covs.length} dépt.',
+              style: const TextStyle(fontSize: 9, color: kTextMuted)),
         ]),
-      ));
-      for (var i = 0; i < data.depts.length; i++) {
-        final dept = data.depts[i];
-        final isSelected = selected?.dept == dept.dept;
-        final rate =
-            dept.schoolCount > 0 ? dept.activeCount / dept.schoolCount : 0.0;
-        items.add(InkWell(
-          onTap: () {
-            ref.read(_selectionProv.notifier).state =
-                isSelected ? const SelectionNone() : SelectionDept(dept);
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-            color: isSelected
-                ? kNavy.withValues(alpha: 0.06)
-                : Colors.transparent,
-            child: Row(children: [
-              Container(
-                width: 24, height: 24,
-                decoration: BoxDecoration(
-                  color: i < 3
-                      ? kAccent.withValues(alpha: 0.15)
-                      : kSurface,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Center(
-                    child: Text('${i + 1}',
-                        style: TextStyle(
-                            fontSize: 10, fontWeight: FontWeight.w800,
-                            color: i < 3
-                                ? const Color(0xFFB45309)
-                                : kTextMuted))),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(dept.dept,
-                          style: const TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.w700,
-                              color: kTextPrimary),
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 3),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(2),
-                        child: LinearProgressIndicator(
-                          value: rate.clamp(0.0, 1.0),
-                          minHeight: 4,
-                          backgroundColor: kSurface,
-                          valueColor: AlwaysStoppedAnimation(
-                              rate > 0.6 ? kGreen : kAccent),
-                        ),
+      ),
+    ];
+
+    for (var i = 0; i < covs.length; i++) {
+      final c = covs[i];
+      final isSel = selected?.dept == c.dept;
+      final density = (c.total / maxTotal).clamp(0.0, 1.0);
+      // Sous-dotation visuelle : barre orange si dans le dernier tiers du réseau.
+      final low = density < 0.34;
+      final barColor = low ? _kOrange : kNavy;
+      items.add(InkWell(
+        onTap: () {
+          final entry = c.aggregated ??
+              (c.coordCount == 0 && c.gpsSchools.isEmpty
+                  ? null
+                  : AdminDeptEntry(
+                      dept: c.dept,
+                      coords: c.gpsSchools.isNotEmpty
+                          ? c.gpsSchools.first.gpsCoords!
+                          : const LatLng(-0.7, 15.0),
+                      schoolCount: c.total,
+                      studentCount: c.students,
+                      activeCount: c.active,
+                      schools: c.gpsSchools,
+                    ));
+          ref.read(_selectionProv.notifier).state = (isSel || entry == null)
+              ? const SelectionNone()
+              : SelectionDept(entry);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          color: isSel ? kNavy.withValues(alpha: 0.06) : Colors.transparent,
+          child: Row(children: [
+            SizedBox(
+              width: 18,
+              child: Text('${i + 1}',
+                  style: const TextStyle(
+                      fontSize: 10, fontWeight: FontWeight.w800,
+                      color: kTextMuted)),
+            ),
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Expanded(
+                        child: Text(c.dept,
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w700,
+                                color: kTextPrimary),
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
                       ),
-                      const SizedBox(height: 3),
-                      Text('${dept.schoolCount} écoles · ${dept.studentCount} élèves',
-                          style: const TextStyle(
-                              fontSize: 9, color: kTextMuted)),
+                      if (low)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                              color: _kOrange.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4)),
+                          child: const Text('sous-doté',
+                              style: TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w700,
+                                  color: _kOrange)),
+                        ),
                     ]),
-              ),
-            ]),
-          ),
-        ));
-      }
+                    const SizedBox(height: 3),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        value: density,
+                        minHeight: 4,
+                        backgroundColor: kSurface,
+                        valueColor: AlwaysStoppedAnimation(barColor),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text('${c.total} écoles · ${c.students} élèves',
+                        style:
+                            const TextStyle(fontSize: 9, color: kTextMuted)),
+                  ]),
+            ),
+          ]),
+        ),
+      ));
     }
 
-    if (embedded) {
-      // Pas de défilement propre : la ListView parente s'en charge.
-      return Column(mainAxisSize: MainAxisSize.min, children: items);
-    }
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 8),
-      children: items,
-    );
+    return Column(mainAxisSize: MainAxisSize.min, children: items);
   }
 }
 
@@ -1465,14 +1850,13 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
   final _mapController = MapController();
   double _zoom = 6.0;
 
-  // Ne déclenche un rebuild que quand on franchit un seuil de zoom :
-  //  < 7   → villes seules avec étiquette
-  //  7–9.5 → + bourgs avec étiquette
-  //  ≥ 9.5 → + villages avec étiquette
+  // Rebuild aux seuils de lisibilité (villes/bourgs/villages) ET à chaque
+  // demi-niveau de zoom pour que le clustering des écoles s'affine progressivement.
   void _onZoom(MapCamera camera, bool _) {
     final z = camera.zoom;
-    final cross =
-        (_zoom < 7.0) != (z < 7.0) || (_zoom < 9.5) != (z < 9.5);
+    final cross = (_zoom < 7.0) != (z < 7.0) ||
+        (_zoom < 9.5) != (z < 9.5) ||
+        (_zoom * 2).floor() != (z * 2).floor();
     _zoom = z;
     if (cross && mounted) setState(() {});
   }
@@ -1552,62 +1936,202 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
     }).toList();
   }
 
+  // Couleur d'un pin selon le mode actif (type, charge pédagogique, occupation).
+  Color _pinColor(AdminSchoolPin s, _PinColorMode mode, Map<String, int> load,
+      Map<String, int> occ) {
+    if (!s.isActive) return kRed;
+    if (mode == _PinColorMode.load) {
+      return loadColor(load[s.id] ?? 0);
+    }
+    if (mode == _PinColorMode.occupancy) {
+      return occColor(occ[s.id] ?? 0);
+    }
+    return _typeColorForPin(s.type);
+  }
+
   List<Marker> _buildGpsMarkers(
-      List<AdminSchoolPin> schools, AdminSchoolPin? selectedGps) {
-    return schools.map((school) {
-      final isSelected = selectedGps?.id == school.id;
-      final color = _typeColorForPin(school.type);
-      final size = isSelected ? 34.0 : 26.0;
-      return Marker(
-        point: school.gpsCoords!,
-        width: isSelected ? 150 : 110,
-        height: size + (isSelected ? 44 : 34),
-        alignment: Alignment.center,
-        child: GestureDetector(
-          onTap: () {
-            ref.read(_selectionProv.notifier).state =
-                isSelected ? const SelectionNone() : SelectionSchool(school);
-            if (!isSelected) _mapController.move(school.gpsCoords!, 10.0);
-          },
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-              width: size, height: size,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: (school.isActive ? color : kRed)
-                    .withValues(alpha: 0.9),
-                shape: BoxShape.circle,
-                border: Border.all(
-                    color: Colors.white, width: isSelected ? 2.5 : 2.0),
-                boxShadow: [
-                  BoxShadow(
-                      color: color.withValues(alpha: 0.4),
-                      blurRadius: 8, offset: const Offset(0, 3)),
-                ],
-              ),
-              child: Icon(Icons.school_rounded,
-                  color: Colors.white, size: size * 0.46),
+    List<AdminSchoolPin> schools,
+    AdminSchoolPin? selectedGps,
+    _PinColorMode colorMode,
+    Map<String, int> loadById,
+    Map<String, int> occById,
+  ) {
+    // ── Clustering léger maison ────────────────────────────────────────────
+    // À l'échelle nationale (zoom faible), des centaines d'écoles se
+    // superposent → on regroupe par cellule de grille dont la taille diminue
+    // avec le zoom. Au-delà de z≈9.5 (vue locale) on affiche chaque école.
+    // La grappe sélectionnée reste toujours éclatée pour montrer l'école.
+    const clusterUntilZoom = 9.5;
+    final markers = <Marker>[];
+
+    if (_zoom < clusterUntilZoom) {
+      final cell =
+          1.6 / math.pow(2, (_zoom - 6).clamp(0, 6)); // degrés
+      final groups = <String, List<AdminSchoolPin>>{};
+      for (final s in schools) {
+        final c = s.gpsCoords!;
+        final key =
+            '${(c.latitude / cell).floor()}|${(c.longitude / cell).floor()}';
+        groups.putIfAbsent(key, () => []).add(s);
+      }
+      for (final group in groups.values) {
+        final hasSelected =
+            selectedGps != null && group.any((s) => s.id == selectedGps.id);
+        if (group.length == 1 || hasSelected) {
+          for (final s in group) {
+            markers.add(_singleGpsMarker(
+                s, selectedGps, colorMode, loadById, occById));
+          }
+        } else {
+          markers.add(
+              _clusterMarker(group, colorMode, loadById, occById, cell));
+        }
+      }
+      return markers;
+    }
+
+    for (final s in schools) {
+      markers.add(
+          _singleGpsMarker(s, selectedGps, colorMode, loadById, occById));
+    }
+    return markers;
+  }
+
+  Marker _clusterMarker(List<AdminSchoolPin> group, _PinColorMode colorMode,
+      Map<String, int> loadById, Map<String, int> occById, double cell) {
+    // Centre = barycentre du groupe.
+    var lat = 0.0, lng = 0.0, students = 0;
+    var inactive = 0;
+    for (final s in group) {
+      final c = s.gpsCoords!;
+      lat += c.latitude;
+      lng += c.longitude;
+      students += s.students;
+      if (!s.isActive) inactive += 1;
+    }
+    final center = LatLng(lat / group.length, lng / group.length);
+    final dia = (34.0 + group.length.clamp(0, 40) * 0.8).toDouble();
+    // Teinte : rouge si tout inactif, sinon navy ; pastille charge en mode load.
+    final allInactive = inactive == group.length;
+    final base = allInactive
+        ? kRed
+        : switch (colorMode) {
+            _PinColorMode.load => _clusterWorstColor(group, loadById, loadColor),
+            _PinColorMode.occupancy =>
+              _clusterWorstColor(group, occById, occColor),
+            _PinColorMode.type => kNavy,
+          };
+    return Marker(
+      point: center,
+      width: dia + 10,
+      height: dia + 24,
+      alignment: Alignment.center,
+      child: GestureDetector(
+        onTap: () => _mapController.move(
+            center, (_zoom + 2.2).clamp(6.0, 13.0)),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: dia, height: dia,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: base.withValues(alpha: 0.92),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2.5),
+              boxShadow: [
+                BoxShadow(
+                    color: base.withValues(alpha: 0.45),
+                    blurRadius: 9, offset: const Offset(0, 3)),
+              ],
             ),
-            const SizedBox(height: 2),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: kBorder),
-              ),
-              child: Text(
-                _truncate(school.name, isSelected ? 18 : 13),
+            child: Text('${group.length}',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: dia < 40 ? 13 : 15,
+                    fontWeight: FontWeight.w800)),
+          ),
+          const SizedBox(height: 2),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: kBorder),
+            ),
+            child: Text('$students él.',
                 style: const TextStyle(
                     fontSize: 8, fontWeight: FontWeight.w700,
-                    color: kTextPrimary),
-                maxLines: 1,
-              ),
+                    color: kTextPrimary)),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  // Couleur dominante d'une grappe (pire niveau connu) selon une échelle donnée.
+  Color _clusterWorstColor(List<AdminSchoolPin> group,
+      Map<String, int> levelById, Color Function(int) scale) {
+    var worst = 0;
+    for (final s in group) {
+      final l = levelById[s.id] ?? 0;
+      if (l > worst) worst = l;
+    }
+    return worst == 0 ? kNavy : scale(worst);
+  }
+
+  Marker _singleGpsMarker(AdminSchoolPin school, AdminSchoolPin? selectedGps,
+      _PinColorMode colorMode, Map<String, int> loadById,
+      Map<String, int> occById) {
+    final isSelected = selectedGps?.id == school.id;
+    final color = _pinColor(school, colorMode, loadById, occById);
+    final size = isSelected ? 34.0 : 26.0;
+    return Marker(
+      point: school.gpsCoords!,
+      width: isSelected ? 150 : 110,
+      height: size + (isSelected ? 44 : 34),
+      alignment: Alignment.center,
+      child: GestureDetector(
+        onTap: () {
+          ref.read(_selectionProv.notifier).state =
+              isSelected ? const SelectionNone() : SelectionSchool(school);
+          if (!isSelected) _mapController.move(school.gpsCoords!, 10.0);
+        },
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: size, height: size,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.9),
+              shape: BoxShape.circle,
+              border: Border.all(
+                  color: Colors.white, width: isSelected ? 2.5 : 2.0),
+              boxShadow: [
+                BoxShadow(
+                    color: color.withValues(alpha: 0.4),
+                    blurRadius: 8, offset: const Offset(0, 3)),
+              ],
             ),
-          ]),
-        ),
-      );
-    }).toList();
+            child: Icon(Icons.school_rounded,
+                color: Colors.white, size: size * 0.46),
+          ),
+          const SizedBox(height: 2),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: kBorder),
+            ),
+            child: Text(
+              _truncate(school.name, isSelected ? 18 : 13),
+              style: const TextStyle(
+                  fontSize: 8, fontWeight: FontWeight.w700,
+                  color: kTextPrimary),
+              maxLines: 1,
+            ),
+          ),
+        ]),
+      ),
+    );
   }
 
   List<Marker> _buildProjectMarkers(
@@ -1682,6 +2206,16 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
     final showCities       = ref.watch(_showCitiesLayerProv);
     final showVillages     = ref.watch(_showVillagesLayerProv);
     final showRoads        = ref.watch(_showRoadsLayerProv);
+    final pinColorMode     = ref.watch(_pinColorModeProv);
+    // Charge pédagogique (élèves/classe) et occupation (effectif/capacité) par
+    // école, depuis le provider tableau — servent à colorer pins et grappes.
+    final loadById = <String, int>{};
+    final occById  = <String, int>{};
+    for (final r in (ref.watch(regionalTableRowsProvider).valueOrNull ??
+        const <RegionalTableRow>[])) {
+      loadById[r.school.id] = r.loadLevel;
+      occById[r.school.id]  = r.occupancyLevel;
+    }
     final projectsAsync    = ref.watch(adminProjectsProvider);
     final boundaryAsync    = ref.watch(congoBoundaryProvider);
     final polygonsAsync    = ref.watch(congoDepartmentsProvider);
@@ -2004,7 +2538,8 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
             ),
           if (showGps)
             MarkerLayer(
-              markers: _buildGpsMarkers(widget.data.gpsSchools, selectedGps),
+              markers: _buildGpsMarkers(widget.data.gpsSchools, selectedGps,
+                  pinColorMode, loadById, occById),
             ),
           if (showProj)
             projectsAsync.maybeWhen(
@@ -2389,6 +2924,36 @@ class _GpsSchoolDetailPanel extends ConsumerWidget {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: kNavy,
                   side: const BorderSide(color: kBorder),
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Pont vers la fiche complète (page Écoles) : la carte ne duplique
+            // pas la gestion de l'école, elle y renvoie.
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  final all = ref.read(adminSchoolsProvider).valueOrNull;
+                  final detail = all?.schools
+                      .where((s) => s.id == school.id)
+                      .firstOrNull;
+                  if (detail == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('Fiche en cours de chargement…')));
+                    return;
+                  }
+                  openSchoolDetailDialog(context, ref, detail);
+                },
+                icon: const Icon(Icons.open_in_full_rounded, size: 15),
+                label: const Text('Ouvrir la fiche complète'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: kNavy,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 11),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8)),
@@ -2852,6 +3417,10 @@ class _RegionalAnalytics extends ConsumerWidget {
                 const SizedBox(height: 16),
                 const Divider(color: kBorder),
                 const SizedBox(height: 12),
+                const _CreationsTimeline(),
+                const SizedBox(height: 16),
+                const Divider(color: kBorder),
+                const SizedBox(height: 12),
                 const Text('CLASSEMENT PAR ÉCOLES',
                     style: TextStyle(
                         fontSize: 9, fontWeight: FontWeight.w700,
@@ -2930,6 +3499,119 @@ class _RegionalAnalytics extends ConsumerWidget {
         ),
       ]),
     );
+  }
+}
+
+// ─── Timeline des créations d'écoles (par année de fondation) ────────────────
+// Lit `founded_year` via le provider du tableau (SchoolDetail) — donnée réelle
+// issue de la création. Histogramme des dernières années + cumul.
+class _CreationsTimeline extends ConsumerWidget {
+  const _CreationsTimeline();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rows = ref.watch(regionalTableRowsProvider).valueOrNull;
+    if (rows == null) {
+      return const SizedBox(
+        height: 60,
+        child: Center(
+            child: SizedBox(
+                width: 16, height: 16,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: kNavy))),
+      );
+    }
+
+    // Comptage par année de fondation (on ignore les valeurs nulles/aberrantes).
+    final nowY = DateTime.now().year;
+    final byYear = <int, int>{};
+    var unknown = 0;
+    for (final r in rows) {
+      final y = r.school.foundedYear;
+      if (y == null || y < 1950 || y > nowY) {
+        unknown += 1;
+      } else {
+        byYear[y] = (byYear[y] ?? 0) + 1;
+      }
+    }
+
+    const header = Text('CRÉATIONS PAR ANNÉE',
+        style: TextStyle(
+            fontSize: 9, fontWeight: FontWeight.w700,
+            color: kTextMuted, letterSpacing: 1.0));
+
+    if (byYear.isEmpty) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        header,
+        const SizedBox(height: 8),
+        Text(
+            unknown == 0
+                ? 'Aucune école.'
+                : "Année de fondation non renseignée ($unknown école${unknown > 1 ? 's' : ''}).",
+            style: const TextStyle(fontSize: 10.5, color: kTextMuted)),
+      ]);
+    }
+
+    // 8 dernières années couvertes (de la plus ancienne présente à aujourd'hui),
+    // bornées à un fenêtrage lisible.
+    final years = byYear.keys.toList()..sort();
+    final minY = math.max(years.first, nowY - 9);
+    final span = [for (var y = minY; y <= nowY; y++) y];
+    final maxCount =
+        byYear.values.fold(0, (m, v) => v > m ? v : m).clamp(1, 1 << 30);
+    final total = byYear.values.fold(0, (s, v) => s + v);
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        header,
+        const Spacer(),
+        Text('$total au total',
+            style: const TextStyle(
+                fontSize: 9, fontWeight: FontWeight.w700, color: kNavy)),
+      ]),
+      const SizedBox(height: 10),
+      SizedBox(
+        height: 78,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            for (final y in span)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(byYear[y] != null ? '${byYear[y]}' : '',
+                          style: const TextStyle(
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w800,
+                              color: kNavy)),
+                      const SizedBox(height: 2),
+                      Container(
+                        height: 48 * (byYear[y] ?? 0) / maxCount + 2,
+                        decoration: BoxDecoration(
+                          color: y == nowY ? _kOrange : kNavy,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text("'${y % 100}",
+                          style: const TextStyle(
+                              fontSize: 8, color: kTextMuted)),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+      if (unknown > 0) ...[
+        const SizedBox(height: 8),
+        Text('$unknown sans année de fondation',
+            style: const TextStyle(fontSize: 9, color: kTextMuted)),
+      ],
+    ]);
   }
 }
 
@@ -3436,6 +4118,79 @@ class _ProjectFormDialogState extends ConsumerState<_ProjectFormDialog> {
     }
   }
 
+  // Sélecteur de statut visuel (même langage que _StatusPipeline du détail),
+  // mais éditable : on tape une étape pour la définir.
+  Widget _statusSelector() {
+    const steps = [
+      ('etude', 'Étude', Icons.search_rounded),
+      ('validation', 'Validation', Icons.fact_check_rounded),
+      ('budgetisation', 'Budget', Icons.account_balance_rounded),
+      ('construction', 'Constr.', Icons.construction_rounded),
+      ('acheve', 'Achevé', Icons.check_circle_rounded),
+    ];
+    final curIdx = steps.indexWhere((s) => s.$1 == _status);
+    return Row(children: [
+      for (var i = 0; i < steps.length; i++) ...[
+        Expanded(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => setState(() => _status = steps[i].$1),
+            child: Column(children: [
+              Stack(alignment: Alignment.center, children: [
+                Row(children: [
+                  Expanded(
+                      child: Container(
+                          height: 2,
+                          color: i == 0
+                              ? Colors.transparent
+                              : (i <= curIdx ? kGreen : kBorder))),
+                  Expanded(
+                      child: Container(
+                          height: 2,
+                          color: i == steps.length - 1
+                              ? Colors.transparent
+                              : (i < curIdx ? kGreen : kBorder))),
+                ]),
+                Container(
+                  width: 28, height: 28,
+                  decoration: BoxDecoration(
+                    color: i < curIdx
+                        ? kGreen
+                        : (i == curIdx
+                            ? _projectStatusColor(_status)
+                            : kCardBg),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: i <= curIdx
+                            ? Colors.transparent
+                            : kBorder,
+                        width: 1.5),
+                  ),
+                  child: Icon(
+                      i < curIdx ? Icons.check_rounded : steps[i].$3,
+                      size: 14,
+                      color: i <= curIdx ? Colors.white : kTextMuted),
+                ),
+              ]),
+              const SizedBox(height: 4),
+              Text(steps[i].$2,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 8.5,
+                      fontWeight:
+                          i == curIdx ? FontWeight.w800 : FontWeight.w500,
+                      color: i == curIdx
+                          ? _projectStatusColor(_status)
+                          : kTextMuted)),
+            ]),
+          ),
+        ),
+      ],
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.project != null;
@@ -3502,8 +4257,12 @@ class _ProjectFormDialogState extends ConsumerState<_ProjectFormDialog> {
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                child: Column(children: [
-                  // Nom
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  // ── Identification ──
+                  const _ProjSection(
+                      icon: Icons.badge_outlined, label: 'Identification'),
                   TextFormField(
                     controller: _nameCtrl,
                     decoration: adminInputDecoration('Nom du projet *'),
@@ -3512,76 +4271,52 @@ class _ProjectFormDialogState extends ConsumerState<_ProjectFormDialog> {
                     textCapitalization: TextCapitalization.words,
                   ),
                   const SizedBox(height: 12),
-                  // Description
                   TextFormField(
                     controller: _descCtrl,
                     decoration: adminInputDecoration('Description (optionnel)'),
                     maxLines: 2,
                     textCapitalization: TextCapitalization.sentences,
                   ),
-                  const SizedBox(height: 12),
-                  // Statut + Priorité
+
+                  // ── Pilotage ──
+                  const SizedBox(height: 18),
+                  const _ProjSection(
+                      icon: Icons.flag_outlined, label: 'Pilotage'),
+                  const Text("État d'avancement",
+                      style: TextStyle(
+                          fontSize: 11, fontWeight: FontWeight.w600,
+                          color: kTextMuted)),
+                  const SizedBox(height: 8),
+                  _statusSelector(),
+                  const SizedBox(height: 14),
+                  const Text('Priorité',
+                      style: TextStyle(
+                          fontSize: 11, fontWeight: FontWeight.w600,
+                          color: kTextMuted)),
+                  const SizedBox(height: 8),
                   Row(children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: _status,
-                        decoration: adminInputDecoration('Statut'),
-                        items: const [
-                          DropdownMenuItem(
-                              value: 'etude', child: Text('Étude')),
-                          DropdownMenuItem(
-                              value: 'validation', child: Text('Validation')),
-                          DropdownMenuItem(
-                              value: 'budgetisation',
-                              child: Text('Budgétisation')),
-                          DropdownMenuItem(
-                              value: 'construction',
-                              child: Text('Construction')),
-                          DropdownMenuItem(
-                              value: 'acheve', child: Text('Achevé')),
-                        ],
-                        onChanged: (v) =>
-                            setState(() => _status = v ?? 'etude'),
+                    for (final pr in const [
+                      ('haute', 'Haute'),
+                      ('moyenne', 'Moyenne'),
+                      ('basse', 'Basse'),
+                    ]) ...[
+                      Expanded(
+                        child: _PriorityChip(
+                          label: pr.$2,
+                          color: _priorityColor(pr.$1),
+                          selected: _priority == pr.$1,
+                          onTap: () => setState(() => _priority = pr.$1),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: _priority,
-                        decoration: adminInputDecoration('Priorité'),
-                        items: const [
-                          DropdownMenuItem(
-                              value: 'haute', child: Text('Haute')),
-                          DropdownMenuItem(
-                              value: 'moyenne', child: Text('Moyenne')),
-                          DropdownMenuItem(
-                              value: 'basse', child: Text('Basse')),
-                        ],
-                        onChanged: (v) =>
-                            setState(() => _priority = v ?? 'moyenne'),
-                      ),
-                    ),
+                      if (pr.$1 != 'basse') const SizedBox(width: 8),
+                    ],
                   ]),
-                  const SizedBox(height: 12),
-                  // Type + Département
+
+                  // ── Localisation ──
+                  const SizedBox(height: 18),
+                  const _ProjSection(
+                      icon: Icons.place_outlined, label: 'Localisation'),
                   Row(children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String?>(
-                        initialValue: _schoolType,
-                        decoration: adminInputDecoration('Type'),
-                        items: const [
-                          DropdownMenuItem(value: null, child: Text('— Non précisé')),
-                          DropdownMenuItem(
-                              value: 'public', child: Text('Public')),
-                          DropdownMenuItem(
-                              value: 'prive', child: Text('Privé')),
-                          DropdownMenuItem(
-                              value: 'mixte', child: Text('Mixte')),
-                        ],
-                        onChanged: (v) => setState(() => _schoolType = v),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
                     Expanded(
                       child: DropdownButtonFormField<String?>(
                         initialValue: _department,
@@ -3602,34 +4337,44 @@ class _ProjectFormDialogState extends ConsumerState<_ProjectFormDialog> {
                         onChanged: (v) => setState(() => _department = v),
                       ),
                     ),
-                  ]),
-                  const SizedBox(height: 12),
-                  // Ville
-                  TextFormField(
-                    controller: _cityCtrl,
-                    decoration: adminInputDecoration('Ville / Localité'),
-                    textCapitalization: TextCapitalization.words,
-                  ),
-                  const SizedBox(height: 12),
-                  // Budget + Bénéficiaires
-                  Row(children: [
+                    const SizedBox(width: 12),
                     Expanded(
                       child: TextFormField(
-                        controller: _budgetCtrl,
-                        decoration:
-                            adminInputDecoration('Budget (FCFA)'),
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly
+                        controller: _cityCtrl,
+                        decoration: adminInputDecoration('Ville / Localité'),
+                        textCapitalization: TextCapitalization.words,
+                      ),
+                    ),
+                  ]),
+
+                  // ── Impact ──
+                  const SizedBox(height: 18),
+                  const _ProjSection(
+                      icon: Icons.insights_outlined, label: 'Impact attendu'),
+                  Row(children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String?>(
+                        initialValue: _schoolType,
+                        decoration: adminInputDecoration("Type d'école"),
+                        items: const [
+                          DropdownMenuItem(
+                              value: null, child: Text('— Non précisé')),
+                          DropdownMenuItem(
+                              value: 'public', child: Text('Public')),
+                          DropdownMenuItem(
+                              value: 'prive', child: Text('Privé')),
+                          DropdownMenuItem(
+                              value: 'mixte', child: Text('Mixte')),
                         ],
+                        onChanged: (v) => setState(() => _schoolType = v),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextFormField(
                         controller: _benCtrl,
-                        decoration: adminInputDecoration(
-                            'Bénéficiaires estimés'),
+                        decoration:
+                            adminInputDecoration('Bénéficiaires est.'),
                         keyboardType: TextInputType.number,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly
@@ -3638,10 +4383,20 @@ class _ProjectFormDialogState extends ConsumerState<_ProjectFormDialog> {
                     ),
                   ]),
                   const SizedBox(height: 12),
-                  // Commentaires
+                  TextFormField(
+                    controller: _budgetCtrl,
+                    decoration: adminInputDecoration('Budget (FCFA)'),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+
+                  // ── Notes ──
+                  const SizedBox(height: 18),
+                  const _ProjSection(
+                      icon: Icons.sticky_note_2_outlined, label: 'Notes'),
                   TextFormField(
                     controller: _commentsCtrl,
-                    decoration: adminInputDecoration('Commentaires'),
+                    decoration: adminInputDecoration('Commentaires internes'),
                     maxLines: 2,
                     textCapitalization: TextCapitalization.sentences,
                   ),
@@ -3694,6 +4449,71 @@ class _ProjectFormDialogState extends ConsumerState<_ProjectFormDialog> {
       ),
     );
   }
+}
+
+// En-tête de section du formulaire projet (icône + libellé + filet).
+class _ProjSection extends StatelessWidget {
+  const _ProjSection({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(children: [
+          Icon(icon, size: 14, color: _kOrange),
+          const SizedBox(width: 7),
+          Text(label.toUpperCase(),
+              style: const TextStyle(
+                  fontSize: 10, fontWeight: FontWeight.w800,
+                  color: kTextPrimary, letterSpacing: 0.6)),
+          const SizedBox(width: 10),
+          const Expanded(child: Divider(height: 1, color: kBorder)),
+        ]),
+      );
+}
+
+class _PriorityChip extends StatelessWidget {
+  const _PriorityChip({
+    required this.label,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+  final String label;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? color.withValues(alpha: 0.12) : kSurface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+                color: selected ? color : kBorder,
+                width: selected ? 1.5 : 1),
+          ),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Container(
+              width: 7, height: 7,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 6),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                    color: selected ? color : kTextMuted)),
+          ]),
+        ),
+      );
 }
 
 // ─── Dialogue : corriger la position GPS d'une école ─────────────────────────
