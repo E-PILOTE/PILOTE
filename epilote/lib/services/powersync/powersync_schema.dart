@@ -186,6 +186,7 @@ const schema = Schema([
     Column.text('main_teacher_id'),
     Column.text('room'),
     Column.text('level_id'),
+    Column.text('cycle_code'),       // cycle dénormalisé (migration 0010) → KPI réels
     Column.text('school_id'),
     Column.text('group_id'),
     Column.text('academic_year_id'),

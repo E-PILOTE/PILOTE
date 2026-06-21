@@ -32,6 +32,22 @@ const _cycleLycee       = InscriptionCycle('lycee', 'Lycée', 4);
 const _cycleFp          = InscriptionCycle('fp', 'Formation Pro.', 5);
 const _cycleAutre       = InscriptionCycle('autre', 'Non classé', 9);
 
+/// Cycle RÉEL d'une classe via son `cycle_code` (dénormalisé depuis
+/// classe→niveau→cycle, migration 0010). Repli sur l'heuristique par NOM
+/// uniquement si la classe n'est pas encore reliée à un niveau (cycle_code nul).
+const _cycleByCode = <String, InscriptionCycle>{
+  'prescolaire': _cyclePrescolaire,
+  'primaire': _cyclePrimaire,
+  'college': _cycleCollege,
+  'lycee': _cycleLycee,
+  'formation_pro': _cycleFp,
+};
+
+InscriptionCycle inscriptionCycleFromCode(String? code, String? fallbackName) {
+  final c = _cycleByCode[code];
+  return c ?? inscriptionCycleOf(fallbackName);
+}
+
 /// Déduit le cycle d'une classe à partir de son nom (conventions Congo).
 InscriptionCycle inscriptionCycleOf(String? rawName) {
   final n = (rawName ?? '').toLowerCase().trim();
@@ -130,7 +146,7 @@ final inscriptionsDataProvider =
         SELECT ce.id, ce.student_id, ce.status, ce.inscription_type,
                ce.is_repeating, ce.enrollment_date, ce.validated_at,
                s.first_name, s.last_name, s.matricule, s.gender, s.photo_url,
-               c.name AS class_name
+               c.name AS class_name, c.cycle_code AS cycle_code
         FROM   class_enrollments ce
         JOIN   students s ON s.id = ce.student_id
         LEFT JOIN classes c ON c.id = ce.class_id
@@ -150,7 +166,8 @@ final inscriptionsDataProvider =
                 gender: r['gender'] as String?,
                 photoUrl: r['photo_url'] as String?,
                 className: r['class_name'] as String? ?? '—',
-                cycle: inscriptionCycleOf(r['class_name'] as String?),
+                cycle: inscriptionCycleFromCode(
+                    r['cycle_code'] as String?, r['class_name'] as String?),
                 inscriptionType: r['inscription_type'] as String? ?? 'new',
                 status: r['status'] as String? ?? 'active',
                 isRepeating: r['is_repeating'] == 1 || r['is_repeating'] == true,
