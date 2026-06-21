@@ -35,7 +35,7 @@ import '../../features/admin_groupe/screens/admin_reports_screen.dart';
 import '../../features/admin_groupe/screens/admin_subscription_screen.dart';
 import '../../features/admin_groupe/screens/admin_audit_screen.dart';
 import '../../features/admin_groupe/screens/admin_settings_screen.dart';
-import '../../features/admin_groupe/screens/admin_support_screen.dart';
+import '../../features/communication/screens/support_requester_screen.dart';
 import '../../features/admin_groupe/screens/admin_profile_screen.dart';
 import '../../features/admin_groupe/screens/admin_module_screen.dart';
 import '../../features/admin_groupe/screens/admin_modules_screen.dart';
@@ -46,7 +46,8 @@ import '../../features/structure/screens/school_calendar_screen.dart';
 import '../../features/navigation/module_routes.dart';
 import '../../features/navigation/providers/permissions_provider.dart';
 import '../../features/navigation/widgets/module_coming_soon.dart';
-import '../../features/user/screens/staff_support_screen.dart';
+import '../../features/user/screens/staff_agent_switch_screen.dart';
+import '../../features/user/screens/staff_audit_screen.dart';
 import '../../features/user/screens/user_dashboard_screen.dart';
 import '../../features/user/screens/user_profile_screen.dart';
 import '../../features/user/screens/user_settings_screen.dart';
@@ -359,7 +360,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.adminSupport,
-        builder: (_, _) => const AdminSupportScreen(),
+        builder: (_, _) => const SupportRequesterScreen(),
       ),
       GoRoute(
         path: Routes.adminParametres,
@@ -471,8 +472,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: Routes.userAudit,
+        builder: (_, _) => const StaffAuditScreen(),
+      ),
+      GoRoute(
+        path: Routes.userAgents,
+        builder: (_, _) => const StaffAgentSwitchScreen(),
+      ),
+      GoRoute(
         path: Routes.userSupport,
-        builder: (_, _) => const StaffSupportScreen(),
+        builder: (_, _) => const SupportRequesterScreen(),
       ),
       GoRoute(
         path: Routes.userParametres,

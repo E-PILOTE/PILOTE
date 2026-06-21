@@ -55,6 +55,8 @@ class Routes {
   // ── Modules (utilisateur école) ─────────────────────────────────────────
   static const String userDashboard   = '/user/dashboard';
   static const String userRapports    = '/user/rapports';
+  static const String userAudit       = '/user/journal-audit'; // natif direction (online)
+  static const String userAgents      = '/user/agents'; // bascule d'agent (poste partagé)
   static const String userParametres  = '/user/parametres';
   static const String userProfil      = '/user/profil';
   static const String eleves          = '/user/eleves';

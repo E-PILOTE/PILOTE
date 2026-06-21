@@ -25,6 +25,18 @@ bool _isStaffRole(String? role) =>
 /// Rôle du dernier utilisateur connecté (mis en cache pour l'offline).
 String? _cachedRole;
 
+/// File de sérialisation des transitions d'authentification.
+/// Indispensable pour les POSTES PARTAGÉS (ex. Proviseur puis Comptable sur le
+/// même ordinateur) : garantit que la PURGE locale d'un utilisateur qui se
+/// déconnecte (`disconnectAndClear`) se termine ENTIÈREMENT avant que la
+/// connexion/synchro du suivant ne démarre. Sans ça, les deux opérations
+/// asynchrones pourraient se chevaucher → fuite de données entre comptes.
+Future<void> _authQueue = Future<void>.value();
+
+void _enqueueAuth(Future<void> Function() op) {
+  _authQueue = _authQueue.then((_) => op()).catchError((_) {});
+}
+
 /// Initialise PowerSync : ouvre la base SQLite locale.
 /// La connexion réseau est conditionnée au rôle (utilisateur seulement).
 Future<void> initPowerSync() async {
@@ -45,17 +57,23 @@ Future<void> initPowerSync() async {
     }
   }
 
-  // Réagir aux changements de session
-  supabase.auth.onAuthStateChange.listen((data) async {
+  // Réagir aux changements de session. Les transitions connexion/déconnexion
+  // sont SÉRIALISÉES (_enqueueAuth) : sur un poste partagé, la purge du compte
+  // sortant se termine avant la synchro du compte entrant (zéro chevauchement).
+  supabase.auth.onAuthStateChange.listen((data) {
     switch (data.event) {
       case AuthChangeEvent.signedIn:
-        final role = await _resolveRole(supabase);
-        if (_isStaffRole(role)) {
-          db.connect(connector: connector);
-        }
+        _enqueueAuth(() async {
+          final role = await _resolveRole(supabase);
+          if (_isStaffRole(role)) {
+            db.connect(connector: connector);
+          }
+        });
       case AuthChangeEvent.signedOut:
-        _cachedRole = null;
-        await db.disconnectAndClear();
+        _enqueueAuth(() async {
+          _cachedRole = null;
+          await db.disconnectAndClear();
+        });
       case AuthChangeEvent.tokenRefreshed:
         // Renouveler les credentials uniquement si déjà connecté (utilisateur)
         if (db.currentStatus.connected) {

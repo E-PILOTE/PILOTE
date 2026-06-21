@@ -7,6 +7,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/constants/routes.dart';
 import '../../data/models/profile_model.dart';
 import '../../features/auth/providers/auth_provider.dart';
+import '../../features/auth/providers/active_agent_provider.dart';
 import '../../features/super_admin/providers/super_dashboard_provider.dart';
 import '../../features/super_admin/providers/school_groups_provider.dart';
 import '../../features/super_admin/providers/administrators_provider.dart';
@@ -21,6 +22,7 @@ import '../../features/admin_groupe/providers/admin_nav_provider.dart';
 import '../../features/navigation/module_routes.dart';
 import '../../features/navigation/providers/module_navigation_provider.dart';
 import '../../features/navigation/providers/permissions_provider.dart';
+import '../../features/user/providers/user_profile_provider.dart';
 import '../../services/powersync/powersync_service.dart';
 import 'year_selector.dart';
 
@@ -252,8 +254,8 @@ List<_NavItem> _navItemsFor(ProfileModel profile) {
         ),
         _NavItem.section('SYSTÈME'),
         const _NavItem(
-          icon: Icons.support_agent_rounded,
-          label: 'Support',
+          icon: Icons.confirmation_num_rounded,
+          label: 'Tickets',
           route: Routes.adminSupport,
         ),
         const _NavItem(
@@ -317,6 +319,14 @@ List<_NavItem> _staffNavItems(WidgetRef ref, ProfileModel profile) {
         icon: Icons.event_note_rounded,
         label: 'Calendrier scolaire',
         route: Routes.calendrier,
+      ),
+    );
+    // Journal d'audit = outil natif de direction (consultation online).
+    items.add(
+      const _NavItem(
+        icon: Icons.fact_check_outlined,
+        label: "Journal d'audit",
+        route: Routes.userAudit,
       ),
     );
   }
@@ -391,8 +401,8 @@ List<_NavItem> _staffNavItems(WidgetRef ref, ProfileModel profile) {
     // Demandes au support plateforme : réservé au personnel de l'école.
     items.add(
       const _NavItem(
-        icon: Icons.support_agent_rounded,
-        label: 'Support',
+        icon: Icons.confirmation_num_rounded,
+        label: 'Tickets',
         route: Routes.userSupport,
       ),
     );
@@ -474,9 +484,14 @@ class _AppShellState extends ConsumerState<AppShell> {
         profile != null &&
         profile.role != AppConstants.roleSuperAdmin &&
         profile.role != AppConstants.roleAdminGroupe;
+    // Sur poste partagé, la sidebar suit l'AGENT ACTIF (rôle + profil d'accès),
+    // pas l'utilisateur qui a authentifié l'appareil.
+    final activeProfile = isStaff
+        ? (ref.watch(myProfileRowProvider).valueOrNull ?? profile)
+        : profile;
     final navItems = profile == null
         ? <_NavItem>[]
-        : (isStaff ? _staffNavItems(ref, profile) : _navItemsFor(profile));
+        : (isStaff ? _staffNavItems(ref, activeProfile!) : _navItemsFor(profile));
     final currentLoc = GoRouterState.of(context).matchedLocation;
 
     // Visionneuse confinée au contenu (sidebar préservée). On la referme
@@ -582,7 +597,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                     ),
                   _SidebarFooter(
                     expanded: expanded,
-                    profile: profile,
+                    profile: activeProfile,
                     syncStatus: syncStatus,
                   ),
                 ],
@@ -599,7 +614,7 @@ class _AppShellState extends ConsumerState<AppShell> {
               children: [
                 _AppHeader(
                   title: widget.title,
-                  profile: profile,
+                  profile: activeProfile,
                   isStaff: isStaff,
                   sidebarExpanded: expanded,
                   actions: widget.actions,
@@ -1048,6 +1063,8 @@ class _SidebarFooter extends ConsumerWidget {
             message: expanded ? '' : 'Déconnexion',
             child: InkWell(
               onTap: () async {
+                // Vraie déconnexion appareil : on oublie l'agent sélectionné.
+                ref.read(selectedAgentIdProvider.notifier).state = null;
                 await ref.read(authNotifierProvider.notifier).signOut();
               },
               borderRadius: BorderRadius.circular(8),
@@ -1212,11 +1229,14 @@ class _AppHeader extends ConsumerWidget {
             ),
             onSelected: (value) async {
               if (value == 'logout') {
+                ref.read(selectedAgentIdProvider.notifier).state = null;
                 await ref.read(authNotifierProvider.notifier).signOut();
               } else if (value == 'profile') {
                 context.go(profileRoute);
               } else if (value == 'settings') {
                 context.go(settingsRoute);
+              } else if (value == 'switch_agent') {
+                context.go(Routes.userAgents);
               }
             },
             itemBuilder: (_) => [
@@ -1261,6 +1281,21 @@ class _AppHeader extends ConsumerWidget {
                   ],
                 ),
               ),
+              // Poste partagé : bascule d'agent (personnel scolaire uniquement).
+              if (profile != null &&
+                  profile!.role != AppConstants.roleSuperAdmin &&
+                  profile!.role != AppConstants.roleAdminGroupe)
+                const PopupMenuItem(
+                  value: 'switch_agent',
+                  child: Row(
+                    children: [
+                      Icon(Icons.switch_account_outlined,
+                          size: 18, color: _kNavy),
+                      SizedBox(width: 10),
+                      Text('Changer d’agent'),
+                    ],
+                  ),
+                ),
               const PopupMenuDivider(),
               const PopupMenuItem(
                 value: 'logout',

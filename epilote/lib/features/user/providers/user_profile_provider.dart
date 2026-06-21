@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/profile_model.dart';
-import '../../../features/auth/providers/auth_provider.dart';
+import '../../../features/auth/providers/active_agent_provider.dart';
 import '../../../services/powersync/powersync_service.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -11,12 +11,13 @@ import '../../../services/powersync/powersync_service.dart';
 //  remonte la modification vers Supabase à la prochaine connexion.
 // ════════════════════════════════════════════════════════════════════════════
 
-/// Ligne `profiles` du membre connecté, en réactif depuis SQLite.
+/// Ligne `profiles` de l'AGENT ACTIF, en réactif depuis SQLite.
 /// Source de vérité de l'écran « Mon profil » (mise à jour instantanée après
-/// édition, sans dépendre du réseau).
+/// édition, sans dépendre du réseau). Sur poste partagé, suit l'agent au
+/// clavier (cf. [activeAgentIdProvider]), pas seulement l'utilisateur appareil.
 final myProfileRowProvider =
     StreamProvider.autoDispose<ProfileModel?>((ref) {
-  final id = ref.watch(authNotifierProvider).valueOrNull?.id;
+  final id = ref.watch(activeAgentIdProvider);
   if (id == null || id.isEmpty) return Stream.value(null);
   return db
       .watch('SELECT * FROM profiles WHERE id = ? LIMIT 1', parameters: [id])
