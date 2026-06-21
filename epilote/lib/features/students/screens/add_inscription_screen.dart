@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/widgets/admin_ui.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/classes/providers/class_provider.dart';
 import '../../../features/structure/providers/academic_year_context.dart';
@@ -241,59 +242,113 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: _kNavy,
-        foregroundColor: Colors.white,
-        title: const Text('Nouvelle inscription'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(),
+    final sw = MediaQuery.of(context).size.width;
+    final modalW = sw < 760 ? sw - 32 : 720.0;
+    return Center(
+      child: Container(
+        width: modalW,
+        constraints: const BoxConstraints(maxHeight: 780),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 40,
+                offset: const Offset(0, 10)),
+          ],
         ),
-      ),
-      body: Column(
-        children: [
-          _StepIndicator(current: _currentStep, steps: _steps),
-          Expanded(
-            child: PageView(
-              controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                _Step1Eleve(state: _state, onChanged: () => setState(() {})),
-                _Step2Parents(state: _state, onChanged: () => setState(() {})),
-                _Step3Scolarite(state: _state, onChanged: () => setState(() {})),
-                _Step4Documents(state: _state, onChanged: () => setState(() {})),
-                _Step5Resume(state: _state),
-              ],
-            ),
-          ),
-          if (_error != null)
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ── En-tête (style « Nouvelle école ») ──────────────────────────
             Container(
-              color: _kRed.withValues(alpha: 0.1),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: [
-                  const Icon(Icons.warning_amber_outlined, color: _kRed, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _error!,
-                      style: const TextStyle(color: _kRed, fontSize: 13),
+              padding: const EdgeInsets.fromLTRB(22, 16, 14, 14),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(color: _kBorder)),
+              ),
+              child: Row(children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF1A2F5A), _kNavy],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                          color: _kNavy.withValues(alpha: 0.30),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3)),
+                    ],
                   ),
+                  child: const Icon(Icons.how_to_reg_rounded,
+                      color: Colors.white, size: 19),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Nouvelle inscription',
+                          style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: _kText)),
+                      const SizedBox(height: 2),
+                      Text('Étape ${_currentStep + 1}/${_steps.length} · ${_steps[_currentStep]}',
+                          style: const TextStyle(fontSize: 11.5, color: _kMuted)),
+                    ],
+                  ),
+                ),
+                InkWell(
+                  onTap: () => Navigator.of(context).pop(),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F4F8),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _kBorder),
+                    ),
+                    child: const Icon(Icons.close_rounded,
+                        size: 16, color: _kMuted),
+                  ),
+                ),
+              ]),
+            ),
+            _StepIndicator(current: _currentStep, steps: _steps),
+            Flexible(
+              child: PageView(
+                controller: _pageController,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  _Step1Eleve(state: _state, onChanged: () => setState(() {})),
+                  _Step2Parents(state: _state, onChanged: () => setState(() {})),
+                  _Step3Scolarite(state: _state, onChanged: () => setState(() {})),
+                  _Step4Documents(state: _state, onChanged: () => setState(() {})),
+                  _Step5Resume(state: _state),
                 ],
               ),
             ),
-          _NavBar(
-            currentStep: _currentStep,
-            totalSteps: _steps.length,
-            submitting: _submitting,
-            onBack: _back,
-            onNext: _next,
-            onSubmit: _submit,
-          ),
-        ],
+            if (_error != null) AdminErrorBanner(message: _error!),
+            _NavBar(
+              currentStep: _currentStep,
+              totalSteps: _steps.length,
+              submitting: _submitting,
+              onBack: _back,
+              onNext: _next,
+              onSubmit: _submit,
+            ),
+          ],
+        ),
       ),
     );
   }

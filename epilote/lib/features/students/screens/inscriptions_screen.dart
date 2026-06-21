@@ -1,588 +1,882 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../core/constants/routes.dart';
-import '../../../core/widgets/loading_widget.dart';
+import '../../../core/widgets/admin_ui.dart';
 import '../../navigation/widgets/module_scaffold.dart';
-import '../../../data/models/class_model.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/classes/providers/class_provider.dart';
 import '../../../features/structure/providers/academic_year_context.dart';
-import '../../../services/powersync/powersync_service.dart';
+import '../providers/inscriptions_data_provider.dart';
 import 'add_inscription_screen.dart';
 
-// ─── Design tokens ────────────────────────────────────────────────────────────
-const _kNavy   = Color(0xFF1E3A5F);
-const _kGreen  = Color(0xFF009A44);
-const _kGold   = Color(0xFFFBBC04);
-const _kRed    = Color(0xFFDC2626);
-const _kMuted  = Color(0xFF64748B);
-const _kText   = Color(0xFF0F172A);
+part 'inscriptions_list_parts.dart';
 
-// Provider inscriptions validées (actives) de l'école
-final _validatedEnrollmentsProvider = StreamProvider.autoDispose
-    .family<List<ClassEnrollmentModel>, String>((ref, schoolId) {
-  return db
-      .watch(
-        '''
-        SELECT ce.*,
-               s.first_name,
-               s.last_name,
-               s.matricule,
-               s.photo_url,
-               s.gender
-        FROM   class_enrollments ce
-        JOIN   students s ON s.id = ce.student_id
-        WHERE  ce.school_id = ?
-        AND    ce.status    = 'active'
-        ORDER  BY ce.validated_at DESC
-        LIMIT  100
-        ''',
-        parameters: [schoolId],
-      )
-      .map((rows) => rows.map(ClassEnrollmentModel.fromMap).toList());
-});
+// ─── Accents de cycle ─────────────────────────────────────────────────────────
+const _kBlue = Color(0xFF0EA5E9);
+const _kPink = Color(0xFFEC4899);
 
-// ─── Screen ───────────────────────────────────────────────────────────────────
+Color _cycleColor(String code) => switch (code) {
+      'prescolaire' => _kPink,
+      'primaire' => _kBlue,
+      'college' => kGreen,
+      'lycee' => kNavy,
+      'fp' => kAccent,
+      _ => kTextMuted,
+    };
 
+enum _SortBy { nom, classe, date }
+
+// ════════════════════════════════════════════════════════════════════════════
+//  PAGE INSCRIPTIONS — une seule page (design plateforme admin_groupe) :
+//  KPI → cycles → évolution → filtres (avec « Inscrire ») → table / cartes.
+//  Le statut « En attente » est un FILTRE (pas un onglet) ; validation/rejet
+//  via les actions de ligne et la fiche détail.
+// ════════════════════════════════════════════════════════════════════════════
 class InscriptionsScreen extends ConsumerWidget {
   const InscriptionsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final readOnly = ref.watch(yearReadOnlyProvider);
-    return ModuleScaffold(
+    return const ModuleScaffold(
       slug: 'inscriptions',
       title: 'Inscriptions',
-      actions: [
-        // Année archivée/non courante → aucune écriture possible (verrou année).
-        if (readOnly)
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12),
-            child: Tooltip(
-              message: 'Année en lecture seule',
-              child: Icon(Icons.lock_clock_rounded, color: _kGold, size: 20),
-            ),
-          )
-        else
-          PermissionGate(
-            slug: 'inscriptions',
-            action: 'create',
-            child: IconButton(
-              icon: const Icon(Icons.add_circle_outline),
-              tooltip: 'Nouvelle inscription',
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  fullscreenDialog: true,
-                  builder: (_) => const AddInscriptionScreen(),
-                ),
-              ),
-            ),
-          ),
-      ],
-      child: const _InscriptionsBody(),
+      child: _InscriptionsBody(),
     );
   }
 }
 
-// ─── Body ─────────────────────────────────────────────────────────────────────
-
-class _InscriptionsBody extends ConsumerWidget {
+class _InscriptionsBody extends ConsumerStatefulWidget {
   const _InscriptionsBody();
-
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final pendingAsync = ref.watch(pendingEnrollmentsProvider);
-    final profile      = ref.watch(authNotifierProvider).valueOrNull;
-
-    return DefaultTabController(
-      length: 2,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _Header(pendingAsync: pendingAsync),
-          const TabBar(
-            labelColor: _kNavy,
-            unselectedLabelColor: _kMuted,
-            indicatorColor: _kGreen,
-            tabs: [
-              Tab(text: 'En attente'),
-              Tab(text: 'Validées'),
-            ],
-          ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _PendingList(pendingAsync: pendingAsync),
-                _ValidatedList(schoolId: profile?.schoolId ?? ''),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  ConsumerState<_InscriptionsBody> createState() => _InscriptionsBodyState();
 }
 
-// ─── Header ───────────────────────────────────────────────────────────────────
-
-class _Header extends StatelessWidget {
-  const _Header({required this.pendingAsync});
-  final AsyncValue<List<ClassEnrollmentModel>> pendingAsync;
+class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
+  final _searchCtrl = TextEditingController();
+  String? _cycle;
+  String? _type;
+  String _status = 'all'; // all | active | pending_validation | rejected
+  bool _isTable = true;
+  _SortBy _sort = _SortBy.nom;
+  bool _sortAsc = true;
 
   @override
-  Widget build(BuildContext context) {
-    final count = pendingAsync.valueOrNull?.length ?? 0;
-    return Container(
-      color: _kNavy,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Inscriptions',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  count > 0
-                      ? '$count inscription(s) en attente de validation'
-                      : 'Aucune inscription en attente',
-                  style: TextStyle(
-                    color: count > 0 ? _kGold : Colors.white70,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (count > 0)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: _kGold,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                '$count',
-                style: const TextStyle(
-                  color: _kNavy,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
-}
 
-// ─── En attente ───────────────────────────────────────────────────────────────
-
-class _PendingList extends ConsumerWidget {
-  const _PendingList({required this.pendingAsync});
-  final AsyncValue<List<ClassEnrollmentModel>> pendingAsync;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return pendingAsync.when(
-      loading: () => const LoadingWidget(),
-      error:   (e, _) => _ErrorView(message: e.toString()),
-      data:    (items) {
-        if (items.isEmpty) {
-          return const _EmptyState(
-            icon: Icons.check_circle_outline,
-            message: 'Aucune inscription en attente',
-            sub: 'Toutes les inscriptions ont été traitées.',
-          );
-        }
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: items.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 8),
-          itemBuilder: (_, i) => _PendingCard(
-            enrollment: items[i],
-            validatedBy: ref.read(authNotifierProvider).valueOrNull?.id ?? '',
-          ),
-        );
-      },
-    );
+  List<InscriptionRow> _apply(List<InscriptionRow> all) {
+    final q = _searchCtrl.text.trim().toLowerCase();
+    final out = all.where((r) {
+      if (_cycle != null && r.cycle.code != _cycle) return false;
+      if (_type != null && r.inscriptionType != _type) return false;
+      if (_status != 'all' && r.status != _status) return false;
+      if (q.isEmpty) return true;
+      return r.fullName.toLowerCase().contains(q) ||
+          r.matricule.toLowerCase().contains(q);
+    }).toList()
+      ..sort((a, b) {
+        final c = switch (_sort) {
+          _SortBy.nom => a.lastFirst.toLowerCase().compareTo(b.lastFirst.toLowerCase()),
+          _SortBy.classe => a.className.compareTo(b.className),
+          _SortBy.date => (a.enrollmentDate ?? DateTime(2000))
+              .compareTo(b.enrollmentDate ?? DateTime(2000)),
+        };
+        return _sortAsc ? c : -c;
+      });
+    return out;
   }
-}
 
-class _PendingCard extends StatelessWidget {
-  const _PendingCard({
-    required this.enrollment,
-    required this.validatedBy,
-  });
-  final ClassEnrollmentModel enrollment;
-  final String validatedBy;
+  void _resetFilters() => setState(() {
+        _searchCtrl.clear();
+        _cycle = _type = null;
+        _status = 'all';
+      });
 
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFE2E8F0)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: _kNavy.withValues(alpha: 0.1),
-                  child: Text(
-                    (enrollment.studentFirstName?.isNotEmpty == true)
-                        ? enrollment.studentFirstName![0].toUpperCase()
-                        : '?',
-                    style: const TextStyle(
-                      color: _kNavy,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        enrollment.studentFullName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: _kText,
-                        ),
-                      ),
-                      Text(
-                        enrollment.inscriptionTypeLabel,
-                        style: const TextStyle(fontSize: 12, color: _kMuted),
-                      ),
-                    ],
-                  ),
-                ),
-                _TypeBadge(type: enrollment.inscriptionType),
-              ],
-            ),
-            if (enrollment.previousSchoolName != null) ...[
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.school_outlined, size: 14, color: _kMuted),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      'Venant de : ${enrollment.previousSchoolName}',
-                      style: const TextStyle(fontSize: 12, color: _kMuted),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            const Divider(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.close, size: 16, color: _kRed),
-                  label: const Text('Rejeter', style: TextStyle(color: _kRed)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: _kRed),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  onPressed: () => _showRejectDialog(context),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.check, size: 16),
-                  label: const Text('Valider'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _kGreen,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  onPressed: () => _validate(context),
-                ),
-              ],
-            ),
-          ],
+  void _openAdd() => showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+          child: AddInscriptionScreen(),
         ),
-      ),
-    );
-  }
-
-  Future<void> _validate(BuildContext context) async {
-    try {
-      await validateEnrollment(
-        enrollmentId: enrollment.id,
-        validatedBy: validatedBy,
       );
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Inscription validée'),
-            backgroundColor: _kGreen,
-          ),
-        );
-      }
+
+  void _openDetail(InscriptionRow r) => showDialog(
+        context: context,
+        builder: (_) => _InscriptionDetailModal(
+          row: r,
+          onOpenStudent: () {
+            Navigator.of(context).pop();
+            context.push(Routes.eleveDetail.replaceFirst(':id', r.studentId));
+          },
+          onValidate: r.status == 'pending_validation'
+              ? () { Navigator.of(context).pop(); _validate(r); }
+              : null,
+          onReject: r.status == 'pending_validation'
+              ? () { Navigator.of(context).pop(); _reject(r); }
+              : null,
+        ),
+      );
+
+  Future<void> _validate(InscriptionRow r) async {
+    final me = ref.read(authNotifierProvider).valueOrNull?.id ?? '';
+    try {
+      await validateEnrollment(enrollmentId: r.id, validatedBy: me);
+      _snack('Inscription validée', kGreen);
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur : $e'), backgroundColor: _kRed),
-        );
-      }
+      _snack('Erreur : $e', kRed);
     }
   }
 
-  Future<void> _showRejectDialog(BuildContext context) async {
-    final controller = TextEditingController();
-    final confirmed = await showDialog<bool>(
+  Future<void> _reject(InscriptionRow r) async {
+    final ctrl = TextEditingController();
+    final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: const Text('Rejeter l\'inscription'),
         content: TextField(
-          controller: controller,
+          controller: ctrl,
+          maxLines: 3,
           decoration: const InputDecoration(
             labelText: 'Motif du rejet',
             hintText: 'Ex. : Dossier incomplet, quota atteint…',
           ),
-          maxLines: 3,
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: _kRed),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: kRed),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Rejeter', style: TextStyle(color: Colors.white)),
+            child: const Text('Rejeter'),
           ),
         ],
       ),
     );
-    if (confirmed == true && context.mounted) {
-      try {
-        await rejectEnrollment(
-          enrollmentId: enrollment.id,
-          rejectionReason: controller.text.trim().isEmpty
-              ? 'Aucun motif précisé'
-              : controller.text.trim(),
-          validatedBy: validatedBy,
-        );
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Inscription rejetée')),
-          );
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur : $e'), backgroundColor: _kRed),
-          );
-        }
-      }
+    if (ok != true) { ctrl.dispose(); return; }
+    final me = ref.read(authNotifierProvider).valueOrNull?.id ?? '';
+    try {
+      await rejectEnrollment(
+        enrollmentId: r.id,
+        rejectionReason:
+            ctrl.text.trim().isEmpty ? 'Aucun motif précisé' : ctrl.text.trim(),
+        validatedBy: me,
+      );
+      _snack('Inscription rejetée', kTextMuted);
+    } catch (e) {
+      _snack('Erreur : $e', kRed);
     }
-    controller.dispose();
+    ctrl.dispose();
   }
-}
 
-class _TypeBadge extends StatelessWidget {
-  const _TypeBadge({required this.type});
-  final String type;
+  Future<void> _export(List<InscriptionRow> rows) async {
+    if (rows.isEmpty) return;
+    try {
+      final path = await exportInscriptionsCsv(rows);
+      _snack('Export CSV : ${rows.length} ligne(s) → $path', kGreen);
+    } catch (e) {
+      _snack('Erreur export : $e', kRed);
+    }
+  }
+
+  void _snack(String msg, Color c) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg), backgroundColor: c));
+  }
 
   @override
   Widget build(BuildContext context) {
-    final (label, color) = switch (type) {
-      'new'           => ('Nouvelle', _kGreen),
-      'reinscription' => ('Réinscription', _kNavy),
-      'transfer'      => ('Transfert', _kGold),
-      _               => (type, _kMuted),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
+    final async = ref.watch(inscriptionsDataProvider);
+    final readOnly = ref.watch(yearReadOnlyProvider);
+
+    return async.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text('Erreur : $e', style: const TextStyle(color: kRed)),
         ),
       ),
-    );
-  }
-}
+      data: (all) {
+        final st = ref.watch(inscriptionStatsProvider);
+        final filtered = _apply(all);
+        final cyclesPresent = <String, String>{
+          for (final r in all) r.cycle.code: r.cycle.label,
+        };
 
-// ─── Validées ─────────────────────────────────────────────────────────────────
-
-class _ValidatedList extends ConsumerWidget {
-  const _ValidatedList({required this.schoolId});
-  final String schoolId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (schoolId.isEmpty) return const SizedBox.shrink();
-
-    final enrollmentsAsync = ref.watch(_validatedEnrollmentsProvider(schoolId));
-
-    return enrollmentsAsync.when(
-      loading: () => const LoadingWidget(),
-      error:   (e, _) => _ErrorView(message: e.toString()),
-      data:    (items) {
-        if (items.isEmpty) {
-          return const _EmptyState(
-            icon: Icons.people_outline,
-            message: 'Aucune inscription validée',
-            sub: 'Les nouvelles inscriptions validées apparaîtront ici.',
+        return LayoutBuilder(builder: (ctx, cns) {
+          final w = cns.maxWidth.isFinite
+              ? cns.maxWidth
+              : MediaQuery.of(ctx).size.width;
+          return SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _KpiSection(st: st),
+                  const SizedBox(height: 22),
+                  if (st.byCycle.isNotEmpty) ...[
+                    const AdminSectionTitle('Inscrits par cycle',
+                        icon: Icons.account_tree_rounded),
+                    const SizedBox(height: 12),
+                    _CycleSection(byCycle: st.byCycle),
+                    const SizedBox(height: 22),
+                  ],
+                  if (st.evolution.length >= 2) ...[
+                    const AdminSectionTitle('Évolution des inscriptions',
+                        icon: Icons.show_chart_rounded),
+                    const SizedBox(height: 12),
+                    _EvolutionCard(points: st.evolution),
+                    const SizedBox(height: 22),
+                  ],
+                  _FilterBar(
+                    width: w - 48,
+                    searchCtrl: _searchCtrl,
+                    cycle: _cycle,
+                    type: _type,
+                    status: _status,
+                    isTable: _isTable,
+                    readOnly: readOnly,
+                    cyclesPresent: cyclesPresent,
+                    onSearch: (_) => setState(() {}),
+                    onCycle: (v) => setState(() => _cycle = v),
+                    onType: (v) => setState(() => _type = v),
+                    onStatus: (v) => setState(() => _status = v),
+                    onToggleView: () => setState(() => _isTable = !_isTable),
+                    onReset: _resetFilters,
+                    onAdd: _openAdd,
+                    onExport: () => _export(filtered),
+                  ),
+                  const SizedBox(height: 16),
+                  _ResultHeader(total: all.length, filtered: filtered.length),
+                  const SizedBox(height: 12),
+                  if (all.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 30),
+                      child: AdminEmptyState(
+                        icon: Icons.how_to_reg_outlined,
+                        title: 'Aucune inscription cette année',
+                        message:
+                            'Inscrivez le premier élève pour démarrer le suivi des effectifs.',
+                        actionLabel: readOnly ? null : 'Inscrire un élève',
+                        onAction: readOnly ? null : _openAdd,
+                      ),
+                    )
+                  else if (filtered.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 30),
+                      child: AdminEmptyState(
+                        icon: Icons.search_off_rounded,
+                        title: 'Aucun résultat',
+                        message: 'Ajustez la recherche ou les filtres.',
+                      ),
+                    )
+                  else if (_isTable)
+                    _InscritsTable(
+                      rows: filtered,
+                      sort: _sort,
+                      sortAsc: _sortAsc,
+                      onSort: (f) => setState(() {
+                        if (_sort == f) {
+                          _sortAsc = !_sortAsc;
+                        } else {
+                          _sort = f;
+                          _sortAsc = true;
+                        }
+                      }),
+                      onView: _openDetail,
+                      onValidate: _validate,
+                      onReject: _reject,
+                      readOnly: readOnly,
+                    )
+                  else
+                    _InscritsCards(
+                      rows: filtered,
+                      onView: _openDetail,
+                    ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
           );
-        }
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: items.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 8),
-          itemBuilder: (_, i) => _ValidatedCard(enrollment: items[i]),
-        );
+        });
       },
     );
   }
 }
 
-class _ValidatedCard extends StatelessWidget {
-  const _ValidatedCard({required this.enrollment});
-  final ClassEnrollmentModel enrollment;
+// ─── Section KPI (compacte) ──────────────────────────────────────────────────
+class _KpiSection extends StatelessWidget {
+  const _KpiSection({required this.st});
+  final InscriptionStats st;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
+    final tot = st.boys + st.girls;
+    final items = <_MiniKpiData>[
+      _MiniKpiData('Total inscrits', '${st.total}', Icons.groups_rounded, kNavy),
+      _MiniKpiData('Validées', '${st.active}', Icons.verified_rounded, kGreen),
+      _MiniKpiData('En attente', '${st.pending}', Icons.hourglass_top_rounded, kAccent),
+      _MiniKpiData('Filles', '${st.girls}', Icons.female_rounded, _kPink,
+          sub: tot > 0 ? '${(st.girls * 100 / tot).round()}%' : null),
+      _MiniKpiData('Garçons', '${st.boys}', Icons.male_rounded, _kBlue,
+          sub: tot > 0 ? '${(st.boys * 100 / tot).round()}%' : null),
+      _MiniKpiData('Redoublants', '${st.repeating}', Icons.replay_rounded, kRed),
+    ];
+    return LayoutBuilder(builder: (_, c) {
+      final cols = (c.maxWidth ~/ 220).clamp(2, 6);
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: cols,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          mainAxisExtent: 76,
+        ),
+        itemCount: items.length,
+        itemBuilder: (_, i) => _MiniKpi(d: items[i]),
+      );
+    });
+  }
+}
+
+class _MiniKpiData {
+  const _MiniKpiData(this.label, this.value, this.icon, this.color, {this.sub});
+  final String label, value;
+  final String? sub;
+  final IconData icon;
+  final Color color;
+}
+
+class _MiniKpi extends StatelessWidget {
+  const _MiniKpi({required this.d});
+  final _MiniKpiData d;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFE2E8F0)),
+        border: Border.all(color: kBorder),
       ),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: _kGreen.withValues(alpha: 0.1),
-          child: Text(
-            (enrollment.studentFirstName?.isNotEmpty == true)
-                ? enrollment.studentFirstName![0].toUpperCase()
-                : '?',
-            style: const TextStyle(
-              color: _kGreen,
-              fontWeight: FontWeight.bold,
+      child: Row(children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: d.color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(d.icon, size: 19, color: d.color),
+        ),
+        const SizedBox(width: 11),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic, children: [
+                Text(d.value,
+                    style: TextStyle(
+                        fontSize: 19, fontWeight: FontWeight.w800, color: d.color)),
+                if (d.sub != null) ...[
+                  const SizedBox(width: 5),
+                  Text(d.sub!,
+                      style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                ],
+              ]),
+              Text(d.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 11.5, color: kTextMuted, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+// ─── Section cycles ──────────────────────────────────────────────────────────
+class _CycleSection extends StatelessWidget {
+  const _CycleSection({required this.byCycle});
+  final List<CycleCount> byCycle;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxTotal =
+        byCycle.fold<int>(1, (m, c) => c.total > m ? c.total : m);
+    return Wrap(
+      spacing: 14,
+      runSpacing: 14,
+      children: [
+        for (final c in byCycle)
+          SizedBox(
+            width: 250,
+            child: AdminCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: _cycleColor(c.cycle.code).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: Icon(Icons.school_rounded,
+                          size: 18, color: _cycleColor(c.cycle.code)),
+                    ),
+                    const Spacer(),
+                    Text('${c.total}',
+                        style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: _cycleColor(c.cycle.code))),
+                  ]),
+                  const SizedBox(height: 10),
+                  Text(c.cycle.label,
+                      style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: kTextPrimary)),
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: (c.total / maxTotal).clamp(0.04, 1),
+                      minHeight: 6,
+                      backgroundColor:
+                          _cycleColor(c.cycle.code).withValues(alpha: 0.10),
+                      valueColor:
+                          AlwaysStoppedAnimation(_cycleColor(c.cycle.code)),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    AdminBadge('${c.girls} filles', color: _kPink),
+                    const SizedBox(width: 6),
+                    AdminBadge('${c.boys} garçons', color: kNavy),
+                  ]),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ─── Évolution ───────────────────────────────────────────────────────────────
+class _EvolutionCard extends StatelessWidget {
+  const _EvolutionCard({required this.points});
+  final List<(String, int)> points;
+
+  @override
+  Widget build(BuildContext context) {
+    return AdminCard(
+      padding: const EdgeInsets.fromLTRB(10, 16, 16, 8),
+      child: SizedBox(
+        height: 230,
+        child: SfCartesianChart(
+          margin: EdgeInsets.zero,
+          primaryXAxis: const CategoryAxis(
+            majorGridLines: MajorGridLines(width: 0),
+            labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
+          ),
+          primaryYAxis: const NumericAxis(
+            axisLine: AxisLine(width: 0),
+            majorTickLines: MajorTickLines(size: 0),
+            labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
+          ),
+          tooltipBehavior: TooltipBehavior(enable: true),
+          series: <CartesianSeries<(String, int), String>>[
+            SplineAreaSeries<(String, int), String>(
+              dataSource: points,
+              xValueMapper: (p, _) => p.$1,
+              yValueMapper: (p, _) => p.$2,
+              borderColor: kGreen,
+              borderWidth: 2.5,
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  kGreen.withValues(alpha: 0.28),
+                  kGreen.withValues(alpha: 0.02),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Barre de filtres (style plateforme) ─────────────────────────────────────
+class _FilterBar extends StatelessWidget {
+  const _FilterBar({
+    required this.width,
+    required this.searchCtrl,
+    required this.cycle,
+    required this.type,
+    required this.status,
+    required this.isTable,
+    required this.readOnly,
+    required this.cyclesPresent,
+    required this.onSearch,
+    required this.onCycle,
+    required this.onType,
+    required this.onStatus,
+    required this.onToggleView,
+    required this.onReset,
+    required this.onAdd,
+    required this.onExport,
+  });
+  final double width;
+  final TextEditingController searchCtrl;
+  final String? cycle, type;
+  final String status;
+  final bool isTable, readOnly;
+  final Map<String, String> cyclesPresent;
+  final ValueChanged<String> onSearch;
+  final ValueChanged<String?> onCycle, onType;
+  final ValueChanged<String> onStatus;
+  final VoidCallback onToggleView, onReset, onAdd, onExport;
+
+  bool get _hasFilters => cycle != null || type != null || status != 'all';
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: kBorder),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Expanded(
+            flex: 3,
+            child: TextField(
+              controller: searchCtrl,
+              onChanged: onSearch,
+              decoration: InputDecoration(
+                hintText: 'Rechercher (nom, matricule)…',
+                hintStyle: const TextStyle(color: kTextMuted, fontSize: 13),
+                prefixIcon:
+                    const Icon(Icons.search_rounded, color: kTextMuted, size: 20),
+                suffixIcon: searchCtrl.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close_rounded,
+                            size: 18, color: kTextMuted),
+                        onPressed: () { searchCtrl.clear(); onSearch(''); })
+                    : null,
+                filled: true,
+                fillColor: kSurface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          _IconBtn(
+            icon: isTable ? Icons.grid_view_rounded : Icons.table_rows_rounded,
+            tooltip: isTable ? 'Vue en cartes' : 'Vue en tableau',
+            color: kNavy,
+            onTap: onToggleView,
+          ),
+          const SizedBox(width: 8),
+          _IconBtn(
+            icon: Icons.download_rounded,
+            tooltip: 'Exporter en CSV',
+            color: kGreen,
+            onTap: onExport,
+          ),
+          const SizedBox(width: 12),
+          _AddButton(readOnly: readOnly, onAdd: onAdd),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          _FilterDropdown<String?>(
+            icon: Icons.account_tree_outlined,
+            value: cycle,
+            active: cycle != null,
+            items: [
+              const DropdownMenuItem(value: null, child: Text('Tous les cycles')),
+              for (final e in cyclesPresent.entries)
+                DropdownMenuItem(value: e.key, child: Text(e.value)),
+            ],
+            onChanged: onCycle,
+          ),
+          const SizedBox(width: 8),
+          _FilterDropdown<String?>(
+            icon: Icons.category_outlined,
+            value: type,
+            active: type != null,
+            items: const [
+              DropdownMenuItem(value: null, child: Text('Tous les types')),
+              DropdownMenuItem(value: 'new', child: Text('Nouvelles')),
+              DropdownMenuItem(value: 'reinscription', child: Text('Réinscriptions')),
+              DropdownMenuItem(value: 'transfer', child: Text('Transferts')),
+            ],
+            onChanged: onType,
+          ),
+          const SizedBox(width: 8),
+          _StatusSegment(value: status, onChanged: onStatus),
+          const Spacer(),
+          if (_hasFilters)
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: onReset,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: kRed.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: kRed.withValues(alpha: 0.25)),
+                  ),
+                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.filter_alt_off_rounded, size: 13, color: kRed),
+                    SizedBox(width: 4),
+                    Text('Réinitialiser',
+                        style: TextStyle(
+                            color: kRed, fontSize: 11.5, fontWeight: FontWeight.w600)),
+                  ]),
+                ),
+              ),
+            ),
+        ]),
+      ]),
+    );
+  }
+}
+
+class _AddButton extends StatelessWidget {
+  const _AddButton({required this.readOnly, required this.onAdd});
+  final bool readOnly;
+  final VoidCallback onAdd;
+  @override
+  Widget build(BuildContext context) {
+    if (readOnly) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: kAccent.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: kAccent.withValues(alpha: 0.30)),
+        ),
+        child: const Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.lock_clock_rounded, size: 15, color: kAccent),
+          SizedBox(width: 6),
+          Text('Année verrouillée',
+              style: TextStyle(
+                  color: kAccent, fontSize: 12.5, fontWeight: FontWeight.w700)),
+        ]),
+      );
+    }
+    return PermissionGate(
+      slug: 'inscriptions',
+      action: 'create',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onAdd,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [kNavyDark, kNavy],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                    color: kNavy.withValues(alpha: 0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3)),
+              ],
+            ),
+            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.person_add_rounded, size: 15, color: Colors.white),
+              SizedBox(width: 6),
+              Text('Inscrire',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2)),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _IconBtn extends StatelessWidget {
+  const _IconBtn({
+    required this.icon,
+    required this.tooltip,
+    required this.color,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String tooltip;
+  final Color color;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Tooltip(
+          message: tooltip,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                color: kSurface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: kBorder),
+              ),
+              child: Icon(icon, size: 18, color: color),
             ),
           ),
         ),
-        title: Text(
-          enrollment.studentFullName,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(
-          enrollment.inscriptionTypeLabel,
-          style: const TextStyle(fontSize: 12, color: _kMuted),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (enrollment.studentMatricule != null)
-              Text(
-                enrollment.studentMatricule!,
-                style: const TextStyle(fontSize: 11, color: _kMuted),
-              ),
-            const SizedBox(width: 8),
-            const Icon(Icons.check_circle, color: _kGreen, size: 18),
-          ],
-        ),
-        onTap: () => context.push(
-          Routes.eleveDetail.replaceFirst(':id', enrollment.studentId),
-        ),
-      ),
-    );
-  }
+      );
 }
 
-// ─── Widgets utilitaires ─────────────────────────────────────────────────────
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({
+class _FilterDropdown<T> extends StatelessWidget {
+  const _FilterDropdown({
     required this.icon,
-    required this.message,
-    required this.sub,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+    required this.active,
   });
   final IconData icon;
-  final String   message;
-  final String   sub;
+  final T value;
+  final List<DropdownMenuItem<T>> items;
+  final ValueChanged<T?> onChanged;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        height: 38,
+        constraints: const BoxConstraints(minWidth: 170, maxWidth: 220),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: active ? kNavy.withValues(alpha: 0.06) : kSurface,
+          borderRadius: BorderRadius.circular(8),
+          border:
+              Border.all(color: active ? kNavy.withValues(alpha: 0.35) : kBorder),
+        ),
+        child: Row(children: [
+          Icon(icon, size: 15, color: active ? kNavy : kTextMuted),
+          const SizedBox(width: 6),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<T>(
+                value: value,
+                icon: Icon(Icons.expand_more_rounded,
+                    size: 14, color: active ? kNavy : kTextMuted),
+                isExpanded: true,
+                style: TextStyle(
+                  color: active ? kNavy : kTextPrimary,
+                  fontSize: 12.5,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                ),
+                items: items,
+                onChanged: onChanged,
+              ),
+            ),
+          ),
+        ]),
+      );
+}
+
+class _StatusSegment extends StatelessWidget {
+  const _StatusSegment({required this.value, required this.onChanged});
+  final String value;
+  final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 64, color: _kMuted.withValues(alpha: 0.4)),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: _kText,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              sub,
-              style: const TextStyle(color: _kMuted, fontSize: 13),
-              textAlign: TextAlign.center,
-            ),
-          ],
+    Widget seg(String v, String label) {
+      final sel = value == v;
+      return GestureDetector(
+        onTap: () => onChanged(v),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: sel ? kNavy : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(label,
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: sel ? Colors.white : kTextMuted)),
         ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: kSurface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: kBorder),
       ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        seg('all', 'Tous'),
+        seg('active', 'Validées'),
+        seg('pending_validation', 'En attente'),
+        seg('rejected', 'Rejetées'),
+      ]),
     );
   }
 }
 
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message});
-  final String message;
-
+class _ResultHeader extends StatelessWidget {
+  const _ResultHeader({required this.total, required this.filtered});
+  final int total, filtered;
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text(
-          message,
-          style: const TextStyle(color: _kRed),
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Row(children: [
+        Text('$filtered inscrit${filtered > 1 ? 's' : ''}',
+            style: const TextStyle(
+                color: kTextPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
+        if (filtered < total) ...[
+          const SizedBox(width: 8),
+          Text('sur $total',
+              style: const TextStyle(color: kTextMuted, fontSize: 13)),
+        ],
+      ]);
 }
