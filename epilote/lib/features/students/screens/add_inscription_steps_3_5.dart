@@ -138,65 +138,163 @@ class _Step3ScolariteState extends ConsumerState<_Step3Scolarite> {
 
 // ─── Étape 4 — Documents ─────────────────────────────────────────────────────
 
-class _Step4Documents extends StatefulWidget {
+class _Step4Documents extends ConsumerStatefulWidget {
   const _Step4Documents({required this.state, required this.onChanged});
   final _InscriptionState state;
   final VoidCallback onChanged;
 
   @override
-  State<_Step4Documents> createState() => _Step4DocumentsState();
+  ConsumerState<_Step4Documents> createState() => _Step4DocumentsState();
 }
 
-class _Step4DocumentsState extends State<_Step4Documents> {
-  static const _docs = [
-    'Extrait d\'acte de naissance',
-    'Certificat de nationalité',
-    'Certificat de résidence',
-    'Bulletin de notes (année précédente)',
-    'Certificat médical de bonne santé',
-    'Photos d\'identité (2)',
-    'Attestation de transfert (si transfert)',
-    'Livret scolaire',
-  ];
+class _Step4DocumentsState extends ConsumerState<_Step4Documents> {
+  final _uploading = <String>{};
+
+  Future<void> _pick(String slug, String label) async {
+    final profile = ref.read(authNotifierProvider).valueOrNull;
+    final schoolId = profile?.schoolId ?? '';
+    if (schoolId.isEmpty) return;
+    final res = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp', 'pdf'],
+      withData: true,
+    );
+    if (res == null || res.files.isEmpty) return;
+    final f = res.files.first;
+    final bytes = f.bytes;
+    if (bytes == null) return;
+    setState(() => _uploading.add(slug));
+    try {
+      final client = ref.read(supabaseClientProvider);
+      final path = await uploadStudentDocumentFile(
+        client: client,
+        schoolId: schoolId,
+        studentId: widget.state.studentId,
+        typeSlug: slug,
+        fileName: f.name,
+        bytes: bytes,
+      );
+      widget.state.uploadedDocs[slug] =
+          _DocEntry(typeSlug: slug, label: label, fileName: f.name, path: path);
+      widget.onChanged();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          backgroundColor: _kRed,
+          content: Text('Téléversement impossible (connexion requise) : $e'),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _uploading.remove(slug));
+    }
+  }
+
+  void _remove(String slug) {
+    setState(() => widget.state.uploadedDocs.remove(slug));
+    widget.onChanged();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      itemCount: _docs.length + 1,
-      itemBuilder: (_, i) {
-        if (i == 0) {
-          return const Padding(
-            padding: EdgeInsets.only(bottom: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _SectionTitle('Pièces justificatives'),
-                Text(
-                  'Cochez les documents fournis par la famille.',
-                  style: TextStyle(color: _kMuted, fontSize: 13),
-                ),
-              ],
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const _SectionTitle('Dossier de l\'élève'),
+        const Padding(
+          padding: EdgeInsets.only(bottom: 14),
+          child: Text(
+            'Téléversez les pièces (PDF ou image). Le dossier suit l\'élève : '
+            'en réinscription, les pièces déjà présentes sont conservées.',
+            style: TextStyle(fontSize: 12, color: _kMuted, height: 1.4),
+          ),
+        ),
+        for (final e in studentDocTypes.entries)
+          _DocRow(
+            label: e.value,
+            entry: widget.state.uploadedDocs[e.key],
+            uploading: _uploading.contains(e.key),
+            onPick: () => _pick(e.key, e.value),
+            onRemove: () => _remove(e.key),
+          ),
+      ]),
+    );
+  }
+}
+
+class _DocRow extends StatelessWidget {
+  const _DocRow({
+    required this.label,
+    required this.entry,
+    required this.uploading,
+    required this.onPick,
+    required this.onRemove,
+  });
+  final String label;
+  final _DocEntry? entry;
+  final bool uploading;
+  final VoidCallback onPick, onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final has = entry != null;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: has ? _kGreen.withValues(alpha: 0.06) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+            color: has ? _kGreen.withValues(alpha: 0.4) : _kBorder),
+      ),
+      child: Row(children: [
+        Icon(has ? Icons.check_circle_rounded : Icons.description_outlined,
+            size: 20, color: has ? _kGreen : _kMuted),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600, color: _kText)),
+            if (has)
+              Text(entry!.fileName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: _kMuted)),
+          ]),
+        ),
+        const SizedBox(width: 8),
+        if (uploading)
+          const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2))
+        else if (has)
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            TextButton(
+                onPressed: onPick,
+                style: TextButton.styleFrom(
+                    foregroundColor: _kNavy, minimumSize: const Size(0, 32)),
+                child: const Text('Remplacer', style: TextStyle(fontSize: 12))),
+            IconButton(
+              icon: const Icon(Icons.close_rounded, size: 18, color: _kRed),
+              tooltip: 'Retirer',
+              onPressed: onRemove,
             ),
-          );
-        }
-        final doc = _docs[i - 1];
-        return CheckboxListTile(
-          title: Text(doc, style: const TextStyle(fontSize: 14)),
-          value: widget.state.checkedDocs.contains(doc),
-          activeColor: _kGreen,
-          onChanged: (v) {
-            setState(() {
-              if (v == true) {
-                widget.state.checkedDocs.add(doc);
-              } else {
-                widget.state.checkedDocs.remove(doc);
-              }
-            });
-            widget.onChanged();
-          },
-        );
-      },
+          ])
+        else
+          OutlinedButton.icon(
+            onPressed: onPick,
+            icon: const Icon(Icons.upload_file_rounded, size: 16),
+            label: const Text('Téléverser'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _kNavy,
+              side: const BorderSide(color: _kNavy),
+              minimumSize: const Size(0, 36),
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+      ]),
     );
   }
 }
@@ -255,11 +353,11 @@ class _Step5Resume extends StatelessWidget {
             ],
           ),
           _ResumeCard(
-            title: 'Documents',
-            icon: Icons.description_outlined,
-            rows: state.checkedDocs.isEmpty
-                ? [('Aucun document coché', '')]
-                : state.checkedDocs.map((d) => (d, '✓')).toList(),
+            title: 'Dossier (pièces téléversées)',
+            icon: Icons.folder_open_rounded,
+            rows: state.uploadedDocs.isEmpty
+                ? [('Aucune pièce téléversée', '')]
+                : state.uploadedDocs.values.map((d) => (d.label, '✓')).toList(),
           ),
           const SizedBox(height: 16),
           Container(

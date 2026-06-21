@@ -1,11 +1,14 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/classes/providers/class_provider.dart';
 import '../../../features/structure/providers/academic_year_context.dart';
 import '../../../features/structure/providers/academic_year_provider.dart';
+import '../providers/student_documents_provider.dart';
 import '../providers/student_tutors_provider.dart';
 import '../providers/students_provider.dart';
 
@@ -24,6 +27,9 @@ const _kBorder = Color(0xFFE2E8F0);
 // ─── State ────────────────────────────────────────────────────────────────────
 
 class _InscriptionState {
+  // Identité de l'élève générée en amont → chemin du dossier documentaire.
+  final String studentId = const Uuid().v4();
+
   // Étape 1 — Élève
   String  firstName        = '';
   String  lastName         = '';
@@ -61,8 +67,19 @@ class _InscriptionState {
   String? transferReason;
   String? notes;
 
-  // Étape 4 — Documents
-  final Set<String> checkedDocs = {};
+  // Étape 4 — Documents (pièces réellement téléversées du dossier élève)
+  final Map<String, _DocEntry> uploadedDocs = {};
+}
+
+/// Une pièce du dossier téléversée (chemin Storage prêt à être persisté au submit).
+class _DocEntry {
+  _DocEntry({
+    required this.typeSlug,
+    required this.label,
+    required this.fileName,
+    required this.path,
+  });
+  final String typeSlug, label, fileName, path;
 }
 
 class _TutorEntry {
@@ -156,8 +173,9 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
         return;
       }
 
-      // Créer l'élève
+      // Créer l'élève (id généré en amont = chemin du dossier documentaire)
       final studentId = await createStudent(
+        id:                 _state.studentId,
         schoolId:           profile.schoolId ?? '',
         groupId:            profile.groupId  ?? '',
         firstName:          _state.firstName,
@@ -220,6 +238,18 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
           transferReason:     _state.transferReason,
           notes:              _state.notes,
           createdBy:          profile.id,
+        );
+      }
+
+      // Persister les pièces du dossier déjà téléversées (offline-first).
+      for (final d in _state.uploadedDocs.values) {
+        await insertStudentDocumentRow(
+          groupId:      profile.groupId ?? '',
+          schoolId:     profile.schoolId ?? '',
+          studentId:    studentId,
+          documentType: d.typeSlug,
+          documentName: d.label,
+          fileUrl:      d.path,
         );
       }
 

@@ -134,6 +134,7 @@ Future<String> createStudent({
   required String groupId,
   required String firstName,
   required String lastName,
+  String? id,
   DateTime? dateOfBirth,
   String? placeOfBirth,
   String? gender,
@@ -153,7 +154,7 @@ Future<String> createStudent({
   String? socialAidType,
   bool isAffecte = false,
 }) async {
-  final id         = _uuid.v4();
+  final sid        = id ?? _uuid.v4();
   final matricule  = _generateMatricule();
   final now        = DateTime.now().toIso8601String();
 
@@ -180,7 +181,7 @@ Future<String> createStudent({
     )
     ''',
     [
-      id, schoolId, groupId, matricule,
+      sid, schoolId, groupId, matricule,
       firstName, lastName,
       dateOfBirth?.toIso8601String().substring(0, 10),
       placeOfBirth,
@@ -192,7 +193,7 @@ Future<String> createStudent({
       now, now,
     ],
   );
-  return id;
+  return sid;
 }
 
 /// Met à jour les informations d'un élève.
