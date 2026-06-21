@@ -68,18 +68,17 @@ bucket_definitions:
     data:
       - SELECT id, group_id, school_id, role, access_profile_id,
           first_name, last_name, phone, avatar_url, employee_number,
-          is_active, last_login, created_at, updated_at
+          date_of_birth, is_active, last_login, created_at, updated_at
         FROM profiles
         WHERE school_id = bucket.sid AND is_active = true
 
-  # ── Profil d'accès du membre + permissions (verrous 3 & 4) ────────────────
-  by_access_profile:
-    parameters: >-
-      SELECT access_profile_id AS apid FROM profiles
-      WHERE id = request.user_id() AND access_profile_id IS NOT NULL
-    data:
-      - SELECT * FROM access_profiles WHERE id = bucket.apid
-      - SELECT * FROM profile_permissions WHERE profile_id = bucket.apid
+  # ── Profils d'accès + permissions de TOUT le groupe (verrous 3 & 4) ────────
+  # Postes PARTAGÉS : un même appareil sert plusieurs agents (Proviseur,
+  # Comptable, Secrétaire…). Le gating UI de CHAQUE agent doit fonctionner
+  # hors-ligne → on synchronise tous les access_profiles + profile_permissions
+  # du groupe (volume minuscule : ~profils × modules). L'app applique ensuite
+  # les permissions de l'« agent actif » localement (cf. activeAgentIdProvider).
+  # (Géré dans by_group ci-dessous pour éviter un bucket supplémentaire.)
 
   # ════════════════════════════════════════════════════════════════════════
   # NIVEAU GROUPE (écoles, calendrier, annonces, événements, annuaire élargi)
@@ -91,6 +90,9 @@ bucket_definitions:
     data:
       - SELECT * FROM school_groups WHERE id = bucket.gid
       - SELECT * FROM schools WHERE group_id = bucket.gid AND is_active = true
+      # Profils d'accès + permissions de tout le groupe (bascule d'agent offline)
+      - SELECT * FROM access_profiles WHERE group_id = bucket.gid
+      - SELECT * FROM profile_permissions WHERE group_id = bucket.gid
       - SELECT * FROM academic_years WHERE group_id = bucket.gid
       - SELECT * FROM trimesters WHERE group_id = bucket.gid
       - SELECT * FROM sequences WHERE group_id = bucket.gid
@@ -150,72 +152,44 @@ bucket_definitions:
       - SELECT * FROM leave_requests WHERE school_id = bucket.sid
 
   # ════════════════════════════════════════════════════════════════════════
-  # SENSIBLE — buckets PAR RÔLE (PowerSync ne supporte pas `role IN (liste)`
-  # dans les parameter queries → un bucket par rôle, égalité stricte).
-  #   • Finance/RH (staff_members[salaire+IBAN], payroll, expenses, budget) :
-  #     comptable, directeur, proviseur.
-  #   • Discipline : cpe, surveillant, directeur, proviseur.
-  #   • Médical (infirmary_visits — mineurs) : infirmier, directeur, proviseur.
-  # directeur & proviseur cumulent les trois → un bucket chacun couvrant tout.
+  # SENSIBLE — buckets PAR CAPACITÉ (pilotés par le PROFIL D'ACCÈS, pas le rôle).
+  # Les drapeaux sync_finance / sync_discipline / sync_medical sont dénormalisés
+  # sur `profiles` par trigger (migration 0005_profile_sensitive_scopes.sql) à
+  # partir des can_read du profil d'accès du membre :
+  #   • sync_finance    ← modules depenses|budget|personnel|presences-personnel|
+  #                        conges|paie  → staff_members, payroll, expenses, budget
+  #   • sync_discipline ← module discipline                 → discipline_incidents
+  #   • sync_medical    ← module infirmerie                 → infirmary_visits
+  # Ainsi n'importe quel rôle obtient RÉELLEMENT la donnée si son profil l'accorde
+  # (enseignant + profil Comptable = données financières offline). 3 buckets au
+  # lieu de 6 buckets-par-rôle. frais-scolarite/paiements-eleves restent non
+  # sensibles (bucket by_school).
+  # ⚠️ Requiert que la migration 0005 soit appliquée AVANT le déploiement.
   # ════════════════════════════════════════════════════════════════════════
 
-  # ── Proviseur : finance + discipline + médical ────────────────────────────
-  sensitive_proviseur:
+  # ── Finance / RH : staff_members, payroll, expenses, budget_lines ─────────
+  sensitive_finance:
     parameters: >-
       SELECT school_id AS sid FROM profiles
-      WHERE id = request.user_id() AND school_id IS NOT NULL AND role = 'proviseur'
-    data:
-      - SELECT * FROM staff_members WHERE school_id = bucket.sid AND is_active = true
-      - SELECT * FROM payroll WHERE school_id = bucket.sid
-      - SELECT * FROM expenses WHERE school_id = bucket.sid
-      - SELECT * FROM budget_lines WHERE school_id = bucket.sid
-      - SELECT * FROM discipline_incidents WHERE school_id = bucket.sid
-      - SELECT * FROM infirmary_visits WHERE school_id = bucket.sid
-
-  # ── Directeur : finance + discipline + médical ────────────────────────────
-  sensitive_directeur:
-    parameters: >-
-      SELECT school_id AS sid FROM profiles
-      WHERE id = request.user_id() AND school_id IS NOT NULL AND role = 'directeur'
-    data:
-      - SELECT * FROM staff_members WHERE school_id = bucket.sid AND is_active = true
-      - SELECT * FROM payroll WHERE school_id = bucket.sid
-      - SELECT * FROM expenses WHERE school_id = bucket.sid
-      - SELECT * FROM budget_lines WHERE school_id = bucket.sid
-      - SELECT * FROM discipline_incidents WHERE school_id = bucket.sid
-      - SELECT * FROM infirmary_visits WHERE school_id = bucket.sid
-
-  # ── Comptable : finance uniquement ────────────────────────────────────────
-  sensitive_comptable:
-    parameters: >-
-      SELECT school_id AS sid FROM profiles
-      WHERE id = request.user_id() AND school_id IS NOT NULL AND role = 'comptable'
+      WHERE id = request.user_id() AND school_id IS NOT NULL AND sync_finance = true
     data:
       - SELECT * FROM staff_members WHERE school_id = bucket.sid AND is_active = true
       - SELECT * FROM payroll WHERE school_id = bucket.sid
       - SELECT * FROM expenses WHERE school_id = bucket.sid
       - SELECT * FROM budget_lines WHERE school_id = bucket.sid
 
-  # ── CPE : discipline uniquement ───────────────────────────────────────────
-  sensitive_cpe:
+  # ── Discipline : discipline_incidents ─────────────────────────────────────
+  sensitive_discipline:
     parameters: >-
       SELECT school_id AS sid FROM profiles
-      WHERE id = request.user_id() AND school_id IS NOT NULL AND role = 'cpe'
+      WHERE id = request.user_id() AND school_id IS NOT NULL AND sync_discipline = true
     data:
       - SELECT * FROM discipline_incidents WHERE school_id = bucket.sid
 
-  # ── Surveillant : discipline uniquement ───────────────────────────────────
-  sensitive_surveillant:
+  # ── Médical : infirmary_visits (mineurs) ──────────────────────────────────
+  sensitive_medical:
     parameters: >-
       SELECT school_id AS sid FROM profiles
-      WHERE id = request.user_id() AND school_id IS NOT NULL AND role = 'surveillant'
-    data:
-      - SELECT * FROM discipline_incidents WHERE school_id = bucket.sid
-
-  # ── Infirmier : médical uniquement ────────────────────────────────────────
-  sensitive_infirmier:
-    parameters: >-
-      SELECT school_id AS sid FROM profiles
-      WHERE id = request.user_id() AND school_id IS NOT NULL AND role = 'infirmier'
+      WHERE id = request.user_id() AND school_id IS NOT NULL AND sync_medical = true
     data:
       - SELECT * FROM infirmary_visits WHERE school_id = bucket.sid

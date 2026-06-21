@@ -87,6 +87,7 @@ const schema = Schema([
     Column.text('access_profile_id'),
     Column.text('phone'),
     Column.text('employee_number'),
+    Column.text('date_of_birth'),
     Column.integer('is_active'),
     Column.text('last_login'),
     Column.text('fcm_token'),

@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../features/auth/providers/auth_provider.dart';
+import '../../../features/auth/providers/active_agent_provider.dart';
 import '../../../services/powersync/powersync_service.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -70,8 +70,8 @@ class ModulePermission {
 /// Map vide si aucun profil d'accès n'est assigné (`access_profile_id` null).
 final myPermissionsProvider =
     StreamProvider.autoDispose<Map<String, ModulePermission>>((ref) {
-  final profile = ref.watch(authNotifierProvider).valueOrNull;
-  final apId = profile?.accessProfileId;
+  // Permissions de l'AGENT ACTIF (poste partagé) — son access_profile_id local.
+  final apId = ref.watch(activeAgentAccessProfileIdProvider).valueOrNull;
   if (apId == null || apId.isEmpty) {
     return Stream.value(const {});
   }
@@ -114,8 +114,7 @@ final canProvider =
 /// `staff_id` du membre connecté (via staff_members.profile_id), ou null.
 /// Null tant que le lien n'est pas peuplé → own_classes = aucune classe (sûr).
 final myStaffIdProvider = StreamProvider.autoDispose<String?>((ref) {
-  final profile = ref.watch(authNotifierProvider).valueOrNull;
-  final pid = profile?.id;
+  final pid = ref.watch(activeAgentIdProvider);
   if (pid == null || pid.isEmpty) return Stream.value(null);
   return db
       .watch(

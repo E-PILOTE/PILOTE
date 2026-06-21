@@ -1760,7 +1760,13 @@ CREATE POLICY "msg_select" ON messages FOR SELECT USING (
   AND (sender_id = auth.uid() OR recipient_id = auth.uid())
 );
 CREATE POLICY "msg_insert" ON messages FOR INSERT WITH CHECK (
-  group_id = auth_group_id() AND sender_id = auth.uid()
+  is_super_admin()
+  OR (group_id = auth_group_id() AND sender_id = auth.uid())
+  -- Membre d'une conversation (chat de groupe, y compris cross-groupe / national)
+  -- peut poster son propre message — aligné sur msg_select / msg_update.
+  OR (conversation_id IS NOT NULL
+      AND sender_id = auth.uid()
+      AND is_conversation_member(conversation_id))
 );
 
 -- ── announcements ──
