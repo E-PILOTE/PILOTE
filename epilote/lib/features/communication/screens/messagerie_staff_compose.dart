@@ -109,9 +109,25 @@ class _ComposeDialogState extends ConsumerState<_ComposeDialog> {
         Navigator.pop(context);
         widget.onSent(firstOther);
       }
+    } catch (e) {
+      // Échec d'envoi le plus courant : session expirée → l'insert viole la RLS
+      // (auth.uid() ne correspond plus). On l'explique au lieu de planter.
+      if (mounted) {
+        setState(() => _error = _friendlySendError(e));
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  /// Traduit une erreur d'envoi technique en message lisible.
+  static String _friendlySendError(Object e) {
+    final s = e.toString().toLowerCase();
+    if (s.contains('row-level security') || s.contains('42501')) {
+      return 'Votre session a expiré. Déconnectez-vous puis reconnectez-vous '
+          'pour envoyer ce message.';
+    }
+    return "Échec de l'envoi : $e";
   }
 
   @override

@@ -334,8 +334,12 @@ final messagesProvider = FutureProvider.autoDispose<MessagesData>((ref) async {
     'recipient:profiles!recipient_id(first_name,last_name,role,avatar_url)',
   );
   // Périmètre groupe (admin_groupe) — la plateforme voit tout via RLS.
+  // On garde les messages de SON groupe (1-à-1) MAIS aussi ceux des
+  // conversations de groupe dont il est membre, même créées dans un autre
+  // groupe (ex. chat de coordination nationale créé par le super_admin).
+  // La RLS `msg_select` (is_conversation_member) borne déjà la visibilité.
   if (ctx.isGroup && ctx.groupId != null) {
-    query = query.eq('group_id', ctx.groupId!);
+    query = query.or('group_id.eq.${ctx.groupId},conversation_id.not.is.null');
   }
 
   final rows = await query.order('created_at', ascending: false).limit(300);

@@ -1,93 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../communication/providers/messages_provider.dart'
-    show MessageAttachment;
-import '../../communication/widgets/comm_attachments.dart';
-import '../providers/staff_support_provider.dart';
-
-// ─── Donut « Répartition par statut » ────────────────────────────────────────
-class _StatusSlice {
-  const _StatusSlice(this.label, this.count, this.color);
-  final String label;
-  final int count;
-  final Color color;
-}
-
-class TicketStatusChart extends StatelessWidget {
-  const TicketStatusChart({super.key, required this.data});
-  final StaffTicketsData data;
-
-  @override
-  Widget build(BuildContext context) {
-    final slices = [
-      _StatusSlice('Ouverts', data.open, kAccent),
-      _StatusSlice('En cours', data.inProgress, kNavy),
-      _StatusSlice('Traités', data.resolved, kGreen),
-    ].where((s) => s.count > 0).toList();
-    if (slices.isEmpty) return const SizedBox.shrink();
-
-    return AdminCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
-          Icon(Icons.donut_large_rounded, size: 16, color: kNavy),
-          SizedBox(width: 8),
-          Text('Répartition par statut',
-              style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w800,
-                  color: kTextPrimary)),
-        ]),
-        SizedBox(
-          height: 190,
-          child: SfCircularChart(
-            margin: EdgeInsets.zero,
-            legend: const Legend(
-              isVisible: true,
-              position: LegendPosition.right,
-              textStyle: TextStyle(fontSize: 11.5, color: kTextPrimary),
-            ),
-            annotations: [
-              CircularChartAnnotation(
-                widget: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Text('${data.total}',
-                      style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: kTextPrimary)),
-                  const Text('demandes',
-                      style: TextStyle(fontSize: 10, color: kTextMuted)),
-                ]),
-              ),
-            ],
-            series: [
-              DoughnutSeries<_StatusSlice, String>(
-                dataSource: slices,
-                xValueMapper: (s, _) => s.label,
-                yValueMapper: (s, _) => s.count.toDouble(),
-                pointColorMapper: (s, _) => s.color,
-                innerRadius: '68%',
-                dataLabelSettings: const DataLabelSettings(
-                  isVisible: true,
-                  textStyle: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ]),
-    );
-  }
-}
+import '../providers/communication_scope.dart';
+import '../providers/messages_provider.dart' show MessageAttachment;
+import '../providers/support_requester_provider.dart';
+import 'comm_attachments.dart';
 
 // ─── Helpers d'affichage statut / priorité ────────────────────────────────────
-({String label, Color color}) ticketStatusInfo(String s) => switch (s) {
+({String label, Color color}) requesterStatusInfo(String s) => switch (s) {
       'open'        => (label: 'Ouvert',   color: kAccent),
       'in_progress' => (label: 'En cours', color: kNavy),
       'resolved'    => (label: 'Résolu',   color: kGreen),
@@ -95,7 +17,7 @@ class TicketStatusChart extends StatelessWidget {
       _             => (label: s,          color: kTextMuted),
     };
 
-({String label, Color color}) ticketPriorityInfo(String p) => switch (p) {
+({String label, Color color}) requesterPriorityInfo(String p) => switch (p) {
       'urgent' => (label: 'Urgente', color: kRed),
       'high'   => (label: 'Haute',   color: kAccent),
       'medium' => (label: 'Normale', color: kNavy),
@@ -103,27 +25,25 @@ class TicketStatusChart extends StatelessWidget {
       _        => (label: p,         color: kTextMuted),
     };
 
-// (Le détail d'une demande est désormais la CONVERSATION partagée
-//  `TicketThreadDialog` — voir communication/widgets/ticket_thread_view.dart.)
-
-// ─── Dialogue de création — écrit en LOCAL (offline-first) ───────────────────
-class CreateTicketDialog extends ConsumerStatefulWidget {
-  const CreateTicketDialog({super.key});
+// ─── Dialogue de création — scope-aware (online direct / offline local) ──────
+class RequesterCreateDialog extends ConsumerStatefulWidget {
+  const RequesterCreateDialog({super.key, required this.scope});
+  final CommScope scope;
 
   @override
-  ConsumerState<CreateTicketDialog> createState() =>
-      _CreateTicketDialogState();
+  ConsumerState<RequesterCreateDialog> createState() => _RequesterCreateDialogState();
 }
 
-class _CreateTicketDialogState extends ConsumerState<CreateTicketDialog> {
+class _RequesterCreateDialogState extends ConsumerState<RequesterCreateDialog> {
   final _subjectCtrl = TextEditingController();
   final _bodyCtrl    = TextEditingController();
   String _category = 'technique';
   String _priority = 'medium';
   bool   _saving = false;
   bool   _uploading = false;
-  // Images / documents de plainte (téléversés à l'envoi → nécessitent internet).
   final List<MessageAttachment> _pending = [];
+
+  bool get _offline => widget.scope == CommScope.school;
 
   @override
   void dispose() {
@@ -155,10 +75,13 @@ class _CreateTicketDialogState extends ConsumerState<CreateTicketDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final categories = requesterCategories(widget.scope);
     return AdminFormDialog(
       icon: Icons.support_agent_rounded,
       title: 'Nouvelle demande au support',
-      subtitle: 'Enregistrée localement, transmise à la synchronisation',
+      subtitle: _offline
+          ? 'Enregistrée localement, transmise à la synchronisation'
+          : 'Posez votre question à la plateforme E-PILOTE',
       saving: _saving,
       submitLabel: 'Envoyer',
       submitIcon: Icons.send_rounded,
@@ -174,36 +97,32 @@ class _CreateTicketDialogState extends ConsumerState<CreateTicketDialog> {
           const SizedBox(height: 12),
           Row(children: [
             Expanded(
-                child:
-                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               _label('Catégorie'),
               DropdownButtonFormField<String>(
-                initialValue: _category,
+                initialValue: categories.containsKey(_category) ? _category : categories.keys.first,
                 isExpanded: true,
                 onChanged: (v) => setState(() => _category = v ?? 'autre'),
-                items: staffTicketCategories.entries
+                items: categories.entries
                     .map((e) => DropdownMenuItem(
                         value: e.key,
-                        child: Text(e.value,
-                            style: const TextStyle(fontSize: 12))))
+                        child: Text(e.value, style: const TextStyle(fontSize: 12))))
                     .toList(),
                 decoration: _deco(null),
               ),
             ])),
             const SizedBox(width: 12),
             Expanded(
-                child:
-                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               _label('Priorité'),
               DropdownButtonFormField<String>(
                 initialValue: _priority,
                 isExpanded: true,
                 onChanged: (v) => setState(() => _priority = v ?? 'medium'),
-                items: staffTicketPriorities.entries
+                items: requesterPriorities.entries
                     .map((e) => DropdownMenuItem(
                         value: e.key,
-                        child: Text(e.value,
-                            style: const TextStyle(fontSize: 12))))
+                        child: Text(e.value, style: const TextStyle(fontSize: 12))))
                     .toList(),
                 decoration: _deco(null),
               ),
@@ -220,40 +139,38 @@ class _CreateTicketDialogState extends ConsumerState<CreateTicketDialog> {
           _label('Pièces jointes (images, documents)'),
           Row(children: [
             OutlinedButton.icon(
-              onPressed:
-                  _uploading ? null : () => _pickAttachments(imagesOnly: true),
+              onPressed: _uploading ? null : () => _pickAttachments(imagesOnly: true),
               icon: const Icon(Icons.image_rounded, size: 16),
               label: const Text('Image'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: kNavy,
                 side: const BorderSide(color: kBorder),
-                shape:
-                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
             const SizedBox(width: 8),
             OutlinedButton.icon(
-              onPressed:
-                  _uploading ? null : () => _pickAttachments(imagesOnly: false),
+              onPressed: _uploading ? null : () => _pickAttachments(imagesOnly: false),
               icon: const Icon(Icons.attach_file_rounded, size: 16),
               label: const Text('Document'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: kNavy,
                 side: const BorderSide(color: kBorder),
-                shape:
-                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
             if (_uploading) ...[
               const SizedBox(width: 12),
               const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2)),
+                  width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
             ],
           ]),
-          const Text('Le téléversement nécessite une connexion internet.',
-              style: TextStyle(fontSize: 10.5, color: kTextMuted)),
+          if (_offline)
+            const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Text('Le téléversement nécessite une connexion internet.',
+                  style: TextStyle(fontSize: 10.5, color: kTextMuted)),
+            ),
           if (_pending.isNotEmpty) ...[
             const SizedBox(height: 10),
             CommAttachmentEditList(
@@ -270,26 +187,20 @@ class _CreateTicketDialogState extends ConsumerState<CreateTicketDialog> {
         padding: const EdgeInsets.only(bottom: 6),
         child: Text(t,
             style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: kTextPrimary)),
+                fontSize: 12, fontWeight: FontWeight.w600, color: kTextPrimary)),
       );
 
   InputDecoration _deco(String? hint) => InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(fontSize: 12, color: kTextMuted),
         isDense: true,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: kBorder)),
+            borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorder)),
         enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: kBorder)),
+            borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorder)),
         focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: kNavy)),
+            borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kNavy)),
         filled: true,
         fillColor: kSurface,
       );
@@ -303,26 +214,22 @@ class _CreateTicketDialogState extends ConsumerState<CreateTicketDialog> {
       _toast('La description est requise');
       return;
     }
-    final profile = ref.read(authNotifierProvider).valueOrNull;
-    final uid     = ref.read(currentUserProvider)?.id;
-    if (profile?.groupId == null || uid == null) {
-      _toast('Session invalide');
-      return;
-    }
     setState(() => _saving = true);
     try {
-      await createStaffTicketLocal(
-        groupId:     profile!.groupId!,
-        submittedBy: uid,
-        subject:     _subjectCtrl.text,
-        category:    _category,
-        priority:    _priority,
-        body:        _bodyCtrl.text,
+      await createRequesterTicket(
+        ref,
+        subject: _subjectCtrl.text,
+        category: _category,
+        priority: _priority,
+        body: _bodyCtrl.text,
         attachments: _pending,
       );
       if (mounted) {
         Navigator.pop(context);
-        _toast('Demande enregistrée — transmise à la synchronisation',
+        _toast(
+            _offline
+                ? 'Demande enregistrée — transmise à la synchronisation'
+                : 'Demande envoyée au support',
             ok: true);
       }
     } catch (e) {

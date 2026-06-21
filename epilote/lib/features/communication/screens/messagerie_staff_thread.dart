@@ -192,7 +192,10 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
   void didUpdateWidget(covariant _ThreadView old) {
     super.didUpdateWidget(old);
     // Nouveau message reçu pendant que le fil est ouvert → accusé de lecture.
-    if (old.conv.last.id != widget.conv.last.id) _markIncomingRead();
+    // (Un groupe vide n'a pas de « dernier message » → comparaison sûre.)
+    if (old.conv.lastOrNull?.id != widget.conv.lastOrNull?.id) {
+      _markIncomingRead();
+    }
   }
 
   Future<void> _markIncomingRead() async {
@@ -277,6 +280,16 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
         _replyTo = null;
         _showEmoji = false;
       });
+    } catch (e) {
+      // Échec courant : session expirée → l'insert viole la RLS messages.
+      if (mounted) {
+        final s = e.toString().toLowerCase();
+        final msg = (s.contains('row-level security') || s.contains('42501'))
+            ? 'Session expirée — reconnectez-vous pour envoyer.'
+            : "Échec de l'envoi : $e";
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(msg), backgroundColor: kRed));
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }

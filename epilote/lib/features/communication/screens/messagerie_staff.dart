@@ -80,6 +80,10 @@ class _Conversation {
   MessageModel get first => messages.first;
   MessageModel get last  => messages.last;
 
+  /// Variantes sûres : un groupe fraîchement créé peut n'avoir aucun message.
+  MessageModel? get firstOrNull => messages.isEmpty ? null : messages.first;
+  MessageModel? get lastOrNull  => messages.isEmpty ? null : messages.last;
+
   /// Non lus : 1-à-1 = messages reçus non lus. Groupe = messages des AUTRES
   /// postérieurs à mon dernier accusé de lecture (last_read_at).
   int unread(String me) {
