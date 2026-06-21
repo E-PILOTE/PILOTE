@@ -18,8 +18,6 @@ class NotificationsDrawer extends ConsumerStatefulWidget {
 }
 
 class _NotificationsDrawerState extends ConsumerState<NotificationsDrawer> {
-  bool _unreadOnly = false;
-
   Future<void> _openNotif(NotificationModel n) async {
     if (!n.isRead) {
       await markNotifRead(ref, n.id);
@@ -30,14 +28,46 @@ class _NotificationsDrawerState extends ConsumerState<NotificationsDrawer> {
     if (route != null && route.isNotEmpty) context.go(route);
   }
 
+  Future<void> _confirmClearAll(int total) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tout effacer ?'),
+        content: Text(
+            'Supprimer définitivement vos $total notification(s) ? '
+            'Cette action est irréversible.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Tout effacer'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) await clearAllNotif(ref);
+  }
+
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(notificationsProvider);
     final data  = async.valueOrNull;
     final unread = data?.unread ?? 0;
+    final total  = data?.total ?? 0;
+    final byType = data?.byType ?? const <String, int>{};
+
+    final readFilter = ref.watch(notifReadFilterProvider);   // 'all' | 'unread'
+    final typeFilter = ref.watch(notifTypeFilterProvider);   // 'all' | <type>
+    final hasFilter  = readFilter != 'all' || typeFilter != 'all';
 
     var items = data?.notifications ?? const [];
-    if (_unreadOnly) items = items.where((n) => !n.isRead).toList();
+    if (readFilter == 'unread') items = items.where((n) => !n.isRead).toList();
+    if (typeFilter != 'all') {
+      items = items.where((n) => n.type == typeFilter).toList();
+    }
 
     return Drawer(
       width: 400,
@@ -76,36 +106,73 @@ class _NotificationsDrawerState extends ConsumerState<NotificationsDrawer> {
                 ),
               ]),
             ),
-            // ── Barre d'actions ───────────────────────────────────────────
+            // ── Barre d'actions (filtre lu/non-lu + actions globales) ─────
             Container(
               color: kCommCard,
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+              padding: const EdgeInsets.fromLTRB(12, 0, 4, 8),
               child: Row(children: [
                 _FilterChip(
                   label: 'Toutes',
-                  selected: !_unreadOnly,
-                  onTap: () => setState(() => _unreadOnly = false),
+                  selected: readFilter == 'all',
+                  onTap: () =>
+                      ref.read(notifReadFilterProvider.notifier).state = 'all',
                 ),
                 const SizedBox(width: 6),
                 _FilterChip(
                   label: 'Non lues',
-                  selected: _unreadOnly,
-                  onTap: () => setState(() => _unreadOnly = true),
+                  selected: readFilter == 'unread',
+                  onTap: () =>
+                      ref.read(notifReadFilterProvider.notifier).state = 'unread',
                 ),
                 const Spacer(),
-                TextButton.icon(
+                IconButton(
+                  tooltip: 'Tout marquer lu',
                   onPressed: unread == 0 ? null : () => markAllNotifRead(ref),
-                  icon: const Icon(Icons.done_all_rounded, size: 16, color: kCommNavy),
-                  label: const Text('Tout marquer lu',
-                      style: TextStyle(fontSize: 11.5, color: kCommNavy)),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
+                  icon: const Icon(Icons.done_all_rounded, size: 18),
+                  color: kCommNavy,
+                  visualDensity: VisualDensity.compact,
+                ),
+                IconButton(
+                  tooltip: 'Tout effacer',
+                  onPressed: total == 0 ? null : () => _confirmClearAll(total),
+                  icon: const Icon(Icons.delete_sweep_rounded, size: 18),
+                  color: const Color(0xFFEF4444),
+                  visualDensity: VisualDensity.compact,
                 ),
               ]),
             ),
+            // ── Filtre par TYPE (uniquement si ≥ 2 types présents) ────────
+            if (byType.length >= 2)
+              Container(
+                color: kCommCard,
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                child: SizedBox(
+                  height: 30,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      _FilterChip(
+                        label: 'Tous',
+                        selected: typeFilter == 'all',
+                        onTap: () => ref
+                            .read(notifTypeFilterProvider.notifier)
+                            .state = 'all',
+                      ),
+                      for (final entry in byType.entries) ...[
+                        const SizedBox(width: 6),
+                        _FilterChip(
+                          label: '${notifTypeInfo(entry.key).label} (${entry.value})',
+                          selected: typeFilter == entry.key,
+                          color: notifTypeInfo(entry.key).color,
+                          onTap: () => ref
+                              .read(notifTypeFilterProvider.notifier)
+                              .state = entry.key,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
             // ── Liste ─────────────────────────────────────────────────────
             Expanded(
               child: async.when(
@@ -121,10 +188,11 @@ class _NotificationsDrawerState extends ConsumerState<NotificationsDrawer> {
                   ),
                 ),
                 data: (_) => items.isEmpty
-                    ? NotifEmptyState(hasFilter: _unreadOnly)
+                    ? NotifEmptyState(hasFilter: hasFilter)
                     : NotifTimeline(
                         items: items,
                         onTap: _openNotif,
+                        onDelete: (n) => deleteNotif(ref, n.id),
                         padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
                       ),
               ),
@@ -137,27 +205,43 @@ class _NotificationsDrawerState extends ConsumerState<NotificationsDrawer> {
 }
 
 class _FilterChip extends StatelessWidget {
-  const _FilterChip({required this.label, required this.selected, required this.onTap});
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.color = kCommNavy,
+  });
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final Color color;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: selected ? kCommNavy : kCommBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: selected ? kCommNavy : kCommBorder),
-      ),
-      child: Text(label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : kCommSub,
-          )),
-    ),
-  );
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        selected: selected,
+        label: label,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: selected ? color : kCommBg,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: selected ? color : kCommBorder),
+              ),
+              child: Text(label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: selected ? Colors.white : kCommSub,
+                  )),
+            ),
+          ),
+        ),
+      );
 }

@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../providers/notifications_provider.dart';
+import 'comm_text.dart' show fmtRelativeFr;
 import 'notification_types.dart';
 
-final _fmtFull = DateFormat('dd/MM/yyyy HH:mm', 'fr_FR');
-final _fmtDay  = DateFormat('EEEE d MMMM', 'fr_FR');
+final _fmtDay = DateFormat('EEEE d MMMM', 'fr_FR');
 
 // ─── Timeline groupée par jour ───────────────────────────────────────────────────
 class NotifTimeline extends StatelessWidget {
@@ -14,11 +14,14 @@ class NotifTimeline extends StatelessWidget {
     super.key,
     required this.items,
     this.onTap,
+    this.onDelete,
     this.padding = const EdgeInsets.all(20),
   });
   final List<NotificationModel> items;
   /// Optionnel : action au clic (ex. deep-link). Si null, marque seulement lu.
   final void Function(NotificationModel)? onTap;
+  /// Optionnel : suppression d'une notification (affiche le bouton « × »).
+  final void Function(NotificationModel)? onDelete;
   final EdgeInsets padding;
 
   @override
@@ -43,6 +46,7 @@ class NotifTimeline extends StatelessWidget {
             ...day.value.map((n) => NotifCard(
                   notif: n,
                   onTap: onTap == null ? null : () => onTap!(n),
+                  onDelete: onDelete == null ? null : () => onDelete!(n),
                 )),
             const SizedBox(height: 8),
           ],
@@ -92,17 +96,21 @@ class _DayHeader extends StatelessWidget {
 
 // ─── Carte notification ──────────────────────────────────────────────────────────
 class NotifCard extends ConsumerWidget {
-  const NotifCard({super.key, required this.notif, this.onTap});
+  const NotifCard({super.key, required this.notif, this.onTap, this.onDelete});
   final NotificationModel notif;
   /// Si fourni, remplace le comportement par défaut (qui marque seulement lu).
   final VoidCallback? onTap;
+  /// Si fourni, affiche un bouton « × » qui supprime la notification.
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final info = notifTypeInfo(notif.type);
     final dateStr = notif.createdAt.isNotEmpty
-        ? _fmtFull.format(DateTime.tryParse(notif.createdAt)?.toLocal() ?? DateTime.now())
+        ? fmtRelativeFr(DateTime.tryParse(notif.createdAt))
         : '—';
+    // Une notif est « ouvrable » si elle porte un deep-link (data.route).
+    final hasRoute = (notif.data?['route'] as String?)?.isNotEmpty ?? false;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -183,15 +191,43 @@ class NotifCard extends ConsumerWidget {
                           style: const TextStyle(fontSize: 12, color: kCommSub, height: 1.4),
                           maxLines: 2, overflow: TextOverflow.ellipsis),
                     ],
+                    // Affordance : indique clairement que la notif ouvre une page.
+                    if (hasRoute) ...[
+                      const SizedBox(height: 6),
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        Text('Ouvrir',
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: info.color)),
+                        Icon(Icons.chevron_right_rounded, size: 15, color: info.color),
+                      ]),
+                    ],
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              if (!notif.isRead)
-                Container(
-                  width: 8, height: 8, margin: const EdgeInsets.only(top: 4),
-                  decoration: BoxDecoration(color: info.color, shape: BoxShape.circle),
-                ),
+              Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                if (onDelete != null)
+                  InkWell(
+                    onTap: onDelete,
+                    borderRadius: BorderRadius.circular(14),
+                    child: const Tooltip(
+                      message: 'Supprimer',
+                      child: Padding(
+                        padding: EdgeInsets.all(2),
+                        child: Icon(Icons.close_rounded, size: 16, color: kCommSub),
+                      ),
+                    ),
+                  )
+                else
+                  const SizedBox(height: 4),
+                if (!notif.isRead)
+                  Container(
+                    width: 8, height: 8, margin: const EdgeInsets.only(top: 6),
+                    decoration: BoxDecoration(color: info.color, shape: BoxShape.circle),
+                  ),
+              ]),
             ],
           ),
         ),

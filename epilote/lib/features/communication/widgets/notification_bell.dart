@@ -1,23 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../providers/notifications_provider.dart';
+import 'comm_text.dart' show fmtRelativeFr;
 import 'notification_types.dart';
-
-final _fmtShort = DateFormat('dd/MM HH:mm', 'fr_FR');
 
 /// Cloche de notification du header avec **dropdown** : aperçu des dernières
 /// notifications + bouton « Tout afficher » qui ouvre le drawer complet.
-class NotificationBell extends ConsumerWidget {
+class NotificationBell extends ConsumerStatefulWidget {
   const NotificationBell({super.key, required this.onSeeAll});
 
   /// Appelé par « Tout afficher » → ouvre le drawer (`openEndDrawer`).
   final VoidCallback onSeeAll;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NotificationBell> createState() => _NotificationBellState();
+}
+
+class _NotificationBellState extends ConsumerState<NotificationBell> {
+  // Capturé depuis le builder du MenuAnchor → permet de FERMER le dropdown au
+  // clic (deep-link / Tout afficher) sans passer un controller explicite (qui
+  // empêchait l'ouverture). Évalué paresseusement au moment du tap.
+  MenuController? _ctrl;
+
+  @override
+  Widget build(BuildContext context) {
     final unread = ref.watch(notifBadgeProvider);
 
     return MenuAnchor(
@@ -35,10 +43,15 @@ class NotificationBell extends ConsumerWidget {
       ),
       menuChildren: [
         _NotifDropdownPanel(
-          onSeeAll: () => onSeeAll(),
+          onClose: () => _ctrl?.close(),
+          onSeeAll: () {
+            _ctrl?.close();
+            widget.onSeeAll();
+          },
         ),
       ],
       builder: (context, controller, child) {
+        _ctrl = controller;
         return Stack(
           clipBehavior: Clip.none,
           children: [
@@ -46,6 +59,8 @@ class NotificationBell extends ConsumerWidget {
               icon: const Icon(Icons.notifications_outlined,
                   color: Color(0xFF64748B), size: 22),
               tooltip: 'Notifications',
+              // Curseur main au survol (desktop) pour signaler le clic.
+              mouseCursor: SystemMouseCursors.click,
               onPressed: () =>
                   controller.isOpen ? controller.close() : controller.open(),
             ),
@@ -80,8 +95,9 @@ class NotificationBell extends ConsumerWidget {
 }
 
 class _NotifDropdownPanel extends ConsumerWidget {
-  const _NotifDropdownPanel({required this.onSeeAll});
+  const _NotifDropdownPanel({required this.onSeeAll, required this.onClose});
   final VoidCallback onSeeAll;
+  final VoidCallback onClose;
 
   static const _maxPreview = 5;
 
@@ -91,6 +107,8 @@ class _NotifDropdownPanel extends ConsumerWidget {
     }
     final route = n.data?['route'] as String?;
     if (!context.mounted) return;
+    // Toujours fermer le dropdown au clic ; naviguer si la notif est ouvrable.
+    onClose();
     if (route != null && route.isNotEmpty) context.go(route);
   }
 
@@ -209,9 +227,9 @@ class _PreviewTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final info = notifTypeInfo(notif.type);
     final dateStr = notif.createdAt.isNotEmpty
-        ? _fmtShort.format(
-            DateTime.tryParse(notif.createdAt)?.toLocal() ?? DateTime.now())
+        ? fmtRelativeFr(DateTime.tryParse(notif.createdAt))
         : '';
+    final hasRoute = (notif.data?['route'] as String?)?.isNotEmpty ?? false;
 
     return InkWell(
       onTap: onTap,
@@ -269,6 +287,11 @@ class _PreviewTile extends StatelessWidget {
                 height: 7,
                 margin: const EdgeInsets.only(left: 6, top: 4),
                 decoration: BoxDecoration(color: info.color, shape: BoxShape.circle),
+              ),
+            if (hasRoute)
+              Padding(
+                padding: const EdgeInsets.only(left: 2, top: 1),
+                child: Icon(Icons.chevron_right_rounded, size: 16, color: info.color),
               ),
           ],
         ),

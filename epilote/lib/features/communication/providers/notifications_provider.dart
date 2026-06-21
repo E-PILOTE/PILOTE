@@ -58,23 +58,20 @@ class NotificationsData {
     required this.total,
     required this.unread,
     required this.byType,
-    required this.todayCount,
-    required this.weekCount,
   });
 
   final List<NotificationModel> notifications;
   final int                     total;
   final int                     unread;
+  /// Compte par type (utilisé par les puces de filtre du drawer).
   final Map<String, int>        byType;
-  final int                     todayCount;
-  final int                     weekCount;
 }
 
-// ─── Filtres UI ────────────────────────────────────────────────────────────────
-
-final notifTypeFilterProvider = StateProvider.autoDispose<String>((ref) => 'all');
-final notifReadFilterProvider = StateProvider.autoDispose<String>((ref) => 'all');
-final notifSearchProvider     = StateProvider.autoDispose<String>((ref) => '');
+// ─── Filtres UI (drawer) ─────────────────────────────────────────────────────
+// `read` : 'all' | 'unread'. `type` : 'all' | <type de notification>.
+// Persistants (non autoDispose) pour survivre à l'ouverture/fermeture du drawer.
+final notifReadFilterProvider = StateProvider<String>((ref) => 'all');
+final notifTypeFilterProvider = StateProvider<String>((ref) => 'all');
 
 // ─── Provider principal (scope-aware) ───────────────────────────────────────────
 // super_admin → plateforme entière (RLS) · admin_groupe → son groupe (online).
@@ -170,8 +167,7 @@ Future<NotificationsData> _notificationsOffline(Ref ref) async {
   final uid = ref.watch(authNotifierProvider).valueOrNull?.id;
   if (uid == null || uid.isEmpty) {
     return const NotificationsData(
-      notifications: [], total: 0, unread: 0,
-      byType: {}, todayCount: 0, weekCount: 0,
+      notifications: [], total: 0, unread: 0, byType: {},
     );
   }
 
@@ -219,11 +215,8 @@ Map<String, dynamic>? _decodeData(Object? v) {
   return null;
 }
 
-/// Agrégation commune (online + offline) : totaux, non-lues, par type, période.
+/// Agrégation commune (online + offline) : totaux, non-lues, comptes par type.
 NotificationsData _aggregate(List<NotificationModel> notifications) {
-  final now  = DateTime.now();
-  final week = now.subtract(const Duration(days: 7));
-
   final Map<String, int> byType = {};
   for (final n in notifications) {
     byType[n.type] = (byType[n.type] ?? 0) + 1;
@@ -234,14 +227,6 @@ NotificationsData _aggregate(List<NotificationModel> notifications) {
     total:         notifications.length,
     unread:        notifications.where((n) => !n.isRead).length,
     byType:        byType,
-    todayCount:    notifications.where((n) {
-      final d = DateTime.tryParse(n.createdAt);
-      return d != null && d.year == now.year && d.month == now.month && d.day == now.day;
-    }).length,
-    weekCount: notifications.where((n) {
-      final d = DateTime.tryParse(n.createdAt);
-      return d != null && d.isAfter(week);
-    }).length,
   );
 }
 
@@ -293,6 +278,37 @@ Future<void> markAllNotifRead(WidgetRef ref) async {
         .update({'is_read': true, 'read_at': now})
         .eq('recipient_id', uid)
         .eq('is_read', false);
+    ref.invalidate(notificationsProvider);
+  }
+}
+
+/// Supprime UNE notification (centre type Windows : effacer une entrée).
+/// RLS `notif_access` autorise le destinataire (recipient_id = auth.uid()) sur
+/// ALL → le DELETE offline (PowerSync) se synchronise correctement, sans
+/// réapparition après resynchro.
+Future<void> deleteNotif(WidgetRef ref, String id) async {
+  final ctx = ref.read(communicationContextProvider);
+  if (ctx.isSchool) {
+    await db.execute('DELETE FROM notifications WHERE id = ?', [id]);
+    // Rafraîchissement via la souscription db.watch — pas d'invalidate.
+  } else {
+    final client = ref.read(supabaseClientProvider);
+    await client.from('notifications').delete().eq('id', id);
+    ref.invalidate(notificationsProvider);
+  }
+}
+
+/// Efface TOUTES mes notifications (« Tout effacer »). Toujours scopé à
+/// `recipient_id` = moi (le super_admin n'efface pas la plateforme entière).
+Future<void> clearAllNotif(WidgetRef ref) async {
+  final uid = ref.read(authNotifierProvider).valueOrNull?.id;
+  if (uid == null || uid.isEmpty) return;
+  final ctx = ref.read(communicationContextProvider);
+  if (ctx.isSchool) {
+    await db.execute('DELETE FROM notifications WHERE recipient_id = ?', [uid]);
+  } else {
+    final client = ref.read(supabaseClientProvider);
+    await client.from('notifications').delete().eq('recipient_id', uid);
     ref.invalidate(notificationsProvider);
   }
 }
