@@ -131,6 +131,23 @@ final currentSchoolProvider =
       .map((rows) => rows.isEmpty ? null : rows.first);
 });
 
+/// Logo du groupe scolaire de l'école courante — héritage de marque.
+/// Sert de repli quand l'école n'a pas son propre `logo_url` : l'école étant une
+/// émanation du groupe, elle hérite de son identité visuelle. 100% offline : la
+/// ligne `school_groups` du périmètre est synchronisée par PowerSync.
+final currentGroupLogoProvider = StreamProvider.autoDispose<String?>((ref) {
+  final school = ref.watch(currentSchoolProvider).valueOrNull;
+  final gid = school?['group_id'] as String?;
+  if (gid == null || gid.isEmpty) return Stream.value(null);
+  return db
+      .watch(
+        'SELECT logo_url FROM school_groups WHERE id = ? LIMIT 1',
+        parameters: [gid],
+      )
+      .map((rows) =>
+          rows.isEmpty ? null : rows.first['logo_url'] as String?);
+});
+
 // ════════════════════════════════════════════════════════════════════════════
 //  CALENDRIER = LECTURE SEULE côté école.
 //  L'année / les trimestres / les séquences sont définis EXCLUSIVEMENT par

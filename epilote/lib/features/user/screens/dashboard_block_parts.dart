@@ -1,5 +1,35 @@
 part of 'user_dashboard_screen.dart';
 
+// ─── Bloc SCOLARITÉ (vue d'ensemble + statistiques) ───────────────────────────
+// Extrait en widget (comme Finance/Médical/Discipline) pour pouvoir être
+// ordonné par la persona de rôle. Auto-titré + espacement de fin homogène.
+class _ScolariteBlock extends StatelessWidget {
+  const _ScolariteBlock({
+    required this.showClasses,
+    required this.showEleves,
+    required this.showInscriptions,
+  });
+  final bool showClasses, showEleves, showInscriptions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const AdminSectionTitle("Vue d'ensemble", icon: Icons.insights_rounded),
+      const SizedBox(height: 14),
+      _KpiGrid(
+        showClasses: showClasses,
+        showEleves: showEleves,
+        showInscriptions: showInscriptions,
+      ),
+      const SizedBox(height: 24),
+      const AdminSectionTitle('Statistiques', icon: Icons.bar_chart_rounded),
+      const SizedBox(height: 14),
+      const _ChartsRow(),
+      const SizedBox(height: 24),
+    ]);
+  }
+}
+
 // ─── Bloc FINANCE (comptable / direction) ─────────────────────────────────────
 class _FinanceBlock extends ConsumerWidget {
   const _FinanceBlock();

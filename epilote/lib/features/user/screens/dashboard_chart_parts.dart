@@ -6,8 +6,51 @@ class _ChartsRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final classes = ref.watch(classesProvider).valueOrNull ?? const <ClassModel>[];
-    final genders = ref.watch(studentsByGenderProvider).valueOrNull ?? const [];
+    final classesAsync = ref.watch(classesProvider);
+    final gendersAsync = ref.watch(studentsByGenderProvider);
+    final classes = classesAsync.valueOrNull ?? const <ClassModel>[];
+    final genders = gendersAsync.valueOrNull ?? const [];
+
+    // Distingue le CHARGEMENT initial (skeleton) de l'absence réelle de données
+    // (état vide). Sans ça, l'utilisateur croit « aucune donnée » pendant la
+    // première synchro offline-first.
+    final classesLoading = classesAsync.isLoading && !classesAsync.hasValue;
+    final gendersLoading = gendersAsync.isLoading && !gendersAsync.hasValue;
+
+    // Robustesse au grand nombre de classes : au-delà de ~12 classes, les
+    // libellés pivotés se tassent → on bascule en défilement horizontal avec une
+    // largeur minimale par barre, plutôt que d'écraser le graphe.
+    Widget barChart() => SfCartesianChart(
+          backgroundColor: Colors.transparent,
+          plotAreaBorderWidth: 0,
+          margin: EdgeInsets.zero,
+          primaryXAxis: const CategoryAxis(
+            majorGridLines: MajorGridLines(width: 0),
+            axisLine: AxisLine(width: 0),
+            majorTickLines: MajorTickLines(size: 0),
+            labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
+            labelRotation: -35,
+            labelIntersectAction: AxisLabelIntersectAction.rotate45,
+          ),
+          primaryYAxis: const NumericAxis(
+            majorGridLines: MajorGridLines(width: 0.5, color: kBorder),
+            axisLine: AxisLine(width: 0),
+            majorTickLines: MajorTickLines(size: 0),
+            labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
+          ),
+          tooltipBehavior:
+              TooltipBehavior(enable: true, format: 'point.x : point.y élèves'),
+          series: <CartesianSeries<ClassModel, String>>[
+            ColumnSeries<ClassModel, String>(
+              dataSource: classes,
+              xValueMapper: (c, _) => c.name,
+              yValueMapper: (c, _) => c.studentCount ?? 0,
+              pointColorMapper: (c, i) => _kPalette[i % _kPalette.length],
+              borderRadius: BorderRadius.circular(5),
+              width: 0.62,
+            ),
+          ],
+        );
 
     final byClass = AdminCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -15,38 +58,18 @@ class _ChartsRow extends ConsumerWidget {
         const SizedBox(height: 8),
         SizedBox(
           height: 220,
-          child: classes.isEmpty
-              ? const _ChartEmpty()
-              : SfCartesianChart(
-                  backgroundColor: Colors.transparent,
-                  plotAreaBorderWidth: 0,
-                  margin: EdgeInsets.zero,
-                  primaryXAxis: const CategoryAxis(
-                    majorGridLines: MajorGridLines(width: 0),
-                    axisLine: AxisLine(width: 0),
-                    majorTickLines: MajorTickLines(size: 0),
-                    labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
-                    labelRotation: -35,
-                  ),
-                  primaryYAxis: const NumericAxis(
-                    majorGridLines: MajorGridLines(width: 0.5, color: kBorder),
-                    axisLine: AxisLine(width: 0),
-                    majorTickLines: MajorTickLines(size: 0),
-                    labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
-                  ),
-                  tooltipBehavior:
-                      TooltipBehavior(enable: true, format: 'point.x : point.y élèves'),
-                  series: <CartesianSeries<ClassModel, String>>[
-                    ColumnSeries<ClassModel, String>(
-                      dataSource: classes,
-                      xValueMapper: (c, _) => c.name,
-                      yValueMapper: (c, _) => c.studentCount ?? 0,
-                      pointColorMapper: (c, i) => _kPalette[i % _kPalette.length],
-                      borderRadius: BorderRadius.circular(5),
-                      width: 0.6,
-                    ),
-                  ],
-                ),
+          child: classesLoading
+              ? const _ChartLoading()
+              : classes.isEmpty
+                  ? const _ChartEmpty()
+                  : LayoutBuilder(builder: (context, cc) {
+                      final needed = classes.length * 46.0;
+                      if (needed <= cc.maxWidth) return barChart();
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SizedBox(width: needed, child: barChart()),
+                      );
+                    }),
         ),
       ]),
     );
@@ -58,7 +81,9 @@ class _ChartsRow extends ConsumerWidget {
         const SizedBox(height: 8),
         SizedBox(
           height: 220,
-          child: total == 0
+          child: gendersLoading
+              ? const _ChartLoading()
+              : total == 0
               ? const _ChartEmpty()
               : SfCircularChart(
                   margin: EdgeInsets.zero,
@@ -137,6 +162,23 @@ class _ChartEmpty extends StatelessWidget {
           Icon(Icons.bar_chart_rounded, size: 36, color: kBorder),
           SizedBox(height: 8),
           Text('Aucune donnée pour cette année',
+              style: TextStyle(fontSize: 12, color: kTextMuted)),
+        ]),
+      );
+}
+
+// État de CHARGEMENT (≠ vide) : pendant la 1ʳᵉ synchro offline-first.
+class _ChartLoading extends StatelessWidget {
+  const _ChartLoading();
+  @override
+  Widget build(BuildContext context) => const Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2.4, color: kNavy)),
+          SizedBox(height: 10),
+          Text('Chargement des données…',
               style: TextStyle(fontSize: 12, color: kTextMuted)),
         ]),
       );

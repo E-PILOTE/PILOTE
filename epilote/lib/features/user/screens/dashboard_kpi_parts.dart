@@ -119,7 +119,10 @@ class _EmptyMini extends StatelessWidget {
 }
 
 /// Format compact XAF (7 750 000 → « 7,8 M » ; sous-titre « FCFA »).
+/// Gère les valeurs négatives (ex. solde déficitaire) : le signe est préservé et
+/// la magnitude formatée comme un positif (« -7,8 M »).
 String _xaf(int v) {
+  if (v < 0) return '-${_xaf(-v)}';
   if (v >= 1000000) {
     final m = v / 1000000;
     return '${m.toStringAsFixed(m % 1 == 0 ? 0 : 1).replaceAll('.', ',')} M';
