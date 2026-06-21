@@ -53,6 +53,10 @@ static void my_application_activate(GApplication* application) {
   }
 
   gtk_window_set_default_size(window, 1280, 720);
+  // Démarrer maximisé : sur machine sans GPU GL (rendu logiciel forcé), le
+  // redimensionnement dynamique fait planter le renderer. Ouvrir d'emblée en
+  // pleine taille évite à l'utilisateur d'avoir à redimensionner.
+  gtk_window_maximize(window);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
