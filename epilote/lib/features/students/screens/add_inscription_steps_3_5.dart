@@ -21,11 +21,19 @@ class _Step3ScolariteState extends ConsumerState<_Step3Scolarite> {
   late final _prevClassCtrl = TextEditingController(
     text: widget.state.previousClassName ?? '',
   );
+  late final _transferReasonCtrl = TextEditingController(
+    text: widget.state.transferReason ?? '',
+  );
+  late final _notesCtrl = TextEditingController(
+    text: widget.state.notes ?? '',
+  );
 
   @override
   void dispose() {
     _prevSchoolCtrl.dispose();
     _prevClassCtrl.dispose();
+    _transferReasonCtrl.dispose();
+    _notesCtrl.dispose();
     super.dispose();
   }
 
@@ -107,7 +115,21 @@ class _Step3ScolariteState extends ConsumerState<_Step3Scolarite> {
               label: 'Classe précédente',
               onChanged: (v) { s.previousClassName = v.isEmpty ? null : v; widget.onChanged(); },
             ),
+            _Field(
+              ctrl: _transferReasonCtrl,
+              label: 'Motif du transfert',
+              maxLines: 2,
+              onChanged: (v) { s.transferReason = v.isEmpty ? null : v; widget.onChanged(); },
+            ),
           ],
+          const SizedBox(height: 12),
+          const _SectionTitle('Notes internes'),
+          _Field(
+            ctrl: _notesCtrl,
+            label: 'Observations (optionnel)',
+            maxLines: 3,
+            onChanged: (v) { s.notes = v.isEmpty ? null : v; widget.onChanged(); },
+          ),
         ],
       ),
     );

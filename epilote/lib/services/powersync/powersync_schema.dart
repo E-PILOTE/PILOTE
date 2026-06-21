@@ -208,6 +208,10 @@ const schema = Schema([
     Column.text('withdrawal_reason'),
     // Workflow inscription
     Column.text('inscription_type'),       // new|reinscription|transfer
+    Column.text('transfer_reason'),        // motif si type=transfer (migration 0007)
+    Column.text('filiere_id'),             // filière FP → education_programs (0007)
+    Column.text('notes'),                  // notes internes d'inscription (0007)
+    Column.text('created_by'),             // agent ayant saisi l'inscription (0007)
     Column.text('validated_at'),
     Column.text('validated_by'),
     Column.text('rejection_reason'),
@@ -230,6 +234,7 @@ const schema = Schema([
     Column.text('nationality'),
     Column.text('address'),
     Column.text('city'),
+    Column.text('region'),            // région/département de résidence (0007)
     Column.text('photo_url'),
     Column.text('blood_group'),
     Column.text('allergies'),
@@ -261,6 +266,7 @@ const schema = Schema([
     Column.text('phone_secondary'),
     Column.text('email'),
     Column.text('profession'),
+    Column.text('address'),          // adresse du tuteur (migration 0007)
     Column.integer('is_primary_contact'),
     Column.integer('has_app_access'),
     Column.text('user_id'),

@@ -14,6 +14,7 @@ class StudentTutorModel {
     this.phoneSecondary,
     this.email,
     this.profession,
+    this.address,
     required this.isPrimaryContact,
     required this.hasAppAccess,
     this.userId,
@@ -34,6 +35,7 @@ class StudentTutorModel {
       phoneSecondary:     map['phone_secondary']      as String?,
       email:              map['email']                as String?,
       profession:         map['profession']           as String?,
+      address:            map['address']              as String?,
       isPrimaryContact:   _bTutor(map['is_primary_contact']),
       hasAppAccess:       _bTutor(map['has_app_access']),
       userId:             map['user_id']              as String?,
@@ -53,6 +55,7 @@ class StudentTutorModel {
   final String? phoneSecondary;
   final String? email;
   final String? profession;
+  final String? address;
   final bool    isPrimaryContact;
   final bool    hasAppAccess;
   final String? userId;              // compte parent si activé

@@ -52,6 +52,7 @@ Future<String> addTutor({
   String? phoneSecondary,
   String? email,
   String? profession,
+  String? address,
   bool isPrimaryContact = false,
   bool hasAppAccess = false,
   bool isEmergencyContact = false,
@@ -64,14 +65,14 @@ Future<String> addTutor({
     INSERT INTO student_tutors (
       id, student_id, group_id,
       first_name, last_name, relationship,
-      phone_primary, phone_secondary, email, profession,
+      phone_primary, phone_secondary, email, profession, address,
       is_primary_contact, has_app_access, user_id,
       is_emergency_contact,
       created_at, updated_at
     ) VALUES (
       ?, ?, ?,
       ?, ?, ?,
-      ?, ?, ?, ?,
+      ?, ?, ?, ?, ?,
       ?, ?, ?,
       ?,
       ?, ?
@@ -80,7 +81,7 @@ Future<String> addTutor({
     [
       id, studentId, groupId,
       firstName, lastName, relationship,
-      phonePrimary, phoneSecondary, email, profession,
+      phonePrimary, phoneSecondary, email, profession, address,
       isPrimaryContact ? 1 : 0, hasAppAccess ? 1 : 0, userId,
       isEmergencyContact ? 1 : 0,
       now, now,
@@ -99,6 +100,7 @@ Future<void> updateTutor({
   String? phoneSecondary,
   String? email,
   String? profession,
+  String? address,
   bool? isPrimaryContact,
   bool? hasAppAccess,
   bool? isEmergencyContact,
@@ -113,6 +115,7 @@ Future<void> updateTutor({
     'phone_secondary':     ?phoneSecondary,
     'email':               ?email,
     'profession':          ?profession,
+    'address':             ?address,
     if (isPrimaryContact   != null) 'is_primary_contact':  isPrimaryContact ? 1 : 0,
     if (hasAppAccess       != null) 'has_app_access':      hasAppAccess ? 1 : 0,
     if (isEmergencyContact != null) 'is_emergency_contact': isEmergencyContact ? 1 : 0,

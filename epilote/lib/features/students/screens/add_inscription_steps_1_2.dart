@@ -15,20 +15,34 @@ class _Step1EleveState extends State<_Step1Eleve> {
   late final _firstNameCtrl       = TextEditingController(text: widget.state.firstName);
   late final _lastNameCtrl        = TextEditingController(text: widget.state.lastName);
   late final _placeOfBirthCtrl    = TextEditingController(text: widget.state.placeOfBirth ?? '');
+  late final _nationalityCtrl     = TextEditingController(text: widget.state.nationality);
   late final _addressCtrl         = TextEditingController(text: widget.state.address ?? '');
   late final _cityCtrl            = TextEditingController(text: widget.state.city ?? '');
+  late final _regionCtrl          = TextEditingController(text: widget.state.region ?? '');
   late final _allergiesCtrl       = TextEditingController(text: widget.state.allergies ?? '');
   late final _scholarshipTypeCtrl = TextEditingController(text: widget.state.scholarshipType ?? '');
+  late final _socialAidTypeCtrl   = TextEditingController(text: widget.state.socialAidType ?? '');
+  late final _siblingsCtrl        = TextEditingController(
+      text: widget.state.nombreFreresSoeurs > 0 ? '${widget.state.nombreFreresSoeurs}' : '');
+
+  static const _bloodGroups = {
+    'A+': 'A+', 'A-': 'A-', 'B+': 'B+', 'B-': 'B-',
+    'AB+': 'AB+', 'AB-': 'AB-', 'O+': 'O+', 'O-': 'O-',
+  };
 
   @override
   void dispose() {
     _firstNameCtrl.dispose();
     _lastNameCtrl.dispose();
     _placeOfBirthCtrl.dispose();
+    _nationalityCtrl.dispose();
     _addressCtrl.dispose();
     _cityCtrl.dispose();
+    _regionCtrl.dispose();
     _allergiesCtrl.dispose();
     _scholarshipTypeCtrl.dispose();
+    _socialAidTypeCtrl.dispose();
+    _siblingsCtrl.dispose();
     super.dispose();
   }
 
@@ -71,10 +85,24 @@ class _Step1EleveState extends State<_Step1Eleve> {
               ),
             ],
           ),
-          _Field(
-            ctrl: _placeOfBirthCtrl,
-            label: 'Lieu de naissance',
-            onChanged: (v) { s.placeOfBirth = v.isEmpty ? null : v; widget.onChanged(); },
+          Row(
+            children: [
+              Expanded(
+                child: _Field(
+                  ctrl: _placeOfBirthCtrl,
+                  label: 'Lieu de naissance',
+                  onChanged: (v) { s.placeOfBirth = v.isEmpty ? null : v; widget.onChanged(); },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _Field(
+                  ctrl: _nationalityCtrl,
+                  label: 'Nationalité',
+                  onChanged: (v) { s.nationality = v.isEmpty ? 'Congolaise' : v; widget.onChanged(); },
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           const _SectionTitle('Situation familiale'),
@@ -90,6 +118,15 @@ class _Step1EleveState extends State<_Step1Eleve> {
               'tuteur':             'Sous tutelle',
             },
             onChanged: (v) { s.situationFamiliale = v; widget.onChanged(); },
+          ),
+          _Field(
+            ctrl: _siblingsCtrl,
+            label: 'Nombre de frères et sœurs',
+            keyboardType: TextInputType.number,
+            onChanged: (v) {
+              s.nombreFreresSoeurs = int.tryParse(v.trim()) ?? 0;
+              widget.onChanged();
+            },
           ),
           const SizedBox(height: 16),
           const _SectionTitle('Statuts particuliers'),
@@ -119,8 +156,20 @@ class _Step1EleveState extends State<_Step1Eleve> {
             value: s.hasSocialAid,
             onChanged: (v) { s.hasSocialAid = v!; widget.onChanged(); },
           ),
+          if (s.hasSocialAid)
+            _Field(
+              ctrl: _socialAidTypeCtrl,
+              label: 'Type d\'aide sociale',
+              onChanged: (v) { s.socialAidType = v.isEmpty ? null : v; widget.onChanged(); },
+            ),
           const SizedBox(height: 16),
           const _SectionTitle('Santé & Adresse'),
+          _DropdownField<String>(
+            label: 'Groupe sanguin',
+            value: s.bloodGroup,
+            items: _bloodGroups,
+            onChanged: (v) { s.bloodGroup = v; widget.onChanged(); },
+          ),
           _Field(
             ctrl: _allergiesCtrl,
             label: 'Allergies / Antécédents médicaux',
@@ -132,10 +181,24 @@ class _Step1EleveState extends State<_Step1Eleve> {
             label: 'Adresse',
             onChanged: (v) { s.address = v.isEmpty ? null : v; widget.onChanged(); },
           ),
-          _Field(
-            ctrl: _cityCtrl,
-            label: 'Ville',
-            onChanged: (v) { s.city = v.isEmpty ? null : v; widget.onChanged(); },
+          Row(
+            children: [
+              Expanded(
+                child: _Field(
+                  ctrl: _cityCtrl,
+                  label: 'Ville',
+                  onChanged: (v) { s.city = v.isEmpty ? null : v; widget.onChanged(); },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _Field(
+                  ctrl: _regionCtrl,
+                  label: 'Département / Région',
+                  onChanged: (v) { s.region = v.isEmpty ? null : v; widget.onChanged(); },
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -215,6 +278,7 @@ class _TutorFormState extends State<_TutorForm> {
   late final _phoneCtrl     = TextEditingController(text: widget.tutor.phonePrimary);
   late final _emailCtrl     = TextEditingController(text: widget.tutor.email ?? '');
   late final _profCtrl      = TextEditingController(text: widget.tutor.profession ?? '');
+  late final _addressCtrl   = TextEditingController(text: widget.tutor.address ?? '');
 
   @override
   void dispose() {
@@ -223,6 +287,7 @@ class _TutorFormState extends State<_TutorForm> {
     _phoneCtrl.dispose();
     _emailCtrl.dispose();
     _profCtrl.dispose();
+    _addressCtrl.dispose();
     super.dispose();
   }
 
@@ -313,6 +378,11 @@ class _TutorFormState extends State<_TutorForm> {
               ctrl: _profCtrl,
               label: 'Profession',
               onChanged: (v) { t.profession = v.isEmpty ? null : v; widget.onChanged(); },
+            ),
+            _Field(
+              ctrl: _addressCtrl,
+              label: 'Adresse',
+              onChanged: (v) { t.address = v.isEmpty ? null : v; widget.onChanged(); },
             ),
             _CheckTile(
               label: 'Contact d\'urgence',

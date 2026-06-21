@@ -16,6 +16,7 @@ class StudentModel {
     this.nationality,
     this.address,
     this.city,
+    this.region,
     this.photoUrl,
     this.bloodGroup,
     this.allergies,
@@ -49,6 +50,7 @@ class StudentModel {
       nationality:         map['nationality']           as String? ?? 'Congolaise',
       address:             map['address']               as String?,
       city:                map['city']                  as String?,
+      region:              map['region']                as String?,
       photoUrl:            map['photo_url']             as String?,
       bloodGroup:          map['blood_group']           as String?,
       allergies:           map['allergies']             as String?,
@@ -79,6 +81,7 @@ class StudentModel {
   final String?  nationality;
   final String?  address;
   final String?  city;
+  final String?  region;
   final String?  photoUrl;
   final String?  bloodGroup;
   final String?  allergies;

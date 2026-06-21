@@ -257,6 +257,10 @@ Future<String> enrollStudent({
   String inscriptionType = 'new',        // new | reinscription | transfer
   String? previousSchoolName,
   String? previousClassName,
+  String? transferReason,                // motif si type=transfer (0007)
+  String? filiereId,                     // filière FP → education_programs (0007)
+  String? notes,                         // notes internes (0007)
+  String? createdBy,                     // agent ayant saisi l'inscription (0007)
 }) async {
   // Pré-validation anti-perte silencieuse : contrainte UNIQUE
   // (student_id, academic_year_id) — un élève = une seule inscription par année
@@ -280,13 +284,15 @@ Future<String> enrollStudent({
       (id, group_id, school_id, student_id, class_id, academic_year_id,
        enrollment_date, status, is_repeating, previous_class_id,
        inscription_type, previous_school_name, previous_class_name,
+       transfer_reason, filiere_id, notes, created_by,
        created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending_validation', ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending_validation', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''',
     [
       id, groupId, schoolId, studentId, classId, academicYearId,
       today, isRepeating ? 1 : 0, previousClassId,
       inscriptionType, previousSchoolName, previousClassName,
+      transferReason, filiereId, notes, createdBy,
       now, now,
     ],
   );

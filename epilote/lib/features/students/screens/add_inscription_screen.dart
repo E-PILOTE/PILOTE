@@ -40,6 +40,7 @@ class _InscriptionState {
   bool    isAffecte        = false;
   String? address;
   String? city;
+  String? region;
   String? bloodGroup;
   String? allergies;
 
@@ -56,6 +57,8 @@ class _InscriptionState {
   String? previousSchoolName;
   String? previousClassName;
   String? previousClassId;
+  String? transferReason;
+  String? notes;
 
   // Étape 4 — Documents
   final Set<String> checkedDocs = {};
@@ -70,6 +73,7 @@ class _TutorEntry {
   String? phoneSecondary;
   String? email;
   String? profession;
+  String? address;
   bool    isPrimary;
   bool    isEmergency  = false;
 }
@@ -165,6 +169,7 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
         nationality:        _state.nationality,
         address:            _state.address,
         city:               _state.city,
+        region:             _state.region,
         bloodGroup:         _state.bloodGroup,
         allergies:          _state.allergies,
         situationFamiliale: _state.situationFamiliale,
@@ -192,6 +197,7 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
           phoneSecondary:    t.phoneSecondary,
           email:             t.email,
           profession:        t.profession,
+          address:           t.address,
           isPrimaryContact:  t.isPrimary,
           isEmergencyContact: t.isEmergency,
         );
@@ -210,6 +216,9 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
           inscriptionType:    _state.inscriptionType,
           previousSchoolName: _state.previousSchoolName,
           previousClassName:  _state.previousClassName,
+          transferReason:     _state.transferReason,
+          notes:              _state.notes,
+          createdBy:          profile.id,
         );
       }
 
