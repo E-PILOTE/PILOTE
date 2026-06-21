@@ -272,7 +272,11 @@ const schema = Schema([
   Table('staff_members', [
     Column.text('group_id'),
     Column.text('school_id'),
-    Column.text('profile_id'),       // lien vers le compte (périmètre own_classes)
+    // ⚠️ profile_id N'EXISTE PAS encore en base LIVE (audit 2026-06-21). Conservé
+    // ici car myStaffIdProvider le LIT (renvoie null tant que non peuplé) — le
+    // retirer ferait crasher cette requête. NE RIEN ÉCRIRE dessus (échec upload
+    // silencieux). À matérialiser en Phase 5 (Paie) : ALTER TABLE en prod + FK.
+    Column.text('profile_id'),
     Column.text('job_title'),
     Column.text('hire_date'),
     Column.text('contract_type'),
@@ -674,6 +678,9 @@ const schema = Schema([
     Column.text('target_audience'),
     Column.integer('is_pinned'),
     Column.integer('is_published'),
+    Column.integer('is_archived'), // REQUIS : setAnnouncementArchivedLocal fait
+                                   // un UPDATE local dessus → sans cette colonne,
+                                   // « no such column » au 1er archivage offline.
     Column.text('published_at'),
     Column.text('expires_at'),
     Column.text('attachments'), // jsonb [{name,url,mime,size,kind}] en TEXT
