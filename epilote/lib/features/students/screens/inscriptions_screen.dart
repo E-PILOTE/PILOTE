@@ -112,6 +112,25 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
         ),
       );
 
+  // Tiroir latéral droit (Classe / Filière) — protège la hauteur de la page
+  // principale quand ces répartitions deviennent nombreuses (école technique).
+  void _openBreakdownDrawer(String dim) => showGeneralDialog(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: 'Fermer',
+        barrierColor: Colors.black.withValues(alpha: 0.45),
+        transitionDuration: const Duration(milliseconds: 240),
+        pageBuilder: (_, _, _) => Align(
+          alignment: Alignment.centerRight,
+          child: _BreakdownDrawer(dim: dim),
+        ),
+        transitionBuilder: (_, anim, _, child) => SlideTransition(
+          position: Tween(begin: const Offset(1, 0), end: Offset.zero)
+              .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+          child: child,
+        ),
+      );
+
   void _openDetail(InscriptionRow r) => showDialog(
         context: context,
         builder: (_) => _InscriptionDetailModal(
@@ -238,7 +257,14 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                   _BreakdownCard(
                     st: st,
                     dim: _dim,
-                    onDim: (d) => setState(() => _dim = d),
+                    onDim: (d) {
+                      setState(() => _dim = d);
+                      // Classe/Filière (potentiellement nombreuses) → tiroir droit.
+                      if (d == 'classe' || d == 'filiere') {
+                        _openBreakdownDrawer(d);
+                      }
+                    },
+                    onOpenDrawer: _openBreakdownDrawer,
                   ),
                   const SizedBox(height: 26),
                   if (st.evolution.length >= 2) ...[
@@ -419,10 +445,14 @@ class _KpiSection extends StatelessWidget {
 //   Cycle ⊃ Niveau ⊃ Classe   (la filière = spécialité du lycée/FP).
 class _BreakdownCard extends StatelessWidget {
   const _BreakdownCard(
-      {required this.st, required this.dim, required this.onDim});
+      {required this.st,
+      required this.dim,
+      required this.onDim,
+      required this.onOpenDrawer});
   final InscriptionStats st;
   final String dim;
   final ValueChanged<String> onDim;
+  final ValueChanged<String> onOpenDrawer;
 
   static const _help = <String, String>{
     'cycle':
@@ -453,9 +483,11 @@ class _BreakdownCard extends StatelessWidget {
           return st.byClass.isEmpty
               ? const _BreakdownEmpty('Aucune classe',
                   'Créez une classe dans le module Classes pour démarrer les inscriptions.')
-              : _ClassSection(byClass: st.byClass);
+              : _BreakdownSummary(
+                  dim: 'classe', st: st, onOpen: () => onOpenDrawer('classe'));
         case 'filiere':
-          return _ProgramSection(byProgram: st.byProgram);
+          return _BreakdownSummary(
+              dim: 'filiere', st: st, onOpen: () => onOpenDrawer('filiere'));
         default:
           return st.byCycle.isEmpty
               ? const _BreakdownEmpty('Aucun cycle',
@@ -544,6 +576,257 @@ class _BreakdownEmpty extends StatelessWidget {
               style: const TextStyle(fontSize: 12, color: kTextMuted)),
         ]),
       );
+}
+
+// Résumé compact (Classe / Filière) affiché dans la carte ; le détail complet
+// s'ouvre dans le tiroir droit (via onOpen).
+class _BreakdownSummary extends StatelessWidget {
+  const _BreakdownSummary(
+      {required this.dim, required this.st, required this.onOpen});
+  final String dim;
+  final InscriptionStats st;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final isClasse = dim == 'classe';
+    final count = isClasse ? st.byClass.length : st.byProgram.length;
+    final inscrits = (isClasse ? st.byClass : st.byProgram)
+        .fold<int>(0, (s, e) => s + (e is ClassCount ? e.total : (e as ProgramCount).total));
+    final nbNiveaux =
+        st.byClass.map((c) => c.levelCode ?? '—').toSet().length;
+
+    final chips = <(IconData, String)>[
+      (isClasse ? Icons.meeting_room_rounded : Icons.workspaces_rounded,
+          '$count ${isClasse ? (count > 1 ? 'classes' : 'classe') : (count > 1 ? 'filières' : 'filière')}'),
+      if (isClasse) (Icons.layers_rounded, '$nbNiveaux niveau${nbNiveaux > 1 ? 'x' : ''}'),
+      (Icons.groups_rounded, '$inscrits inscrit${inscrits > 1 ? 's' : ''}'),
+      if (isClasse && st.capacityTotal > 0)
+        (Icons.donut_large_rounded, '${(st.fillRatio * 100).round()} % remplissage'),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: kSurface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: kBorder),
+      ),
+      child: Row(children: [
+        Expanded(
+          child: Wrap(
+            spacing: 18,
+            runSpacing: 10,
+            children: [
+              for (final ch in chips)
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(ch.$1, size: 16, color: kNavy),
+                  const SizedBox(width: 6),
+                  Text(ch.$2,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: kTextPrimary)),
+                ]),
+            ],
+          ),
+        ),
+        const SizedBox(width: 14),
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: onOpen,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [kNavyDark, kNavy],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Text('Voir le détail',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700)),
+                SizedBox(width: 6),
+                Icon(Icons.arrow_forward_rounded, size: 15, color: Colors.white),
+              ]),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+// Tiroir latéral droit : détail complet d'une répartition (classe / filière),
+// scrollable + recherche. Live (watch du provider).
+class _BreakdownDrawer extends ConsumerStatefulWidget {
+  const _BreakdownDrawer({required this.dim});
+  final String dim;
+  @override
+  ConsumerState<_BreakdownDrawer> createState() => _BreakdownDrawerState();
+}
+
+class _BreakdownDrawerState extends ConsumerState<_BreakdownDrawer> {
+  final _searchCtrl = TextEditingController();
+  String _q = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isClasse = widget.dim == 'classe';
+    final st = ref.watch(inscriptionStatsProvider);
+    final screenW = MediaQuery.of(context).size.width;
+    // Plus large pour bien voir les effectifs (3–4 colonnes de cartes).
+    final width = (screenW * 0.5).clamp(420.0, 920.0);
+
+    final byClass = isClasse
+        ? st.byClass
+            .where((c) => c.name.toLowerCase().contains(_q.toLowerCase()))
+            .toList()
+        : const <ClassCount>[];
+    final byProgram = !isClasse
+        ? st.byProgram
+            .where((p) => p.label.toLowerCase().contains(_q.toLowerCase()))
+            .toList()
+        : const <ProgramCount>[];
+    final total = isClasse ? st.byClass.length : st.byProgram.length;
+    final shown = isClasse ? byClass.length : byProgram.length;
+
+    return Material(
+      color: kCardBg,
+      child: SizedBox(
+        width: width,
+        height: double.infinity,
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // En-tête (style plateforme léger : blanc + accent navy)
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+                decoration: const BoxDecoration(
+                  color: kCardBg,
+                  border: Border(bottom: BorderSide(color: kBorder)),
+                ),
+                child: Row(children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: kNavy.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                        isClasse
+                            ? Icons.meeting_room_rounded
+                            : Icons.workspaces_rounded,
+                        color: kNavy,
+                        size: 21),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                            isClasse
+                                ? 'Effectifs par classe'
+                                : 'Effectifs par filière',
+                            style: const TextStyle(
+                                color: kTextPrimary,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800)),
+                        Text(
+                            isClasse
+                                ? '$total classe${total > 1 ? 's' : ''} · groupées par niveau'
+                                : '$total filière${total > 1 ? 's' : ''} (séries, métiers)',
+                            style: const TextStyle(
+                                color: kTextMuted, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  AdminModalIconBtn(
+                    icon: Icons.close_rounded,
+                    color: kTextMuted,
+                    tooltip: 'Fermer',
+                    onTap: () => Navigator.of(context).pop(),
+                  ),
+                ]),
+              ),
+              // Recherche
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+                child: TextField(
+                  controller: _searchCtrl,
+                  onChanged: (v) => setState(() => _q = v),
+                  decoration: InputDecoration(
+                    hintText: isClasse
+                        ? 'Rechercher une classe…'
+                        : 'Rechercher une filière…',
+                    hintStyle: const TextStyle(color: kTextMuted, fontSize: 13),
+                    prefixIcon: const Icon(Icons.search_rounded,
+                        color: kTextMuted, size: 20),
+                    suffixIcon: _q.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.close_rounded,
+                                size: 18, color: kTextMuted),
+                            onPressed: () {
+                              _searchCtrl.clear();
+                              setState(() => _q = '');
+                            })
+                        : null,
+                    filled: true,
+                    fillColor: kSurface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              if (_q.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 2, 18, 0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('$shown résultat${shown > 1 ? 's' : ''} sur $total',
+                        style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                  ),
+                ),
+              // Contenu
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  child: (isClasse ? byClass.isEmpty : byProgram.isEmpty)
+                      ? const Padding(
+                          padding: EdgeInsets.only(top: 40),
+                          child: _BreakdownEmpty(
+                              'Aucun résultat', 'Ajustez la recherche.'),
+                        )
+                      : isClasse
+                          ? _ClassSection(byClass: byClass)
+                          : _ProgramSection(byProgram: byProgram),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _DimToggle extends StatelessWidget {
