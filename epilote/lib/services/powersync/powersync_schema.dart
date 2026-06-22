@@ -180,6 +180,45 @@ const schema = Schema([
     Column.text('updated_at'),
   ]),
 
+  // ── Structure académique de l'école (cycles/niveaux réels, offline) ────────
+  // Permet à la page Inscriptions d'afficher TOUS les cycles/niveaux configurés
+  // pour l'école (même à 0 inscrit). education_cycles = référentiel global
+  // (libellés/ordre) ; school_cycles = cycles RÉELS de l'école ; school_levels =
+  // catalogue de niveaux du groupe (rattachés à un cycle).
+  Table('education_cycles', [
+    Column.text('code'),
+    Column.text('name'),
+    Column.integer('order_index'),
+    Column.integer('has_programs'),
+    Column.text('group_id'),
+    Column.integer('is_active'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  Table('school_cycles', [
+    Column.text('school_id'),
+    Column.text('cycle_id'),
+    Column.text('group_id'),
+    Column.text('created_at'),
+  ]),
+
+  Table('school_levels', [
+    Column.text('code'),
+    Column.text('name'),
+    Column.text('slug'),
+    Column.text('cycle_id'),
+    Column.text('program_id'),
+    Column.integer('order_index'),
+    Column.integer('display_order'),
+    Column.text('notation_type'),
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.integer('is_active'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
   Table('classes', [
     Column.text('name'),
     Column.integer('capacity'),

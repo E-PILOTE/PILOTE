@@ -31,6 +31,8 @@ bucket_definitions:
       - SELECT * FROM module_categories
       - SELECT * FROM modules WHERE is_active = true
       - SELECT * FROM plan_modules
+      # Référentiel des cycles (libellés/ordre) — petit, partagé à tous.
+      - SELECT * FROM education_cycles WHERE is_active = true
 
   # ════════════════════════════════════════════════════════════════════════
   # PROPRE À L'UTILISATEUR (profil, messages, notifications, sa fiche staff)
@@ -96,6 +98,8 @@ bucket_definitions:
       - SELECT * FROM academic_years WHERE group_id = bucket.gid
       - SELECT * FROM trimesters WHERE group_id = bucket.gid
       - SELECT * FROM sequences WHERE group_id = bucket.gid
+      # Catalogue de niveaux du groupe (rattachés à un cycle) → structure scolaire
+      - SELECT * FROM school_levels WHERE group_id = bucket.gid AND is_active = true
       - SELECT * FROM announcements WHERE group_id = bucket.gid AND is_published = true
       - SELECT * FROM events WHERE group_id = bucket.gid AND is_published = true
       - SELECT * FROM announcement_reactions WHERE group_id = bucket.gid
@@ -125,6 +129,8 @@ bucket_definitions:
     data:
       # Structure & acteurs
       - SELECT * FROM classes WHERE school_id = bucket.sid AND is_active = true
+      # Cycles RÉELS configurés pour l'école (affichage dynamique des niveaux)
+      - SELECT * FROM school_cycles WHERE school_id = bucket.sid
       - SELECT * FROM class_enrollments WHERE school_id = bucket.sid
       - SELECT * FROM students WHERE school_id = bucket.sid AND is_active = true
       - SELECT * FROM teacher_subjects WHERE school_id = bucket.sid

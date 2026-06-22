@@ -199,6 +199,100 @@ final inscriptionsDataProvider =
 DateTime? _d(Object? v) =>
     (v is String && v.isNotEmpty) ? DateTime.tryParse(v) : null;
 
+// ─── Structure académique RÉELLE de l'école (cycles/niveaux/classes) ─────────
+// Lue 100% offline (JOIN local autorisé) depuis school_cycles + education_cycles
+// + school_levels + classes. Sert à afficher TOUS les cycles/niveaux/classes
+// configurés pour l'école — même à 0 inscrit — au lieu de ne montrer que ceux
+// qui ont déjà des élèves. Dynamique : si l'école ajoute un cycle/niveau/classe,
+// il apparaît automatiquement.
+class SchoolLevelDef {
+  const SchoolLevelDef(this.code, this.cycleCode, this.order);
+  final String code, cycleCode;
+  final int order;
+}
+
+class SchoolClassDef {
+  const SchoolClassDef(this.name, this.cycleCode, this.levelOrder, this.capacity);
+  final String name, cycleCode;
+  final int levelOrder, capacity;
+}
+
+class SchoolStructure {
+  const SchoolStructure(this.cycles, this.levels, this.classes);
+  final List<InscriptionCycle> cycles;
+  final List<SchoolLevelDef> levels;
+  final List<SchoolClassDef> classes;
+  static const empty = SchoolStructure([], [], []);
+}
+
+final schoolStructureProvider =
+    StreamProvider.autoDispose<SchoolStructure>((ref) {
+  ref.keepAlive();
+  final profile = ref.watch(authNotifierProvider).valueOrNull;
+  final schoolId = profile?.schoolId;
+  final groupId = profile?.groupId;
+  if (schoolId == null || schoolId.isEmpty || groupId == null || groupId.isEmpty) {
+    return Stream.value(SchoolStructure.empty);
+  }
+  // Cycles + niveaux configurés (un cycle peut n'avoir aucun niveau adopté).
+  final structStream = db.watch(
+    '''
+    SELECT ec.code AS cycle_code, ec.name AS cycle_name,
+           ec.order_index AS cycle_order,
+           sl.code AS level_code, sl.order_index AS level_order
+    FROM   school_cycles sc
+    JOIN   education_cycles ec ON ec.id = sc.cycle_id
+    LEFT JOIN school_levels sl
+           ON sl.cycle_id = sc.cycle_id AND sl.group_id = ? AND sl.is_active = 1
+    WHERE  sc.school_id = ?
+    ORDER  BY ec.order_index, sl.order_index
+    ''',
+    parameters: [groupId, schoolId],
+  );
+  // Classes réelles de l'école (pour afficher aussi les classes vides).
+  final classStream = db.watch(
+    '''
+    SELECT name, cycle_code, level_order, capacity
+    FROM   classes
+    WHERE  school_id = ? AND is_active = 1
+    ORDER  BY level_order, name
+    ''',
+    parameters: [schoolId],
+  );
+
+  return structStream.asyncMap((structRows) async {
+    final cyclesByCode = <String, InscriptionCycle>{};
+    final levels = <SchoolLevelDef>[];
+    final seenLevel = <String>{};
+    for (final r in structRows) {
+      final cc = r['cycle_code'] as String?;
+      if (cc == null || cc.isEmpty) continue;
+      final cyc = inscriptionCycleFromCode(cc, r['cycle_name'] as String?);
+      cyclesByCode.putIfAbsent(cyc.code, () => cyc);
+      final lc = r['level_code'] as String?;
+      if (lc != null && lc.isNotEmpty && seenLevel.add('${cyc.code}/$lc')) {
+        levels.add(SchoolLevelDef(lc, cyc.code, (r['level_order'] as int?) ?? 999));
+      }
+    }
+    final classRows = await classStream.first;
+    final classes = <SchoolClassDef>[
+      for (final r in classRows)
+        SchoolClassDef(
+          r['name'] as String? ?? '—',
+          inscriptionCycleFromCode(
+                  r['cycle_code'] as String?, r['name'] as String?)
+              .code,
+          (r['level_order'] as int?) ?? 999,
+          (r['capacity'] as int?) ?? 0,
+        ),
+    ];
+    final cycles = cyclesByCode.values.toList()
+      ..sort((a, b) => a.order.compareTo(b.order));
+    levels.sort((a, b) => a.order.compareTo(b.order));
+    return SchoolStructure(cycles, levels, classes);
+  });
+});
+
 // ─── Export CSV ──────────────────────────────────────────────────────────────
 
 String _csvCell(String? v) {
@@ -293,6 +387,8 @@ class InscriptionStats {
 /// Statistiques d'inscription dérivées (mêmes données, calculées côté client).
 final inscriptionStatsProvider = Provider.autoDispose<InscriptionStats>((ref) {
   final rows = ref.watch(inscriptionsDataProvider).valueOrNull ?? const [];
+  final structure =
+      ref.watch(schoolStructureProvider).valueOrNull ?? SchoolStructure.empty;
 
   var active = 0, pending = 0, rejected = 0, boys = 0, girls = 0;
   var tNew = 0, tRe = 0, tTr = 0, repeating = 0;
@@ -304,6 +400,21 @@ final inscriptionStatsProvider = Provider.autoDispose<InscriptionStats>((ref) {
   final classCycle = <String, String>{};  // nom classe → cycle code
   final progMap = <String, List<int>>{};  // filière → [total, boys, girls]
   final monthCount = <String, int>{};
+
+  // Amorçage à 0 depuis la structure RÉELLE de l'école : tous les cycles,
+  // niveaux et classes configurés apparaissent même sans inscrit (dynamique).
+  for (final c in structure.cycles) {
+    cycleMap.putIfAbsent(c.code, () => [0, 0, 0, c.order]);
+    cycleObj[c.code] = c;
+  }
+  for (final l in structure.levels) {
+    levelMap.putIfAbsent(l.code, () => [0, 0, 0, l.order]);
+    levelCycle[l.code] = l.cycleCode;
+  }
+  for (final cl in structure.classes) {
+    classMap.putIfAbsent(cl.name, () => [0, 0, 0, cl.levelOrder, cl.capacity]);
+    classCycle[cl.name] = cl.cycleCode;
+  }
 
   for (final r in rows) {
     switch (r.status) {
