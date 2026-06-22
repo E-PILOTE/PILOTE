@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../core/constants/routes.dart';
@@ -63,6 +64,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
   bool _isTable = true;
   _SortBy _sort = _SortBy.nom;
   bool _sortAsc = true;
+  String _dim = 'cycle'; // dimension de la répartition : cycle|niveau|classe|filiere
 
   @override
   void dispose() {
@@ -202,7 +204,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
     return async.when(
       skipLoadingOnReload: true,
       skipLoadingOnRefresh: true,
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const _InscriptionsSkeleton(),
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -228,42 +230,12 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                 children: [
                   _KpiSection(st: st),
                   const SizedBox(height: 26),
-                  if (st.byCycle.isNotEmpty) ...[
-                    const AdminSectionTitle('Répartition par cycle',
-                        icon: Icons.account_tree_rounded,
-                        subtitle:
-                            'Cycles hérités de la configuration de l\'école'),
-                    const SizedBox(height: 12),
-                    _CycleSection(byCycle: st.byCycle),
-                    const SizedBox(height: 26),
-                  ],
-                  if (st.byLevel.isNotEmpty) ...[
-                    AdminSectionTitle('Répartition par niveau',
-                        icon: Icons.layers_rounded,
-                        subtitle:
-                            '${st.byLevel.length} niveau${st.byLevel.length > 1 ? 'x' : ''} (6ᵉ, 5ᵉ…) selon les cycles'),
-                    const SizedBox(height: 12),
-                    _LevelSection(byLevel: st.byLevel),
-                    const SizedBox(height: 26),
-                  ],
-                  if (st.byProgram.isNotEmpty) ...[
-                    AdminSectionTitle('Répartition par filière',
-                        icon: Icons.workspaces_rounded,
-                        subtitle:
-                            '${st.byProgram.length} filière${st.byProgram.length > 1 ? 's' : ''} (lycée / formation pro.)'),
-                    const SizedBox(height: 12),
-                    _ProgramSection(byProgram: st.byProgram),
-                    const SizedBox(height: 26),
-                  ],
-                  if (st.byClass.isNotEmpty) ...[
-                    AdminSectionTitle('Effectifs par classe',
-                        icon: Icons.meeting_room_rounded,
-                        subtitle:
-                            '${st.byClass.length} classe${st.byClass.length > 1 ? 's' : ''} · effectif et taux de remplissage'),
-                    const SizedBox(height: 12),
-                    _ClassSection(byClass: st.byClass),
-                    const SizedBox(height: 26),
-                  ],
+                  _BreakdownCard(
+                    st: st,
+                    dim: _dim,
+                    onDim: (d) => setState(() => _dim = d),
+                  ),
+                  const SizedBox(height: 26),
                   if (st.evolution.length >= 2) ...[
                     const AdminSectionTitle('Évolution des inscriptions',
                         icon: Icons.show_chart_rounded),
@@ -394,13 +366,15 @@ class _KpiSection extends StatelessWidget {
         subtitle: tot > 0 ? '${(st.boys * 100 / tot).round()} % des effectifs' : '—',
       ),
       AdminStatCard(
-        label: 'Redoublants',
-        value: '${st.repeating}',
-        icon: Icons.replay_rounded,
-        color: kRed,
-        subtitle: st.total > 0
-            ? '${(st.repeating * 100 / st.total).round()} % des inscrits'
+        label: 'Taux de remplissage',
+        value: st.capacityTotal > 0
+            ? '${(st.fillRatio * 100).round()} %'
             : '—',
+        icon: Icons.donut_large_rounded,
+        color: const Color(0xFF7C3AED),
+        subtitle: st.capacityTotal > 0
+            ? '${st.total} / ${st.capacityTotal} places'
+            : 'Capacités non définies',
       ),
     ];
 
@@ -430,329 +404,461 @@ class _KpiSection extends StatelessWidget {
   }
 }
 
-// ─── Section cycles ──────────────────────────────────────────────────────────
+// ─── Carte « Répartition des effectifs » (1 seule, dimension au choix) ───────
+// Au lieu d'empiler 4 grilles identiques (cycle/niveau/classe/filière) — qui
+// rendaient la distinction illisible — une SEULE carte avec un sélecteur de
+// dimension. C'est la MÊME donnée vue à des granularités différentes :
+//   Cycle ⊃ Niveau ⊃ Classe   (la filière = spécialité du lycée/FP).
+class _BreakdownCard extends StatelessWidget {
+  const _BreakdownCard(
+      {required this.st, required this.dim, required this.onDim});
+  final InscriptionStats st;
+  final String dim;
+  final ValueChanged<String> onDim;
+
+  static const _help = <String, String>{
+    'cycle':
+        'Grands ensembles pédagogiques de l\'école (préscolaire, primaire, collège, lycée, formation pro.).',
+    'niveau':
+        'Subdivisions d\'un cycle — ex. le collège contient les niveaux 6ᵉ, 5ᵉ, 4ᵉ et 3ᵉ.',
+    'classe':
+        'Salles concrètes où les élèves sont inscrits — effectif et taux de remplissage de chaque classe.',
+    'filiere':
+        'Spécialités du lycée / formation professionnelle (séries, métiers).',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final hasFiliere = st.byProgram.isNotEmpty;
+    // dimension effective (garde-fou si la filière disparaît)
+    final d = (dim == 'filiere' && !hasFiliere) ? 'cycle' : dim;
+
+    Widget content() {
+      switch (d) {
+        case 'niveau':
+          return st.byLevel.isEmpty
+              ? const _BreakdownEmpty(
+                  'Aucun niveau défini',
+                  'Les niveaux apparaîtront dès qu\'une classe sera rattachée à un niveau.')
+              : _LevelSection(byLevel: st.byLevel);
+        case 'classe':
+          return st.byClass.isEmpty
+              ? const _BreakdownEmpty('Aucune classe',
+                  'Créez une classe dans le module Classes pour démarrer les inscriptions.')
+              : _ClassSection(byClass: st.byClass);
+        case 'filiere':
+          return _ProgramSection(byProgram: st.byProgram);
+        default:
+          return st.byCycle.isEmpty
+              ? const _BreakdownEmpty('Aucun cycle',
+                  'Les cycles apparaissent dès qu\'une classe existe pour l\'école.')
+              : _CycleSection(byCycle: st.byCycle);
+      }
+    }
+
+    return AdminCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LayoutBuilder(builder: (context, c) {
+            final narrow = c.maxWidth < 720;
+            const title = Row(children: [
+              Icon(Icons.insights_rounded, size: 20, color: kNavy),
+              SizedBox(width: 8),
+              Text('Répartition des effectifs',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: kTextPrimary)),
+            ]);
+            final toggle = _DimToggle(
+              dim: d,
+              hasFiliere: hasFiliere,
+              counts: {
+                'cycle': st.byCycle.length,
+                'niveau': st.byLevel.length,
+                'classe': st.byClass.length,
+                'filiere': st.byProgram.length,
+              },
+              onDim: onDim,
+            );
+            if (narrow) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  title,
+                  const SizedBox(height: 12),
+                  SingleChildScrollView(
+                      scrollDirection: Axis.horizontal, child: toggle),
+                ],
+              );
+            }
+            return Row(children: [
+              const Expanded(child: title),
+              toggle,
+            ]);
+          }),
+          const SizedBox(height: 10),
+          Text(_help[d] ?? '',
+              style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
+          const SizedBox(height: 18),
+          content(),
+        ],
+      ),
+    );
+  }
+}
+
+class _BreakdownEmpty extends StatelessWidget {
+  const _BreakdownEmpty(this.title, this.message);
+  final String title, message;
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+        decoration: BoxDecoration(
+          color: kSurface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: kBorder),
+        ),
+        child: Column(children: [
+          const Icon(Icons.inbox_rounded, size: 30, color: kTextMuted),
+          const SizedBox(height: 8),
+          Text(title,
+              style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: kTextPrimary)),
+          const SizedBox(height: 4),
+          Text(message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, color: kTextMuted)),
+        ]),
+      );
+}
+
+class _DimToggle extends StatelessWidget {
+  const _DimToggle({
+    required this.dim,
+    required this.hasFiliere,
+    required this.counts,
+    required this.onDim,
+  });
+  final String dim;
+  final bool hasFiliere;
+  final Map<String, int> counts;
+  final ValueChanged<String> onDim;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget seg(String key, IconData icon, String label) {
+      final sel = dim == key;
+      final n = counts[key] ?? 0;
+      return GestureDetector(
+        onTap: () => onDim(key),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: sel ? kNavy : Colors.transparent,
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 14, color: sel ? Colors.white : kTextMuted),
+            const SizedBox(width: 6),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: sel ? Colors.white : kTextMuted)),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: sel
+                    ? Colors.white.withValues(alpha: 0.22)
+                    : kTextMuted.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text('$n',
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: sel ? Colors.white : kTextMuted)),
+            ),
+          ]),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: kSurface,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: kBorder),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        seg('cycle', Icons.account_tree_rounded, 'Cycle'),
+        seg('niveau', Icons.layers_rounded, 'Niveau'),
+        seg('classe', Icons.meeting_room_rounded, 'Classe'),
+        if (hasFiliere) seg('filiere', Icons.workspaces_rounded, 'Filière'),
+      ]),
+    );
+  }
+}
+
+// ─── Grille de répartition (même taille que les KPI généraux) ────────────────
+// Palette de couleurs distinctes : chaque niveau / classe / filière reçoit sa
+// propre couleur (index → couleur), pour les différencier d'un coup d'œil.
+const _distribPalette = <Color>[
+  Color(0xFF1E3A5F), // navy
+  Color(0xFF009A44), // vert
+  Color(0xFF0EA5E9), // bleu ciel
+  Color(0xFFEC4899), // rose
+  Color(0xFFB8860B), // or
+  Color(0xFF7C3AED), // violet
+  Color(0xFF0D9488), // sarcelle
+  Color(0xFFEA580C), // orange
+  Color(0xFF4F46E5), // indigo
+  Color(0xFF65A30D), // lime
+  Color(0xFFDB2777), // magenta
+  Color(0xFF0891B2), // cyan
+];
+Color _distribColor(int i) => _distribPalette[i % _distribPalette.length];
+
+/// Grille responsive identique à celle des KPI généraux (1→6 colonnes,
+/// hauteur fixe 168) : toutes les cartes de répartition ont la MÊME taille.
+class _DistribGrid extends StatelessWidget {
+  const _DistribGrid({required this.cards});
+  final List<Widget> cards;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, c) {
+      final cols = c.maxWidth >= 1180
+          ? 6
+          : c.maxWidth >= 920
+              ? 4
+              : c.maxWidth >= 600
+                  ? 3
+                  : c.maxWidth >= 380
+                      ? 2
+                      : 1;
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: cards.length,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: cols,
+          mainAxisSpacing: 14,
+          crossAxisSpacing: 14,
+          mainAxisExtent: 168,
+        ),
+        itemBuilder: (_, i) => cards[i],
+      );
+    });
+  }
+}
+
+/// Carte de répartition unifiée (cycle / niveau / classe / filière) — même
+/// gabarit que `AdminStatCard`, couleur propre, barre de progression + filles/
+/// garçons. `infoLabel` = ligne de contexte (% du total ou « X/Y places »).
+class _DistribCard extends StatelessWidget {
+  const _DistribCard({
+    required this.icon,
+    required this.color,
+    required this.value,
+    required this.title,
+    required this.girls,
+    required this.boys,
+    required this.ratio,
+    this.infoLabel,
+    this.over = false,
+  });
+  final IconData icon;
+  final Color color;
+  final int value, girls, boys;
+  final String title;
+  final double ratio;
+  final String? infoLabel;
+  final bool over;
+
+  @override
+  Widget build(BuildContext context) {
+    final barColor = over ? kRed : color;
+    return AdminCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(icon, size: 22, color: color),
+            ),
+            const Spacer(),
+            Text('$value',
+                style: TextStyle(
+                    fontSize: 24, fontWeight: FontWeight.w800, color: color)),
+          ]),
+          const SizedBox(height: 12),
+          Text(title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
+          const SizedBox(height: 9),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: ratio.clamp(0.04, 1),
+              minHeight: 6,
+              backgroundColor: color.withValues(alpha: 0.10),
+              valueColor: AlwaysStoppedAnimation(barColor),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(children: [
+            if (infoLabel != null)
+              Flexible(
+                child: Text(infoLabel!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: over ? kRed : kTextMuted)),
+              ),
+            const Spacer(),
+            const Icon(Icons.female_rounded, size: 13, color: _kPink),
+            const SizedBox(width: 2),
+            Text('$girls',
+                style: const TextStyle(
+                    fontSize: 11.5, fontWeight: FontWeight.w700, color: _kPink)),
+            const SizedBox(width: 9),
+            const Icon(Icons.male_rounded, size: 13, color: _kBlue),
+            const SizedBox(width: 2),
+            Text('$boys',
+                style: const TextStyle(
+                    fontSize: 11.5, fontWeight: FontWeight.w700, color: _kBlue)),
+          ]),
+        ],
+      ),
+    );
+  }
+}
+
+String _pctLabel(int part, int whole) =>
+    whole > 0 ? '${(part * 100 / whole).round()} % du total' : '—';
+
+// ─── Section cycles (couleur sémantique par cycle) ───────────────────────────
 class _CycleSection extends StatelessWidget {
   const _CycleSection({required this.byCycle});
   final List<CycleCount> byCycle;
 
   @override
   Widget build(BuildContext context) {
-    final maxTotal =
-        byCycle.fold<int>(1, (m, c) => c.total > m ? c.total : m);
-    return Wrap(
-      spacing: 14,
-      runSpacing: 14,
-      children: [
-        for (final c in byCycle)
-          SizedBox(
-            width: 250,
-            child: AdminCard(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: _cycleColor(c.cycle.code).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(9),
-                      ),
-                      child: Icon(Icons.school_rounded,
-                          size: 18, color: _cycleColor(c.cycle.code)),
-                    ),
-                    const Spacer(),
-                    Text('${c.total}',
-                        style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: _cycleColor(c.cycle.code))),
-                  ]),
-                  const SizedBox(height: 10),
-                  Text(c.cycle.label,
-                      style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: kTextPrimary)),
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: (c.total / maxTotal).clamp(0.04, 1),
-                      minHeight: 6,
-                      backgroundColor:
-                          _cycleColor(c.cycle.code).withValues(alpha: 0.10),
-                      valueColor:
-                          AlwaysStoppedAnimation(_cycleColor(c.cycle.code)),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(children: [
-                    AdminBadge('${c.girls} filles', color: _kPink),
-                    const SizedBox(width: 6),
-                    AdminBadge('${c.boys} garçons', color: kNavy),
-                  ]),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
+    final grand = byCycle.fold<int>(0, (s, c) => s + c.total);
+    return _DistribGrid(cards: [
+      for (final c in byCycle)
+        _DistribCard(
+          icon: Icons.school_rounded,
+          color: _cycleColor(c.cycle.code),
+          value: c.total,
+          title: c.cycle.label,
+          girls: c.girls,
+          boys: c.boys,
+          ratio: grand > 0 ? c.total / grand : 0,
+          infoLabel: _pctLabel(c.total, grand),
+        ),
+    ]);
   }
 }
 
-// ─── Section niveaux (6e, 5e, 4e…) ───────────────────────────────────────────
+// ─── Section niveaux (6e, 5e, 4e… — couleur distincte par niveau) ────────────
 class _LevelSection extends StatelessWidget {
   const _LevelSection({required this.byLevel});
   final List<LevelCount> byLevel;
 
   @override
   Widget build(BuildContext context) {
-    final maxTotal = byLevel.fold<int>(1, (m, l) => l.total > m ? l.total : m);
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        for (final l in byLevel)
-          SizedBox(
-              width: 152,
-              child: _LevelMini(level: l, ratio: l.total / maxTotal)),
-      ],
-    );
-  }
-}
-
-class _LevelMini extends StatelessWidget {
-  const _LevelMini({required this.level, required this.ratio});
-  final LevelCount level;
-  final double ratio;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _cycleColor(level.cycleCode);
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBorder),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(level.code,
-                style: TextStyle(
-                    fontSize: 12.5, fontWeight: FontWeight.w800, color: color)),
-          ),
-          const Spacer(),
-          Text('${level.total}',
-              style: TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.w800, color: color)),
-        ]),
-        const SizedBox(height: 9),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: ratio.clamp(0.05, 1),
-            minHeight: 5,
-            backgroundColor: color.withValues(alpha: 0.08),
-            valueColor: AlwaysStoppedAnimation(color),
-          ),
+    final grand = byLevel.fold<int>(0, (s, l) => s + l.total);
+    return _DistribGrid(cards: [
+      for (var i = 0; i < byLevel.length; i++)
+        _DistribCard(
+          icon: Icons.layers_rounded,
+          color: _distribColor(i),
+          value: byLevel[i].total,
+          title: byLevel[i].code,
+          girls: byLevel[i].girls,
+          boys: byLevel[i].boys,
+          ratio: grand > 0 ? byLevel[i].total / grand : 0,
+          infoLabel: _pctLabel(byLevel[i].total, grand),
         ),
-        const SizedBox(height: 8),
-        Row(children: [
-          const Icon(Icons.female_rounded, size: 13, color: _kPink),
-          const SizedBox(width: 2),
-          Text('${level.girls}',
-              style: const TextStyle(
-                  fontSize: 11.5, fontWeight: FontWeight.w700, color: _kPink)),
-          const SizedBox(width: 10),
-          const Icon(Icons.male_rounded, size: 13, color: _kBlue),
-          const SizedBox(width: 2),
-          Text('${level.boys}',
-              style: const TextStyle(
-                  fontSize: 11.5, fontWeight: FontWeight.w700, color: _kBlue)),
-        ]),
-      ]),
-    );
+    ]);
   }
 }
 
-// ─── Section filières (lycée / FP — accent doré) ─────────────────────────────
+// ─── Section filières (lycée / FP — couleur distincte par filière) ───────────
 class _ProgramSection extends StatelessWidget {
   const _ProgramSection({required this.byProgram});
   final List<ProgramCount> byProgram;
 
   @override
   Widget build(BuildContext context) {
-    final maxTotal = byProgram.fold<int>(1, (m, p) => p.total > m ? p.total : m);
-    return Wrap(
-      spacing: 14,
-      runSpacing: 14,
-      children: [
-        for (final p in byProgram)
-          SizedBox(
-            width: 250,
-            child: AdminCard(
-              padding: const EdgeInsets.all(16),
-              accent: kAccent,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: kAccent.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(9),
-                      ),
-                      child: const Icon(Icons.workspaces_rounded,
-                          size: 18, color: Color(0xFFB8860B)),
-                    ),
-                    const Spacer(),
-                    Text('${p.total}',
-                        style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFFB8860B))),
-                  ]),
-                  const SizedBox(height: 10),
-                  Text(p.label,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: kTextPrimary)),
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: (p.total / maxTotal).clamp(0.04, 1),
-                      minHeight: 6,
-                      backgroundColor: kAccent.withValues(alpha: 0.14),
-                      valueColor:
-                          const AlwaysStoppedAnimation(Color(0xFFB8860B)),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(children: [
-                    AdminBadge('${p.girls} filles', color: _kPink),
-                    const SizedBox(width: 6),
-                    AdminBadge('${p.boys} garçons', color: kNavy),
-                  ]),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
+    final grand = byProgram.fold<int>(0, (s, p) => s + p.total);
+    return _DistribGrid(cards: [
+      for (var i = 0; i < byProgram.length; i++)
+        _DistribCard(
+          icon: Icons.workspaces_rounded,
+          // décalage de teinte pour distinguer des niveaux
+          color: _distribColor(i + 4),
+          value: byProgram[i].total,
+          title: byProgram[i].label,
+          girls: byProgram[i].girls,
+          boys: byProgram[i].boys,
+          ratio: grand > 0 ? byProgram[i].total / grand : 0,
+          infoLabel: _pctLabel(byProgram[i].total, grand),
+        ),
+    ]);
   }
 }
 
-// ─── Section classes (effectif + taux de remplissage) ────────────────────────
+// ─── Section classes (couleur distincte par classe + taux de remplissage) ────
 class _ClassSection extends StatelessWidget {
   const _ClassSection({required this.byClass});
   final List<ClassCount> byClass;
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        for (final c in byClass)
-          SizedBox(width: 218, child: _ClassMini(c: c)),
-      ],
-    );
-  }
-}
-
-class _ClassMini extends StatelessWidget {
-  const _ClassMini({required this.c});
-  final ClassCount c;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _cycleColor(c.cycleCode);
-    final hasCap = c.capacity > 0;
-    final fill = c.fillRatio.clamp(0.0, 1.0);
-    final over = c.fillRatio > 1;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBorder),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(Icons.meeting_room_rounded, size: 16, color: color),
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Text(c.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                    color: kTextPrimary)),
-          ),
-          Text('${c.total}',
-              style: TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.w800, color: color)),
-        ]),
-        const SizedBox(height: 10),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: hasCap ? fill : 0.04,
-            minHeight: 6,
-            backgroundColor: color.withValues(alpha: 0.10),
-            valueColor: AlwaysStoppedAnimation(over ? kRed : color),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(children: [
-          if (hasCap)
-            Text('${c.total}/${c.capacity} places',
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: over ? kRed : kTextMuted))
-          else
-            const Text('Capacité non définie',
-                style: TextStyle(fontSize: 11, color: kTextMuted)),
-          const Spacer(),
-          const Icon(Icons.female_rounded, size: 12, color: _kPink),
-          const SizedBox(width: 2),
-          Text('${c.girls}',
-              style: const TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w700, color: _kPink)),
-          const SizedBox(width: 8),
-          const Icon(Icons.male_rounded, size: 12, color: _kBlue),
-          const SizedBox(width: 2),
-          Text('${c.boys}',
-              style: const TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w700, color: _kBlue)),
-        ]),
-      ]),
-    );
+    return _DistribGrid(cards: [
+      for (var i = 0; i < byClass.length; i++)
+        () {
+          final c = byClass[i];
+          final hasCap = c.capacity > 0;
+          final color = _distribColor(i);
+          return _DistribCard(
+            icon: Icons.meeting_room_rounded,
+            color: color,
+            value: c.total,
+            title: c.name,
+            girls: c.girls,
+            boys: c.boys,
+            ratio: hasCap ? c.fillRatio : 0,
+            over: c.fillRatio > 1,
+            infoLabel: hasCap
+                ? '${c.total}/${c.capacity} places'
+                : 'Capacité non définie',
+          );
+        }(),
+    ]);
   }
 }
 
@@ -1149,4 +1255,72 @@ class _ResultHeader extends StatelessWidget {
               style: const TextStyle(color: kTextMuted, fontSize: 13)),
         ],
       ]);
+}
+
+// ─── Skeleton de chargement (shimmer, calqué sur la vraie page) ──────────────
+class _InscriptionsSkeleton extends StatelessWidget {
+  const _InscriptionsSkeleton();
+
+  Widget _box(double w, double h, {double r = 12}) => Container(
+        width: w,
+        height: h,
+        decoration: BoxDecoration(
+            color: Colors.white, borderRadius: BorderRadius.circular(r)),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: const Color(0xFFE8ECF0),
+      highlightColor: const Color(0xFFF5F7FA),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Hero KPI (6 cartes responsives)
+            LayoutBuilder(builder: (context, c) {
+              final cols = c.maxWidth >= 1180
+                  ? 6
+                  : c.maxWidth >= 920
+                      ? 4
+                      : c.maxWidth >= 600
+                          ? 3
+                          : 2;
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: 6,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: cols,
+                  mainAxisSpacing: 14,
+                  crossAxisSpacing: 14,
+                  mainAxisExtent: 168,
+                ),
+                itemBuilder: (_, _) =>
+                    _box(double.infinity, double.infinity, r: 12),
+              );
+            }),
+            const SizedBox(height: 26),
+            // Carte « Répartition » (en-tête + grille)
+            _box(double.infinity, 320, r: 12),
+            const SizedBox(height: 26),
+            // Évolution
+            _box(180, 16, r: 6),
+            const SizedBox(height: 12),
+            _box(double.infinity, 230, r: 12),
+            const SizedBox(height: 22),
+            // Barre de filtres
+            _box(double.infinity, 110, r: 8),
+            const SizedBox(height: 18),
+            // Quelques lignes de tableau
+            for (var i = 0; i < 6; i++) ...[
+              _box(double.infinity, 52, r: 10),
+              const SizedBox(height: 8),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }
