@@ -59,6 +59,7 @@ class _InscriptionsBody extends ConsumerStatefulWidget {
 class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
   final _searchCtrl = TextEditingController();
   String? _cycle;
+  String? _filiere;
   String? _type;
   String _status = 'all'; // all | active | pending_validation | rejected
   bool _isTable = true;
@@ -76,6 +77,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
     final q = _searchCtrl.text.trim().toLowerCase();
     final out = all.where((r) {
       if (_cycle != null && r.cycle.code != _cycle) return false;
+      if (_filiere != null && r.filiereLabel != _filiere) return false;
       if (_type != null && r.inscriptionType != _type) return false;
       if (_status != 'all' && r.status != _status) return false;
       if (q.isEmpty) return true;
@@ -96,7 +98,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
 
   void _resetFilters() => setState(() {
         _searchCtrl.clear();
-        _cycle = _type = null;
+        _cycle = _filiere = _type = null;
         _status = 'all';
       });
 
@@ -217,6 +219,9 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
         final cyclesPresent = <String, String>{
           for (final r in all) r.cycle.code: r.cycle.label,
         };
+        // Filières OFFERTES par l'école (depuis la structure, même à 0 inscrit)
+        // → le filtre est visible pour toute école technique/professionnelle.
+        final filieresPresent = [for (final p in st.byProgram) p.label]..sort();
 
         return LayoutBuilder(builder: (ctx, cns) {
           final w = cns.maxWidth.isFinite
@@ -247,13 +252,16 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                     width: w - 48,
                     searchCtrl: _searchCtrl,
                     cycle: _cycle,
+                    filiere: _filiere,
                     type: _type,
                     status: _status,
                     isTable: _isTable,
                     readOnly: readOnly,
                     cyclesPresent: cyclesPresent,
+                    filieresPresent: filieresPresent,
                     onSearch: (_) => setState(() {}),
                     onCycle: (v) => setState(() => _cycle = v),
+                    onFiliere: (v) => setState(() => _filiere = v),
                     onType: (v) => setState(() => _type = v),
                     onStatus: (v) => setState(() => _status = v),
                     onToggleView: () => setState(() => _isTable = !_isTable),
@@ -832,32 +840,99 @@ class _ProgramSection extends StatelessWidget {
 }
 
 // ─── Section classes (couleur distincte par classe + taux de remplissage) ────
+// Vue « Classe » GROUPÉE PAR NIVEAU : un en-tête de niveau (6ᵉ, CP1…) puis ses
+// classes. Rend explicite la hiérarchie Niveau ⊃ Classes (lève la confusion
+// niveau/classe). Toutes les classes d'un même niveau partagent sa couleur.
+class _ClassGroup {
+  _ClassGroup(this.levelCode, this.cycleCode);
+  final String levelCode, cycleCode;
+  final List<ClassCount> items = [];
+  int get total => items.fold(0, (s, c) => s + c.total);
+  int get capacity => items.fold(0, (s, c) => s + c.capacity);
+}
+
 class _ClassSection extends StatelessWidget {
   const _ClassSection({required this.byClass});
   final List<ClassCount> byClass;
 
   @override
   Widget build(BuildContext context) {
-    return _DistribGrid(cards: [
-      for (var i = 0; i < byClass.length; i++)
-        () {
-          final c = byClass[i];
-          final hasCap = c.capacity > 0;
-          final color = _distribColor(i);
-          return _DistribCard(
-            icon: Icons.meeting_room_rounded,
-            color: color,
-            value: c.total,
-            title: c.name,
-            girls: c.girls,
-            boys: c.boys,
-            ratio: hasCap ? c.fillRatio : 0,
-            over: c.fillRatio > 1,
-            infoLabel: hasCap
-                ? '${c.total}/${c.capacity} places'
-                : 'Capacité non définie',
-          );
-        }(),
+    final groups = <_ClassGroup>[];
+    for (final c in byClass) {
+      final key = c.levelCode ?? '—';
+      if (groups.isEmpty || groups.last.levelCode != key) {
+        groups.add(_ClassGroup(key, c.cycleCode));
+      }
+      groups.last.items.add(c);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var g = 0; g < groups.length; g++) ...[
+          if (g > 0) const SizedBox(height: 20),
+          _LevelGroupHeader(group: groups[g], color: _distribColor(g)),
+          const SizedBox(height: 10),
+          _DistribGrid(cards: [
+            for (final c in groups[g].items)
+              _DistribCard(
+                icon: Icons.meeting_room_rounded,
+                color: _distribColor(g),
+                value: c.total,
+                title: c.name,
+                girls: c.girls,
+                boys: c.boys,
+                ratio: c.capacity > 0 ? c.fillRatio : 0,
+                over: c.fillRatio > 1,
+                infoLabel: c.capacity > 0
+                    ? '${c.total}/${c.capacity} places'
+                    : 'Capacité non définie',
+              ),
+          ]),
+        ],
+      ],
+    );
+  }
+}
+
+class _LevelGroupHeader extends StatelessWidget {
+  const _LevelGroupHeader({required this.group, required this.color});
+  final _ClassGroup group;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = group.items.length;
+    return Row(children: [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(7),
+        ),
+        child: Text(
+          group.levelCode == '—' ? 'Sans niveau' : 'Niveau ${group.levelCode}',
+          style: TextStyle(
+              fontSize: 12.5, fontWeight: FontWeight.w800, color: color),
+        ),
+      ),
+      const SizedBox(width: 10),
+      Text('$n classe${n > 1 ? 's' : ''}',
+          style: const TextStyle(
+              fontSize: 12.5, fontWeight: FontWeight.w600, color: kTextMuted)),
+      const SizedBox(width: 6),
+      const Text('·', style: TextStyle(color: kTextMuted)),
+      const SizedBox(width: 6),
+      Text('${group.total} inscrit${group.total > 1 ? 's' : ''}',
+          style: const TextStyle(
+              fontSize: 12.5, fontWeight: FontWeight.w600, color: kTextMuted)),
+      const Spacer(),
+      if (group.capacity > 0)
+        Text('${group.total}/${group.capacity} places',
+            style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: group.total > group.capacity ? kRed : kTextMuted)),
     ]);
   }
 }
@@ -914,13 +989,16 @@ class _FilterBar extends StatelessWidget {
     required this.width,
     required this.searchCtrl,
     required this.cycle,
+    required this.filiere,
     required this.type,
     required this.status,
     required this.isTable,
     required this.readOnly,
     required this.cyclesPresent,
+    required this.filieresPresent,
     required this.onSearch,
     required this.onCycle,
+    required this.onFiliere,
     required this.onType,
     required this.onStatus,
     required this.onToggleView,
@@ -930,16 +1008,18 @@ class _FilterBar extends StatelessWidget {
   });
   final double width;
   final TextEditingController searchCtrl;
-  final String? cycle, type;
+  final String? cycle, filiere, type;
   final String status;
   final bool isTable, readOnly;
   final Map<String, String> cyclesPresent;
+  final List<String> filieresPresent;
   final ValueChanged<String> onSearch;
-  final ValueChanged<String?> onCycle, onType;
+  final ValueChanged<String?> onCycle, onFiliere, onType;
   final ValueChanged<String> onStatus;
   final VoidCallback onToggleView, onReset, onAdd, onExport;
 
-  bool get _hasFilters => cycle != null || type != null || status != 'all';
+  bool get _hasFilters =>
+      cycle != null || filiere != null || type != null || status != 'all';
 
   @override
   Widget build(BuildContext context) {
@@ -996,57 +1076,76 @@ class _FilterBar extends StatelessWidget {
           _AddButton(readOnly: readOnly, onAdd: onAdd),
         ]),
         const SizedBox(height: 10),
-        Row(children: [
-          _FilterDropdown<String?>(
-            icon: Icons.account_tree_outlined,
-            value: cycle,
-            active: cycle != null,
-            items: [
-              const DropdownMenuItem(value: null, child: Text('Tous les cycles')),
-              for (final e in cyclesPresent.entries)
-                DropdownMenuItem(value: e.key, child: Text(e.value)),
-            ],
-            onChanged: onCycle,
-          ),
-          const SizedBox(width: 8),
-          _FilterDropdown<String?>(
-            icon: Icons.category_outlined,
-            value: type,
-            active: type != null,
-            items: const [
-              DropdownMenuItem(value: null, child: Text('Tous les types')),
-              DropdownMenuItem(value: 'new', child: Text('Nouvelles')),
-              DropdownMenuItem(value: 'reinscription', child: Text('Réinscriptions')),
-              DropdownMenuItem(value: 'transfer', child: Text('Transferts')),
-            ],
-            onChanged: onType,
-          ),
-          const SizedBox(width: 8),
-          _StatusSegment(value: status, onChanged: onStatus),
-          const Spacer(),
-          if (_hasFilters)
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: onReset,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: kRed.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: kRed.withValues(alpha: 0.25)),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _FilterDropdown<String?>(
+              icon: Icons.account_tree_outlined,
+              value: cycle,
+              active: cycle != null,
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Tous les cycles')),
+                for (final e in cyclesPresent.entries)
+                  DropdownMenuItem(value: e.key, child: Text(e.value)),
+              ],
+              onChanged: onCycle,
+            ),
+            if (filieresPresent.isNotEmpty)
+              _FilterDropdown<String?>(
+                icon: Icons.workspaces_outlined,
+                value: filiere,
+                active: filiere != null,
+                items: [
+                  const DropdownMenuItem(
+                      value: null, child: Text('Toutes les filières')),
+                  for (final f in filieresPresent)
+                    DropdownMenuItem(value: f, child: Text(f)),
+                ],
+                onChanged: onFiliere,
+              ),
+            _FilterDropdown<String?>(
+              icon: Icons.category_outlined,
+              value: type,
+              active: type != null,
+              items: const [
+                DropdownMenuItem(value: null, child: Text('Tous les types')),
+                DropdownMenuItem(value: 'new', child: Text('Nouvelles')),
+                DropdownMenuItem(
+                    value: 'reinscription', child: Text('Réinscriptions')),
+                DropdownMenuItem(value: 'transfer', child: Text('Transferts')),
+              ],
+              onChanged: onType,
+            ),
+            _StatusSegment(value: status, onChanged: onStatus),
+            if (_hasFilters)
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: onReset,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                    decoration: BoxDecoration(
+                      color: kRed.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: kRed.withValues(alpha: 0.25)),
+                    ),
+                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.filter_alt_off_rounded, size: 13, color: kRed),
+                      SizedBox(width: 4),
+                      Text('Réinitialiser',
+                          style: TextStyle(
+                              color: kRed,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600)),
+                    ]),
                   ),
-                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.filter_alt_off_rounded, size: 13, color: kRed),
-                    SizedBox(width: 4),
-                    Text('Réinitialiser',
-                        style: TextStyle(
-                            color: kRed, fontSize: 11.5, fontWeight: FontWeight.w600)),
-                  ]),
                 ),
               ),
-            ),
-        ]),
+          ],
+        ),
       ]),
     );
   }

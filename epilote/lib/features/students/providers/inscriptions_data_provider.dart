@@ -222,10 +222,10 @@ class SchoolLevelDef {
 }
 
 class SchoolClassDef {
-  const SchoolClassDef(
-      this.name, this.cycleCode, this.levelOrder, this.capacity, this.filiere);
+  const SchoolClassDef(this.name, this.cycleCode, this.levelCode,
+      this.levelOrder, this.capacity, this.filiere);
   final String name, cycleCode;
-  final String? filiere;
+  final String? levelCode, filiere;
   final int levelOrder, capacity;
 }
 
@@ -276,6 +276,7 @@ final schoolStructureProvider =
       classes.add(SchoolClassDef(
         r['name'] as String? ?? '—',
         cyc.code,
+        (lc == null || lc.isEmpty) ? null : lc,
         lo,
         (r['capacity'] as int?) ?? 0,
         (fl == null || fl.isEmpty) ? null : fl,
@@ -339,10 +340,11 @@ class LevelCount {
 }
 
 class ClassCount {
-  const ClassCount(this.name, this.cycleCode, this.levelOrder, this.capacity,
-      this.total, this.boys, this.girls);
+  const ClassCount(this.name, this.cycleCode, this.levelCode, this.levelOrder,
+      this.capacity, this.total, this.boys, this.girls);
   final String name;            // ex. « 6ème A »
   final String cycleCode;       // pour la couleur d'accent
+  final String? levelCode;      // niveau parent (ex. « 6e ») → groupage par niveau
   final int levelOrder, capacity, total, boys, girls;
   double get fillRatio => capacity > 0 ? total / capacity : 0;
 }
@@ -400,6 +402,7 @@ final inscriptionStatsProvider = Provider.autoDispose<InscriptionStats>((ref) {
   final levelCycle = <String, String>{};  // code niveau → cycle code
   final classMap = <String, List<int>>{}; // nom classe → [total, boys, girls, order, capacity]
   final classCycle = <String, String>{};  // nom classe → cycle code
+  final classLevel = <String, String?>{}; // nom classe → code niveau (groupage)
   final progMap = <String, List<int>>{};  // filière → [total, boys, girls]
   final monthCount = <String, int>{};
 
@@ -416,6 +419,7 @@ final inscriptionStatsProvider = Provider.autoDispose<InscriptionStats>((ref) {
   for (final cl in structure.classes) {
     classMap.putIfAbsent(cl.name, () => [0, 0, 0, cl.levelOrder, cl.capacity]);
     classCycle[cl.name] = cl.cycleCode;
+    classLevel[cl.name] = cl.levelCode;
     if (cl.filiere != null) progMap.putIfAbsent(cl.filiere!, () => [0, 0, 0]);
   }
 
@@ -465,6 +469,7 @@ final inscriptionStatsProvider = Provider.autoDispose<InscriptionStats>((ref) {
       final cl = classMap.putIfAbsent(
           r.className, () => [0, 0, 0, r.levelOrder, r.capacity]);
       classCycle[r.className] = r.cycle.code;
+      classLevel[r.className] = r.levelCode;
       cl[0]++;
       if (r.gender == 'M') {
         cl[1]++;
@@ -507,8 +512,9 @@ final inscriptionStatsProvider = Provider.autoDispose<InscriptionStats>((ref) {
     });
 
   final byClass = classMap.entries
-      .map((e) => ClassCount(e.key, classCycle[e.key] ?? 'autre', e.value[3],
-          e.value[4], e.value[0], e.value[1], e.value[2]))
+      .map((e) => ClassCount(e.key, classCycle[e.key] ?? 'autre',
+          classLevel[e.key], e.value[3], e.value[4], e.value[0], e.value[1],
+          e.value[2]))
       .toList()
     ..sort((a, b) {
       final c = cycleOrderOf(a.cycleCode).compareTo(cycleOrderOf(b.cycleCode));
