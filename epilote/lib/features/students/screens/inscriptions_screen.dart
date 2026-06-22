@@ -65,7 +65,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
   bool _isTable = true;
   _SortBy _sort = _SortBy.nom;
   bool _sortAsc = true;
-  String _dim = 'cycle'; // dimension de la répartition : cycle|niveau|classe|filiere
+  String _dim = 'niveau'; // dimension de la répartition : cycle|niveau|filiere
 
   @override
   void dispose() {
@@ -114,7 +114,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
 
   // Tiroir latéral droit (Classe / Filière) — protège la hauteur de la page
   // principale quand ces répartitions deviennent nombreuses (école technique).
-  void _openBreakdownDrawer(String dim) => showGeneralDialog(
+  void _openBreakdownDrawer(String dim, {String? levelCode}) => showGeneralDialog(
         context: context,
         barrierDismissible: true,
         barrierLabel: 'Fermer',
@@ -122,7 +122,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
         transitionDuration: const Duration(milliseconds: 240),
         pageBuilder: (_, _, _) => Align(
           alignment: Alignment.centerRight,
-          child: _BreakdownDrawer(dim: dim),
+          child: _BreakdownDrawer(dim: dim, levelCode: levelCode),
         ),
         transitionBuilder: (_, anim, _, child) => SlideTransition(
           position: Tween(begin: const Offset(1, 0), end: Offset.zero)
@@ -257,14 +257,19 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                   _BreakdownCard(
                     st: st,
                     dim: _dim,
+                    classCountByLevel: {
+                      for (final c in st.byClass)
+                        (c.levelCode ?? '—'):
+                            (st.byClass.where((x) => x.levelCode == c.levelCode).length),
+                    },
                     onDim: (d) {
                       setState(() => _dim = d);
-                      // Classe/Filière (potentiellement nombreuses) → tiroir droit.
-                      if (d == 'classe' || d == 'filiere') {
-                        _openBreakdownDrawer(d);
-                      }
+                      // Filière (potentiellement nombreuse) → tiroir droit.
+                      if (d == 'filiere') _openBreakdownDrawer('filiere');
                     },
                     onOpenDrawer: _openBreakdownDrawer,
+                    onOpenLevel: (code) =>
+                        _openBreakdownDrawer('classe', levelCode: code),
                   ),
                   const SizedBox(height: 26),
                   if (st.evolution.length >= 2) ...[
@@ -448,19 +453,21 @@ class _BreakdownCard extends StatelessWidget {
       {required this.st,
       required this.dim,
       required this.onDim,
-      required this.onOpenDrawer});
+      required this.onOpenDrawer,
+      required this.onOpenLevel,
+      required this.classCountByLevel});
   final InscriptionStats st;
   final String dim;
   final ValueChanged<String> onDim;
-  final ValueChanged<String> onOpenDrawer;
+  final ValueChanged<String> onOpenDrawer;   // filiere → tiroir
+  final ValueChanged<String> onOpenLevel;    // niveau → tiroir des classes du niveau
+  final Map<String, int> classCountByLevel;
 
   static const _help = <String, String>{
     'cycle':
         'Grands ensembles pédagogiques de l\'école (préscolaire, primaire, collège, lycée, formation pro.).',
     'niveau':
-        'Subdivisions d\'un cycle — ex. le collège contient les niveaux 6ᵉ, 5ᵉ, 4ᵉ et 3ᵉ.',
-    'classe':
-        'Salles concrètes où les élèves sont inscrits — effectif et taux de remplissage de chaque classe.',
+        'Le niveau = l\'année d\'études (6ᵉ, CP1, Tle…). Cliquez un niveau pour voir ses classes (sections : 6ᵉ A, 6ᵉ B…).',
     'filiere':
         'Spécialités du lycée / formation professionnelle (séries, métiers).',
   };
@@ -468,8 +475,13 @@ class _BreakdownCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasFiliere = st.byProgram.isNotEmpty;
-    // dimension effective (garde-fou si la filière disparaît)
-    final d = (dim == 'filiere' && !hasFiliere) ? 'cycle' : dim;
+    // dimension effective (garde-fous : classe n'est plus une dimension à part
+    // — c'est le détail d'un niveau ; filière masquée si aucune).
+    final d = dim == 'classe'
+        ? 'niveau'
+        : (dim == 'filiere' && !hasFiliere)
+            ? 'cycle'
+            : dim;
 
     Widget content() {
       switch (d) {
@@ -478,13 +490,25 @@ class _BreakdownCard extends StatelessWidget {
               ? const _BreakdownEmpty(
                   'Aucun niveau défini',
                   'Les niveaux apparaîtront dès qu\'une classe sera rattachée à un niveau.')
-              : _LevelSection(byLevel: st.byLevel);
-        case 'classe':
-          return st.byClass.isEmpty
-              ? const _BreakdownEmpty('Aucune classe',
-                  'Créez une classe dans le module Classes pour démarrer les inscriptions.')
-              : _BreakdownSummary(
-                  dim: 'classe', st: st, onOpen: () => onOpenDrawer('classe'));
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _LevelSection(
+                      byLevel: st.byLevel,
+                      classCountByLevel: classCountByLevel,
+                      onOpenLevel: onOpenLevel,
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _TextLink(
+                        label:
+                            'Voir toutes les classes (${st.byClass.length}) →',
+                        onTap: () => onOpenDrawer('classe'),
+                      ),
+                    ),
+                  ],
+                );
         case 'filiere':
           return _BreakdownSummary(
               dim: 'filiere', st: st, onOpen: () => onOpenDrawer('filiere'));
@@ -518,7 +542,6 @@ class _BreakdownCard extends StatelessWidget {
               counts: {
                 'cycle': st.byCycle.length,
                 'niveau': st.byLevel.length,
-                'classe': st.byClass.length,
                 'filiere': st.byProgram.length,
               },
               onDim: onDim,
@@ -578,7 +601,23 @@ class _BreakdownEmpty extends StatelessWidget {
       );
 }
 
-// Résumé compact (Classe / Filière) affiché dans la carte ; le détail complet
+class _TextLink extends StatelessWidget {
+  const _TextLink({required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Text(label,
+              style: const TextStyle(
+                  color: kNavy, fontSize: 13, fontWeight: FontWeight.w700)),
+        ),
+      );
+}
+
+// Résumé compact (Filière) affiché dans la carte ; le détail complet
 // s'ouvre dans le tiroir droit (via onOpen).
 class _BreakdownSummary extends StatelessWidget {
   const _BreakdownSummary(
@@ -667,8 +706,9 @@ class _BreakdownSummary extends StatelessWidget {
 // Tiroir latéral droit : détail complet d'une répartition (classe / filière),
 // scrollable + recherche. Live (watch du provider).
 class _BreakdownDrawer extends ConsumerStatefulWidget {
-  const _BreakdownDrawer({required this.dim});
+  const _BreakdownDrawer({required this.dim, this.levelCode});
   final String dim;
+  final String? levelCode; // si fourni : classes d'un seul niveau (drill-down)
   @override
   ConsumerState<_BreakdownDrawer> createState() => _BreakdownDrawerState();
 }
@@ -686,6 +726,7 @@ class _BreakdownDrawerState extends ConsumerState<_BreakdownDrawer> {
   @override
   Widget build(BuildContext context) {
     final isClasse = widget.dim == 'classe';
+    final lvl = widget.levelCode;
     final st = ref.watch(inscriptionStatsProvider);
     final screenW = MediaQuery.of(context).size.width;
     // Plus large pour bien voir les effectifs (3–4 colonnes de cartes).
@@ -693,7 +734,9 @@ class _BreakdownDrawerState extends ConsumerState<_BreakdownDrawer> {
 
     final byClass = isClasse
         ? st.byClass
-            .where((c) => c.name.toLowerCase().contains(_q.toLowerCase()))
+            .where((c) =>
+                (lvl == null || c.levelCode == lvl) &&
+                c.name.toLowerCase().contains(_q.toLowerCase()))
             .toList()
         : const <ClassCount>[];
     final byProgram = !isClasse
@@ -701,8 +744,20 @@ class _BreakdownDrawerState extends ConsumerState<_BreakdownDrawer> {
             .where((p) => p.label.toLowerCase().contains(_q.toLowerCase()))
             .toList()
         : const <ProgramCount>[];
-    final total = isClasse ? st.byClass.length : st.byProgram.length;
+    final total = isClasse
+        ? (lvl == null
+            ? st.byClass.length
+            : st.byClass.where((c) => c.levelCode == lvl).length)
+        : st.byProgram.length;
     final shown = isClasse ? byClass.length : byProgram.length;
+    final headerTitle = !isClasse
+        ? 'Effectifs par filière'
+        : (lvl == null ? 'Effectifs par classe' : 'Classes du niveau $lvl');
+    final headerSub = !isClasse
+        ? '$total filière${total > 1 ? 's' : ''} (séries, métiers)'
+        : (lvl == null
+            ? '$total classe${total > 1 ? 's' : ''} · groupées par niveau'
+            : '$total section${total > 1 ? 's' : ''} du niveau $lvl');
 
     return Material(
       color: kCardBg,
@@ -740,18 +795,12 @@ class _BreakdownDrawerState extends ConsumerState<_BreakdownDrawer> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                            isClasse
-                                ? 'Effectifs par classe'
-                                : 'Effectifs par filière',
+                        Text(headerTitle,
                             style: const TextStyle(
                                 color: kTextPrimary,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800)),
-                        Text(
-                            isClasse
-                                ? '$total classe${total > 1 ? 's' : ''} · groupées par niveau'
-                                : '$total filière${total > 1 ? 's' : ''} (séries, métiers)',
+                        Text(headerSub,
                             style: const TextStyle(
                                 color: kTextMuted, fontSize: 12)),
                       ],
@@ -893,7 +942,6 @@ class _DimToggle extends StatelessWidget {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         seg('cycle', Icons.account_tree_rounded, 'Cycle'),
         seg('niveau', Icons.layers_rounded, 'Niveau'),
-        seg('classe', Icons.meeting_room_rounded, 'Classe'),
         if (hasFiliere) seg('filiere', Icons.workspaces_rounded, 'Filière'),
       ]),
     );
@@ -967,6 +1015,7 @@ class _DistribCard extends StatelessWidget {
     required this.ratio,
     this.infoLabel,
     this.over = false,
+    this.onTap,
   });
   final IconData icon;
   final Color color;
@@ -975,12 +1024,14 @@ class _DistribCard extends StatelessWidget {
   final double ratio;
   final String? infoLabel;
   final bool over;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final barColor = over ? kRed : color;
     return AdminCard(
       padding: const EdgeInsets.all(18),
+      onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -995,6 +1046,12 @@ class _DistribCard extends StatelessWidget {
               child: Icon(icon, size: 22, color: color),
             ),
             const Spacer(),
+            if (onTap != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Icon(Icons.chevron_right_rounded,
+                    size: 18, color: Colors.grey.shade400),
+              ),
             Text('$value',
                 style: TextStyle(
                     fontSize: 24, fontWeight: FontWeight.w800, color: color)),
@@ -1075,24 +1132,35 @@ class _CycleSection extends StatelessWidget {
 
 // ─── Section niveaux (6e, 5e, 4e… — couleur distincte par niveau) ────────────
 class _LevelSection extends StatelessWidget {
-  const _LevelSection({required this.byLevel});
+  const _LevelSection({
+    required this.byLevel,
+    required this.classCountByLevel,
+    required this.onOpenLevel,
+  });
   final List<LevelCount> byLevel;
+  final Map<String, int> classCountByLevel; // code niveau → nb classes
+  final ValueChanged<String> onOpenLevel;
 
   @override
   Widget build(BuildContext context) {
     final grand = byLevel.fold<int>(0, (s, l) => s + l.total);
     return _DistribGrid(cards: [
       for (var i = 0; i < byLevel.length; i++)
-        _DistribCard(
-          icon: Icons.layers_rounded,
-          color: _distribColor(i),
-          value: byLevel[i].total,
-          title: byLevel[i].code,
-          girls: byLevel[i].girls,
-          boys: byLevel[i].boys,
-          ratio: grand > 0 ? byLevel[i].total / grand : 0,
-          infoLabel: _pctLabel(byLevel[i].total, grand),
-        ),
+        () {
+          final l = byLevel[i];
+          final nbClasses = classCountByLevel[l.code] ?? 0;
+          return _DistribCard(
+            icon: Icons.layers_rounded,
+            color: _distribColor(i),
+            value: l.total,
+            title: l.code,
+            girls: l.girls,
+            boys: l.boys,
+            ratio: grand > 0 ? l.total / grand : 0,
+            infoLabel: '$nbClasses classe${nbClasses > 1 ? 's' : ''}',
+            onTap: nbClasses > 0 ? () => onOpenLevel(l.code) : null,
+          );
+        }(),
     ]);
   }
 }
