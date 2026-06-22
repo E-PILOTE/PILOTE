@@ -66,6 +66,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
   _SortBy _sort = _SortBy.nom;
   bool _sortAsc = true;
   String _dim = 'niveau'; // dimension de la répartition : cycle|niveau|filiere
+  final Set<String> _selected = {}; // ids d'inscriptions sélectionnées (actions groupées)
 
   @override
   void dispose() {
@@ -217,6 +218,88 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
         .showSnackBar(SnackBar(content: Text(msg), backgroundColor: c));
   }
 
+  // ── Sélection / actions groupées ───────────────────────────────────────────
+  void _toggleSelect(String id, bool sel) => setState(() {
+        if (sel) {
+          _selected.add(id);
+        } else {
+          _selected.remove(id);
+        }
+      });
+
+  void _toggleSelectAll(List<InscriptionRow> rows, bool sel) => setState(() {
+        if (sel) {
+          _selected.addAll(rows.map((r) => r.id));
+        } else {
+          _selected.removeAll(rows.map((r) => r.id));
+        }
+      });
+
+  void _clearSelection() => setState(_selected.clear);
+
+  Future<void> _bulkValidate(List<InscriptionRow> rows) async {
+    final me = ref.read(authNotifierProvider).valueOrNull?.id ?? '';
+    final targets = rows
+        .where((r) => _selected.contains(r.id) && r.status == 'pending_validation')
+        .toList();
+    if (targets.isEmpty) {
+      _snack('Aucune inscription « en attente » dans la sélection', kTextMuted);
+      return;
+    }
+    var ok = 0;
+    for (final r in targets) {
+      try {
+        await validateEnrollment(enrollmentId: r.id, validatedBy: me);
+        ok++;
+      } catch (_) {}
+    }
+    if (mounted) setState(() => _selected.clear());
+    _snack('$ok inscription(s) validée(s)', kGreen);
+  }
+
+  Future<void> _bulkReject(List<InscriptionRow> rows) async {
+    final targets = rows
+        .where((r) => _selected.contains(r.id) && r.status == 'pending_validation')
+        .toList();
+    if (targets.isEmpty) {
+      _snack('Aucune inscription « en attente » dans la sélection', kTextMuted);
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text('Rejeter ${targets.length} inscription(s) ?'),
+        content: const Text(
+            'Les dossiers « en attente » sélectionnés seront rejetés (motif générique).'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: kRed),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Rejeter'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final me = ref.read(authNotifierProvider).valueOrNull?.id ?? '';
+    var n = 0;
+    for (final r in targets) {
+      try {
+        await rejectEnrollment(
+            enrollmentId: r.id,
+            rejectionReason: 'Rejet groupé',
+            validatedBy: me);
+        n++;
+      } catch (_) {}
+    }
+    if (mounted) setState(() => _selected.clear());
+    _snack('$n inscription(s) rejetée(s)', kTextMuted);
+  }
+
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(inscriptionsDataProvider);
@@ -273,8 +356,10 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                   ),
                   const SizedBox(height: 26),
                   if (st.evolution.length >= 2) ...[
-                    const AdminSectionTitle('Évolution des inscriptions',
-                        icon: Icons.show_chart_rounded),
+                    const AdminSectionTitle('Rythme des inscriptions',
+                        icon: Icons.show_chart_rounded,
+                        subtitle:
+                            'Nouvelles inscriptions par mois (barres) et effectif cumulé (courbe)'),
                     const SizedBox(height: 12),
                     _EvolutionCard(points: st.evolution),
                     const SizedBox(height: 22),
@@ -301,7 +386,20 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                     onExport: () => _export(filtered),
                   ),
                   const SizedBox(height: 16),
-                  _ResultHeader(total: all.length, filtered: filtered.length),
+                  if (_selected.isNotEmpty)
+                    _BulkBar(
+                      count: _selected.length,
+                      onValidate: () => _bulkValidate(filtered),
+                      onReject: () => _bulkReject(filtered),
+                      onExport: () {
+                        _export(filtered
+                            .where((r) => _selected.contains(r.id))
+                            .toList());
+                      },
+                      onClear: _clearSelection,
+                    )
+                  else
+                    _ResultHeader(total: all.length, filtered: filtered.length),
                   const SizedBox(height: 12),
                   if (all.isEmpty)
                     Padding(
@@ -329,6 +427,9 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                       rows: filtered,
                       sort: _sort,
                       sortAsc: _sortAsc,
+                      selected: _selected,
+                      onSelect: _toggleSelect,
+                      onSelectAll: (v) => _toggleSelectAll(filtered, v),
                       onSort: (f) => setState(() {
                         if (_sort == f) {
                           _sortAsc = !_sortAsc;
@@ -345,6 +446,8 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                   else
                     _InscritsCards(
                       rows: filtered,
+                      selected: _selected,
+                      onSelect: _toggleSelect,
                       onView: _openDetail,
                     ),
                   const SizedBox(height: 24),
@@ -1288,50 +1391,101 @@ class _LevelGroupHeader extends StatelessWidget {
   }
 }
 
-// ─── Évolution ───────────────────────────────────────────────────────────────
+// ─── Rythme des inscriptions ─────────────────────────────────────────────────
+// Sens RÉEL du graphe : combien d'élèves s'inscrivent CHAQUE mois (barres =
+// rythme de la campagne) et comment l'effectif se REMPLIT (courbe = cumul).
 class _EvolutionCard extends StatelessWidget {
   const _EvolutionCard({required this.points});
-  final List<(String, int)> points;
+  final List<EnrollPoint> points;
 
   @override
   Widget build(BuildContext context) {
     return AdminCard(
-      padding: const EdgeInsets.fromLTRB(10, 16, 16, 8),
-      child: SizedBox(
-        height: 230,
-        child: SfCartesianChart(
-          margin: EdgeInsets.zero,
-          primaryXAxis: const CategoryAxis(
-            majorGridLines: MajorGridLines(width: 0),
-            labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
+      padding: const EdgeInsets.fromLTRB(10, 14, 14, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 8, bottom: 6),
+            child: Row(children: [
+              _LegendDot(color: kNavy, label: 'Inscriptions du mois'),
+              SizedBox(width: 16),
+              _LegendDot(color: kGreen, label: 'Effectif cumulé', line: true),
+            ]),
           ),
-          primaryYAxis: const NumericAxis(
-            axisLine: AxisLine(width: 0),
-            majorTickLines: MajorTickLines(size: 0),
-            labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
-          ),
-          tooltipBehavior: TooltipBehavior(enable: true),
-          series: <CartesianSeries<(String, int), String>>[
-            SplineAreaSeries<(String, int), String>(
-              dataSource: points,
-              xValueMapper: (p, _) => p.$1,
-              yValueMapper: (p, _) => p.$2,
-              borderColor: kGreen,
-              borderWidth: 2.5,
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  kGreen.withValues(alpha: 0.28),
-                  kGreen.withValues(alpha: 0.02),
-                ],
+          SizedBox(
+            height: 220,
+            child: SfCartesianChart(
+              margin: EdgeInsets.zero,
+              primaryXAxis: const CategoryAxis(
+                majorGridLines: MajorGridLines(width: 0),
+                labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
               ),
+              primaryYAxis: const NumericAxis(
+                axisLine: AxisLine(width: 0),
+                majorTickLines: MajorTickLines(size: 0),
+                labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
+              ),
+              axes: const <ChartAxis>[
+                NumericAxis(
+                  name: 'cumul',
+                  opposedPosition: true,
+                  axisLine: AxisLine(width: 0),
+                  majorGridLines: MajorGridLines(width: 0),
+                  majorTickLines: MajorTickLines(size: 0),
+                  labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
+                ),
+              ],
+              tooltipBehavior: TooltipBehavior(enable: true),
+              series: <CartesianSeries<EnrollPoint, String>>[
+                ColumnSeries<EnrollPoint, String>(
+                  name: 'Inscriptions',
+                  dataSource: points,
+                  xValueMapper: (p, _) => p.label,
+                  yValueMapper: (p, _) => p.count,
+                  color: kNavy.withValues(alpha: 0.85),
+                  width: 0.55,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                ),
+                SplineSeries<EnrollPoint, String>(
+                  name: 'Cumulé',
+                  dataSource: points,
+                  xValueMapper: (p, _) => p.label,
+                  yValueMapper: (p, _) => p.cumul,
+                  yAxisName: 'cumul',
+                  color: kGreen,
+                  width: 2.5,
+                  markerSettings: const MarkerSettings(
+                      isVisible: true, height: 5, width: 5),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+}
+
+class _LegendDot extends StatelessWidget {
+  const _LegendDot({required this.color, required this.label, this.line = false});
+  final Color color;
+  final String label;
+  final bool line;
+  @override
+  Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          width: line ? 14 : 10,
+          height: line ? 3 : 10,
+          decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(line ? 2 : 3)),
+        ),
+        const SizedBox(width: 6),
+        Text(label,
+            style: const TextStyle(
+                fontSize: 11.5, fontWeight: FontWeight.w600, color: kTextMuted)),
+      ]);
 }
 
 // ─── Barre de filtres (style plateforme) ─────────────────────────────────────

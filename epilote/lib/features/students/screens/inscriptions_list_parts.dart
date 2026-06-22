@@ -1,11 +1,110 @@
 part of 'inscriptions_screen.dart';
 
-// ─── Vue TABLE (style plateforme) ────────────────────────────────────────────
+// ─── Barre d'actions groupées ────────────────────────────────────────────────
+class _BulkBar extends StatelessWidget {
+  const _BulkBar({
+    required this.count,
+    required this.onValidate,
+    required this.onReject,
+    required this.onExport,
+    required this.onClear,
+  });
+  final int count;
+  final VoidCallback onValidate, onReject, onExport, onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: kNavy.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: kNavy.withValues(alpha: 0.25)),
+      ),
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+          decoration: BoxDecoration(
+              color: kNavy, borderRadius: BorderRadius.circular(20)),
+          child: Text('$count',
+              style: const TextStyle(
+                  color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w800)),
+        ),
+        const SizedBox(width: 10),
+        const Text('sélectionné(s)',
+            style: TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary)),
+        const Spacer(),
+        Wrap(spacing: 8, children: [
+          _BulkBtn(
+              icon: Icons.check_rounded,
+              label: 'Valider',
+              color: kGreen,
+              onTap: onValidate),
+          _BulkBtn(
+              icon: Icons.close_rounded,
+              label: 'Rejeter',
+              color: kRed,
+              onTap: onReject),
+          _BulkBtn(
+              icon: Icons.download_rounded,
+              label: 'Exporter',
+              color: kNavy,
+              onTap: onExport),
+          _BulkBtn(
+              icon: Icons.clear_all_rounded,
+              label: 'Désélectionner',
+              color: kTextMuted,
+              onTap: onClear),
+        ]),
+      ]),
+    );
+  }
+}
+
+class _BulkBtn extends StatelessWidget {
+  const _BulkBtn(
+      {required this.icon,
+      required this.label,
+      required this.color,
+      required this.onTap});
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(7),
+              border: Border.all(color: color.withValues(alpha: 0.28)),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 5),
+              Text(label,
+                  style: TextStyle(
+                      color: color, fontSize: 12, fontWeight: FontWeight.w700)),
+            ]),
+          ),
+        ),
+      );
+}
+
+// ─── Vue TABLE (style plateforme, colonnes resserrées + sélection) ───────────
 class _InscritsTable extends StatelessWidget {
   const _InscritsTable({
     required this.rows,
     required this.sort,
     required this.sortAsc,
+    required this.selected,
+    required this.onSelect,
+    required this.onSelectAll,
     required this.onSort,
     required this.onView,
     required this.onValidate,
@@ -15,6 +114,9 @@ class _InscritsTable extends StatelessWidget {
   final List<InscriptionRow> rows;
   final _SortBy sort;
   final bool sortAsc, readOnly;
+  final Set<String> selected;
+  final void Function(String id, bool sel) onSelect;
+  final ValueChanged<bool> onSelectAll;
   final ValueChanged<_SortBy> onSort;
   final ValueChanged<InscriptionRow> onView;
   final Future<void> Function(InscriptionRow) onValidate;
@@ -22,8 +124,8 @@ class _InscritsTable extends StatelessWidget {
 
   int? get _sortIdx => switch (sort) {
         _SortBy.nom => 0,
-        _SortBy.classe => 2,
-        _SortBy.date => 6,
+        _SortBy.classe => 1,
+        _SortBy.date => 4,
       };
 
   @override
@@ -40,22 +142,23 @@ class _InscritsTable extends StatelessWidget {
             child: DataTable(
               sortColumnIndex: _sortIdx,
               sortAscending: sortAsc,
+              showCheckboxColumn: true,
+              onSelectAll: (v) => onSelectAll(v ?? false),
               headingRowColor:
                   WidgetStatePropertyAll(kNavy.withValues(alpha: 0.04)),
               headingTextStyle: const TextStyle(
                   fontWeight: FontWeight.w800, fontSize: 12, color: kNavy),
               dividerThickness: 0.6,
-              dataRowMinHeight: 52,
-              dataRowMaxHeight: 60,
+              columnSpacing: 26,
+              dataRowMinHeight: 54,
+              dataRowMaxHeight: 64,
               columns: [
                 DataColumn(
                     label: const Text('ÉLÈVE'),
                     onSort: (_, _) => onSort(_SortBy.nom)),
-                const DataColumn(label: Text('MATRICULE')),
                 DataColumn(
                     label: const Text('CLASSE'),
                     onSort: (_, _) => onSort(_SortBy.classe)),
-                const DataColumn(label: Text('CYCLE')),
                 const DataColumn(label: Text('TYPE')),
                 const DataColumn(label: Text('STATUT')),
                 DataColumn(
@@ -65,49 +168,64 @@ class _InscritsTable extends StatelessWidget {
               ],
               rows: [
                 for (final r in rows)
-                  DataRow(cells: [
-                    DataCell(
-                      Row(children: [
-                        _Avatar(row: r, size: 32),
-                        const SizedBox(width: 10),
-                        Flexible(
-                          child: Text(r.lastFirst,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600, color: kTextPrimary)),
-                        ),
-                      ]),
-                      onTap: () => onView(r),
-                    ),
-                    DataCell(Text(r.matricule,
-                        style: const TextStyle(
-                            fontSize: 12, color: kTextMuted, fontFamily: 'monospace'))),
-                    DataCell(Text(r.className)),
-                    DataCell(Row(children: [
-                      Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                              color: _cycleColor(r.cycle.code),
-                              shape: BoxShape.circle)),
-                      const SizedBox(width: 6),
-                      Text(r.cycle.label,
-                          style: const TextStyle(fontSize: 12, color: kTextMuted)),
-                    ])),
-                    DataCell(_TypeBadge(type: r.inscriptionType)),
-                    DataCell(_StatusBadge(status: r.status)),
-                    DataCell(Text(
-                        r.enrollmentDate?.toIso8601String().substring(0, 10) ?? '—',
-                        style: const TextStyle(fontSize: 11.5, color: kTextMuted))),
-                    DataCell(_RowActions(
-                      row: r,
-                      readOnly: readOnly,
-                      onView: () => onView(r),
-                      onValidate: () => onValidate(r),
-                      onReject: () => onReject(r),
-                    )),
-                  ]),
+                  DataRow(
+                    selected: selected.contains(r.id),
+                    onSelectChanged: (v) => onSelect(r.id, v ?? false),
+                    cells: [
+                      DataCell(
+                        Row(children: [
+                          _Avatar(row: r, size: 34),
+                          const SizedBox(width: 10),
+                          Flexible(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(r.lastFirst,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: kTextPrimary)),
+                                Text(r.matricule,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontSize: 11,
+                                        color: kTextMuted,
+                                        fontFamily: 'monospace')),
+                              ],
+                            ),
+                          ),
+                        ]),
+                        onTap: () => onView(r),
+                      ),
+                      DataCell(Row(children: [
+                        Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                                color: _cycleColor(r.cycle.code),
+                                shape: BoxShape.circle)),
+                        const SizedBox(width: 7),
+                        Text(r.className),
+                      ])),
+                      DataCell(_TypeBadge(type: r.inscriptionType)),
+                      DataCell(_StatusBadge(status: r.status)),
+                      DataCell(Text(
+                          r.enrollmentDate?.toIso8601String().substring(0, 10) ??
+                              '—',
+                          style: const TextStyle(
+                              fontSize: 11.5, color: kTextMuted))),
+                      DataCell(_RowActions(
+                        row: r,
+                        readOnly: readOnly,
+                        onView: () => onView(r),
+                        onValidate: () => onValidate(r),
+                        onReject: () => onReject(r),
+                      )),
+                    ],
+                  ),
               ],
             ),
           ),
@@ -156,20 +274,27 @@ class _RowActions extends StatelessWidget {
   }
 }
 
-// ─── Vue CARTES ──────────────────────────────────────────────────────────────
+// ─── Vue CARTES (enrichie + sélection) ───────────────────────────────────────
 class _InscritsCards extends StatelessWidget {
-  const _InscritsCards({required this.rows, required this.onView});
+  const _InscritsCards({
+    required this.rows,
+    required this.selected,
+    required this.onSelect,
+    required this.onView,
+  });
   final List<InscriptionRow> rows;
+  final Set<String> selected;
+  final void Function(String id, bool sel) onSelect;
   final ValueChanged<InscriptionRow> onView;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (_, c) {
-      final cols = c.maxWidth >= 1200
+      final cols = c.maxWidth >= 1280
           ? 4
-          : c.maxWidth >= 860
+          : c.maxWidth >= 900
               ? 3
-              : c.maxWidth >= 560
+              : c.maxWidth >= 580
                   ? 2
                   : 1;
       return GridView.builder(
@@ -179,49 +304,114 @@ class _InscritsCards extends StatelessWidget {
           crossAxisCount: cols,
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
-          mainAxisExtent: 96,
+          mainAxisExtent: 132,
         ),
         itemCount: rows.length,
         itemBuilder: (_, i) {
           final r = rows[i];
+          final sel = selected.contains(r.id);
+          final sub = <String>[
+            r.cycle.label,
+            if (r.age != null) '${r.age} ans',
+            if (r.gender == 'F') 'Fille' else if (r.gender == 'M') 'Garçon',
+          ].join(' · ');
           return AdminCard(
             padding: const EdgeInsets.all(12),
+            accent: sel ? kNavy : null,
             onTap: () => onView(r),
-            child: Row(children: [
-              _Avatar(row: r, size: 44),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(r.lastFirst,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  _Avatar(row: r, size: 42),
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(r.lastFirst,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13.5,
+                                color: kTextPrimary)),
+                        const SizedBox(height: 2),
+                        Text(r.matricule,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 11,
+                                color: kTextMuted,
+                                fontFamily: 'monospace')),
+                      ],
+                    ),
+                  ),
+                  _SelectCircle(
+                      selected: sel, onTap: () => onSelect(r.id, !sel)),
+                ]),
+                const SizedBox(height: 9),
+                Row(children: [
+                  Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                          color: _cycleColor(r.cycle.code),
+                          shape: BoxShape.circle)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text('${r.className} · $sub',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13.5,
-                            color: kTextPrimary)),
-                    const SizedBox(height: 3),
-                    Text('${r.className} · ${r.matricule}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
-                    const SizedBox(height: 5),
-                    Row(children: [
-                      _StatusBadge(status: r.status),
-                      const SizedBox(width: 6),
-                      Flexible(child: _TypeBadge(type: r.inscriptionType)),
-                    ]),
+                        style:
+                            const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                  ),
+                ]),
+                const SizedBox(height: 8),
+                Row(children: [
+                  _StatusBadge(status: r.status),
+                  const SizedBox(width: 6),
+                  Flexible(child: _TypeBadge(type: r.inscriptionType)),
+                  if (r.isRepeating) ...[
+                    const SizedBox(width: 6),
+                    const AdminBadge('Redoublant',
+                        color: kRed, icon: Icons.replay_rounded),
                   ],
-                ),
-              ),
-            ]),
+                ]),
+              ],
+            ),
           );
         },
       );
     });
   }
+}
+
+class _SelectCircle extends StatelessWidget {
+  const _SelectCircle({required this.selected, required this.onTap});
+  final bool selected;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: selected ? kNavy : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                  color: selected ? kNavy : kBorder, width: 1.6),
+            ),
+            child: selected
+                ? const Icon(Icons.check_rounded, size: 15, color: Colors.white)
+                : null,
+          ),
+        ),
+      );
 }
 
 // ─── Avatar élève ────────────────────────────────────────────────────────────

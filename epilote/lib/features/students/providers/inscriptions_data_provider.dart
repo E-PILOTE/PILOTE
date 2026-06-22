@@ -88,6 +88,7 @@ class InscriptionRow {
     required this.lastName,
     required this.matricule,
     required this.gender,
+    required this.dateOfBirth,
     required this.photoUrl,
     required this.classId,
     required this.className,
@@ -109,9 +110,20 @@ class InscriptionRow {
   final String lastName;
   final String matricule;
   final String? gender;
+  final DateTime? dateOfBirth;
   final String? photoUrl;
   final String? classId;
   final String className;
+
+  /// Âge en années révolues (null si date de naissance inconnue).
+  int? get age {
+    final d = dateOfBirth;
+    if (d == null) return null;
+    final now = DateTime.now();
+    var a = now.year - d.year;
+    if (now.month < d.month || (now.month == d.month && now.day < d.day)) a--;
+    return a < 0 || a > 130 ? null : a;
+  }
   final int capacity;           // capacité de la classe (0 si non définie)
   final InscriptionCycle cycle;
   final String? levelCode;      // niveau réel (ex. « 6e ») via classe→niveau
@@ -163,7 +175,8 @@ final inscriptionsDataProvider =
         '''
         SELECT ce.id, ce.student_id, ce.status, ce.inscription_type,
                ce.is_repeating, ce.enrollment_date, ce.validated_at,
-               s.first_name, s.last_name, s.matricule, s.gender, s.photo_url,
+               s.first_name, s.last_name, s.matricule, s.gender,
+               s.date_of_birth, s.photo_url,
                c.id AS class_id, c.name AS class_name, c.capacity AS capacity,
                c.cycle_code AS cycle_code, c.level_code AS level_code,
                c.level_order AS level_order, c.filiere_label AS filiere_label
@@ -184,6 +197,7 @@ final inscriptionsDataProvider =
                 lastName: r['last_name'] as String? ?? '',
                 matricule: r['matricule'] as String? ?? '',
                 gender: r['gender'] as String?,
+                dateOfBirth: _d(r['date_of_birth']),
                 photoUrl: r['photo_url'] as String?,
                 classId: r['class_id'] as String?,
                 className: r['class_name'] as String? ?? '—',
@@ -355,6 +369,14 @@ class ProgramCount {
   final int total, boys, girls;
 }
 
+/// Un point d'évolution : nouvelles inscriptions du mois + cumul à ce mois.
+class EnrollPoint {
+  const EnrollPoint(this.label, this.count, this.cumul);
+  final String label;           // « MM/yyyy »
+  final int count;              // inscriptions DU mois (rythme)
+  final int cumul;              // effectif cumulé à la fin du mois
+}
+
 class InscriptionStats {
   const InscriptionStats({
     required this.total,
@@ -385,7 +407,7 @@ class InscriptionStats {
   final List<LevelCount> byLevel;        // par niveau (6e, 5e…), ordre pédagogique
   final List<ClassCount> byClass;        // par classe (6ème A…), ordre niveau puis nom
   final List<ProgramCount> byProgram;    // par filière (lycée/FP) — vide si aucune
-  final List<(String, int)> evolution;   // (mois « MM/yyyy », cumul) croissant
+  final List<EnrollPoint> evolution;     // rythme + cumul par mois (croissant)
 }
 
 /// Statistiques d'inscription dérivées (mêmes données, calculées côté client).
@@ -528,14 +550,15 @@ final inscriptionStatsProvider = Provider.autoDispose<InscriptionStats>((ref) {
       .toList()
     ..sort((a, b) => b.total.compareTo(a.total));
 
-  // Évolution cumulée par mois (croissant).
+  // Évolution par mois (croissant) : rythme (du mois) + cumul.
   final months = monthCount.keys.toList()..sort();
   var cumul = 0;
-  final evolution = <(String, int)>[];
+  final evolution = <EnrollPoint>[];
   for (final m in months) {
-    cumul += monthCount[m]!;
+    final c = monthCount[m]!;
+    cumul += c;
     final parts = m.split('-');
-    evolution.add(('${parts[1]}/${parts[0]}', cumul));
+    evolution.add(EnrollPoint('${parts[1]}/${parts[0]}', c, cumul));
   }
 
   return InscriptionStats(
