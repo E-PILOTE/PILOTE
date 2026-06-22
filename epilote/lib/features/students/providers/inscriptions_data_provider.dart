@@ -81,8 +81,13 @@ class InscriptionRow {
     required this.matricule,
     required this.gender,
     required this.photoUrl,
+    required this.classId,
     required this.className,
+    required this.capacity,
     required this.cycle,
+    required this.levelCode,
+    required this.levelOrder,
+    required this.filiereLabel,
     required this.inscriptionType,
     required this.status,
     required this.isRepeating,
@@ -97,8 +102,13 @@ class InscriptionRow {
   final String matricule;
   final String? gender;
   final String? photoUrl;
+  final String? classId;
   final String className;
+  final int capacity;           // capacité de la classe (0 si non définie)
   final InscriptionCycle cycle;
+  final String? levelCode;      // niveau réel (ex. « 6e ») via classe→niveau
+  final int levelOrder;         // ordre pédagogique (tri des niveaux)
+  final String? filiereLabel;   // filière (lycée/FP) via classe→niveau, NULL sinon
   final String inscriptionType; // new | reinscription | transfer
   final String status;          // active | pending_validation | rejected | …
   final bool isRepeating;
@@ -146,7 +156,9 @@ final inscriptionsDataProvider =
         SELECT ce.id, ce.student_id, ce.status, ce.inscription_type,
                ce.is_repeating, ce.enrollment_date, ce.validated_at,
                s.first_name, s.last_name, s.matricule, s.gender, s.photo_url,
-               c.name AS class_name, c.cycle_code AS cycle_code
+               c.id AS class_id, c.name AS class_name, c.capacity AS capacity,
+               c.cycle_code AS cycle_code, c.level_code AS level_code,
+               c.level_order AS level_order, c.filiere_label AS filiere_label
         FROM   class_enrollments ce
         JOIN   students s ON s.id = ce.student_id
         LEFT JOIN classes c ON c.id = ce.class_id
@@ -165,9 +177,16 @@ final inscriptionsDataProvider =
                 matricule: r['matricule'] as String? ?? '',
                 gender: r['gender'] as String?,
                 photoUrl: r['photo_url'] as String?,
+                classId: r['class_id'] as String?,
                 className: r['class_name'] as String? ?? '—',
+                capacity: (r['capacity'] as int?) ?? 0,
                 cycle: inscriptionCycleFromCode(
                     r['cycle_code'] as String?, r['class_name'] as String?),
+                levelCode: r['level_code'] as String?,
+                levelOrder: (r['level_order'] as int?) ?? 999,
+                filiereLabel: (r['filiere_label'] as String?)?.trim().isEmpty ?? true
+                    ? null
+                    : (r['filiere_label'] as String).trim(),
                 inscriptionType: r['inscription_type'] as String? ?? 'new',
                 status: r['status'] as String? ?? 'active',
                 isRepeating: r['is_repeating'] == 1 || r['is_repeating'] == true,
@@ -219,6 +238,29 @@ class CycleCount {
   final int total, boys, girls;
 }
 
+class LevelCount {
+  const LevelCount(
+      this.code, this.cycleCode, this.order, this.total, this.boys, this.girls);
+  final String code;            // ex. « 6e », « CP1 », « Tle »
+  final String cycleCode;       // cycle parent (couleur d'accent)
+  final int order, total, boys, girls;
+}
+
+class ClassCount {
+  const ClassCount(this.name, this.cycleCode, this.levelOrder, this.capacity,
+      this.total, this.boys, this.girls);
+  final String name;            // ex. « 6ème A »
+  final String cycleCode;       // pour la couleur d'accent
+  final int levelOrder, capacity, total, boys, girls;
+  double get fillRatio => capacity > 0 ? total / capacity : 0;
+}
+
+class ProgramCount {
+  const ProgramCount(this.label, this.total, this.boys, this.girls);
+  final String label;           // filière (lycée/FP) ex. « Série C »
+  final int total, boys, girls;
+}
+
 class InscriptionStats {
   const InscriptionStats({
     required this.total,
@@ -232,6 +274,9 @@ class InscriptionStats {
     required this.transfer,
     required this.repeating,
     required this.byCycle,
+    required this.byLevel,
+    required this.byClass,
+    required this.byProgram,
     required this.evolution,
   });
 
@@ -239,6 +284,9 @@ class InscriptionStats {
   final int boys, girls;
   final int typeNew, reinscription, transfer, repeating;
   final List<CycleCount> byCycle;        // trié ordre pédagogique
+  final List<LevelCount> byLevel;        // par niveau (6e, 5e…), ordre pédagogique
+  final List<ClassCount> byClass;        // par classe (6ème A…), ordre niveau puis nom
+  final List<ProgramCount> byProgram;    // par filière (lycée/FP) — vide si aucune
   final List<(String, int)> evolution;   // (mois « MM/yyyy », cumul) croissant
 }
 
@@ -250,6 +298,11 @@ final inscriptionStatsProvider = Provider.autoDispose<InscriptionStats>((ref) {
   var tNew = 0, tRe = 0, tTr = 0, repeating = 0;
   final cycleMap = <String, List<int>>{}; // code → [total, boys, girls, order]
   final cycleObj = <String, InscriptionCycle>{};
+  final levelMap = <String, List<int>>{}; // code niveau → [total, boys, girls, order]
+  final levelCycle = <String, String>{};  // code niveau → cycle code
+  final classMap = <String, List<int>>{}; // nom classe → [total, boys, girls, order, capacity]
+  final classCycle = <String, String>{};  // nom classe → cycle code
+  final progMap = <String, List<int>>{};  // filière → [total, boys, girls]
   final monthCount = <String, int>{};
 
   for (final r in rows) {
@@ -281,6 +334,43 @@ final inscriptionStatsProvider = Provider.autoDispose<InscriptionStats>((ref) {
       c[2]++;
     }
 
+    final lc = r.levelCode;
+    if (lc != null && lc.isNotEmpty) {
+      final lv = levelMap.putIfAbsent(lc, () => [0, 0, 0, r.levelOrder]);
+      levelCycle[lc] = r.cycle.code;
+      lv[0]++;
+      if (r.gender == 'M') {
+        lv[1]++;
+      } else if (r.gender == 'F') {
+        lv[2]++;
+      }
+    }
+
+    // Par classe (toujours disponible : nom de classe).
+    if (r.className.isNotEmpty && r.className != '—') {
+      final cl = classMap.putIfAbsent(
+          r.className, () => [0, 0, 0, r.levelOrder, r.capacity]);
+      classCycle[r.className] = r.cycle.code;
+      cl[0]++;
+      if (r.gender == 'M') {
+        cl[1]++;
+      } else if (r.gender == 'F') {
+        cl[2]++;
+      }
+    }
+
+    // Par filière (lycée/FP) — uniquement si la classe est reliée à une filière.
+    final fl = r.filiereLabel;
+    if (fl != null && fl.isNotEmpty) {
+      final pg = progMap.putIfAbsent(fl, () => [0, 0, 0]);
+      pg[0]++;
+      if (r.gender == 'M') {
+        pg[1]++;
+      } else if (r.gender == 'F') {
+        pg[2]++;
+      }
+    }
+
     final d = r.enrollmentDate;
     if (d != null) {
       final key = '${d.year}-${d.month.toString().padLeft(2, '0')}';
@@ -292,6 +382,26 @@ final inscriptionStatsProvider = Provider.autoDispose<InscriptionStats>((ref) {
       .map((e) => CycleCount(cycleObj[e.key]!, e.value[0], e.value[1], e.value[2]))
       .toList()
     ..sort((a, b) => a.cycle.order.compareTo(b.cycle.order));
+
+  final byLevel = levelMap.entries
+      .map((e) => LevelCount(e.key, levelCycle[e.key] ?? 'autre', e.value[3],
+          e.value[0], e.value[1], e.value[2]))
+      .toList()
+    ..sort((a, b) => a.order.compareTo(b.order));
+
+  final byClass = classMap.entries
+      .map((e) => ClassCount(e.key, classCycle[e.key] ?? 'autre', e.value[3],
+          e.value[4], e.value[0], e.value[1], e.value[2]))
+      .toList()
+    ..sort((a, b) {
+      final o = a.levelOrder.compareTo(b.levelOrder);
+      return o != 0 ? o : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+
+  final byProgram = progMap.entries
+      .map((e) => ProgramCount(e.key, e.value[0], e.value[1], e.value[2]))
+      .toList()
+    ..sort((a, b) => b.total.compareTo(a.total));
 
   // Évolution cumulée par mois (croissant).
   final months = monthCount.keys.toList()..sort();
@@ -315,6 +425,9 @@ final inscriptionStatsProvider = Provider.autoDispose<InscriptionStats>((ref) {
     transfer: tTr,
     repeating: repeating,
     byCycle: byCycle,
+    byLevel: byLevel,
+    byClass: byClass,
+    byProgram: byProgram,
     evolution: evolution,
   );
 });

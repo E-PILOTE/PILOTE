@@ -227,13 +227,42 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _KpiSection(st: st),
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 26),
                   if (st.byCycle.isNotEmpty) ...[
-                    const AdminSectionTitle('Inscrits par cycle',
-                        icon: Icons.account_tree_rounded),
+                    const AdminSectionTitle('Répartition par cycle',
+                        icon: Icons.account_tree_rounded,
+                        subtitle:
+                            'Cycles hérités de la configuration de l\'école'),
                     const SizedBox(height: 12),
                     _CycleSection(byCycle: st.byCycle),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 26),
+                  ],
+                  if (st.byLevel.isNotEmpty) ...[
+                    AdminSectionTitle('Répartition par niveau',
+                        icon: Icons.layers_rounded,
+                        subtitle:
+                            '${st.byLevel.length} niveau${st.byLevel.length > 1 ? 'x' : ''} (6ᵉ, 5ᵉ…) selon les cycles'),
+                    const SizedBox(height: 12),
+                    _LevelSection(byLevel: st.byLevel),
+                    const SizedBox(height: 26),
+                  ],
+                  if (st.byProgram.isNotEmpty) ...[
+                    AdminSectionTitle('Répartition par filière',
+                        icon: Icons.workspaces_rounded,
+                        subtitle:
+                            '${st.byProgram.length} filière${st.byProgram.length > 1 ? 's' : ''} (lycée / formation pro.)'),
+                    const SizedBox(height: 12),
+                    _ProgramSection(byProgram: st.byProgram),
+                    const SizedBox(height: 26),
+                  ],
+                  if (st.byClass.isNotEmpty) ...[
+                    AdminSectionTitle('Effectifs par classe',
+                        icon: Icons.meeting_room_rounded,
+                        subtitle:
+                            '${st.byClass.length} classe${st.byClass.length > 1 ? 's' : ''} · effectif et taux de remplissage'),
+                    const SizedBox(height: 12),
+                    _ClassSection(byClass: st.byClass),
+                    const SizedBox(height: 26),
                   ],
                   if (st.evolution.length >= 2) ...[
                     const AdminSectionTitle('Évolution des inscriptions',
@@ -318,7 +347,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
   }
 }
 
-// ─── Section KPI (compacte) ──────────────────────────────────────────────────
+// ─── Section KPI générale (cartes pleine taille, comme le Tableau de bord) ────
 class _KpiSection extends StatelessWidget {
   const _KpiSection({required this.st});
   final InscriptionStats st;
@@ -326,91 +355,78 @@ class _KpiSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tot = st.boys + st.girls;
-    final items = <_MiniKpiData>[
-      _MiniKpiData('Total inscrits', '${st.total}', Icons.groups_rounded, kNavy),
-      _MiniKpiData('Validées', '${st.active}', Icons.verified_rounded, kGreen),
-      _MiniKpiData('En attente', '${st.pending}', Icons.hourglass_top_rounded, kAccent),
-      _MiniKpiData('Filles', '${st.girls}', Icons.female_rounded, _kPink,
-          sub: tot > 0 ? '${(st.girls * 100 / tot).round()}%' : null),
-      _MiniKpiData('Garçons', '${st.boys}', Icons.male_rounded, _kBlue,
-          sub: tot > 0 ? '${(st.boys * 100 / tot).round()}%' : null),
-      _MiniKpiData('Redoublants', '${st.repeating}', Icons.replay_rounded, kRed),
+    final cards = <Widget>[
+      AdminStatCard(
+        label: 'Total inscrits',
+        value: '${st.total}',
+        icon: Icons.groups_rounded,
+        color: kNavy,
+        subtitle: 'Dossiers vivants',
+      ),
+      AdminStatCard(
+        label: 'Validées',
+        value: '${st.active}',
+        icon: Icons.verified_rounded,
+        color: kGreen,
+        subtitle: st.total > 0
+            ? '${(st.active * 100 / st.total).round()} % du total'
+            : '—',
+      ),
+      AdminStatCard(
+        label: 'En attente',
+        value: '${st.pending}',
+        icon: Icons.hourglass_top_rounded,
+        color: kAccent,
+        subtitle: 'À valider',
+      ),
+      AdminStatCard(
+        label: 'Filles',
+        value: '${st.girls}',
+        icon: Icons.female_rounded,
+        color: _kPink,
+        subtitle: tot > 0 ? '${(st.girls * 100 / tot).round()} % des effectifs' : '—',
+      ),
+      AdminStatCard(
+        label: 'Garçons',
+        value: '${st.boys}',
+        icon: Icons.male_rounded,
+        color: _kBlue,
+        subtitle: tot > 0 ? '${(st.boys * 100 / tot).round()} % des effectifs' : '—',
+      ),
+      AdminStatCard(
+        label: 'Redoublants',
+        value: '${st.repeating}',
+        icon: Icons.replay_rounded,
+        color: kRed,
+        subtitle: st.total > 0
+            ? '${(st.repeating * 100 / st.total).round()} % des inscrits'
+            : '—',
+      ),
     ];
-    return LayoutBuilder(builder: (_, c) {
-      final cols = (c.maxWidth ~/ 220).clamp(2, 6);
+
+    return LayoutBuilder(builder: (context, c) {
+      final cols = c.maxWidth >= 1180
+          ? 6
+          : c.maxWidth >= 920
+              ? 4
+              : c.maxWidth >= 600
+                  ? 3
+                  : c.maxWidth >= 380
+                      ? 2
+                      : 1;
       return GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
+        itemCount: cards.length,
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: cols,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          mainAxisExtent: 76,
+          mainAxisSpacing: 14,
+          crossAxisSpacing: 14,
+          mainAxisExtent: 168,
         ),
-        itemCount: items.length,
-        itemBuilder: (_, i) => _MiniKpi(d: items[i]),
+        itemBuilder: (_, i) => cards[i],
       );
     });
-  }
-}
-
-class _MiniKpiData {
-  const _MiniKpiData(this.label, this.value, this.icon, this.color, {this.sub});
-  final String label, value;
-  final String? sub;
-  final IconData icon;
-  final Color color;
-}
-
-class _MiniKpi extends StatelessWidget {
-  const _MiniKpi({required this.d});
-  final _MiniKpiData d;
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBorder),
-      ),
-      child: Row(children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: d.color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(d.icon, size: 19, color: d.color),
-        ),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Row(crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic, children: [
-                Text(d.value,
-                    style: TextStyle(
-                        fontSize: 19, fontWeight: FontWeight.w800, color: d.color)),
-                if (d.sub != null) ...[
-                  const SizedBox(width: 5),
-                  Text(d.sub!,
-                      style: const TextStyle(fontSize: 11, color: kTextMuted)),
-                ],
-              ]),
-              Text(d.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 11.5, color: kTextMuted, fontWeight: FontWeight.w600)),
-            ],
-          ),
-        ),
-      ]),
-    );
   }
 }
 
@@ -482,6 +498,260 @@ class _CycleSection extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+// ─── Section niveaux (6e, 5e, 4e…) ───────────────────────────────────────────
+class _LevelSection extends StatelessWidget {
+  const _LevelSection({required this.byLevel});
+  final List<LevelCount> byLevel;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxTotal = byLevel.fold<int>(1, (m, l) => l.total > m ? l.total : m);
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        for (final l in byLevel)
+          SizedBox(
+              width: 152,
+              child: _LevelMini(level: l, ratio: l.total / maxTotal)),
+      ],
+    );
+  }
+}
+
+class _LevelMini extends StatelessWidget {
+  const _LevelMini({required this.level, required this.ratio});
+  final LevelCount level;
+  final double ratio;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _cycleColor(level.cycleCode);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kBorder),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(level.code,
+                style: TextStyle(
+                    fontSize: 12.5, fontWeight: FontWeight.w800, color: color)),
+          ),
+          const Spacer(),
+          Text('${level.total}',
+              style: TextStyle(
+                  fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+        ]),
+        const SizedBox(height: 9),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: ratio.clamp(0.05, 1),
+            minHeight: 5,
+            backgroundColor: color.withValues(alpha: 0.08),
+            valueColor: AlwaysStoppedAnimation(color),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(children: [
+          const Icon(Icons.female_rounded, size: 13, color: _kPink),
+          const SizedBox(width: 2),
+          Text('${level.girls}',
+              style: const TextStyle(
+                  fontSize: 11.5, fontWeight: FontWeight.w700, color: _kPink)),
+          const SizedBox(width: 10),
+          const Icon(Icons.male_rounded, size: 13, color: _kBlue),
+          const SizedBox(width: 2),
+          Text('${level.boys}',
+              style: const TextStyle(
+                  fontSize: 11.5, fontWeight: FontWeight.w700, color: _kBlue)),
+        ]),
+      ]),
+    );
+  }
+}
+
+// ─── Section filières (lycée / FP — accent doré) ─────────────────────────────
+class _ProgramSection extends StatelessWidget {
+  const _ProgramSection({required this.byProgram});
+  final List<ProgramCount> byProgram;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxTotal = byProgram.fold<int>(1, (m, p) => p.total > m ? p.total : m);
+    return Wrap(
+      spacing: 14,
+      runSpacing: 14,
+      children: [
+        for (final p in byProgram)
+          SizedBox(
+            width: 250,
+            child: AdminCard(
+              padding: const EdgeInsets.all(16),
+              accent: kAccent,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: kAccent.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: const Icon(Icons.workspaces_rounded,
+                          size: 18, color: Color(0xFFB8860B)),
+                    ),
+                    const Spacer(),
+                    Text('${p.total}',
+                        style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFB8860B))),
+                  ]),
+                  const SizedBox(height: 10),
+                  Text(p.label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: kTextPrimary)),
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: (p.total / maxTotal).clamp(0.04, 1),
+                      minHeight: 6,
+                      backgroundColor: kAccent.withValues(alpha: 0.14),
+                      valueColor:
+                          const AlwaysStoppedAnimation(Color(0xFFB8860B)),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    AdminBadge('${p.girls} filles', color: _kPink),
+                    const SizedBox(width: 6),
+                    AdminBadge('${p.boys} garçons', color: kNavy),
+                  ]),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ─── Section classes (effectif + taux de remplissage) ────────────────────────
+class _ClassSection extends StatelessWidget {
+  const _ClassSection({required this.byClass});
+  final List<ClassCount> byClass;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        for (final c in byClass)
+          SizedBox(width: 218, child: _ClassMini(c: c)),
+      ],
+    );
+  }
+}
+
+class _ClassMini extends StatelessWidget {
+  const _ClassMini({required this.c});
+  final ClassCount c;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _cycleColor(c.cycleCode);
+    final hasCap = c.capacity > 0;
+    final fill = c.fillRatio.clamp(0.0, 1.0);
+    final over = c.fillRatio > 1;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kBorder),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.meeting_room_rounded, size: 16, color: color),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(c.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: kTextPrimary)),
+          ),
+          Text('${c.total}',
+              style: TextStyle(
+                  fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+        ]),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: hasCap ? fill : 0.04,
+            minHeight: 6,
+            backgroundColor: color.withValues(alpha: 0.10),
+            valueColor: AlwaysStoppedAnimation(over ? kRed : color),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(children: [
+          if (hasCap)
+            Text('${c.total}/${c.capacity} places',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: over ? kRed : kTextMuted))
+          else
+            const Text('Capacité non définie',
+                style: TextStyle(fontSize: 11, color: kTextMuted)),
+          const Spacer(),
+          const Icon(Icons.female_rounded, size: 12, color: _kPink),
+          const SizedBox(width: 2),
+          Text('${c.girls}',
+              style: const TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w700, color: _kPink)),
+          const SizedBox(width: 8),
+          const Icon(Icons.male_rounded, size: 12, color: _kBlue),
+          const SizedBox(width: 2),
+          Text('${c.boys}',
+              style: const TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w700, color: _kBlue)),
+        ]),
+      ]),
     );
   }
 }

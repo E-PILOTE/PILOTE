@@ -187,6 +187,10 @@ const schema = Schema([
     Column.text('room'),
     Column.text('level_id'),
     Column.text('cycle_code'),       // cycle dénormalisé (migration 0010) → KPI réels
+    Column.text('level_code'),       // niveau dénormalisé (0011) → KPI par niveau
+    Column.integer('level_order'),   // ordre pédagogique du niveau (0011)
+    Column.text('filiere_code'),     // filière dénormalisée (0012) → KPI par filière
+    Column.text('filiere_label'),    // libellé filière (lycée/FP), NULL si aucune
     Column.text('school_id'),
     Column.text('group_id'),
     Column.text('academic_year_id'),
