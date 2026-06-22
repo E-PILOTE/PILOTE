@@ -48,6 +48,14 @@ InscriptionCycle inscriptionCycleFromCode(String? code, String? fallbackName) {
   return c ?? inscriptionCycleOf(fallbackName);
 }
 
+/// Ordre pédagogique d'un cycle par son code normalisé (cf. InscriptionCycle).
+/// Sert au tri GLOBAL des niveaux/classes quand l'école a plusieurs cycles
+/// (sinon CP1, 6ᵉ et 2ⁿᵈᵉ — tous d'ordre 1 dans leur cycle — s'entremêlent).
+const _cycleOrderByCode = <String, int>{
+  'prescolaire': 1, 'primaire': 2, 'college': 3, 'lycee': 4, 'fp': 5,
+};
+int cycleOrderOf(String code) => _cycleOrderByCode[code] ?? 9;
+
 /// Déduit le cycle d'une classe à partir de son nom (conventions Congo).
 InscriptionCycle inscriptionCycleOf(String? rawName) {
   final n = (rawName ?? '').toLowerCase().trim();
@@ -233,18 +241,22 @@ final schoolStructureProvider =
     StreamProvider.autoDispose<SchoolStructure>((ref) {
   ref.keepAlive();
   final schoolId = ref.watch(authNotifierProvider).valueOrNull?.schoolId;
-  if (schoolId == null || schoolId.isEmpty) {
+  final yearId = ref.watch(activeYearIdProvider);
+  if (schoolId == null || schoolId.isEmpty || yearId == null) {
     return Stream.value(SchoolStructure.empty);
   }
+  // Scopé à l'ANNÉE ACTIVE (comme les inscriptions) : les classes d'une autre
+  // année n'apparaissent pas. Dynamique aussi au changement d'école/groupe
+  // (schoolId) et d'année (yearId).
   return db
       .watch(
     '''
     SELECT name, cycle_code, level_code, level_order, capacity, filiere_label
     FROM   classes
-    WHERE  school_id = ? AND is_active = 1
+    WHERE  school_id = ? AND academic_year_id = ? AND is_active = 1
     ORDER  BY level_order, name
     ''',
-    parameters: [schoolId],
+    parameters: [schoolId, yearId],
   )
       .map((rows) {
     final cyclesByCode = <String, InscriptionCycle>{};
@@ -271,7 +283,10 @@ final schoolStructureProvider =
     }
     final cycles = cyclesByCode.values.toList()
       ..sort((a, b) => a.order.compareTo(b.order));
-    levels.sort((a, b) => a.order.compareTo(b.order));
+    levels.sort((a, b) {
+      final c = cycleOrderOf(a.cycleCode).compareTo(cycleOrderOf(b.cycleCode));
+      return c != 0 ? c : a.order.compareTo(b.order);
+    });
     return SchoolStructure(cycles, levels, classes);
   });
 });
@@ -486,13 +501,18 @@ final inscriptionStatsProvider = Provider.autoDispose<InscriptionStats>((ref) {
       .map((e) => LevelCount(e.key, levelCycle[e.key] ?? 'autre', e.value[3],
           e.value[0], e.value[1], e.value[2]))
       .toList()
-    ..sort((a, b) => a.order.compareTo(b.order));
+    ..sort((a, b) {
+      final c = cycleOrderOf(a.cycleCode).compareTo(cycleOrderOf(b.cycleCode));
+      return c != 0 ? c : a.order.compareTo(b.order);
+    });
 
   final byClass = classMap.entries
       .map((e) => ClassCount(e.key, classCycle[e.key] ?? 'autre', e.value[3],
           e.value[4], e.value[0], e.value[1], e.value[2]))
       .toList()
     ..sort((a, b) {
+      final c = cycleOrderOf(a.cycleCode).compareTo(cycleOrderOf(b.cycleCode));
+      if (c != 0) return c;
       final o = a.levelOrder.compareTo(b.levelOrder);
       return o != 0 ? o : a.name.toLowerCase().compareTo(b.name.toLowerCase());
     });
