@@ -10,6 +10,7 @@ import '../../../features/classes/providers/class_provider.dart';
 import '../../../features/structure/providers/academic_year_context.dart';
 import '../../../features/structure/providers/academic_year_provider.dart';
 import '../widgets/inscription_form_kit.dart';
+import '../providers/inscriptions_data_provider.dart';
 import '../providers/student_documents_provider.dart';
 import '../providers/student_tutors_provider.dart';
 import '../providers/students_provider.dart';

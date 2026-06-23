@@ -37,6 +37,22 @@ String _tutorRel(String code) => switch (code) {
       _ => _orDash(code),
     };
 
+// Convertit une classe en entrée de cascade Cycle ▸ Niveau ▸ Classe.
+ClassPickerEntry _pickerEntry(ClassModel c) {
+  final cyc = inscriptionCycleFromCode(c.cycleCode, c.name);
+  return ClassPickerEntry(
+    id: c.id,
+    name: c.name,
+    cycleCode: cyc.code,
+    cycleLabel: cyc.label,
+    cycleOrder: cyc.order,
+    levelCode: c.levelCode ?? '',
+    levelOrder: c.levelOrder ?? 999,
+    capacity: c.capacity,
+    count: c.studentCount,
+  );
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 //  FICHE DÉTAIL (icône œil) — même habillage que l'inscription (en-tête blanc à
 //  icône dégradée) + récap façon « Résumé », enrichi (photo, badges, actions).
@@ -100,13 +116,19 @@ class _InscriptionDetailModal extends ConsumerWidget {
 }
 
 // ─── Corps du dossier (bandeau identité + cartes récap façon inscription) ────
-class _DossierBody extends StatelessWidget {
+class _DossierBody extends ConsumerWidget {
   const _DossierBody({required this.row, required this.d});
   final InscriptionRow row;
   final StudentDossier d;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enroll =
+        ref.watch(enrollmentDetailProvider(row.id)).valueOrNull ?? const {};
+    final docs =
+        ref.watch(studentDocumentsProvider(row.studentId)).valueOrNull ??
+            const <StudentDocument>[];
+
     final dob = d.dob;
     final age = row.age;
     final naissance = dob == null
@@ -115,12 +137,24 @@ class _DossierBody extends StatelessWidget {
     final adresse = [d.s('address'), d.s('city'), d.s('region')]
         .where((e) => e.isNotEmpty)
         .join(', ');
-    final statuts = <String>[
-      if (_b(d.student['is_boarder'])) 'Interne',
-      if (_b(d.student['is_affecte'])) 'Affecté MEPSA/METP',
-      if (_b(d.student['has_scholarship'])) 'Boursier',
-      if (_b(d.student['has_social_aid'])) 'Aide sociale',
+    final siblings = d.student['nombre_freres_soeurs'];
+    final siblingsLabel =
+        (siblings is int && siblings > 0) ? '$siblings' : '';
+
+    final statuts = <(String, String)>[
+      if (_b(d.student['is_boarder'])) ('Interne', '✓'),
+      if (_b(d.student['is_affecte'])) ('Affecté MEPSA/METP', '✓'),
+      if (_b(d.student['has_scholarship']))
+        ('Boursier', _vOr(d.s('scholarship_type'), '✓')),
+      if (_b(d.student['has_social_aid']))
+        ('Aide sociale', _vOr(d.s('social_aid_type'), '✓')),
     ];
+
+    final prevSchool = (enroll['previous_school_name'] as String?)?.trim() ?? '';
+    final prevClass = (enroll['previous_class_name'] as String?)?.trim() ?? '';
+    final notes = (enroll['notes'] as String?)?.trim() ?? '';
+    final rejection = (enroll['rejection_reason'] as String?)?.trim() ?? '';
+    final withdrawal = (enroll['withdrawal_reason'] as String?)?.trim() ?? '';
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       // Bandeau identité (photo + badges) — le « mieux ».
@@ -168,9 +202,17 @@ class _DossierBody extends StatelessWidget {
           ('Niveau', _orDash(row.levelCode)),
           if (row.filiereLabel != null) ('Filière', row.filiereLabel!),
           ('Type', row.typeLabel),
+          ('Statut', row.statusLabel),
           ('Redoublant', row.isRepeating ? 'Oui' : 'Non'),
           ('Date d\'inscription',
               row.enrollmentDate?.toIso8601String().substring(0, 10) ?? '—'),
+          if (row.validatedAt != null)
+            ('Validée le', row.validatedAt!.toIso8601String().substring(0, 10)),
+          if (prevSchool.isNotEmpty) ('École précédente', prevSchool),
+          if (prevClass.isNotEmpty) ('Classe précédente', prevClass),
+          if (rejection.isNotEmpty) ('Motif du rejet', rejection),
+          if (withdrawal.isNotEmpty) ('Motif du retrait', withdrawal),
+          if (notes.isNotEmpty) ('Notes internes', notes),
         ],
       ),
       ResumeCard(
@@ -189,6 +231,7 @@ class _DossierBody extends StatelessWidget {
           ('Lieu de naissance', _orDash(d.s('place_of_birth'))),
           ('Nationalité', _orDash(d.s('nationality'))),
           ('Situation familiale', _situationLabel(d.s('situation_familiale'))),
+          if (siblingsLabel.isNotEmpty) ('Frères et sœurs', siblingsLabel),
           ('Groupe sanguin', _orDash(d.s('blood_group'))),
           if (d.s('allergies').isNotEmpty) ('Antécédents', d.s('allergies')),
           ('Adresse', _orDash(adresse)),
@@ -198,7 +241,7 @@ class _DossierBody extends StatelessWidget {
         ResumeCard(
           title: 'Statuts particuliers',
           icon: Icons.verified_outlined,
-          rows: [for (final s in statuts) (s, '✓')],
+          rows: statuts,
         ),
       ResumeCard(
         title: 'Tuteurs (${d.tutors.length})',
@@ -213,13 +256,30 @@ class _DossierBody extends StatelessWidget {
                       t.fullName,
                       if ((t.phonePrimary ?? '').trim().isNotEmpty)
                         '· ${t.phonePrimary}',
+                      if ((t.profession ?? '').trim().isNotEmpty)
+                        '· ${t.profession}',
+                      if (t.isEmergency) '· urgence',
                     ].join(' '),
+                  ),
+              ],
+      ),
+      ResumeCard(
+        title: 'Dossier (${docs.length} pièce${docs.length > 1 ? 's' : ''})',
+        icon: Icons.folder_open_rounded,
+        rows: docs.isEmpty
+            ? [('Aucune pièce téléversée', '')]
+            : [
+                for (final doc in docs)
+                  (
+                    docTypeLabel(doc.documentType),
+                    doc.isVerified ? '✓ vérifiée' : 'à vérifier',
                   ),
               ],
       ),
     ]);
   }
 
+  static String _vOr(String v, String fallback) => v.isEmpty ? fallback : v;
   bool _b(Object? v) => v == 1 || v == true;
 }
 
@@ -396,7 +456,7 @@ class _EditStudentModal extends ConsumerStatefulWidget {
 class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
   final _page = PageController();
   int _step = 0;
-  static const _steps = ['Élève', 'Tuteurs'];
+  static const _steps = ['Élève', 'Scolarité', 'Tuteurs'];
 
   // Identité
   final _firstName = TextEditingController();
@@ -424,6 +484,16 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
   Uint8List? _photoBytes;
   String _photoExt = 'jpg';
 
+  // Scolarité (inscription)
+  late String? _classId = widget.row.classId;
+  late String _inscriptionType = widget.row.inscriptionType;
+  late bool _isRepeating = widget.row.isRepeating;
+  final _prevSchool = TextEditingController();
+  final _prevClass = TextEditingController();
+  final _transferReason = TextEditingController();
+  final _notes = TextEditingController();
+  bool _enrollPrimed = false;
+
   // Tuteurs
   final List<_TutorDraft> _tutors = [];
   final List<String> _removedTutorIds = [];
@@ -450,6 +520,7 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
     for (final c in [
       _firstName, _lastName, _placeOfBirth, _nationality, _siblings,
       _scholarshipType, _socialAidType, _allergies, _address, _city, _region,
+      _prevSchool, _prevClass, _transferReason, _notes,
     ]) {
       c.dispose();
     }
@@ -494,6 +565,19 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
     _primed = true;
   }
 
+  // Préremplit la scolarité depuis la ligne d'inscription brute.
+  void _primeEnroll(Map<String, dynamic> e) {
+    _classId = (e['class_id'] as String?) ?? widget.row.classId;
+    _inscriptionType =
+        (e['inscription_type'] as String?) ?? widget.row.inscriptionType;
+    _isRepeating = _b(e['is_repeating']);
+    _prevSchool.text = (e['previous_school_name'] as String?) ?? '';
+    _prevClass.text = (e['previous_class_name'] as String?) ?? '';
+    _transferReason.text = (e['transfer_reason'] as String?) ?? '';
+    _notes.text = (e['notes'] as String?) ?? '';
+    _enrollPrimed = true;
+  }
+
   Future<void> _pickPhoto() async {
     final res = await FilePicker.platform
         .pickFiles(type: FileType.image, withData: true);
@@ -529,6 +613,12 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
         _page.jumpToPage(0);
       }
       _snack('Le prénom et le nom sont obligatoires.', kRed);
+      return;
+    }
+    if (_classId == null) {
+      setState(() => _step = 1);
+      _page.jumpToPage(1);
+      _snack('Sélectionnez la classe (cycle ▸ niveau ▸ classe).', kRed);
       return;
     }
     setState(() => _saving = true);
@@ -567,6 +657,19 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
         city: _city.text.trim(),
         region: _region.text.trim(),
         photoUrl: photoUrl,
+      );
+      // Scolarité (classe / type / redoublant / origine / notes).
+      final isTransfer = _inscriptionType == 'transfer';
+      await updateEnrollmentDetails(
+        enrollmentId: widget.row.id,
+        classId: _classId!,
+        inscriptionType: _inscriptionType,
+        isRepeating: _isRepeating,
+        previousSchoolName:
+            isTransfer ? _nullIfEmpty(_prevSchool.text) : null,
+        previousClassName: isTransfer ? _nullIfEmpty(_prevClass.text) : null,
+        transferReason: isTransfer ? _nullIfEmpty(_transferReason.text) : null,
+        notes: _nullIfEmpty(_notes.text),
       );
       for (final tid in _removedTutorIds) {
         await deleteTutor(tid);
@@ -607,6 +710,7 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
       }
       ref.invalidate(studentDossierProvider(id));
       ref.invalidate(studentTutorsProvider(id));
+      ref.invalidate(enrollmentDetailProvider(widget.row.id));
       if (mounted) {
         Navigator.of(context).pop();
         _snack('Modifications enregistrées.', kGreen);
@@ -641,6 +745,8 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
                     Text('Erreur : $e', style: const TextStyle(color: kRed)))),
         data: (d) {
           if (!_primed) _prime(d);
+          final em = ref.watch(enrollmentDetailProvider(widget.row.id)).valueOrNull;
+          if (em != null && !_enrollPrimed) _primeEnroll(em);
           return Column(mainAxisSize: MainAxisSize.min, children: [
             InscriptionHeader(
               icon: Icons.edit_outlined,
@@ -655,7 +761,7 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
               child: PageView(
                 controller: _page,
                 physics: const NeverScrollableScrollPhysics(),
-                children: [_stepEleve(), _stepTuteurs()],
+                children: [_stepEleve(), _stepScolarite(), _stepTuteurs()],
               ),
             ),
             InscriptionNavBar(
@@ -781,7 +887,68 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
         ]),
       );
 
-  // ── Étape 2 — Tuteurs ───────────────────────────────────────────────────────
+  // ── Étape 2 — Scolarité (réaffectation + type + origine + notes) ────────────
+  Widget _stepScolarite() {
+    final classesAsync = ref.watch(classesProvider);
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const FormSectionTitle('Type d\'inscription'),
+        FormDropdown<String>(
+          label: 'Type',
+          value: _inscriptionType,
+          items: const {
+            'new': 'Nouvelle inscription',
+            'reinscription': 'Réinscription',
+            'transfer': 'Transfert',
+          },
+          onChanged: (v) => setState(() => _inscriptionType = v ?? 'new'),
+        ),
+        const SizedBox(height: 4),
+        const FormSectionTitle('Affectation'),
+        classesAsync.when(
+          loading: () => const LinearProgressIndicator(),
+          error: (e, _) =>
+              Text('Erreur : $e', style: const TextStyle(color: kRed)),
+          data: (classes) {
+            if (classes.isEmpty) {
+              return const Text('Aucune classe disponible.',
+                  style: TextStyle(color: kTextMuted, fontSize: 13));
+            }
+            return CycleLevelClassPicker(
+              entries: [for (final c in classes) _pickerEntry(c)],
+              classId: _classId,
+              onChanged: (v) => setState(() => _classId = v),
+            );
+          },
+        ),
+        FormCheckTile(
+          label: 'Élève redoublant',
+          value: _isRepeating,
+          onChanged: (v) => setState(() => _isRepeating = v),
+        ),
+        if (_inscriptionType == 'transfer') ...[
+          const SizedBox(height: 4),
+          const FormSectionTitle('École d\'origine'),
+          FormTextField(
+              controller: _prevSchool, label: 'Nom de l\'école précédente'),
+          FormTextField(controller: _prevClass, label: 'Classe précédente'),
+          FormTextField(
+              controller: _transferReason,
+              label: 'Motif du transfert',
+              maxLines: 2),
+        ],
+        const SizedBox(height: 4),
+        const FormSectionTitle('Notes internes'),
+        FormTextField(
+            controller: _notes,
+            label: 'Observations (optionnel)',
+            maxLines: 3),
+      ]),
+    );
+  }
+
+  // ── Étape 3 — Tuteurs ───────────────────────────────────────────────────────
   Widget _stepTuteurs() => SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

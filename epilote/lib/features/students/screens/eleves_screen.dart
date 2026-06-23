@@ -1,319 +1,269 @@
+import 'dart:typed_data';
+
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
-import '../../../core/constants/routes.dart';
+import '../../../core/widgets/admin_ui.dart';
+import '../../../data/models/class_model.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../classes/providers/class_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
-import '../../../data/models/student_model.dart';
+import '../../structure/providers/academic_year_context.dart';
+import '../providers/inscriptions_data_provider.dart';
+import '../providers/student_documents_provider.dart';
+import '../providers/student_tutors_provider.dart';
 import '../providers/students_provider.dart';
+import '../providers/students_registry_provider.dart';
+import '../widgets/inscription_form_kit.dart';
+import 'add_inscription_screen.dart';
 
-// ─── Design tokens ──────────────────────────────────────────────────────────────
-const _kNavy   = Color(0xFF1E3A5F);
-const _kGreen  = Color(0xFF009A44);
-const _kGold   = Color(0xFFFBBC04);
-const _kText   = Color(0xFF0F172A);
-const _kMuted  = Color(0xFF64748B);
-const _kBorder = Color(0xFFE2E8F0);
+part 'eleves_parts.dart';
+part 'eleves_drawer.dart';
 
-/// Liste des élèves de l'école — offline-first (PowerSync `db.watch`).
-class ElevesScreen extends ConsumerStatefulWidget {
+// ─── Accents par cycle (cohérents avec Inscriptions) ─────────────────────────
+Color _cycColor(String? code) => switch (code) {
+      'prescolaire' => const Color(0xFFEC4899),
+      'primaire' => const Color(0xFF0EA5E9),
+      'college' => kGreen,
+      'lycee' => kNavy,
+      'formation_pro' || 'fp' => const Color(0xFFF59E0B),
+      _ => kTextMuted,
+    };
+
+String _pl(int n, String s, String p) => '$n ${n <= 1 ? s : p}';
+
+String _enrollLabel(String? status) => switch (status) {
+      'active' => 'Inscrit',
+      'pending_validation' => 'En attente',
+      'rejected' => 'Rejeté',
+      'withdrawn' => 'Retiré',
+      null => 'Non inscrit',
+      _ => status,
+    };
+
+Color _enrollColor(String? status) => switch (status) {
+      'active' => kGreen,
+      'pending_validation' => kAccent,
+      'rejected' => kRed,
+      'withdrawn' => kTextMuted,
+      null => const Color(0xFF94A3B8),
+      _ => kTextMuted,
+    };
+
+// ════════════════════════════════════════════════════════════════════════════
+//  PAGE ÉLÈVES — registre des personnes (≠ Inscriptions = inscriptions de
+//  l'année). Design plateforme : KPI → filtres (recherche + sexe + statut +
+//  bascule table/cartes + « Nouvel élève ») → table / cartes → tiroir détail
+//  (dossier + actions : modifier, inscrire, désactiver). Offline-first.
+// ════════════════════════════════════════════════════════════════════════════
+class ElevesScreen extends ConsumerWidget {
   const ElevesScreen({super.key});
 
   @override
-  ConsumerState<ElevesScreen> createState() => _ElevesScreenState();
+  Widget build(BuildContext context, WidgetRef ref) => const ModuleScaffold(
+        slug: 'eleves',
+        title: 'Élèves',
+        child: _Body(),
+      );
 }
 
-class _ElevesScreenState extends ConsumerState<ElevesScreen> {
-  final _searchCtrl = TextEditingController();
-  String _query = '';
+class _Body extends ConsumerStatefulWidget {
+  const _Body();
+  @override
+  ConsumerState<_Body> createState() => _BodyState();
+}
+
+class _BodyState extends ConsumerState<_Body> {
+  final _search = TextEditingController();
+  String? _gender; // M | F
+  String _status = 'all'; // all | active | pending_validation | none
+  bool _isTable = true;
+  bool _sortAsc = true;
 
   @override
   void dispose() {
-    _searchCtrl.dispose();
+    _search.dispose();
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final searching = _query.trim().length >= 2;
-    final listAsync = searching
-        ? ref.watch(searchStudentsProvider(_query))
-        : ref.watch(studentsProvider);
-    final countAsync = ref.watch(studentCountProvider);
+  void _resetFilters() => setState(() {
+        _search.clear();
+        _gender = null;
+        _status = 'all';
+      });
 
-    return ModuleScaffold(
-      slug: 'eleves',
-      title: 'Élèves',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Barre de recherche + total ─────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtrl,
-                    onChanged: (v) => setState(() => _query = v),
-                    decoration: InputDecoration(
-                      hintText: 'Rechercher un élève (nom ou matricule)…',
-                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                      suffixIcon: _query.isEmpty
-                          ? null
-                          : IconButton(
-                              icon: const Icon(Icons.close_rounded, size: 18),
-                              onPressed: () {
-                                _searchCtrl.clear();
-                                setState(() => _query = '');
-                              },
-                            ),
-                      isDense: true,
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: _kBorder),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: _kNavy, width: 1.5),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                countAsync.when(
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, _) => const SizedBox.shrink(),
-                  data: (n) => _CountBadge(count: n),
-                ),
-              ],
-            ),
-          ),
-
-          // ── Liste ───────────────────────────────────────────────────────
-          Expanded(
-            child: listAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => _ErrorState(message: '$e'),
-              data: (students) {
-                if (students.isEmpty) {
-                  return _EmptyState(searching: searching);
-                }
-                return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 80),
-                  itemCount: students.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (_, i) => _StudentTile(student: students[i]),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
+  List<StudentRow> _apply(List<StudentRow> all) {
+    final q = _search.text.trim().toLowerCase();
+    final out = all.where((s) {
+      if (_gender != null && s.gender != _gender) return false;
+      switch (_status) {
+        case 'active':
+          if (s.enrollmentStatus != 'active') return false;
+        case 'pending_validation':
+          if (s.enrollmentStatus != 'pending_validation') return false;
+        case 'none':
+          if (s.isEnrolled) return false;
+      }
+      if (q.isEmpty) return true;
+      return s.fullName.toLowerCase().contains(q) ||
+          s.matricule.toLowerCase().contains(q);
+    }).toList()
+      ..sort((a, b) {
+        final c = a.lastFirst.toLowerCase().compareTo(b.lastFirst.toLowerCase());
+        return _sortAsc ? c : -c;
+      });
+    return out;
   }
-}
 
-// ─── Badge total ────────────────────────────────────────────────────────────────
-class _CountBadge extends StatelessWidget {
-  const _CountBadge({required this.count});
-  final int count;
+  void _openAdd() => showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+          child: AddInscriptionScreen(),
+        ),
+      );
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: _kNavy.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.people_rounded, size: 16, color: _kNavy),
-          const SizedBox(width: 6),
-          Text(
-            '$count élève${count > 1 ? 's' : ''}',
-            style: const TextStyle(
-              color: _kNavy, fontSize: 12, fontWeight: FontWeight.w700),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Ligne élève ──────────────────────────────────────────────────────────────
-class _StudentTile extends StatelessWidget {
-  const _StudentTile({required this.student});
-  final StudentModel student;
+  void _openDrawer(StudentRow s) => showGeneralDialog(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: 'Fermer',
+        barrierColor: Colors.black.withValues(alpha: 0.45),
+        transitionDuration: const Duration(milliseconds: 240),
+        pageBuilder: (_, _, _) => Align(
+          alignment: Alignment.centerRight,
+          child: _StudentDrawer(row: s),
+        ),
+        transitionBuilder: (_, anim, _, child) => SlideTransition(
+          position: Tween(begin: const Offset(1, 0), end: Offset.zero)
+              .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+          child: child,
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
-    final initials = _initials(student.firstName, student.lastName);
-    final avatarColor = student.gender == 'F' ? _kGold : _kNavy;
+    final async = ref.watch(studentsRegistryProvider);
+    final readOnly = ref.watch(yearReadOnlyProvider);
 
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => context.push('/user/eleves/${student.id}'),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _kBorder),
-          ),
-          child: Row(
+    return async.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text('Erreur : $e', style: const TextStyle(color: kRed)),
+        ),
+      ),
+      data: (all) {
+        final filtered = _apply(all);
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: avatarColor.withValues(alpha: 0.12),
-                // Cache disque : la photo reste visible HORS LIGNE après un
-                // 1er affichage en ligne ; repli = initiales (offline-first).
-                foregroundImage: (student.photoUrl != null && student.photoUrl!.isNotEmpty)
-                    ? CachedNetworkImageProvider(student.photoUrl!)
-                    : null,
-                onForegroundImageError: (student.photoUrl != null && student.photoUrl!.isNotEmpty)
-                    ? (_, _) {}
-                    : null,
-                child: Text(
-                  initials,
-                  style: TextStyle(
-                    color: avatarColor, fontSize: 14, fontWeight: FontWeight.w700),
-                ),
+              _Kpis(students: all),
+              const SizedBox(height: 22),
+              _ElevesFilterBar(
+                searchCtrl: _search,
+                gender: _gender,
+                status: _status,
+                isTable: _isTable,
+                readOnly: readOnly,
+                onSearch: (_) => setState(() {}),
+                onGender: (v) => setState(() => _gender = v),
+                onStatus: (v) => setState(() => _status = v ?? 'all'),
+                onToggleView: () => setState(() => _isTable = !_isTable),
+                onReset: _resetFilters,
+                onAdd: _openAdd,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      student.lastFirst,
-                      style: const TextStyle(
-                        color: _kText, fontSize: 14, fontWeight: FontWeight.w700),
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Mat. ${student.matricule}'
-                      '${student.age != null ? "  ·  ${student.age} ans" : ""}',
-                      style: const TextStyle(color: _kMuted, fontSize: 12),
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              if (student.isBoarder) const _Tag(label: 'Interne', color: _kNavy),
-              if (student.hasScholarship) ...[
-                const SizedBox(width: 6),
-                const _Tag(label: 'Boursier', color: _kGreen),
-              ],
-              const SizedBox(width: 4),
-              const Icon(Icons.chevron_right_rounded, color: _kMuted),
+              const SizedBox(height: 16),
+              _ResultHeader(total: all.length, filtered: filtered.length),
+              const SizedBox(height: 12),
+              if (all.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 30),
+                  child: AdminEmptyState(
+                    icon: Icons.groups_outlined,
+                    title: 'Aucun élève',
+                    message:
+                        'Le registre est vide. Ajoutez un élève (création + '
+                        'inscription) pour démarrer.',
+                    actionLabel: readOnly ? null : 'Nouvel élève',
+                    onAction: readOnly ? null : _openAdd,
+                  ),
+                )
+              else if (filtered.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(top: 30),
+                  child: AdminEmptyState(
+                    icon: Icons.search_off_rounded,
+                    title: 'Aucun résultat',
+                    message: 'Ajustez la recherche ou les filtres.',
+                  ),
+                )
+              else if (_isTable)
+                _StudentTable(
+                  rows: filtered,
+                  sortAsc: _sortAsc,
+                  onSort: () => setState(() => _sortAsc = !_sortAsc),
+                  onOpen: _openDrawer,
+                )
+              else
+                _StudentCards(rows: filtered, onOpen: _openDrawer),
+              const SizedBox(height: 24),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  String _initials(String first, String last) {
-    final f = first.isNotEmpty ? first[0] : '';
-    final l = last.isNotEmpty ? last[0] : '';
-    final s = '$f$l'.toUpperCase();
-    return s.isEmpty ? '?' : s;
-  }
-}
-
-// ─── Petit tag ──────────────────────────────────────────────────────────────────
-class _Tag extends StatelessWidget {
-  const _Tag({required this.label, required this.color});
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700),
-      ),
+        );
+      },
     );
   }
 }
 
-// ─── États vides / erreur ─────────────────────────────────────────────────────
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.searching});
-  final bool searching;
+// ─── KPIs ─────────────────────────────────────────────────────────────────────
+class _Kpis extends StatelessWidget {
+  const _Kpis({required this.students});
+  final List<StudentRow> students;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    final filles = students.where((s) => s.gender == 'F').length;
+    final garcons = students.where((s) => s.gender == 'M').length;
+    final inscrits = students.where((s) => s.isActiveEnrolled).length;
+    final nonInscrits = students.where((s) => !s.isEnrolled).length;
+    final items = <(IconData, String, String, Color, String?)>[
+      (Icons.groups_outlined, 'Élèves', '${students.length}', kNavy, null),
+      (Icons.female_rounded, 'Filles', '$filles', const Color(0xFFEC4899), null),
+      (Icons.male_rounded, 'Garçons', '$garcons', const Color(0xFF0EA5E9), null),
+      (Icons.how_to_reg_outlined, 'Inscrits', '$inscrits', kGreen,
+          'année active'),
+      (Icons.person_off_outlined, 'Non inscrits', '$nonInscrits',
+          const Color(0xFFF59E0B), null),
+    ];
+    return LayoutBuilder(builder: (ctx, cns) {
+      final w = cns.maxWidth;
+      final cols = w >= 1100 ? 5 : (w >= 720 ? 3 : (w >= 460 ? 2 : 1));
+      return GridView.count(
+        crossAxisCount: cols,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: cols == 1 ? 4.6 : 2.4,
         children: [
-          Icon(searching ? Icons.search_off_rounded : Icons.people_outline_rounded,
-              size: 56, color: Colors.grey.shade300),
-          const SizedBox(height: 12),
-          Text(
-            searching
-                ? 'Aucun élève ne correspond à la recherche'
-                : 'Aucun élève inscrit pour le moment',
-            style: const TextStyle(color: _kMuted, fontSize: 14),
-          ),
-          if (!searching) ...[
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: () => context.push(Routes.inscriptions),
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Inscrire un élève'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: _kNavy,
-                side: const BorderSide(color: _kNavy),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-              ),
-            ),
-          ],
+          for (final (icon, label, value, color, sub) in items)
+            AdminStatCard(
+                label: label,
+                value: value,
+                icon: icon,
+                color: color,
+                subtitle: sub),
         ],
-      ),
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message});
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline_rounded, size: 48, color: Colors.red.shade300),
-            const SizedBox(height: 12),
-            Text('Erreur de chargement\n$message',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: _kMuted, fontSize: 13)),
-          ],
-        ),
-      ),
-    );
+      );
+    });
   }
 }

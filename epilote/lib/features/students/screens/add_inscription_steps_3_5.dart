@@ -1,5 +1,21 @@
 part of 'add_inscription_screen.dart';
 
+// Convertit une classe en entrée de cascade (cycle/niveau résolus).
+ClassPickerEntry _entryFor(ClassModel c) {
+  final cyc = inscriptionCycleFromCode(c.cycleCode, c.name);
+  return ClassPickerEntry(
+    id: c.id,
+    name: c.name,
+    cycleCode: cyc.code,
+    cycleLabel: cyc.label,
+    cycleOrder: cyc.order,
+    levelCode: c.levelCode ?? '',
+    levelOrder: c.levelOrder ?? 999,
+    capacity: c.capacity,
+    count: c.studentCount,
+  );
+}
+
 // ─── Étape 3 — Scolarité ─────────────────────────────────────────────────────
 
 class _Step3Scolarite extends ConsumerStatefulWidget {
@@ -27,10 +43,6 @@ class _Step3ScolariteState extends ConsumerState<_Step3Scolarite> {
   late final _notesCtrl = TextEditingController(
     text: widget.state.notes ?? '',
   );
-
-  // Niveau sélectionné (filtre les classes). Transitoire : la classe porte déjà
-  // son niveau, on ne le persiste pas séparément.
-  String? _levelCode;
 
   @override
   void dispose() {
@@ -93,75 +105,16 @@ class _Step3ScolariteState extends ConsumerState<_Step3Scolarite> {
                   style: TextStyle(color: _kMuted),
                 );
               }
-              // Niveaux RÉELS de l'école (dérivés des classes, triés par ordre).
-              final levelOrder = <String, int>{};
-              for (final c in classes) {
-                final code = c.levelCode ?? '';
-                levelOrder[code] = c.levelOrder ?? 999;
-              }
-              final levelCodes = levelOrder.keys.toList()
-                ..sort((a, b) {
-                  final d = levelOrder[a]!.compareTo(levelOrder[b]!);
-                  return d != 0 ? d : a.compareTo(b);
-                });
-              final levelItems = {
-                for (final code in levelCodes)
-                  code: code.isEmpty ? 'Autres' : code,
-              };
-
-              // Déduire le niveau depuis la classe déjà choisie (cohérence).
-              if (_levelCode == null && s.classId != null) {
-                final cur = classes.where((c) => c.id == s.classId);
-                if (cur.isNotEmpty) _levelCode = cur.first.levelCode ?? '';
-              }
-
-              final inLevel = _levelCode == null
-                  ? const <ClassModel>[]
-                  : classes
-                      .where((c) => (c.levelCode ?? '') == _levelCode)
-                      .toList();
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FormDropdown<String>(
-                    label: 'Niveau *',
-                    value: _levelCode,
-                    items: levelItems,
-                    onChanged: (v) {
-                      setState(() {
-                        _levelCode = v;
-                        // Si la classe ne correspond plus au niveau → reset.
-                        if (s.classId != null &&
-                            !classes.any((c) =>
-                                c.id == s.classId &&
-                                (c.levelCode ?? '') == v)) {
-                          s.classId = null;
-                        }
-                      });
-                      widget.onChanged();
-                    },
-                  ),
-                  FormDropdown<String>(
-                    // Clé liée au niveau → reset visuel propre au changement.
-                    key: ValueKey('class_$_levelCode'),
-                    label: 'Classe *',
-                    value: s.classId,
-                    items: {
-                      for (final c in inLevel)
-                        c.id: c.capacity != null
-                            ? '${c.name}  (${c.studentCount ?? 0}/${c.capacity})'
-                            : c.name,
-                    },
-                    onChanged: (v) { s.classId = v; widget.onChanged(); },
-                  ),
-                  if (_levelCode != null && inLevel.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 14),
-                      child: Text('Aucune classe pour ce niveau.',
-                          style: TextStyle(color: _kMuted, fontSize: 12.5)),
-                    ),
-                ],
+              // Cascade Cycle ▸ Niveau ▸ Classe (cycle/niveau résolus depuis la
+              // classe — cohérent avec la fiche d'inscription et les KPI).
+              final entries = [
+                for (final c in classes)
+                  _entryFor(c),
+              ];
+              return CycleLevelClassPicker(
+                entries: entries,
+                classId: s.classId,
+                onChanged: (v) { s.classId = v; widget.onChanged(); },
               );
             },
           ),

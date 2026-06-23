@@ -284,6 +284,16 @@ final studentDossierProvider =
   );
 });
 
+/// Ligne brute `class_enrollments` (champs scolarité non portés par la vue
+/// liste : école/classe d'origine, motif transfert, notes, rejet, retrait).
+/// Utilisée par la fiche détail et l'assistant de modification.
+final enrollmentDetailProvider = FutureProvider.autoDispose
+    .family<Map<String, dynamic>, String>((ref, enrollmentId) async {
+  final r = await db.getOptional(
+      'SELECT * FROM class_enrollments WHERE id = ?', [enrollmentId]);
+  return r ?? const <String, dynamic>{};
+});
+
 // ─── Structure académique RÉELLE de l'école (cycles / niveaux / classes) ─────
 // Dérivée 100% offline de la table `classes` (déjà synchronisée). Une classe
 // porte son cycle (`cycle_code`), son niveau (`level_code`/`level_order`) et sa

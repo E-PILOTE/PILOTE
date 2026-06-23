@@ -527,3 +527,156 @@ class ResumeCard extends StatelessWidget {
     );
   }
 }
+
+// ─── Cascade Cycle → Niveau → Classe (partagée inscription + modification) ────
+/// Une entrée = une classe inscriptible, déjà résolue (cycle/niveau) côté data.
+class ClassPickerEntry {
+  const ClassPickerEntry({
+    required this.id,
+    required this.name,
+    required this.cycleCode,
+    required this.cycleLabel,
+    required this.cycleOrder,
+    required this.levelCode,
+    required this.levelOrder,
+    this.capacity,
+    this.count,
+  });
+  final String id, name, cycleCode, cycleLabel, levelCode;
+  final int cycleOrder, levelOrder;
+  final int? capacity, count;
+
+  String get levelLabel => levelCode.isEmpty ? 'Autres' : levelCode;
+  String get classLabel =>
+      capacity != null ? '$name  (${count ?? 0}/$capacity)' : name;
+}
+
+/// Sélecteur en cascade Cycle ▸ Niveau ▸ Classe. Tout est dérivé des classes
+/// existantes (offline). Le cycle unique est présélectionné. Émet l'id de la
+/// classe choisie (ou `null` si la sélection devient incohérente).
+class CycleLevelClassPicker extends StatefulWidget {
+  const CycleLevelClassPicker({
+    super.key,
+    required this.entries,
+    required this.classId,
+    required this.onChanged,
+  });
+  final List<ClassPickerEntry> entries;
+  final String? classId;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  State<CycleLevelClassPicker> createState() => _CycleLevelClassPickerState();
+}
+
+class _CycleLevelClassPickerState extends State<CycleLevelClassPicker> {
+  String? _cycleCode;
+  String? _levelCode;
+
+  ClassPickerEntry? get _selected {
+    final id = widget.classId;
+    if (id == null) return null;
+    final m = widget.entries.where((e) => e.id == id);
+    return m.isEmpty ? null : m.first;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = widget.entries;
+    if (entries.isEmpty) {
+      return const Text('Aucune classe disponible.',
+          style: TextStyle(color: kTextMuted, fontSize: 13));
+    }
+
+    // Cycles (triés par ordre pédagogique).
+    final cycleOrder = <String, ({String label, int order})>{};
+    for (final e in entries) {
+      cycleOrder[e.cycleCode] = (label: e.cycleLabel, order: e.cycleOrder);
+    }
+    final cycleCodes = cycleOrder.keys.toList()
+      ..sort((a, b) => cycleOrder[a]!.order.compareTo(cycleOrder[b]!.order));
+    final cycleItems = {for (final c in cycleCodes) c: cycleOrder[c]!.label};
+
+    // Cycle effectif : sélection explicite, sinon celui de la classe choisie,
+    // sinon l'unique cycle de l'école (présélection).
+    final sel = _selected;
+    final effCycle = (_cycleCode != null && cycleOrder.containsKey(_cycleCode))
+        ? _cycleCode
+        : sel?.cycleCode ?? (cycleCodes.length == 1 ? cycleCodes.first : null);
+
+    // Niveaux du cycle.
+    final levelOrder = <String, int>{};
+    for (final e in entries.where((e) => e.cycleCode == effCycle)) {
+      levelOrder[e.levelCode] = e.levelOrder;
+    }
+    final levelCodes = levelOrder.keys.toList()
+      ..sort((a, b) {
+        final d = levelOrder[a]!.compareTo(levelOrder[b]!);
+        return d != 0 ? d : a.compareTo(b);
+      });
+    final levelItems = {
+      for (final c in levelCodes) c: c.isEmpty ? 'Autres' : c,
+    };
+
+    final effLevel = (_levelCode != null && levelOrder.containsKey(_levelCode))
+        ? _levelCode
+        : sel?.levelCode;
+
+    final inLevel = entries
+        .where((e) => e.cycleCode == effCycle && e.levelCode == effLevel)
+        .toList();
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      FormDropdown<String>(
+        label: 'Cycle *',
+        value: effCycle,
+        items: cycleItems,
+        onChanged: (v) {
+          setState(() {
+            _cycleCode = v;
+            _levelCode = null;
+            if (sel != null && sel.cycleCode != v) widget.onChanged(null);
+          });
+        },
+      ),
+      FormDropdown<String>(
+        key: ValueKey('level_$effCycle'),
+        label: 'Niveau *',
+        value: effLevel,
+        items: levelItems,
+        onChanged: (v) {
+          setState(() {
+            _levelCode = v;
+            _cycleCode = effCycle;
+            if (sel != null && sel.levelCode != v) widget.onChanged(null);
+          });
+        },
+      ),
+      FormDropdown<String>(
+        key: ValueKey('class_${effCycle}_$effLevel'),
+        label: 'Classe *',
+        value: widget.classId,
+        items: {for (final e in inLevel) e.id: e.classLabel},
+        onChanged: (v) {
+          final match = v == null
+              ? const <ClassPickerEntry>[]
+              : entries.where((e) => e.id == v);
+          final picked = match.isEmpty ? null : match.first;
+          setState(() {
+            if (picked != null) {
+              _cycleCode = picked.cycleCode;
+              _levelCode = picked.levelCode;
+            }
+          });
+          widget.onChanged(v);
+        },
+      ),
+      if (effLevel != null && inLevel.isEmpty)
+        const Padding(
+          padding: EdgeInsets.only(bottom: 14),
+          child: Text('Aucune classe pour ce niveau.',
+              style: TextStyle(color: kTextMuted, fontSize: 12.5)),
+        ),
+    ]);
+  }
+}

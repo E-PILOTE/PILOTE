@@ -441,6 +441,40 @@ Future<void> changeEnrollmentClass({
   );
 }
 
+/// Met à jour les informations de scolarité d'une inscription (classe, type,
+/// redoublant, école d'origine, notes). Le statut/validation n'est PAS touché.
+Future<void> updateEnrollmentDetails({
+  required String enrollmentId,
+  required String classId,
+  required String inscriptionType,
+  required bool isRepeating,
+  String? previousSchoolName,
+  String? previousClassName,
+  String? transferReason,
+  String? notes,
+}) async {
+  final now = DateTime.now().toIso8601String();
+  await db.execute(
+    '''
+    UPDATE class_enrollments
+    SET    class_id             = ?,
+           inscription_type     = ?,
+           is_repeating         = ?,
+           previous_school_name = ?,
+           previous_class_name  = ?,
+           transfer_reason      = ?,
+           notes                = ?,
+           updated_at           = ?
+    WHERE  id = ?
+    ''',
+    [
+      classId, inscriptionType, isRepeating ? 1 : 0,
+      previousSchoolName, previousClassName, transferReason, notes,
+      now, enrollmentId,
+    ],
+  );
+}
+
 /// Supprime définitivement une inscription (hard delete de la ligne).
 /// L'élève (table students) est conservé : seul le lien classe/année part.
 Future<void> deleteEnrollment(String enrollmentId) async {
