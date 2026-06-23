@@ -20,15 +20,23 @@ class StructClass {
     required this.capacity,
     required this.enrolled,
     required this.filiereLabel,
+    this.room,
+    this.teacherId,
+    this.teacherName,
   });
   final String id, name;
   final int? capacity;
   final int enrolled;
   final String? filiereLabel;
+  final String? room, teacherId, teacherName;
 
   double? get fillRatio =>
       (capacity == null || capacity == 0) ? null : enrolled / capacity!;
   bool get isOver => capacity != null && enrolled > capacity!;
+  bool get isNearFull {
+    final r = fillRatio;
+    return r != null && r >= 0.9 && !isOver;
+  }
 }
 
 class StructLevel {
@@ -62,6 +70,9 @@ class StructCycle {
 
   int get classCount => levels.fold(0, (s, l) => s + l.classes.length);
   int get enrolled => levels.fold(0, (s, l) => s + l.enrolled);
+  int get capacity => levels.fold(0, (s, l) => s + l.capacity);
+  int get emptyLevels => levels.where((l) => l.classes.isEmpty).length;
+  double? get fillRatio => capacity == 0 ? null : enrolled / capacity;
 }
 
 class AcademicStructure {
@@ -99,7 +110,11 @@ final academicStructureProvider =
       c.id            AS class_id,
       c.name          AS class_name,
       c.capacity      AS capacity,
+      c.room          AS room,
       c.filiere_label AS filiere_label,
+      c.main_teacher_id AS teacher_id,
+      (SELECT TRIM(COALESCE(p.first_name,'') || ' ' || COALESCE(p.last_name,''))
+         FROM profiles p WHERE p.id = c.main_teacher_id) AS teacher_name,
       (SELECT COUNT(*) FROM class_enrollments ce
          WHERE ce.class_id = c.id AND ce.status = 'active') AS enrolled
     FROM school_cycles sc
@@ -148,12 +163,16 @@ AcademicStructure _foldStructure(List<Map<String, dynamic>> rows) {
     );
     final classId = r['class_id'] as String?;
     if (classId == null) continue; // niveau sans classe
+    final tName = (r['teacher_name'] as String?)?.trim();
     lvl.classes.add(StructClass(
       id: classId,
       name: (r['class_name'] as String?) ?? '',
       capacity: (r['capacity'] as num?)?.toInt(),
       enrolled: (r['enrolled'] as num?)?.toInt() ?? 0,
       filiereLabel: r['filiere_label'] as String?,
+      room: r['room'] as String?,
+      teacherId: r['teacher_id'] as String?,
+      teacherName: (tName == null || tName.isEmpty) ? null : tName,
     ));
   }
 
@@ -228,4 +247,34 @@ final cycleFilieresProvider = FutureProvider.autoDispose
     for (final r in rows)
       StructFiliere((r['code'] as String?) ?? '', (r['name'] as String?) ?? ''),
   ];
+});
+
+// ─── Enseignants de l'école (pour l'affectation du professeur principal) ─────
+class SchoolTeacher {
+  const SchoolTeacher(this.id, this.fullName);
+  final String id, fullName;
+}
+
+final schoolTeachersProvider =
+    StreamProvider.autoDispose<List<SchoolTeacher>>((ref) {
+  final schoolId = ref.watch(authNotifierProvider).valueOrNull?.schoolId;
+  if (schoolId == null || schoolId.isEmpty) return Stream.value(const []);
+  return db.watch(
+    '''
+    SELECT id, TRIM(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')) AS full_name
+    FROM profiles
+    WHERE school_id = ? AND is_active = 1
+      AND role IN ('enseignant', 'directeur', 'proviseur')
+    ORDER BY last_name, first_name
+    ''',
+    parameters: [schoolId],
+  ).map((rows) => [
+        for (final r in rows)
+          SchoolTeacher(
+            r['id'] as String,
+            ((r['full_name'] as String?)?.trim().isNotEmpty ?? false)
+                ? (r['full_name'] as String).trim()
+                : 'Sans nom',
+          ),
+      ]);
 });

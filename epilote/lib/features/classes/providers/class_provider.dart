@@ -213,6 +213,7 @@ Future<String> createStructuredClass({
   required int    levelOrder,
   int?    capacity,
   String? room,
+  String? mainTeacherId,
   String? filiereCode,
   String? filiereLabel,
 }) async {
@@ -229,13 +230,13 @@ Future<String> createStructuredClass({
     '''
     INSERT INTO classes
       (id, school_id, group_id, academic_year_id, name, capacity, room,
-       level_id, cycle_code, level_code, level_order, filiere_code, filiere_label,
-       is_active, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+       main_teacher_id, level_id, cycle_code, level_code, level_order,
+       filiere_code, filiere_label, is_active, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
     ''',
     [id, schoolId, groupId, academicYearId, name, capacity, room,
-     levelId, cycleCode, levelCode, levelOrder, filiereCode, filiereLabel,
-     now, now],
+     mainTeacherId, levelId, cycleCode, levelCode, levelOrder,
+     filiereCode, filiereLabel, now, now],
   );
   return id;
 }
@@ -246,6 +247,8 @@ Future<void> updateClassInfo({
   String? name,
   int?    capacity,
   String? room,
+  String? mainTeacherId,
+  bool    clearTeacher = false,
   String? filiereCode,
   String? filiereLabel,
 }) async {
@@ -254,6 +257,7 @@ Future<void> updateClassInfo({
     'name':          ?name,
     'capacity':      ?capacity,
     'room':          ?room,
+    if (clearTeacher) 'main_teacher_id': null else 'main_teacher_id': ?mainTeacherId,
     'filiere_code':  ?filiereCode,
     'filiere_label': ?filiereLabel,
   };
