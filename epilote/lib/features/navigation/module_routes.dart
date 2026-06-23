@@ -13,6 +13,7 @@ import '../../core/constants/routes.dart';
 const Map<String, String> _moduleRoutes = {
   'eleves':           Routes.eleves,
   'inscriptions':     Routes.inscriptions,
+  'niveaux':          Routes.structure,
   'classes':          Routes.classes,
   'matieres':         Routes.matieres,
   'notes':            Routes.notes,

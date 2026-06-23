@@ -219,6 +219,34 @@ const schema = Schema([
     Column.text('updated_at'),
   ]),
 
+  // Référentiel des niveaux par cycle (Congo : 6e/5e… , CP1→CM2, 2nde/Tle, FP).
+  // group_id NULL = global ; sinon perso au groupe. Lecture seule côté école
+  // (RLS write = admin_groupe). program_id = filière (lycée/FP), sinon NULL.
+  Table('education_levels', [
+    Column.text('cycle_id'),
+    Column.text('program_id'),
+    Column.text('code'),
+    Column.text('name'),
+    Column.integer('order_index'),
+    Column.text('group_id'),
+    Column.integer('is_active'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  // Référentiel des filières/séries (lycée A/C/D/E/F…/G ; FP métiers).
+  Table('education_programs', [
+    Column.text('cycle_id'),
+    Column.text('code'),
+    Column.text('name'),
+    Column.text('description'),
+    Column.integer('order_index'),
+    Column.text('group_id'),
+    Column.integer('is_active'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
   Table('classes', [
     Column.text('name'),
     Column.integer('capacity'),

@@ -199,6 +199,72 @@ Future<String> createClass({
   return id;
 }
 
+/// Crée une classe RATTACHÉE à un niveau de la structure académique : pose le
+/// vrai `level_id` ET les champs dénormalisés (cycle_code/level_code/level_order
+/// /filiere_*) dont dépendent les KPI Inscriptions → cohérence garantie.
+Future<String> createStructuredClass({
+  required String schoolId,
+  required String groupId,
+  required String academicYearId,
+  required String name,
+  required String levelId,
+  required String cycleCode,
+  required String levelCode,
+  required int    levelOrder,
+  int?    capacity,
+  String? room,
+  String? filiereCode,
+  String? filiereLabel,
+}) async {
+  final dup = await db.getAll(
+    'SELECT 1 FROM classes WHERE school_id = ? AND academic_year_id = ? AND name = ? LIMIT 1',
+    [schoolId, academicYearId, name],
+  );
+  if (dup.isNotEmpty) {
+    throw Exception('Une classe « $name » existe déjà pour cette année scolaire.');
+  }
+  final id  = _uuid.v4();
+  final now = DateTime.now().toIso8601String();
+  await db.execute(
+    '''
+    INSERT INTO classes
+      (id, school_id, group_id, academic_year_id, name, capacity, room,
+       level_id, cycle_code, level_code, level_order, filiere_code, filiere_label,
+       is_active, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+    ''',
+    [id, schoolId, groupId, academicYearId, name, capacity, room,
+     levelId, cycleCode, levelCode, levelOrder, filiereCode, filiereLabel,
+     now, now],
+  );
+  return id;
+}
+
+/// Met à jour les infos d'une classe (nom, capacité, salle, filière).
+Future<void> updateClassInfo({
+  required String classId,
+  String? name,
+  int?    capacity,
+  String? room,
+  String? filiereCode,
+  String? filiereLabel,
+}) async {
+  final now = DateTime.now().toIso8601String();
+  final fields = <String, dynamic>{
+    'name':          ?name,
+    'capacity':      ?capacity,
+    'room':          ?room,
+    'filiere_code':  ?filiereCode,
+    'filiere_label': ?filiereLabel,
+  };
+  if (fields.isEmpty) return;
+  final setClauses = fields.keys.map((k) => '$k = ?').join(', ');
+  await db.execute(
+    'UPDATE classes SET $setClauses, updated_at = ? WHERE id = ?',
+    [...fields.values, now, classId],
+  );
+}
+
 /// Archive une classe (soft delete — is_active = 0).
 Future<void> archiveClass(String classId) async {
   final now = DateTime.now().toIso8601String();

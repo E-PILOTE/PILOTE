@@ -33,6 +33,10 @@ bucket_definitions:
       - SELECT * FROM plan_modules
       # Référentiel des cycles (libellés/ordre) — petit, partagé à tous.
       - SELECT * FROM education_cycles WHERE is_active = true
+      # Référentiel GLOBAL niveaux + filières (group_id NULL = standard Congo).
+      # Les variantes propres au groupe sont synchronisées via by_group.
+      - SELECT * FROM education_levels WHERE is_active = true AND group_id IS NULL
+      - SELECT * FROM education_programs WHERE is_active = true AND group_id IS NULL
 
   # ════════════════════════════════════════════════════════════════════════
   # PROPRE À L'UTILISATEUR (profil, messages, notifications, sa fiche staff)
@@ -100,6 +104,9 @@ bucket_definitions:
       - SELECT * FROM sequences WHERE group_id = bucket.gid
       # Catalogue de niveaux du groupe (rattachés à un cycle) → structure scolaire
       - SELECT * FROM school_levels WHERE group_id = bucket.gid AND is_active = true
+      # Variantes niveaux/filières PROPRES au groupe (référentiel global = global_catalog)
+      - SELECT * FROM education_levels WHERE group_id = bucket.gid AND is_active = true
+      - SELECT * FROM education_programs WHERE group_id = bucket.gid AND is_active = true
       - SELECT * FROM announcements WHERE group_id = bucket.gid AND is_published = true
       - SELECT * FROM events WHERE group_id = bucket.gid AND is_published = true
       - SELECT * FROM announcement_reactions WHERE group_id = bucket.gid

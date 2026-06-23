@@ -43,6 +43,7 @@ import '../../features/students/screens/inscriptions_screen.dart';
 import '../../features/students/screens/eleves_screen.dart';
 import '../../features/structure/screens/subjects_screen.dart';
 import '../../features/structure/screens/school_calendar_screen.dart';
+import '../../features/structure/screens/academic_structure_screen.dart';
 import '../../features/staff/screens/personnel_screen.dart';
 import '../../features/navigation/module_routes.dart';
 import '../../features/navigation/providers/permissions_provider.dart';
@@ -410,6 +411,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.inscriptions,
         builder: (_, _) => const InscriptionsScreen(),
+      ),
+      GoRoute(
+        path: Routes.structure,
+        builder: (_, _) => const AcademicStructureScreen(),
       ),
       GoRoute(path: Routes.classes, builder: (_, _) => const ClassesScreen()),
       GoRoute(
