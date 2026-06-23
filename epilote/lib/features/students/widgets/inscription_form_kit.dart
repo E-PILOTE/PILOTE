@@ -43,7 +43,9 @@ class InscriptionModalFrame extends StatelessWidget {
                 offset: const Offset(0, 10)),
           ],
         ),
-        child: child,
+        // Material requis pour les InkWell internes (en-tête, cases, menus)
+        // quand le cadre est affiché sans wrapper Dialog (détail / édition).
+        child: Material(type: MaterialType.transparency, child: child),
       ),
     );
   }
