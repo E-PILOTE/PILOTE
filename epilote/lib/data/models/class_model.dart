@@ -18,6 +18,9 @@ class ClassModel {
     this.studentCount,
     this.teacherName,
     this.levelName,
+    this.cycleCode,
+    this.levelCode,
+    this.levelOrder,
   });
 
   factory ClassModel.fromMap(Map<String, dynamic> map) {
@@ -37,6 +40,9 @@ class ClassModel {
       studentCount:   map['student_count']    as int?,
       teacherName:    map['teacher_name']     as String?,
       levelName:      map['level_name']       as String?,
+      cycleCode:      map['cycle_code']       as String?,
+      levelCode:      map['level_code']       as String?,
+      levelOrder:     (map['level_order'] as num?)?.toInt(),
     );
   }
 
@@ -56,6 +62,9 @@ class ClassModel {
   final int?    studentCount;
   final String? teacherName;
   final String? levelName;
+  final String? cycleCode;
+  final String? levelCode;
+  final int?    levelOrder;
 
   double? get fillRate {
     if (capacity == null || capacity == 0 || studentCount == null) return null;

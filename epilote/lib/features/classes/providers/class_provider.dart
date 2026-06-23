@@ -358,3 +358,21 @@ Future<void> withdrawStudent({
     [today, reason, now, enrollmentId],
   );
 }
+
+/// Réaffecte une inscription dans une autre classe (même année).
+Future<void> changeEnrollmentClass({
+  required String enrollmentId,
+  required String newClassId,
+}) async {
+  final now = DateTime.now().toIso8601String();
+  await db.execute(
+    'UPDATE class_enrollments SET class_id = ?, updated_at = ? WHERE id = ?',
+    [newClassId, now, enrollmentId],
+  );
+}
+
+/// Supprime définitivement une inscription (hard delete de la ligne).
+/// L'élève (table students) est conservé : seul le lien classe/année part.
+Future<void> deleteEnrollment(String enrollmentId) async {
+  await db.execute('DELETE FROM class_enrollments WHERE id = ?', [enrollmentId]);
+}

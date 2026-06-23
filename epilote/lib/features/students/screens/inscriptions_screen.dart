@@ -1,20 +1,27 @@
+import 'dart:typed_data';
+
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
-import '../../../core/constants/routes.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../data/models/class_model.dart';
 import '../../navigation/widgets/module_scaffold.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/classes/providers/class_provider.dart';
 import '../../../features/structure/providers/academic_year_context.dart';
+import '../widgets/inscription_form_kit.dart';
 import '../providers/inscriptions_data_provider.dart';
+import '../providers/students_provider.dart';
+import '../providers/student_documents_provider.dart';
+import '../providers/student_tutors_provider.dart';
 import 'add_inscription_screen.dart';
 
 part 'inscriptions_list_parts.dart';
+part 'inscriptions_modals.dart';
 
 // ─── Accents de cycle ─────────────────────────────────────────────────────────
 const _kBlue = Color(0xFF0EA5E9);
@@ -132,22 +139,153 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
         ),
       );
 
-  void _openDetail(InscriptionRow r) => showDialog(
+  void _openDetail(InscriptionRow r) {
+    final readOnly = ref.read(yearReadOnlyProvider);
+    showDialog(
+      context: context,
+      builder: (_) => _InscriptionDetailModal(
+        row: r,
+        readOnly: readOnly,
+        onEdit: () {
+          Navigator.of(context).pop();
+          _openEdit(r);
+        },
+        onValidate: r.status == 'pending_validation' && !readOnly
+            ? () { Navigator.of(context).pop(); _validate(r); }
+            : null,
+        onReject: r.status == 'pending_validation' && !readOnly
+            ? () { Navigator.of(context).pop(); _reject(r); }
+            : null,
+        onChangeClass: readOnly
+            ? null
+            : () { Navigator.of(context).pop(); _changeClass(r); },
+        onWithdraw: readOnly
+            ? null
+            : () { Navigator.of(context).pop(); _withdraw(r); },
+        onDelete: readOnly
+            ? null
+            : () { Navigator.of(context).pop(); _delete(r); },
+      ),
+    );
+  }
+
+  void _openEdit(InscriptionRow r) => showDialog(
         context: context,
-        builder: (_) => _InscriptionDetailModal(
-          row: r,
-          onOpenStudent: () {
-            Navigator.of(context).pop();
-            context.push(Routes.eleveDetail.replaceFirst(':id', r.studentId));
-          },
-          onValidate: r.status == 'pending_validation'
-              ? () { Navigator.of(context).pop(); _validate(r); }
-              : null,
-          onReject: r.status == 'pending_validation'
-              ? () { Navigator.of(context).pop(); _reject(r); }
-              : null,
-        ),
+        barrierDismissible: false,
+        builder: (_) => _EditStudentModal(row: r),
       );
+
+  Future<void> _changeClass(InscriptionRow r) async {
+    final classes = ref.read(classesProvider).valueOrNull ?? const <ClassModel>[];
+    final others = classes.where((c) => c.id != r.classId).toList();
+    if (others.isEmpty) {
+      _snack('Aucune autre classe disponible.', kTextMuted);
+      return;
+    }
+    final picked = await showDialog<ClassModel>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text('Réaffecter ${r.fullName}'),
+        children: [
+          for (final c in others)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, c),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(children: [
+                  const Icon(Icons.meeting_room_outlined,
+                      size: 18, color: kNavy),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(c.name)),
+                  Text('${c.studentCount ?? 0}'
+                      '${c.capacity != null ? '/${c.capacity}' : ''}',
+                      style: const TextStyle(
+                          fontSize: 12, color: kTextMuted)),
+                ]),
+              ),
+            ),
+        ],
+      ),
+    );
+    if (picked == null) return;
+    try {
+      await changeEnrollmentClass(enrollmentId: r.id, newClassId: picked.id);
+      _snack('Élève réaffecté dans ${picked.name}', kGreen);
+    } catch (e) {
+      _snack('Erreur : $e', kRed);
+    }
+  }
+
+  Future<void> _withdraw(InscriptionRow r) async {
+    final ctrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text('Retirer de la classe'),
+        content: TextField(
+          controller: ctrl,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: 'Motif du retrait',
+            hintText: 'Ex. : Déménagement, transfert…',
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: kAccent),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Retirer'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) { ctrl.dispose(); return; }
+    try {
+      await withdrawStudent(
+        enrollmentId: r.id,
+        reason: ctrl.text.trim().isEmpty ? 'Aucun motif précisé' : ctrl.text.trim(),
+      );
+      _snack('Élève retiré de la classe', kTextMuted);
+    } catch (e) {
+      _snack('Erreur : $e', kRed);
+    }
+    ctrl.dispose();
+  }
+
+  Future<void> _delete(InscriptionRow r) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text('Supprimer l\'inscription ?'),
+        content: Text(
+            'L\'inscription de ${r.fullName} pour cette année sera définitivement '
+            'supprimée. La fiche élève (identité, tuteurs) est conservée.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: kRed),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await deleteEnrollment(r.id);
+      _snack('Inscription supprimée', kTextMuted);
+    } catch (e) {
+      _snack('Erreur : $e', kRed);
+    }
+  }
 
   Future<void> _validate(InscriptionRow r) async {
     final me = ref.read(authNotifierProvider).valueOrNull?.id ?? '';

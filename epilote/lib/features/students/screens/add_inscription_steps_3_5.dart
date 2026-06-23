@@ -28,6 +28,10 @@ class _Step3ScolariteState extends ConsumerState<_Step3Scolarite> {
     text: widget.state.notes ?? '',
   );
 
+  // Niveau sélectionné (filtre les classes). Transitoire : la classe porte déjà
+  // son niveau, on ne le persiste pas séparément.
+  String? _levelCode;
+
   @override
   void dispose() {
     _prevSchoolCtrl.dispose();
@@ -48,8 +52,8 @@ class _Step3ScolariteState extends ConsumerState<_Step3Scolarite> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionTitle('Type d\'inscription'),
-          _DropdownField<String>(
+          const FormSectionTitle('Type d\'inscription'),
+          FormDropdown<String>(
             label: 'Type',
             value: s.inscriptionType,
             items: const {
@@ -60,7 +64,7 @@ class _Step3ScolariteState extends ConsumerState<_Step3Scolarite> {
             onChanged: (v) { s.inscriptionType = v!; widget.onChanged(); },
           ),
           const SizedBox(height: 12),
-          const _SectionTitle('Affectation'),
+          const FormSectionTitle('Affectation'),
           yearsAsync.when(
             loading: () => const LinearProgressIndicator(),
             error:   (e, _) => Text('Erreur : $e', style: const TextStyle(color: _kRed)),
@@ -71,7 +75,7 @@ class _Step3ScolariteState extends ConsumerState<_Step3Scolarite> {
                   style: TextStyle(color: _kMuted),
                 );
               }
-              return _DropdownField<String>(
+              return FormDropdown<String>(
                 label: 'Année scolaire *',
                 value: s.academicYearId,
                 items: {for (final y in years) y.id: y.label},
@@ -89,43 +93,107 @@ class _Step3ScolariteState extends ConsumerState<_Step3Scolarite> {
                   style: TextStyle(color: _kMuted),
                 );
               }
-              return _DropdownField<String>(
-                label: 'Classe *',
-                value: s.classId,
-                items: {for (final c in classes) c.id: c.name},
-                onChanged: (v) { s.classId = v; widget.onChanged(); },
+              // Niveaux RÉELS de l'école (dérivés des classes, triés par ordre).
+              final levelOrder = <String, int>{};
+              for (final c in classes) {
+                final code = c.levelCode ?? '';
+                levelOrder[code] = c.levelOrder ?? 999;
+              }
+              final levelCodes = levelOrder.keys.toList()
+                ..sort((a, b) {
+                  final d = levelOrder[a]!.compareTo(levelOrder[b]!);
+                  return d != 0 ? d : a.compareTo(b);
+                });
+              final levelItems = {
+                for (final code in levelCodes)
+                  code: code.isEmpty ? 'Autres' : code,
+              };
+
+              // Déduire le niveau depuis la classe déjà choisie (cohérence).
+              if (_levelCode == null && s.classId != null) {
+                final cur = classes.where((c) => c.id == s.classId);
+                if (cur.isNotEmpty) _levelCode = cur.first.levelCode ?? '';
+              }
+
+              final inLevel = _levelCode == null
+                  ? const <ClassModel>[]
+                  : classes
+                      .where((c) => (c.levelCode ?? '') == _levelCode)
+                      .toList();
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  FormDropdown<String>(
+                    label: 'Niveau *',
+                    value: _levelCode,
+                    items: levelItems,
+                    onChanged: (v) {
+                      setState(() {
+                        _levelCode = v;
+                        // Si la classe ne correspond plus au niveau → reset.
+                        if (s.classId != null &&
+                            !classes.any((c) =>
+                                c.id == s.classId &&
+                                (c.levelCode ?? '') == v)) {
+                          s.classId = null;
+                        }
+                      });
+                      widget.onChanged();
+                    },
+                  ),
+                  FormDropdown<String>(
+                    // Clé liée au niveau → reset visuel propre au changement.
+                    key: ValueKey('class_$_levelCode'),
+                    label: 'Classe *',
+                    value: s.classId,
+                    items: {
+                      for (final c in inLevel)
+                        c.id: c.capacity != null
+                            ? '${c.name}  (${c.studentCount ?? 0}/${c.capacity})'
+                            : c.name,
+                    },
+                    onChanged: (v) { s.classId = v; widget.onChanged(); },
+                  ),
+                  if (_levelCode != null && inLevel.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 14),
+                      child: Text('Aucune classe pour ce niveau.',
+                          style: TextStyle(color: _kMuted, fontSize: 12.5)),
+                    ),
+                ],
               );
             },
           ),
-          _CheckTile(
+          FormCheckTile(
             label: 'Élève redoublant',
             value: s.isRepeating,
-            onChanged: (v) { s.isRepeating = v!; widget.onChanged(); },
+            onChanged: (v) { s.isRepeating = v; widget.onChanged(); },
           ),
           if (s.inscriptionType == 'transfer') ...[
             const SizedBox(height: 12),
-            const _SectionTitle('École d\'origine'),
-            _Field(
-              ctrl: _prevSchoolCtrl,
+            const FormSectionTitle('École d\'origine'),
+            FormTextField(
+              controller: _prevSchoolCtrl,
               label: 'Nom de l\'école précédente',
               onChanged: (v) { s.previousSchoolName = v.isEmpty ? null : v; widget.onChanged(); },
             ),
-            _Field(
-              ctrl: _prevClassCtrl,
+            FormTextField(
+              controller: _prevClassCtrl,
               label: 'Classe précédente',
               onChanged: (v) { s.previousClassName = v.isEmpty ? null : v; widget.onChanged(); },
             ),
-            _Field(
-              ctrl: _transferReasonCtrl,
+            FormTextField(
+              controller: _transferReasonCtrl,
               label: 'Motif du transfert',
               maxLines: 2,
               onChanged: (v) { s.transferReason = v.isEmpty ? null : v; widget.onChanged(); },
             ),
           ],
           const SizedBox(height: 12),
-          const _SectionTitle('Notes internes'),
-          _Field(
-            ctrl: _notesCtrl,
+          const FormSectionTitle('Notes internes'),
+          FormTextField(
+            controller: _notesCtrl,
             label: 'Observations (optionnel)',
             maxLines: 3,
             onChanged: (v) { s.notes = v.isEmpty ? null : v; widget.onChanged(); },
@@ -199,7 +267,7 @@ class _Step4DocumentsState extends ConsumerState<_Step4Documents> {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const _SectionTitle('Dossier de l\'élève'),
+        const FormSectionTitle('Dossier de l\'élève'),
         const Padding(
           padding: EdgeInsets.only(bottom: 14),
           child: Text(
@@ -312,8 +380,8 @@ class _Step5Resume extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionTitle('Résumé de l\'inscription'),
-          _ResumeCard(
+          const FormSectionTitle('Résumé de l\'inscription'),
+          ResumeCard(
             title: 'Élève',
             icon: Icons.person_outline,
             rows: [
@@ -326,7 +394,7 @@ class _Step5Resume extends StatelessWidget {
                 ('Situation familiale', state.situationFamiliale!),
             ],
           ),
-          _ResumeCard(
+          ResumeCard(
             title: 'Parents / Tuteurs',
             icon: Icons.family_restroom,
             rows: state.tutors
@@ -337,7 +405,7 @@ class _Step5Resume extends StatelessWidget {
                 ))
                 .toList(),
           ),
-          _ResumeCard(
+          ResumeCard(
             title: 'Scolarité',
             icon: Icons.school_outlined,
             rows: [
@@ -352,7 +420,7 @@ class _Step5Resume extends StatelessWidget {
                 ('École précédente', state.previousSchoolName!),
             ],
           ),
-          _ResumeCard(
+          ResumeCard(
             title: 'Dossier (pièces téléversées)',
             icon: Icons.folder_open_rounded,
             rows: state.uploadedDocs.isEmpty
@@ -382,75 +450,6 @@ class _Step5Resume extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ResumeCard extends StatelessWidget {
-  const _ResumeCard({
-    required this.title,
-    required this.icon,
-    required this.rows,
-  });
-  final String             title;
-  final IconData           icon;
-  final List<(String, String)> rows;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: _kBorder),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 16, color: _kNavy),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: _kNavy,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-            const Divider(height: 12),
-            ...rows.map((r) => Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 140,
-                    child: Text(
-                      r.$1,
-                      style: const TextStyle(color: _kMuted, fontSize: 13),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      r.$2,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )),
-          ],
-        ),
       ),
     );
   }

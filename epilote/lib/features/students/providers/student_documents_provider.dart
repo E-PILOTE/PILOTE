@@ -125,3 +125,22 @@ Future<String?> signedStudentDocUrl(SupabaseClient client, String path) async {
     return null;
   }
 }
+
+// ─── Photo de profil de l'élève (bucket public `avatars`) ────────────────────
+/// Téléverse la photo de profil vers le bucket PUBLIC `avatars` et renvoie son
+/// URL publique (affichable via CachedNetworkImage). Nécessite internet.
+Future<String> uploadStudentPhoto({
+  required SupabaseClient client,
+  required String studentId,
+  required Uint8List bytes,
+  required String ext,
+}) async {
+  final e = ext.toLowerCase().replaceAll('jpeg', 'jpg');
+  final path = 'students/${studentId}_${DateTime.now().millisecondsSinceEpoch}.$e';
+  await client.storage.from('avatars').uploadBinary(
+        path,
+        bytes,
+        fileOptions: FileOptions(contentType: _mime(e), upsert: true),
+      );
+  return client.storage.from('avatars').getPublicUrl(path);
+}

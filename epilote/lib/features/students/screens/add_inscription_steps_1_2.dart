@@ -54,21 +54,21 @@ class _Step1EleveState extends State<_Step1Eleve> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionTitle('Identité'),
-          _Field(
-            ctrl: _firstNameCtrl,
+          const FormSectionTitle('Identité'),
+          FormTextField(
+            controller: _firstNameCtrl,
             label: 'Prénom *',
             onChanged: (v) { s.firstName = v; widget.onChanged(); },
           ),
-          _Field(
-            ctrl: _lastNameCtrl,
+          FormTextField(
+            controller: _lastNameCtrl,
             label: 'Nom *',
             onChanged: (v) { s.lastName = v; widget.onChanged(); },
           ),
           Row(
             children: [
               Expanded(
-                child: _DropdownField<String>(
+                child: FormDropdown<String>(
                   label: 'Genre',
                   value: s.gender,
                   items: const {'M': 'Masculin', 'F': 'Féminin'},
@@ -77,7 +77,7 @@ class _Step1EleveState extends State<_Step1Eleve> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _DateField(
+                child: FormDateField(
                   label: 'Date de naissance',
                   value: s.dateOfBirth,
                   onChanged: (v) { s.dateOfBirth = v; widget.onChanged(); },
@@ -88,16 +88,16 @@ class _Step1EleveState extends State<_Step1Eleve> {
           Row(
             children: [
               Expanded(
-                child: _Field(
-                  ctrl: _placeOfBirthCtrl,
+                child: FormTextField(
+                  controller: _placeOfBirthCtrl,
                   label: 'Lieu de naissance',
                   onChanged: (v) { s.placeOfBirth = v.isEmpty ? null : v; widget.onChanged(); },
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _Field(
-                  ctrl: _nationalityCtrl,
+                child: FormTextField(
+                  controller: _nationalityCtrl,
                   label: 'Nationalité',
                   onChanged: (v) { s.nationality = v.isEmpty ? 'Congolaise' : v; widget.onChanged(); },
                 ),
@@ -105,8 +105,8 @@ class _Step1EleveState extends State<_Step1Eleve> {
             ],
           ),
           const SizedBox(height: 16),
-          const _SectionTitle('Situation familiale'),
-          _DropdownField<String>(
+          const FormSectionTitle('Situation familiale'),
+          FormDropdown<String>(
             label: 'Situation familiale',
             value: s.situationFamiliale,
             items: const {
@@ -119,8 +119,8 @@ class _Step1EleveState extends State<_Step1Eleve> {
             },
             onChanged: (v) { s.situationFamiliale = v; widget.onChanged(); },
           ),
-          _Field(
-            ctrl: _siblingsCtrl,
+          FormTextField(
+            controller: _siblingsCtrl,
             label: 'Nombre de frères et sœurs',
             keyboardType: TextInputType.number,
             onChanged: (v) {
@@ -129,71 +129,71 @@ class _Step1EleveState extends State<_Step1Eleve> {
             },
           ),
           const SizedBox(height: 16),
-          const _SectionTitle('Statuts particuliers'),
-          _CheckTile(
+          const FormSectionTitle('Statuts particuliers'),
+          FormCheckTile(
             label: 'Pensionnaire / Interne',
             value: s.isBoarder,
-            onChanged: (v) { s.isBoarder = v!; widget.onChanged(); },
+            onChanged: (v) { s.isBoarder = v; widget.onChanged(); },
           ),
-          _CheckTile(
+          FormCheckTile(
             label: 'Affecté par le MEPSA/METP',
             value: s.isAffecte,
-            onChanged: (v) { s.isAffecte = v!; widget.onChanged(); },
+            onChanged: (v) { s.isAffecte = v; widget.onChanged(); },
           ),
-          _CheckTile(
+          FormCheckTile(
             label: 'Bénéficie d\'une bourse',
             value: s.hasScholarship,
-            onChanged: (v) { s.hasScholarship = v!; widget.onChanged(); },
+            onChanged: (v) { s.hasScholarship = v; widget.onChanged(); },
           ),
           if (s.hasScholarship)
-            _Field(
+            FormTextField(
               label: 'Type de bourse',
-              ctrl: _scholarshipTypeCtrl,
+              controller: _scholarshipTypeCtrl,
               onChanged: (v) { s.scholarshipType = v.isEmpty ? null : v; widget.onChanged(); },
             ),
-          _CheckTile(
+          FormCheckTile(
             label: 'Bénéficie d\'une aide sociale',
             value: s.hasSocialAid,
-            onChanged: (v) { s.hasSocialAid = v!; widget.onChanged(); },
+            onChanged: (v) { s.hasSocialAid = v; widget.onChanged(); },
           ),
           if (s.hasSocialAid)
-            _Field(
-              ctrl: _socialAidTypeCtrl,
+            FormTextField(
+              controller: _socialAidTypeCtrl,
               label: 'Type d\'aide sociale',
               onChanged: (v) { s.socialAidType = v.isEmpty ? null : v; widget.onChanged(); },
             ),
           const SizedBox(height: 16),
-          const _SectionTitle('Santé & Adresse'),
-          _DropdownField<String>(
+          const FormSectionTitle('Santé & Adresse'),
+          FormDropdown<String>(
             label: 'Groupe sanguin',
             value: s.bloodGroup,
             items: _bloodGroups,
             onChanged: (v) { s.bloodGroup = v; widget.onChanged(); },
           ),
-          _Field(
-            ctrl: _allergiesCtrl,
+          FormTextField(
+            controller: _allergiesCtrl,
             label: 'Allergies / Antécédents médicaux',
             onChanged: (v) { s.allergies = v.isEmpty ? null : v; widget.onChanged(); },
             maxLines: 2,
           ),
-          _Field(
-            ctrl: _addressCtrl,
+          FormTextField(
+            controller: _addressCtrl,
             label: 'Adresse',
             onChanged: (v) { s.address = v.isEmpty ? null : v; widget.onChanged(); },
           ),
           Row(
             children: [
               Expanded(
-                child: _Field(
-                  ctrl: _cityCtrl,
+                child: FormTextField(
+                  controller: _cityCtrl,
                   label: 'Ville',
                   onChanged: (v) { s.city = v.isEmpty ? null : v; widget.onChanged(); },
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _Field(
-                  ctrl: _regionCtrl,
+                child: FormTextField(
+                  controller: _regionCtrl,
                   label: 'Département / Région',
                   onChanged: (v) { s.region = v.isEmpty ? null : v; widget.onChanged(); },
                 ),
@@ -335,23 +335,23 @@ class _TutorFormState extends State<_TutorForm> {
             Row(
               children: [
                 Expanded(
-                  child: _Field(
-                    ctrl: _firstNameCtrl,
+                  child: FormTextField(
+                    controller: _firstNameCtrl,
                     label: 'Prénom *',
                     onChanged: (v) { t.firstName = v; widget.onChanged(); },
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _Field(
-                    ctrl: _lastNameCtrl,
+                  child: FormTextField(
+                    controller: _lastNameCtrl,
                     label: 'Nom *',
                     onChanged: (v) { t.lastName = v; widget.onChanged(); },
                   ),
                 ),
               ],
             ),
-            _DropdownField<String>(
+            FormDropdown<String>(
               label: 'Lien de parenté',
               value: t.relationship,
               items: const {
@@ -362,38 +362,38 @@ class _TutorFormState extends State<_TutorForm> {
               },
               onChanged: (v) { t.relationship = v!; widget.onChanged(); },
             ),
-            _Field(
-              ctrl: _phoneCtrl,
+            FormTextField(
+              controller: _phoneCtrl,
               label: 'Téléphone *',
               keyboardType: TextInputType.phone,
               onChanged: (v) { t.phonePrimary = v; widget.onChanged(); },
             ),
-            _Field(
-              ctrl: _emailCtrl,
+            FormTextField(
+              controller: _emailCtrl,
               label: 'Email',
               keyboardType: TextInputType.emailAddress,
               onChanged: (v) { t.email = v.isEmpty ? null : v; widget.onChanged(); },
             ),
-            _Field(
-              ctrl: _profCtrl,
+            FormTextField(
+              controller: _profCtrl,
               label: 'Profession',
               onChanged: (v) { t.profession = v.isEmpty ? null : v; widget.onChanged(); },
             ),
-            _Field(
-              ctrl: _addressCtrl,
+            FormTextField(
+              controller: _addressCtrl,
               label: 'Adresse',
               onChanged: (v) { t.address = v.isEmpty ? null : v; widget.onChanged(); },
             ),
-            _CheckTile(
+            FormCheckTile(
               label: 'Contact d\'urgence',
               value: t.isEmergency,
-              onChanged: (v) { setState(() => t.isEmergency = v!); widget.onChanged(); },
+              onChanged: (v) { setState(() => t.isEmergency = v); widget.onChanged(); },
             ),
             if (!t.isPrimary)
-              _CheckTile(
+              FormCheckTile(
                 label: 'Contact principal',
                 value: t.isPrimary,
-                onChanged: (v) { setState(() => t.isPrimary = v!); widget.onChanged(); },
+                onChanged: (v) { setState(() => t.isPrimary = v); widget.onChanged(); },
               ),
           ],
         ),
