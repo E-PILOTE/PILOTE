@@ -26,6 +26,29 @@ const _cycleColors = <String, Color>{
 };
 Color _cyc(String? c) => _cycleColors[c ?? ''] ?? kNavy;
 
+// Ordre pédagogique des cycles (pour la vue groupée « Par cycle »).
+const _cycleOrder = <String, int>{
+  'prescolaire': 1,
+  'primaire': 2,
+  'college': 3,
+  'lycee': 4,
+  'formation_pro': 5,
+  'fp': 5,
+};
+int _cycOrder(String? c) => _cycleOrder[c ?? ''] ?? 9;
+
+const _cycleNames = <String, String>{
+  'prescolaire': 'Préscolaire',
+  'primaire': 'Primaire',
+  'college': 'Collège',
+  'lycee': 'Lycée',
+  'formation_pro': 'Formation Pro.',
+  'fp': 'Formation Pro.',
+};
+String _cycName(String? code, String? fallback) =>
+    _cycleNames[code ?? ''] ??
+    ((fallback?.trim().isNotEmpty ?? false) ? fallback!.trim() : 'Autres');
+
 String _pl(int n, String s, String p) => '$n ${n <= 1 ? s : p}';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -52,7 +75,7 @@ class _Body extends ConsumerStatefulWidget {
 
 class _BodyState extends ConsumerState<_Body> {
   final _search = TextEditingController();
-  bool _isTable = true;
+  String _view = 'table'; // table | cartes | cycle
   String? _subject; // subjectId
   String? _level; // levelCode
   String? _trimester; // 'all' geré par null ; valeur = numéro en String
@@ -255,7 +278,7 @@ class _BodyState extends ConsumerState<_Body> {
               const SizedBox(height: 22),
               _ProgFilterBar(
                 searchCtrl: _search,
-                isTable: _isTable,
+                view: _view,
                 readOnly: readOnly,
                 subject: _subject,
                 level: _level,
@@ -269,7 +292,7 @@ class _BodyState extends ConsumerState<_Body> {
                 onLevel: (v) => setState(() => _level = v),
                 onTrimester: (v) => setState(() => _trimester = v),
                 onType: (v) => setState(() => _type = v),
-                onToggleView: () => setState(() => _isTable = !_isTable),
+                onView: (v) => setState(() => _view = v),
                 onReset: _resetFilters,
                 onAdd: () => _openForm(),
               ),
@@ -306,7 +329,14 @@ class _BodyState extends ConsumerState<_Body> {
                     message: 'Ajustez la recherche ou les filtres.',
                   ),
                 )
-              else if (_isTable)
+              else if (_view == 'cycle')
+                _ProgByCycle(
+                  rows: filtered,
+                  onEdit: (p) => _openForm(existing: p),
+                  onDelete: _delete,
+                  onOpen: _openDetail,
+                )
+              else if (_view == 'table')
                 _ProgTable(
                   rows: filtered,
                   selected: _selected,

@@ -26,6 +26,7 @@ class ProgrammeRow {
     required this.levelName,
     required this.levelOrder,
     required this.cycleCode,
+    required this.cycleName,
     required this.trimesterId,
     required this.trimesterLabel,
     required this.trimesterNumber,
@@ -44,6 +45,7 @@ class ProgrammeRow {
   final String? levelName;
   final int levelOrder;
   final String? cycleCode;
+  final String? cycleName;
   final String? trimesterId;
   final String? trimesterLabel;
   final int? trimesterNumber;
@@ -89,6 +91,7 @@ final programmesProvider =
                sl.name         AS level_name,
                sl.order_index  AS level_order,
                ec.code         AS cycle_code,
+               ec.name         AS cycle_name,
                t.label         AS trimester_label,
                t.trimester_number AS trimester_number
         FROM   school_programs sp
@@ -113,6 +116,7 @@ final programmesProvider =
                 levelName: r['level_name'] as String?,
                 levelOrder: (r['level_order'] as num?)?.toInt() ?? 999,
                 cycleCode: r['cycle_code'] as String?,
+                cycleName: r['cycle_name'] as String?,
                 trimesterId: r['trimester_id'] as String?,
                 trimesterLabel: r['trimester_label'] as String?,
                 trimesterNumber: (r['trimester_number'] as num?)?.toInt(),

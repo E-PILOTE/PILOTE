@@ -112,7 +112,7 @@ class _LevelBar extends StatelessWidget {
 class _ProgFilterBar extends StatelessWidget {
   const _ProgFilterBar({
     required this.searchCtrl,
-    required this.isTable,
+    required this.view,
     required this.readOnly,
     required this.subject,
     required this.level,
@@ -126,20 +126,21 @@ class _ProgFilterBar extends StatelessWidget {
     required this.onLevel,
     required this.onTrimester,
     required this.onType,
-    required this.onToggleView,
+    required this.onView,
     required this.onReset,
     required this.onAdd,
   });
   final TextEditingController searchCtrl;
-  final bool isTable, readOnly;
+  final String view;
+  final bool readOnly;
   final String? subject, level, trimester;
   final String type;
   final Map<String, String> subjectsPresent, trimestersPresent;
   final Map<String, int> levelsPresent;
   final ValueChanged<String> onSearch;
   final ValueChanged<String?> onSubject, onLevel, onTrimester;
-  final ValueChanged<String> onType;
-  final VoidCallback onToggleView, onReset, onAdd;
+  final ValueChanged<String> onType, onView;
+  final VoidCallback onReset, onAdd;
 
   bool get _hasFilters =>
       subject != null || level != null || trimester != null || type != 'all';
@@ -169,41 +170,32 @@ class _ProgFilterBar extends StatelessWidget {
                   ),
                 ),
                 _Dd(
-                  width: 190,
-                  hint: 'Toutes les matières',
+                  width: 210,
                   value: subjectsPresent.containsKey(subject) ? subject : null,
-                  items: [
-                    const DropdownMenuItem(
-                        value: null, child: Text('Toutes les matières')),
-                    for (final e in subjectsPresent.entries)
-                      DropdownMenuItem(value: e.key, child: Text(e.value)),
+                  entries: [
+                    const (null, 'Toutes les matières'),
+                    for (final e in subjectsPresent.entries) (e.key, e.value),
                   ],
                   onChanged: onSubject,
                 ),
                 _Dd(
-                  width: 150,
-                  hint: 'Tous les niveaux',
+                  width: 170,
                   value: levelsPresent.containsKey(level) ? level : null,
-                  items: [
-                    const DropdownMenuItem(
-                        value: null, child: Text('Tous les niveaux')),
-                    for (final c in levelsSorted)
-                      DropdownMenuItem(value: c, child: Text(c)),
+                  entries: [
+                    const (null, 'Tous les niveaux'),
+                    for (final c in levelsSorted) (c, c),
                   ],
                   onChanged: onLevel,
                 ),
                 if (trimestersPresent.isNotEmpty)
                   _Dd(
-                    width: 160,
-                    hint: 'Tous les trimestres',
+                    width: 195,
                     value: trimestersPresent.containsKey(trimester)
                         ? trimester
                         : null,
-                    items: [
-                      const DropdownMenuItem(
-                          value: null, child: Text('Tous les trimestres')),
-                      for (final e in trimestersPresent.entries)
-                        DropdownMenuItem(value: e.key, child: Text(e.value)),
+                    entries: [
+                      const (null, 'Tous les trimestres'),
+                      for (final e in trimestersPresent.entries) (e.key, e.value),
                     ],
                     onChanged: onTrimester,
                   ),
@@ -214,35 +206,7 @@ class _ProgFilterBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Material(
-            color: kSurface,
-            borderRadius: BorderRadius.circular(8),
-            child: InkWell(
-              onTap: onToggleView,
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                height: 44,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: kBorder)),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(
-                      isTable
-                          ? Icons.grid_view_rounded
-                          : Icons.table_rows_rounded,
-                      size: 16,
-                      color: kNavy),
-                  const SizedBox(width: 7),
-                  Text(isTable ? 'Cartes' : 'Table',
-                      style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: kNavy)),
-                ]),
-              ),
-            ),
-          ),
+          _ViewToggle(value: view, onChanged: onView),
           const SizedBox(width: 10),
           if (readOnly)
             Container(
@@ -279,17 +243,17 @@ class _ProgFilterBar extends StatelessWidget {
   }
 }
 
+// Sélecteur compact : le texte affiché reste sur UNE ligne (ellipsis) — plus de
+// tronquage / retour à la ligne dans le bouton fermé.
 class _Dd extends StatelessWidget {
   const _Dd(
       {required this.width,
-      required this.hint,
       required this.value,
-      required this.items,
+      required this.entries,
       required this.onChanged});
   final double width;
-  final String hint;
   final String? value;
-  final List<DropdownMenuItem<String?>> items;
+  final List<(String?, String)> entries;
   final ValueChanged<String?> onChanged;
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -300,14 +264,74 @@ class _Dd extends StatelessWidget {
           style: const TextStyle(fontSize: 13, color: kTextPrimary),
           icon: const Icon(Icons.expand_more_rounded,
               size: 18, color: kTextMuted),
-          decoration: adminFilledInput(hint),
-          hint: Text(hint,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, color: kTextMuted)),
-          items: items,
+          decoration: adminFilledInput(entries.first.$2),
+          selectedItemBuilder: (context) => [
+            for (final e in entries)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(e.$2,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: 13,
+                        color: e.$1 == null ? kTextMuted : kTextPrimary)),
+              ),
+          ],
+          items: [
+            for (final e in entries)
+              DropdownMenuItem(
+                  value: e.$1,
+                  child: Text(e.$2,
+                      maxLines: 1, overflow: TextOverflow.ellipsis)),
+          ],
           onChanged: onChanged,
         ),
       );
+}
+
+// Bascule de vue 3 modes : Table / Cartes / Par cycle.
+class _ViewToggle extends StatelessWidget {
+  const _ViewToggle({required this.value, required this.onChanged});
+  final String value;
+  final ValueChanged<String> onChanged;
+  @override
+  Widget build(BuildContext context) {
+    Widget seg(String v, IconData icon, String label) {
+      final sel = value == v;
+      return GestureDetector(
+        onTap: () => onChanged(v),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+          decoration: BoxDecoration(
+              color: sel ? kNavy : Colors.transparent,
+              borderRadius: BorderRadius.circular(6)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 15, color: sel ? Colors.white : kTextMuted),
+            const SizedBox(width: 6),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: sel ? Colors.white : kTextMuted)),
+          ]),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+          color: kSurface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: kBorder)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        seg('table', Icons.table_rows_rounded, 'Table'),
+        seg('cartes', Icons.grid_view_rounded, 'Cartes'),
+        seg('cycle', Icons.account_tree_outlined, 'Par cycle'),
+      ]),
+    );
+  }
 }
 
 class _TypeSegment extends StatelessWidget {
@@ -722,6 +746,119 @@ class _ProgCard extends StatelessWidget {
               style: const TextStyle(
                   fontSize: 12, color: kTextMuted, height: 1.4)),
         ],
+      ]),
+    );
+  }
+}
+
+// ─── Vue « Par cycle » (sections groupées) ───────────────────────────────────
+class _ProgByCycle extends ConsumerWidget {
+  const _ProgByCycle(
+      {required this.rows,
+      required this.onEdit,
+      required this.onDelete,
+      required this.onOpen});
+  final List<ProgrammeRow> rows;
+  final ValueChanged<ProgrammeRow> onEdit, onDelete, onOpen;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final canEdit = ref.watch(canProvider((slug: _kSlug, action: 'update')));
+    final canDelete = ref.watch(canProvider((slug: _kSlug, action: 'delete')));
+    final groups = <String, List<ProgrammeRow>>{};
+    for (final p in rows) {
+      groups.putIfAbsent(p.cycleCode ?? 'autre', () => []).add(p);
+    }
+    final keys = groups.keys.toList()
+      ..sort((a, b) => _cycOrder(a).compareTo(_cycOrder(b)));
+    return Column(children: [
+      for (final k in keys)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: _CycleSection(
+            cycleCode: k,
+            cycleName: _cycName(k, groups[k]!.first.cycleName),
+            items: groups[k]!
+              ..sort((a, b) {
+                final o = a.levelOrder.compareTo(b.levelOrder);
+                return o != 0
+                    ? o
+                    : a.subjectName.toLowerCase().compareTo(
+                        b.subjectName.toLowerCase());
+              }),
+            canEdit: canEdit,
+            canDelete: canDelete,
+            onEdit: onEdit,
+            onDelete: onDelete,
+            onOpen: onOpen,
+          ),
+        ),
+    ]);
+  }
+}
+
+class _CycleSection extends StatelessWidget {
+  const _CycleSection({
+    required this.cycleCode,
+    required this.cycleName,
+    required this.items,
+    required this.canEdit,
+    required this.canDelete,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onOpen,
+  });
+  final String cycleCode, cycleName;
+  final List<ProgrammeRow> items;
+  final bool canEdit, canDelete;
+  final ValueChanged<ProgrammeRow> onEdit, onDelete, onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final col = _cyc(cycleCode);
+    final niveaux = items.map((p) => p.levelLabel).toSet().length;
+    return AdminCard(
+      padding: EdgeInsets.zero,
+      child: Column(children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          decoration: BoxDecoration(
+            color: col.withValues(alpha: 0.07),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            border: const Border(bottom: BorderSide(color: kBorder)),
+          ),
+          child: Row(children: [
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(color: col, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 10),
+            Text(cycleName,
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: col)),
+            const SizedBox(width: 10),
+            AdminBadge(_pl(items.length, 'programme', 'programmes'), color: col),
+            const Spacer(),
+            Text(_pl(niveaux, 'niveau', 'niveaux'),
+                style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+          ]),
+        ),
+        for (var i = 0; i < items.length; i++)
+          _ProgRow(
+            p: items[i],
+            last: i == items.length - 1,
+            canEdit: canEdit,
+            canDelete: canDelete,
+            canBulk: false,
+            selected: false,
+            onSelect: (_) {},
+            onEdit: () => onEdit(items[i]),
+            onDelete: () => onDelete(items[i]),
+            onOpen: () => onOpen(items[i]),
+          ),
       ]),
     );
   }
