@@ -5,75 +5,140 @@ part of 'subjects_screen.dart';
 //  table, cartes, formulaire création/édition.
 // ════════════════════════════════════════════════════════════════════════════
 
-// ─── Répartition par coefficient (barres maison, sans dépendance) ────────────
-class _CoefDistribution extends StatelessWidget {
-  const _CoefDistribution({required this.subjects});
+// Accents par cycle (cohérents avec les autres pages).
+const _cycleColors = <String, Color>{
+  'prescolaire': Color(0xFFEC4899),
+  'primaire': Color(0xFF0EA5E9),
+  'college': kGreen,
+  'lycee': kNavy,
+  'formation_pro': Color(0xFFF59E0B),
+  'fp': Color(0xFFF59E0B),
+};
+Color _cycColor(String? c) => _cycleColors[c ?? ''] ?? kNavy;
+
+// ─── Matières par niveau (barres cliquables → filtre) ────────────────────────
+// Une matière est portée par un niveau (coefficient propre) ; « Tronc commun »
+// = toutes les classes. Cliquer un niveau filtre la liste. La granularité série
+// (Tle A vs C) suivra si l'admin groupe modélise des niveaux par filière.
+class _NiveauBreakdown extends StatelessWidget {
+  const _NiveauBreakdown({
+    required this.subjects,
+    required this.active,
+    required this.onPick,
+  });
   final List<SubjectModel> subjects;
+  final String? active;
+  final ValueChanged<String> onPick;
 
   @override
   Widget build(BuildContext context) {
-    final byCoef = <int, int>{};
+    final groups =
+        <String, ({String label, int order, String cycle, int count, int coef})>{};
     for (final s in subjects) {
-      byCoef[s.coefficient] = (byCoef[s.coefficient] ?? 0) + 1;
+      final key = s.isTronc ? '__tronc__' : (s.levelCode ?? '');
+      final cur = groups[key];
+      groups[key] = (
+        label: s.isTronc ? 'Tronc commun' : (s.levelCode ?? '—'),
+        order: s.isTronc ? -1 : s.levelOrder,
+        cycle: s.isTronc ? '' : (s.cycleCode ?? ''),
+        count: (cur?.count ?? 0) + 1,
+        coef: (cur?.coef ?? 0) + s.coefficient,
+      );
     }
-    final coefs = byCoef.keys.toList()..sort();
-    final maxN = byCoef.values.fold(0, (a, b) => a > b ? a : b);
+    final list = groups.entries.toList()
+      ..sort((a, b) => a.value.order.compareTo(b.value.order));
+    final maxN = list.fold<int>(0, (m, e) => e.value.count > m ? e.value.count : m);
 
     return AdminCard(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
-      child: SizedBox(
-        height: 150,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            for (final c in coefs)
-              Expanded(
-                child: _CoefBar(
-                  coef: c,
-                  count: byCoef[c]!,
-                  ratio: maxN == 0 ? 0 : byCoef[c]! / maxN,
-                ),
-              ),
-          ],
-        ),
-      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Row(children: [
+          Icon(Icons.stairs_outlined, size: 16, color: kNavy),
+          SizedBox(width: 8),
+          Text('Matières par niveau',
+              style: TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.w800, color: kNavy)),
+          Spacer(),
+          Text('cliquez pour filtrer',
+              style: TextStyle(fontSize: 11.5, color: kTextMuted)),
+        ]),
+        const SizedBox(height: 12),
+        for (final e in list)
+          _NivBar(
+            label: e.value.label,
+            count: e.value.count,
+            coef: e.value.coef,
+            ratio: maxN == 0 ? 0 : e.value.count / maxN,
+            color: e.key == '__tronc__' ? kTextMuted : _cycColor(e.value.cycle),
+            active: active == e.key,
+            onTap: () => onPick(e.key),
+          ),
+      ]),
     );
   }
 }
 
-class _CoefBar extends StatelessWidget {
-  const _CoefBar(
-      {required this.coef, required this.count, required this.ratio});
-  final int coef, count;
+class _NivBar extends StatelessWidget {
+  const _NivBar({
+    required this.label,
+    required this.count,
+    required this.coef,
+    required this.ratio,
+    required this.color,
+    required this.active,
+    required this.onTap,
+  });
+  final String label;
+  final int count, coef;
   final double ratio;
+  final Color color;
+  final bool active;
+  final VoidCallback onTap;
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Text('$count',
-              style: const TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w800, color: kNavy)),
-          const SizedBox(height: 4),
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-            child: Container(
-              height: (ratio * 90).clamp(4, 90),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [kNavy, Color(0xFF2E5288)],
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        margin: const EdgeInsets.only(bottom: 4),
+        decoration: BoxDecoration(
+          color: active ? color.withValues(alpha: 0.10) : null,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+              color: active ? color.withValues(alpha: 0.4) : Colors.transparent),
+        ),
+        child: Row(children: [
+          SizedBox(
+            width: 96,
+            child: Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: kTextPrimary)),
+          ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: ratio.clamp(0.02, 1.0),
+                minHeight: 16,
+                backgroundColor: kSurface,
+                valueColor: AlwaysStoppedAnimation(color.withValues(alpha: 0.85)),
               ),
             ),
           ),
-          const SizedBox(height: 6),
-          Text('coef. $coef',
-              style: const TextStyle(fontSize: 11, color: kTextMuted)),
-        ],
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 96,
+            child: Text('${_pl(count, 'matière', 'matières')} · Σ$coef',
+                textAlign: TextAlign.end,
+                style: const TextStyle(
+                    fontSize: 11.5, color: kTextMuted)),
+          ),
+        ]),
       ),
     );
   }
@@ -86,15 +151,21 @@ class _SubjectFilterBar extends StatelessWidget {
     required this.isTable,
     required this.sort,
     required this.sortAsc,
+    required this.levelFilter,
+    required this.levelsPresent,
     required this.onSearch,
     required this.onSort,
+    required this.onLevel,
     required this.onToggleView,
     required this.onAdd,
   });
   final TextEditingController searchCtrl;
   final bool isTable, sortAsc;
   final String sort;
+  final String? levelFilter;
+  final Map<String, String> levelsPresent; // key (code|__tronc__) → label
   final ValueChanged<String> onSearch, onSort;
+  final ValueChanged<String?> onLevel;
   final VoidCallback onToggleView, onAdd;
 
   @override
@@ -109,13 +180,36 @@ class _SubjectFilterBar extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               SizedBox(
-                width: 260,
+                width: 230,
                 child: TextField(
                   controller: searchCtrl,
                   onChanged: onSearch,
                   style: const TextStyle(fontSize: 13.5),
                   decoration: adminFilledInput('Rechercher une matière',
                       icon: Icons.search_rounded),
+                ),
+              ),
+              SizedBox(
+                width: 190,
+                child: DropdownButtonFormField<String>(
+                  initialValue: levelsPresent.containsKey(levelFilter)
+                      ? levelFilter
+                      : null,
+                  isExpanded: true,
+                  style: const TextStyle(fontSize: 13, color: kTextPrimary),
+                  icon: const Icon(Icons.expand_more_rounded,
+                      size: 18, color: kTextMuted),
+                  decoration: adminFilledInput('Tous les niveaux'),
+                  hint: const Text('Tous les niveaux',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 13, color: kTextMuted)),
+                  items: [
+                    const DropdownMenuItem(
+                        value: null, child: Text('Tous les niveaux')),
+                    for (final e in levelsPresent.entries)
+                      DropdownMenuItem(value: e.key, child: Text(e.value)),
+                  ],
+                  onChanged: onLevel,
                 ),
               ),
               _SortChip(
@@ -241,6 +335,7 @@ class _ResultHeader extends StatelessWidget {
 class _SubjectTable extends ConsumerWidget {
   const _SubjectTable({
     required this.rows,
+    required this.coefByLevel,
     required this.sort,
     required this.sortAsc,
     required this.selected,
@@ -251,6 +346,7 @@ class _SubjectTable extends ConsumerWidget {
     required this.onArchive,
   });
   final List<SubjectModel> rows;
+  final Map<String, int> coefByLevel;
   final String sort;
   final bool sortAsc;
   final Set<String> selected;
@@ -284,16 +380,21 @@ class _SubjectTable extends ConsumerWidget {
                 flex: 5,
                 asc: sort == 'name' ? sortAsc : null,
                 onTap: () => onSort('name')),
+            const _Th('NIVEAU', flex: 3),
             _Th('COEFFICIENT',
                 flex: 3,
                 asc: sort == 'coef' ? sortAsc : null,
                 onTap: () => onSort('coef')),
+            const _Th('POIDS', flex: 2),
             const SizedBox(width: 96),
           ]),
         ),
         for (var i = 0; i < rows.length; i++)
           _SubjectRow(
             s: rows[i],
+            levelCoefTotal: coefByLevel[
+                    rows[i].isTronc ? '__tronc__' : (rows[i].levelCode ?? '')] ??
+                0,
             last: i == rows.length - 1,
             canEdit: canEdit,
             canDelete: canDelete,
@@ -359,6 +460,7 @@ class _Th extends StatelessWidget {
 class _SubjectRow extends StatelessWidget {
   const _SubjectRow({
     required this.s,
+    required this.levelCoefTotal,
     required this.last,
     required this.canEdit,
     required this.canDelete,
@@ -369,6 +471,7 @@ class _SubjectRow extends StatelessWidget {
     required this.onArchive,
   });
   final SubjectModel s;
+  final int levelCoefTotal;
   final bool last, canEdit, canDelete, canBulk, selected;
   final ValueChanged<bool> onSelect;
   final VoidCallback onEdit, onArchive;
@@ -376,6 +479,9 @@ class _SubjectRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final col = _subjectColor(s.slug);
+    final pct = levelCoefTotal == 0
+        ? null
+        : (s.coefficient * 100 / levelCoefTotal).round();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -415,8 +521,21 @@ class _SubjectRow extends StatelessWidget {
           flex: 3,
           child: Align(
             alignment: Alignment.centerLeft,
+            child: AdminBadge(s.levelLabel,
+                color: s.isTronc ? kTextMuted : _cycColor(s.cycleCode)),
+          ),
+        ),
+        Expanded(
+          flex: 3,
+          child: Align(
+            alignment: Alignment.centerLeft,
             child: AdminBadge('Coef. ${s.coefficient}', color: kGreen),
           ),
+        ),
+        Expanded(
+          flex: 2,
+          child: Text(pct == null ? '—' : '$pct %',
+              style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
         ),
         SizedBox(
           width: 96,
@@ -445,8 +564,12 @@ class _SubjectRow extends StatelessWidget {
 // ─── Cartes ──────────────────────────────────────────────────────────────────
 class _SubjectCards extends ConsumerWidget {
   const _SubjectCards(
-      {required this.rows, required this.onEdit, required this.onArchive});
+      {required this.rows,
+      required this.coefByLevel,
+      required this.onEdit,
+      required this.onArchive});
   final List<SubjectModel> rows;
+  final Map<String, int> coefByLevel;
   final ValueChanged<SubjectModel> onEdit, onArchive;
 
   @override
@@ -467,6 +590,8 @@ class _SubjectCards extends ConsumerWidget {
               width: cardW,
               child: _SubjectGridCard(
                 s: s,
+                levelCoefTotal:
+                    coefByLevel[s.isTronc ? '__tronc__' : (s.levelCode ?? '')] ?? 0,
                 canEdit: canEdit,
                 canDelete: canDelete,
                 onEdit: () => onEdit(s),
@@ -482,18 +607,23 @@ class _SubjectCards extends ConsumerWidget {
 class _SubjectGridCard extends StatelessWidget {
   const _SubjectGridCard({
     required this.s,
+    required this.levelCoefTotal,
     required this.canEdit,
     required this.canDelete,
     required this.onEdit,
     required this.onArchive,
   });
   final SubjectModel s;
+  final int levelCoefTotal;
   final bool canEdit, canDelete;
   final VoidCallback onEdit, onArchive;
 
   @override
   Widget build(BuildContext context) {
     final col = _subjectColor(s.slug);
+    final pct = levelCoefTotal == 0
+        ? null
+        : (s.coefficient * 100 / levelCoefTotal).round();
     return AdminCard(
       padding: const EdgeInsets.all(16),
       accent: col,
@@ -531,8 +661,17 @@ class _SubjectGridCard extends StatelessWidget {
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
                 color: kTextPrimary)),
+        const SizedBox(height: 6),
+        AdminBadge(s.levelLabel,
+            color: s.isTronc ? kTextMuted : _cycColor(s.cycleCode)),
         const SizedBox(height: 10),
-        AdminBadge('Coefficient ${s.coefficient}', color: kGreen),
+        Row(children: [
+          AdminBadge('Coef. ${s.coefficient}', color: kGreen),
+          const Spacer(),
+          if (pct != null)
+            Text('$pct % du niveau',
+                style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+        ]),
       ]),
     );
   }
@@ -552,6 +691,7 @@ class _SubjectFormState extends ConsumerState<_SubjectForm> {
   late final _name =
       TextEditingController(text: widget.existing?.name ?? '');
   late int _coef = widget.existing?.coefficient ?? 1;
+  late String? _levelId = widget.existing?.levelId; // null = tronc commun
   bool _saving = false;
 
   bool get _isEdit => widget.existing != null;
@@ -587,13 +727,18 @@ class _SubjectFormState extends ConsumerState<_SubjectForm> {
       () async {
         if (_isEdit) {
           await updateSubject(
-              id: widget.existing!.id, name: name, coefficient: _coef);
+              id: widget.existing!.id,
+              name: name,
+              coefficient: _coef,
+              levelId: _levelId,
+              clearLevel: _levelId == null);
         } else {
           await createSubject(
               groupId: groupId,
               schoolId: schoolId,
               name: name,
-              coefficient: _coef);
+              coefficient: _coef,
+              levelId: _levelId);
         }
       },
       success: _isEdit ? 'Matière mise à jour' : 'Matière créée',
@@ -604,11 +749,22 @@ class _SubjectFormState extends ConsumerState<_SubjectForm> {
 
   @override
   Widget build(BuildContext context) {
+    final structure =
+        ref.watch(academicStructureProvider).valueOrNull ?? AcademicStructure.empty;
+    // Items niveau : Tronc commun + niveaux de l'école (groupés par cycle).
+    final levelItems = <(String?, String)>[
+      (null, 'Tronc commun (toutes les classes)'),
+      for (final c in structure.cycles)
+        for (final l in c.levels) (l.id, '${c.name} · ${l.name}'),
+    ];
+    final hasLevel = _levelId == null ||
+        levelItems.any((e) => e.$1 == _levelId);
+
     return AdminFormDialog(
       icon: _isEdit ? Icons.edit_outlined : Icons.add_rounded,
       title: _isEdit ? 'Modifier la matière' : 'Nouvelle matière',
-      subtitle: 'Le coefficient pondère la matière dans la moyenne',
-      width: 460,
+      subtitle: 'Portée par un niveau · le coefficient pèse dans la moyenne',
+      width: 480,
       saving: _saving,
       submitLabel: _isEdit ? 'Enregistrer' : 'Créer',
       submitIcon: _isEdit ? Icons.check_rounded : Icons.add_rounded,
@@ -627,7 +783,34 @@ class _SubjectFormState extends ConsumerState<_SubjectForm> {
           decoration:
               adminFilledInput('Ex. Mathématiques', icon: Icons.menu_book_outlined),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
+        const Text('Niveau',
+            style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: kTextPrimary)),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String?>(
+          initialValue: hasLevel ? _levelId : null,
+          isExpanded: true,
+          style: const TextStyle(fontSize: 13.5, color: kTextPrimary),
+          icon: const Icon(Icons.expand_more_rounded,
+              size: 18, color: kTextMuted),
+          decoration: adminFilledInput('Tronc commun'),
+          items: [
+            for (final e in levelItems)
+              DropdownMenuItem(value: e.$1, child: Text(e.$2)),
+          ],
+          onChanged: (v) => setState(() => _levelId = v),
+        ),
+        const Padding(
+          padding: EdgeInsets.only(top: 6),
+          child: Text(
+              'Le coefficient peut différer d\'un niveau à l\'autre : créez une '
+              'entrée par niveau (ex. Maths en 6e ≠ Maths en Tle).',
+              style: TextStyle(fontSize: 11, color: kTextMuted, height: 1.35)),
+        ),
+        const SizedBox(height: 16),
         const Text('Coefficient',
             style: TextStyle(
                 fontSize: 12.5,

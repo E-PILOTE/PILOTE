@@ -4,8 +4,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
+import '../../../core/constants/routes.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../data/models/class_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -80,6 +82,7 @@ class _BodyState extends ConsumerState<_Body> {
   String? _gender; // M | F
   String? _cycle;
   String? _level;
+  String _dim = 'niveau'; // dimension de la répartition : cycle|niveau|classe
   bool _isTable = true;
   bool _sortAsc = true;
   final Set<String> _selected = {}; // ids d'élèves (= enrollmentId) sélectionnés
@@ -281,7 +284,21 @@ class _BodyState extends ConsumerState<_Body> {
               _Kpis(students: all),
               if (all.isNotEmpty) ...[
                 const SizedBox(height: 22),
-                _ElevesCharts(students: all),
+                _ElevesBreakdown(
+                  students: all,
+                  dim: _dim,
+                  activeCycle: _cycle,
+                  activeLevel: _level,
+                  onDim: (d) => setState(() => _dim = d),
+                  onPickCycle: (c) => setState(() {
+                    _cycle = _cycle == c ? null : c;
+                    _level = null;
+                  }),
+                  onPickLevel: (l) => setState(() => _level = _level == l ? null : l),
+                  onOpenClass: (id) =>
+                      context.push(Routes.classeDetail.replaceFirst(':id', id)),
+                  onOpenStructure: () => context.push(Routes.structure),
+                ),
               ],
               const SizedBox(height: 22),
               _ElevesFilterBar(

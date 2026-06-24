@@ -5,99 +5,203 @@ part of 'eleves_screen.dart';
 //  groupées, table (sélection), cartes, avatar, sélecteur de classe.
 // ════════════════════════════════════════════════════════════════════════════
 
-// ─── Graphes : répartition par cycle (donut) + par niveau (barres) ───────────
-class _ElevesCharts extends StatelessWidget {
-  const _ElevesCharts({required this.students});
+// ─── Répartition de l'effectif validé — hub de relation inter-pages ──────────
+// Une SEULE source (le registre des élèves validés), 3 vues : Cycle · Niveau ·
+// Classe. Cliquer un cycle/niveau FILTRE la liste ci-dessous ; cliquer une
+// classe OUVRE sa fiche (page Classes). Lien « Structure complète » → cockpit
+// Niveaux. Pas de doublon : l'analyse structurelle vit ici, Inscriptions = desk.
+class _ElevesBreakdown extends StatelessWidget {
+  const _ElevesBreakdown({
+    required this.students,
+    required this.dim,
+    required this.activeCycle,
+    required this.activeLevel,
+    required this.onDim,
+    required this.onPickCycle,
+    required this.onPickLevel,
+    required this.onOpenClass,
+    required this.onOpenStructure,
+  });
   final List<StudentRow> students;
+  final String dim;
+  final String? activeCycle, activeLevel;
+  final ValueChanged<String> onDim, onPickCycle, onPickLevel, onOpenClass;
+  final VoidCallback onOpenStructure;
 
   @override
   Widget build(BuildContext context) {
-    // Par cycle.
+    return AdminCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.insights_rounded, size: 16, color: kNavy),
+          const SizedBox(width: 8),
+          const Text('Répartition de l\'effectif validé',
+              style: TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.w800, color: kNavy)),
+          const Spacer(),
+          _DimSeg(dim: dim, onDim: onDim),
+        ]),
+        const SizedBox(height: 4),
+        Row(children: [
+          Expanded(
+            child: Text(
+                dim == 'classe'
+                    ? 'Cliquez une classe pour ouvrir sa fiche.'
+                    : 'Cliquez un ${dim == 'cycle' ? 'cycle' : 'niveau'} pour filtrer la liste.',
+                style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+          ),
+          TextButton.icon(
+            onPressed: onOpenStructure,
+            icon: const Icon(Icons.account_tree_outlined, size: 15),
+            label: const Text('Structure complète'),
+            style: TextButton.styleFrom(
+                foregroundColor: kNavy,
+                visualDensity: VisualDensity.compact,
+                textStyle: const TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w700)),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        switch (dim) {
+          'cycle' => _cycleView(),
+          'classe' => _classeView(),
+          _ => _niveauView(),
+        },
+      ]),
+    );
+  }
+
+  // ── Cycle : donut + légende cliquable (filtre) ──────────────────────────────
+  Widget _cycleView() {
     final byCycle = <String, int>{};
     for (final s in students) {
       byCycle[s.cycleCode ?? ''] = (byCycle[s.cycleCode ?? ''] ?? 0) + 1;
     }
-    final cycleSlices = (byCycle.entries.toList()
-          ..sort((a, b) => _cycOrder(a.key).compareTo(_cycOrder(b.key))))
-        .map((e) => _Slice(_cycName(e.key), e.value, _cycColor(e.key)))
-        .toList();
+    final entries = byCycle.entries.toList()
+      ..sort((a, b) => _cycOrder(a.key).compareTo(_cycOrder(b.key)));
+    final slices =
+        entries.map((e) => _Slice(_cycName(e.key), e.value, _cycColor(e.key))).toList();
+    final total = students.length;
 
-    // Par niveau (ordonné).
+    return LayoutBuilder(builder: (ctx, cns) {
+      final wide = cns.maxWidth >= 560;
+      final donut = SizedBox(
+        height: 196,
+        width: wide ? 230 : double.infinity,
+        child: SfCircularChart(
+          margin: EdgeInsets.zero,
+          series: <CircularSeries>[
+            DoughnutSeries<_Slice, String>(
+              dataSource: slices,
+              xValueMapper: (s, _) => s.label,
+              yValueMapper: (s, _) => s.value,
+              pointColorMapper: (s, _) => s.color,
+              innerRadius: '64%',
+              dataLabelSettings: const DataLabelSettings(isVisible: true),
+            ),
+          ],
+        ),
+      );
+      final legend = Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (final e in entries)
+            _PickRow(
+              color: _cycColor(e.key),
+              label: _cycName(e.key),
+              count: e.value,
+              total: total,
+              active: activeCycle == e.key,
+              onTap: () => onPickCycle(e.key),
+            ),
+        ],
+      );
+      return wide
+          ? IntrinsicHeight(
+              child: Row(children: [
+                donut,
+                const SizedBox(width: 18),
+                Expanded(child: legend),
+              ]))
+          : Column(children: [donut, const SizedBox(height: 12), legend]);
+    });
+  }
+
+  // ── Niveau : barres cliquables (filtre) ─────────────────────────────────────
+  Widget _niveauView() {
     final byLevel = <String, ({int count, int order, String cycle})>{};
     for (final s in students) {
       final lc = s.levelCode ?? '';
       if (lc.isEmpty) continue;
       final cur = byLevel[lc];
-      byLevel[lc] =
-          (count: (cur?.count ?? 0) + 1, order: s.levelOrder, cycle: s.cycleCode ?? '');
+      byLevel[lc] = (
+        count: (cur?.count ?? 0) + 1,
+        order: s.levelOrder,
+        cycle: s.cycleCode ?? ''
+      );
     }
     final levels = byLevel.entries.toList()
       ..sort((a, b) {
         final c = _cycOrder(a.value.cycle).compareTo(_cycOrder(b.value.cycle));
         return c != 0 ? c : a.value.order.compareTo(b.value.order);
       });
-    final maxLevel =
-        levels.fold<int>(0, (m, e) => e.value.count > m ? e.value.count : m);
-
-    return LayoutBuilder(builder: (ctx, cns) {
-      final wide = cns.maxWidth >= 760;
-      final cycleCard = _ChartCard(
-        title: 'Répartition par cycle',
-        icon: Icons.donut_large_rounded,
-        child: SizedBox(
-          height: 200,
-          child: SfCircularChart(
-            margin: EdgeInsets.zero,
-            legend: const Legend(
-                isVisible: true,
-                overflowMode: LegendItemOverflowMode.wrap,
-                position: LegendPosition.bottom),
-            series: <CircularSeries>[
-              DoughnutSeries<_Slice, String>(
-                dataSource: cycleSlices,
-                xValueMapper: (s, _) => s.label,
-                yValueMapper: (s, _) => s.value,
-                pointColorMapper: (s, _) => s.color,
-                innerRadius: '62%',
-                dataLabelSettings: const DataLabelSettings(isVisible: true),
-              ),
-            ],
-          ),
+    final maxN = levels.fold<int>(0, (m, e) => e.value.count > m ? e.value.count : m);
+    if (levels.isEmpty) return _empty();
+    return Column(children: [
+      for (final e in levels)
+        _BarRow(
+          label: e.key,
+          count: e.value.count,
+          ratio: maxN == 0 ? 0 : e.value.count / maxN,
+          color: _cycColor(e.value.cycle),
+          active: activeLevel == e.key,
+          onTap: () => onPickLevel(e.key),
         ),
-      );
-      final levelCard = _ChartCard(
-        title: 'Effectifs par niveau',
-        icon: Icons.bar_chart_rounded,
-        child: levels.isEmpty
-            ? const SizedBox(
-                height: 60,
-                child: Center(
-                    child: Text('—',
-                        style: TextStyle(color: kTextMuted))))
-            : Column(
-                children: [
-                  for (final e in levels)
-                    _LevelBar(
-                      label: e.key,
-                      count: e.value.count,
-                      ratio: maxLevel == 0 ? 0 : e.value.count / maxLevel,
-                      color: _cycColor(e.value.cycle),
-                    ),
-                ],
-              ),
-      );
-      if (wide) {
-        return IntrinsicHeight(
-          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Expanded(child: cycleCard),
-            const SizedBox(width: 14),
-            Expanded(child: levelCard),
-          ]),
-        );
-      }
-      return Column(children: [cycleCard, const SizedBox(height: 14), levelCard]);
-    });
+    ]);
   }
+
+  // ── Classe : barres cliquables (ouvre la fiche classe) ──────────────────────
+  Widget _classeView() {
+    final byClass = <String, ({int count, String name, String cycle, int order})>{};
+    for (final s in students) {
+      final id = s.classId;
+      if (id == null) continue;
+      final cur = byClass[id];
+      byClass[id] = (
+        count: (cur?.count ?? 0) + 1,
+        name: s.className ?? '—',
+        cycle: s.cycleCode ?? '',
+        order: s.levelOrder,
+      );
+    }
+    final classes = byClass.entries.toList()
+      ..sort((a, b) {
+        final c = _cycOrder(a.value.cycle).compareTo(_cycOrder(b.value.cycle));
+        if (c != 0) return c;
+        final o = a.value.order.compareTo(b.value.order);
+        return o != 0 ? o : a.value.name.compareTo(b.value.name);
+      });
+    final maxN = classes.fold<int>(0, (m, e) => e.value.count > m ? e.value.count : m);
+    if (classes.isEmpty) return _empty();
+    return Column(children: [
+      for (final e in classes)
+        _BarRow(
+          label: e.value.name,
+          count: e.value.count,
+          ratio: maxN == 0 ? 0 : e.value.count / maxN,
+          color: _cycColor(e.value.cycle),
+          active: false,
+          trailingChevron: true,
+          labelWidth: 86,
+          onTap: () => onOpenClass(e.key),
+        ),
+    ]);
+  }
+
+  Widget _empty() => const SizedBox(
+      height: 56,
+      child: Center(child: Text('—', style: TextStyle(color: kTextMuted))));
 }
 
 class _Slice {
@@ -107,45 +211,141 @@ class _Slice {
   final Color color;
 }
 
-class _ChartCard extends StatelessWidget {
-  const _ChartCard(
-      {required this.title, required this.icon, required this.child});
-  final String title;
-  final IconData icon;
-  final Widget child;
+// Segmenté Cycle/Niveau/Classe.
+class _DimSeg extends StatelessWidget {
+  const _DimSeg({required this.dim, required this.onDim});
+  final String dim;
+  final ValueChanged<String> onDim;
   @override
-  Widget build(BuildContext context) => AdminCard(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Icon(icon, size: 16, color: kNavy),
-            const SizedBox(width: 8),
-            Text(title,
-                style: const TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w800, color: kNavy)),
-          ]),
-          const SizedBox(height: 14),
-          child,
-        ]),
+  Widget build(BuildContext context) {
+    Widget seg(String v, String label) {
+      final on = dim == v;
+      return GestureDetector(
+        onTap: () => onDim(v),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: on ? kNavy : Colors.transparent,
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: Text(label,
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: on ? Colors.white : kTextMuted)),
+        ),
       );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+          color: kSurface, borderRadius: BorderRadius.circular(9)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        seg('cycle', 'Cycle'),
+        seg('niveau', 'Niveau'),
+        seg('classe', 'Classe'),
+      ]),
+    );
+  }
 }
 
-class _LevelBar extends StatelessWidget {
-  const _LevelBar(
-      {required this.label,
-      required this.count,
-      required this.ratio,
-      required this.color});
+// Ligne de légende cliquable (vue cycle).
+class _PickRow extends StatelessWidget {
+  const _PickRow({
+    required this.color,
+    required this.label,
+    required this.count,
+    required this.total,
+    required this.active,
+    required this.onTap,
+  });
+  final Color color;
+  final String label;
+  final int count, total;
+  final bool active;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) {
+    final pct = total == 0 ? 0 : (count * 100 / total).round();
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+        margin: const EdgeInsets.only(bottom: 4),
+        decoration: BoxDecoration(
+          color: active ? color.withValues(alpha: 0.10) : null,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+              color: active ? color.withValues(alpha: 0.4) : Colors.transparent),
+        ),
+        child: Row(children: [
+          Container(
+            width: 11,
+            height: 11,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(label,
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: kTextPrimary)),
+          ),
+          Text('$count',
+              style: const TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w800, color: kTextPrimary)),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 38,
+            child: Text('$pct %',
+                textAlign: TextAlign.end,
+                style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+// Barre horizontale cliquable (vues niveau / classe).
+class _BarRow extends StatelessWidget {
+  const _BarRow({
+    required this.label,
+    required this.count,
+    required this.ratio,
+    required this.color,
+    required this.active,
+    required this.onTap,
+    this.trailingChevron = false,
+    this.labelWidth = 56,
+  });
   final String label;
   final int count;
   final double ratio;
   final Color color;
+  final bool active, trailingChevron;
+  final double labelWidth;
+  final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        margin: const EdgeInsets.only(bottom: 4),
+        decoration: BoxDecoration(
+          color: active ? color.withValues(alpha: 0.10) : null,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+              color: active ? color.withValues(alpha: 0.4) : Colors.transparent),
+        ),
         child: Row(children: [
           SizedBox(
-            width: 56,
+            width: labelWidth,
             child: Text(label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -175,8 +375,13 @@ class _LevelBar extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                     color: kTextPrimary)),
           ),
+          if (trailingChevron)
+            const Icon(Icons.chevron_right_rounded,
+                size: 18, color: kTextMuted),
         ]),
-      );
+      ),
+    );
+  }
 }
 
 // ─── Barre de filtres ─────────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ import '../../../data/models/subject_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
+import '../providers/academic_structure_provider.dart';
 import '../providers/subjects_provider.dart';
 
 part 'subjects_parts.dart';
@@ -55,6 +56,7 @@ class _BodyState extends ConsumerState<_Body> {
   bool _isTable = true;
   String _sort = 'name'; // name | coef
   bool _sortAsc = true;
+  String? _levelFilter; // code niveau, ou '__tronc__', ou null
   final Set<String> _selected = {};
 
   @override
@@ -134,8 +136,15 @@ class _BodyState extends ConsumerState<_Body> {
   List<SubjectModel> _apply(List<SubjectModel> all) {
     final q = _search.text.trim().toLowerCase();
     final out = all.where((s) {
+      if (_levelFilter == '__tronc__' && !s.isTronc) return false;
+      if (_levelFilter != null &&
+          _levelFilter != '__tronc__' &&
+          (s.levelCode ?? '') != _levelFilter) {
+        return false;
+      }
       if (q.isEmpty) return true;
-      return s.name.toLowerCase().contains(q);
+      return s.name.toLowerCase().contains(q) ||
+          s.levelLabel.toLowerCase().contains(q);
     }).toList()
       ..sort((a, b) {
         final c = _sort == 'coef'
@@ -167,6 +176,12 @@ class _BodyState extends ConsumerState<_Body> {
       ),
       data: (all) {
         final filtered = _apply(all);
+        // Total de coefficient par niveau (pour le poids relatif).
+        final coefByLevel = <String, int>{};
+        for (final s in all) {
+          final k = s.isTronc ? '__tronc__' : (s.levelCode ?? '');
+          coefByLevel[k] = (coefByLevel[k] ?? 0) + s.coefficient;
+        }
         return SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -175,12 +190,12 @@ class _BodyState extends ConsumerState<_Body> {
               _Kpis(subjects: all),
               if (all.isNotEmpty) ...[
                 const SizedBox(height: 22),
-                const AdminSectionTitle('Répartition par poids',
-                    icon: Icons.bar_chart_rounded,
-                    subtitle:
-                        'Nombre de matières par coefficient (poids dans la moyenne)'),
-                const SizedBox(height: 12),
-                _CoefDistribution(subjects: all),
+                _NiveauBreakdown(
+                  subjects: all,
+                  active: _levelFilter,
+                  onPick: (k) => setState(
+                      () => _levelFilter = _levelFilter == k ? null : k),
+                ),
               ],
               const SizedBox(height: 22),
               _SubjectFilterBar(
@@ -188,6 +203,13 @@ class _BodyState extends ConsumerState<_Body> {
                 isTable: _isTable,
                 sort: _sort,
                 sortAsc: _sortAsc,
+                levelFilter: _levelFilter,
+                levelsPresent: {
+                  if (all.any((s) => s.isTronc)) '__tronc__': 'Tronc commun',
+                  for (final e in (all.where((s) => !s.isTronc).toList()
+                        ..sort((a, b) => a.levelOrder.compareTo(b.levelOrder))))
+                    (e.levelCode ?? ''): (e.levelCode ?? ''),
+                },
                 onSearch: (_) => setState(() {}),
                 onSort: (s) => setState(() {
                   if (_sort == s) {
@@ -197,6 +219,7 @@ class _BodyState extends ConsumerState<_Body> {
                     _sortAsc = true;
                   }
                 }),
+                onLevel: (v) => setState(() => _levelFilter = v),
                 onToggleView: () => setState(() => _isTable = !_isTable),
                 onAdd: () => _openForm(),
               ),
@@ -236,6 +259,7 @@ class _BodyState extends ConsumerState<_Body> {
               else if (_isTable)
                 _SubjectTable(
                   rows: filtered,
+                  coefByLevel: coefByLevel,
                   sort: _sort,
                   sortAsc: _sortAsc,
                   selected: _selected,
@@ -255,6 +279,7 @@ class _BodyState extends ConsumerState<_Body> {
               else
                 _SubjectCards(
                   rows: filtered,
+                  coefByLevel: coefByLevel,
                   onEdit: (s) => _openForm(existing: s),
                   onArchive: _archive,
                 ),
@@ -302,15 +327,17 @@ class _Kpis extends StatelessWidget {
     final n = subjects.length;
     final totalCoef = subjects.fold<int>(0, (s, e) => s + e.coefficient);
     final avg = n == 0 ? 0.0 : totalCoef / n;
-    final maxCoef =
-        subjects.isEmpty ? 0 : subjects.map((e) => e.coefficient).reduce((a, b) => a > b ? a : b);
-    final fond = subjects.where((e) => e.coefficient >= 4).length; // matières « fondamentales »
+    final niveaux = subjects.where((e) => !e.isTronc).map((e) => e.levelCode).toSet().length;
+    final tronc = subjects.where((e) => e.isTronc).length;
+    final fond = subjects.where((e) => e.coefficient >= 4).length; // « fondamentales »
     final items = <(IconData, String, String, Color, String?)>[
-      (Icons.menu_book_outlined, 'Matières', '$n', kNavy, null),
-      (Icons.scale_outlined, 'Coef. cumulé', '$totalCoef', kGreen, null),
-      (Icons.functions_rounded, 'Coef. moyen', avg.toStringAsFixed(1),
+      (Icons.menu_book_outlined, 'Matières', '$n', kNavy,
+          'définitions niveau × matière'),
+      (Icons.stairs_outlined, 'Niveaux couverts', '$niveaux',
           const Color(0xFF0EA5E9), null),
-      (Icons.star_outline_rounded, 'Coef. max', '$maxCoef',
+      (Icons.public_outlined, 'Tronc commun', '$tronc', kGreen,
+          'toutes classes'),
+      (Icons.functions_rounded, 'Coef. moyen', avg.toStringAsFixed(1),
           const Color(0xFFF59E0B), null),
       (Icons.workspace_premium_outlined, 'Fondamentales', '$fond',
           const Color(0xFF8B5CF6), 'coef. ≥ 4'),
