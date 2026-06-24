@@ -42,6 +42,7 @@ import '../../features/admin_groupe/screens/admin_modules_screen.dart';
 import '../../features/students/screens/inscriptions_screen.dart';
 import '../../features/students/screens/eleves_screen.dart';
 import '../../features/structure/screens/subjects_screen.dart';
+import '../../features/structure/screens/programmes_screen.dart';
 import '../../features/structure/screens/school_calendar_screen.dart';
 import '../../features/structure/screens/academic_structure_screen.dart';
 import '../../features/staff/screens/personnel_screen.dart';
@@ -427,6 +428,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const SchoolCalendarScreen(),
       ),
       GoRoute(path: Routes.matieres, builder: (_, _) => const SubjectsScreen()),
+      GoRoute(
+        path: Routes.programmes,
+        builder: (_, _) => const ProgrammesScreen(),
+      ),
       // Hôte générique : modules accordés mais pas encore dotés d'un écran.
       GoRoute(
         path: Routes.moduleHost,

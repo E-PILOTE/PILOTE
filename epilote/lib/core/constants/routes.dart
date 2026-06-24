@@ -67,6 +67,7 @@ class Routes {
   static const String classeDetail    = '/user/classes/:id';
   static const String calendrier      = '/user/calendrier'; // config direction (natif)
   static const String matieres        = '/user/matieres';
+  static const String programmes      = '/user/programmes';
   static const String notes           = '/user/notes';
   static const String bulletins       = '/user/bulletins';
   static const String presences       = '/user/presences';

@@ -22,6 +22,7 @@ import 'add_inscription_screen.dart';
 
 part 'inscriptions_list_parts.dart';
 part 'inscriptions_modals.dart';
+part 'inscriptions_pipeline_parts.dart';
 
 // ─── Accents de cycle ─────────────────────────────────────────────────────────
 const _kBlue = Color(0xFF0EA5E9);
@@ -455,9 +456,9 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                 children: [
                   _KpiSection(st: st),
                   const SizedBox(height: 26),
-                  // Répartition des effectifs (cycle/niveau/classe) = page Élèves
-                  // (effectif validé). Ici = guichet : on ne montre que le rythme
-                  // d'arrivée des dossiers + la file à traiter. Zéro doublon.
+                  // L'effectif VALIDÉ (cycle/niveau/classe) vit dans la page
+                  // Élèves. Ici = guichet des admissions : rythme global +
+                  // pipeline par dimension (dossiers en cours). Zéro doublon.
                   if (st.evolution.length >= 2) ...[
                     const AdminSectionTitle('Rythme des inscriptions',
                         icon: Icons.show_chart_rounded,
@@ -467,6 +468,8 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                     _EvolutionCard(points: st.evolution),
                     const SizedBox(height: 22),
                   ],
+                  const _PipelineCard(),
+                  const SizedBox(height: 22),
                   _FilterBar(
                     width: w - 48,
                     searchCtrl: _searchCtrl,

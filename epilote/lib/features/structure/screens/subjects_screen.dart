@@ -6,8 +6,8 @@ import '../../../data/models/subject_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
-import '../providers/academic_structure_provider.dart';
 import '../providers/subjects_provider.dart';
+import 'subject_detail_dialog.dart';
 
 part 'subjects_parts.dart';
 
@@ -30,9 +30,10 @@ Color _subjectColor(String slug) =>
 String _pl(int n, String s, String p) => '$n ${n <= 1 ? s : p}';
 
 // ════════════════════════════════════════════════════════════════════════════
-//  PAGE MATIÈRES — design plateforme (comme Inscriptions / Classes) : KPI →
-//  répartition par poids (coefficient) → filtres (recherche + tri + bascule
-//  table/cartes + « Nouvelle matière ») → table / cartes. Offline-first.
+//  PAGE MATIÈRES — catalogue CANONIQUE (design plateforme) : une matière = une
+//  identité unique. Son niveau / cycle / coefficient effectif vivent sur les
+//  affectations aux classes (`class_subjects`), visibles dans le détail. KPI →
+//  filtres → table / cartes. Offline-first.
 // ════════════════════════════════════════════════════════════════════════════
 class SubjectsScreen extends ConsumerWidget {
   const SubjectsScreen({super.key});
@@ -54,9 +55,8 @@ class _Body extends ConsumerStatefulWidget {
 class _BodyState extends ConsumerState<_Body> {
   final _search = TextEditingController();
   bool _isTable = true;
-  String _sort = 'name'; // name | coef
+  String _sort = 'name'; // name | coef | classes
   bool _sortAsc = true;
-  String? _levelFilter; // code niveau, ou '__tronc__', ou null
   final Set<String> _selected = {};
 
   @override
@@ -136,20 +136,16 @@ class _BodyState extends ConsumerState<_Body> {
   List<SubjectModel> _apply(List<SubjectModel> all) {
     final q = _search.text.trim().toLowerCase();
     final out = all.where((s) {
-      if (_levelFilter == '__tronc__' && !s.isTronc) return false;
-      if (_levelFilter != null &&
-          _levelFilter != '__tronc__' &&
-          (s.levelCode ?? '') != _levelFilter) {
-        return false;
-      }
       if (q.isEmpty) return true;
       return s.name.toLowerCase().contains(q) ||
-          s.levelLabel.toLowerCase().contains(q);
+          s.niveaux.any((n) => n.toLowerCase().contains(q));
     }).toList()
       ..sort((a, b) {
-        final c = _sort == 'coef'
-            ? a.coefficient.compareTo(b.coefficient)
-            : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        final c = switch (_sort) {
+          'coef' => a.coefficient.compareTo(b.coefficient),
+          'classes' => a.classCount.compareTo(b.classCount),
+          _ => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        };
         return _sortAsc ? c : -c;
       });
     return out;
@@ -160,6 +156,9 @@ class _BodyState extends ConsumerState<_Body> {
         barrierDismissible: false,
         builder: (_) => _SubjectForm(existing: existing),
       );
+
+  void _openDetail(SubjectModel s) =>
+      showSubjectDetail(context, s, _subjectColor(s.slug));
 
   @override
   Widget build(BuildContext context) {
@@ -176,40 +175,18 @@ class _BodyState extends ConsumerState<_Body> {
       ),
       data: (all) {
         final filtered = _apply(all);
-        // Total de coefficient par niveau (pour le poids relatif).
-        final coefByLevel = <String, int>{};
-        for (final s in all) {
-          final k = s.isTronc ? '__tronc__' : (s.levelCode ?? '');
-          coefByLevel[k] = (coefByLevel[k] ?? 0) + s.coefficient;
-        }
         return SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _Kpis(subjects: all),
-              if (all.isNotEmpty) ...[
-                const SizedBox(height: 22),
-                _NiveauBreakdown(
-                  subjects: all,
-                  active: _levelFilter,
-                  onPick: (k) => setState(
-                      () => _levelFilter = _levelFilter == k ? null : k),
-                ),
-              ],
               const SizedBox(height: 22),
               _SubjectFilterBar(
                 searchCtrl: _search,
                 isTable: _isTable,
                 sort: _sort,
                 sortAsc: _sortAsc,
-                levelFilter: _levelFilter,
-                levelsPresent: {
-                  if (all.any((s) => s.isTronc)) '__tronc__': 'Tronc commun',
-                  for (final e in (all.where((s) => !s.isTronc).toList()
-                        ..sort((a, b) => a.levelOrder.compareTo(b.levelOrder))))
-                    (e.levelCode ?? ''): (e.levelCode ?? ''),
-                },
                 onSearch: (_) => setState(() {}),
                 onSort: (s) => setState(() {
                   if (_sort == s) {
@@ -219,7 +196,6 @@ class _BodyState extends ConsumerState<_Body> {
                     _sortAsc = true;
                   }
                 }),
-                onLevel: (v) => setState(() => _levelFilter = v),
                 onToggleView: () => setState(() => _isTable = !_isTable),
                 onAdd: () => _openForm(),
               ),
@@ -241,8 +217,8 @@ class _BodyState extends ConsumerState<_Body> {
                     icon: Icons.menu_book_outlined,
                     title: 'Aucune matière',
                     message:
-                        'Ajoutez les matières enseignées et leurs coefficients '
-                        'pour préparer les évaluations et bulletins.',
+                        'Créez les matières enseignées ; vous les affecterez '
+                        'ensuite aux classes avec leur coefficient propre.',
                     actionLabel: 'Nouvelle matière',
                     onAction: () => _openForm(),
                   ),
@@ -259,7 +235,6 @@ class _BodyState extends ConsumerState<_Body> {
               else if (_isTable)
                 _SubjectTable(
                   rows: filtered,
-                  coefByLevel: coefByLevel,
                   sort: _sort,
                   sortAsc: _sortAsc,
                   selected: _selected,
@@ -275,13 +250,14 @@ class _BodyState extends ConsumerState<_Body> {
                   }),
                   onEdit: (s) => _openForm(existing: s),
                   onArchive: _archive,
+                  onOpen: _openDetail,
                 )
               else
                 _SubjectCards(
                   rows: filtered,
-                  coefByLevel: coefByLevel,
                   onEdit: (s) => _openForm(existing: s),
                   onArchive: _archive,
+                  onOpen: _openDetail,
                 ),
               const SizedBox(height: 24),
             ],
@@ -325,19 +301,18 @@ class _Kpis extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final n = subjects.length;
+    final assigned = subjects.where((e) => e.isAssigned).length;
+    final links = subjects.fold<int>(0, (s, e) => s + e.classCount);
     final totalCoef = subjects.fold<int>(0, (s, e) => s + e.coefficient);
     final avg = n == 0 ? 0.0 : totalCoef / n;
-    final niveaux = subjects.where((e) => !e.isTronc).map((e) => e.levelCode).toSet().length;
-    final tronc = subjects.where((e) => e.isTronc).length;
-    final fond = subjects.where((e) => e.coefficient >= 4).length; // « fondamentales »
+    final fond = subjects.where((e) => e.coefficient >= 4).length;
     final items = <(IconData, String, String, Color, String?)>[
-      (Icons.menu_book_outlined, 'Matières', '$n', kNavy,
-          'définitions niveau × matière'),
-      (Icons.stairs_outlined, 'Niveaux couverts', '$niveaux',
-          const Color(0xFF0EA5E9), null),
-      (Icons.public_outlined, 'Tronc commun', '$tronc', kGreen,
-          'toutes classes'),
-      (Icons.functions_rounded, 'Coef. moyen', avg.toStringAsFixed(1),
+      (Icons.menu_book_outlined, 'Matières', '$n', kNavy, 'catalogue canonique'),
+      (Icons.playlist_add_check_circle_outlined, 'Affectées', '$assigned',
+          kGreen, 'dans ≥ 1 classe'),
+      (Icons.account_tree_outlined, 'Affectations', '$links',
+          const Color(0xFF0EA5E9), 'liens matière × classe'),
+      (Icons.functions_rounded, 'Coef. moyen (déf.)', avg.toStringAsFixed(1),
           const Color(0xFFF59E0B), null),
       (Icons.workspace_premium_outlined, 'Fondamentales', '$fond',
           const Color(0xFF8B5CF6), 'coef. ≥ 4'),

@@ -1,8 +1,10 @@
-/// Matière scolaire (table `subjects`, offline-first). Une matière est portée
-/// par un NIVEAU (`level_id` → school_levels) avec son propre coefficient ;
-/// `level_id` NULL = tronc commun (toutes les classes). Le coefficient varie
-/// donc d'un niveau à l'autre (Congo). Les champs `level*`/`cycleCode` sont
-/// dérivés d'un JOIN (transitoires, non persistés).
+/// Matière scolaire CANONIQUE (table `subjects`, offline-first). Une matière est
+/// une IDENTITÉ unique (ex. « Mathématiques »), réutilisée dans tout
+/// l'établissement. Son niveau, son cycle et son coefficient EFFECTIF ne lui
+/// appartiennent pas : ils sont portés par l'AFFECTATION à chaque classe
+/// (`class_subjects`). `coefficient` n'est qu'un coefficient PAR DÉFAUT, proposé
+/// au moment de l'affectation. `classCount` / `niveaux` sont dérivés des
+/// affectations (transitoires, via sous-requêtes — non persistés).
 class SubjectModel {
   const SubjectModel({
     required this.id,
@@ -12,12 +14,9 @@ class SubjectModel {
     required this.coefficient,
     required this.isActive,
     this.schoolId,
-    this.levelId,
     this.displayOrder = 0,
-    this.levelCode,
-    this.levelName,
-    this.levelOrder = 999,
-    this.cycleCode,
+    this.classCount = 0,
+    this.niveaux = const [],
   });
 
   factory SubjectModel.fromMap(Map<String, dynamic> m) => SubjectModel(
@@ -28,34 +27,36 @@ class SubjectModel {
         coefficient:  (m['coefficient'] as num?)?.toInt() ?? 1,
         isActive:     _b(m['is_active']),
         schoolId:     m['school_id'] as String?,
-        levelId:      m['level_id'] as String?,
         displayOrder: (m['display_order'] as num?)?.toInt() ?? 0,
-        levelCode:    (m['level_code'] as String?)?.trim().isEmpty ?? true
-            ? null
-            : (m['level_code'] as String).trim(),
-        levelName:    m['level_name'] as String?,
-        levelOrder:   (m['level_order'] as num?)?.toInt() ?? 999,
-        cycleCode:    m['cycle_code'] as String?,
+        classCount:   (m['class_count'] as num?)?.toInt() ?? 0,
+        niveaux:      _split(m['niveaux']),
       );
 
   final String  id;
   final String  groupId;
   final String  name;
   final String  slug;
-  final int     coefficient;
+  final int     coefficient; // coef PAR DÉFAUT (proposé à l'affectation)
   final bool    isActive;
   final String? schoolId;
-  final String? levelId;
   final int     displayOrder;
 
-  // ── Dérivés du JOIN school_levels (× education_cycles) ──────────────────────
-  final String? levelCode;   // ex. « 6e », « Tle » ; NULL = tronc commun
-  final String? levelName;
-  final int     levelOrder;
-  final String? cycleCode;
+  // ── Dérivés des affectations (class_subjects) ───────────────────────────────
+  final int          classCount; // nb de classes où la matière est dispensée
+  final List<String> niveaux;    // codes des niveaux où elle est dispensée
 
-  bool get isTronc => levelId == null || (levelCode ?? '').isEmpty;
-  String get levelLabel => isTronc ? 'Tronc commun' : levelCode!;
+  bool get isAssigned => classCount > 0;
+  String get coefLabel => 'Coef. $coefficient';
+
+  static List<String> _split(Object? v) {
+    if (v is! String || v.trim().isEmpty) return const [];
+    return v
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+  }
 
   static bool _b(Object? v) => v == 1 || v == true;
 }

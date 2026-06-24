@@ -222,6 +222,94 @@ final inscriptionsDataProvider =
 DateTime? _d(Object? v) =>
     (v is String && v.isNotEmpty) ? DateTime.tryParse(v) : null;
 
+// ─── Évolution du pipeline par dimension (cycle / niveau / classe) ───────────
+// Le pipeline = dossiers EN COURS (statut ≠ validé ; rejets exclus). Pour chaque
+// catégorie de la dimension choisie : total + arrivées par mois (rythme). Sert au
+// graphe d'évolution multi-séries ET aux compteurs par catégorie. 100% dérivé des
+// lignes déjà chargées — distinct de la page Élèves (effectif VALIDÉ).
+class PipelineCat {
+  const PipelineCat(this.key, this.label, this.cycleCode, this.order, this.total,
+      this.monthly);
+  final String key, label, cycleCode;
+  final int order, total;
+  final List<int> monthly; // aligné sur PipelineEvolution.months
+}
+
+class PipelineEvolution {
+  const PipelineEvolution(this.months, this.cats);
+  final List<String> months;     // « MM/yyyy » chronologique
+  final List<PipelineCat> cats;  // trié cycle → ordre niveau → total
+  int get grandTotal => cats.fold(0, (s, c) => s + c.total);
+  static const empty = PipelineEvolution([], []);
+}
+
+/// Évolution du pipeline pour la dimension [dim] = 'cycle' | 'niveau' | 'classe'.
+final pipelineEvolutionProvider =
+    Provider.autoDispose.family<PipelineEvolution, String>((ref, dim) {
+  final rows = ref.watch(inscriptionsDataProvider).valueOrNull ?? const [];
+
+  String monthKey(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}';
+
+  final monthsSet = <String>{};
+  for (final r in rows) {
+    if (r.status == 'rejected') continue;
+    final d = r.enrollmentDate;
+    if (d != null) monthsSet.add(monthKey(d));
+  }
+  final months = monthsSet.toList()..sort();
+  final monthIdx = {for (var i = 0; i < months.length; i++) months[i]: i};
+
+  final monthly = <String, List<int>>{};
+  final totals = <String, int>{};
+  final meta = <String, (String, String, int)>{}; // key → (label, cycle, order)
+
+  for (final r in rows) {
+    if (r.status == 'rejected') continue;
+    String key, label;
+    final cycle = r.cycle.code;
+    int order;
+    switch (dim) {
+      case 'niveau':
+        final lc = r.levelCode;
+        if (lc == null || lc.isEmpty) continue;
+        key = '$cycle/$lc';
+        label = lc;
+        order = r.levelOrder;
+      case 'classe':
+        if (r.className.isEmpty || r.className == '—') continue;
+        key = r.className;
+        label = r.className;
+        order = r.levelOrder;
+      default: // cycle
+        key = cycle;
+        label = r.cycle.label;
+        order = r.cycle.order;
+    }
+    monthly.putIfAbsent(key, () => List<int>.filled(months.length, 0));
+    meta[key] = (label, cycle, order);
+    totals[key] = (totals[key] ?? 0) + 1;
+    final d = r.enrollmentDate;
+    if (d != null) {
+      final mi = monthIdx[monthKey(d)];
+      if (mi != null) monthly[key]![mi]++;
+    }
+  }
+
+  final cats = <PipelineCat>[
+    for (final e in monthly.entries)
+      PipelineCat(e.key, meta[e.key]!.$1, meta[e.key]!.$2, meta[e.key]!.$3,
+          totals[e.key] ?? 0, e.value),
+  ]..sort((a, b) {
+      final c = cycleOrderOf(a.cycleCode).compareTo(cycleOrderOf(b.cycleCode));
+      if (c != 0) return c;
+      final o = a.order.compareTo(b.order);
+      return o != 0 ? o : b.total.compareTo(a.total);
+    });
+
+  return PipelineEvolution(months, cats);
+});
+
 // ─── Dossier complet d'un élève (détail / modification) ──────────────────────
 class StudentTutorInfo {
   const StudentTutorInfo({

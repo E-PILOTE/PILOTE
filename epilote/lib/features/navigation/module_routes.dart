@@ -16,6 +16,7 @@ const Map<String, String> _moduleRoutes = {
   'niveaux':          Routes.structure,
   'classes':          Routes.classes,
   'matieres':         Routes.matieres,
+  'programmes':       Routes.programmes,
   'notes':            Routes.notes,
   'bulletins':        Routes.bulletins,
   'presences-eleves': Routes.presences,

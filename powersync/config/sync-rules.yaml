@@ -102,6 +102,8 @@ bucket_definitions:
       - SELECT * FROM academic_years WHERE group_id = bucket.gid
       - SELECT * FROM trimesters WHERE group_id = bucket.gid
       - SELECT * FROM sequences WHERE group_id = bucket.gid
+      # Programmes officiels du GROUPE (school_id NULL = curriculum partagé)
+      - SELECT * FROM school_programs WHERE group_id = bucket.gid AND school_id IS NULL
       # Catalogue de niveaux du groupe (rattachés à un cycle) → structure scolaire
       - SELECT * FROM school_levels WHERE group_id = bucket.gid AND is_active = true
       # Variantes niveaux/filières PROPRES au groupe (référentiel global = global_catalog)
@@ -142,6 +144,10 @@ bucket_definitions:
       - SELECT * FROM students WHERE school_id = bucket.sid AND is_active = true
       - SELECT * FROM teacher_subjects WHERE school_id = bucket.sid
       - SELECT * FROM subjects WHERE school_id = bucket.sid AND is_active = true
+      # Programme par classe : coefficient effectif (override) + volume horaire
+      - SELECT * FROM class_subjects WHERE school_id = bucket.sid
+      # Programmes pédagogiques (syllabus matière × niveau, officiels + perso)
+      - SELECT * FROM school_programs WHERE school_id = bucket.sid
       # Quotidien
       - SELECT * FROM timetable_slots WHERE school_id = bucket.sid AND is_active = true
       - SELECT * FROM lesson_entries WHERE school_id = bucket.sid

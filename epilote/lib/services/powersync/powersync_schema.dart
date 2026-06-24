@@ -390,6 +390,36 @@ const schema = Schema([
     Column.text('updated_at'),
   ]),
 
+  // Programme par classe : coefficient EFFECTIF (override) + volume horaire
+  // d'une matière dans une classe donnée. coefficient NULL = hérite du niveau.
+  Table('class_subjects', [
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('class_id'),
+    Column.text('subject_id'),
+    Column.integer('coefficient'),
+    Column.integer('weekly_hours'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  // Programme pédagogique / syllabus d'une matière à un niveau (optionnellement
+  // par trimestre) : titre + contenu, officiel ou personnalisé.
+  Table('school_programs', [
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('level_id'),
+    Column.text('subject_id'),
+    Column.text('academic_year_id'),
+    Column.text('trimester_id'),
+    Column.text('title'),
+    Column.text('content'),
+    Column.integer('is_official'),
+    Column.text('created_by'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
   // ════════════════════════════════════════════════════════════════════════
   // PHASE 3 — QUOTIDIEN
   // ════════════════════════════════════════════════════════════════════════
