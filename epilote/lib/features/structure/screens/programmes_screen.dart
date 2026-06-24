@@ -11,6 +11,7 @@ import '../providers/programmes_provider.dart';
 import '../providers/subjects_provider.dart';
 
 part 'programmes_parts.dart';
+part 'programmes_cycle_view.dart';
 part 'programmes_form.dart';
 
 const _kSlug = 'programmes';
