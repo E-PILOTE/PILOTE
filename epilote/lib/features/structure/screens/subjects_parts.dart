@@ -243,6 +243,9 @@ class _SubjectTable extends ConsumerWidget {
     required this.rows,
     required this.sort,
     required this.sortAsc,
+    required this.selected,
+    required this.onSelect,
+    required this.onSelectAll,
     required this.onSort,
     required this.onEdit,
     required this.onArchive,
@@ -250,6 +253,9 @@ class _SubjectTable extends ConsumerWidget {
   final List<SubjectModel> rows;
   final String sort;
   final bool sortAsc;
+  final Set<String> selected;
+  final void Function(String, bool) onSelect;
+  final ValueChanged<bool> onSelectAll;
   final ValueChanged<String> onSort;
   final ValueChanged<SubjectModel> onEdit, onArchive;
 
@@ -257,16 +263,23 @@ class _SubjectTable extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final canEdit = ref.watch(canProvider((slug: _kSlug, action: 'update')));
     final canDelete = ref.watch(canProvider((slug: _kSlug, action: 'delete')));
+    final canBulk = canEdit || canDelete;
+    final allSel =
+        rows.isNotEmpty && rows.every((s) => selected.contains(s.id));
     return AdminCard(
       padding: EdgeInsets.zero,
       child: Column(children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: const BoxDecoration(
             color: kSurface,
             borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
           ),
           child: Row(children: [
+            if (canBulk) ...[
+              _Check(value: allSel, onChanged: onSelectAll),
+              const SizedBox(width: 6),
+            ],
             _Th('MATIÈRE',
                 flex: 5,
                 asc: sort == 'name' ? sortAsc : null,
@@ -284,12 +297,34 @@ class _SubjectTable extends ConsumerWidget {
             last: i == rows.length - 1,
             canEdit: canEdit,
             canDelete: canDelete,
+            canBulk: canBulk,
+            selected: selected.contains(rows[i].id),
+            onSelect: (v) => onSelect(rows[i].id, v),
             onEdit: () => onEdit(rows[i]),
             onArchive: () => onArchive(rows[i]),
           ),
       ]),
     );
   }
+}
+
+class _Check extends StatelessWidget {
+  const _Check({required this.value, required this.onChanged});
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: 24,
+        height: 24,
+        child: Checkbox(
+          value: value,
+          onChanged: (v) => onChanged(v ?? false),
+          activeColor: kNavy,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.compact,
+          side: const BorderSide(color: kTextMuted, width: 1.5),
+        ),
+      );
 }
 
 class _Th extends StatelessWidget {
@@ -327,11 +362,15 @@ class _SubjectRow extends StatelessWidget {
     required this.last,
     required this.canEdit,
     required this.canDelete,
+    required this.canBulk,
+    required this.selected,
+    required this.onSelect,
     required this.onEdit,
     required this.onArchive,
   });
   final SubjectModel s;
-  final bool last, canEdit, canDelete;
+  final bool last, canEdit, canDelete, canBulk, selected;
+  final ValueChanged<bool> onSelect;
   final VoidCallback onEdit, onArchive;
 
   @override
@@ -340,10 +379,15 @@ class _SubjectRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
+        color: selected ? kNavy.withValues(alpha: 0.04) : null,
         border:
             last ? null : const Border(bottom: BorderSide(color: kBorder)),
       ),
       child: Row(children: [
+        if (canBulk) ...[
+          _Check(value: selected, onChanged: onSelect),
+          const SizedBox(width: 6),
+        ],
         Expanded(
           flex: 5,
           child: Row(children: [
@@ -630,6 +674,76 @@ class _StepBtn extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: kBorder)),
             child: Icon(icon, size: 20, color: kNavy),
+          ),
+        ),
+      );
+}
+
+// ─── Barre d'actions groupées ────────────────────────────────────────────────
+class _SubjectBulkBar extends StatelessWidget {
+  const _SubjectBulkBar({
+    required this.count,
+    required this.onArchive,
+    required this.onExport,
+    required this.onClear,
+  });
+  final int count;
+  final VoidCallback onArchive, onExport, onClear;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration:
+          BoxDecoration(color: kNavy, borderRadius: BorderRadius.circular(10)),
+      child: Row(children: [
+        const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+        const SizedBox(width: 10),
+        Text('$count sélectionnée${count > 1 ? 's' : ''}',
+            style: const TextStyle(
+                color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w700)),
+        const Spacer(),
+        _BulkBtn(
+            icon: Icons.archive_outlined, label: 'Archiver', onTap: onArchive),
+        _BulkBtn(
+            icon: Icons.download_rounded, label: 'Exporter', onTap: onExport),
+        const SizedBox(width: 4),
+        IconButton(
+          tooltip: 'Désélectionner',
+          icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 18),
+          onPressed: onClear,
+        ),
+      ]),
+    );
+  }
+}
+
+class _BulkBtn extends StatelessWidget {
+  const _BulkBtn(
+      {required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(left: 6),
+        child: Material(
+          color: Colors.white.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(icon, size: 15, color: Colors.white),
+                const SizedBox(width: 6),
+                Text(label,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600)),
+              ]),
+            ),
           ),
         ),
       );

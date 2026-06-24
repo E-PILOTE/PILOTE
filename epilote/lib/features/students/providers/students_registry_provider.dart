@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -93,8 +96,10 @@ final studentsRegistryProvider =
                c.level_order    AS level_order,
                c.filiere_label  AS filiere_label
         FROM   students s
-        LEFT JOIN class_enrollments ce
-               ON ce.student_id = s.id AND ce.academic_year_id = ?
+        JOIN   class_enrollments ce
+               ON ce.student_id = s.id
+              AND ce.academic_year_id = ?
+              AND ce.status = 'active'
         LEFT JOIN classes c ON c.id = ce.class_id
         WHERE  s.school_id = ? AND s.is_active = 1
         ORDER  BY s.last_name, s.first_name
@@ -128,3 +133,30 @@ final studentsRegistryProvider =
               ),
           ]);
 });
+
+// ─── Export CSV de l'effectif ────────────────────────────────────────────────
+String _csv(String? v) => '"${(v ?? '').replaceAll('"', '""')}"';
+
+/// Écrit l'effectif (filtré) en CSV (séparateur `;`, BOM UTF-8 pour Excel FR)
+/// dans le dossier Documents de l'appareil. Retourne le chemin.
+Future<String> exportStudentsCsv(List<StudentRow> rows) async {
+  final b = StringBuffer();
+  b.writeln(['Matricule', 'Nom', 'Prénom', 'Sexe', 'Âge', 'Classe', 'Niveau',
+    'Filière', 'Interne', 'Boursier']
+      .map(_csv)
+      .join(';'));
+  for (final r in rows) {
+    b.writeln([
+      r.matricule, r.lastName, r.firstName,
+      r.gender ?? '', r.age?.toString() ?? '', r.className ?? '',
+      r.levelCode ?? '', r.filiereLabel ?? '',
+      r.isBoarder ? 'Oui' : 'Non',
+      (r.hasScholarship || r.hasSocialAid) ? 'Oui' : 'Non',
+    ].map(_csv).join(';'));
+  }
+  final dir = await getApplicationDocumentsDirectory();
+  final ts = DateTime.now().toIso8601String().substring(0, 10);
+  final file = File('${dir.path}/eleves_$ts.csv');
+  await file.writeAsString('﻿${b.toString()}');
+  return file.path;
+}

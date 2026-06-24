@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../data/models/subject_model.dart';
@@ -101,4 +104,19 @@ Future<void> archiveSubject(String id) async {
     'UPDATE subjects SET is_active = 0, updated_at = ? WHERE id = ?',
     [DateTime.now().toIso8601String(), id],
   );
+}
+
+/// Export CSV des matières (séparateur `;`, BOM UTF-8). Retourne le chemin.
+Future<String> exportSubjectsCsv(List<SubjectModel> rows) async {
+  String cell(String? v) => '"${(v ?? '').replaceAll('"', '""')}"';
+  final b = StringBuffer();
+  b.writeln(['Matière', 'Coefficient'].map(cell).join(';'));
+  for (final r in rows) {
+    b.writeln([r.name, '${r.coefficient}'].map(cell).join(';'));
+  }
+  final dir = await getApplicationDocumentsDirectory();
+  final ts = DateTime.now().toIso8601String().substring(0, 10);
+  final file = File('${dir.path}/matieres_$ts.csv');
+  await file.writeAsString('﻿${b.toString()}');
+  return file.path;
 }

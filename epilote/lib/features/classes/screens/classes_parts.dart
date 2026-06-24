@@ -210,6 +210,9 @@ class _ClassTable extends StatelessWidget {
     required this.teachers,
     required this.sortAsc,
     required this.readOnly,
+    required this.selected,
+    required this.onSelect,
+    required this.onSelectAll,
     required this.onSort,
     required this.onView,
     required this.onEdit,
@@ -217,21 +220,30 @@ class _ClassTable extends StatelessWidget {
   final List<ClassModel> rows;
   final Map<String, String> teachers;
   final bool sortAsc, readOnly;
+  final Set<String> selected;
+  final void Function(String, bool) onSelect;
+  final ValueChanged<bool> onSelectAll;
   final VoidCallback onSort;
   final ValueChanged<ClassModel> onView, onEdit;
 
   @override
   Widget build(BuildContext context) {
+    final allSel =
+        rows.isNotEmpty && rows.every((c) => selected.contains(c.id));
     return AdminCard(
       padding: EdgeInsets.zero,
       child: Column(children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: const BoxDecoration(
             color: kSurface,
             borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
           ),
           child: Row(children: [
+            if (!readOnly) ...[
+              _Check(value: allSel, onChanged: onSelectAll),
+              const SizedBox(width: 6),
+            ],
             const _Th('CLASSE', flex: 3),
             _Th('CYCLE · NIVEAU', flex: 3, onTap: onSort, asc: sortAsc),
             const _Th('FILIÈRE', flex: 2),
@@ -247,12 +259,33 @@ class _ClassTable extends StatelessWidget {
             teacher: teachers[rows[i].mainTeacherId],
             last: i == rows.length - 1,
             readOnly: readOnly,
+            selected: selected.contains(rows[i].id),
+            onSelect: (v) => onSelect(rows[i].id, v),
             onView: () => onView(rows[i]),
             onEdit: () => onEdit(rows[i]),
           ),
       ]),
     );
   }
+}
+
+class _Check extends StatelessWidget {
+  const _Check({required this.value, required this.onChanged});
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: 24,
+        height: 24,
+        child: Checkbox(
+          value: value,
+          onChanged: (v) => onChanged(v ?? false),
+          activeColor: kNavy,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.compact,
+          side: const BorderSide(color: kTextMuted, width: 1.5),
+        ),
+      );
 }
 
 class _Th extends StatelessWidget {
@@ -292,12 +325,15 @@ class _ClassRow extends StatelessWidget {
     required this.teacher,
     required this.last,
     required this.readOnly,
+    required this.selected,
+    required this.onSelect,
     required this.onView,
     required this.onEdit,
   });
   final ClassModel c;
   final String? teacher;
-  final bool last, readOnly;
+  final bool last, readOnly, selected;
+  final ValueChanged<bool> onSelect;
   final VoidCallback onView, onEdit;
 
   @override
@@ -308,11 +344,16 @@ class _ClassRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
+          color: selected ? kNavy.withValues(alpha: 0.04) : null,
           border: last
               ? null
               : const Border(bottom: BorderSide(color: kBorder)),
         ),
         child: Row(children: [
+          if (!readOnly) ...[
+            _Check(value: selected, onChanged: onSelect),
+            const SizedBox(width: 6),
+          ],
           Expanded(
             flex: 3,
             child: Row(children: [
@@ -966,4 +1007,251 @@ class _InfoNote extends StatelessWidget {
           ),
         ]),
       );
+}
+
+// ─── Barre d'actions groupées ────────────────────────────────────────────────
+class _ClassBulkBar extends StatelessWidget {
+  const _ClassBulkBar({
+    required this.count,
+    required this.onArchive,
+    required this.onExport,
+    required this.onClear,
+  });
+  final int count;
+  final VoidCallback onArchive, onExport, onClear;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration:
+          BoxDecoration(color: kNavy, borderRadius: BorderRadius.circular(10)),
+      child: Row(children: [
+        const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+        const SizedBox(width: 10),
+        Text('$count sélectionnée${count > 1 ? 's' : ''}',
+            style: const TextStyle(
+                color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w700)),
+        const Spacer(),
+        _BulkBtn(
+            icon: Icons.archive_outlined, label: 'Archiver', onTap: onArchive),
+        _BulkBtn(
+            icon: Icons.download_rounded, label: 'Exporter', onTap: onExport),
+        const SizedBox(width: 4),
+        IconButton(
+          tooltip: 'Désélectionner',
+          icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 18),
+          onPressed: onClear,
+        ),
+      ]),
+    );
+  }
+}
+
+class _BulkBtn extends StatelessWidget {
+  const _BulkBtn(
+      {required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(left: 6),
+        child: Material(
+          color: Colors.white.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(icon, size: 15, color: Colors.white),
+                const SizedBox(width: 6),
+                Text(label,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600)),
+              ]),
+            ),
+          ),
+        ),
+      );
+}
+
+// ─── Graphes : classes par cycle (donut) + occupation par niveau (barres) ────
+class _ClassCharts extends StatelessWidget {
+  const _ClassCharts({required this.classes});
+  final List<ClassModel> classes;
+
+  @override
+  Widget build(BuildContext context) {
+    final byCycle = <String, int>{};
+    for (final c in classes) {
+      byCycle[c.cycleCode ?? ''] = (byCycle[c.cycleCode ?? ''] ?? 0) + 1;
+    }
+    final slices = (byCycle.entries.toList()
+          ..sort((a, b) => _cycOrder(a.key).compareTo(_cycOrder(b.key))))
+        .map((e) => _CycleSlice(_cycName(e.key), e.value, _cycColor(e.key)))
+        .toList();
+
+    // Occupation par niveau (effectif / capacité).
+    final lvl = <String, ({int n, int cap, int order, String cycle})>{};
+    for (final c in classes) {
+      final lc = c.levelCode ?? '';
+      if (lc.isEmpty) continue;
+      final cur = lvl[lc];
+      lvl[lc] = (
+        n: (cur?.n ?? 0) + (c.studentCount ?? 0),
+        cap: (cur?.cap ?? 0) + (c.capacity ?? 0),
+        order: c.levelOrder ?? 999,
+        cycle: c.cycleCode ?? '',
+      );
+    }
+    final levels = lvl.entries.toList()
+      ..sort((a, b) {
+        final cy = _cycOrder(a.value.cycle).compareTo(_cycOrder(b.value.cycle));
+        return cy != 0 ? cy : a.value.order.compareTo(b.value.order);
+      });
+
+    return LayoutBuilder(builder: (ctx, cns) {
+      final wide = cns.maxWidth >= 760;
+      final donut = _MiniChartCard(
+        title: 'Classes par cycle',
+        icon: Icons.donut_large_rounded,
+        child: SizedBox(
+          height: 200,
+          child: SfCircularChart(
+            margin: EdgeInsets.zero,
+            legend: const Legend(
+                isVisible: true,
+                overflowMode: LegendItemOverflowMode.wrap,
+                position: LegendPosition.bottom),
+            series: <CircularSeries>[
+              DoughnutSeries<_CycleSlice, String>(
+                dataSource: slices,
+                xValueMapper: (s, _) => s.label,
+                yValueMapper: (s, _) => s.value,
+                pointColorMapper: (s, _) => s.color,
+                innerRadius: '62%',
+                dataLabelSettings: const DataLabelSettings(isVisible: true),
+              ),
+            ],
+          ),
+        ),
+      );
+      final bars = _MiniChartCard(
+        title: 'Occupation par niveau',
+        icon: Icons.bar_chart_rounded,
+        child: levels.isEmpty
+            ? const SizedBox(
+                height: 60,
+                child: Center(child: Text('—', style: TextStyle(color: kTextMuted))))
+            : Column(
+                children: [
+                  for (final e in levels)
+                    _OccBar(
+                      label: e.key,
+                      n: e.value.n,
+                      cap: e.value.cap,
+                      cycle: e.value.cycle,
+                    ),
+                ],
+              ),
+      );
+      if (wide) {
+        return IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Expanded(child: donut),
+            const SizedBox(width: 14),
+            Expanded(child: bars),
+          ]),
+        );
+      }
+      return Column(children: [donut, const SizedBox(height: 14), bars]);
+    });
+  }
+}
+
+class _CycleSlice {
+  const _CycleSlice(this.label, this.value, this.color);
+  final String label;
+  final int value;
+  final Color color;
+}
+
+class _MiniChartCard extends StatelessWidget {
+  const _MiniChartCard(
+      {required this.title, required this.icon, required this.child});
+  final String title;
+  final IconData icon;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => AdminCard(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(icon, size: 16, color: kNavy),
+            const SizedBox(width: 8),
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w800, color: kNavy)),
+          ]),
+          const SizedBox(height: 14),
+          child,
+        ]),
+      );
+}
+
+class _OccBar extends StatelessWidget {
+  const _OccBar(
+      {required this.label,
+      required this.n,
+      required this.cap,
+      required this.cycle});
+  final String label;
+  final int n, cap;
+  final String cycle;
+  @override
+  Widget build(BuildContext context) {
+    final ratio = cap == 0 ? null : n / cap;
+    final over = cap > 0 && n > cap;
+    final col = over ? kRed : _cycColor(cycle);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(children: [
+        SizedBox(
+          width: 56,
+          child: Text(label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: kTextPrimary)),
+        ),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: (ratio ?? 0).clamp(0.02, 1.0),
+              minHeight: 16,
+              backgroundColor: kSurface,
+              valueColor: AlwaysStoppedAnimation(col.withValues(alpha: 0.85)),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 64,
+          child: Text(cap == 0 ? '$n' : '$n / $cap',
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: over ? kRed : kTextPrimary)),
+        ),
+      ]),
+    );
+  }
 }

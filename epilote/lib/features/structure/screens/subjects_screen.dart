@@ -55,11 +55,80 @@ class _BodyState extends ConsumerState<_Body> {
   bool _isTable = true;
   String _sort = 'name'; // name | coef
   bool _sortAsc = true;
+  final Set<String> _selected = {};
 
   @override
   void dispose() {
     _search.dispose();
     super.dispose();
+  }
+
+  void _toggle(String id, bool sel) => setState(() {
+        if (sel) {
+          _selected.add(id);
+        } else {
+          _selected.remove(id);
+        }
+      });
+  void _toggleAll(List<SubjectModel> rows, bool sel) => setState(() {
+        if (sel) {
+          _selected.addAll(rows.map((s) => s.id));
+        } else {
+          _selected.removeAll(rows.map((s) => s.id));
+        }
+      });
+  void _clearSel() => setState(_selected.clear);
+
+  void _snack(String m, Color c) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(m), backgroundColor: c));
+  }
+
+  Future<void> _bulkArchive(List<SubjectModel> rows) async {
+    final targets = rows.where((s) => _selected.contains(s.id)).toList();
+    if (targets.isEmpty) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text('Archiver ${targets.length} matière(s) ?'),
+        content: const Text(
+            'Elles ne seront plus proposées. Les notes existantes sont conservées.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Retour')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: kRed),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Archiver'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    var n = 0;
+    for (final s in targets) {
+      try {
+        await archiveSubject(s.id);
+        n++;
+      } catch (_) {}
+    }
+    _clearSel();
+    _snack('$n matière(s) archivée(s)', kGreen);
+  }
+
+  Future<void> _bulkExport(List<SubjectModel> rows) async {
+    final targets = rows.where((s) => _selected.contains(s.id)).toList();
+    final list = targets.isEmpty ? rows : targets;
+    if (list.isEmpty) return;
+    try {
+      final path = await exportSubjectsCsv(list);
+      _snack('Export CSV : ${list.length} ligne(s) → $path', kGreen);
+    } catch (e) {
+      _snack('Erreur export : $e', kRed);
+    }
   }
 
   List<SubjectModel> _apply(List<SubjectModel> all) {
@@ -132,7 +201,15 @@ class _BodyState extends ConsumerState<_Body> {
                 onAdd: () => _openForm(),
               ),
               const SizedBox(height: 16),
-              _ResultHeader(total: all.length, filtered: filtered.length),
+              if (_selected.isNotEmpty)
+                _SubjectBulkBar(
+                  count: _selected.length,
+                  onArchive: () => _bulkArchive(filtered),
+                  onExport: () => _bulkExport(filtered),
+                  onClear: _clearSel,
+                )
+              else
+                _ResultHeader(total: all.length, filtered: filtered.length),
               const SizedBox(height: 12),
               if (all.isEmpty)
                 Padding(
@@ -161,6 +238,9 @@ class _BodyState extends ConsumerState<_Body> {
                   rows: filtered,
                   sort: _sort,
                   sortAsc: _sortAsc,
+                  selected: _selected,
+                  onSelect: _toggle,
+                  onSelectAll: (v) => _toggleAll(filtered, v),
                   onSort: (s) => setState(() {
                     if (_sort == s) {
                       _sortAsc = !_sortAsc;

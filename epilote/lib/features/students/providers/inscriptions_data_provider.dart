@@ -184,6 +184,7 @@ final inscriptionsDataProvider =
         JOIN   students s ON s.id = ce.student_id
         LEFT JOIN classes c ON c.id = ce.class_id
         WHERE  ce.school_id = ? AND ce.academic_year_id = ?
+        AND    ce.status != 'active'
         ORDER  BY s.last_name, s.first_name
         ''',
         parameters: [schoolId, yearId],

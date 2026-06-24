@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../core/constants/routes.dart';
 import '../../../core/widgets/admin_ui.dart';
@@ -74,6 +75,7 @@ class _BodyState extends ConsumerState<_Body> {
   String? _filiere;
   bool _isTable = true;
   bool _sortAsc = true;
+  final Set<String> _selected = {};
 
   @override
   void dispose() {
@@ -85,6 +87,81 @@ class _BodyState extends ConsumerState<_Body> {
         _search.clear();
         _cycle = _level = _filiere = null;
       });
+
+  void _toggle(String id, bool sel) => setState(() {
+        if (sel) {
+          _selected.add(id);
+        } else {
+          _selected.remove(id);
+        }
+      });
+  void _toggleAll(List<ClassModel> rows, bool sel) => setState(() {
+        if (sel) {
+          _selected.addAll(rows.map((c) => c.id));
+        } else {
+          _selected.removeAll(rows.map((c) => c.id));
+        }
+      });
+  void _clearSel() => setState(_selected.clear);
+
+  Future<void> _bulkArchive(List<ClassModel> rows) async {
+    final targets = rows.where((c) => _selected.contains(c.id)).toList();
+    if (targets.isEmpty) return;
+    final withStudents = targets.where((c) => (c.studentCount ?? 0) > 0).length;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text('Archiver ${targets.length} classe(s) ?'),
+        content: Text(withStudents > 0
+            ? '$withStudents classe(s) contiennent encore des élèves. '
+                'Les inscriptions sont conservées mais la classe sera masquée.'
+            : 'Les classes sélectionnées seront masquées.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Retour')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: kRed),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Archiver'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    var n = 0;
+    for (final c in targets) {
+      try {
+        await archiveClass(c.id);
+        n++;
+      } catch (_) {}
+    }
+    _clearSel();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('$n classe(s) archivée(s)'), backgroundColor: kGreen));
+    }
+  }
+
+  Future<void> _bulkExport(List<ClassModel> rows) async {
+    final targets = rows.where((c) => _selected.contains(c.id)).toList();
+    final list = targets.isEmpty ? rows : targets;
+    if (list.isEmpty) return;
+    try {
+      final path = await exportClassesCsv(list);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Export CSV : ${list.length} ligne(s) → $path'),
+            backgroundColor: kGreen));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur export : $e'), backgroundColor: kRed));
+      }
+    }
+  }
 
   List<ClassModel> _apply(List<ClassModel> all, Map<String, String> teachers) {
     final q = _search.text.trim().toLowerCase();
@@ -159,6 +236,10 @@ class _BodyState extends ConsumerState<_Body> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _Kpis(classes: all),
+              if (all.isNotEmpty) ...[
+                const SizedBox(height: 22),
+                _ClassCharts(classes: all),
+              ],
               const SizedBox(height: 22),
               _ClassFilterBar(
                 searchCtrl: _search,
@@ -182,7 +263,15 @@ class _BodyState extends ConsumerState<_Body> {
                 onAdd: () => _openForm(),
               ),
               const SizedBox(height: 16),
-              _ResultHeader(total: all.length, filtered: filtered.length),
+              if (_selected.isNotEmpty && !readOnly)
+                _ClassBulkBar(
+                  count: _selected.length,
+                  onArchive: () => _bulkArchive(filtered),
+                  onExport: () => _bulkExport(filtered),
+                  onClear: _clearSel,
+                )
+              else
+                _ResultHeader(total: all.length, filtered: filtered.length),
               const SizedBox(height: 12),
               if (all.isEmpty)
                 Padding(
@@ -212,6 +301,9 @@ class _BodyState extends ConsumerState<_Body> {
                   teachers: teachers,
                   sortAsc: _sortAsc,
                   readOnly: readOnly,
+                  selected: _selected,
+                  onSelect: _toggle,
+                  onSelectAll: (v) => _toggleAll(filtered, v),
                   onSort: () => setState(() => _sortAsc = !_sortAsc),
                   onView: (c) => context.push(
                       Routes.classeDetail.replaceFirst(':id', c.id)),

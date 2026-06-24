@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../data/models/class_model.dart';
@@ -278,6 +281,26 @@ Future<void> archiveClass(String classId) async {
   );
 }
 
+/// Export CSV des classes (séparateur `;`, BOM UTF-8). Retourne le chemin.
+Future<String> exportClassesCsv(List<ClassModel> rows) async {
+  String cell(String? v) => '"${(v ?? '').replaceAll('"', '""')}"';
+  final b = StringBuffer();
+  b.writeln(['Classe', 'Niveau', 'Filière', 'Effectif', 'Capacité', 'Salle']
+      .map(cell)
+      .join(';'));
+  for (final r in rows) {
+    b.writeln([
+      r.name, r.levelCode ?? '', r.filiereLabel ?? '',
+      '${r.studentCount ?? 0}', r.capacity?.toString() ?? '', r.room ?? '',
+    ].map(cell).join(';'));
+  }
+  final dir = await getApplicationDocumentsDirectory();
+  final ts = DateTime.now().toIso8601String().substring(0, 10);
+  final file = File('${dir.path}/classes_$ts.csv');
+  await file.writeAsString('﻿${b.toString()}');
+  return file.path;
+}
+
 // ─── Inscriptions en attente de validation ────────────────────────────────────
 
 /// Inscriptions `pending_validation` de l'école courante (tableau du directeur).
@@ -438,6 +461,45 @@ Future<void> changeEnrollmentClass({
   await db.execute(
     'UPDATE class_enrollments SET class_id = ?, updated_at = ? WHERE id = ?',
     [newClassId, now, enrollmentId],
+  );
+}
+
+/// Annule la validation d'une inscription (active → pending_validation).
+/// L'élève quitte la page Élèves et réapparaît dans le pipeline Inscriptions.
+Future<void> revertEnrollmentToValidation(String enrollmentId) async {
+  final now = DateTime.now().toIso8601String();
+  await db.execute(
+    '''
+    UPDATE class_enrollments
+    SET    status       = 'pending_validation',
+           validated_at = NULL,
+           validated_by = NULL,
+           updated_at   = ?
+    WHERE  id = ?
+    ''',
+    [now, enrollmentId],
+  );
+}
+
+/// Sortie d'un élève de l'effectif : transfert / radiation / fin de scolarité.
+/// [status] ∈ transferred | withdrawn | graduated. Conserve la ligne (historique).
+Future<void> setEnrollmentExit({
+  required String enrollmentId,
+  required String status,
+  required String reason,
+}) async {
+  final now = DateTime.now().toIso8601String();
+  final today = now.substring(0, 10);
+  await db.execute(
+    '''
+    UPDATE class_enrollments
+    SET    status            = ?,
+           withdrawal_date   = ?,
+           withdrawal_reason = ?,
+           updated_at        = ?
+    WHERE  id = ?
+    ''',
+    [status, today, reason, now, enrollmentId],
   );
 }
 

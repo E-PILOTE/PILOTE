@@ -606,24 +606,9 @@ class _KpiSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tot = st.boys + st.girls;
+    // Page = guichet des admissions (les inscriptions VALIDÉES passent dans la
+    // page Élèves). KPI centrés sur le pipeline à traiter.
     final cards = <Widget>[
-      AdminStatCard(
-        label: 'Total inscrits',
-        value: '${st.total}',
-        icon: Icons.groups_rounded,
-        color: kNavy,
-        subtitle: 'Dossiers vivants',
-      ),
-      AdminStatCard(
-        label: 'Validées',
-        value: '${st.active}',
-        icon: Icons.verified_rounded,
-        color: kGreen,
-        subtitle: st.total > 0
-            ? '${(st.active * 100 / st.total).round()} % du total'
-            : '—',
-      ),
       AdminStatCard(
         label: 'En attente',
         value: '${st.pending}',
@@ -632,29 +617,39 @@ class _KpiSection extends StatelessWidget {
         subtitle: 'À valider',
       ),
       AdminStatCard(
-        label: 'Filles',
-        value: '${st.girls}',
-        icon: Icons.female_rounded,
-        color: _kPink,
-        subtitle: tot > 0 ? '${(st.girls * 100 / tot).round()} % des effectifs' : '—',
+        label: 'Rejetées',
+        value: '${st.rejected}',
+        icon: Icons.cancel_outlined,
+        color: kRed,
+        subtitle: 'Dossiers refusés',
       ),
       AdminStatCard(
-        label: 'Garçons',
-        value: '${st.boys}',
-        icon: Icons.male_rounded,
+        label: 'Nouvelles',
+        value: '${st.typeNew}',
+        icon: Icons.fiber_new_rounded,
+        color: kGreen,
+        subtitle: 'Premières inscriptions',
+      ),
+      AdminStatCard(
+        label: 'Réinscriptions',
+        value: '${st.reinscription}',
+        icon: Icons.autorenew_rounded,
+        color: kNavy,
+        subtitle: 'Élèves de retour',
+      ),
+      AdminStatCard(
+        label: 'Transferts',
+        value: '${st.transfer}',
+        icon: Icons.swap_horiz_rounded,
         color: _kBlue,
-        subtitle: tot > 0 ? '${(st.boys * 100 / tot).round()} % des effectifs' : '—',
+        subtitle: 'Venus d\'une autre école',
       ),
       AdminStatCard(
-        label: 'Taux de remplissage',
-        value: st.capacityTotal > 0
-            ? '${(st.fillRatio * 100).round()} %'
-            : '—',
-        icon: Icons.donut_large_rounded,
+        label: 'Redoublants',
+        value: '${st.repeating}',
+        icon: Icons.replay_rounded,
         color: const Color(0xFF7C3AED),
-        subtitle: st.capacityTotal > 0
-            ? '${st.total} / ${st.capacityTotal} places'
-            : 'Capacités non définies',
+        subtitle: 'Dans le pipeline',
       ),
     ];
 
@@ -1975,9 +1970,9 @@ class _StatusSegment extends StatelessWidget {
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         seg('all', 'Tous'),
-        seg('active', 'Validées'),
         seg('pending_validation', 'En attente'),
         seg('rejected', 'Rejetées'),
+        seg('withdrawn', 'Sorties'),
       ]),
     );
   }

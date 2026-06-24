@@ -1,36 +1,218 @@
 part of 'eleves_screen.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
-//  Briques de la page Élèves : barre de filtres, en-tête, table, cartes, avatar.
+//  Briques de la page Élèves : graphes, barre de filtres, barre d'actions
+//  groupées, table (sélection), cartes, avatar, sélecteur de classe.
 // ════════════════════════════════════════════════════════════════════════════
+
+// ─── Graphes : répartition par cycle (donut) + par niveau (barres) ───────────
+class _ElevesCharts extends StatelessWidget {
+  const _ElevesCharts({required this.students});
+  final List<StudentRow> students;
+
+  @override
+  Widget build(BuildContext context) {
+    // Par cycle.
+    final byCycle = <String, int>{};
+    for (final s in students) {
+      byCycle[s.cycleCode ?? ''] = (byCycle[s.cycleCode ?? ''] ?? 0) + 1;
+    }
+    final cycleSlices = (byCycle.entries.toList()
+          ..sort((a, b) => _cycOrder(a.key).compareTo(_cycOrder(b.key))))
+        .map((e) => _Slice(_cycName(e.key), e.value, _cycColor(e.key)))
+        .toList();
+
+    // Par niveau (ordonné).
+    final byLevel = <String, ({int count, int order, String cycle})>{};
+    for (final s in students) {
+      final lc = s.levelCode ?? '';
+      if (lc.isEmpty) continue;
+      final cur = byLevel[lc];
+      byLevel[lc] =
+          (count: (cur?.count ?? 0) + 1, order: s.levelOrder, cycle: s.cycleCode ?? '');
+    }
+    final levels = byLevel.entries.toList()
+      ..sort((a, b) {
+        final c = _cycOrder(a.value.cycle).compareTo(_cycOrder(b.value.cycle));
+        return c != 0 ? c : a.value.order.compareTo(b.value.order);
+      });
+    final maxLevel =
+        levels.fold<int>(0, (m, e) => e.value.count > m ? e.value.count : m);
+
+    return LayoutBuilder(builder: (ctx, cns) {
+      final wide = cns.maxWidth >= 760;
+      final cycleCard = _ChartCard(
+        title: 'Répartition par cycle',
+        icon: Icons.donut_large_rounded,
+        child: SizedBox(
+          height: 200,
+          child: SfCircularChart(
+            margin: EdgeInsets.zero,
+            legend: const Legend(
+                isVisible: true,
+                overflowMode: LegendItemOverflowMode.wrap,
+                position: LegendPosition.bottom),
+            series: <CircularSeries>[
+              DoughnutSeries<_Slice, String>(
+                dataSource: cycleSlices,
+                xValueMapper: (s, _) => s.label,
+                yValueMapper: (s, _) => s.value,
+                pointColorMapper: (s, _) => s.color,
+                innerRadius: '62%',
+                dataLabelSettings: const DataLabelSettings(isVisible: true),
+              ),
+            ],
+          ),
+        ),
+      );
+      final levelCard = _ChartCard(
+        title: 'Effectifs par niveau',
+        icon: Icons.bar_chart_rounded,
+        child: levels.isEmpty
+            ? const SizedBox(
+                height: 60,
+                child: Center(
+                    child: Text('—',
+                        style: TextStyle(color: kTextMuted))))
+            : Column(
+                children: [
+                  for (final e in levels)
+                    _LevelBar(
+                      label: e.key,
+                      count: e.value.count,
+                      ratio: maxLevel == 0 ? 0 : e.value.count / maxLevel,
+                      color: _cycColor(e.value.cycle),
+                    ),
+                ],
+              ),
+      );
+      if (wide) {
+        return IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Expanded(child: cycleCard),
+            const SizedBox(width: 14),
+            Expanded(child: levelCard),
+          ]),
+        );
+      }
+      return Column(children: [cycleCard, const SizedBox(height: 14), levelCard]);
+    });
+  }
+}
+
+class _Slice {
+  const _Slice(this.label, this.value, this.color);
+  final String label;
+  final int value;
+  final Color color;
+}
+
+class _ChartCard extends StatelessWidget {
+  const _ChartCard(
+      {required this.title, required this.icon, required this.child});
+  final String title;
+  final IconData icon;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => AdminCard(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(icon, size: 16, color: kNavy),
+            const SizedBox(width: 8),
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w800, color: kNavy)),
+          ]),
+          const SizedBox(height: 14),
+          child,
+        ]),
+      );
+}
+
+class _LevelBar extends StatelessWidget {
+  const _LevelBar(
+      {required this.label,
+      required this.count,
+      required this.ratio,
+      required this.color});
+  final String label;
+  final int count;
+  final double ratio;
+  final Color color;
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(children: [
+          SizedBox(
+            width: 56,
+            child: Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: kTextPrimary)),
+          ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: ratio.clamp(0.02, 1.0),
+                minHeight: 16,
+                backgroundColor: kSurface,
+                valueColor: AlwaysStoppedAnimation(color.withValues(alpha: 0.85)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 28,
+            child: Text('$count',
+                textAlign: TextAlign.end,
+                style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: kTextPrimary)),
+          ),
+        ]),
+      );
+}
 
 // ─── Barre de filtres ─────────────────────────────────────────────────────────
 class _ElevesFilterBar extends StatelessWidget {
   const _ElevesFilterBar({
     required this.searchCtrl,
     required this.gender,
-    required this.status,
+    required this.cycle,
+    required this.level,
     required this.isTable,
     required this.readOnly,
+    required this.cyclesPresent,
+    required this.levelCodes,
     required this.onSearch,
     required this.onGender,
-    required this.onStatus,
+    required this.onCycle,
+    required this.onLevel,
     required this.onToggleView,
     required this.onReset,
     required this.onAdd,
   });
   final TextEditingController searchCtrl;
-  final String? gender;
-  final String status;
+  final String? gender, cycle, level;
   final bool isTable, readOnly;
+  final Map<String, String> cyclesPresent;
+  final List<String> levelCodes;
   final ValueChanged<String> onSearch;
-  final ValueChanged<String?> onGender, onStatus;
+  final ValueChanged<String?> onGender, onCycle, onLevel;
   final VoidCallback onToggleView, onReset, onAdd;
 
   @override
   Widget build(BuildContext context) {
-    final hasFilter =
-        searchCtrl.text.isNotEmpty || gender != null || status != 'all';
+    final hasFilter = searchCtrl.text.isNotEmpty ||
+        gender != null ||
+        cycle != null ||
+        level != null;
     return AdminCard(
       padding: const EdgeInsets.all(14),
       child: Row(children: [
@@ -41,7 +223,7 @@ class _ElevesFilterBar extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               SizedBox(
-                width: 240,
+                width: 230,
                 child: TextField(
                   controller: searchCtrl,
                   onChanged: onSearch,
@@ -51,20 +233,27 @@ class _ElevesFilterBar extends StatelessWidget {
                 ),
               ),
               _Drop(
+                hint: 'Tous les cycles',
+                value: cycle,
+                items: {
+                  for (final e in (cyclesPresent.entries.toList()
+                        ..sort((a, b) =>
+                            _cycOrder(a.key).compareTo(_cycOrder(b.key)))))
+                    if (e.key.isNotEmpty) e.key: e.value,
+                },
+                onChanged: onCycle,
+              ),
+              _Drop(
+                hint: 'Tous les niveaux',
+                value: level,
+                items: {for (final c in levelCodes) c: c},
+                onChanged: onLevel,
+              ),
+              _Drop(
                 hint: 'Tous les sexes',
                 value: gender,
                 items: const {'M': 'Garçons', 'F': 'Filles'},
                 onChanged: onGender,
-              ),
-              _Drop(
-                hint: 'Tous les statuts',
-                value: status == 'all' ? null : status,
-                items: const {
-                  'active': 'Inscrits',
-                  'pending_validation': 'En attente',
-                  'none': 'Non inscrits',
-                },
-                onChanged: onStatus,
               ),
               if (hasFilter)
                 TextButton.icon(
@@ -97,12 +286,11 @@ class _ElevesFilterBar extends StatelessWidget {
 }
 
 class _Drop extends StatelessWidget {
-  const _Drop({
-    required this.hint,
-    required this.value,
-    required this.items,
-    required this.onChanged,
-  });
+  const _Drop(
+      {required this.hint,
+      required this.value,
+      required this.items,
+      required this.onChanged});
   final String hint;
   final String? value;
   final Map<String, String> items;
@@ -110,7 +298,7 @@ class _Drop extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 180,
+      width: 175,
       child: DropdownButtonFormField<String>(
         initialValue: items.containsKey(value) ? value : null,
         isExpanded: true,
@@ -163,6 +351,85 @@ class _ViewToggle extends StatelessWidget {
   }
 }
 
+// ─── Barre d'actions groupées ────────────────────────────────────────────────
+class _BulkBar extends StatelessWidget {
+  const _BulkBar({
+    required this.count,
+    required this.onChangeClass,
+    required this.onRevert,
+    required this.onExport,
+    required this.onClear,
+  });
+  final int count;
+  final VoidCallback onChangeClass, onRevert, onExport, onClear;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: kNavy,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(children: [
+        const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+        const SizedBox(width: 10),
+        Text('$count sélectionné${count > 1 ? 's' : ''}',
+            style: const TextStyle(
+                color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w700)),
+        const Spacer(),
+        _BulkBtn(
+            icon: Icons.swap_horiz_rounded,
+            label: 'Changer de classe',
+            onTap: onChangeClass),
+        _BulkBtn(
+            icon: Icons.undo_rounded,
+            label: 'Annuler l\'inscription',
+            onTap: onRevert),
+        _BulkBtn(
+            icon: Icons.download_rounded, label: 'Exporter', onTap: onExport),
+        const SizedBox(width: 4),
+        IconButton(
+          tooltip: 'Désélectionner',
+          icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 18),
+          onPressed: onClear,
+        ),
+      ]),
+    );
+  }
+}
+
+class _BulkBtn extends StatelessWidget {
+  const _BulkBtn(
+      {required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(left: 6),
+        child: Material(
+          color: Colors.white.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(icon, size: 15, color: Colors.white),
+                const SizedBox(width: 6),
+                Text(label,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600)),
+              ]),
+            ),
+          ),
+        ),
+      );
+}
+
 // ─── En-tête de résultats ────────────────────────────────────────────────────
 class _ResultHeader extends StatelessWidget {
   const _ResultHeader({required this.total, required this.filtered});
@@ -187,38 +454,53 @@ class _StudentTable extends StatelessWidget {
   const _StudentTable({
     required this.rows,
     required this.sortAsc,
+    required this.selected,
+    required this.readOnly,
     required this.onSort,
+    required this.onSelect,
+    required this.onSelectAll,
     required this.onOpen,
   });
   final List<StudentRow> rows;
-  final bool sortAsc;
+  final bool sortAsc, readOnly;
+  final Set<String> selected;
   final VoidCallback onSort;
+  final void Function(String, bool) onSelect;
+  final ValueChanged<bool> onSelectAll;
   final ValueChanged<StudentRow> onOpen;
 
   @override
   Widget build(BuildContext context) {
+    final allSel = rows.isNotEmpty &&
+        rows.every((r) => selected.contains(r.enrollmentId));
     return AdminCard(
       padding: EdgeInsets.zero,
       child: Column(children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: const BoxDecoration(
             color: kSurface,
             borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
           ),
           child: Row(children: [
+            if (!readOnly)
+              _Check(value: allSel, onChanged: (v) => onSelectAll(v)),
+            if (!readOnly) const SizedBox(width: 6),
             _Th('ÉLÈVE', flex: 4, onTap: onSort, asc: sortAsc),
             const _Th('MATRICULE', flex: 2),
             const _Th('SEXE · ÂGE', flex: 2),
             const _Th('CLASSE', flex: 3),
-            const _Th('STATUT', flex: 2),
-            const SizedBox(width: 44),
+            const _Th('PARTICULARITÉS', flex: 3),
+            const SizedBox(width: 36),
           ]),
         ),
         for (var i = 0; i < rows.length; i++)
           _StudentRow(
             s: rows[i],
             last: i == rows.length - 1,
+            readOnly: readOnly,
+            selected: selected.contains(rows[i].enrollmentId),
+            onSelect: (v) => onSelect(rows[i].enrollmentId!, v),
             onOpen: () => onOpen(rows[i]),
           ),
       ]),
@@ -255,29 +537,46 @@ class _Th extends StatelessWidget {
 }
 
 class _StudentRow extends StatelessWidget {
-  const _StudentRow(
-      {required this.s, required this.last, required this.onOpen});
+  const _StudentRow({
+    required this.s,
+    required this.last,
+    required this.readOnly,
+    required this.selected,
+    required this.onSelect,
+    required this.onOpen,
+  });
   final StudentRow s;
-  final bool last;
+  final bool last, readOnly, selected;
+  final ValueChanged<bool> onSelect;
   final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
     final sexe = s.gender == 'F' ? 'F' : (s.gender == 'M' ? 'M' : '—');
     final age = s.age;
+    final tags = <String>[
+      if (s.isBoarder) 'Interne',
+      if (s.isAffecte) 'Affecté',
+      if (s.hasScholarship) 'Boursier',
+      if (s.hasSocialAid) 'Aide sociale',
+    ];
     return InkWell(
       onTap: onOpen,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
         decoration: BoxDecoration(
+          color: selected ? kNavy.withValues(alpha: 0.04) : null,
           border:
               last ? null : const Border(bottom: BorderSide(color: kBorder)),
         ),
         child: Row(children: [
+          if (!readOnly)
+            _Check(value: selected, onChanged: onSelect),
+          if (!readOnly) const SizedBox(width: 6),
           Expanded(
             flex: 4,
             child: Row(children: [
-              _Avatar(name: s.fullName, photoUrl: s.photoUrl, size: 36),
+              _Avatar(name: s.fullName, photoUrl: s.photoUrl, size: 34),
               const SizedBox(width: 10),
               Flexible(
                 child: Text(s.fullName,
@@ -304,31 +603,22 @@ class _StudentRow extends StatelessWidget {
           ),
           Expanded(
             flex: 3,
-            child: s.className == null
-                ? const Text('—',
-                    style: TextStyle(fontSize: 12.5, color: kTextMuted))
-                : Row(children: [
-                    Flexible(
-                      child: Text(s.className!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                              color: kTextPrimary)),
-                    ),
-                  ]),
+            child: Row(children: [
+              AdminBadge(s.className ?? '—', color: _cycColor(s.cycleCode)),
+            ]),
           ),
           Expanded(
-            flex: 2,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: AdminBadge(_enrollLabel(s.enrollmentStatus),
-                  color: _enrollColor(s.enrollmentStatus)),
-            ),
+            flex: 3,
+            child: tags.isEmpty
+                ? const Text('—',
+                    style: TextStyle(fontSize: 12.5, color: kTextMuted))
+                : Text(tags.join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: kTextMuted)),
           ),
           const SizedBox(
-            width: 44,
+            width: 36,
             child: Icon(Icons.chevron_right_rounded, color: kTextMuted),
           ),
         ]),
@@ -337,10 +627,38 @@ class _StudentRow extends StatelessWidget {
   }
 }
 
+class _Check extends StatelessWidget {
+  const _Check({required this.value, required this.onChanged});
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: 24,
+        height: 24,
+        child: Checkbox(
+          value: value,
+          onChanged: (v) => onChanged(v ?? false),
+          activeColor: kNavy,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.compact,
+          side: const BorderSide(color: kTextMuted, width: 1.5),
+        ),
+      );
+}
+
 // ─── Cartes ──────────────────────────────────────────────────────────────────
 class _StudentCards extends StatelessWidget {
-  const _StudentCards({required this.rows, required this.onOpen});
+  const _StudentCards({
+    required this.rows,
+    required this.selected,
+    required this.readOnly,
+    required this.onSelect,
+    required this.onOpen,
+  });
   final List<StudentRow> rows;
+  final Set<String> selected;
+  final bool readOnly;
+  final void Function(String, bool) onSelect;
   final ValueChanged<StudentRow> onOpen;
 
   @override
@@ -357,7 +675,13 @@ class _StudentCards extends StatelessWidget {
           for (final s in rows)
             SizedBox(
               width: cardW,
-              child: _StudentCard(s: s, onOpen: () => onOpen(s)),
+              child: _StudentCard(
+                s: s,
+                readOnly: readOnly,
+                selected: selected.contains(s.enrollmentId),
+                onSelect: (v) => onSelect(s.enrollmentId!, v),
+                onOpen: () => onOpen(s),
+              ),
             ),
         ],
       );
@@ -366,8 +690,16 @@ class _StudentCards extends StatelessWidget {
 }
 
 class _StudentCard extends StatelessWidget {
-  const _StudentCard({required this.s, required this.onOpen});
+  const _StudentCard({
+    required this.s,
+    required this.readOnly,
+    required this.selected,
+    required this.onSelect,
+    required this.onOpen,
+  });
   final StudentRow s;
+  final bool readOnly, selected;
+  final ValueChanged<bool> onSelect;
   final VoidCallback onOpen;
 
   @override
@@ -399,23 +731,15 @@ class _StudentCard extends StatelessWidget {
                   style: const TextStyle(fontSize: 12, color: kTextMuted)),
             ]),
           ),
+          if (!readOnly) _Check(value: selected, onChanged: onSelect),
         ]),
         const SizedBox(height: 12),
         Row(children: [
-          AdminBadge(_enrollLabel(s.enrollmentStatus),
-              color: _enrollColor(s.enrollmentStatus)),
+          AdminBadge(s.className ?? '—', color: _cycColor(s.cycleCode)),
           const Spacer(),
-          if (s.className != null)
-            Flexible(
-              child: Text(s.className!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.end,
-                  style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: kTextPrimary)),
-            ),
+          if ((s.levelCode ?? '').isNotEmpty)
+            Text(s.levelCode!,
+                style: const TextStyle(fontSize: 12, color: kTextMuted)),
         ]),
         if (s.isBoarder || s.hasScholarship || s.hasSocialAid || s.isAffecte) ...[
           const SizedBox(height: 10),
@@ -479,6 +803,69 @@ class _Avatar extends StatelessWidget {
               color: kNavy,
               fontSize: size * 0.34,
               fontWeight: FontWeight.w800)),
+    );
+  }
+}
+
+// ─── Sélecteur de classe (cascade) — renvoie l'id de classe choisi ───────────
+class _ClassChooserDialog extends ConsumerStatefulWidget {
+  const _ClassChooserDialog({required this.title, required this.subtitle});
+  final String title, subtitle;
+  @override
+  ConsumerState<_ClassChooserDialog> createState() =>
+      _ClassChooserDialogState();
+}
+
+class _ClassChooserDialogState extends ConsumerState<_ClassChooserDialog> {
+  String? _classId;
+
+  ClassPickerEntry _entry(ClassModel c) {
+    final cyc = inscriptionCycleFromCode(c.cycleCode, c.name);
+    return ClassPickerEntry(
+      id: c.id,
+      name: c.name,
+      cycleCode: cyc.code,
+      cycleLabel: cyc.label,
+      cycleOrder: cyc.order,
+      levelCode: c.levelCode ?? '',
+      levelOrder: c.levelOrder ?? 999,
+      capacity: c.capacity,
+      count: c.studentCount,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final classesAsync = ref.watch(classesProvider);
+    return AdminFormDialog(
+      icon: Icons.swap_horiz_rounded,
+      title: widget.title,
+      subtitle: widget.subtitle,
+      width: 520,
+      submitLabel: 'Valider',
+      submitIcon: Icons.check_rounded,
+      onSubmit: () {
+        if (_classId == null) return;
+        Navigator.pop(context, _classId);
+      },
+      body: classesAsync.when(
+        loading: () => const Padding(
+            padding: EdgeInsets.all(20),
+            child: Center(child: CircularProgressIndicator())),
+        error: (e, _) =>
+            Text('Erreur : $e', style: const TextStyle(color: kRed)),
+        data: (classes) {
+          if (classes.isEmpty) {
+            return const Text('Aucune classe disponible.',
+                style: TextStyle(color: kTextMuted, fontSize: 13));
+          }
+          return CycleLevelClassPicker(
+            entries: [for (final c in classes) _entry(c)],
+            classId: _classId,
+            onChanged: (v) => setState(() => _classId = v),
+          );
+        },
+      ),
     );
   }
 }
