@@ -410,22 +410,25 @@ class _Kpis extends StatelessWidget {
     return LayoutBuilder(builder: (ctx, cns) {
       final w = cns.maxWidth;
       final cols = w >= 1100 ? 5 : (w >= 720 ? 3 : (w >= 460 ? 2 : 1));
-      return GridView.count(
-        crossAxisCount: cols,
+      return GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: cols == 1 ? 4.6 : 2.4,
-        children: [
-          for (final (icon, label, value, color, sub) in items)
-            AdminStatCard(
-                label: label,
-                value: value,
-                icon: icon,
-                color: color,
-                subtitle: sub),
-        ],
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: cols,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          mainAxisExtent: 176,
+        ),
+        itemCount: items.length,
+        itemBuilder: (ctx, i) {
+          final (icon, label, value, color, sub) = items[i];
+          return AdminStatCard(
+              label: label,
+              value: value,
+              icon: icon,
+              color: color,
+              subtitle: sub);
+        },
       );
     });
   }
