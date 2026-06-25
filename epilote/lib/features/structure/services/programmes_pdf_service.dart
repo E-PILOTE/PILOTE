@@ -49,6 +49,14 @@ const _cycleNamesPdf = <String, String>{
   'fp': 'Formation Professionnelle',
 };
 
+// Mélange une couleur vers le blanc (l'alpha PDF ne composite pas en aplat :
+// on pré-calcule donc la teinte). t=0 → blanc, t=1 → couleur pleine.
+PdfColor _tint(PdfColor c, double t) => PdfColor(
+      c.red * t + (1 - t),
+      c.green * t + (1 - t),
+      c.blue * t + (1 - t),
+    );
+
 // ══════════════════════════════════════════════════════════════════════════════
 //  Service : PROGRAMMES PÉDAGOGIQUES (syllabus) — export officiel par CYCLE puis
 //  par NIVEAU. Style officiel : bandeau tricolore, emblème, en-tête
@@ -328,10 +336,9 @@ class ProgrammesPdfService {
             width: double.infinity,
             padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             decoration: pw.BoxDecoration(
-              color: PdfColor(color.red, color.green, color.blue, 0.10),
+              color: _tint(color, 0.12),
               borderRadius: pw.BorderRadius.circular(6),
-              border: pw.Border.all(
-                  color: PdfColor(color.red, color.green, color.blue, 0.35)),
+              border: pw.Border.all(color: _tint(color, 0.4)),
             ),
             child: pw.Row(children: [
               pw.Container(

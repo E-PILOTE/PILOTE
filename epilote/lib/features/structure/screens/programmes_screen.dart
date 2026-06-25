@@ -1,5 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pdf/pdf.dart' show PdfPageFormat;
+import 'package:printing/printing.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -14,6 +18,7 @@ import '../services/programmes_pdf_service.dart';
 part 'programmes_parts.dart';
 part 'programmes_cycle_view.dart';
 part 'programmes_form.dart';
+part 'programmes_preview.dart';
 
 const _kSlug = 'programmes';
 
@@ -217,17 +222,17 @@ class _BodyState extends ConsumerState<_Body> {
     _snack('$n programme(s) supprimé(s)', kGreen);
   }
 
-  Future<void> _exportPdf(List<ProgrammeRow> rows) async {
+  void _previewPdf(List<ProgrammeRow> rows) {
     if (rows.isEmpty) {
       _snack('Aucun programme à exporter', kTextMuted);
       return;
     }
     final year = ref.read(activeYearProvider)?.label;
-    try {
-      await ProgrammesPdfService.printDoc(rows: rows, yearLabel: year);
-    } catch (e) {
-      _snack('Erreur PDF : $e', kRed);
-    }
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (_) => _ProgrammePreviewDialog(rows: rows, yearLabel: year),
+    );
   }
 
   Future<void> _bulkExport(List<ProgrammeRow> rows) async {
@@ -324,7 +329,7 @@ class _BodyState extends ConsumerState<_Body> {
                   total: all.length,
                   filtered: filtered.length,
                   onExportPdf:
-                      filtered.isEmpty ? null : () => _exportPdf(filtered),
+                      filtered.isEmpty ? null : () => _previewPdf(filtered),
                 ),
               const SizedBox(height: 12),
               if (all.isEmpty)
