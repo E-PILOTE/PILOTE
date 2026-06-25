@@ -8,6 +8,7 @@ import 'package:shimmer/shimmer.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../../data/models/class_model.dart';
 import '../../navigation/widgets/module_scaffold.dart';
 import '../../../features/auth/providers/auth_provider.dart';
@@ -18,6 +19,7 @@ import '../providers/inscriptions_data_provider.dart';
 import '../providers/students_provider.dart';
 import '../providers/student_documents_provider.dart';
 import '../providers/student_tutors_provider.dart';
+import '../services/inscriptions_pdf_service.dart';
 import 'add_inscription_screen.dart';
 
 part 'inscriptions_list_parts.dart';
@@ -331,6 +333,22 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
     }
   }
 
+  void _previewPdf(List<InscriptionRow> rows) {
+    if (rows.isEmpty) return;
+    final year = ref.read(activeYearProvider)?.label;
+    showPdfPreviewDialog(
+      context,
+      title: 'Inscriptions',
+      subtitle: '${rows.length} inscription${rows.length > 1 ? 's' : ''}'
+          '${year != null ? ' · $year' : ''}',
+      pdfFileName: 'Inscriptions.pdf',
+      build: (format) =>
+          InscriptionsPdfService.buildPdf(rows: rows, yearLabel: year),
+      onDownload: () =>
+          InscriptionsPdfService.downloadDoc(rows: rows, yearLabel: year),
+    );
+  }
+
   void _snack(String msg, Color c) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -505,7 +523,13 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                       onClear: _clearSelection,
                     )
                   else
-                    _ResultHeader(total: all.length, filtered: filtered.length),
+                    _ResultHeader(
+                      total: all.length,
+                      filtered: filtered.length,
+                      onExportPdf: filtered.isEmpty
+                          ? null
+                          : () => _previewPdf(filtered),
+                    ),
                   const SizedBox(height: 12),
                   if (all.isEmpty)
                     Padding(
@@ -1103,8 +1127,10 @@ class _StatusSegment extends StatelessWidget {
 }
 
 class _ResultHeader extends StatelessWidget {
-  const _ResultHeader({required this.total, required this.filtered});
+  const _ResultHeader(
+      {required this.total, required this.filtered, this.onExportPdf});
   final int total, filtered;
+  final VoidCallback? onExportPdf;
   @override
   Widget build(BuildContext context) => Row(children: [
         Text('$filtered inscrit${filtered > 1 ? 's' : ''}',
@@ -1115,6 +1141,8 @@ class _ResultHeader extends StatelessWidget {
           Text('sur $total',
               style: const TextStyle(color: kTextMuted, fontSize: 13)),
         ],
+        const Spacer(),
+        if (onExportPdf != null) AdminPdfButton(onTap: onExportPdf!),
       ]);
 }
 

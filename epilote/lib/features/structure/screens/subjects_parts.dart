@@ -152,8 +152,10 @@ class _SortChip extends StatelessWidget {
 
 // ─── En-tête résultats ────────────────────────────────────────────────────────
 class _ResultHeader extends StatelessWidget {
-  const _ResultHeader({required this.total, required this.filtered});
+  const _ResultHeader(
+      {required this.total, required this.filtered, this.onExportPdf});
   final int total, filtered;
+  final VoidCallback? onExportPdf;
   @override
   Widget build(BuildContext context) {
     final txt = filtered == total
@@ -165,6 +167,8 @@ class _ResultHeader extends StatelessWidget {
       Text(txt,
           style: const TextStyle(
               fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
+      const Spacer(),
+      if (onExportPdf != null) AdminPdfButton(onTap: onExportPdf!),
     ]);
   }
 }

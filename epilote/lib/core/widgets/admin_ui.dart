@@ -811,6 +811,36 @@ class AdminPrimaryButton extends StatelessWidget {
   }
 }
 
+/// Bouton discret « Exporter PDF » (liseré rouge) — placé dans les en-têtes de
+/// résultats. Ouvre l'aperçu PDF partagé (`showPdfPreviewDialog`).
+class AdminPdfButton extends StatelessWidget {
+  const AdminPdfButton({super.key, required this.onTap, this.label = 'Exporter PDF'});
+  final VoidCallback onTap;
+  final String label;
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: kRed.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: kRed.withValues(alpha: 0.22)),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.picture_as_pdf_outlined, size: 15, color: kRed),
+              const SizedBox(width: 6),
+              Text(label,
+                  style: const TextStyle(
+                      color: kRed, fontSize: 12.5, fontWeight: FontWeight.w700)),
+            ]),
+          ),
+        ),
+      );
+}
+
 // ─── Helpers de modal « détails » (style super_admin) ───────────────────────
 class AdminModalIconBtn extends StatelessWidget {
   const AdminModalIconBtn({

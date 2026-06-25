@@ -9,6 +9,7 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../core/constants/routes.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../../data/models/class_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../classes/providers/class_provider.dart';
@@ -20,6 +21,7 @@ import '../providers/student_documents_provider.dart';
 import '../providers/student_tutors_provider.dart';
 import '../providers/students_provider.dart';
 import '../providers/students_registry_provider.dart';
+import '../services/students_pdf_service.dart';
 import '../widgets/inscription_form_kit.dart';
 import 'add_inscription_screen.dart';
 
@@ -222,6 +224,22 @@ class _BodyState extends ConsumerState<_Body> {
     }
   }
 
+  void _previewPdf(List<StudentRow> rows) {
+    if (rows.isEmpty) return;
+    final year = ref.read(activeYearProvider)?.label;
+    showPdfPreviewDialog(
+      context,
+      title: 'Effectif élèves',
+      subtitle: '${rows.length} élève${rows.length > 1 ? 's' : ''}'
+          '${year != null ? ' · $year' : ''}',
+      pdfFileName: 'Eleves.pdf',
+      build: (format) =>
+          StudentsPdfService.buildPdf(rows: rows, yearLabel: year),
+      onDownload: () =>
+          StudentsPdfService.downloadDoc(rows: rows, yearLabel: year),
+    );
+  }
+
   Future<bool?> _confirm(String title, String body, String ok, Color c) =>
       showDialog<bool>(
         context: context,
@@ -331,7 +349,12 @@ class _BodyState extends ConsumerState<_Body> {
                   onClear: _clearSel,
                 )
               else
-                _ResultHeader(total: all.length, filtered: filtered.length),
+                _ResultHeader(
+                  total: all.length,
+                  filtered: filtered.length,
+                  onExportPdf:
+                      filtered.isEmpty ? null : () => _previewPdf(filtered),
+                ),
               const SizedBox(height: 12),
               if (all.isEmpty)
                 Padding(

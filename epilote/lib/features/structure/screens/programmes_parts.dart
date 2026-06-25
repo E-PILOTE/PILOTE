@@ -422,31 +422,7 @@ class _ResultHeader extends StatelessWidget {
           style: const TextStyle(
               fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
       const Spacer(),
-      if (onExportPdf != null)
-        MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            onTap: onExportPdf,
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: kRed.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: kRed.withValues(alpha: 0.22)),
-              ),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.picture_as_pdf_outlined, size: 15, color: kRed),
-                SizedBox(width: 6),
-                Text('Exporter PDF',
-                    style: TextStyle(
-                        color: kRed,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700)),
-              ]),
-            ),
-          ),
-        ),
+      if (onExportPdf != null) AdminPdfButton(onTap: onExportPdf!),
     ]);
   }
 }

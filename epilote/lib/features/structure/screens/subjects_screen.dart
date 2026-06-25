@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../../data/models/subject_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
+import '../providers/academic_year_context.dart';
 import '../providers/subjects_provider.dart';
+import '../services/subjects_pdf_service.dart';
 import 'subject_detail_dialog.dart';
 
 part 'subjects_parts.dart';
@@ -133,6 +136,22 @@ class _BodyState extends ConsumerState<_Body> {
     }
   }
 
+  void _previewPdf(List<SubjectModel> rows) {
+    if (rows.isEmpty) return;
+    final year = ref.read(activeYearProvider)?.label;
+    showPdfPreviewDialog(
+      context,
+      title: 'Matières',
+      subtitle: '${rows.length} matière${rows.length > 1 ? 's' : ''}'
+          '${year != null ? ' · $year' : ''}',
+      pdfFileName: 'Matieres.pdf',
+      build: (format) =>
+          SubjectsPdfService.buildPdf(rows: rows, yearLabel: year),
+      onDownload: () =>
+          SubjectsPdfService.downloadDoc(rows: rows, yearLabel: year),
+    );
+  }
+
   List<SubjectModel> _apply(List<SubjectModel> all) {
     final q = _search.text.trim().toLowerCase();
     final out = all.where((s) {
@@ -208,7 +227,12 @@ class _BodyState extends ConsumerState<_Body> {
                   onClear: _clearSel,
                 )
               else
-                _ResultHeader(total: all.length, filtered: filtered.length),
+                _ResultHeader(
+                  total: all.length,
+                  filtered: filtered.length,
+                  onExportPdf:
+                      filtered.isEmpty ? null : () => _previewPdf(filtered),
+                ),
               const SizedBox(height: 12),
               if (all.isEmpty)
                 Padding(

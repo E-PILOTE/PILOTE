@@ -1,11 +1,8 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pdf/pdf.dart' show PdfPageFormat;
-import 'package:printing/printing.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
@@ -18,7 +15,6 @@ import '../services/programmes_pdf_service.dart';
 part 'programmes_parts.dart';
 part 'programmes_cycle_view.dart';
 part 'programmes_form.dart';
-part 'programmes_preview.dart';
 
 const _kSlug = 'programmes';
 
@@ -228,10 +224,16 @@ class _BodyState extends ConsumerState<_Body> {
       return;
     }
     final year = ref.read(activeYearProvider)?.label;
-    showDialog(
-      context: context,
-      barrierColor: Colors.black54,
-      builder: (_) => _ProgrammePreviewDialog(rows: rows, yearLabel: year),
+    showPdfPreviewDialog(
+      context,
+      title: 'Programmes pédagogiques',
+      subtitle: '${_pl(rows.length, 'programme', 'programmes')}'
+          '${year != null ? ' · $year' : ''}',
+      pdfFileName: 'Programmes_pedagogiques.pdf',
+      build: (format) =>
+          ProgrammesPdfService.buildPdf(rows: rows, yearLabel: year),
+      onDownload: () =>
+          ProgrammesPdfService.downloadDoc(rows: rows, yearLabel: year),
     );
   }
 
