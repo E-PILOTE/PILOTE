@@ -1,5 +1,21 @@
 part of 'user_dashboard_screen.dart';
 
+// Lien d'en-tête « Voir » → page du module (drill-down, garde le retour).
+// Réutilisé par les blocs Finances / Discipline (cohérent avec les KPI Scolarité).
+Widget _dashSeeAll(BuildContext context, String route) => TextButton(
+      onPressed: () => context.push(route),
+      style: TextButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+      ),
+      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+        Text('Voir',
+            style: TextStyle(
+                color: kNavy, fontWeight: FontWeight.w700, fontSize: 13)),
+        Icon(Icons.chevron_right_rounded, size: 18, color: kNavy),
+      ]),
+    );
+
 // ─── Bloc SCOLARITÉ (vue d'ensemble + statistiques) ───────────────────────────
 // Extrait en widget (comme Finance/Médical/Discipline) pour pouvoir être
 // ordonné par la persona de rôle. Auto-titré + espacement de fin homogène.
@@ -42,6 +58,13 @@ class _FinanceBlock extends ConsumerWidget {
     final solde = pay.encaisse - dep;
     final recouvre = pay.encaisse + pay.attente;
 
+    // Lien direct vers la page Paiements (seule page Finance réelle aujourd'hui).
+    // Les cartes Encaissé / En attente y mènent ; Dépenses / Solde non (pas de
+    // page dédiée). Gardé sous permission `can_read` (verrou 3).
+    final perms = ref.watch(myPermissionsProvider).valueOrNull ?? const {};
+    final canPay = perms['paiements-eleves']?.canRead ?? false;
+    final toPay = canPay ? () => context.push(Routes.paiements) : null;
+
     final cards = <Widget>[
       AdminStatCard(
         label: 'Encaissé',
@@ -49,6 +72,7 @@ class _FinanceBlock extends ConsumerWidget {
         subtitle: 'FCFA',
         icon: Icons.payments_rounded,
         color: kGreen,
+        onTap: toPay,
       ),
       AdminStatCard(
         label: 'En attente',
@@ -56,6 +80,7 @@ class _FinanceBlock extends ConsumerWidget {
         subtitle: 'FCFA',
         icon: Icons.schedule_rounded,
         color: kAccent,
+        onTap: toPay,
       ),
       AdminStatCard(
         label: 'Dépenses',
@@ -74,8 +99,9 @@ class _FinanceBlock extends ConsumerWidget {
     ];
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const AdminSectionTitle('Finances',
-          icon: Icons.account_balance_wallet_rounded),
+      AdminSectionTitle('Finances',
+          icon: Icons.account_balance_wallet_rounded,
+          trailing: canPay ? _dashSeeAll(context, Routes.paiements) : null),
       const SizedBox(height: 14),
       _StatGrid(cards),
       if (recouvre > 0) ...[
@@ -169,8 +195,14 @@ class _DisciplineBlock extends ConsumerWidget {
     final d = ref.watch(disciplineSummaryProvider).valueOrNull ??
         const DisciplineSummary(0, 0, 0);
 
+    // Le bloc ne s'affiche que si `discipline` est lisible (verrou 3) → la page
+    // Discipline est toujours accessible depuis ici.
+    void toDiscipline() => context.push(Routes.discipline);
+
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const AdminSectionTitle('Discipline', icon: Icons.gavel_rounded),
+      AdminSectionTitle('Discipline',
+          icon: Icons.gavel_rounded,
+          trailing: _dashSeeAll(context, Routes.discipline)),
       const SizedBox(height: 14),
       if (d.yearTotal == 0)
         const _EmptyMini(
@@ -184,18 +216,21 @@ class _DisciplineBlock extends ConsumerWidget {
             value: '${d.month}',
             icon: Icons.report_problem_rounded,
             color: const Color(0xFFEF4444),
+            onTap: toDiscipline,
           ),
           AdminStatCard(
             label: 'Total (année)',
             value: '${d.yearTotal}',
             icon: Icons.gavel_rounded,
             color: kNavy,
+            onTap: toDiscipline,
           ),
           AdminStatCard(
             label: 'À notifier',
             value: '${d.unnotified}',
             icon: Icons.notification_important_rounded,
             color: d.unnotified > 0 ? kAccent : kTextMuted,
+            onTap: toDiscipline,
           ),
         ]),
       const SizedBox(height: 24),
