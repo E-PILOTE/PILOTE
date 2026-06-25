@@ -21,6 +21,7 @@ import '../providers/student_documents_provider.dart';
 import '../providers/student_tutors_provider.dart';
 import '../providers/students_provider.dart';
 import '../providers/students_registry_provider.dart';
+import '../providers/transfers_provider.dart';
 import '../services/students_pdf_service.dart';
 import '../widgets/inscription_form_kit.dart';
 import 'add_inscription_screen.dart';

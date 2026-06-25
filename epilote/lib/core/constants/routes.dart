@@ -62,6 +62,9 @@ class Routes {
   static const String eleves          = '/user/eleves';
   static const String eleveDetail     = '/user/eleves/:id';
   static const String inscriptions    = '/user/inscriptions';
+  static const String transferts      = '/user/transferts';
+  static const String documents       = '/user/documents';
+  static const String annuaire        = '/user/annuaire';
   static const String structure       = '/user/structure'; // structure académique (module 'niveaux')
   static const String classes         = '/user/classes';
   static const String classeDetail    = '/user/classes/:id';

@@ -248,19 +248,41 @@ class _DwActionBar extends ConsumerWidget {
 
   Future<void> _exit(BuildContext context, WidgetRef ref,
       {required String status}) async {
-    final reason = await showDialog<String>(
+    final res = await showDialog<_ExitResult>(
       context: context,
       barrierDismissible: false,
       builder: (_) => _ExitDialog(
           fullName: row.fullName,
           transfer: status == 'transferred'),
     );
-    if (reason == null || !context.mounted) return;
+    if (res == null || !context.mounted) return;
+    final isTransfer = status == 'transferred';
+    final profile = ref.read(authNotifierProvider).valueOrNull;
     final done = await runModuleWrite(
       context,
-      () => setEnrollmentExit(
-          enrollmentId: row.enrollmentId!, status: status, reason: reason),
-      success: status == 'transferred' ? 'Élève transféré' : 'Élève radié',
+      () async {
+        await setEnrollmentExit(
+            enrollmentId: row.enrollmentId!, status: status, reason: res.reason);
+        // Réconciliation : un transfert depuis la fiche alimente le registre
+        // des Transferts (statut « terminé », l'élève étant déjà sorti).
+        if (isTransfer &&
+            res.toSchool != null &&
+            profile?.groupId != null &&
+            profile?.schoolId != null) {
+          await createTransfer(
+            groupId: profile!.groupId!,
+            fromSchoolId: profile.schoolId!,
+            studentId: row.id,
+            toSchoolName: res.toSchool!,
+            transferDate: DateTime.now(),
+            reason: res.reason,
+            academicYearId: ref.read(activeYearIdProvider),
+            initialStatus: 'completed',
+            approvedBy: profile.id,
+          );
+        }
+      },
+      success: isTransfer ? 'Élève transféré' : 'Élève radié',
     );
     if (done) {
       ref.invalidate(studentsRegistryProvider);
@@ -431,11 +453,21 @@ class _ExitDialog extends StatefulWidget {
   State<_ExitDialog> createState() => _ExitDialogState();
 }
 
+/// Résultat de la sortie : motif + (pour un transfert) école de destination.
+/// L'école renseignée alimente le registre des Transferts (réconciliation).
+class _ExitResult {
+  const _ExitResult({required this.reason, this.toSchool});
+  final String reason;
+  final String? toSchool;
+}
+
 class _ExitDialogState extends State<_ExitDialog> {
   final _reason = TextEditingController();
+  final _toSchool = TextEditingController();
   @override
   void dispose() {
     _reason.dispose();
+    _toSchool.dispose();
     super.dispose();
   }
 
@@ -450,19 +482,42 @@ class _ExitDialogState extends State<_ExitDialog> {
       submitLabel: t ? 'Transférer' : 'Radier',
       submitIcon: Icons.check_rounded,
       submitColor: kRed,
-      onSubmit: () =>
-          Navigator.pop(context, _reason.text.trim().isEmpty
+      onSubmit: () => Navigator.pop(
+        context,
+        _ExitResult(
+          reason: _reason.text.trim().isEmpty
               ? (t ? 'Transfert' : 'Radiation')
-              : _reason.text.trim()),
+              : _reason.text.trim(),
+          toSchool: t && _toSchool.text.trim().isNotEmpty
+              ? _toSchool.text.trim()
+              : null,
+        ),
+      ),
       body: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(
             t
                 ? 'L\'élève quitte l\'effectif (départ vers une autre école). '
-                    'L\'historique est conservé.'
+                    'L\'historique est conservé et le transfert est inscrit au '
+                    'registre.'
                 : 'L\'élève quitte l\'effectif (abandon / exclusion). '
                     'L\'historique est conservé.',
             style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
         const SizedBox(height: 14),
+        if (t) ...[
+          const Text('Établissement de destination',
+              style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: kTextPrimary)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _toSchool,
+            style: const TextStyle(fontSize: 13.5),
+            decoration: adminFilledInput('Nom de l\'école d\'accueil',
+                icon: Icons.school_outlined),
+          ),
+          const SizedBox(height: 14),
+        ],
         const Text('Motif',
             style: TextStyle(
                 fontSize: 12.5,
@@ -474,7 +529,7 @@ class _ExitDialogState extends State<_ExitDialog> {
           maxLines: 3,
           style: const TextStyle(fontSize: 13.5),
           decoration: adminFilledInput(
-              t ? 'Ex. : déménagement, école d\'accueil…' : 'Ex. : abandon, exclusion…'),
+              t ? 'Ex. : déménagement, motif…' : 'Ex. : abandon, exclusion…'),
         ),
       ]),
     );
