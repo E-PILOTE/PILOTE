@@ -9,6 +9,7 @@ import '../providers/academic_structure_provider.dart';
 import '../providers/academic_year_context.dart';
 import '../providers/programmes_provider.dart';
 import '../providers/subjects_provider.dart';
+import '../services/programmes_pdf_service.dart';
 
 part 'programmes_parts.dart';
 part 'programmes_cycle_view.dart';
@@ -216,6 +217,19 @@ class _BodyState extends ConsumerState<_Body> {
     _snack('$n programme(s) supprimé(s)', kGreen);
   }
 
+  Future<void> _exportPdf(List<ProgrammeRow> rows) async {
+    if (rows.isEmpty) {
+      _snack('Aucun programme à exporter', kTextMuted);
+      return;
+    }
+    final year = ref.read(activeYearProvider)?.label;
+    try {
+      await ProgrammesPdfService.printDoc(rows: rows, yearLabel: year);
+    } catch (e) {
+      _snack('Erreur PDF : $e', kRed);
+    }
+  }
+
   Future<void> _bulkExport(List<ProgrammeRow> rows) async {
     final targets = rows.where((p) => _selected.contains(p.id)).toList();
     final list = targets.isEmpty ? rows : targets;
@@ -306,7 +320,12 @@ class _BodyState extends ConsumerState<_Body> {
                   onClear: _clearSel,
                 )
               else
-                _ResultHeader(total: all.length, filtered: filtered.length),
+                _ResultHeader(
+                  total: all.length,
+                  filtered: filtered.length,
+                  onExportPdf:
+                      filtered.isEmpty ? null : () => _exportPdf(filtered),
+                ),
               const SizedBox(height: 12),
               if (all.isEmpty)
                 Padding(

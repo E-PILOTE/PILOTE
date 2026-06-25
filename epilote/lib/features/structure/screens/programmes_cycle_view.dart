@@ -26,6 +26,12 @@ class _ProgByCycleState extends ConsumerState<_ProgByCycle> {
     final canEdit = ref.watch(canProvider((slug: _kSlug, action: 'update')));
     final canDelete = ref.watch(canProvider((slug: _kSlug, action: 'delete')));
 
+    final structure =
+        ref.watch(academicStructureProvider).valueOrNull ?? AcademicStructure.empty;
+    final cycleTotalNiveaux = {
+      for (final c in structure.cycles) c.code: c.levels.length,
+    };
+
     final groups = <String, List<ProgrammeRow>>{};
     for (final p in widget.rows) {
       groups.putIfAbsent(p.cycleCode ?? 'autre', () => []).add(p);
@@ -70,6 +76,7 @@ class _ProgByCycleState extends ConsumerState<_ProgByCycle> {
             cycleCode: k,
             cycleName: _cycName(k, groups[k]!.first.cycleName),
             items: groups[k]!,
+            totalNiveaux: cycleTotalNiveaux[k] ?? 0,
             expanded: !_collapsed.contains(k),
             onToggle: () => setState(() {
               if (_collapsed.contains(k)) {
@@ -126,6 +133,7 @@ class _CycleSection extends StatelessWidget {
     required this.cycleCode,
     required this.cycleName,
     required this.items,
+    required this.totalNiveaux,
     required this.expanded,
     required this.onToggle,
     required this.canEdit,
@@ -136,6 +144,7 @@ class _CycleSection extends StatelessWidget {
   });
   final String cycleCode, cycleName;
   final List<ProgrammeRow> items;
+  final int totalNiveaux;
   final bool expanded, canEdit, canDelete;
   final VoidCallback onToggle;
   final ValueChanged<ProgrammeRow> onEdit, onDelete, onOpen;
@@ -209,6 +218,11 @@ class _CycleSection extends StatelessWidget {
                           _Pill(_pl(niveaux, 'niveau', 'niveaux'), kTextMuted),
                           if (official > 0) _Pill('$official officiel${official > 1 ? 's' : ''}', kGreen),
                         ]),
+                        if (totalNiveaux > 0) ...[
+                          const SizedBox(height: 9),
+                          _CompletionBar(
+                              covered: niveaux, total: totalNiveaux, color: col),
+                        ],
                       ]),
                 ),
                 AnimatedRotation(
@@ -264,6 +278,54 @@ class _Pill extends StatelessWidget {
             style: TextStyle(
                 fontSize: 11, fontWeight: FontWeight.w700, color: color)),
       );
+}
+
+// Barre de complétude : niveaux du cycle disposant d'au moins un programme.
+class _CompletionBar extends StatelessWidget {
+  const _CompletionBar(
+      {required this.covered, required this.total, required this.color});
+  final int covered, total;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = covered > total ? total : covered;
+    final ratio = total == 0 ? 0.0 : c / total;
+    final pct = (ratio * 100).round();
+    final done = c >= total && total > 0;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: ratio,
+              minHeight: 6,
+              backgroundColor: kBorder,
+              valueColor: AlwaysStoppedAnimation(done ? kGreen : color),
+            ),
+          ),
+        ),
+        const SizedBox(width: 9),
+        Text('$pct %',
+            style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: done ? kGreen : color)),
+      ]),
+      const SizedBox(height: 4),
+      Row(children: [
+        Icon(done ? Icons.check_circle_rounded : Icons.donut_large_rounded,
+            size: 12, color: done ? kGreen : kTextMuted),
+        const SizedBox(width: 4),
+        Text('$c/$total ${total <= 1 ? 'niveau couvert' : 'niveaux couverts'}',
+            style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: kTextMuted)),
+      ]),
+    ]);
+  }
 }
 
 class _NiveauGroup extends StatelessWidget {
