@@ -176,7 +176,9 @@ class _BodyState extends ConsumerState<_Body> {
                 const SizedBox(height: 16),
                 ScopeDrilldownPanel(
                   title: 'Conformité des dossiers',
-                  greenHint: 'part de dossiers complets',
+                  metricLabel: 'Complets',
+                  selected: _scope,
+                  onSelect: (s) => setState(() => _scope = s),
                   units: [
                     for (final d in allDossiers)
                       ScopeUnit(
@@ -188,7 +190,6 @@ class _BodyState extends ConsumerState<_Body> {
                         ok: d.isComplete,
                       ),
                   ],
-                  onChanged: (s) => setState(() => _scope = s),
                 ),
               ],
               const SizedBox(height: 22),

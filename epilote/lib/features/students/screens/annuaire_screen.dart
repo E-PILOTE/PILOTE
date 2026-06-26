@@ -160,7 +160,9 @@ class _BodyState extends ConsumerState<_Body> {
                 const SizedBox(height: 16),
                 ScopeDrilldownPanel(
                   title: 'Couverture contacts',
-                  greenHint: 'part d\'élèves avec contact',
+                  metricLabel: 'Avec contact',
+                  selected: _scope,
+                  onSelect: (s) => setState(() => _scope = s),
                   units: [
                     for (final f in allFams)
                       ScopeUnit(
@@ -172,7 +174,6 @@ class _BodyState extends ConsumerState<_Body> {
                         ok: f.hasContact,
                       ),
                   ],
-                  onChanged: (s) => setState(() => _scope = s),
                 ),
               ],
               const SizedBox(height: 22),
