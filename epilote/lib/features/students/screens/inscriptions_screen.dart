@@ -15,6 +15,7 @@ import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/classes/providers/class_provider.dart';
 import '../../../features/structure/providers/academic_year_context.dart';
 import '../widgets/inscription_form_kit.dart';
+import '../widgets/scope_drilldown_panel.dart';
 import '../providers/inscriptions_data_provider.dart';
 import '../providers/students_provider.dart';
 import '../providers/student_documents_provider.dart';
@@ -24,7 +25,6 @@ import 'add_inscription_screen.dart';
 
 part 'inscriptions_list_parts.dart';
 part 'inscriptions_modals.dart';
-part 'inscriptions_pipeline_parts.dart';
 
 // ─── Accents de cycle ─────────────────────────────────────────────────────────
 const _kBlue = Color(0xFF0EA5E9);
@@ -68,7 +68,7 @@ class _InscriptionsBody extends ConsumerStatefulWidget {
 
 class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
   final _searchCtrl = TextEditingController();
-  String? _cycle;
+  ScopeSel _scope = const ScopeSel(); // cycle/niveau/classe (panneau répartition)
   String? _filiere;
   String? _type;
   String _status = 'all'; // all | active | pending_validation | rejected
@@ -86,7 +86,11 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
   List<InscriptionRow> _apply(List<InscriptionRow> all) {
     final q = _searchCtrl.text.trim().toLowerCase();
     final out = all.where((r) {
-      if (_cycle != null && r.cycle.code != _cycle) return false;
+      if (_scope.cycle != null && r.cycle.code != _scope.cycle) return false;
+      if (_scope.level != null && (r.levelCode ?? '') != _scope.level) {
+        return false;
+      }
+      if (_scope.classId != null && r.classId != _scope.classId) return false;
       if (_filiere != null && r.filiereLabel != _filiere) return false;
       if (_type != null && r.inscriptionType != _type) return false;
       if (_status != 'all' && r.status != _status) return false;
@@ -108,7 +112,8 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
 
   void _resetFilters() => setState(() {
         _searchCtrl.clear();
-        _cycle = _filiere = _type = null;
+        _scope = const ScopeSel();
+        _filiere = _type = null;
         _status = 'all';
       });
 
@@ -455,9 +460,6 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
       data: (all) {
         final st = ref.watch(inscriptionStatsProvider);
         final filtered = _apply(all);
-        final cyclesPresent = <String, String>{
-          for (final r in all) r.cycle.code: r.cycle.label,
-        };
         // Filières OFFERTES par l'école (depuis la structure, même à 0 inscrit)
         // → le filtre est visible pour toute école technique/professionnelle.
         final filieresPresent = [for (final p in st.byProgram) p.label]..sort();
@@ -486,21 +488,35 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                     _EvolutionCard(points: st.evolution),
                     const SizedBox(height: 22),
                   ],
-                  const _PipelineCard(),
+                  if (all.isNotEmpty)
+                    ScopeDrilldownPanel(
+                      title: 'Répartition des dossiers',
+                      metricLabel: '',
+                      selected: _scope,
+                      onSelect: (s) => setState(() => _scope = s),
+                      units: [
+                        for (final r in all)
+                          ScopeUnit(
+                            cycleCode: r.cycle.code,
+                            levelCode: r.levelCode,
+                            levelOrder: r.levelOrder,
+                            classId: r.classId,
+                            className: r.className,
+                            ok: false,
+                          ),
+                      ],
+                    ),
                   const SizedBox(height: 22),
                   _FilterBar(
                     width: w - 48,
                     searchCtrl: _searchCtrl,
-                    cycle: _cycle,
                     filiere: _filiere,
                     type: _type,
                     status: _status,
                     isTable: _isTable,
                     readOnly: readOnly,
-                    cyclesPresent: cyclesPresent,
                     filieresPresent: filieresPresent,
                     onSearch: (_) => setState(() {}),
-                    onCycle: (v) => setState(() => _cycle = v),
                     onFiliere: (v) => setState(() => _filiere = v),
                     onType: (v) => setState(() => _type = v),
                     onStatus: (v) => setState(() => _status = v),
@@ -509,6 +525,14 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                     onAdd: _openAdd,
                     onExport: () => _export(filtered),
                   ),
+                  if (_scope.active) ...[
+                    const SizedBox(height: 12),
+                    _ScopeChip(
+                      label: _scope.label,
+                      onClear: () =>
+                          setState(() => _scope = const ScopeSel()),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   if (_selected.isNotEmpty)
                     _BulkBar(
@@ -774,16 +798,13 @@ class _FilterBar extends StatelessWidget {
   const _FilterBar({
     required this.width,
     required this.searchCtrl,
-    required this.cycle,
     required this.filiere,
     required this.type,
     required this.status,
     required this.isTable,
     required this.readOnly,
-    required this.cyclesPresent,
     required this.filieresPresent,
     required this.onSearch,
-    required this.onCycle,
     required this.onFiliere,
     required this.onType,
     required this.onStatus,
@@ -794,18 +815,17 @@ class _FilterBar extends StatelessWidget {
   });
   final double width;
   final TextEditingController searchCtrl;
-  final String? cycle, filiere, type;
+  final String? filiere, type;
   final String status;
   final bool isTable, readOnly;
-  final Map<String, String> cyclesPresent;
   final List<String> filieresPresent;
   final ValueChanged<String> onSearch;
-  final ValueChanged<String?> onCycle, onFiliere, onType;
+  final ValueChanged<String?> onFiliere, onType;
   final ValueChanged<String> onStatus;
   final VoidCallback onToggleView, onReset, onAdd, onExport;
 
   bool get _hasFilters =>
-      cycle != null || filiere != null || type != null || status != 'all';
+      filiere != null || type != null || status != 'all';
 
   @override
   Widget build(BuildContext context) {
@@ -867,17 +887,6 @@ class _FilterBar extends StatelessWidget {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            _FilterDropdown<String?>(
-              icon: Icons.account_tree_outlined,
-              value: cycle,
-              active: cycle != null,
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Tous les cycles')),
-                for (final e in cyclesPresent.entries)
-                  DropdownMenuItem(value: e.key, child: Text(e.value)),
-              ],
-              onChanged: onCycle,
-            ),
             if (filieresPresent.isNotEmpty)
               _FilterDropdown<String?>(
                 icon: Icons.workspaces_outlined,
@@ -935,6 +944,41 @@ class _FilterBar extends StatelessWidget {
       ]),
     );
   }
+}
+
+// Bandeau de filtre actif (scope choisi dans le panneau de répartition).
+class _ScopeChip extends StatelessWidget {
+  const _ScopeChip({required this.label, required this.onClear});
+  final String label;
+  final VoidCallback onClear;
+  @override
+  Widget build(BuildContext context) => Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 7, 6, 7),
+          decoration: BoxDecoration(
+            color: kNavy.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: kNavy.withValues(alpha: 0.25)),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.filter_alt_rounded, size: 14, color: kNavy),
+            const SizedBox(width: 6),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 12.5, fontWeight: FontWeight.w700, color: kNavy)),
+            const SizedBox(width: 2),
+            InkWell(
+              onTap: onClear,
+              borderRadius: BorderRadius.circular(20),
+              child: const Padding(
+                padding: EdgeInsets.all(3),
+                child: Icon(Icons.close_rounded, size: 15, color: kNavy),
+              ),
+            ),
+          ]),
+        ),
+      );
 }
 
 class _AddButton extends StatelessWidget {

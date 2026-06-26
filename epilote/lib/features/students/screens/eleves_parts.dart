@@ -5,381 +5,31 @@ part of 'eleves_screen.dart';
 //  groupées, table (sélection), cartes, avatar, sélecteur de classe.
 // ════════════════════════════════════════════════════════════════════════════
 
-// ─── Répartition de l'effectif validé — hub de relation inter-pages ──────────
-// Une SEULE source (le registre des élèves validés), 3 vues : Cycle · Niveau ·
-// Classe. Cliquer un cycle/niveau FILTRE la liste ci-dessous ; cliquer une
-// classe OUVRE sa fiche (page Classes). Lien « Structure complète » → cockpit
-// Niveaux. Pas de doublon : l'analyse structurelle vit ici, Inscriptions = desk.
-class _ElevesBreakdown extends StatelessWidget {
-  const _ElevesBreakdown({
-    required this.students,
-    required this.dim,
-    required this.activeCycle,
-    required this.activeLevel,
-    required this.onDim,
-    required this.onPickCycle,
-    required this.onPickLevel,
-    required this.onOpenClass,
-    required this.onOpenStructure,
-  });
-  final List<StudentRow> students;
-  final String dim;
-  final String? activeCycle, activeLevel;
-  final ValueChanged<String> onDim, onPickCycle, onPickLevel, onOpenClass;
-  final VoidCallback onOpenStructure;
-
+// ─── Évolution de l'effectif (graphe mensuel) ────────────────────────────────
+class _EffectifEvolution extends ConsumerWidget {
+  const _EffectifEvolution();
   @override
-  Widget build(BuildContext context) {
-    return AdminCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          const Icon(Icons.insights_rounded, size: 16, color: kNavy),
-          const SizedBox(width: 8),
-          const Text('Répartition de l\'effectif validé',
-              style: TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w800, color: kNavy)),
-          const Spacer(),
-          _DimSeg(dim: dim, onDim: onDim),
-        ]),
-        const SizedBox(height: 4),
-        Row(children: [
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pts = ref.watch(effectifEvolutionProvider).valueOrNull ?? const [];
+    if (pts.length < 2) {
+      return const AdminCard(
+        padding: EdgeInsets.all(20),
+        child: Row(children: [
+          Icon(Icons.timeline_rounded, size: 18, color: kTextMuted),
+          SizedBox(width: 10),
           Expanded(
             child: Text(
-                dim == 'classe'
-                    ? 'Cliquez une classe pour ouvrir sa fiche.'
-                    : 'Cliquez un ${dim == 'cycle' ? 'cycle' : 'niveau'} pour filtrer la liste.',
-                style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
-          ),
-          TextButton.icon(
-            onPressed: onOpenStructure,
-            icon: const Icon(Icons.account_tree_outlined, size: 15),
-            label: const Text('Structure complète'),
-            style: TextButton.styleFrom(
-                foregroundColor: kNavy,
-                visualDensity: VisualDensity.compact,
-                textStyle: const TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w700)),
+                'Pas encore assez d\'historique pour tracer une évolution '
+                '(les dates d\'inscription se cumulent au fil de l\'année).',
+                style: TextStyle(fontSize: 12.5, color: kTextMuted)),
           ),
         ]),
-        const SizedBox(height: 12),
-        switch (dim) {
-          'cycle' => _cycleView(),
-          'classe' => _classeView(),
-          _ => _niveauView(),
-        },
-      ]),
-    );
-  }
-
-  // ── Cycle : donut + légende cliquable (filtre) ──────────────────────────────
-  Widget _cycleView() {
-    final byCycle = <String, int>{};
-    for (final s in students) {
-      byCycle[s.cycleCode ?? ''] = (byCycle[s.cycleCode ?? ''] ?? 0) + 1;
-    }
-    final entries = byCycle.entries.toList()
-      ..sort((a, b) => _cycOrder(a.key).compareTo(_cycOrder(b.key)));
-    final slices =
-        entries.map((e) => _Slice(_cycName(e.key), e.value, _cycColor(e.key))).toList();
-    final total = students.length;
-
-    return LayoutBuilder(builder: (ctx, cns) {
-      final wide = cns.maxWidth >= 560;
-      final donut = SizedBox(
-        height: 196,
-        width: wide ? 230 : double.infinity,
-        child: SfCircularChart(
-          margin: EdgeInsets.zero,
-          series: <CircularSeries>[
-            DoughnutSeries<_Slice, String>(
-              dataSource: slices,
-              xValueMapper: (s, _) => s.label,
-              yValueMapper: (s, _) => s.value,
-              pointColorMapper: (s, _) => s.color,
-              innerRadius: '64%',
-              dataLabelSettings: const DataLabelSettings(isVisible: true),
-            ),
-          ],
-        ),
-      );
-      final legend = Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          for (final e in entries)
-            _PickRow(
-              color: _cycColor(e.key),
-              label: _cycName(e.key),
-              count: e.value,
-              total: total,
-              active: activeCycle == e.key,
-              onTap: () => onPickCycle(e.key),
-            ),
-        ],
-      );
-      return wide
-          ? IntrinsicHeight(
-              child: Row(children: [
-                donut,
-                const SizedBox(width: 18),
-                Expanded(child: legend),
-              ]))
-          : Column(children: [donut, const SizedBox(height: 12), legend]);
-    });
-  }
-
-  // ── Niveau : barres cliquables (filtre) ─────────────────────────────────────
-  Widget _niveauView() {
-    final byLevel = <String, ({int count, int order, String cycle})>{};
-    for (final s in students) {
-      final lc = s.levelCode ?? '';
-      if (lc.isEmpty) continue;
-      final cur = byLevel[lc];
-      byLevel[lc] = (
-        count: (cur?.count ?? 0) + 1,
-        order: s.levelOrder,
-        cycle: s.cycleCode ?? ''
       );
     }
-    final levels = byLevel.entries.toList()
-      ..sort((a, b) {
-        final c = _cycOrder(a.value.cycle).compareTo(_cycOrder(b.value.cycle));
-        return c != 0 ? c : a.value.order.compareTo(b.value.order);
-      });
-    final maxN = levels.fold<int>(0, (m, e) => e.value.count > m ? e.value.count : m);
-    if (levels.isEmpty) return _empty();
-    return Column(children: [
-      for (final e in levels)
-        _BarRow(
-          label: e.key,
-          count: e.value.count,
-          ratio: maxN == 0 ? 0 : e.value.count / maxN,
-          color: _cycColor(e.value.cycle),
-          active: activeLevel == e.key,
-          onTap: () => onPickLevel(e.key),
-        ),
-    ]);
-  }
-
-  // ── Classe : barres cliquables (ouvre la fiche classe) ──────────────────────
-  Widget _classeView() {
-    final byClass = <String, ({int count, String name, String cycle, int order})>{};
-    for (final s in students) {
-      final id = s.classId;
-      if (id == null) continue;
-      final cur = byClass[id];
-      byClass[id] = (
-        count: (cur?.count ?? 0) + 1,
-        name: s.className ?? '—',
-        cycle: s.cycleCode ?? '',
-        order: s.levelOrder,
-      );
-    }
-    final classes = byClass.entries.toList()
-      ..sort((a, b) {
-        final c = _cycOrder(a.value.cycle).compareTo(_cycOrder(b.value.cycle));
-        if (c != 0) return c;
-        final o = a.value.order.compareTo(b.value.order);
-        return o != 0 ? o : a.value.name.compareTo(b.value.name);
-      });
-    final maxN = classes.fold<int>(0, (m, e) => e.value.count > m ? e.value.count : m);
-    if (classes.isEmpty) return _empty();
-    return Column(children: [
-      for (final e in classes)
-        _BarRow(
-          label: e.value.name,
-          count: e.value.count,
-          ratio: maxN == 0 ? 0 : e.value.count / maxN,
-          color: _cycColor(e.value.cycle),
-          active: false,
-          trailingChevron: true,
-          labelWidth: 86,
-          onTap: () => onOpenClass(e.key),
-        ),
-    ]);
-  }
-
-  Widget _empty() => const SizedBox(
-      height: 56,
-      child: Center(child: Text('—', style: TextStyle(color: kTextMuted))));
-}
-
-class _Slice {
-  const _Slice(this.label, this.value, this.color);
-  final String label;
-  final int value;
-  final Color color;
-}
-
-// Segmenté Cycle/Niveau/Classe.
-class _DimSeg extends StatelessWidget {
-  const _DimSeg({required this.dim, required this.onDim});
-  final String dim;
-  final ValueChanged<String> onDim;
-  @override
-  Widget build(BuildContext context) {
-    Widget seg(String v, String label) {
-      final on = dim == v;
-      return GestureDetector(
-        onTap: () => onDim(v),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: on ? kNavy : Colors.transparent,
-            borderRadius: BorderRadius.circular(7),
-          ),
-          child: Text(label,
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: on ? Colors.white : kTextMuted)),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-          color: kSurface, borderRadius: BorderRadius.circular(9)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        seg('cycle', 'Cycle'),
-        seg('niveau', 'Niveau'),
-        seg('classe', 'Classe'),
-      ]),
-    );
-  }
-}
-
-// Ligne de légende cliquable (vue cycle).
-class _PickRow extends StatelessWidget {
-  const _PickRow({
-    required this.color,
-    required this.label,
-    required this.count,
-    required this.total,
-    required this.active,
-    required this.onTap,
-  });
-  final Color color;
-  final String label;
-  final int count, total;
-  final bool active;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) {
-    final pct = total == 0 ? 0 : (count * 100 / total).round();
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-        margin: const EdgeInsets.only(bottom: 4),
-        decoration: BoxDecoration(
-          color: active ? color.withValues(alpha: 0.10) : null,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-              color: active ? color.withValues(alpha: 0.4) : Colors.transparent),
-        ),
-        child: Row(children: [
-          Container(
-            width: 11,
-            height: 11,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(label,
-                style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: kTextPrimary)),
-          ),
-          Text('$count',
-              style: const TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w800, color: kTextPrimary)),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 38,
-            child: Text('$pct %',
-                textAlign: TextAlign.end,
-                style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
-          ),
-        ]),
-      ),
-    );
-  }
-}
-
-// Barre horizontale cliquable (vues niveau / classe).
-class _BarRow extends StatelessWidget {
-  const _BarRow({
-    required this.label,
-    required this.count,
-    required this.ratio,
-    required this.color,
-    required this.active,
-    required this.onTap,
-    this.trailingChevron = false,
-    this.labelWidth = 56,
-  });
-  final String label;
-  final int count;
-  final double ratio;
-  final Color color;
-  final bool active, trailingChevron;
-  final double labelWidth;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-        margin: const EdgeInsets.only(bottom: 4),
-        decoration: BoxDecoration(
-          color: active ? color.withValues(alpha: 0.10) : null,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-              color: active ? color.withValues(alpha: 0.4) : Colors.transparent),
-        ),
-        child: Row(children: [
-          SizedBox(
-            width: labelWidth,
-            child: Text(label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: kTextPrimary)),
-          ),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: ratio.clamp(0.02, 1.0),
-                minHeight: 16,
-                backgroundColor: kSurface,
-                valueColor: AlwaysStoppedAnimation(color.withValues(alpha: 0.85)),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 28,
-            child: Text('$count',
-                textAlign: TextAlign.end,
-                style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: kTextPrimary)),
-          ),
-          if (trailingChevron)
-            const Icon(Icons.chevron_right_rounded,
-                size: 18, color: kTextMuted),
-        ]),
-      ),
+    return MonthlyEvolutionCard(
+      points: [for (final p in pts) EvoPoint(p.label, p.count, p.cumul)],
+      barLabel: 'Élèves entrés',
+      lineLabel: 'Effectif cumulé',
     );
   }
 }
@@ -389,35 +39,24 @@ class _ElevesFilterBar extends StatelessWidget {
   const _ElevesFilterBar({
     required this.searchCtrl,
     required this.gender,
-    required this.cycle,
-    required this.level,
     required this.isTable,
     required this.readOnly,
-    required this.cyclesPresent,
-    required this.levelCodes,
     required this.onSearch,
     required this.onGender,
-    required this.onCycle,
-    required this.onLevel,
     required this.onToggleView,
     required this.onReset,
     required this.onAdd,
   });
   final TextEditingController searchCtrl;
-  final String? gender, cycle, level;
+  final String? gender;
   final bool isTable, readOnly;
-  final Map<String, String> cyclesPresent;
-  final List<String> levelCodes;
   final ValueChanged<String> onSearch;
-  final ValueChanged<String?> onGender, onCycle, onLevel;
+  final ValueChanged<String?> onGender;
   final VoidCallback onToggleView, onReset, onAdd;
 
   @override
   Widget build(BuildContext context) {
-    final hasFilter = searchCtrl.text.isNotEmpty ||
-        gender != null ||
-        cycle != null ||
-        level != null;
+    final hasFilter = searchCtrl.text.isNotEmpty || gender != null;
     return AdminCard(
       padding: const EdgeInsets.all(14),
       child: Row(children: [
@@ -436,23 +75,6 @@ class _ElevesFilterBar extends StatelessWidget {
                   decoration: adminFilledInput('Rechercher (nom, matricule)',
                       icon: Icons.search_rounded),
                 ),
-              ),
-              _Drop(
-                hint: 'Tous les cycles',
-                value: cycle,
-                items: {
-                  for (final e in (cyclesPresent.entries.toList()
-                        ..sort((a, b) =>
-                            _cycOrder(a.key).compareTo(_cycOrder(b.key)))))
-                    if (e.key.isNotEmpty) e.key: e.value,
-                },
-                onChanged: onCycle,
-              ),
-              _Drop(
-                hint: 'Tous les niveaux',
-                value: level,
-                items: {for (final c in levelCodes) c: c},
-                onChanged: onLevel,
               ),
               _Drop(
                 hint: 'Tous les sexes',
@@ -488,6 +110,41 @@ class _ElevesFilterBar extends StatelessWidget {
       ]),
     );
   }
+}
+
+// Bandeau de filtre actif (scope choisi dans le panneau de répartition).
+class _ScopeChip extends StatelessWidget {
+  const _ScopeChip({required this.label, required this.onClear});
+  final String label;
+  final VoidCallback onClear;
+  @override
+  Widget build(BuildContext context) => Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 7, 6, 7),
+          decoration: BoxDecoration(
+            color: kNavy.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: kNavy.withValues(alpha: 0.25)),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.filter_alt_rounded, size: 14, color: kNavy),
+            const SizedBox(width: 6),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 12.5, fontWeight: FontWeight.w700, color: kNavy)),
+            const SizedBox(width: 2),
+            InkWell(
+              onTap: onClear,
+              borderRadius: BorderRadius.circular(20),
+              child: const Padding(
+                padding: EdgeInsets.all(3),
+                child: Icon(Icons.close_rounded, size: 15, color: kNavy),
+              ),
+            ),
+          ]),
+        ),
+      );
 }
 
 class _Drop extends StatelessWidget {

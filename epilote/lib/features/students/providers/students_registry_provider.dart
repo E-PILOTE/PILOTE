@@ -134,6 +134,60 @@ final studentsRegistryProvider =
           ]);
 });
 
+// ─── Évolution de l'effectif (cumul mensuel des inscriptions actives) ────────
+class EffectifPoint {
+  const EffectifPoint(this.label, this.count, this.cumul);
+  final String label;
+  final int count, cumul;
+}
+
+const _frMonthsShort = [
+  'janv', 'févr', 'mars', 'avr', 'mai', 'juin',
+  'juil', 'août', 'sept', 'oct', 'nov', 'déc'
+];
+
+/// Croissance de l'effectif : nb d'élèves entrés par mois (selon enrollment_date
+/// des inscriptions ACTIVES de l'année) + effectif cumulé. Offline-first.
+final effectifEvolutionProvider =
+    StreamProvider.autoDispose<List<EffectifPoint>>((ref) {
+  final profile = ref.watch(authNotifierProvider).valueOrNull;
+  final schoolId = profile?.schoolId;
+  final yearId = ref.watch(activeYearIdProvider);
+  if (schoolId == null || schoolId.isEmpty) return Stream.value(const []);
+  return db
+      .watch(
+        '''
+        SELECT substr(ce.enrollment_date, 1, 7) AS ym, COUNT(*) AS n
+        FROM   class_enrollments ce
+        JOIN   students s ON s.id = ce.student_id
+        WHERE  ce.academic_year_id = ?
+          AND  ce.status = 'active'
+          AND  s.school_id = ?
+          AND  ce.enrollment_date IS NOT NULL
+          AND  ce.enrollment_date != ''
+        GROUP  BY ym
+        ORDER  BY ym
+        ''',
+        parameters: [yearId ?? '', schoolId],
+      )
+      .map((rows) {
+        var cumul = 0;
+        final out = <EffectifPoint>[];
+        for (final r in rows) {
+          final ym = (r['ym'] as String?) ?? '';
+          final n = (r['n'] as int?) ?? 0;
+          cumul += n;
+          final parts = ym.split('-');
+          final label = parts.length == 2
+              ? '${_frMonthsShort[(int.tryParse(parts[1]) ?? 1) - 1]} '
+                  '${parts[0].substring(2)}'
+              : ym;
+          out.add(EffectifPoint(label, n, cumul));
+        }
+        return out;
+      });
+});
+
 // ─── Export CSV de l'effectif ────────────────────────────────────────────────
 String _csv(String? v) => '"${(v ?? '').replaceAll('"', '""')}"';
 

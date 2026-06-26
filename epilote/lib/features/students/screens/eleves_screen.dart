@@ -4,10 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:syncfusion_flutter_charts/charts.dart';
 
-import '../../../core/constants/routes.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../../data/models/class_model.dart';
@@ -23,6 +20,8 @@ import '../providers/students_provider.dart';
 import '../providers/students_registry_provider.dart';
 import '../providers/transfers_provider.dart';
 import '../services/students_pdf_service.dart';
+import '../widgets/monthly_evolution_card.dart';
+import '../widgets/scope_drilldown_panel.dart';
 import '../widgets/transfer_destination_picker.dart';
 import '../widgets/inscription_form_kit.dart';
 import 'add_inscription_screen.dart';
@@ -48,13 +47,8 @@ const _cycleNames = <String, String>{
   'formation_pro': 'Formation Pro.',
   'fp': 'Formation Pro.',
 };
-const _cycleOrder = <String, int>{
-  'prescolaire': 1, 'primaire': 2, 'college': 3, 'lycee': 4,
-  'formation_pro': 5, 'fp': 5,
-};
 Color _cycColor(String? code) => _cycleColors[code ?? ''] ?? kTextMuted;
 String _cycName(String? code) => _cycleNames[code ?? ''] ?? 'Non classé';
-int _cycOrder(String? code) => _cycleOrder[code ?? ''] ?? 9;
 
 String _pl(int n, String s, String p) => '$n ${n <= 1 ? s : p}';
 
@@ -84,9 +78,7 @@ class _Body extends ConsumerStatefulWidget {
 class _BodyState extends ConsumerState<_Body> {
   final _search = TextEditingController();
   String? _gender; // M | F
-  String? _cycle;
-  String? _level;
-  String _dim = 'niveau'; // dimension de la répartition : cycle|niveau|classe
+  ScopeSel _scope = const ScopeSel(); // cycle/niveau/classe (panneau répartition)
   bool _isTable = true;
   bool _sortAsc = true;
   final Set<String> _selected = {}; // ids d'élèves (= enrollmentId) sélectionnés
@@ -99,15 +91,21 @@ class _BodyState extends ConsumerState<_Body> {
 
   void _resetFilters() => setState(() {
         _search.clear();
-        _gender = _cycle = _level = null;
+        _gender = null;
+        _scope = const ScopeSel();
       });
 
   List<StudentRow> _apply(List<StudentRow> all) {
     final q = _search.text.trim().toLowerCase();
     final out = all.where((s) {
       if (_gender != null && s.gender != _gender) return false;
-      if (_cycle != null && (s.cycleCode ?? '') != _cycle) return false;
-      if (_level != null && (s.levelCode ?? '') != _level) return false;
+      if (_scope.cycle != null && (s.cycleCode ?? '') != _scope.cycle) {
+        return false;
+      }
+      if (_scope.level != null && (s.levelCode ?? '') != _scope.level) {
+        return false;
+      }
+      if (_scope.classId != null && s.classId != _scope.classId) return false;
       if (q.isEmpty) return true;
       return s.fullName.toLowerCase().contains(q) ||
           s.matricule.toLowerCase().contains(q) ||
@@ -285,16 +283,6 @@ class _BodyState extends ConsumerState<_Body> {
       ),
       data: (all) {
         final filtered = _apply(all);
-        final cyclesPresent = <String, String>{
-          for (final s in all) (s.cycleCode ?? ''): _cycName(s.cycleCode),
-        };
-        final levelsPresent = <String, int>{
-          for (final s in all.where(
-              (s) => _cycle == null || (s.cycleCode ?? '') == _cycle))
-            (s.levelCode ?? ''): s.levelOrder,
-        }..remove('');
-        final levelCodes = levelsPresent.keys.toList()
-          ..sort((a, b) => levelsPresent[a]!.compareTo(levelsPresent[b]!));
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -304,43 +292,52 @@ class _BodyState extends ConsumerState<_Body> {
               _Kpis(students: all),
               if (all.isNotEmpty) ...[
                 const SizedBox(height: 22),
-                _ElevesBreakdown(
-                  students: all,
-                  dim: _dim,
-                  activeCycle: _cycle,
-                  activeLevel: _level,
-                  onDim: (d) => setState(() => _dim = d),
-                  onPickCycle: (c) => setState(() {
-                    _cycle = _cycle == c ? null : c;
-                    _level = null;
-                  }),
-                  onPickLevel: (l) => setState(() => _level = _level == l ? null : l),
-                  onOpenClass: (id) =>
-                      context.push(Routes.classeDetail.replaceFirst(':id', id)),
-                  onOpenStructure: () => context.push(Routes.structure),
+                ScopeDrilldownPanel(
+                  title: 'Répartition de l\'effectif',
+                  metricLabel: '',
+                  selected: _scope,
+                  onSelect: (s) => setState(() => _scope = s),
+                  units: [
+                    for (final s in all)
+                      ScopeUnit(
+                        cycleCode: s.cycleCode,
+                        levelCode: s.levelCode,
+                        levelOrder: s.levelOrder,
+                        classId: s.classId,
+                        className: s.className,
+                        ok: false,
+                      ),
+                  ],
                 ),
+              ],
+              if (all.length >= 3) ...[
+                const SizedBox(height: 22),
+                const AdminSectionTitle('Évolution de l\'effectif',
+                    icon: Icons.show_chart_rounded,
+                    subtitle:
+                        'Élèves entrés par mois (barres) et effectif cumulé (courbe)'),
+                const SizedBox(height: 12),
+                const _EffectifEvolution(),
               ],
               const SizedBox(height: 22),
               _ElevesFilterBar(
                 searchCtrl: _search,
                 gender: _gender,
-                cycle: _cycle,
-                level: _level,
                 isTable: _isTable,
                 readOnly: readOnly,
-                cyclesPresent: cyclesPresent,
-                levelCodes: levelCodes,
                 onSearch: (_) => setState(() {}),
                 onGender: (v) => setState(() => _gender = v),
-                onCycle: (v) => setState(() {
-                  _cycle = v;
-                  _level = null;
-                }),
-                onLevel: (v) => setState(() => _level = v),
                 onToggleView: () => setState(() => _isTable = !_isTable),
                 onReset: _resetFilters,
                 onAdd: _openAdd,
               ),
+              if (_scope.active) ...[
+                const SizedBox(height: 12),
+                _ScopeChip(
+                  label: _scope.label,
+                  onClear: () => setState(() => _scope = const ScopeSel()),
+                ),
+              ],
               const SizedBox(height: 16),
               if (_selected.isNotEmpty && !readOnly)
                 _BulkBar(

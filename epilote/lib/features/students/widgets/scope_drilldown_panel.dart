@@ -288,69 +288,85 @@ class _CycleCard extends StatelessWidget {
     final metricColor =
         full ? kGreen : (pct == 0 ? kRed : const Color(0xFFF59E0B));
     return SizedBox(
-      width: 188,
+      width: 226,
       child: Material(
-        color: selected ? color.withValues(alpha: 0.08) : Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        color: selected ? color.withValues(alpha: 0.07) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           child: Container(
-            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+            padding: const EdgeInsets.fromLTRB(16, 15, 16, 15),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
                   color: selected ? color : kBorder,
-                  width: selected ? 1.5 : 1),
+                  width: selected ? 1.6 : 1),
             ),
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
                     Container(
-                        width: 9,
-                        height: 9,
-                        decoration: BoxDecoration(
-                            color: color, shape: BoxShape.circle)),
-                    const SizedBox(width: 8),
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(9)),
+                      child: Icon(_cycleIcon(code), size: 18, color: color),
+                    ),
+                    const SizedBox(width: 11),
                     Expanded(
                       child: Text(scopeCycleName(code),
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              fontSize: 12.5,
+                              fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: kTextPrimary)),
+                              color: kTextPrimary,
+                              height: 1.15)),
                     ),
                     if (selected)
-                      Icon(Icons.filter_alt_rounded, size: 14, color: color),
+                      Icon(Icons.filter_alt_rounded, size: 16, color: color),
                   ]),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 14),
                   Row(crossAxisAlignment: CrossAxisAlignment.baseline,
                       textBaseline: TextBaseline.alphabetic,
                       children: [
                         Text('$total',
                             style: const TextStyle(
-                                fontSize: 24,
+                                fontSize: 32,
                                 fontWeight: FontWeight.w800,
                                 color: kTextPrimary,
                                 height: 1)),
-                        const SizedBox(width: 5),
+                        const SizedBox(width: 6),
                         const Padding(
-                          padding: EdgeInsets.only(bottom: 2),
+                          padding: EdgeInsets.only(bottom: 3),
                           child: Text('élèves',
                               style:
-                                  TextStyle(fontSize: 11.5, color: kTextMuted)),
+                                  TextStyle(fontSize: 12, color: kTextMuted)),
                         ),
                       ]),
-                  const SizedBox(height: 4),
-                  Text('$ok ${metricLabel.toLowerCase()} · $pct%',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
-                          color: metricColor)),
+                  if (metricLabel.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: total == 0 ? 0 : ok / total,
+                        minHeight: 6,
+                        backgroundColor: kSurface,
+                        valueColor: AlwaysStoppedAnimation(metricColor),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text('$ok ${metricLabel.toLowerCase()} · $pct%',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: metricColor)),
+                  ],
                 ]),
           ),
         ),
@@ -358,6 +374,15 @@ class _CycleCard extends StatelessWidget {
     );
   }
 }
+
+IconData _cycleIcon(String code) => switch (code) {
+      'prescolaire' => Icons.child_care_rounded,
+      'primaire' => Icons.abc_rounded,
+      'college' => Icons.menu_book_rounded,
+      'lycee' => Icons.school_rounded,
+      'formation_pro' || 'fp' => Icons.engineering_rounded,
+      _ => Icons.donut_small_rounded,
+    };
 
 // ─── Déroulant de scope (avec option « tout ») ────────────────────────────────
 class _ScopeDropdown extends StatelessWidget {
