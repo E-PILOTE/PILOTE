@@ -41,6 +41,7 @@ import '../../features/admin_groupe/screens/admin_module_screen.dart';
 import '../../features/admin_groupe/screens/admin_modules_screen.dart';
 import '../../features/students/screens/inscriptions_screen.dart';
 import '../../features/students/screens/eleves_screen.dart';
+import '../../features/students/screens/documents_screen.dart';
 import '../../features/students/screens/transferts_screen.dart';
 import '../../features/structure/screens/subjects_screen.dart';
 import '../../features/structure/screens/programmes_screen.dart';
@@ -444,6 +445,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.transferts,
         builder: (_, _) => const TransfertsScreen(),
+      ),
+      GoRoute(
+        path: Routes.documents,
+        builder: (_, _) => const DocumentsScreen(),
       ),
       _comingSoon(Routes.notes, 'notes', 'Notes'),
       _comingSoon(Routes.bulletins, 'bulletins', 'Bulletins'),

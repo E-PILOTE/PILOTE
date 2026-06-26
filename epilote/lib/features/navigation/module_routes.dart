@@ -14,8 +14,9 @@ const Map<String, String> _moduleRoutes = {
   'eleves':           Routes.eleves,
   'inscriptions':     Routes.inscriptions,
   'transferts':       Routes.transferts,
-  // 'documents' / 'annuaire' : pages à venir → laissées sur le placeholder
-  // « en préparation » (/user/m/:slug) tant que leur écran n'existe pas.
+  'documents':        Routes.documents,
+  // 'annuaire' : page à venir → laissée sur le placeholder « en préparation »
+  // (/user/m/:slug) tant que son écran n'existe pas.
   'niveaux':          Routes.structure,
   'classes':          Routes.classes,
   'matieres':         Routes.matieres,
