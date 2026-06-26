@@ -9,6 +9,7 @@ import '../../navigation/widgets/module_scaffold.dart';
 import '../../structure/providers/academic_year_context.dart';
 import '../providers/transfers_provider.dart';
 import '../services/transfers_pdf_service.dart';
+import '../widgets/transfer_destination_picker.dart';
 
 part 'transferts_parts.dart';
 part 'transferts_form.dart';

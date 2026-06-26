@@ -12,17 +12,16 @@ class _NewTransferDialog extends ConsumerStatefulWidget {
 
 class _NewTransferDialogState extends ConsumerState<_NewTransferDialog> {
   final _studentSearch = TextEditingController();
-  final _toSchool = TextEditingController();
   final _reason = TextEditingController();
   String? _studentId;
   String _studentLabel = '';
+  TransferDestination? _dest;
   DateTime _date = DateTime.now();
   bool _saving = false;
 
   @override
   void dispose() {
     _studentSearch.dispose();
-    _toSchool.dispose();
     _reason.dispose();
     super.dispose();
   }
@@ -44,7 +43,7 @@ class _NewTransferDialogState extends ConsumerState<_NewTransferDialog> {
       _err('Sélectionnez l\'élève à transférer');
       return;
     }
-    if (_toSchool.text.trim().isEmpty) {
+    if (_dest == null || !_dest!.isValid) {
       _err('Indiquez l\'établissement de destination');
       return;
     }
@@ -62,7 +61,8 @@ class _NewTransferDialogState extends ConsumerState<_NewTransferDialog> {
         groupId: groupId,
         fromSchoolId: schoolId,
         studentId: _studentId!,
-        toSchoolName: _toSchool.text,
+        toSchoolName: _dest!.schoolName,
+        toSchoolId: _dest!.schoolId,
         transferDate: _date,
         reason: _reason.text.trim().isEmpty ? null : _reason.text.trim(),
         academicYearId: yearId,
@@ -145,12 +145,7 @@ class _NewTransferDialogState extends ConsumerState<_NewTransferDialog> {
             }),
           ),
         const SizedBox(height: 16),
-        const _FieldLabel('Établissement de destination'),
-        TextField(
-          controller: _toSchool,
-          decoration: adminFilledInput('Nom de l\'école d\'accueil',
-              icon: Icons.school_outlined),
-        ),
+        TransferDestinationPicker(onChanged: (d) => _dest = d),
         const SizedBox(height: 16),
         const _FieldLabel('Date du transfert'),
         InkWell(

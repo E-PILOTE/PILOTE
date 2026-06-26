@@ -266,14 +266,15 @@ class _DwActionBar extends ConsumerWidget {
         // Réconciliation : un transfert depuis la fiche alimente le registre
         // des Transferts (statut « terminé », l'élève étant déjà sorti).
         if (isTransfer &&
-            res.toSchool != null &&
+            res.toSchoolName != null &&
             profile?.groupId != null &&
             profile?.schoolId != null) {
           await createTransfer(
             groupId: profile!.groupId!,
             fromSchoolId: profile.schoolId!,
             studentId: row.id,
-            toSchoolName: res.toSchool!,
+            toSchoolName: res.toSchoolName!,
+            toSchoolId: res.toSchoolId,
             transferDate: DateTime.now(),
             reason: res.reason,
             academicYearId: ref.read(activeYearIdProvider),
@@ -445,29 +446,28 @@ class _MenuRow extends StatelessWidget {
 }
 
 // ─── Dialogue de sortie (transfert / radiation) avec motif ───────────────────
-class _ExitDialog extends StatefulWidget {
+class _ExitDialog extends ConsumerStatefulWidget {
   const _ExitDialog({required this.fullName, required this.transfer});
   final String fullName;
   final bool transfer;
   @override
-  State<_ExitDialog> createState() => _ExitDialogState();
+  ConsumerState<_ExitDialog> createState() => _ExitDialogState();
 }
 
-/// Résultat de la sortie : motif + (pour un transfert) école de destination.
-/// L'école renseignée alimente le registre des Transferts (réconciliation).
+/// Résultat de la sortie : motif + (pour un transfert) école de destination
+/// (cascade groupe → école). Alimente le registre des Transferts (réconciliation).
 class _ExitResult {
-  const _ExitResult({required this.reason, this.toSchool});
+  const _ExitResult({required this.reason, this.toSchoolId, this.toSchoolName});
   final String reason;
-  final String? toSchool;
+  final String? toSchoolId, toSchoolName;
 }
 
-class _ExitDialogState extends State<_ExitDialog> {
+class _ExitDialogState extends ConsumerState<_ExitDialog> {
   final _reason = TextEditingController();
-  final _toSchool = TextEditingController();
+  TransferDestination? _dest;
   @override
   void dispose() {
     _reason.dispose();
-    _toSchool.dispose();
     super.dispose();
   }
 
@@ -488,9 +488,8 @@ class _ExitDialogState extends State<_ExitDialog> {
           reason: _reason.text.trim().isEmpty
               ? (t ? 'Transfert' : 'Radiation')
               : _reason.text.trim(),
-          toSchool: t && _toSchool.text.trim().isNotEmpty
-              ? _toSchool.text.trim()
-              : null,
+          toSchoolId: t ? _dest?.schoolId : null,
+          toSchoolName: t && (_dest?.isValid ?? false) ? _dest!.schoolName : null,
         ),
       ),
       body: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -504,18 +503,7 @@ class _ExitDialogState extends State<_ExitDialog> {
             style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
         const SizedBox(height: 14),
         if (t) ...[
-          const Text('Établissement de destination',
-              style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: kTextPrimary)),
-          const SizedBox(height: 6),
-          TextField(
-            controller: _toSchool,
-            style: const TextStyle(fontSize: 13.5),
-            decoration: adminFilledInput('Nom de l\'école d\'accueil',
-                icon: Icons.school_outlined),
-          ),
+          TransferDestinationPicker(onChanged: (d) => _dest = d),
           const SizedBox(height: 14),
         ],
         const Text('Motif',

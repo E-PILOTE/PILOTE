@@ -211,6 +211,59 @@ final transferCandidatesProvider =
           ]);
 });
 
+// ─── Destinations (cascade groupe scolaire → école) ─────────────────────────
+//  Offline : le périmètre synchronisé contient le PROPRE groupe du personnel et
+//  ses écoles. Le sélecteur propose donc le(s) groupe(s) disponible(s) puis
+//  leurs écoles (hors école courante), + une option « hors plateforme » (texte
+//  libre) pour un établissement non géré par E-PILOTE.
+class DestSchool {
+  const DestSchool(this.id, this.name);
+  final String id, name;
+}
+
+class DestGroup {
+  const DestGroup(this.id, this.name, this.schools);
+  final String id, name;
+  final List<DestSchool> schools;
+}
+
+final transferDestinationsProvider =
+    StreamProvider.autoDispose<List<DestGroup>>((ref) {
+  final profile = ref.watch(authNotifierProvider).valueOrNull;
+  final mySchoolId = profile?.schoolId ?? '';
+  return db
+      .watch(
+        '''
+        SELECT g.id AS gid, g.name AS gname,
+               s.id AS sid, s.name AS sname
+        FROM   school_groups g
+        LEFT JOIN schools s
+               ON s.group_id = g.id
+              AND s.is_active = 1
+              AND s.id != ?
+        ORDER  BY g.name, s.name
+        ''',
+        parameters: [mySchoolId],
+      )
+      .map((rows) {
+        final byGroup = <String, DestGroup>{};
+        final order = <String>[];
+        for (final r in rows) {
+          final gid = r['gid'] as String;
+          if (!byGroup.containsKey(gid)) {
+            byGroup[gid] =
+                DestGroup(gid, (r['gname'] as String?) ?? '—', <DestSchool>[]);
+            order.add(gid);
+          }
+          final sid = r['sid'] as String?;
+          if (sid != null) {
+            byGroup[gid]!.schools.add(DestSchool(sid, (r['sname'] as String?) ?? '—'));
+          }
+        }
+        return [for (final g in order) byGroup[g]!];
+      });
+});
+
 // ─── Mutations (offline-first) ───────────────────────────────────────────────
 
 /// Crée un transfert. [initialStatus] = `pending` par défaut (saisie depuis la
@@ -221,6 +274,7 @@ Future<String> createTransfer({
   required String fromSchoolId,
   required String studentId,
   required String toSchoolName,
+  String? toSchoolId, // école plateforme (uuid) ; null si hors plateforme
   required DateTime transferDate,
   String? reason,
   String? academicYearId,
@@ -233,12 +287,12 @@ Future<String> createTransfer({
   await db.execute(
     '''
     INSERT INTO student_transfers (
-      id, group_id, student_id, from_school_id, to_school_name,
+      id, group_id, student_id, from_school_id, to_school_id, to_school_name,
       transfer_date, reason, status, approved_by, approved_at,
       academic_year_id, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''',
-    [id, groupId, studentId, fromSchoolId, toSchoolName.trim(),
+    [id, groupId, studentId, fromSchoolId, toSchoolId, toSchoolName.trim(),
      transferDate.toIso8601String().substring(0, 10), reason?.trim(),
      initialStatus, initialStatus == 'pending' ? null : approvedBy, approvedAt,
      academicYearId, now, now],
