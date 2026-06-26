@@ -13,6 +13,7 @@ import '../providers/documents_provider.dart';
 import '../providers/student_documents_provider.dart';
 import '../providers/students_registry_provider.dart';
 import '../services/documents_pdf_service.dart';
+import '../widgets/scope_drilldown_panel.dart';
 
 part 'documents_parts.dart';
 part 'documents_detail.dart';
@@ -21,31 +22,6 @@ const _kSlug = 'documents';
 
 // Filtre de conformité.
 enum _DossierFilter { all, complete, incomplete, expired }
-
-// ─── Référentiel cycles (couleur / nom / ordre) ──────────────────────────────
-const _cycleColors = <String, Color>{
-  'prescolaire': Color(0xFFEC4899),
-  'primaire': Color(0xFF0EA5E9),
-  'college': kGreen,
-  'lycee': kNavy,
-  'formation_pro': Color(0xFFF59E0B),
-  'fp': Color(0xFFF59E0B),
-};
-const _cycleNames = <String, String>{
-  'prescolaire': 'Préscolaire',
-  'primaire': 'Primaire',
-  'college': 'Collège',
-  'lycee': 'Lycée',
-  'formation_pro': 'Formation Pro.',
-  'fp': 'Formation Pro.',
-};
-const _cycleOrder = <String, int>{
-  'prescolaire': 1, 'primaire': 2, 'college': 3, 'lycee': 4,
-  'formation_pro': 5, 'fp': 5,
-};
-Color _cycColor(String? code) => _cycleColors[code ?? ''] ?? kTextMuted;
-String _cycName(String? code) => _cycleNames[code ?? ''] ?? 'Non classé';
-int _cycOrder(String? code) => _cycleOrder[code ?? ''] ?? 9;
 
 // ════════════════════════════════════════════════════════════════════════════
 //  PAGE DOCUMENTS — pilotage de la CONFORMITÉ des dossiers d'élèves. Deux vues :
@@ -76,9 +52,8 @@ class _BodyState extends ConsumerState<_Body> {
   _DossierFilter _filter = _DossierFilter.all;
   bool _byStudent = true; // true = Par élève | false = Registre
 
-  // Panneau « Conformité » — navigation en cascade Cycle › Niveau › Classe.
-  // À chaque cran, la liste d'élèves se restreint au scope courant.
-  String? _navCycle, _navLevel, _navClass;
+  // Scope sélectionné dans le panneau de conformité (drill-down partagé).
+  ScopeSel _scope = const ScopeSel();
 
   @override
   void dispose() {
@@ -86,45 +61,13 @@ class _BodyState extends ConsumerState<_Body> {
     super.dispose();
   }
 
-  // Descendre d'un cran (cycle → niveau → classe).
-  void _drillCycle(String c) => setState(() {
-        _navCycle = c;
-        _navLevel = _navClass = null;
-      });
-  void _drillLevel(String l) => setState(() {
-        _navLevel = l;
-        _navClass = null;
-      });
-  void _drillClass(String id) =>
-      setState(() => _navClass = _navClass == id ? null : id);
-
-  // Remonter via le fil d'Ariane : 0 = Tous, 1 = cycle, 2 = niveau.
-  void _crumbTo(int depth) => setState(() {
-        if (depth < 1) _navCycle = null;
-        if (depth < 2) _navLevel = null;
-        _navClass = null;
-      });
-
-  bool get _hasPick => _navCycle != null;
+  bool get _hasPick => _scope.active;
 
   bool _matchesPick(StudentRow s) {
-    if (_navCycle != null && s.cycleCode != _navCycle) return false;
-    if (_navLevel != null && s.levelCode != _navLevel) return false;
-    if (_navClass != null && s.classId != _navClass) return false;
+    if (_scope.cycle != null && s.cycleCode != _scope.cycle) return false;
+    if (_scope.level != null && s.levelCode != _scope.level) return false;
+    if (_scope.classId != null && s.classId != _scope.classId) return false;
     return true;
-  }
-
-  // Libellé du scope courant (cran le plus profond) pour le bandeau de filtre.
-  String _pickLabel(List<StudentDossier> all) {
-    if (_navClass != null) {
-      final m = all
-          .where((d) => d.student.classId == _navClass)
-          .map((d) => d.student.className)
-          .firstWhere((n) => n != null, orElse: () => null);
-      return 'Classe : ${m ?? '—'}';
-    }
-    if (_navLevel != null) return 'Niveau : $_navLevel';
-    return 'Cycle : ${_cycName(_navCycle)}';
   }
 
   void _snack(String m, Color c) {
@@ -136,7 +79,7 @@ class _BodyState extends ConsumerState<_Body> {
   void _reset() => setState(() {
         _search.clear();
         _filter = _DossierFilter.all;
-        _navCycle = _navLevel = _navClass = null;
+        _scope = const ScopeSel();
       });
 
   List<StudentDossier> _applyDossiers(List<StudentDossier> all) {
@@ -231,15 +174,21 @@ class _BodyState extends ConsumerState<_Body> {
               _Kpis(st: st),
               if (hasAny) ...[
                 const SizedBox(height: 16),
-                _ConformitePanel(
-                  dossiers: allDossiers,
-                  navCycle: _navCycle,
-                  navLevel: _navLevel,
-                  navClass: _navClass,
-                  onDrillCycle: _drillCycle,
-                  onDrillLevel: _drillLevel,
-                  onDrillClass: _drillClass,
-                  onCrumb: _crumbTo,
+                ScopeDrilldownPanel(
+                  title: 'Conformité des dossiers',
+                  greenHint: 'part de dossiers complets',
+                  units: [
+                    for (final d in allDossiers)
+                      ScopeUnit(
+                        cycleCode: d.student.cycleCode,
+                        levelCode: d.student.levelCode,
+                        levelOrder: d.student.levelOrder,
+                        classId: d.student.classId,
+                        className: d.student.className,
+                        ok: d.isComplete,
+                      ),
+                  ],
+                  onChanged: (s) => setState(() => _scope = s),
                 ),
               ],
               const SizedBox(height: 22),
@@ -264,8 +213,8 @@ class _BodyState extends ConsumerState<_Body> {
               if (_hasPick) ...[
                 const SizedBox(height: 10),
                 _ActiveFilterChip(
-                  label: _pickLabel(allDossiers),
-                  onClear: () => _crumbTo(0),
+                  label: _scope.label,
+                  onClear: () => setState(() => _scope = const ScopeSel()),
                 ),
               ],
               const SizedBox(height: 12),
