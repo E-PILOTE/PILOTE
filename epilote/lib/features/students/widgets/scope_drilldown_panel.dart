@@ -3,16 +3,16 @@ import 'package:flutter/material.dart';
 import '../../../core/widgets/admin_ui.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
-//  RÉPARTITION Cycle ▸ Niveau ▸ Classe — TABLEAU HIÉRARCHIQUE dépliable
-//  (partagé, scope-aware). Sous-totaux visibles à chaque niveau (pattern pivot /
-//  breakdown) : on lit tous les effectifs d'un coup d'œil. Le chevron déplie /
-//  replie ; cliquer une ligne FILTRE la liste (composant contrôlé : la sélection
-//  `selected` vit chez le parent, qui filtre + affiche le bandeau actif).
-//  Colonne « ok » paramétrable (dossiers complets, élèves avec contact…).
+//  RÉPARTITION Cycle / Niveau / Classe — KPI PAR CYCLE + FILTRES EN CASCADE
+//  (partagé, scope-aware). Conçu pour PASSER À L'ÉCHELLE (50+ niveaux, 60+
+//  classes) : l'aperçu reste stable (≈ 5 cartes cycle) ; la navigation fine
+//  passe par 2 déroulants Niveau/Classe dont chaque option PORTE SON EFFECTIF
+//  → on retrouve les totaux par niveau et par classe sans surcharger l'écran.
+//  Composant contrôlé : la sélection `selected` vit chez le parent (filtre +
+//  bandeau actif). Colonne « ok » paramétrable (`metricLabel`).
 //  Réutilisé par Documents, Annuaire, etc.
 // ════════════════════════════════════════════════════════════════════════════
 
-// Référentiel cycles (couleur / nom / ordre) — partagé.
 const _cycleColors = <String, Color>{
   'prescolaire': Color(0xFFEC4899),
   'primaire': Color(0xFF0EA5E9),
@@ -63,16 +63,15 @@ class ScopeSel {
 
 // ─── Agrégats internes ────────────────────────────────────────────────────────
 class _Cls {
-  _Cls(this.name, this.cycle, this.level);
+  _Cls(this.name, this.level);
   final String name;
-  final String? cycle, level;
-  int total = 0, ok = 0;
+  final String level;
+  int total = 0, ok = 0, order = 999;
 }
 
 class _Lvl {
-  _Lvl(this.order, this.cycle);
-  final int order;
-  final String? cycle;
+  _Lvl(this.order);
+  int order;
   int total = 0, ok = 0;
   final Map<String, _Cls> classes = {};
 }
@@ -82,7 +81,7 @@ class _Cyc {
   final Map<String, _Lvl> levels = {};
 }
 
-class ScopeDrilldownPanel extends StatefulWidget {
+class ScopeDrilldownPanel extends StatelessWidget {
   const ScopeDrilldownPanel({
     super.key,
     required this.units,
@@ -94,25 +93,14 @@ class ScopeDrilldownPanel extends StatefulWidget {
   final List<ScopeUnit> units;
   final String title;
 
-  /// En-tête court de la colonne « ok » (ex. « Complets », « Avec contact »).
+  /// Libellé court de la métrique « ok » (ex. « Complets », « Avec contact »).
   final String metricLabel;
-
-  /// Sélection courante (contrôlée par le parent).
   final ScopeSel selected;
   final ValueChanged<ScopeSel> onSelect;
 
-  @override
-  State<ScopeDrilldownPanel> createState() => _ScopeDrilldownPanelState();
-}
-
-class _ScopeDrilldownPanelState extends State<ScopeDrilldownPanel> {
-  final Set<String> _expCycles = {};
-  final Set<String> _expLevels = {};
-
-  // Construit l'arbre agrégé à partir des unités.
   Map<String, _Cyc> _build() {
     final cycles = <String, _Cyc>{};
-    for (final u in widget.units) {
+    for (final u in units) {
       final ck = u.cycleCode ?? '';
       if (ck.isEmpty) continue;
       final cyc = cycles.putIfAbsent(ck, () => _Cyc());
@@ -120,34 +108,18 @@ class _ScopeDrilldownPanelState extends State<ScopeDrilldownPanel> {
       if (u.ok) cyc.ok++;
       final lk = u.levelCode ?? '';
       if (lk.isEmpty) continue;
-      final lvl = cyc.levels.putIfAbsent(lk, () => _Lvl(u.levelOrder, ck));
+      final lvl = cyc.levels.putIfAbsent(lk, () => _Lvl(u.levelOrder));
+      if (u.levelOrder < lvl.order) lvl.order = u.levelOrder;
       lvl.total++;
       if (u.ok) lvl.ok++;
       final cid = u.classId;
       if (cid == null) continue;
-      final cls = lvl.classes
-          .putIfAbsent(cid, () => _Cls(u.className ?? '—', ck, lk));
+      final cls = lvl.classes.putIfAbsent(cid, () => _Cls(u.className ?? '—', lk));
       cls.total++;
       if (u.ok) cls.ok++;
+      if (u.levelOrder < cls.order) cls.order = u.levelOrder;
     }
     return cycles;
-  }
-
-  void _tapRow(ScopeSel sel, {String? expandCycle, String? expandLevel}) {
-    final s = widget.selected;
-    final same = s.cycle == sel.cycle &&
-        s.level == sel.level &&
-        s.classId == sel.classId;
-    if (same) {
-      widget.onSelect(const ScopeSel()); // re-clic = effacer le filtre
-    } else {
-      widget.onSelect(sel);
-      // Auto-déplier pour révéler les enfants.
-      setState(() {
-        if (expandCycle != null) _expCycles.add(expandCycle);
-        if (expandLevel != null) _expLevels.add(expandLevel);
-      });
-    }
   }
 
   @override
@@ -155,82 +127,39 @@ class _ScopeDrilldownPanelState extends State<ScopeDrilldownPanel> {
     final cycles = _build();
     final cycleKeys = cycles.keys.toList()
       ..sort((a, b) => scopeCycleOrder(a).compareTo(scopeCycleOrder(b)));
-    final sel = widget.selected;
-    int gTotal = 0, gOk = 0;
-    for (final c in cycles.values) {
-      gTotal += c.total;
-      gOk += c.ok;
-    }
+    final selCyc = selected.cycle;
 
-    final rows = <Widget>[];
-    for (final ck in cycleKeys) {
-      final cyc = cycles[ck]!;
-      final cExp = _expCycles.contains(ck);
-      rows.add(_TreeRow(
-        label: scopeCycleName(ck),
-        color: scopeCycleColor(ck),
-        depth: 0,
-        total: cyc.total,
-        ok: cyc.ok,
-        metricLabel: widget.metricLabel,
-        hasChildren: cyc.levels.isNotEmpty,
-        expanded: cExp,
-        selected: sel.cycle == ck && sel.level == null && sel.classId == null,
-        onToggle: cyc.levels.isEmpty
-            ? null
-            : () => setState(() =>
-                cExp ? _expCycles.remove(ck) : _expCycles.add(ck)),
-        onTap: () => _tapRow(
-            ScopeSel(cycle: ck, label: 'Cycle : ${scopeCycleName(ck)}'),
-            expandCycle: ck),
-      ));
-      if (!cExp) continue;
-      final levelKeys = cyc.levels.keys.toList()
-        ..sort((a, b) =>
-            cyc.levels[a]!.order.compareTo(cyc.levels[b]!.order));
-      for (final lk in levelKeys) {
-        final lvl = cyc.levels[lk]!;
-        final lExp = _expLevels.contains(lk);
-        rows.add(_TreeRow(
-          label: lk,
-          color: scopeCycleColor(ck),
-          depth: 1,
-          total: lvl.total,
-          ok: lvl.ok,
-          metricLabel: widget.metricLabel,
-          hasChildren: lvl.classes.isNotEmpty,
-          expanded: lExp,
-          selected: sel.level == lk && sel.classId == null,
-          onToggle: lvl.classes.isEmpty
-              ? null
-              : () => setState(() =>
-                  lExp ? _expLevels.remove(lk) : _expLevels.add(lk)),
-          onTap: () => _tapRow(
-              ScopeSel(cycle: ck, level: lk, label: 'Niveau : $lk'),
-              expandLevel: lk),
-        ));
-        if (!lExp) continue;
-        final classEntries = lvl.classes.entries.toList()
-          ..sort((a, b) => a.value.name.compareTo(b.value.name));
-        for (final ce in classEntries) {
-          rows.add(_TreeRow(
-            label: ce.value.name,
-            color: scopeCycleColor(ck),
-            depth: 2,
-            total: ce.value.total,
-            ok: ce.value.ok,
-            metricLabel: widget.metricLabel,
-            hasChildren: false,
-            expanded: false,
-            selected: sel.classId == ce.key,
-            onToggle: null,
-            onTap: () => _tapRow(ScopeSel(
-                cycle: ck,
-                level: lk,
-                classId: ce.key,
-                label: 'Classe : ${ce.value.name}')),
-          ));
+    // Déroulants : niveaux du cycle sélectionné + classes (du niveau si choisi,
+    // sinon tout le cycle). Chaque entrée porte son effectif.
+    final levels = <({String key, String label, int total})>[];
+    final classes = <({String key, String label, int total, String level})>[];
+    if (selCyc != null && cycles[selCyc] != null) {
+      final cyc = cycles[selCyc]!;
+      final lvlKeys = cyc.levels.keys.toList()
+        ..sort((a, b) => cyc.levels[a]!.order.compareTo(cyc.levels[b]!.order));
+      for (final lk in lvlKeys) {
+        levels.add((key: lk, label: lk, total: cyc.levels[lk]!.total));
+      }
+      // Classes : du niveau sélectionné, sinon de tout le cycle.
+      final classEntries = <MapEntry<String, _Cls>>[];
+      if (selected.level != null && cyc.levels[selected.level] != null) {
+        classEntries.addAll(cyc.levels[selected.level]!.classes.entries);
+      } else {
+        for (final l in cyc.levels.values) {
+          classEntries.addAll(l.classes.entries);
         }
+      }
+      classEntries.sort((a, b) {
+        final o = a.value.order.compareTo(b.value.order);
+        return o != 0 ? o : a.value.name.compareTo(b.value.name);
+      });
+      for (final e in classEntries) {
+        classes.add((
+          key: e.key,
+          label: e.value.name,
+          total: e.value.total,
+          level: e.value.level
+        ));
       }
     }
 
@@ -238,228 +167,254 @@ class _ScopeDrilldownPanelState extends State<ScopeDrilldownPanel> {
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.account_tree_outlined, size: 16, color: kNavy),
+          const Icon(Icons.donut_small_rounded, size: 16, color: kNavy),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(widget.title,
+            child: Text(title,
                 style: const TextStyle(
                     fontSize: 14, fontWeight: FontWeight.w800, color: kNavy)),
           ),
-          const Text('Cliquez une ligne pour filtrer',
+          const Text('Cliquez un cycle, affinez par niveau / classe',
               style: TextStyle(fontSize: 11.5, color: kTextMuted)),
         ]),
         const SizedBox(height: 12),
-        // En-tête de colonnes.
-        _HeaderRow(metricLabel: widget.metricLabel),
-        const Divider(height: 1, color: kBorder),
-        if (rows.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 18),
-            child: Center(child: Text('—', style: TextStyle(color: kTextMuted))),
-          )
-        else
-          ...rows,
-        const Divider(height: 1, color: kBorder),
-        _TotalRow(
-            total: gTotal, ok: gOk, metricLabel: widget.metricLabel),
-      ]),
-    );
-  }
-}
-
-// Largeurs des colonnes numériques (alignées en-tête / lignes / total).
-const double _wEff = 78, _wOk = 84, _wPct = 56;
-
-class _HeaderRow extends StatelessWidget {
-  const _HeaderRow({required this.metricLabel});
-  final String metricLabel;
-  @override
-  Widget build(BuildContext context) {
-    Widget h(String t, double w) => SizedBox(
-          width: w,
-          child: Text(t,
-              textAlign: TextAlign.end,
-              style: const TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.3,
-                  color: kTextMuted)),
-        );
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-      child: Row(children: [
-        const Expanded(
-          child: Text('CYCLE · NIVEAU · CLASSE',
-              style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.3,
-                  color: kTextMuted)),
+        // Cartes KPI par cycle (cliquables).
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final ck in cycleKeys)
+              _CycleCard(
+                code: ck,
+                total: cycles[ck]!.total,
+                ok: cycles[ck]!.ok,
+                metricLabel: metricLabel,
+                selected: selCyc == ck,
+                onTap: () {
+                  final isExactCycle = selCyc == ck &&
+                      selected.level == null &&
+                      selected.classId == null;
+                  onSelect(isExactCycle
+                      ? const ScopeSel()
+                      : ScopeSel(
+                          cycle: ck,
+                          label: 'Cycle : ${scopeCycleName(ck)}'));
+                },
+              ),
+          ],
         ),
-        h('EFFECTIF', _wEff),
-        h(metricLabel.toUpperCase(), _wOk),
-        h('%', _wPct),
+        // Filtres en cascade (apparaissent quand un cycle est choisi).
+        if (selCyc != null) ...[
+          const SizedBox(height: 14),
+          const Divider(height: 1, color: kBorder),
+          const SizedBox(height: 14),
+          LayoutBuilder(builder: (ctx, cns) {
+            final wide = cns.maxWidth >= 560;
+            final niveau = _ScopeDropdown(
+              label: 'Niveau',
+              icon: Icons.stairs_rounded,
+              hint: 'Tous les niveaux',
+              value: selected.level,
+              items: [for (final l in levels) (l.key, '${l.label} (${l.total})')],
+              onChanged: (v) => onSelect(v == null
+                  ? ScopeSel(
+                      cycle: selCyc, label: 'Cycle : ${scopeCycleName(selCyc)}')
+                  : ScopeSel(cycle: selCyc, level: v, label: 'Niveau : $v')),
+            );
+            final classe = _ScopeDropdown(
+              label: 'Classe',
+              icon: Icons.class_rounded,
+              hint: 'Toutes les classes',
+              value: selected.classId,
+              items: [for (final c in classes) (c.key, '${c.label} (${c.total})')],
+              onChanged: (v) {
+                if (v == null) {
+                  onSelect(selected.level == null
+                      ? ScopeSel(
+                          cycle: selCyc,
+                          label: 'Cycle : ${scopeCycleName(selCyc)}')
+                      : ScopeSel(
+                          cycle: selCyc,
+                          level: selected.level,
+                          label: 'Niveau : ${selected.level}'));
+                } else {
+                  final cl = classes.firstWhere((c) => c.key == v);
+                  onSelect(ScopeSel(
+                      cycle: selCyc,
+                      level: cl.level,
+                      classId: v,
+                      label: 'Classe : ${cl.label}'));
+                }
+              },
+            );
+            return wide
+                ? Row(children: [
+                    Expanded(child: niveau),
+                    const SizedBox(width: 12),
+                    Expanded(child: classe),
+                  ])
+                : Column(children: [
+                    niveau,
+                    const SizedBox(height: 12),
+                    classe,
+                  ]);
+          }),
+        ],
       ]),
     );
   }
 }
 
-class _TreeRow extends StatelessWidget {
-  const _TreeRow({
-    required this.label,
-    required this.color,
-    required this.depth,
+// ─── Carte KPI cycle ──────────────────────────────────────────────────────────
+class _CycleCard extends StatelessWidget {
+  const _CycleCard({
+    required this.code,
     required this.total,
     required this.ok,
     required this.metricLabel,
-    required this.hasChildren,
-    required this.expanded,
     required this.selected,
-    required this.onToggle,
     required this.onTap,
   });
-  final String label, metricLabel;
-  final Color color;
-  final int depth, total, ok;
-  final bool hasChildren, expanded, selected;
-  final VoidCallback? onToggle, onTap;
+  final String code, metricLabel;
+  final int total, ok;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final color = scopeCycleColor(code);
     final pct = total == 0 ? 0 : (ok * 100 / total).round();
     final full = ok == total && total > 0;
-    // Profondeur 0 = cycle (gras), 1 = niveau, 2 = classe (atténué).
-    final weight = depth == 0
-        ? FontWeight.w800
-        : (depth == 1 ? FontWeight.w700 : FontWeight.w500);
-    return Material(
-      color: selected ? kNavy.withValues(alpha: 0.06) : Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          decoration: selected
-              ? const BoxDecoration(
-                  border: Border(left: BorderSide(color: kNavy, width: 2.5)))
-              : null,
-          padding: EdgeInsets.fromLTRB(8.0 + depth * 22, 9, 8, 9),
-          child: Row(children: [
-            // Chevron (déplie) ou puce (feuille).
-            SizedBox(
-              width: 24,
-              child: hasChildren
-                  ? InkWell(
-                      onTap: onToggle,
-                      borderRadius: BorderRadius.circular(4),
-                      child: Icon(
-                          expanded
-                              ? Icons.keyboard_arrow_down_rounded
-                              : Icons.chevron_right_rounded,
-                          size: 19,
-                          color: kTextMuted),
-                    )
-                  : Padding(
-                      padding: const EdgeInsets.only(left: 6),
-                      child: Container(
-                          width: 6,
-                          height: 6,
-                          decoration:
-                              BoxDecoration(color: color, shape: BoxShape.circle)),
+    final metricColor =
+        full ? kGreen : (pct == 0 ? kRed : const Color(0xFFF59E0B));
+    return SizedBox(
+      width: 188,
+      child: Material(
+        color: selected ? color.withValues(alpha: 0.08) : Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                  color: selected ? color : kBorder,
+                  width: selected ? 1.5 : 1),
+            ),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Container(
+                        width: 9,
+                        height: 9,
+                        decoration: BoxDecoration(
+                            color: color, shape: BoxShape.circle)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(scopeCycleName(code),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: kTextPrimary)),
                     ),
-            ),
-            if (depth == 0) ...[
-              Container(
-                  width: 9,
-                  height: 9,
-                  decoration:
-                      BoxDecoration(color: color, shape: BoxShape.circle)),
-              const SizedBox(width: 8),
-            ],
-            Expanded(
-              child: Text(label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      fontSize: depth == 0 ? 13.5 : 12.8,
-                      fontWeight: weight,
-                      color: kTextPrimary)),
-            ),
-            SizedBox(
-              width: _wEff,
-              child: Text('$total',
-                  textAlign: TextAlign.end,
-                  style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w800,
-                      color: kTextPrimary)),
-            ),
-            SizedBox(
-              width: _wOk,
-              child: Text('$ok',
-                  textAlign: TextAlign.end,
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: full ? kGreen : kTextPrimary)),
-            ),
-            SizedBox(
-              width: _wPct,
-              child: Text('$pct%',
-                  textAlign: TextAlign.end,
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: full
-                          ? kGreen
-                          : (pct == 0 ? kRed : const Color(0xFFF59E0B)))),
-            ),
-          ]),
+                    if (selected)
+                      Icon(Icons.filter_alt_rounded, size: 14, color: color),
+                  ]),
+                  const SizedBox(height: 8),
+                  Row(crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text('$total',
+                            style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: kTextPrimary,
+                                height: 1)),
+                        const SizedBox(width: 5),
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 2),
+                          child: Text('élèves',
+                              style:
+                                  TextStyle(fontSize: 11.5, color: kTextMuted)),
+                        ),
+                      ]),
+                  const SizedBox(height: 4),
+                  Text('$ok ${metricLabel.toLowerCase()} · $pct%',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: metricColor)),
+                ]),
+          ),
         ),
       ),
     );
   }
 }
 
-class _TotalRow extends StatelessWidget {
-  const _TotalRow(
-      {required this.total, required this.ok, required this.metricLabel});
-  final int total, ok;
-  final String metricLabel;
+// ─── Déroulant de scope (avec option « tout ») ────────────────────────────────
+class _ScopeDropdown extends StatelessWidget {
+  const _ScopeDropdown({
+    required this.label,
+    required this.icon,
+    required this.hint,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+  final String label, hint;
+  final IconData icon;
+  final String? value;
+  final List<(String, String)> items;
+  final ValueChanged<String?> onChanged;
+
   @override
   Widget build(BuildContext context) {
-    final pct = total == 0 ? 0 : (ok * 100 / total).round();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 10, 8, 2),
-      child: Row(children: [
-        const Expanded(
-          child: Text('TOTAL',
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.4,
-                  color: kNavy)),
-        ),
-        SizedBox(
-          width: _wEff,
-          child: Text('$total',
-              textAlign: TextAlign.end,
-              style: const TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w800, color: kNavy)),
-        ),
-        SizedBox(
-          width: _wOk,
-          child: Text('$ok',
-              textAlign: TextAlign.end,
-              style: const TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w700, color: kNavy)),
-        ),
-        SizedBox(
-          width: _wPct,
-          child: Text('$pct%',
-              textAlign: TextAlign.end,
-              style: const TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w700, color: kNavy)),
-        ),
-      ]),
-    );
+    final enabled = items.isNotEmpty;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 6, left: 2),
+        child: Text(label.toUpperCase(),
+            style: const TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.3,
+                color: kTextMuted)),
+      ),
+      DropdownButtonFormField<String?>(
+        initialValue: value,
+        isExpanded: true,
+        style: const TextStyle(fontSize: 13, color: kTextPrimary),
+        icon: const Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
+        decoration: adminFilledInput(hint, icon: icon),
+        selectedItemBuilder: (context) => [
+          Text(hint,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13, color: kTextMuted)),
+          for (final e in items)
+            Text(e.$2,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 13, color: kTextPrimary)),
+        ],
+        items: [
+          DropdownMenuItem(value: null, child: Text(hint)),
+          for (final e in items)
+            DropdownMenuItem(
+                value: e.$1,
+                child:
+                    Text(e.$2, maxLines: 1, overflow: TextOverflow.ellipsis)),
+        ],
+        onChanged: enabled ? onChanged : null,
+      ),
+    ]);
   }
 }
