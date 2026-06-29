@@ -87,6 +87,9 @@ class Routes {
   static const String depenses        = '/user/depenses';
   static const String budget          = '/user/budget';
   static const String personnel       = '/user/personnel';
+  static const String presencesPersonnel = '/user/presences-personnel';
+  static const String conges          = '/user/conges';
+  static const String paie            = '/user/paie';
   // Communication native (personnel école / parent)
   static const String annonces        = '/user/annonces';
   static const String notifications   = '/user/notifications';

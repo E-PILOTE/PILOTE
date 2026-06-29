@@ -64,6 +64,9 @@ import '../../features/structure/screens/programmes_screen.dart';
 import '../../features/structure/screens/school_calendar_screen.dart';
 import '../../features/structure/screens/academic_structure_screen.dart';
 import '../../features/staff/screens/personnel_screen.dart';
+import '../../features/staff/screens/presences_personnel_screen.dart';
+import '../../features/staff/screens/conges_screen.dart';
+import '../../features/staff/screens/paie_screen.dart';
 import '../../features/navigation/module_routes.dart';
 import '../../features/navigation/providers/permissions_provider.dart';
 import '../../features/navigation/widgets/module_coming_soon.dart';
@@ -525,6 +528,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.personnel,
         builder: (_, _) => const PersonnelScreen(),
+      ),
+      GoRoute(
+        path: Routes.presencesPersonnel,
+        builder: (_, _) => const PresencesPersonnelScreen(),
+      ),
+      GoRoute(
+        path: Routes.conges,
+        builder: (_, _) => const CongesScreen(),
+      ),
+      GoRoute(
+        path: Routes.paie,
+        builder: (_, _) => const PaieScreen(),
       ),
       // Communication native (personnel école / parent) — écrans à construire
       GoRoute(

@@ -36,6 +36,9 @@ const Map<String, String> _moduleRoutes = {
   'depenses':         Routes.depenses,
   'budget':           Routes.budget,
   'personnel':        Routes.personnel,
+  'presences-personnel': Routes.presencesPersonnel,
+  'conges':           Routes.conges,
+  'paie':             Routes.paie,
 };
 
 /// Préfixe de l'hôte générique (sans le paramètre `:slug`).
