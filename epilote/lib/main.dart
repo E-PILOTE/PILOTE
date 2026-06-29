@@ -14,6 +14,7 @@ import 'core/constants/supabase_constants.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/app_shell.dart';
+import 'features/auth/screens/widgets/agent_lock_gate.dart';
 import 'services/powersync/powersync_service.dart';
 
 Future<void> main() async {
@@ -78,6 +79,8 @@ class EpiloteApp extends ConsumerWidget {
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
       routerConfig: router,
+      builder: (context, child) =>
+          AgentLockGate(child: child ?? const SizedBox.shrink()),
       locale: const Locale('fr'),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
