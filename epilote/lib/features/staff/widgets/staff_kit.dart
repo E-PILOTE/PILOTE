@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../../students/widgets/scope_drilldown_panel.dart'
+    show scopeCycleName, scopeCycleOrder;
 import '../providers/staff_directory_provider.dart';
 import '../providers/staff_dossier_provider.dart' show employmentStatusLabel;
 
@@ -12,57 +14,83 @@ import '../providers/staff_dossier_provider.dart' show employmentStatusLabel;
 //  (filtre + métrique par segment) réutilisée par Présences, Congés, Paie.
 // ════════════════════════════════════════════════════════════════════════════
 
-/// Axe de distinction du personnel.
-enum StaffAxis { categorie, statut }
+/// Axe de distinction du personnel. Le CYCLE (primaire/collège/lycée) ne vaut
+/// que pour les enseignants (déduit des classes enseignées) ; les non-enseignants
+/// y sont regroupés en « Hors enseignement ».
+enum StaffAxis { categorie, statut, cycle }
 
-String staffAxisLabel(StaffAxis a) =>
-    a == StaffAxis.categorie ? 'Catégorie' : 'Statut';
+String staffAxisLabel(StaffAxis a) => switch (a) {
+      StaffAxis.categorie => 'Catégorie',
+      StaffAxis.statut => 'Statut',
+      StaffAxis.cycle => 'Cycle',
+    };
 
-/// Clé de segment d'un agent selon l'axe (null = non renseigné regroupé en «—»).
-String staffSegKey(StaffMember s, StaffAxis axis) => axis == StaffAxis.categorie
-    ? staffCategory(s.role).name
-    : ((s.employmentStatus ?? '').isEmpty ? '—' : s.employmentStatus!);
+/// Clé de segment d'un agent selon l'axe (null/vide regroupé en «—»).
+String staffSegKey(StaffMember s, StaffAxis axis) => switch (axis) {
+      StaffAxis.categorie => staffCategory(s.role).name,
+      StaffAxis.statut =>
+        (s.employmentStatus ?? '').isEmpty ? '—' : s.employmentStatus!,
+      StaffAxis.cycle => (s.teachingCycle ?? '').isEmpty ? '—' : s.teachingCycle!,
+    };
 
 String staffSegLabel(String key, StaffAxis axis) {
-  if (axis == StaffAxis.categorie) {
-    final c = StaffCategory.values.firstWhere((e) => e.name == key,
-        orElse: () => StaffCategory.autres);
-    return staffCategoryLabel(c);
+  switch (axis) {
+    case StaffAxis.categorie:
+      final c = StaffCategory.values.firstWhere((e) => e.name == key,
+          orElse: () => StaffCategory.autres);
+      return staffCategoryLabel(c);
+    case StaffAxis.statut:
+      return key == '—' ? 'Statut non renseigné' : employmentStatusLabel(key);
+    case StaffAxis.cycle:
+      return key == '—' ? 'Hors enseignement' : scopeCycleName(key);
   }
-  return key == '—' ? 'Statut non renseigné' : employmentStatusLabel(key);
 }
 
 Color staffSegColor(String key, StaffAxis axis) {
-  if (axis == StaffAxis.categorie) {
-    return switch (key) {
-      'direction' => kNavy,
-      'administration' => const Color(0xFF7C3AED),
-      'enseignement' => const Color(0xFF0EA5E9),
-      'vieScolaire' => kGreen,
-      _ => kTextMuted,
-    };
+  switch (axis) {
+    case StaffAxis.categorie:
+      return switch (key) {
+        'direction' => kNavy,
+        'administration' => const Color(0xFF7C3AED),
+        'enseignement' => const Color(0xFF0EA5E9),
+        'vieScolaire' => kGreen,
+        _ => kTextMuted,
+      };
+    case StaffAxis.statut:
+      return switch (key) {
+        'fonctionnaire' => kNavy,
+        'contractuel' => const Color(0xFF0EA5E9),
+        'volontaire' => kGreen,
+        'prestataire' => const Color(0xFF7C3AED),
+        'stagiaire' => const Color(0xFFF59E0B),
+        'benevole' => const Color(0xFF0D9488),
+        _ => kTextMuted,
+      };
+    case StaffAxis.cycle:
+      return switch (key) {
+        'primaire' => const Color(0xFF0EA5E9),
+        'college' => const Color(0xFF7C3AED),
+        'lycee' => kNavy,
+        _ => kTextMuted,
+      };
   }
-  return switch (key) {
-    'fonctionnaire' => kNavy,
-    'contractuel' => const Color(0xFF0EA5E9),
-    'volontaire' => kGreen,
-    'prestataire' => const Color(0xFF7C3AED),
-    'stagiaire' => const Color(0xFFF59E0B),
-    'benevole' => const Color(0xFF0D9488),
-    _ => kTextMuted,
-  };
 }
 
-/// Ordre stable des segments (catégorie = organigramme ; statut = ordre enum).
+/// Ordre stable des segments (catégorie = organigramme ; statut = ordre enum ;
+/// cycle = ordre scolaire, hors enseignement en dernier).
 int staffSegOrder(String key, StaffAxis axis) {
-  if (axis == StaffAxis.categorie) {
-    final i = staffCategoryOrder.indexWhere((c) => c.name == key);
-    return i < 0 ? 99 : i;
+  switch (axis) {
+    case StaffAxis.categorie:
+      final i = staffCategoryOrder.indexWhere((c) => c.name == key);
+      return i < 0 ? 99 : i;
+    case StaffAxis.statut:
+      const order = ['fonctionnaire', 'contractuel', 'volontaire',
+        'prestataire', 'stagiaire', 'benevole', '—'];
+      final i = order.indexOf(key);
+      return i < 0 ? 99 : i;
+    case StaffAxis.cycle:
+      return key == '—' ? 99 : scopeCycleOrder(key);
   }
-  const order = ['fonctionnaire', 'contractuel', 'volontaire', 'prestataire',
-    'stagiaire', 'benevole', '—'];
-  final i = order.indexOf(key);
-  return i < 0 ? 99 : i;
 }
 
 /// Un segment agrégé : total d'agents + métrique « ok » (présents, payés…).

@@ -30,6 +30,7 @@ class StaffMember {
     this.avatarUrl,
     this.lastLogin,
     this.employmentStatus,
+    this.teachingCycle,
   });
 
   final String id;
@@ -44,6 +45,11 @@ class StaffMember {
 
   /// Statut RH (fonctionnaire / volontaire / prestataire …) — `profiles`.
   final String? employmentStatus;
+
+  /// Cycle d'enseignement (primaire/college/lycee) DÉDUIT des classes que
+  /// l'agent enseigne (prof principal ou affectation matière). null = non
+  /// enseignant ou cycle inconnu.
+  final String? teachingCycle;
 
   String get fullName {
     final n = '${firstName.trim()} ${lastName.trim()}'.trim();
@@ -107,12 +113,22 @@ final staffDirectoryProvider =
   return db
       .watch(
         '''
-        SELECT id, first_name, last_name, role, phone, employee_number,
-               avatar_url, is_active, last_login, employment_status
-        FROM   profiles
-        WHERE  school_id = ?
-        AND    role NOT IN ('eleve', 'parent')
-        ORDER  BY last_name, first_name
+        SELECT p.id, p.first_name, p.last_name, p.role, p.phone,
+               p.employee_number, p.avatar_url, p.is_active, p.last_login,
+               p.employment_status,
+               (
+                 SELECT c.cycle_code FROM classes c
+                 WHERE c.main_teacher_id = p.id AND c.cycle_code IS NOT NULL
+                 UNION
+                 SELECT c2.cycle_code FROM teacher_subjects ts
+                 JOIN classes c2 ON c2.id = ts.class_id
+                 WHERE ts.staff_id = p.id AND c2.cycle_code IS NOT NULL
+                 LIMIT 1
+               ) AS teaching_cycle
+        FROM   profiles p
+        WHERE  p.school_id = ?
+        AND    p.role NOT IN ('eleve', 'parent')
+        ORDER  BY p.last_name, p.first_name
         ''',
         parameters: [schoolId],
       )
@@ -131,6 +147,7 @@ final staffDirectoryProvider =
                     ? DateTime.tryParse(r['last_login'] as String)
                     : null,
                 employmentStatus: r['employment_status'] as String?,
+                teachingCycle: r['teaching_cycle'] as String?,
               ),
           ]);
 });

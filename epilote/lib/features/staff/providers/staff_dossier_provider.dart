@@ -47,12 +47,14 @@ class StaffDossier {
     this.birthPlace,
     this.address,
     this.gender,
+    this.teachingCycle,
   });
 
   final String id, firstName, lastName, role;
   final String? avatarUrl, phone, employeeNumber, employmentStatus;
   final String? grade, echelon, category, speciality;
   final String? hireDate, dateOfBirth, birthPlace, address, gender;
+  final String? teachingCycle;
 
   String get fullName {
     final n = '${firstName.trim()} ${lastName.trim()}'.trim();
@@ -62,7 +64,19 @@ class StaffDossier {
 
 final staffDossierProvider =
     StreamProvider.autoDispose.family<StaffDossier?, String>((ref, profileId) {
-  return db.watch('SELECT * FROM profiles WHERE id = ?',
+  return db.watch(
+      '''
+      SELECT p.*, (
+        SELECT c.cycle_code FROM classes c
+        WHERE c.main_teacher_id = p.id AND c.cycle_code IS NOT NULL
+        UNION
+        SELECT c2.cycle_code FROM teacher_subjects ts
+        JOIN classes c2 ON c2.id = ts.class_id
+        WHERE ts.staff_id = p.id AND c2.cycle_code IS NOT NULL
+        LIMIT 1
+      ) AS teaching_cycle
+      FROM profiles p WHERE p.id = ?
+      ''',
       parameters: [profileId]).map((rows) {
     if (rows.isEmpty) return null;
     final r = rows.first;
@@ -84,6 +98,7 @@ final staffDossierProvider =
       birthPlace: r['birth_place'] as String?,
       address: r['address'] as String?,
       gender: r['gender'] as String?,
+      teachingCycle: r['teaching_cycle'] as String?,
     );
   });
 });

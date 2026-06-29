@@ -6,6 +6,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../communication/widgets/user_avatar.dart';
 import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
+import '../../students/widgets/scope_drilldown_panel.dart' show scopeCycleName;
 import '../../user/widgets/staff_account_widgets.dart' show staffRoleLabel;
 import '../../vie_scolaire/widgets/vs_form_chrome.dart';
 import '../providers/staff_dossier_provider.dart';
@@ -176,6 +177,9 @@ class _IdentityCard extends StatelessWidget {
       child: Column(children: [
         _InfoRow(Icons.badge_outlined, 'Matricule', d.employeeNumber),
         _InfoRow(Icons.workspace_premium_outlined, 'Grade', _gradeLine()),
+        if ((d.teachingCycle ?? '').isNotEmpty)
+          _InfoRow(Icons.school_outlined, 'Cycle enseigné',
+              scopeCycleName(d.teachingCycle)),
         _InfoRow(Icons.menu_book_outlined, 'Spécialité', d.speciality),
         _InfoRow(Icons.event_available_outlined, 'Prise de service', d.hireDate),
         _InfoRow(Icons.cake_outlined, 'Naissance', _birthLine()),
