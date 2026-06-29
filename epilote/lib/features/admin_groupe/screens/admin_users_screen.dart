@@ -1711,14 +1711,31 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
   late final TextEditingController _dob;
   late final TextEditingController _address;
   late final TextEditingController _birthPlace;
+  // Volet carrière RH (migration 0023)
+  late final TextEditingController _grade;
+  late final TextEditingController _echelon;
+  late final TextEditingController _category;
+  late final TextEditingController _speciality;
+  late final TextEditingController _hireDate;
   String? _schoolId;
   String  _role = 'enseignant';
   String? _accessProfileId;
   String? _gender;
+  String? _employmentStatus;
   DateTime? _dobDate;
+  DateTime? _hireDateD;
   bool    _obscure = true;
   bool    _saving  = false;
   String? _error;
+
+  static const _kEmploymentStatuses = <(String, String)>[
+    ('fonctionnaire', 'Fonctionnaire'),
+    ('contractuel', 'Contractuel'),
+    ('volontaire', 'Volontaire'),
+    ('prestataire', 'Prestataire'),
+    ('stagiaire', 'Stagiaire'),
+    ('benevole', 'Bénévole'),
+  ];
 
   bool get _isEdit => widget.user != null;
 
@@ -1736,6 +1753,13 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
     _dob        = TextEditingController(text: _fmtDob(u?.dateOfBirth));
     _address    = TextEditingController(text: u?.address ?? '');
     _birthPlace = TextEditingController(text: u?.birthPlace ?? '');
+    _grade      = TextEditingController(text: u?.grade ?? '');
+    _echelon    = TextEditingController(text: u?.echelon ?? '');
+    _category   = TextEditingController(text: u?.category ?? '');
+    _speciality = TextEditingController(text: u?.speciality ?? '');
+    _hireDateD  = u?.hireDate;
+    _hireDate   = TextEditingController(text: _fmtDob(u?.hireDate));
+    _employmentStatus = u?.employmentStatus;
     _gender     = u?.gender;
     _schoolId   = u?.schoolId ??
         (widget.data.schools.isNotEmpty ? widget.data.schools.first.id : null);
@@ -1746,7 +1770,8 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
   @override
   void dispose() {
     for (final c in [_email, _password, _first, _last, _phone,
-                     _matricule, _dob, _address, _birthPlace]) {
+                     _matricule, _dob, _address, _birthPlace,
+                     _grade, _echelon, _category, _speciality, _hireDate]) {
       c.dispose();
     }
     super.dispose();
@@ -1784,6 +1809,9 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
       final dob = _dob.text.trim().isNotEmpty
           ? (_dobDate ?? _parseDob(_dob.text.trim()))
           : null;
+      final hire = _hireDate.text.trim().isNotEmpty
+          ? (_hireDateD ?? _parseDob(_hireDate.text.trim()))
+          : null;
       if (_isEdit) {
         await svc.updateUser(
           id:              widget.user!.id,
@@ -1798,6 +1826,12 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
           dateOfBirth:     dob,
           address:         _address.text.trim(),
           birthPlace:      _birthPlace.text.trim(),
+          employmentStatus: _employmentStatus,
+          grade:           _grade.text.trim(),
+          echelon:         _echelon.text.trim(),
+          category:        _category.text.trim(),
+          speciality:      _speciality.text.trim(),
+          hireDate:        hire,
         );
       } else {
         await svc.createUser(
@@ -1932,6 +1966,52 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
     suffix: IconButton(
       icon: const Icon(Icons.calendar_today_rounded, size: 18, color: kTextMuted),
       onPressed: _pickDate,
+    ),
+    validator: (v) {
+      if (v == null || v.trim().isEmpty) return null;
+      if (_parseDob(v) == null) return 'Format JJ/MM/AAAA';
+      return null;
+    },
+  );
+
+  Widget _employmentStatusDropdown() => DropdownButtonFormField<String?>(
+    initialValue: _employmentStatus,
+    isExpanded: true,
+    decoration: _inputDec('Statut', Icons.badge_outlined),
+    items: [
+      const DropdownMenuItem(value: null, child: Text('— Non renseigné')),
+      for (final (v, l) in _kEmploymentStatuses)
+        DropdownMenuItem(value: v, child: Text(l)),
+    ],
+    onChanged: (v) => setState(() => _employmentStatus = v),
+  );
+
+  Future<void> _pickHireDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _hireDateD ?? now,
+      firstDate: DateTime(1970),
+      lastDate: now,
+      locale: const Locale('fr', 'FR'),
+      helpText: 'Date de prise de service',
+      cancelText: 'Annuler',
+      confirmText: 'Confirmer',
+    );
+    if (picked != null) {
+      setState(() {
+        _hireDateD = picked;
+        _hireDate.text = _fmtDob(picked);
+      });
+    }
+  }
+
+  Widget _hireDateField() => _field(
+    _hireDate, 'Prise de service', Icons.event_available_outlined,
+    keyboard: TextInputType.datetime,
+    suffix: IconButton(
+      icon: const Icon(Icons.calendar_today_rounded, size: 18, color: kTextMuted),
+      onPressed: _pickHireDate,
     ),
     validator: (v) {
       if (v == null || v.trim().isEmpty) return null;
@@ -2099,6 +2179,26 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
                       ]),
                       const SizedBox(height: 12),
                       _accessProfileDropdown(),
+
+                      // ── Carrière RH (édition : volet migration 0023) ─────
+                      if (_isEdit) ...[
+                        _sectionTitle('CARRIÈRE'),
+                        Row(children: [
+                          Expanded(child: _employmentStatusDropdown()),
+                          const SizedBox(width: 12),
+                          Expanded(child: _hireDateField()),
+                        ]),
+                        const SizedBox(height: 12),
+                        Row(children: [
+                          Expanded(child: _field(_grade, 'Grade', Icons.workspace_premium_outlined)),
+                          const SizedBox(width: 12),
+                          Expanded(child: _field(_echelon, 'Échelon', Icons.stairs_outlined)),
+                          const SizedBox(width: 12),
+                          Expanded(child: _field(_category, 'Catégorie', Icons.label_outline)),
+                        ]),
+                        const SizedBox(height: 12),
+                        _field(_speciality, 'Spécialité / discipline', Icons.menu_book_outlined),
+                      ],
 
                       // ── Accès au compte (création uniquement) ────────────
                       if (!_isEdit) ...[

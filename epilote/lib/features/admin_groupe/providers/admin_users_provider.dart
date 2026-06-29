@@ -57,6 +57,12 @@ class AdminUser {
     this.dateOfBirth,
     this.address,
     this.birthPlace,
+    this.employmentStatus,
+    this.grade,
+    this.echelon,
+    this.category,
+    this.speciality,
+    this.hireDate,
   });
 
   factory AdminUser.fromMap(Map<String, dynamic> m) => AdminUser(
@@ -84,6 +90,14 @@ class AdminUser {
             : null,
         address:    m['address'] as String?,
         birthPlace: m['birth_place'] as String?,
+        employmentStatus: m['employment_status'] as String?,
+        grade:      m['grade'] as String?,
+        echelon:    m['echelon'] as String?,
+        category:   m['category'] as String?,
+        speciality: m['speciality'] as String?,
+        hireDate: m['hire_date'] != null
+            ? DateTime.tryParse(m['hire_date'] as String)
+            : null,
       );
 
   final String id;
@@ -105,6 +119,13 @@ class AdminUser {
   final DateTime? dateOfBirth;
   final String?   address;
   final String?   birthPlace;
+  // Volet carrière RH (migration 0023)
+  final String?   employmentStatus;
+  final String?   grade;
+  final String?   echelon;
+  final String?   category;
+  final String?   speciality;
+  final DateTime? hireDate;
 
   String get fullName {
     final n = '${firstName.trim()} ${lastName.trim()}'.trim();
@@ -296,21 +317,34 @@ class AdminUsersService {
     DateTime? dateOfBirth,
     String? address,
     String? birthPlace,
+    // Volet carrière RH (migration 0023) — renseigné à la source par l'admin.
+    String? employmentStatus,
+    String? grade,
+    String? echelon,
+    String? category,
+    String? speciality,
+    DateTime? hireDate,
   }) async {
     final client = _ref.read(supabaseClientProvider);
+    String? nz(String? v) => (v != null && v.trim().isNotEmpty) ? v.trim() : null;
     await client.from('profiles').update({
       'first_name':        firstName,
       'last_name':         lastName,
       'school_id':         schoolId,
       'role':              role,
       'access_profile_id': accessProfileId,
-      'phone':             (phone != null && phone.isNotEmpty) ? phone : null,
-      'employee_number':   (employeeNumber != null && employeeNumber.isNotEmpty)
-                               ? employeeNumber : null,
-      'gender':            (gender != null && gender.isNotEmpty) ? gender : null,
+      'phone':             nz(phone),
+      'employee_number':   nz(employeeNumber),
+      'gender':            nz(gender),
       'date_of_birth':     dateOfBirth?.toIso8601String().substring(0, 10),
-      'address':           (address != null && address.isNotEmpty) ? address : null,
-      'birth_place':       (birthPlace != null && birthPlace.isNotEmpty) ? birthPlace : null,
+      'address':           nz(address),
+      'birth_place':       nz(birthPlace),
+      'employment_status': nz(employmentStatus),
+      'grade':             nz(grade),
+      'echelon':           nz(echelon),
+      'category':          nz(category),
+      'speciality':        nz(speciality),
+      'hire_date':         hireDate?.toIso8601String().substring(0, 10),
       'updated_at':        DateTime.now().toIso8601String(),
     }).eq('id', id);
     _ref.invalidate(adminUsersProvider);
