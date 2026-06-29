@@ -135,9 +135,6 @@ class _AccountMenu extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final initials = _initials(displayName);
     final avatarColor = _avatarColor(profile?.role);
-    final isStaff = profile != null &&
-        profile!.role != AppConstants.roleSuperAdmin &&
-        profile!.role != AppConstants.roleAdminGroupe;
 
     final profileRoute = switch (profile?.role) {
       AppConstants.roleSuperAdmin => Routes.superProfil,
@@ -164,7 +161,8 @@ class _AccountMenu extends ConsumerWidget {
           case 'settings':
             if (context.mounted) context.go(settingsRoute);
           case 'switch_agent':
-            if (context.mounted) context.go(Routes.userAgents);
+            // Poste partagé : reverrouille → AgentLockGate réaffiche l'écran-verrou.
+            ref.read(selectedAgentIdProvider.notifier).state = null;
         }
       },
       itemBuilder: (_) => [
@@ -205,14 +203,15 @@ class _AccountMenu extends ConsumerWidget {
             Text('Paramètres'),
           ]),
         ),
-        // Poste partagé : bascule d'agent (personnel scolaire uniquement).
-        if (isStaff)
+        // Poste partagé : reverrouiller l'appareil (personnel scolaire, hors
+        // parent/élève — même public que le verrou).
+        if (agentLockApplies(profile?.role))
           const PopupMenuItem(
             value: 'switch_agent',
             child: Row(children: [
-              Icon(Icons.switch_account_outlined, size: 18, color: kNavy),
+              Icon(Icons.lock_outline_rounded, size: 18, color: kNavy),
               SizedBox(width: 10),
-              Text('Changer d’agent'),
+              Text('Changer d’utilisateur'),
             ]),
           ),
         const PopupMenuDivider(),
