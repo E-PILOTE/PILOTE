@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
+import '../../structure/providers/academic_year_provider.dart';
 import '../../vie_scolaire/widgets/vs_form_chrome.dart';
 import '../../vie_scolaire/widgets/vs_kit.dart';
 import '../providers/payroll_provider.dart';
 import '../providers/staff_directory_provider.dart';
+import '../services/payroll_pdf_service.dart';
 import '../widgets/staff_kit.dart';
 
 part 'paie_form.dart';
@@ -94,6 +97,31 @@ class _BodyState extends ConsumerState<_Body> {
         success: '${ids.length} bulletin${ids.length > 1 ? 's' : ''} marqué'
             '${ids.length > 1 ? 's' : ''} payé${ids.length > 1 ? 's' : ''}');
   }
+
+  String? get _schoolName =>
+      ref.read(currentSchoolProvider).valueOrNull?['name'] as String?;
+
+  void _payslipPdf(PayrollLine l) => showPdfPreviewDialog(
+        context,
+        title: 'Bulletin de paie',
+        subtitle: '${l.staffName} · ${kMonthNames[_month - 1]} $_year',
+        pdfFileName: 'Bulletin_${l.staffName}_$_key.pdf',
+        build: (_) => PayrollPdfService.buildPayslip(
+            line: l, month: _month, year: _year, schoolName: _schoolName),
+        onDownload: () => PayrollPdfService.downloadPayslip(
+            line: l, month: _month, year: _year, schoolName: _schoolName),
+      );
+
+  void _registerPdf(List<PayrollLine> lines) => showPdfPreviewDialog(
+        context,
+        title: 'État de paie',
+        subtitle: '${kMonthNames[_month - 1]} $_year · ${lines.length} agents',
+        pdfFileName: 'Etat_paie_$_key.pdf',
+        build: (_) => PayrollPdfService.buildRegister(
+            lines: lines, month: _month, year: _year, schoolName: _schoolName),
+        onDownload: () => PayrollPdfService.downloadRegister(
+            lines: lines, month: _month, year: _year, schoolName: _schoolName),
+      );
 
   Future<void> _delete(PayrollLine l) async {
     final ok = await showDialog<bool>(
@@ -229,24 +257,28 @@ class _BodyState extends ConsumerState<_Body> {
                 metricLabel: 'payés',
               ),
             ],
-            if (canCreate || canEdit) ...[
-              const SizedBox(height: 14),
-              Wrap(spacing: 10, runSpacing: 8, children: [
-                if (canCreate)
-                  StaffBulkButton(
-                    icon: Icons.content_copy_rounded,
-                    label: 'Reporter ${kMonthNames[(_month - 2 + 12) % 12]}',
-                    onTap: _carryOver,
-                  ),
-                if (canEdit)
-                  StaffBulkButton(
-                    icon: Icons.done_all_rounded,
-                    label: 'Marquer tous payés ($pending)',
-                    color: kGreen,
-                    onTap: pending == 0 ? null : () => _confirmAll(shown),
-                  ),
-              ]),
-            ],
+            const SizedBox(height: 14),
+            Wrap(spacing: 10, runSpacing: 8, children: [
+              if (canCreate)
+                StaffBulkButton(
+                  icon: Icons.content_copy_rounded,
+                  label: 'Reporter ${kMonthNames[(_month - 2 + 12) % 12]}',
+                  onTap: _carryOver,
+                ),
+              if (canEdit)
+                StaffBulkButton(
+                  icon: Icons.done_all_rounded,
+                  label: 'Marquer tous payés ($pending)',
+                  color: kGreen,
+                  onTap: pending == 0 ? null : () => _confirmAll(shown),
+                ),
+              StaffBulkButton(
+                icon: Icons.picture_as_pdf_rounded,
+                label: 'État de paie (PDF)',
+                color: const Color(0xFF7C3AED),
+                onTap: lines.isEmpty ? null : () => _registerPdf(shown),
+              ),
+            ]),
             const SizedBox(height: 16),
             if (lines.isEmpty)
               Padding(
@@ -270,6 +302,7 @@ class _BodyState extends ConsumerState<_Body> {
                   onConfirm: () => _confirm(l),
                   onEdit: () => _openForm(line: l),
                   onDelete: () => _delete(l),
+                  onPdf: () => _payslipPdf(l),
                 ),
             const SizedBox(height: 24),
           ]),
@@ -288,10 +321,11 @@ class _PayCard extends StatelessWidget {
     required this.onConfirm,
     required this.onEdit,
     required this.onDelete,
+    required this.onPdf,
   });
   final PayrollLine line;
   final bool canEdit, canDelete;
-  final VoidCallback onConfirm, onEdit, onDelete;
+  final VoidCallback onConfirm, onEdit, onDelete, onPdf;
 
   @override
   Widget build(BuildContext context) {
@@ -327,6 +361,13 @@ class _PayCard extends StatelessWidget {
             child: Text(payStatusLabel(l.status),
                 style: TextStyle(
                     fontSize: 10.5, fontWeight: FontWeight.w800, color: c)),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            tooltip: 'Bulletin PDF',
+            onPressed: onPdf,
+            icon: const Icon(Icons.picture_as_pdf_outlined,
+                size: 18, color: Color(0xFF7C3AED)),
           ),
           if (canEdit || canDelete)
             PopupMenuButton<String>(

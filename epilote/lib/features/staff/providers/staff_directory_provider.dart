@@ -3,6 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../services/powersync/powersync_service.dart';
 
+/// Capacité de GESTION des agents (créer/modifier/transférer/désactiver le
+/// PROFIL). Réservée à `admin_groupe`/`super_admin` (online, écrit `profiles`
+/// lié à `auth.users`). Le personnel école est en lecture + dossier RH offline
+/// (carrière/diplômes). C'est ce verrou qui rend la page Personnel scope-aware :
+/// même écran, actions de gestion masquées si `false`.
+final staffCanManageProvider = Provider.autoDispose<bool>((ref) {
+  final role = ref.watch(authNotifierProvider).valueOrNull?.role;
+  return role == 'admin_groupe' || role == 'super_admin';
+});
+
 // ════════════════════════════════════════════════════════════════════════════
 //  ANNUAIRE DU PERSONNEL — 100 % offline (db.watch sur `profiles`).
 //

@@ -1,511 +1,282 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../communication/widgets/user_avatar.dart';
 import '../../navigation/widgets/module_scaffold.dart';
+import '../../structure/providers/academic_year_provider.dart';
+import '../../students/widgets/scope_drilldown_panel.dart' show scopeCycleName;
 import '../../user/widgets/staff_account_widgets.dart' show staffRoleLabel;
+import '../../vie_scolaire/widgets/vs_kit.dart';
 import '../providers/staff_directory_provider.dart';
+import '../providers/staff_dossier_provider.dart' show employmentStatusLabel;
+import '../services/personnel_export_service.dart';
+import '../widgets/staff_kit.dart';
 import 'personnel_dossier_sheet.dart';
 
-// ─── Design tokens ──────────────────────────────────────────────────────────────
-const _kNavy = Color(0xFF1E3A5F);
-const _kGreen = Color(0xFF009A44);
-const _kText = Color(0xFF0F172A);
-const _kMuted = Color(0xFF64748B);
-const _kBorder = Color(0xFFE2E8F0);
+part 'personnel_views.dart';
 
-/// Couleur d'accent par catégorie métier (cohérence avec l'organigramme).
-Color _catColor(StaffCategory c) => switch (c) {
-      StaffCategory.direction => _kNavy,
-      StaffCategory.administration => const Color(0xFF7C3AED),
-      StaffCategory.enseignement => const Color(0xFF0EA5E9),
-      StaffCategory.vieScolaire => _kGreen,
-      StaffCategory.autres => _kMuted,
-    };
+const _kSlug = 'personnel';
 
-IconData _catIcon(StaffCategory c) => switch (c) {
-      StaffCategory.direction => Icons.workspace_premium_rounded,
-      StaffCategory.administration => Icons.badge_rounded,
-      StaffCategory.enseignement => Icons.menu_book_rounded,
-      StaffCategory.vieScolaire => Icons.health_and_safety_rounded,
-      StaffCategory.autres => Icons.groups_rounded,
-    };
-
-/// Annuaire du personnel de l'école — offline-first (lecture seule).
-/// Les comptes sont provisionnés en ligne par l'admin groupe ; l'édition RH
-/// (contrat / salaire) viendra avec le module Paie (Phase 5).
-class PersonnelScreen extends ConsumerStatefulWidget {
+// ════════════════════════════════════════════════════════════════════════════
+//  PERSONNEL — annuaire RICHE, scope-aware. KPI hero → distinction 3 axes
+//  (Catégorie / Statut / Cycle) + graphe de répartition → filtres + recherche →
+//  bascule vue Cartes / Tableau → ouverture du dossier RH. Export PDF + CSV.
+//  Gestion du profil (créer/modifier/transférer) = capacité `canManage`
+//  (admin_groupe online) ; la direction école est en lecture + dossier offline.
+// ════════════════════════════════════════════════════════════════════════════
+class PersonnelScreen extends ConsumerWidget {
   const PersonnelScreen({super.key});
-
   @override
-  ConsumerState<PersonnelScreen> createState() => _PersonnelScreenState();
+  Widget build(BuildContext context, WidgetRef ref) => const ModuleScaffold(
+        slug: _kSlug,
+        title: 'Personnel',
+        child: _Body(),
+      );
 }
 
-class _PersonnelScreenState extends ConsumerState<PersonnelScreen> {
-  final _searchCtrl = TextEditingController();
-  String _query = '';
-  StaffCategory? _filter; // null = toutes les catégories
+class _Body extends ConsumerStatefulWidget {
+  const _Body();
+  @override
+  ConsumerState<_Body> createState() => _BodyState();
+}
+
+class _BodyState extends ConsumerState<_Body> {
+  StaffAxis _axis = StaffAxis.categorie;
+  String? _seg;
+  bool _table = false;
+  String _status = 'all'; // all | active | inactive
+  final _search = TextEditingController();
+  String _q = '';
 
   @override
   void dispose() {
-    _searchCtrl.dispose();
+    _search.dispose();
     super.dispose();
+  }
+
+  String? get _schoolName =>
+      ref.read(currentSchoolProvider).valueOrNull?['name'] as String?;
+
+  void _exportPdf(List<StaffMember> agents) => showPdfPreviewDialog(
+        context,
+        title: 'Annuaire du personnel',
+        subtitle: '${agents.length} agents',
+        pdfFileName: 'Annuaire_personnel.pdf',
+        build: (_) => PersonnelExportService.buildPdf(
+            agents: agents, schoolName: _schoolName),
+        onDownload: () => PersonnelExportService.downloadPdf(
+            agents: agents, schoolName: _schoolName),
+      );
+
+  Future<void> _exportCsv(List<StaffMember> agents) async {
+    final path = await PersonnelExportService.downloadCsv(agents: agents);
+    if (!mounted || path == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Annuaire exporté (CSV)')));
   }
 
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(staffDirectoryProvider);
+    return async.when(
+      skipLoadingOnReload: true,
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Erreur : $e')),
+      data: (all) {
+        // Segments selon l'axe (métrique « ok » = actifs).
+        final segs = staffSegments(all, _axis, okOf: (a) => a.isActive);
 
-    return ModuleScaffold(
-      slug: 'personnel',
-      title: 'Personnel',
-      child: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => _ErrorState(message: '$e'),
-        data: (all) {
-          // Compteurs par catégorie (sur l'ensemble, avant filtres).
-          final counts = <StaffCategory, int>{};
-          for (final s in all) {
-            final c = staffCategory(s.role);
-            counts[c] = (counts[c] ?? 0) + 1;
-          }
+        // Filtrage : segment + statut + recherche.
+        final q = _q.trim().toLowerCase();
+        final agents = [
+          for (final a in all)
+            if ((_seg == null || staffSegKey(a, _axis) == _seg) &&
+                (_status == 'all' ||
+                    (_status == 'active' && a.isActive) ||
+                    (_status == 'inactive' && !a.isActive)) &&
+                (q.isEmpty || a.searchBlob.contains(q)))
+              a
+        ];
 
-          // Filtrage : recherche + catégorie active.
-          final q = _query.trim().toLowerCase();
-          final filtered = [
-            for (final s in all)
-              if ((_filter == null || staffCategory(s.role) == _filter) &&
-                  (q.isEmpty || s.searchBlob.contains(q)))
-                s,
-          ];
+        final actifs = all.where((a) => a.isActive).length;
+        final enseignants = all.where((a) => a.role == 'enseignant').length;
+        final fonctionnaires =
+            all.where((a) => a.employmentStatus == 'fonctionnaire').length;
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SearchBar(
-                controller: _searchCtrl,
-                query: _query,
-                total: all.length,
-                onChanged: (v) => setState(() => _query = v),
-                onClear: () {
-                  _searchCtrl.clear();
-                  setState(() => _query = '');
-                },
-              ),
-              _CategoryChips(
-                counts: counts,
-                active: _filter,
-                onSelect: (c) => setState(() => _filter = c),
-              ),
-              const SizedBox(height: 4),
-              Expanded(
-                child: filtered.isEmpty
-                    ? _EmptyState(searching: q.isNotEmpty || _filter != null)
-                    : _DirectoryList(staff: filtered),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-// ─── Barre de recherche + total ─────────────────────────────────────────────────
-class _SearchBar extends StatelessWidget {
-  const _SearchBar({
-    required this.controller,
-    required this.query,
-    required this.total,
-    required this.onChanged,
-    required this.onClear,
-  });
-  final TextEditingController controller;
-  final String query;
-  final int total;
-  final ValueChanged<String> onChanged;
-  final VoidCallback onClear;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: controller,
-              onChanged: onChanged,
-              decoration: InputDecoration(
-                hintText: 'Rechercher (nom, matricule, rôle)…',
-                prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                suffixIcon: query.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 18),
-                        onPressed: onClear,
-                      ),
-                isDense: true,
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: _kBorder),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: _kNavy, width: 1.5),
-                ),
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            VsHeader(
+              title: 'Personnel',
+              subtitle: 'Annuaire, dossiers et carrière des agents',
+              trailing: _Toolbar(
+                table: _table,
+                onView: (v) => setState(() => _table = v),
+                onPdf: all.isEmpty ? null : () => _exportPdf(agents),
+                onCsv: all.isEmpty ? null : () => _exportCsv(agents),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: _kNavy.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8),
+            const SizedBox(height: 20),
+            VsHeroKpis(cards: [
+              (Icons.groups_2_rounded, 'Effectif', '${all.length}', kNavy,
+                  'agents'),
+              (Icons.verified_user_rounded, 'Actifs', '$actifs', kGreen,
+                  '${all.length - actifs} inactifs'),
+              (Icons.school_rounded, 'Enseignants', '$enseignants',
+                  const Color(0xFF0EA5E9), 'corps enseignant'),
+              (Icons.badge_rounded, 'Fonctionnaires', '$fonctionnaires',
+                  const Color(0xFF7C3AED), 'titulaires'),
+            ]),
+            const SizedBox(height: 18),
+            // Distinction par axe
+            Row(children: [
+              const Text('Répartir par',
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: kTextMuted)),
+              const SizedBox(width: 10),
+              StaffAxisToggle(
+                  axis: _axis,
+                  onChanged: (a) => setState(() {
+                        _axis = a;
+                        _seg = null;
+                      })),
+            ]),
+            const SizedBox(height: 12),
+            StaffSegmentBar(
+              segments: segs,
+              selected: _seg,
+              onSelect: (s) => setState(() => _seg = s),
+              metricLabel: 'actifs',
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.people_rounded, size: 16, color: _kNavy),
-                const SizedBox(width: 6),
-                Text(
-                  '$total agent${total > 1 ? 's' : ''}',
-                  style: const TextStyle(
-                      color: _kNavy, fontSize: 12, fontWeight: FontWeight.w700),
+            const SizedBox(height: 14),
+            _DistributionBar(segments: segs),
+            const SizedBox(height: 16),
+            // Recherche + filtre statut
+            Row(children: [
+              Expanded(child: _SearchField(
+                controller: _search,
+                count: all.length,
+                onChanged: (v) => setState(() => _q = v),
+              )),
+              const SizedBox(width: 12),
+              _StatusFilter(
+                  value: _status, onChanged: (s) => setState(() => _status = s)),
+            ]),
+            const SizedBox(height: 16),
+            VsSectionLabel(
+                icon: Icons.people_alt_rounded,
+                text: '${agents.length} agent${agents.length > 1 ? 's' : ''} '
+                    'affiché${agents.length > 1 ? 's' : ''}'),
+            const SizedBox(height: 10),
+            if (agents.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 24),
+                child: AdminEmptyState(
+                  icon: Icons.person_search_outlined,
+                  title: 'Aucun agent',
+                  message: 'Aucun agent ne correspond à ce filtre.',
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Puces de filtre par catégorie ──────────────────────────────────────────────
-class _CategoryChips extends StatelessWidget {
-  const _CategoryChips({
-    required this.counts,
-    required this.active,
-    required this.onSelect,
-  });
-  final Map<StaffCategory, int> counts;
-  final StaffCategory? active;
-  final ValueChanged<StaffCategory?> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final present = [
-      for (final c in staffCategoryOrder)
-        if ((counts[c] ?? 0) > 0) c,
-    ];
-    if (present.length < 2) return const SizedBox.shrink();
-
-    return SizedBox(
-      height: 38,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        children: [
-          _Chip(
-            label: 'Tous',
-            color: _kNavy,
-            selected: active == null,
-            onTap: () => onSelect(null),
-          ),
-          for (final c in present) ...[
-            const SizedBox(width: 8),
-            _Chip(
-              label: '${staffCategoryLabel(c)} (${counts[c]})',
-              color: _catColor(c),
-              selected: active == c,
-              onTap: () => onSelect(active == c ? null : c),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.label,
-    required this.color,
-    required this.selected,
-    required this.onTap,
-  });
-  final String label;
-  final Color color;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-            color: selected ? color : Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: selected ? color : _kBorder),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: selected ? Colors.white : _kMuted,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Liste groupée par catégorie ────────────────────────────────────────────────
-class _DirectoryList extends StatelessWidget {
-  const _DirectoryList({required this.staff});
-  final List<StaffMember> staff;
-
-  @override
-  Widget build(BuildContext context) {
-    // Regroupe par catégorie, dans l'ordre organigramme.
-    final byCat = <StaffCategory, List<StaffMember>>{};
-    for (final s in staff) {
-      byCat.putIfAbsent(staffCategory(s.role), () => []).add(s);
-    }
-    final sections = [
-      for (final c in staffCategoryOrder)
-        if (byCat[c] != null) (c, byCat[c]!),
-    ];
-
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 80),
-      itemCount: sections.length,
-      itemBuilder: (_, i) {
-        final (cat, members) = sections[i];
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: EdgeInsets.only(top: i == 0 ? 4 : 18, bottom: 10),
-              child: Row(children: [
-                Icon(_catIcon(cat), size: 15, color: _catColor(cat)),
-                const SizedBox(width: 8),
-                Text(
-                  '${staffCategoryLabel(cat).toUpperCase()}  ·  ${members.length}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                    color: _kMuted,
-                  ),
-                ),
-              ]),
-            ),
-            for (final s in members) ...[
-              _StaffTile(staff: s),
-              const SizedBox(height: 8),
-            ],
-          ],
+              )
+            else if (_table)
+              _PersonnelTable(
+                  agents: agents, onOpen: (a) => showStaffDossier(context, a.id))
+            else
+              _PersonnelCards(
+                  agents: agents, onOpen: (a) => showStaffDossier(context, a.id)),
+            const SizedBox(height: 24),
+          ]),
         );
       },
     );
   }
 }
 
-// ─── Ligne d'un agent ─────────────────────────────────────────────────────────
-class _StaffTile extends StatelessWidget {
-  const _StaffTile({required this.staff});
-  final StaffMember staff;
+// ─── Barre d'outils : bascule vue + export ───────────────────────────────────
+class _Toolbar extends StatelessWidget {
+  const _Toolbar({
+    required this.table,
+    required this.onView,
+    required this.onPdf,
+    required this.onCsv,
+  });
+  final bool table;
+  final ValueChanged<bool> onView;
+  final VoidCallback? onPdf, onCsv;
 
   @override
   Widget build(BuildContext context) {
-    final cat = staffCategory(staff.role);
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => _showStaffSheet(context, staff),
-        child: Opacity(
-          opacity: staff.isActive ? 1 : 0.55,
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _kBorder),
-            ),
-            child: Row(
-              children: [
-                UserAvatarCircle(
-                  name: staff.fullName,
-                  role: staff.role,
-                  avatarUrl: staff.avatarUrl,
-                  radius: 22,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        staff.lastFirst,
-                        style: const TextStyle(
-                            color: _kText,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 3),
-                      Row(children: [
-                        _RoleBadge(role: staff.role, color: _catColor(cat)),
-                        if (staff.phone != null && staff.phone!.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          const Icon(Icons.call_rounded,
-                              size: 12, color: _kMuted),
-                          const SizedBox(width: 3),
-                          Flexible(
-                            child: Text(
-                              staff.phone!,
-                              style: const TextStyle(
-                                  color: _kMuted, fontSize: 12),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ]),
-                    ],
-                  ),
-                ),
-                if (!staff.isActive)
-                  const _Pill(label: 'Inactif', color: _kMuted),
-                const SizedBox(width: 4),
-                const Icon(Icons.chevron_right_rounded, color: _kMuted),
-              ],
-            ),
-          ),
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      // bascule Cartes / Tableau
+      Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: kSurface,
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: kBorder),
         ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          _viewBtn(Icons.grid_view_rounded, !table, () => onView(false)),
+          _viewBtn(Icons.table_rows_rounded, table, () => onView(true)),
+        ]),
       ),
-    );
-  }
-}
-
-class _RoleBadge extends StatelessWidget {
-  const _RoleBadge({required this.role, required this.color});
-  final String role;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: Text(
-        staffRoleLabel(role),
-        style: TextStyle(
-            color: color, fontSize: 10.5, fontWeight: FontWeight.w700),
-      ),
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  const _Pill({required this.label, required this.color});
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(label,
-          style: TextStyle(
-              color: color, fontSize: 10, fontWeight: FontWeight.w700)),
-    );
-  }
-}
-
-// ─── Fiche détail : dossier RH riche (identité + carrière + diplômes) ─────────
-void _showStaffSheet(BuildContext context, StaffMember s) {
-  showStaffDossier(context, s.id);
-}
-
-// ─── États vides / erreur ─────────────────────────────────────────────────────
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.searching});
-  final bool searching;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(searching ? Icons.search_off_rounded : Icons.groups_outlined,
-              size: 56, color: Colors.grey.shade300),
-          const SizedBox(height: 12),
-          Text(
-            searching
-                ? 'Aucun agent ne correspond'
-                : 'Aucun membre du personnel',
-            style: const TextStyle(color: _kMuted, fontSize: 14),
-          ),
-          if (!searching) ...[
-            const SizedBox(height: 6),
-            const Text(
-              'Les comptes du personnel sont créés par\nl\'administrateur de votre groupe.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: _kMuted, fontSize: 12, height: 1.4),
-            ),
-          ],
+      const SizedBox(width: 10),
+      PopupMenuButton<String>(
+        enabled: onPdf != null || onCsv != null,
+        onSelected: (v) => v == 'pdf' ? onPdf?.call() : onCsv?.call(),
+        itemBuilder: (_) => const [
+          PopupMenuItem(
+              value: 'pdf',
+              child: Row(children: [
+                Icon(Icons.picture_as_pdf_outlined, size: 17, color: Color(0xFF7C3AED)),
+                SizedBox(width: 8),
+                Text('Exporter PDF'),
+              ])),
+          PopupMenuItem(
+              value: 'csv',
+              child: Row(children: [
+                Icon(Icons.table_chart_outlined, size: 17, color: kGreen),
+                SizedBox(width: 8),
+                Text('Exporter CSV'),
+              ])),
         ],
-      ),
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message});
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline_rounded, size: 48, color: Colors.red.shade300),
-            const SizedBox(height: 12),
-            Text('Erreur de chargement\n$message',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: _kMuted, fontSize: 13)),
-          ],
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+                colors: [kNavyDark, kNavy],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.download_rounded, size: 16, color: Colors.white),
+            SizedBox(width: 6),
+            Text('Exporter',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700)),
+          ]),
         ),
       ),
-    );
+    ]);
   }
+
+  Widget _viewBtn(IconData icon, bool active, VoidCallback onTap) =>
+      GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: active ? kNavy : Colors.transparent,
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: Icon(icon,
+              size: 18, color: active ? Colors.white : kTextMuted),
+        ),
+      );
 }
