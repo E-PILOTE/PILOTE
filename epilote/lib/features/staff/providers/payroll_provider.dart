@@ -149,3 +149,66 @@ Future<void> confirmPayroll(String id) async {
 Future<void> deletePayroll(String id) async {
   await db.execute('DELETE FROM payroll WHERE id = ?', [id]);
 }
+
+/// Action groupée : reporter les bulletins d'un mois sur un autre (mêmes agents,
+/// mêmes montants, statut remis à « en attente »). N'ajoute QUE les agents
+/// absents de la période cible (pas de doublon).
+Future<int> carryOverPayroll({
+  required String groupId,
+  required String schoolId,
+  required int fromMonth,
+  required int fromYear,
+  required int toMonth,
+  required int toYear,
+  required String createdBy,
+}) async {
+  final src = await db.getAll(
+    'SELECT * FROM payroll WHERE school_id = ? AND period_year = ? '
+    'AND period_month = ?',
+    [schoolId, fromYear, fromMonth],
+  );
+  if (src.isEmpty) return 0;
+  final dst = await db.getAll(
+    'SELECT staff_id FROM payroll WHERE school_id = ? AND period_year = ? '
+    'AND period_month = ?',
+    [schoolId, toYear, toMonth],
+  );
+  final already = {for (final r in dst) r['staff_id'] as String?};
+  final now = DateTime.now().toIso8601String();
+  var added = 0;
+  await db.writeTransaction((tx) async {
+    for (final r in src) {
+      final sid = r['staff_id'] as String?;
+      if (sid == null || already.contains(sid)) continue;
+      await tx.execute(
+        '''
+        INSERT INTO payroll (
+          id, group_id, school_id, staff_id, period_month, period_year,
+          base_salary_xaf, bonuses_xaf, deductions_xaf, net_salary_xaf,
+          payment_method, status, notes, created_by, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)
+        ''',
+        [_uuid.v4(), groupId, schoolId, sid, toMonth, toYear,
+         (r['base_salary_xaf'] as num?)?.round() ?? 0,
+         (r['bonuses_xaf'] as num?)?.round() ?? 0,
+         (r['deductions_xaf'] as num?)?.round() ?? 0,
+         (r['net_salary_xaf'] as num?)?.round() ?? 0,
+         r['payment_method'], r['notes'], createdBy, now, now],
+      );
+      added++;
+    }
+  });
+  return added;
+}
+
+/// Action groupée : marquer payés tous les bulletins « en attente » d'une liste.
+Future<void> confirmPayrollBulk(List<String> ids) async {
+  if (ids.isEmpty) return;
+  final now = DateTime.now().toIso8601String();
+  final ph = List.filled(ids.length, '?').join(',');
+  await db.execute(
+    "UPDATE payroll SET status = 'confirmed', payment_date = ?, updated_at = ? "
+    "WHERE id IN ($ph) AND status = 'pending'",
+    [now.substring(0, 10), now, ...ids],
+  );
+}

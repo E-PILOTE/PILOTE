@@ -9,6 +9,7 @@ import '../../vie_scolaire/widgets/vs_form_chrome.dart';
 import '../../vie_scolaire/widgets/vs_kit.dart';
 import '../providers/payroll_provider.dart';
 import '../providers/staff_directory_provider.dart';
+import '../widgets/staff_kit.dart';
 
 part 'paie_form.dart';
 
@@ -39,8 +40,18 @@ class _Body extends ConsumerStatefulWidget {
 class _BodyState extends ConsumerState<_Body> {
   late int _month = DateTime.now().month;
   late int _year = DateTime.now().year;
+  StaffAxis _axis = StaffAxis.categorie;
+  String? _seg;
 
   String get _key => '$_year-${_month.toString().padLeft(2, '0')}';
+  String get _prevKey {
+    var m = _month - 1, y = _year;
+    if (m < 1) {
+      m = 12;
+      y--;
+    }
+    return '$y-${m.toString().padLeft(2, '0')}';
+  }
 
   void _openForm({PayrollLine? line}) => showDialog(
         context: context,
@@ -51,6 +62,37 @@ class _BodyState extends ConsumerState<_Body> {
   Future<void> _confirm(PayrollLine l) async {
     await runModuleWrite(context, () => confirmPayroll(l.id),
         success: 'Bulletin marqué payé');
+  }
+
+  Future<void> _carryOver() async {
+    final p = ref.read(authNotifierProvider).valueOrNull;
+    final prev = _prevKey.split('-');
+    final fm = int.parse(prev.last), fy = int.parse(prev.first);
+    final n = await carryOverPayroll(
+      groupId: p?.groupId ?? '',
+      schoolId: p?.schoolId ?? '',
+      fromMonth: fm,
+      fromYear: fy,
+      toMonth: _month,
+      toYear: _year,
+      createdBy: p?.id ?? '',
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(n == 0
+            ? 'Aucun bulletin à reporter depuis ${kMonthNames[fm - 1]}'
+            : '$n bulletin${n > 1 ? 's' : ''} reporté${n > 1 ? 's' : ''}'),
+        backgroundColor: n == 0 ? kTextMuted : kGreen));
+  }
+
+  Future<void> _confirmAll(List<PayrollLine> lines) async {
+    final ids = [
+      for (final l in lines) if (l.status == 'pending') l.id
+    ];
+    if (ids.isEmpty) return;
+    await runModuleWrite(context, () => confirmPayrollBulk(ids),
+        success: '${ids.length} bulletin${ids.length > 1 ? 's' : ''} marqué'
+            '${ids.length > 1 ? 's' : ''} payé${ids.length > 1 ? 's' : ''}');
   }
 
   Future<void> _delete(PayrollLine l) async {
@@ -95,9 +137,12 @@ class _BodyState extends ConsumerState<_Body> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(payrollProvider(_key));
+    final agents = ref.watch(staffDirectoryProvider).valueOrNull ?? const [];
     final canCreate = ref.watch(canProvider((slug: _kSlug, action: 'create')));
     final canEdit = ref.watch(canProvider((slug: _kSlug, action: 'update')));
     final canDelete = ref.watch(canProvider((slug: _kSlug, action: 'delete')));
+
+    final byId = {for (final a in agents) a.id: a};
 
     return async.when(
       skipLoadingOnReload: true,
@@ -108,6 +153,28 @@ class _BodyState extends ConsumerState<_Body> {
         final paid = lines.where((l) => l.status == 'confirmed').toList();
         final paidMass = paid.fold(0, (a, l) => a + l.net);
         final pending = lines.length - paid.length;
+
+        // Segments selon l'axe : on classe chaque bulletin via l'agent lié.
+        // total = bulletins du segment, ok = bulletins payés.
+        final segMap = <String, StaffSegment>{};
+        for (final l in lines) {
+          final a = byId[l.staffId];
+          final key = a == null ? '—' : staffSegKey(a, _axis);
+          final seg = segMap.putIfAbsent(key, () => StaffSegment(key, _axis));
+          seg.total++;
+          if (l.status == 'confirmed') seg.ok++;
+        }
+        final segs = segMap.values.toList()
+          ..sort((x, y) =>
+              staffSegOrder(x.key, _axis).compareTo(staffSegOrder(y.key, _axis)));
+
+        final shown = _seg == null
+            ? lines
+            : [
+                for (final l in lines)
+                  if ((byId[l.staffId] == null ? '—' : staffSegKey(byId[l.staffId]!, _axis)) == _seg)
+                    l
+              ];
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -138,6 +205,49 @@ class _BodyState extends ConsumerState<_Body> {
                   const Color(0xFF0EA5E9), 'ce mois'),
             ]),
             const SizedBox(height: 18),
+            // Distinction par axe + actions groupées
+            Row(children: [
+              const Text('Répartir par',
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: kTextMuted)),
+              const SizedBox(width: 10),
+              StaffAxisToggle(
+                  axis: _axis,
+                  onChanged: (a) => setState(() {
+                        _axis = a;
+                        _seg = null;
+                      })),
+            ]),
+            if (segs.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              StaffSegmentBar(
+                segments: segs,
+                selected: _seg,
+                onSelect: (s) => setState(() => _seg = s),
+                metricLabel: 'payés',
+              ),
+            ],
+            if (canCreate || canEdit) ...[
+              const SizedBox(height: 14),
+              Wrap(spacing: 10, runSpacing: 8, children: [
+                if (canCreate)
+                  StaffBulkButton(
+                    icon: Icons.content_copy_rounded,
+                    label: 'Reporter ${kMonthNames[(_month - 2 + 12) % 12]}',
+                    onTap: _carryOver,
+                  ),
+                if (canEdit)
+                  StaffBulkButton(
+                    icon: Icons.done_all_rounded,
+                    label: 'Marquer tous payés ($pending)',
+                    color: kGreen,
+                    onTap: pending == 0 ? null : () => _confirmAll(shown),
+                  ),
+              ]),
+            ],
+            const SizedBox(height: 16),
             if (lines.isEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 20),
@@ -145,13 +255,14 @@ class _BodyState extends ConsumerState<_Body> {
                   icon: Icons.payments_outlined,
                   title: 'Aucun bulletin',
                   message:
-                      'Aucun bulletin de paie pour ${kMonthNames[_month - 1]} $_year.',
+                      'Aucun bulletin de paie pour ${kMonthNames[_month - 1]} $_year. '
+                      'Reportez le mois précédent ou créez un bulletin.',
                   actionLabel: canCreate ? 'Nouveau bulletin' : null,
                   onAction: canCreate ? () => _openForm() : null,
                 ),
               )
             else
-              for (final l in lines)
+              for (final l in shown)
                 _PayCard(
                   line: l,
                   canEdit: canEdit,

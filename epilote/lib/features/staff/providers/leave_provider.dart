@@ -142,3 +142,15 @@ Future<void> reviewLeaveRequest({
 Future<void> deleteLeaveRequest(String id) async {
   await db.execute('DELETE FROM leave_requests WHERE id = ?', [id]);
 }
+
+/// Action groupée : approuver toutes les demandes en attente fournies.
+Future<void> approveLeaveBulk(List<String> ids, String reviewedBy) async {
+  if (ids.isEmpty) return;
+  final now = DateTime.now().toIso8601String();
+  final ph = List.filled(ids.length, '?').join(',');
+  await db.execute(
+    "UPDATE leave_requests SET status = 'approved', reviewed_by = ?, "
+    "reviewed_at = ?, updated_at = ? WHERE id IN ($ph) AND status = 'pending'",
+    [reviewedBy, now, now, ...ids],
+  );
+}

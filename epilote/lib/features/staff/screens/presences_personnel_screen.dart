@@ -8,6 +8,7 @@ import '../../navigation/widgets/module_scaffold.dart';
 import '../../vie_scolaire/widgets/vs_kit.dart';
 import '../providers/staff_attendance_provider.dart';
 import '../providers/staff_directory_provider.dart';
+import '../widgets/staff_kit.dart';
 
 const _kSlug = 'presences-personnel';
 
@@ -36,6 +37,8 @@ class _BodyState extends ConsumerState<_Body> {
   DateTime _date = DateTime.now();
   final _search = TextEditingController();
   String _q = '';
+  StaffAxis _axis = StaffAxis.categorie;
+  String? _seg; // segment sélectionné (filtre)
 
   String get _key => _date.toIso8601String().substring(0, 10);
   bool get _isToday => _key == todayKey();
@@ -72,6 +75,29 @@ class _BodyState extends ConsumerState<_Body> {
         recordedBy: p?.id ?? '',
       ),
       success: null,
+    );
+  }
+
+  /// Action groupée : pointer une liste d'agents (présents par défaut). Si
+  /// `overwrite` faux, ne touche pas ceux déjà pointés.
+  Future<void> _markBulk(List<StaffMember> agents, String status,
+      {bool overwrite = false}) async {
+    final ids = [for (final a in agents) a.id];
+    if (ids.isEmpty) return;
+    final p = ref.read(authNotifierProvider).valueOrNull;
+    await runModuleWrite(
+      context,
+      () => setStaffAttendanceBulk(
+        groupId: p?.groupId ?? '',
+        schoolId: p?.schoolId ?? '',
+        staffIds: ids,
+        dateKey: _key,
+        status: status,
+        recordedBy: p?.id ?? '',
+        overwrite: overwrite,
+      ),
+      success: 'Pointage appliqué à ${ids.length} agent'
+          '${ids.length > 1 ? 's' : ''}',
     );
   }
 
@@ -132,10 +158,20 @@ class _BodyState extends ConsumerState<_Body> {
     final notMarked = agents.length - marked;
     final rate = agents.isEmpty ? 0 : (present + late) * 100 ~/ agents.length;
 
+    // Segments selon l'axe (métrique = présents/retards = "pointés présents").
+    final segs = staffSegments(agents, _axis,
+        okOf: (a) => marks[a.id]?.status == 'present' || marks[a.id]?.status == 'late');
+
+    // Filtrage : segment sélectionné + recherche.
     final q = _q.trim().toLowerCase();
-    final filtered = q.isEmpty
-        ? agents
-        : [for (final a in agents) if (a.searchBlob.contains(q)) a];
+    final filtered = [
+      for (final a in agents)
+        if ((_seg == null || staffSegKey(a, _axis) == _seg) &&
+            (q.isEmpty || a.searchBlob.contains(q)))
+          a
+    ];
+    final unmarkedVisible =
+        [for (final a in filtered) if (marks[a.id] == null) a];
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       VsHeroKpis(cards: [
@@ -147,12 +183,56 @@ class _BodyState extends ConsumerState<_Body> {
         (Icons.how_to_reg_rounded, 'Pointés', '$marked/${agents.length}',
             const Color(0xFF0EA5E9), '$rate% présents'),
       ]),
-      const SizedBox(height: 16),
+      const SizedBox(height: 18),
+      // Distinction : axe + segments cliquables (couverture par segment)
+      Row(children: [
+        const Text('Répartir par',
+            style: TextStyle(
+                fontSize: 12.5, fontWeight: FontWeight.w700, color: kTextMuted)),
+        const SizedBox(width: 10),
+        StaffAxisToggle(
+            axis: _axis,
+            onChanged: (a) => setState(() {
+                  _axis = a;
+                  _seg = null;
+                })),
+      ]),
+      const SizedBox(height: 12),
+      StaffSegmentBar(
+        segments: segs,
+        selected: _seg,
+        onSelect: (s) => setState(() => _seg = s),
+        metricLabel: 'présents',
+      ),
+      const SizedBox(height: 14),
+      // Actions groupées (sur la sélection visible)
+      if (canMark)
+        Wrap(spacing: 10, runSpacing: 8, children: [
+          StaffBulkButton(
+            icon: Icons.done_all_rounded,
+            label: _seg == null
+                ? 'Tous présents (${unmarkedVisible.length} restants)'
+                : 'Segment présent (${unmarkedVisible.length})',
+            color: kGreen,
+            onTap: unmarkedVisible.isEmpty
+                ? null
+                : () => _markBulk(unmarkedVisible, 'present'),
+          ),
+          StaffBulkButton(
+            icon: Icons.refresh_rounded,
+            label: 'Réinitialiser le pointage',
+            color: const Color(0xFFF59E0B),
+            onTap: filtered.isEmpty
+                ? null
+                : () => _markBulk(filtered, 'present', overwrite: true),
+          ),
+        ]),
+      const SizedBox(height: 14),
       if (notMarked > 0)
         VsSectionLabel(
             icon: Icons.info_outline_rounded,
             text: '$notMarked agent${notMarked > 1 ? 's' : ''} non pointé'
-                '${notMarked > 1 ? 's' : ''}'),
+                '${notMarked > 1 ? 's' : ''} au total'),
       const SizedBox(height: 10),
       if (agents.length > 8) ...[
         TextField(

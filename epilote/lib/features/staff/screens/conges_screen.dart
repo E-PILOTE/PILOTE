@@ -9,6 +9,7 @@ import '../../vie_scolaire/widgets/vs_form_chrome.dart';
 import '../../vie_scolaire/widgets/vs_kit.dart';
 import '../providers/leave_provider.dart';
 import '../providers/staff_directory_provider.dart';
+import '../widgets/staff_kit.dart';
 
 part 'conges_form.dart';
 
@@ -43,13 +44,27 @@ class _Body extends ConsumerStatefulWidget {
 }
 
 class _BodyState extends ConsumerState<_Body> {
-  String? _filter; // null = tous
+  String? _filter; // null = tous (statut)
+  StaffAxis _axis = StaffAxis.categorie;
+  String? _seg; // segment métier/statut
 
   void _openForm({LeaveRequest? req}) => showDialog(
         context: context,
         barrierDismissible: false,
         builder: (_) => _LeaveForm(request: req),
       );
+
+  Future<void> _approveAll(List<LeaveRequest> reqs) async {
+    final ids = [for (final r in reqs) if (r.isPending) r.id];
+    if (ids.isEmpty) return;
+    final p = ref.read(authNotifierProvider).valueOrNull;
+    await runModuleWrite(
+      context,
+      () => approveLeaveBulk(ids, p?.id ?? ''),
+      success: '${ids.length} demande${ids.length > 1 ? 's' : ''} approuvée'
+          '${ids.length > 1 ? 's' : ''}',
+    );
+  }
 
   Future<void> _approve(LeaveRequest r) async {
     final p = ref.read(authNotifierProvider).valueOrNull;
@@ -134,6 +149,9 @@ class _BodyState extends ConsumerState<_Body> {
     final canReview = ref.watch(canProvider((slug: _kSlug, action: 'update')));
     final canDelete = ref.watch(canProvider((slug: _kSlug, action: 'delete')));
 
+    final agentsAll = ref.watch(staffDirectoryProvider).valueOrNull ?? const [];
+    final byId = {for (final a in agentsAll) a.id: a};
+
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -143,8 +161,29 @@ class _BodyState extends ConsumerState<_Body> {
         final approved = all.where((r) => r.status == 'approved').toList();
         final days = approved.fold(0, (a, r) => a + r.daysCount);
         final agents = {for (final r in approved) r.staffId}.length;
-        final list =
-            _filter == null ? all : all.where((r) => r.status == _filter).toList();
+
+        // Segments par axe (métier/statut) sur l'agent lié ; ok = approuvées.
+        String segOf(LeaveRequest r) {
+          final a = byId[r.staffId];
+          return a == null ? '—' : staffSegKey(a, _axis);
+        }
+        final segMap = <String, StaffSegment>{};
+        for (final r in all) {
+          final seg = segMap.putIfAbsent(segOf(r), () => StaffSegment(segOf(r), _axis));
+          seg.total++;
+          if (r.status == 'approved') seg.ok++;
+        }
+        final segs = segMap.values.toList()
+          ..sort((x, y) =>
+              staffSegOrder(x.key, _axis).compareTo(staffSegOrder(y.key, _axis)));
+
+        final list = [
+          for (final r in all)
+            if ((_filter == null || r.status == _filter) &&
+                (_seg == null || segOf(r) == _seg))
+              r
+        ];
+        final pendingVisible = list.where((r) => r.isPending).toList();
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -167,10 +206,46 @@ class _BodyState extends ConsumerState<_Body> {
               (Icons.groups_2_rounded, 'Agents', '$agents',
                   const Color(0xFF0EA5E9), 'concernés'),
             ]),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
+            Row(children: [
+              const Text('Répartir par',
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: kTextMuted)),
+              const SizedBox(width: 10),
+              StaffAxisToggle(
+                  axis: _axis,
+                  onChanged: (a) => setState(() {
+                        _axis = a;
+                        _seg = null;
+                      })),
+            ]),
+            if (segs.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              StaffSegmentBar(
+                segments: segs,
+                selected: _seg,
+                onSelect: (s) => setState(() => _seg = s),
+                metricLabel: 'approuvés',
+              ),
+            ],
+            const SizedBox(height: 14),
             _FilterBar(
                 active: _filter,
                 onSelect: (s) => setState(() => _filter = s)),
+            if (canReview && pendingVisible.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: StaffBulkButton(
+                  icon: Icons.done_all_rounded,
+                  label: 'Approuver les ${pendingVisible.length} en attente',
+                  color: kGreen,
+                  onTap: () => _approveAll(pendingVisible),
+                ),
+              ),
+            ],
             const SizedBox(height: 14),
             if (list.isEmpty)
               Padding(

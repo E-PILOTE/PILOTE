@@ -98,3 +98,52 @@ Future<void> setStaffAttendance({
 Future<void> clearStaffAttendance(String id) async {
   await db.execute('DELETE FROM staff_attendance WHERE id = ?', [id]);
 }
+
+/// Action groupée : pointer plusieurs agents d'un coup (même statut, même date).
+/// Upsert par agent — n'écrase un pointage existant que si `overwrite` est vrai.
+Future<void> setStaffAttendanceBulk({
+  required String groupId,
+  required String schoolId,
+  required List<String> staffIds,
+  required String dateKey,
+  required String status,
+  required String recordedBy,
+  bool overwrite = false,
+}) async {
+  if (staffIds.isEmpty) return;
+  final now = DateTime.now().toIso8601String();
+  final ph = List.filled(staffIds.length, '?').join(',');
+  final existing = await db.getAll(
+    'SELECT staff_id, id FROM staff_attendance WHERE school_id = ? '
+    'AND record_date = ? AND staff_id IN ($ph)',
+    [schoolId, dateKey, ...staffIds],
+  );
+  final byStaff = {
+    for (final r in existing) (r['staff_id'] as String): r['id'] as String
+  };
+  await db.writeTransaction((tx) async {
+    for (final sid in staffIds) {
+      final id = byStaff[sid];
+      if (id != null) {
+        if (overwrite) {
+          await tx.execute(
+            'UPDATE staff_attendance SET status = ?, recorded_by = ?, '
+            'updated_at = ? WHERE id = ?',
+            [status, recordedBy, now, id],
+          );
+        }
+      } else {
+        await tx.execute(
+          '''
+          INSERT INTO staff_attendance (
+            id, group_id, school_id, staff_id, record_date, status,
+            recorded_by, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ''',
+          [_uuid.v4(), groupId, schoolId, sid, dateKey, status, recordedBy,
+           now, now],
+        );
+      }
+    }
+  });
+}
