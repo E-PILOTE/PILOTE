@@ -78,6 +78,10 @@ class Routes {
   static const String emploiDuTemps   = '/user/emploi-du-temps';
   static const String cahierTextes    = '/user/cahier-textes';
   static const String discipline      = '/user/discipline';
+  static const String orientation     = '/user/orientation';
+  static const String infirmerie      = '/user/infirmerie';
+  static const String cantine         = '/user/cantine';
+  static const String bibliotheque    = '/user/bibliotheque';
   static const String paiements       = '/user/paiements';
   static const String personnel       = '/user/personnel';
   // Communication native (personnel école / parent)

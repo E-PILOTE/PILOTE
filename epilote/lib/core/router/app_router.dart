@@ -50,6 +50,12 @@ import '../../features/structure/screens/emploi_du_temps_screen.dart';
 import '../../features/evaluation/screens/notes_screen.dart';
 import '../../features/evaluation/screens/bulletins_screen.dart';
 import '../../features/evaluation/screens/conseils_screen.dart';
+import '../../features/vie_scolaire/screens/presences_screen.dart';
+import '../../features/vie_scolaire/screens/discipline_screen.dart';
+import '../../features/vie_scolaire/screens/orientation_screen.dart';
+import '../../features/vie_scolaire/screens/infirmerie_screen.dart';
+import '../../features/vie_scolaire/screens/cantine_screen.dart';
+import '../../features/vie_scolaire/screens/bibliotheque_screen.dart';
 import '../../features/structure/screens/programmes_screen.dart';
 import '../../features/structure/screens/school_calendar_screen.dart';
 import '../../features/structure/screens/academic_structure_screen.dart';
@@ -472,7 +478,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.conseils,
         builder: (_, _) => const ConseilsScreen(),
       ),
-      _comingSoon(Routes.presences, 'presences-eleves', 'Présences'),
+      GoRoute(
+        path: Routes.presences,
+        builder: (_, _) => const PresencesScreen(),
+      ),
       GoRoute(
         path: Routes.emploiDuTemps,
         builder: (_, _) => const EmploiDuTempsScreen(),
@@ -481,7 +490,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.cahierTextes,
         builder: (_, _) => const CahierTextesScreen(),
       ),
-      _comingSoon(Routes.discipline, 'discipline', 'Discipline'),
+      GoRoute(
+        path: Routes.discipline,
+        builder: (_, _) => const DisciplineScreen(),
+      ),
+      GoRoute(
+        path: Routes.orientation,
+        builder: (_, _) => const OrientationScreen(),
+      ),
+      GoRoute(
+        path: Routes.infirmerie,
+        builder: (_, _) => const InfirmerieScreen(),
+      ),
+      GoRoute(
+        path: Routes.cantine,
+        builder: (_, _) => const CantineScreen(),
+      ),
+      GoRoute(
+        path: Routes.bibliotheque,
+        builder: (_, _) => const BibliothequeScreen(),
+      ),
       _comingSoon(Routes.paiements, 'paiements-eleves', 'Paiements scolarité'),
       GoRoute(
         path: Routes.personnel,
