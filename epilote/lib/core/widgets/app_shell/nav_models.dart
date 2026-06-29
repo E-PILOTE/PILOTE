@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 /// Une [NavSection] est un groupe titré d'[NavEntry]. Le drapeau [pinned]
 /// remplace l'ancien test fragile `sectionLabel.contains('SYSTÈME')` : une
 /// section épinglée est rendue en bas (zone footer), le reste défile.
+/// [pinnedTop] ancre au contraire la section en HAUT, hors-scroll (ex. le
+/// « Tableau de bord » : toujours visible quel que soit le nombre de modules).
 ///
 /// Une [NavEntry] est soit un item navigable (`NavEntry.item`), soit une ligne
 /// d'information non cliquable (`NavEntry.info`, ex. « Synchronisation… »).
@@ -13,6 +15,7 @@ class NavSection {
     required this.title,
     required this.entries,
     this.pinned = false,
+    this.pinnedTop = false,
   });
 
   /// Libellé de section. Vide = aucun en-tête (ex. le « Tableau de bord » seul).
@@ -22,6 +25,9 @@ class NavSection {
 
   /// Épinglée en bas de la sidebar (juste au-dessus du footer).
   final bool pinned;
+
+  /// Épinglée en haut de la sidebar (sous l'en-tête, hors zone défilante).
+  final bool pinnedTop;
 }
 
 class NavEntry {

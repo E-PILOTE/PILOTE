@@ -128,7 +128,7 @@ List<NavSection> _adminGroupeSections(WidgetRef ref) {
   final hasModules = catalog != null && catalog.categories.isNotEmpty;
 
   return [
-    const NavSection(title: '', entries: [
+    const NavSection(title: '', pinnedTop: true, entries: [
       NavEntry.item(
         icon: Icons.dashboard_rounded,
         label: 'Tableau de bord',
@@ -178,8 +178,9 @@ List<NavSection> _adminGroupeSections(WidgetRef ref) {
         route: Routes.adminAbonnement,
       ),
     ]),
-    // Communication = tissu natif de la plateforme (jamais vendu, non désactivable).
-    const NavSection(title: 'COMMUNICATION', entries: [
+    // Communication = tissu natif de la plateforme (jamais vendu, non
+    // désactivable) → épinglée comme Système : bloc-repère permanent en bas.
+    const NavSection(title: 'COMMUNICATION', pinned: true, entries: [
       NavEntry.item(
         icon: Icons.campaign_rounded,
         label: 'Annonces & Agenda',
@@ -230,7 +231,7 @@ List<NavSection> _staffSections(WidgetRef ref, ProfileModel profile) {
   final modulesError = groupedAsync.hasError || permsAsync.hasError;
 
   final sections = <NavSection>[
-    const NavSection(title: '', entries: [
+    const NavSection(title: '', pinnedTop: true, entries: [
       NavEntry.item(
         icon: Icons.dashboard_rounded,
         label: 'Tableau de bord',
@@ -309,7 +310,9 @@ List<NavSection> _staffSections(WidgetRef ref, ProfileModel profile) {
         route: Routes.espaceParent,
       ),
   ];
-  sections.add(NavSection(title: 'COMMUNICATION', entries: commEntries));
+  // Communication = tissu natif → épinglée comme Système (bloc-repère bas).
+  sections
+      .add(NavSection(title: 'COMMUNICATION', pinned: true, entries: commEntries));
 
   // Système (épinglé en bas).
   final sysEntries = <NavEntry>[

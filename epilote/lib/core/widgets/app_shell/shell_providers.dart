@@ -8,6 +8,15 @@ final sidebarExpandedProvider = StateProvider<bool>((_) => true);
 /// Thème clair / sombre de l'application.
 final themeModeProvider = StateProvider<ThemeMode>((_) => ThemeMode.light);
 
+/// Titres des sections de nav repliées (accordéon de la sidebar).
+///
+/// Mémorisé le temps de la session : ce qu'on replie reste replié en naviguant.
+/// Défaut = ensemble vide → tout est déplié. La section de la page courante est
+/// forcée dépliée à l'affichage (on ne cache jamais où l'on se trouve), et les
+/// sections épinglées (SYSTÈME) ne sont jamais repliables.
+final collapsedNavSectionsProvider =
+    StateProvider<Set<String>>((_) => <String>{});
+
 // ─── Visionneuse confinée au contenu ────────────────────────────────────────
 // Une visionneuse (image / PDF) rendue dans la zone de contenu plutôt que via le
 // Navigator racine occupe uniquement cette zone → la sidebar reste visible ET
