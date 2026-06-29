@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../communication/widgets/user_avatar.dart';
 import '../../navigation/widgets/module_scaffold.dart';
-import '../../user/widgets/staff_account_widgets.dart'
-    show staffRoleLabel, staffFmtDateTime;
+import '../../user/widgets/staff_account_widgets.dart' show staffRoleLabel;
 import '../providers/staff_directory_provider.dart';
+import 'personnel_dossier_sheet.dart';
 
 // ─── Design tokens ──────────────────────────────────────────────────────────────
 const _kNavy = Color(0xFF1E3A5F);
@@ -447,142 +447,9 @@ class _Pill extends StatelessWidget {
   }
 }
 
-// ─── Fiche détail (bottom sheet lecture seule) ──────────────────────────────────
+// ─── Fiche détail : dossier RH riche (identité + carrière + diplômes) ─────────
 void _showStaffSheet(BuildContext context, StaffMember s) {
-  showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (_) => _StaffSheet(staff: s),
-  );
-}
-
-class _StaffSheet extends StatelessWidget {
-  const _StaffSheet({required this.staff});
-  final StaffMember staff;
-
-  @override
-  Widget build(BuildContext context) {
-    final cat = staffCategory(staff.role);
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: _kBorder,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Row(children: [
-              UserAvatarCircle(
-                name: staff.fullName,
-                role: staff.role,
-                avatarUrl: staff.avatarUrl,
-                radius: 28,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(staff.fullName,
-                        style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                            color: _kText)),
-                    const SizedBox(height: 4),
-                    Row(children: [
-                      _RoleBadge(role: staff.role, color: _catColor(cat)),
-                      const SizedBox(width: 8),
-                      _Pill(
-                        label: staff.isActive ? 'Actif' : 'Inactif',
-                        color: staff.isActive ? _kGreen : _kMuted,
-                      ),
-                    ]),
-                  ],
-                ),
-              ),
-            ]),
-            const SizedBox(height: 20),
-            _InfoRow(
-                icon: Icons.call_rounded,
-                label: 'Téléphone',
-                value: staff.phone),
-            _InfoRow(
-                icon: Icons.badge_outlined,
-                label: 'Matricule',
-                value: staff.employeeNumber),
-            _InfoRow(
-                icon: Icons.login_rounded,
-                label: 'Dernière connexion',
-                value: staffFmtDateTime(staff.lastLogin)),
-            const SizedBox(height: 6),
-            // Garde-fou honnête : la couche RH (contrat / salaire) arrive en
-            // Phase 5 (Paie), gatée par capacité — pas encore branchée ici.
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: _kNavy.withValues(alpha: 0.04),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: _kBorder),
-              ),
-              child: const Row(children: [
-                Icon(Icons.info_outline_rounded, size: 16, color: _kMuted),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Contrat, salaire et dossier RH seront disponibles avec le module Paie.',
-                    style: TextStyle(fontSize: 12, color: _kMuted, height: 1.4),
-                  ),
-                ),
-              ]),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.icon, required this.label, this.value});
-  final IconData icon;
-  final String label;
-  final String? value;
-
-  @override
-  Widget build(BuildContext context) {
-    final v = (value == null || value!.trim().isEmpty) ? '—' : value!.trim();
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(children: [
-        Icon(icon, size: 17, color: _kMuted),
-        const SizedBox(width: 12),
-        Text(label,
-            style: const TextStyle(fontSize: 13, color: _kMuted)),
-        const Spacer(),
-        Flexible(
-          child: Text(v,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                  fontSize: 13, color: _kText, fontWeight: FontWeight.w600),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis),
-        ),
-      ]),
-    );
-  }
+  showStaffDossier(context, s.id);
 }
 
 // ─── États vides / erreur ─────────────────────────────────────────────────────

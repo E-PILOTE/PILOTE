@@ -29,6 +29,7 @@ class StaffMember {
     this.employeeNumber,
     this.avatarUrl,
     this.lastLogin,
+    this.employmentStatus,
   });
 
   final String id;
@@ -40,6 +41,9 @@ class StaffMember {
   final String? employeeNumber;
   final String? avatarUrl;
   final DateTime? lastLogin;
+
+  /// Statut RH (fonctionnaire / volontaire / prestataire …) — `profiles`.
+  final String? employmentStatus;
 
   String get fullName {
     final n = '${firstName.trim()} ${lastName.trim()}'.trim();
@@ -104,7 +108,7 @@ final staffDirectoryProvider =
       .watch(
         '''
         SELECT id, first_name, last_name, role, phone, employee_number,
-               avatar_url, is_active, last_login
+               avatar_url, is_active, last_login, employment_status
         FROM   profiles
         WHERE  school_id = ?
         AND    role NOT IN ('eleve', 'parent')
@@ -126,6 +130,7 @@ final staffDirectoryProvider =
                 lastLogin: (r['last_login'] as String?) != null
                     ? DateTime.tryParse(r['last_login'] as String)
                     : null,
+                employmentStatus: r['employment_status'] as String?,
               ),
           ]);
 });

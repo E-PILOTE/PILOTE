@@ -220,6 +220,10 @@ bucket_definitions:
       - SELECT * FROM payroll WHERE school_id = bucket.sid
       - SELECT * FROM expenses WHERE school_id = bucket.sid
       - SELECT * FROM budget_lines WHERE school_id = bucket.sid
+      # Dossier RH de l'agent : pointage, parcours, diplômes (migration 0023)
+      - SELECT * FROM staff_attendance WHERE school_id = bucket.sid
+      - SELECT * FROM staff_career WHERE school_id = bucket.sid
+      - SELECT * FROM staff_diplomas WHERE school_id = bucket.sid
 
   # ── Discipline : discipline_incidents ─────────────────────────────────────
   sensitive_discipline:
