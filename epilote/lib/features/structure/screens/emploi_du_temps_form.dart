@@ -299,6 +299,15 @@ class _SlotFormState extends ConsumerState<_SlotForm> {
               padding: const EdgeInsets.all(18),
               shrinkWrap: true,
               children: [
+                if (klass != null) ...[
+                  ClassContextBanner(
+                    className: klass.name,
+                    cycleName: scopeCycleName(klass.cycleCode),
+                    levelName: klass.levelName ?? klass.levelCode,
+                    subtitle: 'Emploi du temps de la classe',
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 _Lbl(_isEdit ? 'Jour' : 'Jours'),
                 if (_isEdit)
                   DropdownButtonFormField<int>(

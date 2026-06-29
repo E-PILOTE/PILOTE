@@ -172,26 +172,44 @@ class _EvaluationFormState extends ConsumerState<_EvaluationForm> {
                 padding: const EdgeInsets.all(18),
                 shrinkWrap: true,
                 children: [
-              DropdownButtonFormField<String>(
-                initialValue: _classId,
-                isExpanded: true,
-                decoration:
-                    adminFilledInput('Classe', icon: Icons.groups_2_rounded),
-                items: [
-                  for (final c in sorted)
-                    DropdownMenuItem(
-                        value: c.id,
-                        child: Text(
-                            [c.name, if ((c.filiereLabel ?? '').isNotEmpty) '· ${c.filiereLabel}'].join(' '),
-                            maxLines: 1, overflow: TextOverflow.ellipsis)),
-                ],
-                onChanged: _isEdit
-                    ? null
-                    : (v) => setState(() {
-                          _classId = v;
-                          _subjectId = null;
-                        }),
-              ),
+              // La classe (et le trimestre) sont déterminés par le contexte
+              // d'ouverture (atelier de la classe) : contexte VERROUILLÉ, avec
+              // le fil Cycle ▸ Niveau ▸ Classe pour la lisibilité.
+              if (_classId != null)
+                Builder(builder: (_) {
+                  final k = sorted.where((c) => c.id == _classId).firstOrNull;
+                  final tl = trims
+                      .where((t) => t.id == _trimesterId)
+                      .map((t) => t.label)
+                      .firstOrNull;
+                  return ClassContextBanner(
+                    className: k?.name ?? 'Classe',
+                    cycleName: scopeCycleName(k?.cycleCode),
+                    levelName: k?.levelName ?? k?.levelCode,
+                    subtitle:
+                        tl != null ? 'Trimestre : $tl' : 'Année en cours',
+                    icon: Icons.class_rounded,
+                  );
+                })
+              else
+                DropdownButtonFormField<String>(
+                  initialValue: _classId,
+                  isExpanded: true,
+                  decoration:
+                      adminFilledInput('Classe', icon: Icons.groups_2_rounded),
+                  items: [
+                    for (final c in sorted)
+                      DropdownMenuItem(
+                          value: c.id,
+                          child: Text(
+                              [c.name, if ((c.filiereLabel ?? '').isNotEmpty) '· ${c.filiereLabel}'].join(' '),
+                              maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  ],
+                  onChanged: (v) => setState(() {
+                    _classId = v;
+                    _subjectId = null;
+                  }),
+                ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
                 initialValue: _subjectId,
@@ -273,19 +291,6 @@ class _EvaluationFormState extends ConsumerState<_EvaluationForm> {
                   ),
                 ),
               ]),
-              const SizedBox(height: 14),
-              DropdownButtonFormField<String?>(
-                initialValue: _trimesterId,
-                isExpanded: true,
-                decoration: adminFilledInput('Trimestre (facultatif)',
-                    icon: Icons.date_range_rounded),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('—')),
-                  for (final t in trims)
-                    DropdownMenuItem(value: t.id, child: Text(t.label)),
-                ],
-                onChanged: (v) => setState(() => _trimesterId = v),
-              ),
             ]),
           ),
           Padding(

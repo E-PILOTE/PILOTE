@@ -128,6 +128,19 @@ class _LessonFormState extends ConsumerState<_LessonForm> {
   @override
   Widget build(BuildContext context) {
     final classes = ref.watch(classesProvider).valueOrNull ?? const [];
+    // Choix libre (un prof journalise pour n'importe quelle classe) : on ORDONNE
+    // par niveau et on PRÉFIXE par le niveau → la structure reste lisible.
+    final sortedClasses = [...classes]
+      ..sort((a, b) {
+        final o = (a.levelOrder ?? 999).compareTo(b.levelOrder ?? 999);
+        return o != 0 ? o : a.name.compareTo(b.name);
+      });
+    final classItems = {
+      for (final c in sortedClasses)
+        c.id: ((c.levelCode ?? '').isNotEmpty)
+            ? '${c.levelCode} · ${c.name}'
+            : c.name,
+    };
     final subjects = ref.watch(subjectsProvider).valueOrNull ?? const [];
     final staff = ref.watch(staffDirectoryProvider).valueOrNull ?? const [];
     // Cohérence EDT/Matières : matière limitée au programme de la classe, prof
@@ -212,7 +225,7 @@ class _LessonFormState extends ConsumerState<_LessonForm> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _DropField('Classe', Icons.class_rounded, _classId,
-                        {for (final c in classes) c.id: c.name}, (v) {
+                        classItems, (v) {
                       // Changer de classe réinitialise le programme dérivé.
                       setState(() {
                         _classId = v;

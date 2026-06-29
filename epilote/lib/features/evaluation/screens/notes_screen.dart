@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/class_context_banner.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../classes/providers/class_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
