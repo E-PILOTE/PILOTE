@@ -109,7 +109,10 @@ class _ExtraSessionFormState extends ConsumerState<_ExtraSessionForm> {
             ]),
           ),
           Flexible(
-            child: ListView(padding: const EdgeInsets.all(18), children: [
+            child: ListView(
+                padding: const EdgeInsets.all(18),
+                shrinkWrap: true,
+                children: [
               DropdownButtonFormField<String>(
                 initialValue: _subjectId,
                 isExpanded: true,

@@ -257,7 +257,10 @@ class _AvailabilityFormState extends ConsumerState<_AvailabilityForm> {
             ]),
           ),
           Flexible(
-            child: ListView(padding: const EdgeInsets.all(18), children: [
+            child: ListView(
+                padding: const EdgeInsets.all(18),
+                shrinkWrap: true,
+                children: [
               DropdownButtonFormField<String>(
                 initialValue: _staffId,
                 isExpanded: true,

@@ -176,6 +176,7 @@ class _LessonFormState extends ConsumerState<_LessonForm> {
           Flexible(
             child: ListView(
               padding: const EdgeInsets.all(18),
+              shrinkWrap: true,
               children: [
                 Row(children: [
                   Expanded(

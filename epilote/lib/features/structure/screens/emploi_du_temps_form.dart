@@ -297,6 +297,7 @@ class _SlotFormState extends ConsumerState<_SlotForm> {
           Flexible(
             child: ListView(
               padding: const EdgeInsets.all(18),
+              shrinkWrap: true,
               children: [
                 _Lbl(_isEdit ? 'Jour' : 'Jours'),
                 if (_isEdit)

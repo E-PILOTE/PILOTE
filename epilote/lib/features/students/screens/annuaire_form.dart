@@ -137,6 +137,7 @@ class _TutorFormState extends ConsumerState<_TutorForm> {
           Flexible(
             child: ListView(
               padding: const EdgeInsets.all(18),
+              shrinkWrap: true,
               children: [
                 Row(children: [
                   Expanded(child: _Field('Prénom', _first)),

@@ -191,6 +191,7 @@ class _DossierDetailState extends ConsumerState<_DossierDetail> {
           Flexible(
             child: ListView(
               padding: const EdgeInsets.all(16),
+              shrinkWrap: true,
               children: [
                 const _Section('Pièces exigées'),
                 for (final e in studentDocTypes.entries)

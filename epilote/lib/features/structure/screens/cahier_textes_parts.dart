@@ -333,6 +333,7 @@ class _LessonDetail extends StatelessWidget {
           Flexible(
             child: ListView(
               padding: const EdgeInsets.all(18),
+              shrinkWrap: true,
               children: [
                 if ((e.teacherName ?? '').isNotEmpty)
                   _Section('Enseignant', e.teacherName!, Icons.person_outline_rounded),
