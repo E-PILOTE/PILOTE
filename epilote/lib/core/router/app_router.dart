@@ -45,6 +45,11 @@ import '../../features/students/screens/annuaire_screen.dart';
 import '../../features/students/screens/documents_screen.dart';
 import '../../features/students/screens/transferts_screen.dart';
 import '../../features/structure/screens/subjects_screen.dart';
+import '../../features/structure/screens/cahier_textes_screen.dart';
+import '../../features/structure/screens/emploi_du_temps_screen.dart';
+import '../../features/evaluation/screens/notes_screen.dart';
+import '../../features/evaluation/screens/bulletins_screen.dart';
+import '../../features/evaluation/screens/conseils_screen.dart';
 import '../../features/structure/screens/programmes_screen.dart';
 import '../../features/structure/screens/school_calendar_screen.dart';
 import '../../features/structure/screens/academic_structure_screen.dart';
@@ -455,10 +460,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.annuaire,
         builder: (_, _) => const AnnuaireScreen(),
       ),
-      _comingSoon(Routes.notes, 'notes', 'Notes'),
-      _comingSoon(Routes.bulletins, 'bulletins', 'Bulletins'),
+      GoRoute(
+        path: Routes.notes,
+        builder: (_, _) => const NotesScreen(),
+      ),
+      GoRoute(
+        path: Routes.bulletins,
+        builder: (_, _) => const BulletinsScreen(),
+      ),
+      GoRoute(
+        path: Routes.conseils,
+        builder: (_, _) => const ConseilsScreen(),
+      ),
       _comingSoon(Routes.presences, 'presences-eleves', 'Présences'),
-      _comingSoon(Routes.emploiDuTemps, 'emploi-du-temps', 'Emploi du temps'),
+      GoRoute(
+        path: Routes.emploiDuTemps,
+        builder: (_, _) => const EmploiDuTempsScreen(),
+      ),
+      GoRoute(
+        path: Routes.cahierTextes,
+        builder: (_, _) => const CahierTextesScreen(),
+      ),
       _comingSoon(Routes.discipline, 'discipline', 'Discipline'),
       _comingSoon(Routes.paiements, 'paiements-eleves', 'Paiements scolarité'),
       GoRoute(

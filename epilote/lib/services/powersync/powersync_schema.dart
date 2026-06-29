@@ -424,9 +424,120 @@ const schema = Schema([
   // PHASE 3 — QUOTIDIEN
   // ════════════════════════════════════════════════════════════════════════
 
+  // Registre des salles typées (remplace le `room` texte libre).
+  Table('rooms', [
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('code'),
+    Column.text('name'),
+    Column.text('room_type'),
+    Column.integer('capacity'),
+    Column.text('building'),
+    Column.integer('is_active'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  // Trame horaire configurable par école/cycle (remplace kStdPeriods codé en dur).
+  Table('school_periods', [
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('cycle_code'),    // NULL = tous cycles
+    Column.text('label'),
+    Column.integer('period_index'),
+    Column.text('kind'),          // cours|recreation|pause_meridienne
+    Column.text('start_time'),
+    Column.text('end_time'),
+    Column.integer('is_active'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  // Disponibilités / indispos / préférences enseignant.
+  Table('teacher_availability', [
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('staff_id'),
+    Column.text('academic_year_id'),
+    Column.integer('day_of_week'),
+    Column.text('start_time'),
+    Column.text('end_time'),
+    Column.text('status'),        // unavailable|preference_against|preference_for
+    Column.text('note'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  // Version d'EDT = cycle de vie (brouillon→…→publié→archivé) + publication.
+  Table('timetable_versions', [
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('academic_year_id'),
+    Column.text('trimester_id'),
+    Column.text('label'),
+    Column.text('status'),
+    Column.integer('is_active'),
+    Column.text('published_at'),
+    Column.text('validated_by'),
+    Column.text('created_by'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  // Calendrier scolaire : jours non ouvrés (vacances + fériés) → projection de
+  // la trame hebdomadaire sur le calendrier réel (vues mois/trimestre/annuel).
+  Table('school_holidays', [
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('academic_year_id'),
+    Column.text('label'),
+    Column.text('kind'),          // ferie | vacances
+    Column.text('start_date'),
+    Column.text('end_date'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  // Journal d'audit (synchro offline LIMITÉE aux tables EDT par les sync-rules)
+  // → historique « qui a modifié quoi, quand » de l'emploi du temps.
+  Table('audit_logs', [
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('user_id'),
+    Column.text('user_role'),
+    Column.text('action'),       // INSERT | UPDATE | DELETE
+    Column.text('table_name'),
+    Column.text('record_id'),
+    Column.text('old_values'),   // jsonb (texte côté SQLite)
+    Column.text('new_values'),
+    Column.text('created_at'),
+  ]),
+
+  // Exceptions ponctuelles à la trame (à une date précise) : séance annulée /
+  // déplacée / exceptionnelle. Rend exactes les vues calendaires projetées.
+  Table('timetable_exceptions', [
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('academic_year_id'),
+    Column.text('slot_id'),        // NULL si 'extra'
+    Column.text('exception_date'),
+    Column.text('kind'),           // cancelled | moved | extra
+    Column.text('new_start_time'),
+    Column.text('new_end_time'),
+    Column.text('new_room_id'),
+    Column.text('new_staff_id'),
+    Column.text('new_subject_id'),
+    Column.text('new_class_id'),
+    Column.text('reason'),
+    Column.text('created_by'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
   Table('timetable_slots', [
     Column.text('group_id'),
     Column.text('school_id'),
+    Column.text('version_id'),       // → timetable_versions
     Column.text('class_id'),
     Column.text('subject_id'),
     Column.text('staff_id'),
@@ -434,7 +545,8 @@ const schema = Schema([
     Column.integer('day_of_week'),  // 1=lun … 7=dim
     Column.text('start_time'),
     Column.text('end_time'),
-    Column.text('room'),
+    Column.text('room'),            // legacy texte libre (transition)
+    Column.text('room_id'),         // → rooms (référencé)
     Column.integer('is_active'),
     Column.text('created_at'),
     Column.text('updated_at'),

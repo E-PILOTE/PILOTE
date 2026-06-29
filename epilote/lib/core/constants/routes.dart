@@ -73,8 +73,10 @@ class Routes {
   static const String programmes      = '/user/programmes';
   static const String notes           = '/user/notes';
   static const String bulletins       = '/user/bulletins';
+  static const String conseils        = '/user/conseils';
   static const String presences       = '/user/presences';
   static const String emploiDuTemps   = '/user/emploi-du-temps';
+  static const String cahierTextes    = '/user/cahier-textes';
   static const String discipline      = '/user/discipline';
   static const String paiements       = '/user/paiements';
   static const String personnel       = '/user/personnel';

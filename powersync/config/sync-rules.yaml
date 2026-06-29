@@ -148,6 +148,30 @@ bucket_definitions:
       - SELECT * FROM class_subjects WHERE school_id = bucket.sid
       # Programmes pédagogiques (syllabus matière × niveau, officiels + perso)
       - SELECT * FROM school_programs WHERE school_id = bucket.sid
+      # Emploi du temps — ressources & trame (registre salles, trame horaire,
+      # disponibilités enseignant, versions/publication d'EDT)
+      - SELECT * FROM rooms WHERE school_id = bucket.sid AND is_active = true
+      - SELECT * FROM school_periods WHERE school_id = bucket.sid AND is_active = true
+      - SELECT * FROM teacher_availability WHERE school_id = bucket.sid
+      - SELECT * FROM timetable_versions WHERE school_id = bucket.sid
+      # Calendrier scolaire : jours non ouvrés (vacances + fériés) → projection
+      # de la trame sur le calendrier réel (vues mois/trimestre/annuel)
+      - SELECT * FROM school_holidays WHERE school_id = bucket.sid
+      # Exceptions ponctuelles à la trame (séance annulée/déplacée/exceptionnelle)
+      - SELECT * FROM timetable_exceptions WHERE school_id = bucket.sid
+      # Journal d'audit EDT UNIQUEMENT (pas les autres modules : data-minimization)
+      # → historique des modifications de l'emploi du temps, offline. Une requête
+      # par table (PowerSync n'accepte pas `IN (liste)` en data-query, seulement
+      # `=` ou `IN (SELECT …)`).
+      - SELECT id, group_id, school_id, user_id, user_role, action, table_name,
+          record_id, old_values, new_values, created_at
+        FROM audit_logs WHERE school_id = bucket.sid AND table_name = 'timetable_slots'
+      - SELECT id, group_id, school_id, user_id, user_role, action, table_name,
+          record_id, old_values, new_values, created_at
+        FROM audit_logs WHERE school_id = bucket.sid AND table_name = 'timetable_exceptions'
+      - SELECT id, group_id, school_id, user_id, user_role, action, table_name,
+          record_id, old_values, new_values, created_at
+        FROM audit_logs WHERE school_id = bucket.sid AND table_name = 'timetable_versions'
       # Quotidien
       - SELECT * FROM timetable_slots WHERE school_id = bucket.sid AND is_active = true
       - SELECT * FROM lesson_entries WHERE school_id = bucket.sid

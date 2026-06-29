@@ -89,12 +89,16 @@ class ScopeDrilldownPanel extends StatelessWidget {
     required this.metricLabel,
     required this.selected,
     required this.onSelect,
+    this.unitNoun = 'élèves',
   });
   final List<ScopeUnit> units;
   final String title;
 
   /// Libellé court de la métrique « ok » (ex. « Complets », « Avec contact »).
   final String metricLabel;
+
+  /// Nom de l'unité comptée (« élèves », « classes », « séances »…).
+  final String unitNoun;
   final ScopeSel selected;
   final ValueChanged<ScopeSel> onSelect;
 
@@ -190,6 +194,7 @@ class ScopeDrilldownPanel extends StatelessWidget {
                 ok: cycles[ck]!.ok,
                 metricLabel: metricLabel,
                 selected: selCyc == ck,
+                unitNoun: unitNoun,
                 onTap: () {
                   final isExactCycle = selCyc == ck &&
                       selected.level == null &&
@@ -274,8 +279,9 @@ class _CycleCard extends StatelessWidget {
     required this.metricLabel,
     required this.selected,
     required this.onTap,
+    this.unitNoun = 'élèves',
   });
-  final String code, metricLabel;
+  final String code, metricLabel, unitNoun;
   final int total, ok;
   final bool selected;
   final VoidCallback onTap;
@@ -340,11 +346,11 @@ class _CycleCard extends StatelessWidget {
                                 color: kTextPrimary,
                                 height: 1)),
                         const SizedBox(width: 6),
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 3),
-                          child: Text('élèves',
-                              style:
-                                  TextStyle(fontSize: 12, color: kTextMuted)),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 3),
+                          child: Text(unitNoun,
+                              style: const TextStyle(
+                                  fontSize: 12, color: kTextMuted)),
                         ),
                       ]),
                   if (metricLabel.isNotEmpty) ...[
@@ -414,6 +420,10 @@ class _ScopeDropdown extends StatelessWidget {
                 color: kTextMuted)),
       ),
       DropdownButtonFormField<String?>(
+        // Composant CONTRÔLÉ : `initialValue` n'est lu qu'au 1er build par
+        // FormField (pas de didUpdateWidget). On force la recréation de l'état
+        // quand le parent change la sélection (clic cycle, reset, auto-pick).
+        key: ValueKey('$label::${value ?? '∅'}'),
         initialValue: value,
         isExpanded: true,
         style: const TextStyle(fontSize: 13, color: kTextPrimary),
