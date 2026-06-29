@@ -56,6 +56,10 @@ import '../../features/vie_scolaire/screens/orientation_screen.dart';
 import '../../features/vie_scolaire/screens/infirmerie_screen.dart';
 import '../../features/vie_scolaire/screens/cantine_screen.dart';
 import '../../features/vie_scolaire/screens/bibliotheque_screen.dart';
+import '../../features/finance/screens/frais_screen.dart';
+import '../../features/finance/screens/paiements_screen.dart';
+import '../../features/finance/screens/depenses_screen.dart';
+import '../../features/finance/screens/budget_screen.dart';
 import '../../features/structure/screens/programmes_screen.dart';
 import '../../features/structure/screens/school_calendar_screen.dart';
 import '../../features/structure/screens/academic_structure_screen.dart';
@@ -174,14 +178,6 @@ class _PlaceholderScreen extends ConsumerWidget {
 GoRoute _placeholder(String path, String title) => GoRoute(
   path: path,
   builder: (_, _) => _PlaceholderScreen(title: title),
-);
-
-/// Route d'un module accordé mais pas encore doté d'un écran métier : reste DANS
-/// l'AppShell (sidebar/en-tête conservés) + garde `can_read`. Le [slug] sert au
-/// verrou 3 ; il doit correspondre au catalogue (table `modules`).
-GoRoute _comingSoon(String path, String slug, String title) => GoRoute(
-  path: path,
-  builder: (_, _) => ModuleComingSoonScreen(slug: slug, title: title),
 );
 
 /// Titre lisible à partir d'un slug (`paiements-eleves` → `Paiements eleves`).
@@ -510,7 +506,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.bibliotheque,
         builder: (_, _) => const BibliothequeScreen(),
       ),
-      _comingSoon(Routes.paiements, 'paiements-eleves', 'Paiements scolarité'),
+      GoRoute(
+        path: Routes.fraisScolarite,
+        builder: (_, _) => const FraisScreen(),
+      ),
+      GoRoute(
+        path: Routes.paiements,
+        builder: (_, _) => const PaiementsScreen(),
+      ),
+      GoRoute(
+        path: Routes.depenses,
+        builder: (_, _) => const DepensesScreen(),
+      ),
+      GoRoute(
+        path: Routes.budget,
+        builder: (_, _) => const BudgetScreen(),
+      ),
       GoRoute(
         path: Routes.personnel,
         builder: (_, _) => const PersonnelScreen(),

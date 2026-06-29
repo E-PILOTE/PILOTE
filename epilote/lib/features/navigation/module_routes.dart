@@ -31,7 +31,10 @@ const Map<String, String> _moduleRoutes = {
   'infirmerie':       Routes.infirmerie,
   'cantine':          Routes.cantine,
   'bibliotheque':     Routes.bibliotheque,
+  'frais-scolarite':  Routes.fraisScolarite,
   'paiements-eleves': Routes.paiements,
+  'depenses':         Routes.depenses,
+  'budget':           Routes.budget,
   'personnel':        Routes.personnel,
 };
 
