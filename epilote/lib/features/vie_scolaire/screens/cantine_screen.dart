@@ -68,7 +68,7 @@ class _BodyState extends ConsumerState<_Body> {
     }
   }
 
-  void _openMeal(String classId, String className) {
+  void _openMeal(VsCoverageRow r) {
     final readOnly = ref.read(yearReadOnlyProvider);
     final canEdit =
         ref.read(canProvider((slug: _kSlug, action: 'update'))) && !readOnly;
@@ -77,8 +77,9 @@ class _BodyState extends ConsumerState<_Body> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _MealSheet(
-        args: (classId: classId, date: _dateKey, meal: _meal),
-        className: className,
+        args: (classId: r.classId, date: _dateKey, meal: _meal),
+        className: r.className,
+        breadcrumb: vsCrumb(r.cycleCode, r.levelCode),
         subtitle: '$_dateLabel · ${mealLabel(_meal)}',
         canEdit: canEdit,
         onChanged: () => ref.invalidate(canteenOverviewProvider(_day)),
@@ -143,16 +144,18 @@ class _BodyState extends ConsumerState<_Body> {
       );
     }
     final rate = ov.students == 0 ? 0 : ov.served * 100 ~/ ov.students;
+    final notPointed = ov.students - ov.served - ov.absent;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       VsHeroKpis(cards: [
         (Icons.restaurant_rounded, 'Repas servis', '${ov.served}', kGreen,
             '$rate% de l\'effectif'),
         (Icons.no_meals_rounded, 'Absents', '${ov.absent}',
             ov.absent == 0 ? kTextMuted : const Color(0xFFF59E0B), 'pointés absents'),
-        (Icons.groups_2_rounded, 'Effectif', '${ov.students}',
-            const Color(0xFF0EA5E9), '${ov.classesTotal} classes'),
-        (Icons.payments_rounded, 'Repas à facturer', '${ov.served}',
-            kNavy, 'service du jour'),
+        (Icons.pending_actions_rounded, 'Non pointés', '$notPointed',
+            notPointed <= 0 ? kTextMuted : const Color(0xFF0EA5E9),
+            'sur ${ov.students} élèves'),
+        (Icons.groups_2_rounded, 'Classes', '${ov.classesTotal}', kNavy,
+            'au service'),
       ]),
       const SizedBox(height: 16),
       ScopeDrilldownPanel(
@@ -187,7 +190,7 @@ class _BodyState extends ConsumerState<_Body> {
         rows: vsFilterScope(ov.rows, _scope),
         metricLabel: 'servis',
         openLabel: 'Pointer',
-        onOpen: (r) => _openMeal(r.classId, r.className),
+        onOpen: _openMeal,
       ),
     ]);
   }

@@ -8,12 +8,13 @@ class _MealSheet extends ConsumerStatefulWidget {
   const _MealSheet({
     required this.args,
     required this.className,
+    required this.breadcrumb,
     required this.subtitle,
     required this.canEdit,
     required this.onChanged,
   });
   final MealArgs args;
-  final String className, subtitle;
+  final String className, breadcrumb, subtitle;
   final bool canEdit;
   final VoidCallback onChanged;
   @override
@@ -21,7 +22,15 @@ class _MealSheet extends ConsumerStatefulWidget {
 }
 
 class _MealSheetState extends ConsumerState<_MealSheet> {
+  final _search = TextEditingController();
+  String _q = '';
   bool _busy = false;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   Future<void> _set(MealRow r, bool present) async {
     if (!widget.canEdit) return;
@@ -96,13 +105,31 @@ class _MealSheetState extends ConsumerState<_MealSheet> {
                     ),
                   );
                 }
-                return ListView.separated(
-                  controller: scroll,
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                  itemCount: rows.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 6),
-                  itemBuilder: (_, i) => _row(rows[i], i + 1),
-                );
+                final q = _q.trim().toLowerCase();
+                final filtered = q.isEmpty
+                    ? rows
+                    : [
+                        for (final r in rows)
+                          if (r.studentName.toLowerCase().contains(q) ||
+                              (r.matricule ?? '').toLowerCase().contains(q))
+                            r,
+                      ];
+                return Column(children: [
+                  if (rows.length > 8) _searchField(rows.length),
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? const Center(
+                            child: Text('Aucun élève trouvé',
+                                style: TextStyle(color: kTextMuted)))
+                        : ListView.separated(
+                            controller: scroll,
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, _) => const SizedBox(height: 6),
+                            itemBuilder: (_, i) => _row(filtered[i], i + 1),
+                          ),
+                  ),
+                ]);
               },
             ),
           ),
@@ -110,6 +137,34 @@ class _MealSheetState extends ConsumerState<_MealSheet> {
       ),
     );
   }
+
+  Widget _searchField(int total) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+        child: TextField(
+          controller: _search,
+          onChanged: (v) => setState(() => _q = v),
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: 'Rechercher un élève parmi $total…',
+            hintStyle: const TextStyle(fontSize: 13, color: kTextMuted),
+            prefixIcon: const Icon(Icons.search_rounded, size: 19, color: kTextMuted),
+            suffixIcon: _q.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    onPressed: () {
+                      _search.clear();
+                      setState(() => _q = '');
+                    }),
+            filled: true,
+            fillColor: kSurface,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+      );
 
   Widget _header(List<MealRow> rows) {
     final served = rows.where((r) => r.present == true).length;
@@ -123,6 +178,13 @@ class _MealSheetState extends ConsumerState<_MealSheet> {
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(widget.breadcrumb,
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: kTextMuted,
+                          letterSpacing: 0.2)),
+                  const SizedBox(height: 1),
                   Text(widget.className,
                       style: const TextStyle(
                           fontSize: 16,

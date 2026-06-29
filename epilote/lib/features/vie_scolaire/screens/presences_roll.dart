@@ -9,12 +9,13 @@ class _RollSheet extends ConsumerStatefulWidget {
   const _RollSheet({
     required this.args,
     required this.className,
+    required this.breadcrumb,
     required this.dateLabel,
     required this.canEdit,
     required this.onChanged,
   });
   final AttendanceArgs args;
-  final String className, dateLabel;
+  final String className, breadcrumb, dateLabel;
   final bool canEdit;
   final VoidCallback onChanged;
   @override
@@ -22,8 +23,16 @@ class _RollSheet extends ConsumerStatefulWidget {
 }
 
 class _RollSheetState extends ConsumerState<_RollSheet> {
+  final _search = TextEditingController();
+  String _q = '';
   String? _recordId;
   bool _busy = false;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   Future<String?> _ensureRecord() async {
     if (_recordId != null) return _recordId;
@@ -187,13 +196,35 @@ class _RollSheetState extends ConsumerState<_RollSheet> {
                     ),
                   );
                 }
-                return ListView.separated(
-                  controller: scroll,
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                  itemCount: roll.rows.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 6),
-                  itemBuilder: (_, i) => _row(roll.rows[i], i + 1, roll.finalized),
-                );
+                final q = _q.trim().toLowerCase();
+                final filtered = q.isEmpty
+                    ? roll.rows
+                    : [
+                        for (final r in roll.rows)
+                          if (r.studentName.toLowerCase().contains(q) ||
+                              (r.matricule ?? '').toLowerCase().contains(q))
+                            r,
+                      ];
+                return Column(children: [
+                  // À grande échelle (classes jusqu'à 200 élèves), la recherche
+                  // permet de retrouver un élève instantanément (ex. marquer un
+                  // absent après « Tout présent »).
+                  if (roll.rows.length > 8) _searchField(roll.rows.length),
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? const Center(
+                            child: Text('Aucun élève trouvé',
+                                style: TextStyle(color: kTextMuted)))
+                        : ListView.separated(
+                            controller: scroll,
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, _) => const SizedBox(height: 6),
+                            itemBuilder: (_, i) =>
+                                _row(filtered[i], i + 1, roll.finalized),
+                          ),
+                  ),
+                ]);
               },
             ),
           ),
@@ -201,6 +232,34 @@ class _RollSheetState extends ConsumerState<_RollSheet> {
       ),
     );
   }
+
+  Widget _searchField(int total) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+        child: TextField(
+          controller: _search,
+          onChanged: (v) => setState(() => _q = v),
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: 'Rechercher un élève parmi $total…',
+            hintStyle: const TextStyle(fontSize: 13, color: kTextMuted),
+            prefixIcon: const Icon(Icons.search_rounded, size: 19, color: kTextMuted),
+            suffixIcon: _q.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    onPressed: () {
+                      _search.clear();
+                      setState(() => _q = '');
+                    }),
+            filled: true,
+            fillColor: kSurface,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+      );
 
   Widget _header(ClassRoll? roll) {
     final rows = roll?.rows ?? const <RollRow>[];
@@ -217,6 +276,13 @@ class _RollSheetState extends ConsumerState<_RollSheet> {
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(widget.breadcrumb,
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: kTextMuted,
+                          letterSpacing: 0.2)),
+                  const SizedBox(height: 1),
                   Text(widget.className,
                       style: const TextStyle(
                           fontSize: 16,

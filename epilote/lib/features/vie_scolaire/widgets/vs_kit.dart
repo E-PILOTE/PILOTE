@@ -67,6 +67,13 @@ List<ScopeUnit> vsClassUnits(
   ];
 }
 
+/// Fil « Cycle ▸ Niveau » (sans la classe — le titre la porte déjà), pour les
+/// en-têtes de tiroirs (clarté de structure, cohérente avec le reste de l'app).
+String vsCrumb(String? cycleCode, String? levelCode) => [
+      scopeCycleName(cycleCode),
+      if ((levelCode ?? '').isNotEmpty) levelCode!,
+    ].join('  ▸  ');
+
 List<VsCoverageRow> vsFilterScope(List<VsCoverageRow> rows, ScopeSel scope) => [
       for (final r in rows)
         if ((scope.cycle == null || r.cycleCode == scope.cycle) &&

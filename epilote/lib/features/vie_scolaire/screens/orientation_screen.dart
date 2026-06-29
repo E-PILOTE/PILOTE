@@ -167,6 +167,7 @@ class _BodyState extends ConsumerState<_Body> {
         _ClassOrientation(
           args: (classId: _activeClassId!, trimesterId: _trimesterId),
           className: _nameOf(ov, _activeClassId!),
+          breadcrumb: _crumbOf(ov, _activeClassId!),
           onOpen: _openSheet,
         )
       else ...[
@@ -189,22 +190,41 @@ class _BodyState extends ConsumerState<_Body> {
           .map((r) => r.className)
           .firstOrNull ??
       '';
+
+  String _crumbOf(OrientationOverview ov, String classId) {
+    final r = ov.rows.where((r) => r.classId == classId).firstOrNull;
+    return r == null ? '' : vsCrumb(r.cycleCode, r.levelCode);
+  }
 }
 
 // ─── Liste des élèves d'une classe (atelier d'orientation) ───────────────────
-class _ClassOrientation extends ConsumerWidget {
+class _ClassOrientation extends ConsumerStatefulWidget {
   const _ClassOrientation({
     required this.args,
     required this.className,
+    required this.breadcrumb,
     required this.onOpen,
   });
   final OrientationArgs args;
-  final String className;
+  final String className, breadcrumb;
   final ValueChanged<OrientationRow> onOpen;
+  @override
+  ConsumerState<_ClassOrientation> createState() => _ClassOrientationState();
+}
+
+class _ClassOrientationState extends ConsumerState<_ClassOrientation> {
+  final _search = TextEditingController();
+  String _q = '';
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(classOrientationProvider(args));
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(classOrientationProvider(widget.args));
     return Container(
       decoration: BoxDecoration(
         color: kSurface.withValues(alpha: 0.5),
@@ -216,9 +236,18 @@ class _ClassOrientation extends ConsumerWidget {
         Row(children: [
           const Icon(Icons.class_rounded, size: 18, color: kNavy),
           const SizedBox(width: 8),
-          Text(className,
-              style: const TextStyle(
-                  fontSize: 15, fontWeight: FontWeight.w800, color: kNavy)),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (widget.breadcrumb.isNotEmpty)
+              Text(widget.breadcrumb,
+                  style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: kTextMuted,
+                      letterSpacing: 0.2)),
+            Text(widget.className,
+                style: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w800, color: kNavy)),
+          ]),
         ]),
         const SizedBox(height: 14),
         async.when(
@@ -237,9 +266,50 @@ class _ClassOrientation extends ConsumerWidget {
                 ),
               );
             }
-            return Column(
-              children: [for (final r in rows) _row(r)],
-            );
+            final q = _q.trim().toLowerCase();
+            final filtered = q.isEmpty
+                ? rows
+                : [
+                    for (final r in rows)
+                      if (r.studentName.toLowerCase().contains(q) ||
+                          (r.matricule ?? '').toLowerCase().contains(q))
+                        r,
+                  ];
+            return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              if (rows.length > 8) ...[
+                TextField(
+                  controller: _search,
+                  onChanged: (v) => setState(() => _q = v),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: 'Rechercher un élève parmi ${rows.length}…',
+                    hintStyle: const TextStyle(fontSize: 13, color: kTextMuted),
+                    prefixIcon: const Icon(Icons.search_rounded,
+                        size: 19, color: kTextMuted),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: kBorder),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: kBorder),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (filtered.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(
+                      child: Text('Aucun élève trouvé',
+                          style: TextStyle(color: kTextMuted))),
+                )
+              else
+                for (final r in filtered) _row(r),
+            ]);
           },
         ),
       ]),
@@ -259,7 +329,7 @@ class _ClassOrientation extends ConsumerWidget {
         border: Border.all(color: kBorder),
       ),
       child: InkWell(
-        onTap: () => onOpen(r),
+        onTap: () => widget.onOpen(r),
         borderRadius: BorderRadius.circular(10),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),

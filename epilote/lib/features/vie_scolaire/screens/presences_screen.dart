@@ -70,7 +70,7 @@ class _BodyState extends ConsumerState<_Body> {
     }
   }
 
-  void _openRoll(String classId, String className) {
+  void _openRoll(VsCoverageRow r) {
     final readOnly = ref.read(yearReadOnlyProvider);
     final canEdit =
         ref.read(canProvider((slug: _kSlug, action: 'update'))) && !readOnly;
@@ -79,9 +79,10 @@ class _BodyState extends ConsumerState<_Body> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _RollSheet(
-        args: (classId: classId, date: _dateKey, period: _period),
-        className: className,
-        dateLabel: '$_dateLabel · $_period',
+        args: (classId: r.classId, date: _dateKey, period: _period),
+        className: r.className,
+        breadcrumb: vsCrumb(r.cycleCode, r.levelCode),
+        dateLabel: '$_dateLabel · ${_period == 'AM' ? 'Matin' : 'Après-midi'}',
         canEdit: canEdit,
         onChanged: () => ref.invalidate(attendanceOverviewProvider(_day)),
       ),
@@ -194,7 +195,7 @@ class _BodyState extends ConsumerState<_Body> {
         rows: vsFilterScope(ov.rows, _scope),
         metricLabel: 'pointés',
         openLabel: 'Faire l\'appel',
-        onOpen: (r) => _openRoll(r.classId, r.className),
+        onOpen: _openRoll,
       ),
     ]);
   }
