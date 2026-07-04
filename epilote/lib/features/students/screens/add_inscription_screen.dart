@@ -124,12 +124,48 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
   }
 
   void _next() {
+    // Garde les champs requis AVANT d'avancer : ils sont NOT NULL en base, donc
+    // une saisie incomplète serait acceptée en local puis REJETÉE à la synchro
+    // (transaction abandonnée = perte silencieuse). Bloquer ici évite ça.
+    final err = _validateStep(_currentStep);
+    if (err != null) {
+      setState(() => _error = err);
+      return;
+    }
     if (_currentStep < _steps.length - 1) {
       setState(() { _currentStep++; _error = null; });
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
+    }
+  }
+
+  /// Contrôle des champs obligatoires d'une étape (alignés sur les contraintes
+  /// NOT NULL du serveur). Retourne un message d'erreur, ou null si valide.
+  String? _validateStep(int step) {
+    switch (step) {
+      case 0: // Élève
+        if (_state.firstName.trim().isEmpty) {
+          return "Le prénom de l'élève est obligatoire.";
+        }
+        if (_state.lastName.trim().isEmpty) {
+          return "Le nom de l'élève est obligatoire.";
+        }
+        if (_state.dateOfBirth == null || _state.dateOfBirth!.trim().isEmpty) {
+          return 'La date de naissance est obligatoire.';
+        }
+        return null;
+      case 2: // Scolarité — l'affectation porte l'année et la classe
+        if (_state.academicYearId == null) {
+          return "Sélectionnez l'année scolaire.";
+        }
+        if (_state.classId == null) {
+          return "Sélectionnez la classe d'affectation.";
+        }
+        return null;
+      default:
+        return null;
     }
   }
 
@@ -161,6 +197,14 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
         _submitting = false;
         _error = 'Année en lecture seule — inscription impossible.';
       });
+      return;
+    }
+
+    // Dernier rempart : champs NOT NULL (identité + affectation) — évite la
+    // perte silencieuse à la synchro si une étape a été contournée.
+    final missing = _validateStep(0) ?? _validateStep(2);
+    if (missing != null) {
+      setState(() { _submitting = false; _error = missing; });
       return;
     }
 

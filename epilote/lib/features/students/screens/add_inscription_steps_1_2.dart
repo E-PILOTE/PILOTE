@@ -78,7 +78,7 @@ class _Step1EleveState extends State<_Step1Eleve> {
               const SizedBox(width: 12),
               Expanded(
                 child: FormDateField(
-                  label: 'Date de naissance',
+                  label: 'Date de naissance *',
                   value: s.dateOfBirth,
                   onChanged: (v) { s.dateOfBirth = v; widget.onChanged(); },
                 ),
