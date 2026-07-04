@@ -38,7 +38,11 @@ LICENSE_PRIVATE_KEY_PKCS8_B64 = <contenu de lic_priv.pkcs8.b64>   # clé privée
 LICENSE_KID                   = 2026-07
 LICENSE_OFFLINE_WINDOW_DAYS   = 30
 LICENSE_PILOT_GROUP_IDS       = <group_id du PILOTE>              # garde-pilote (voir §4)
+LICENSE_PROVISIONAL_DAYS      = 7                                 # C4 : fenêtre licence provisoire (paiement non confirmé)
 ```
+> Colonnes `school_groups` utilisées par l'issuer : `license_version` (mig 0026,
+> compteur monotone), `payment_confirmed` (0027, C4 : false ⇒ licence provisoire),
+> `offline_window_days` (0028, G3 : override de fenêtre par zone, NULL = défaut).
 > **GARDE-PILOTE** : tant que `LICENSE_PILOT_GROUP_IDS` est **définie**, la fonction
 > n'émet QUE pour les groupes listés (les autres reçoivent `403 not_in_pilot` →
 > restent dormants). Déploiement initial = liste = un seul groupe test.
