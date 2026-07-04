@@ -35,6 +35,10 @@ dart run build_runner build --delete-conflicting-outputs   # codegen Riverpod
 
 Le binaire `dart`/`flutter` est dans `/home/melack/flutter/bin/`.
 
+**Build Linux** : `flutter_secure_storage` (coffre licence) exige `libsecret-1-dev`
+(`sudo apt-get install -y libsecret-1-dev`) — sinon `flutter build linux` échoue à la
+génération CMake. À prévoir en CI.
+
 ## Architecture — LA règle centrale (non négociable)
 
 L'app a **deux chemins de données distincts selon le rôle**. C'est le concept structurant ; il traverse `powersync_service.dart`, `sync-rules.yaml` et chaque provider :
@@ -64,6 +68,7 @@ C'est `_isStaffRole` qui décide d'appeler `db.connect()` (= activer la synchro 
 - `data/models/` — modèles immuables (ex. `ProfileModel`).
 - `features/<domaine>/` — organisation **feature-first** : sous-dossiers `screens/`, `providers/` (Riverpod), `services/`, `widgets/`. Domaines : `auth`, `super_admin`, `admin_groupe`, `students`, `classes`, `structure`, `navigation`, `user`.
 - `services/` — `supabase_service.dart` + `powersync/`.
+- `licensing/` — **module transverse** (îlot hexagonal : `domain/`/`application/`/`infrastructure/`/`presentation/`) du système de licence offline-first. Enforcement **dormant** tant que `licensePinnedKeysProvider` est vide. Décisions gelées : `docs/adr/ADR-licence.md` ; org. code : `docs/ABONNEMENT_ARCHITECTURE_LOGICIELLE.md`. Ne JAMAIS gater la synchro PowerSync sur la licence (C4).
 
 Navigation : ajouter un écran = créer screen + provider, déclarer la route dans `core/router/app_router.dart` et la constante dans `core/constants/routes.dart`.
 
