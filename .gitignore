@@ -55,3 +55,6 @@ Thumbs.db
 powersynck-Token
 *-Token
 *.pat
+
+# Jeton PowerSync local (ne jamais committer)
+powersynchToken
