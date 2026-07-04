@@ -50,6 +50,43 @@ final studentsByGenderProvider =
       });
 });
 
+// ─── PERSONNEL (direction) ───────────────────────────────────────────────────
+
+class StaffSummary {
+  const StaffSummary(this.total, this.teachers, this.active);
+  final int total, teachers, active;
+}
+
+/// Effectif du personnel de l'école (offline, source = `profiles`, comme
+/// l'annuaire Personnel : tout profil sauf élève/parent). Le bloc qui la
+/// consomme est gaté par la permission `personnel` (accès = permissions), donc
+/// n'apparaît que si l'admin groupe a attribué ce module à l'agent.
+final staffSummaryProvider = StreamProvider.autoDispose<StaffSummary>((ref) {
+  final sid = ref.watch(authNotifierProvider).valueOrNull?.schoolId;
+  if (sid == null || sid.isEmpty) return Stream.value(const StaffSummary(0, 0, 0));
+  return db
+      .watch(
+        '''
+        SELECT
+          COUNT(*) AS total,
+          COALESCE(SUM(CASE WHEN role = 'enseignant' THEN 1 ELSE 0 END), 0) AS teachers,
+          COALESCE(SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END), 0) AS active
+        FROM profiles
+        WHERE school_id = ? AND role NOT IN ('eleve', 'parent')
+        ''',
+        parameters: [sid],
+      )
+      .map((rows) {
+        if (rows.isEmpty) return const StaffSummary(0, 0, 0);
+        final r = rows.first;
+        return StaffSummary(
+          (r['total'] as num?)?.toInt() ?? 0,
+          (r['teachers'] as num?)?.toInt() ?? 0,
+          (r['active'] as num?)?.toInt() ?? 0,
+        );
+      });
+});
+
 // ─── FINANCE (comptable / direction) ─────────────────────────────────────────
 
 class PaymentsSummary {
@@ -58,20 +95,30 @@ class PaymentsSummary {
   final int attente; // autres statuts
 }
 
-/// Encaissements (confirmés) vs en attente — école. `amount_xaf` en XAF.
+/// Encaissements (confirmés) vs en attente — école, **scopés à l'année active**
+/// (cohérent avec les Dépenses/Solde). `student_payments` n'ayant pas de colonne
+/// `academic_year_id`, l'année est portée par l'inscription liée
+/// (`enrollment_id → class_enrollments.academic_year_id`). Un paiement sans
+/// inscription rattachée (enrollment_id nul) n'est pas imputable à une année et
+/// n'entre donc pas dans ces totaux annuels. `amount_xaf` en XAF.
 final paymentsSummaryProvider =
     StreamProvider.autoDispose<PaymentsSummary>((ref) {
   final sid = ref.watch(authNotifierProvider).valueOrNull?.schoolId;
-  if (sid == null || sid.isEmpty) return Stream.value(const PaymentsSummary(0, 0));
+  final yearId = ref.watch(activeYearIdProvider);
+  if (sid == null || sid.isEmpty || yearId == null) {
+    return Stream.value(const PaymentsSummary(0, 0));
+  }
   return db
       .watch(
         '''
         SELECT
-          COALESCE(SUM(CASE WHEN status = 'confirmed' THEN amount_xaf ELSE 0 END), 0) AS enc,
-          COALESCE(SUM(CASE WHEN status <> 'confirmed' THEN amount_xaf ELSE 0 END), 0) AS att
-        FROM student_payments WHERE school_id = ?
+          COALESCE(SUM(CASE WHEN sp.status = 'confirmed' THEN sp.amount_xaf ELSE 0 END), 0) AS enc,
+          COALESCE(SUM(CASE WHEN sp.status <> 'confirmed' THEN sp.amount_xaf ELSE 0 END), 0) AS att
+        FROM student_payments sp
+        JOIN class_enrollments ce ON ce.id = sp.enrollment_id
+        WHERE sp.school_id = ? AND ce.academic_year_id = ?
         ''',
-        parameters: [sid],
+        parameters: [sid, yearId],
       )
       .map((rows) {
         if (rows.isEmpty) return const PaymentsSummary(0, 0);

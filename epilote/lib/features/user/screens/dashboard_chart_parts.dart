@@ -52,40 +52,54 @@ class _ChartsRow extends ConsumerWidget {
           ],
         );
 
+    // Résumé textuel pour lecteur d'écran (un canvas Syncfusion est opaque a11y).
+    final classTotal = classes.fold<int>(0, (s, c) => s + (c.studentCount ?? 0));
     final byClass = AdminCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const _ChartTitle('Élèves par classe', Icons.bar_chart_rounded),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 220,
-          child: classesLoading
-              ? const _ChartLoading()
-              : classes.isEmpty
-                  ? const _ChartEmpty()
-                  : LayoutBuilder(builder: (context, cc) {
-                      final needed = classes.length * 46.0;
-                      if (needed <= cc.maxWidth) return barChart();
-                      return SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: SizedBox(width: needed, child: barChart()),
-                      );
-                    }),
+        Semantics(
+          label: classes.isEmpty
+              ? 'Répartition des élèves par classe : aucune donnée.'
+              : 'Répartition des élèves par classe : '
+                  '${classes.length} classes, $classTotal élèves au total.',
+          child: SizedBox(
+            height: 220,
+            child: classesLoading
+                ? const _ChartLoading()
+                : classes.isEmpty
+                    ? const _ChartEmpty()
+                    : LayoutBuilder(builder: (context, cc) {
+                        final needed = classes.length * 46.0;
+                        if (needed <= cc.maxWidth) return barChart();
+                        return SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: SizedBox(width: needed, child: barChart()),
+                        );
+                      }),
+          ),
         ),
       ]),
     );
 
     final total = genders.fold<int>(0, (s, g) => s + g.value);
+    final genderSummary = genders.map((g) => '${g.value} ${g.label}').join(', ');
     final byGender = AdminCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const _ChartTitle('Répartition par genre', Icons.pie_chart_rounded),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 220,
-          child: gendersLoading
-              ? const _ChartLoading()
-              : total == 0
-              ? const _ChartEmpty()
-              : SfCircularChart(
+        Semantics(
+          label: total == 0
+              ? 'Répartition des élèves par genre : aucune donnée.'
+              : 'Répartition des élèves par genre : $genderSummary '
+                  '(sur $total élèves).',
+          child: SizedBox(
+            height: 220,
+            child: gendersLoading
+                ? const _ChartLoading()
+                : total == 0
+                    ? const _ChartEmpty()
+                    : SfCircularChart(
                   margin: EdgeInsets.zero,
                   legend: const Legend(
                     isVisible: true,
@@ -117,6 +131,7 @@ class _ChartsRow extends ConsumerWidget {
                     ),
                   ],
                 ),
+          ),
         ),
       ]),
     );

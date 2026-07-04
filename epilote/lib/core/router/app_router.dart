@@ -70,7 +70,6 @@ import '../../features/staff/screens/paie_screen.dart';
 import '../../features/navigation/module_routes.dart';
 import '../../features/navigation/providers/permissions_provider.dart';
 import '../../features/navigation/widgets/module_coming_soon.dart';
-import '../../features/user/screens/staff_agent_switch_screen.dart';
 import '../../features/user/screens/staff_audit_screen.dart';
 import '../../features/user/screens/user_dashboard_screen.dart';
 import '../../features/user/screens/user_profile_screen.dart';
@@ -579,10 +578,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.userAudit,
         builder: (_, _) => const StaffAuditScreen(),
-      ),
-      GoRoute(
-        path: Routes.userAgents,
-        builder: (_, _) => const StaffAgentSwitchScreen(),
       ),
       GoRoute(
         path: Routes.userSupport,

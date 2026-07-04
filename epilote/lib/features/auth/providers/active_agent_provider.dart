@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../services/powersync/powersync_service.dart';
 import 'auth_provider.dart';
 
@@ -160,3 +161,44 @@ class AgentPinService {
 
 final agentPinServiceProvider =
     Provider<AgentPinService>((ref) => const AgentPinService());
+
+// ─── Verrouillage « poste partagé » ─────────────────────────────────────────
+// Rôles qui NE sont PAS des agents d'un poste scolaire partagé.
+const Set<String> _nonAgentRoles = {
+  AppConstants.roleSuperAdmin,
+  AppConstants.roleAdminGroupe,
+  AppConstants.roleParent,
+  AppConstants.roleEleve,
+};
+
+/// Le verrou (et le menu « Changer d'utilisateur ») s'appliquent au personnel
+/// scolaire d'un poste partagé — tout rôle non vide hors [_nonAgentRoles].
+bool agentLockApplies(String? role) =>
+    role != null && role.isNotEmpty && !_nonAgentRoles.contains(role);
+
+/// Décision pure : faut-il imposer l'écran-verrou ?
+/// - pas de session (rôle null) → non ;
+/// - rôle hors public agent → non ;
+/// - aucun agent encore synchronisé → non (on n'enferme jamais dehors) ;
+/// - sinon : verrou tant qu'aucun agent n'est sélectionné.
+bool computeNeedsAgentUnlock({
+  required String? deviceRole,
+  required bool hasAgents,
+  required String? selectedAgentId,
+}) {
+  if (!agentLockApplies(deviceRole)) return false;
+  if (!hasAgents) return false;
+  return selectedAgentId == null;
+}
+
+/// Câble la décision aux providers existants.
+final needsAgentUnlockProvider = Provider<bool>((ref) {
+  final role = ref.watch(authNotifierProvider).valueOrNull?.role;
+  final agents = ref.watch(switchableAgentsProvider).valueOrNull ?? const [];
+  final selected = ref.watch(selectedAgentIdProvider);
+  return computeNeedsAgentUnlock(
+    deviceRole: role,
+    hasAgents: agents.isNotEmpty,
+    selectedAgentId: selected,
+  );
+});

@@ -46,6 +46,55 @@ class _ScolariteBlock extends StatelessWidget {
   }
 }
 
+// ─── Bloc PERSONNEL (direction) ───────────────────────────────────────────────
+// Gaté par la permission `personnel` (accès = permissions) : n'apparaît que si
+// l'admin groupe a attribué ce module à l'agent, et se réordonne selon la charge.
+class _PersonnelBlock extends ConsumerWidget {
+  const _PersonnelBlock();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(staffSummaryProvider).valueOrNull ??
+        const StaffSummary(0, 0, 0);
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      AdminSectionTitle('Personnel',
+          icon: Icons.badge_rounded,
+          trailing: _dashSeeAll(context, Routes.personnel)),
+      const SizedBox(height: 14),
+      if (s.total == 0)
+        const _EmptyMini(
+          icon: Icons.groups_outlined,
+          text: 'Aucun membre du personnel enregistré pour le moment.',
+        )
+      else
+        _StatGrid([
+          AdminStatCard(
+            label: 'Personnel',
+            value: '${s.total}',
+            icon: Icons.groups_rounded,
+            color: kNavy,
+            onTap: () => context.push(Routes.personnel),
+          ),
+          AdminStatCard(
+            label: 'Enseignants',
+            value: '${s.teachers}',
+            icon: Icons.school_rounded,
+            color: kGreen,
+            onTap: () => context.push(Routes.personnel),
+          ),
+          AdminStatCard(
+            label: 'En activité',
+            value: '${s.active}',
+            icon: Icons.verified_user_rounded,
+            color: const Color(0xFF0EA5E9),
+          ),
+        ]),
+      const SizedBox(height: 24),
+    ]);
+  }
+}
+
 // ─── Bloc FINANCE (comptable / direction) ─────────────────────────────────────
 class _FinanceBlock extends ConsumerWidget {
   const _FinanceBlock();
@@ -106,41 +155,108 @@ class _FinanceBlock extends ConsumerWidget {
       _StatGrid(cards),
       if (recouvre > 0) ...[
         const SizedBox(height: 14),
-        AdminCard(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const _ChartTitle('Recouvrement', Icons.donut_large_rounded),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 200,
-              child: SfCircularChart(
-                margin: EdgeInsets.zero,
-                legend: const Legend(
-                  isVisible: true,
-                  position: LegendPosition.bottom,
-                  textStyle: TextStyle(fontSize: 11, color: kTextMuted),
-                ),
-                tooltipBehavior: TooltipBehavior(enable: true),
-                series: <CircularSeries<DashboardSlice, String>>[
-                  DoughnutSeries<DashboardSlice, String>(
-                    dataSource: [
-                      DashboardSlice('Encaissé', pay.encaisse),
-                      DashboardSlice('En attente', pay.attente),
-                    ],
-                    xValueMapper: (s, _) => s.label,
-                    yValueMapper: (s, _) => s.value,
-                    pointColorMapper: (s, _) =>
-                        s.label == 'Encaissé' ? kGreen : kAccent,
-                    innerRadius: '62%',
-                  ),
-                ],
-              ),
-            ),
-          ]),
-        ),
+        _RecouvrementBar(encaisse: pay.encaisse, attente: pay.attente),
       ],
       const SizedBox(height: 24),
     ]);
   }
+}
+
+// ─── Barre de recouvrement (taux encaissé / dû) ───────────────────────────────
+// Remplace le donut à 2 parts : le recouvrement est une relation partie/tout
+// avec cible implicite (100 %). Une barre segmentée + le % en grand se lisent
+// instantanément — meilleure pratique dataviz (style Stripe/Linear), plus
+// esthétique et compact qu'un cercle.
+class _RecouvrementBar extends StatelessWidget {
+  const _RecouvrementBar({required this.encaisse, required this.attente});
+  final int encaisse, attente;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = encaisse + attente;
+    final pct = total > 0 ? (encaisse / total).clamp(0.0, 1.0) : 0.0;
+    final pctLabel = (pct * 100).round();
+
+    return AdminCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Expanded(
+            child: _ChartTitle('Taux de recouvrement', Icons.savings_rounded),
+          ),
+          Text('$pctLabel%',
+              style: const TextStyle(
+                  fontSize: 22, fontWeight: FontWeight.w800, color: kGreen)),
+        ]),
+        const SizedBox(height: 4),
+        Text('${_xaf(encaisse)} encaissés sur ${_xaf(total)} FCFA attendus',
+            style: const TextStyle(fontSize: 12, color: kTextMuted)),
+        const SizedBox(height: 14),
+        // Barre segmentée animée (vert = encaissé, ambre = en attente).
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: pct),
+            duration: const Duration(milliseconds: 700),
+            curve: Curves.easeOutCubic,
+            builder: (context, v, _) {
+              final flexEnc = (v * 1000).round();
+              final flexAtt = 1000 - flexEnc;
+              return SizedBox(
+                height: 16,
+                child: Row(children: [
+                  if (flexEnc > 0)
+                    Expanded(
+                        flex: flexEnc,
+                        child: const ColoredBox(color: kGreen)),
+                  if (flexAtt > 0)
+                    Expanded(
+                        flex: flexAtt,
+                        child: ColoredBox(
+                            color: kAccent.withValues(alpha: 0.55))),
+                ]),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 14),
+        Row(children: [
+          _RecouvrementLegend(
+              color: kGreen, label: 'Encaissé', value: _xaf(encaisse)),
+          const SizedBox(width: 22),
+          _RecouvrementLegend(
+              color: kAccent, label: 'En attente', value: _xaf(attente)),
+        ]),
+      ]),
+    );
+  }
+}
+
+class _RecouvrementLegend extends StatelessWidget {
+  const _RecouvrementLegend(
+      {required this.color, required this.label, required this.value});
+  final Color color;
+  final String label, value;
+  @override
+  Widget build(BuildContext context) =>
+      Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 8),
+        Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label,
+                  style: const TextStyle(fontSize: 11, color: kTextMuted)),
+              Text('$value FCFA',
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: kTextPrimary)),
+            ]),
+      ]);
 }
 
 // ─── Bloc MÉDICAL (infirmier / direction) ─────────────────────────────────────
