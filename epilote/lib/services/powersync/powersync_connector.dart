@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:powersync/powersync.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 /// Codes d'erreur PostgreSQL non-récupérables (on abandonne la transaction).
 final List<RegExp> _fatalResponseCodes = [
@@ -49,6 +50,36 @@ const Map<String, Set<String>> _jsonbColumns = {
   'support_tickets':         {'attachments'},
   'support_ticket_messages': {'attachments'},
 };
+
+/// Libellés lisibles par table pour résumer un échec à l'utilisateur final
+/// (« Inscription d'élève n'a pas pu être synchronisée »). Les tables liées
+/// d'une même action partagent le même libellé pour ne pas le répéter.
+const Map<String, String> _tableHumanLabel = {
+  'students':          "Inscription d'élève",
+  'class_enrollments': "Inscription d'élève",
+  'student_tutors':    "Inscription d'élève",
+  'student_documents': "Document d'élève",
+  'student_payments':   'Paiement',
+  'expenses':           'Dépense',
+  'grades':             'Note',
+  'evaluations':        'Évaluation',
+  'attendance_records': 'Présence',
+  'attendance_entries': 'Présence',
+  'leave_requests':     'Congé',
+  'staff_attendance':   'Présence du personnel',
+  'messages':          'Message',
+  'announcements':     'Annonce',
+};
+
+/// Résume les tables touchées par une transaction abandonnée en libellés
+/// lisibles et dédupliqués (ex. « Inscription d'élève, Paiement »).
+String _summarizeOps(Iterable<String> tables) {
+  final labels = <String>{};
+  for (final t in tables) {
+    labels.add(_tableHumanLabel[t] ?? t);
+  }
+  return labels.join(', ');
+}
 
 Map<String, dynamic> _decodeJsonbColumns(String table, Map<String, dynamic> data) {
   final cols = _jsonbColumns[table];
@@ -138,12 +169,35 @@ class SupabasePowerSyncConnector extends PowerSyncBackendConnector {
         final ops = transaction.crud
             .map((o) => '${o.op.name} ${o.table}#${o.id}')
             .toList();
+        final summary =
+            _summarizeOps(transaction.crud.map((o) => o.table));
+        final at = DateTime.now();
         lastFatalUploadError.value = UploadDropInfo(
-          at: DateTime.now(),
+          at: at,
           code: e.code ?? '?',
           message: e.message,
           ops: ops,
         );
+        // Journal LOCAL durable (table local-only) : la perte reste visible et
+        // acquittable même après redémarrage ou si l'utilisateur n'était pas sur
+        // l'écran concerné au moment de la synchro en arrière-plan.
+        try {
+          await database.execute(
+            'INSERT INTO sync_failures '
+            '(id, at, code, message, ops, summary, acknowledged) '
+            'VALUES (?, ?, ?, ?, ?, ?, 0)',
+            [
+              const Uuid().v4(),
+              at.toUtc().toIso8601String(),
+              e.code ?? '?',
+              e.message,
+              jsonEncode(ops),
+              summary,
+            ],
+          );
+        } catch (logErr) {
+          debugPrint('⚠️ PowerSync — écriture journal sync_failures échouée : $logErr');
+        }
         debugPrint(
           '⚠️ PowerSync — transaction ABANDONNÉE (code ${e.code}). '
           'Écritures locales perdues : ${ops.join(", ")}. ${e.message}',
