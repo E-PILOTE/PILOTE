@@ -50,6 +50,27 @@ class _AgentLockBackgroundState extends State<AgentLockBackground>
             ),
           ),
         ),
+        // Photo salle de classe — même image que la page de login.
+        Positioned.fill(
+          child: Image.asset(
+            'assets/images/login_bg.jpg',
+            fit: BoxFit.cover,
+            opacity: const AlwaysStoppedAnimation(0.42),
+            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+          ),
+        ),
+        // Voile sombre pour garder la carte blanche bien lisible sur la photo.
+        const Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0x33091828), Color(0x66091828)],
+              ),
+            ),
+          ),
+        ),
         // Grille de points décorative.
         Positioned.fill(child: CustomPaint(painter: _DotGridPainter())),
         // Filigrane logo qui respire (échelle 1.0↔1.04, opacité ~5,5 %).
@@ -59,7 +80,7 @@ class _AgentLockBackgroundState extends State<AgentLockBackground>
             builder: (_, child) {
               final t = Curves.easeInOut.transform(_breath.value);
               return Opacity(
-                opacity: 0.04 + 0.02 * t,
+                opacity: 0.03 + 0.015 * t,
                 child: Transform.scale(scale: 1.0 + 0.04 * t, child: child),
               );
             },

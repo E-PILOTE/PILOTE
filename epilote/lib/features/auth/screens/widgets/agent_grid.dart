@@ -17,7 +17,18 @@ class AgentGrid extends StatefulWidget {
 }
 
 class _AgentGridState extends State<AgentGrid> {
+  final TextEditingController _ctrl = TextEditingController();
+  final ScrollController _scrollCtrl = ScrollController();
   String _q = '';
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  void _setQuery(String v) => setState(() => _q = v);
 
   @override
   Widget build(BuildContext context) {
@@ -34,56 +45,86 @@ class _AgentGridState extends State<AgentGrid> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Qui utilise ce poste ?',
-            style: TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w800, color: kNavy)),
+        Row(
+          children: [
+            const Expanded(
+              child: Text('Qui utilise ce poste ?',
+                  style: TextStyle(
+                      fontSize: 17, fontWeight: FontWeight.w800, color: kNavy)),
+            ),
+            Text('${widget.agents.length} agent${widget.agents.length > 1 ? 's' : ''}',
+                style: const TextStyle(fontSize: 12, color: kTextMuted)),
+          ],
+        ),
         const SizedBox(height: 4),
         const Text('Sélectionnez votre profil — vos saisies seront '
             'enregistrées à votre nom.',
-            style: TextStyle(fontSize: 12, color: kTextMuted)),
-        const SizedBox(height: 14),
+            style: TextStyle(fontSize: 12.5, color: kTextMuted)),
+        const SizedBox(height: 16),
+        // Barre de recherche agrandie, avec contrôleur + bouton effacer.
         TextField(
-          onChanged: (v) => setState(() => _q = v),
+          controller: _ctrl,
+          autofocus: true,
+          textInputAction: TextInputAction.search,
+          style: const TextStyle(fontSize: 15),
+          onChanged: _setQuery,
           decoration: InputDecoration(
-            hintText: 'Rechercher un nom, un rôle…',
-            prefixIcon: const Icon(Icons.search_rounded, size: 20),
-            isDense: true,
+            hintText: 'Rechercher un nom ou un rôle…',
+            prefixIcon: const Icon(Icons.search_rounded, size: 24),
+            suffixIcon: _q.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    tooltip: 'Effacer',
+                    onPressed: () {
+                      _ctrl.clear();
+                      _setQuery('');
+                    },
+                  ),
             filled: true,
             fillColor: const Color(0xFFF6F8FB),
             contentPadding:
-                const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
             border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(color: kBorder)),
             enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(color: kBorder)),
+            focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: kNavy, width: 1.5)),
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         if (list.isEmpty)
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 28),
+            padding: EdgeInsets.symmetric(vertical: 48),
             child: Center(
                 child: Text('Aucun agent ne correspond.',
-                    style: TextStyle(color: kTextMuted))),
+                    style: TextStyle(color: kTextMuted, fontSize: 14))),
           )
         else
           ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 320),
-            child: GridView.builder(
-              shrinkWrap: true,
-              padding: EdgeInsets.zero,
-              gridDelegate:
-                  const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisExtent: 64,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
+            constraints: const BoxConstraints(maxHeight: 440),
+            child: Scrollbar(
+              controller: _scrollCtrl,
+              thumbVisibility: true,
+              child: GridView.builder(
+                controller: _scrollCtrl,
+                shrinkWrap: true,
+                padding: const EdgeInsets.only(right: 6),
+                gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisExtent: 68,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                ),
+                itemCount: list.length,
+                itemBuilder: (_, i) => _AgentTile(
+                    agent: list[i], onTap: () => widget.onPick(list[i])),
               ),
-              itemCount: list.length,
-              itemBuilder: (_, i) =>
-                  _AgentTile(agent: list[i], onTap: () => widget.onPick(list[i])),
             ),
           ),
       ],
