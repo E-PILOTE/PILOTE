@@ -1188,4 +1188,20 @@ const schema = Schema([
     Column.text('created_at'),
     Column.text('updated_at'),
   ]),
+
+  // ════════════════════════════════════════════════════════════════════════
+  // JOURNAL LOCAL D'ÉCHECS DE SYNCHRO (local-only, ne remonte JAMAIS au serveur)
+  // ════════════════════════════════════════════════════════════════════════
+  // Trace des transactions rejetées DÉFINITIVEMENT par le serveur (contrainte,
+  // RLS, données invalides) puis abandonnées → écritures locales perdues.
+  // `localOnly` = jamais uploadée, aucun impact sync-rules/prod ; sert à rendre
+  // la perte VISIBLE et ACQUITTABLE par l'utilisateur (défense en profondeur).
+  Table.localOnly('sync_failures', [
+    Column.text('at'),           // ISO-8601 UTC du rejet
+    Column.text('code'),         // code PostgreSQL (ex. 23502, 42501)
+    Column.text('message'),      // message serveur brut
+    Column.text('ops'),          // JSON des opérations perdues
+    Column.text('summary'),      // libellé lisible (ex. « Inscription d'élève »)
+    Column.integer('acknowledged'), // 0 = à voir, 1 = acquitté par l'utilisateur
+  ]),
 ]);
