@@ -56,18 +56,22 @@ class _KpiGrid extends ConsumerWidget {
 
     return LayoutBuilder(builder: (context, c) {
       final cross = c.maxWidth > 720 ? 4 : 2;
-      // Hauteur FIXE quelle que soit la largeur : un ratio constant étirait
-      // les cartes à 400px sur grand écran. 172px = contenu complet d'une
-      // AdminStatCard (icône 44 + valeur + label + sous-titre), sans overflow.
-      final colW = (c.maxWidth - (cross - 1) * 12) / cross;
-      return GridView.count(
-        crossAxisCount: cross,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: colW / 172,
+      // Hauteur FIXE (mainAxisExtent) plutôt que childAspectRatio : le ratio
+      // dépendait de la largeur (cartes étirées sur grand écran) et exposait à
+      // l'overflow si le contenu grandit. 172px = contenu complet d'une
+      // AdminStatCard (icône 44 + valeur + label + sous-titre). Cf. convention
+      // KPI = GridView.builder + mainAxisExtent.
+      return GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        children: cards,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: cross,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          mainAxisExtent: 172,
+        ),
+        itemCount: cards.length,
+        itemBuilder: (_, i) => cards[i],
       );
     });
   }
@@ -85,15 +89,19 @@ class _StatGrid extends StatelessWidget {
               ? (cards.length < 4 ? cards.length : 4)
               : 2)
           .clamp(1, 4);
-      final colW = (c.maxWidth - (cross - 1) * 12) / cross;
-      return GridView.count(
-        crossAxisCount: cross,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: colW / 172,
+      // Hauteur fixe (mainAxisExtent) : anti-overflow, aligné sur la convention
+      // KPI (jamais childAspectRatio, dépendant de la largeur).
+      return GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        children: cards,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: cross,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          mainAxisExtent: 172,
+        ),
+        itemCount: cards.length,
+        itemBuilder: (_, i) => cards[i],
       );
     });
   }

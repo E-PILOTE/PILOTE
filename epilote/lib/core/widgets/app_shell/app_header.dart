@@ -1,15 +1,22 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../admin_ui.dart' show kNavy, kGreen, kTextPrimary, kTextMuted;
+import '../admin_ui.dart'
+    show kNavy, kGreen, kBorder, kTextPrimary, kTextMuted;
 import '../year_selector.dart';
 import '../../constants/app_constants.dart';
 import '../../constants/routes.dart';
+import '../../../data/models/module_model.dart';
 import '../../../data/models/profile_model.dart';
 import '../../../features/auth/providers/active_agent_provider.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/communication/widgets/notification_bell.dart';
+import '../../../features/navigation/module_routes.dart';
+import '../../../features/navigation/providers/module_navigation_provider.dart';
+import '../../../features/navigation/providers/permissions_provider.dart';
 import 'app_shell_theme.dart';
 import 'shell_providers.dart';
 
@@ -88,6 +95,12 @@ class AppHeader extends ConsumerWidget {
             const SizedBox(width: 4),
           ],
           const _ThemeToggle(),
+          // Lanceur d'applications (« Accès rapide ») — personnel scolaire
+          // uniquement (jamais super admin / admin groupe, qui ont leur nav).
+          if (isStaff) ...[
+            const SizedBox(width: 2),
+            const _ModuleLauncher(),
+          ],
           const SizedBox(width: 4),
           _AccountMenu(
             profile: profile,
@@ -116,6 +129,252 @@ class _ThemeToggle extends ConsumerWidget {
         ),
         onPressed: () => ref.read(themeModeProvider.notifier).state =
             isDark ? ThemeMode.light : ThemeMode.dark,
+      ),
+    );
+  }
+}
+
+// ─── Lanceur d'applications (« Accès rapide ») ────────────────────────────────
+// Popover ancré au header (pattern « app switcher » Notion/Linear/Google).
+// Grille de modules groupée par catégorie, filtrée `can_read` (verrou 3),
+// ouverture/fermeture fluides via MenuAnchor, responsive (largeur clampée).
+const List<Color> _launcherPalette = [
+  kNavy,
+  kGreen,
+  Color(0xFF0EA5E9),
+  Color(0xFF7C3AED),
+  Color(0xFFEF4444),
+  Color(0xFFF59E0B),
+  Color(0xFF0891B2),
+  Color(0xFFDB2777),
+];
+
+class _LauncherSection {
+  const _LauncherSection(this.title, this.modules, this.color);
+  final String title;
+  final List<ModuleModel> modules;
+  final Color color;
+}
+
+class _ModuleLauncher extends ConsumerStatefulWidget {
+  const _ModuleLauncher();
+  @override
+  ConsumerState<_ModuleLauncher> createState() => _ModuleLauncherState();
+}
+
+class _ModuleLauncherState extends ConsumerState<_ModuleLauncher> {
+  final MenuController _menu = MenuController();
+
+  @override
+  Widget build(BuildContext context) {
+    final grouped =
+        ref.watch(modulesGroupedByCategoryProvider).valueOrNull ?? const {};
+    final perms = ref.watch(myPermissionsProvider).valueOrNull ?? const {};
+
+    final sections = <_LauncherSection>[];
+    var total = 0;
+    var ci = 0;
+    for (final entry in grouped.entries) {
+      final visible =
+          entry.value.where((m) => perms[m.slug]?.canRead ?? false).toList();
+      if (visible.isEmpty) continue;
+      sections.add(_LauncherSection(
+          entry.key.name, visible, _launcherPalette[ci % _launcherPalette.length]));
+      total += visible.length;
+      ci++;
+    }
+    // Rien à lancer (pas de module accordé, ou 1ʳᵉ synchro) → pas de bouton.
+    if (sections.isEmpty) return const SizedBox.shrink();
+
+    return MenuAnchor(
+      controller: _menu,
+      alignmentOffset: const Offset(0, 8),
+      style: MenuStyle(
+        backgroundColor: const WidgetStatePropertyAll(Colors.white),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        elevation: const WidgetStatePropertyAll(12),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+      ),
+      builder: (context, controller, _) => Tooltip(
+        message: 'Accès rapide',
+        child: IconButton(
+          icon: const Icon(Icons.grid_view_rounded, color: kTextMuted, size: 22),
+          onPressed: () =>
+              controller.isOpen ? controller.close() : controller.open(),
+        ),
+      ),
+      menuChildren: [
+        _LauncherPanel(
+          sections: sections,
+          total: total,
+          onPick: (slug) {
+            _menu.close();
+            context.go(moduleRoute(slug));
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _LauncherPanel extends StatelessWidget {
+  const _LauncherPanel({
+    required this.sections,
+    required this.total,
+    required this.onPick,
+  });
+  final List<_LauncherSection> sections;
+  final int total;
+  final ValueChanged<String> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final screenW = MediaQuery.sizeOf(context).width;
+    final panelW = math.min(400.0, screenW - 24);
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.96, end: 1),
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
+      builder: (context, s, child) => Transform.scale(
+        scale: s,
+        alignment: Alignment.topRight,
+        child: Opacity(
+            opacity: ((s - 0.96) / 0.04).clamp(0.0, 1.0), child: child),
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: panelW,
+          minWidth: math.min(320.0, panelW),
+          maxHeight: 540,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+              child: Row(children: [
+                const Icon(Icons.grid_view_rounded, size: 18, color: kNavy),
+                const SizedBox(width: 9),
+                const Text('Accès rapide',
+                    style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: kTextPrimary)),
+                const Spacer(),
+                Text('$total module${total > 1 ? 's' : ''}',
+                    style: const TextStyle(fontSize: 12, color: kTextMuted)),
+              ]),
+            ),
+            const Divider(height: 1, color: kBorder),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (var i = 0; i < sections.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 16),
+                      _LauncherSectionView(section: sections[i], onPick: onPick),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LauncherSectionView extends StatelessWidget {
+  const _LauncherSectionView({required this.section, required this.onPick});
+  final _LauncherSection section;
+  final ValueChanged<String> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration:
+              BoxDecoration(color: section.color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 8),
+        Text(section.title.toUpperCase(),
+            style: const TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.5,
+                color: kTextMuted)),
+      ]),
+      const SizedBox(height: 10),
+      Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final m in section.modules)
+            _LauncherTile(module: m, color: section.color, onPick: onPick),
+        ],
+      ),
+    ]);
+  }
+}
+
+class _LauncherTile extends StatelessWidget {
+  const _LauncherTile(
+      {required this.module, required this.color, required this.onPick});
+  final ModuleModel module;
+  final Color color;
+  final ValueChanged<String> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 104,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => onPick(module.slug),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(moduleIcon(module.slug), size: 21, color: color),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  module.name,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 11.5,
+                      height: 1.15,
+                      fontWeight: FontWeight.w600,
+                      color: kTextPrimary),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
