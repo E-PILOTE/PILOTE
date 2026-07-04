@@ -53,6 +53,15 @@ Deno.serve(async (req: Request) => {
     const groupId = profile?.group_id as string | undefined;
     if (!groupId) return json({ error: "no_group" }, 403);
 
+    // GARDE-PILOTE : si LICENSE_PILOT_GROUP_IDS est DÉFINIE (même vide), on
+    // n'émet QUE pour les groupes listés → rollout contrôlé (déploiement sûr :
+    // liste vide = personne). Retirer complètement la variable = fleet-wide.
+    const pilotEnv = Deno.env.get("LICENSE_PILOT_GROUP_IDS");
+    if (pilotEnv !== undefined) {
+      const allow = pilotEnv.split(",").map((s) => s.trim()).filter(Boolean);
+      if (!allow.includes(groupId)) return json({ error: "not_in_pilot" }, 403);
+    }
+
     const { data: group } = await admin
       .from("school_groups")
       .select("plan_id, subscription_status, subscription_end, updated_at")
@@ -70,11 +79,13 @@ Deno.serve(async (req: Request) => {
       .filter((m: any) => m && m.is_active)
       .map((m: any) => m.slug);
 
-    // 4) Construire les claims. `version` = source monotone serveur (INTERIM :
-    //    epoch de updated_at ; à remplacer par un compteur dédié — cf. go-live).
+    // 4) Construire les claims. `version` = compteur monotone autoritaire
+    //    (mig 0026 : next_license_version), incrémenté à chaque émission.
     const nowIso = new Date().toISOString();
     const offlineDays = parseInt(Deno.env.get("LICENSE_OFFLINE_WINDOW_DAYS") ?? "30", 10);
-    const version = Math.floor(new Date(group.updated_at).getTime() / 1000);
+    const { data: version, error: verErr } = await admin.rpc(
+      "next_license_version", { p_group: groupId });
+    if (verErr || version == null) return json({ error: "version_failed" }, 500);
 
     const payload = {
       group_id: groupId,
