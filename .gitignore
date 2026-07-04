@@ -58,3 +58,6 @@ powersynck-Token
 
 # Jeton PowerSync local (ne jamais committer)
 powersynchToken
+
+# Temp CLI supabase
+supabase/.temp/

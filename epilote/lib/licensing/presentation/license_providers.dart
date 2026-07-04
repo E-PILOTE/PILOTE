@@ -11,12 +11,18 @@ import '../infrastructure/supabase_license_gateway.dart';
 
 /// Clés publiques Ed25519 ÉPINGLÉES (kid → octets bruts, 32 o).
 ///
-/// VIDE tant que la paire de clés n'est pas provisionnée (Vague 1 : génération
-/// + Edge Function `license-issuer`). Conséquence voulue : aucun token ne
-/// décode → `Entitlement.none()` → **aucun enforcement** = comportement actuel
-/// de l'app strictement préservé. Renseigner ce map ACTIVE le durcissement.
+/// ⚡ ACTIVÉ le 2026-07-04 (go-live pilote). La clé `2026-07` correspond à la
+/// clé privée détenue par l'Edge Function `license-issuer`. L'émission est
+/// bornée côté serveur par `LICENSE_PILOT_GROUP_IDS` (rollout contrôlé) : les
+/// groupes hors pilote reçoivent 403 → aucune licence → restent dormants.
+/// Vider ce map = retour immédiat à dormant (cf. docs/LICENCE_GOLIVE.md).
 final licensePinnedKeysProvider = Provider<Map<String, List<int>>>((ref) {
-  return const {};
+  return const {
+    '2026-07': [
+      207, 117, 121, 94, 125, 120, 211, 118, 236, 187, 20, 95, 208, 35, 247, 140,
+      179, 35, 8, 145, 32, 221, 216, 52, 102, 115, 93, 182, 195, 42, 196, 12,
+    ],
+  };
 });
 
 /// Racine de composition du module licence (impls → ports). Seul endroit couplé
