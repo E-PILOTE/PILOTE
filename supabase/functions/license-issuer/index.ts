@@ -16,6 +16,7 @@
 // ============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { computeValidTo } from "./_valid_to.ts";
 
 const b64uEncode = (bytes: Uint8Array): string =>
   btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -64,7 +65,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: group } = await admin
       .from("school_groups")
-      .select("plan_id, subscription_status, subscription_end, updated_at")
+      .select("plan_id, subscription_status, subscription_end, payment_confirmed, updated_at")
       .eq("id", groupId).maybeSingle();
     if (!group) return json({ error: "no_group" }, 404);
 
@@ -87,18 +88,22 @@ Deno.serve(async (req: Request) => {
       "next_license_version", { p_group: groupId });
     if (verErr || version == null) return json({ error: "version_failed" }, 500);
 
+    // C4 — 2 étages (logique extraite/testée dans _valid_to.ts).
+    const provisionalDays = parseInt(Deno.env.get("LICENSE_PROVISIONAL_DAYS") ?? "7", 10);
+    const validToIso = computeValidTo(
+      group.subscription_end, group.payment_confirmed, new Date(), provisionalDays);
+
     const payload = {
       group_id: groupId,
       plan: group.plan_id,
       modules,
       quotas: {},
       valid_from: nowIso,
-      valid_to: group.subscription_end
-        ? new Date(group.subscription_end + "T00:00:00Z").toISOString()
-        : null,
+      valid_to: validToIso,
       offline_window: offlineDays * 86400,
       version,
       issued_at: nowIso,
+      provisional: group.payment_confirmed === false, // trace (audit/debug)
       // NB : un groupe suspendu/expiré peut se voir émettre une licence à
       // modules vides ou valid_to passé → l'app dégrade en douceur (fail-soft).
     };
