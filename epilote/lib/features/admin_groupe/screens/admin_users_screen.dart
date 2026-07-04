@@ -4,6 +4,7 @@ import 'package:shimmer/shimmer.dart';
 
 import '../../../core/widgets/app_shell.dart';
 import '../providers/admin_users_provider.dart';
+import '../providers/subscription_access_provider.dart';
 import '../../../core/widgets/admin_ui.dart';
 
 // ─── Couleurs locales ─────────────────────────────────────────────────────────
@@ -93,6 +94,7 @@ class _UsersBodyState extends ConsumerState<_UsersBody> {
   }
 
   void _openCreate() {
+    if (!ensureSubscriptionWritable(ref, context)) return;
     final data = widget.data;
     if (data.schools.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(

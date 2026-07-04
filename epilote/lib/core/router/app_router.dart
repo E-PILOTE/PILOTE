@@ -69,6 +69,7 @@ import '../../features/staff/screens/conges_screen.dart';
 import '../../features/staff/screens/paie_screen.dart';
 import '../../features/navigation/module_routes.dart';
 import '../../features/navigation/providers/permissions_provider.dart';
+import '../../licensing/presentation/license_providers.dart';
 import '../../features/navigation/widgets/module_coming_soon.dart';
 import '../../features/user/screens/staff_audit_screen.dart';
 import '../../features/user/screens/user_dashboard_screen.dart';
@@ -255,6 +256,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         if (isUserSpace) {
           final slug = moduleSlugForLocation(loc);
           if (slug != null) {
+            // ── Verrou PLAN (licence) : le module est-il dans l'entitlement ? ─
+            // S'insère AVANT le verrou 3. Fail-soft : entitlement absent ou
+            // non-enforcé (aucune licence) → grantsModule == true → laisse
+            // passer (comportement actuel préservé tant que les clés ne sont
+            // pas provisionnées). Ne gate JAMAIS la synchro PowerSync (C4).
+            final ent = ref.read(entitlementProvider).valueOrNull;
+            if (ent != null && !ent.grantsModule(slug)) {
+              return Routes.userDashboard;
+            }
             final perms = ref.read(myPermissionsProvider).valueOrNull;
             // perms == null → encore en chargement : on laisse passer.
             if (perms != null && (perms[slug]?.canRead != true)) {

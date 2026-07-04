@@ -11,6 +11,7 @@ import '../../../core/widgets/app_shell.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/admin_schools_provider.dart';
 import '../providers/admin_users_provider.dart' show roleLabel;
+import '../providers/subscription_access_provider.dart';
 import '../providers/education_provider.dart';
 import '../../../core/widgets/admin_ui.dart';
 
@@ -154,6 +155,7 @@ class _SchoolsBodyState extends ConsumerState<_SchoolsBody> {
   }
 
   void _openCreate() {
+    if (!ensureSubscriptionWritable(ref, context)) return;
     final d = widget.data;
     if (d.quotaReached) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
