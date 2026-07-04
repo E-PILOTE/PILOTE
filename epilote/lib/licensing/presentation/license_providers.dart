@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../application/license_service.dart';
 import '../domain/entitlement.dart';
@@ -41,16 +42,36 @@ class EntitlementNotifier extends AsyncNotifier<Entitlement> {
   @override
   Future<Entitlement> build() async {
     ref.keepAlive();
+    final profile = ref.watch(authNotifierProvider).valueOrNull;
+
+    Entitlement ent;
     try {
-      return await ref.read(licenseServiceProvider).bootstrap();
+      ent = await ref.read(licenseServiceProvider).bootstrap();
     } catch (_) {
-      return const Entitlement.none();
+      ent = const Entitlement.none();
     }
+
+    // Rafraîchissement hors-bande au login (personnel scolaire uniquement).
+    // Auto-inerte tant que les clés ne sont pas épinglées : `refreshLicense`
+    // n'émet alors AUCUNE requête réseau (voir garde ci-dessous).
+    final role = profile?.role;
+    final groupId = profile?.groupId;
+    final isStaff = role != null &&
+        role != AppConstants.roleSuperAdmin &&
+        role != AppConstants.roleAdminGroupe;
+    if (isStaff && groupId != null && groupId.isNotEmpty) {
+      Future.microtask(() => refreshLicense(groupId));
+    }
+    return ent;
   }
 
   /// Rafraîchit la licence hors-bande (déclenché à la connexion / au signal de
   /// synchro). `expectedGroupId` = identité authentifiée.
   Future<void> refreshLicense(String expectedGroupId) async {
+    // Dormant : sans clé publique épinglée, aucun token ne pourrait être
+    // vérifié → on n'émet même pas de requête réseau (zéro impact tant que
+    // l'activation n'a pas eu lieu).
+    if (ref.read(licensePinnedKeysProvider).isEmpty) return;
     try {
       final ent = await ref
           .read(licenseServiceProvider)
