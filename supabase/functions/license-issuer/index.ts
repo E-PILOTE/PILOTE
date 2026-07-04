@@ -16,7 +16,7 @@
 // ============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { computeValidTo } from "./_valid_to.ts";
+import { computeValidTo, computeOfflineWindowSeconds } from "./_valid_to.ts";
 
 const b64uEncode = (bytes: Uint8Array): string =>
   btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -65,7 +65,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: group } = await admin
       .from("school_groups")
-      .select("plan_id, subscription_status, subscription_end, payment_confirmed, updated_at")
+      .select("plan_id, subscription_status, subscription_end, payment_confirmed, offline_window_days, updated_at")
       .eq("id", groupId).maybeSingle();
     if (!group) return json({ error: "no_group" }, 404);
 
@@ -83,7 +83,7 @@ Deno.serve(async (req: Request) => {
     // 4) Construire les claims. `version` = compteur monotone autoritaire
     //    (mig 0026 : next_license_version), incrémenté à chaque émission.
     const nowIso = new Date().toISOString();
-    const offlineDays = parseInt(Deno.env.get("LICENSE_OFFLINE_WINDOW_DAYS") ?? "30", 10);
+    const defaultOfflineDays = parseInt(Deno.env.get("LICENSE_OFFLINE_WINDOW_DAYS") ?? "30", 10);
     const { data: version, error: verErr } = await admin.rpc(
       "next_license_version", { p_group: groupId });
     if (verErr || version == null) return json({ error: "version_failed" }, 500);
@@ -100,7 +100,9 @@ Deno.serve(async (req: Request) => {
       quotas: {},
       valid_from: nowIso,
       valid_to: validToIso,
-      offline_window: offlineDays * 86400,
+      offline_window: computeOfflineWindowSeconds(
+        group.offline_window_days, group.payment_confirmed,
+        defaultOfflineDays, provisionalDays),
       version,
       issued_at: nowIso,
       provisional: group.payment_confirmed === false, // trace (audit/debug)

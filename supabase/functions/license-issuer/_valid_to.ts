@@ -20,3 +20,18 @@ export function computeValidTo(
   }
   return validTo ? validTo.toISOString() : null;
 }
+
+// G3 — fenêtre de confiance ADAPTATIVE (secondes).
+// - paiement NON confirmé → fenêtre PROVISOIRE courte (limite l'exposition d'un
+//   compte non réglé), quelle que soit la config du groupe.
+// - sinon → override par groupe/zone s'il existe, défaut généreux à défaut.
+export function computeOfflineWindowSeconds(
+  overrideDays: number | null,
+  paymentConfirmed: boolean,
+  defaultDays: number,
+  provisionalDays: number,
+): number {
+  if (paymentConfirmed === false) return provisionalDays * 86400;
+  const days = (overrideDays != null && overrideDays > 0) ? overrideDays : defaultDays;
+  return days * 86400;
+}
