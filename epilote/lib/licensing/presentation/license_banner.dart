@@ -113,6 +113,33 @@ class _LicenseBannerState extends ConsumerState<LicenseBanner>
   }
 }
 
+/// Libellé de compte à rebours d'échéance, dérivé de la date d'expiration
+/// SIGNÉE de la licence (`license.validTo`). Pur & testable — aucune I/O.
+///
+/// Renvoie `null` (= rien à afficher en phase active) quand :
+///   - `validTo` est nul (abonnement perpétuel),
+///   - l'échéance est au-delà de `maxThreshold` jours,
+///   - l'échéance est déjà dépassée (les états grace/hardLock prennent le relais).
+///
+/// Comparaison au jour près (les échéances sont des dates, pas des instants).
+String? subscriptionCountdownLabel(
+  DateTime? validTo,
+  DateTime now, {
+  int maxThreshold = 30,
+}) {
+  if (validTo == null) return null;
+  final end = DateTime.utc(validTo.year, validTo.month, validTo.day);
+  final today = DateTime.utc(now.year, now.month, now.day);
+  final daysLeft = end.difference(today).inDays;
+  if (daysLeft < 0 || daysLeft > maxThreshold) return null;
+  if (daysLeft == 0) {
+    return "L'abonnement de l'établissement expire aujourd'hui ; au-delà, "
+        "l'accès aux modules sera suspendu.";
+  }
+  return "L'abonnement de l'établissement expire dans $daysLeft jour"
+      "${daysLeft > 1 ? 's' : ''} ; au-delà, l'accès aux modules sera suspendu.";
+}
+
 /// Helper d'expertise pour gater une mutation staff quand la licence est en
 /// lecture seule. Fail-soft : au doute (pas de licence, chargement) → autorise.
 /// À appeler en tête d'un handler de mutation côté personnel.
