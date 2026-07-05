@@ -7,6 +7,7 @@ import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../providers/invoices_provider.dart';
 import '../providers/school_groups_provider.dart';
+import '../widgets/dunning_panel.dart';
 import '../../communication/providers/notifications_provider.dart';
 import '../services/financial_pdf_service.dart';
 
@@ -304,6 +305,7 @@ class _InvoicesBodyState extends ConsumerState<_InvoicesBody> {
                 padding: const EdgeInsets.all(24),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   _KpiGrid(data: data),
+                  const DunningPanel(),
                   const SizedBox(height: 20),
                   _FilterBar(
                     contentWidth:   w - 48,
