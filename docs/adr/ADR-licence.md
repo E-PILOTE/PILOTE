@@ -109,7 +109,7 @@ provider admin `subscriptionAccessProvider` défaut `unknown()` = non bloquant.
 
 ---
 
-## ADR-0009 — Hard-lock à l'expiration, réservé aux plans PRIVÉS (rentabilité)
+## ADR-0009 — Hard-lock UNIFORME à l'expiration (rentabilité)
 **Contexte.** Le read-only souple (ADR-0008) ne crée pas assez de pression de
 paiement sur un marché où un impayé peut être opportuniste : une école lapsée
 continue de consulter/imprimer indéfiniment. Décision produit du propriétaire
@@ -118,30 +118,34 @@ continue de consulter/imprimer indéfiniment. Décision produit du propriétaire
 **Décision.** Nouvelle phase `LicensePhase.hardLock` (plus sévère que `readOnly`) :
 passé la grâce, les **modules deviennent inaccessibles** (clic → mur
 `/user/renouvellement`) ; seuls Dashboard / Profil / Paramètres et les routes
-natives (communication, non-modules) restent. L'écriture reste bloquée (déjà via
-`canWriteAt`).
+natives (communication, non-modules) restent — assez pour voir l'état et
+renouveler, rien de plus. L'écriture reste bloquée (déjà via `canWriteAt`).
+
+**Portée : TOUS les groupes, public comme privé.** Décision révisée le 2026-07-05 :
+pas d'exception par type de plan. À l'échéance, tout groupe se durcit de la même
+façon. (La v1 distinguait `is_public_plan` ; abandonné pour rester simple et
+uniforme.)
 
 **Garde-fous (non négociables).**
-1. **Plans privés uniquement.** Déclenché ssi la licence porte `hard_lock = true`,
-   stampé par l'émetteur depuis `subscription_plans.is_public_plan = false`. Les
-   écoles **publiques / État (MEPSA/METP)** ne sont **jamais** hard-lockées
-   (risque politique : l'État est le client) → elles restent en `readOnly`.
+1. **Grâce préservée.** Le hard-lock ne frappe qu'APRÈS `kLicenseGraceDays`
+   (15 j) — une école honnête en léger retard n'est jamais bloquée du jour au
+   lendemain.
 2. **Impayé CONFIRMÉ seulement.** Le hard-lock ne vient QUE de l'horloge métier
    (`valid_to` dépassé + grâce). La **fenêtre de confiance** (offline) n'escalade
    jamais au-delà de `readOnly` : un souci de réseau ≠ un impayé.
 3. **Fail-soft absolu.** `hardLockable` par défaut `false` : tant que l'émetteur
-   ne stampe pas le flag, comportement identique à ADR-0008 (aucune régression
-   pour les pilotes en cours).
+   ne stampe pas le flag `hard_lock`, comportement identique à ADR-0008. Aucune
+   licence / dormant ⇒ jamais de hard-lock. Le flag reste dans le domaine comme
+   filet de sécurité (l'émetteur le met à `true` pour tout groupe provisionné).
 4. **Invariant C4/ADR-0006 respecté.** Aucune donnée touchée, synchro toujours
    active ; tout est restauré au paiement (réémission licence, version +1).
 
-**Portée.** Espace **staff offline** uniquement. Le chemin online `admin_groupe`
-n'est **pas** hard-locké : c'est l'admin qui renouvelle — le bloquer serait
-contre-productif (il reste en scope « pas de croissance » d'ADR-0008).
+**Portée technique.** Espace **staff offline** uniquement. Le chemin online
+`admin_groupe` n'est **pas** hard-locké : c'est l'admin qui renouvelle — le
+bloquer serait contre-productif (scope « pas de croissance » d'ADR-0008).
 
-**Reste à activer.** L'Edge Function `license-issuer` doit ajouter le claim
-`hard_lock` (= `NOT is_public_plan`) au payload. Sans ce déploiement, la phase est
-inatteignable (dormante et sûre).
+**Activation.** L'Edge Function `license-issuer` émet `hard_lock: true` pour tout
+groupe provisionné. Déployée le 2026-07-05.
 
 ---
 

@@ -74,7 +74,7 @@ Future<void> _pump(WidgetTester tester, Entitlement e) async {
 }
 
 void main() {
-  testWidgets('plan PRIVÉ expiré → tuile module cadenassée, Dashboard intact',
+  testWidgets('groupe expiré → tuile module cadenassée, Dashboard intact',
       (tester) async {
     await _pump(tester, _expired(hardLockable: true));
     expect(find.text('Élèves'), findsOneWidget);
@@ -83,7 +83,7 @@ void main() {
     expect(find.byIcon(Icons.lock_rounded), findsOneWidget);
   });
 
-  testWidgets('plan PUBLIC expiré → aucune tuile cadenassée (read-only, pas hard-lock)',
+  testWidgets('flag hard_lock absent (fail-soft) → aucune tuile cadenassée',
       (tester) async {
     await _pump(tester, _expired(hardLockable: false));
     expect(find.byIcon(Icons.lock_rounded), findsNothing);

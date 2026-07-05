@@ -69,13 +69,13 @@ void main() {
       expect(p, LicensePhase.hardLock);
     });
 
-    test('public (non éligible) échu au-delà de la grâce → lecture seule, jamais hardLock', () {
+    test('flag hard_lock absent (fail-soft) → lecture seule, jamais hardLock', () {
       final p = computeLicensePhase(
         validTo: now.subtract(const Duration(days: 40)),
         offlineWindow: const Duration(days: 30),
         lastSyncAt: now.subtract(const Duration(days: 1)),
         now: now,
-        hardLockEligible: false,
+        hardLockEligible: false, // émetteur n'a pas stampé le claim
       );
       expect(p, LicensePhase.readOnly);
     });
