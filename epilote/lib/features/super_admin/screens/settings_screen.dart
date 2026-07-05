@@ -68,7 +68,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   bool _notifEmailEnabled      = true;
   bool _notifSmsEnabled        = false;
   final _notifEmailCtrl        = TextEditingController(text: 'admin@epilote.cg');
-  final _notifReminderCtrl     = TextEditingController(text: '7');
+  final _notifReminderCtrl     = TextEditingController(text: '30,15,7,1,0');
 
   // ── Sécurité ──────────────────────────────────────────────────────────────────
   bool _mfaRequired            = false;
@@ -454,9 +454,9 @@ class _Section extends StatelessWidget {
 }
 
 class _FieldRow extends StatelessWidget {
-  const _FieldRow({required this.label, required this.ctrl, this.hint = '', this.suffix, this.numeric = false, this.lines = 1});
+  const _FieldRow({required this.label, required this.ctrl, this.hint = '', this.suffix, this.numeric = false, this.csv = false, this.lines = 1});
   final String label; final TextEditingController ctrl; final String hint;
-  final String? suffix; final bool numeric; final int lines;
+  final String? suffix; final bool numeric; final bool csv; final int lines;
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: 12),
@@ -468,8 +468,12 @@ class _FieldRow extends StatelessWidget {
         TextField(
           controller: ctrl,
           maxLines: lines,
-          keyboardType: numeric ? TextInputType.number : TextInputType.text,
-          inputFormatters: numeric ? [FilteringTextInputFormatter.digitsOnly] : null,
+          keyboardType: (numeric || csv) ? TextInputType.number : TextInputType.text,
+          inputFormatters: numeric
+              ? [FilteringTextInputFormatter.digitsOnly]
+              : csv
+                  ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9, ]'))]
+                  : null,
           style: const TextStyle(fontSize: 13),
           decoration: InputDecoration(
             hintText: hint,
@@ -817,10 +821,11 @@ class _TabNotificationsState extends State<_TabNotifications> {
             title: 'Rappels automatiques',
             children: [
               _FieldRow(
-                label: 'Jours avant échéance pour rappel',
+                label: 'Jours de rappel avant échéance',
                 ctrl: s._notifReminderCtrl,
-                numeric: true,
-                suffix: 'jours',
+                csv: true,
+                hint: '30, 15, 7, 1, 0',
+                suffix: 'jours (liste séparée par des virgules)',
               ),
             ],
           ),

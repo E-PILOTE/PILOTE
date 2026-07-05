@@ -55,6 +55,7 @@ SubscriptionAccess computeSubscriptionAccess({
   required String status,
   required DateTime? end,
   DateTime? today,
+  int graceDays = kSubscriptionGraceDays,
 }) {
   final now = today ?? DateTime.now();
   // Comparaison au jour près (les dates de fin sont des DATE, sans heure).
@@ -78,7 +79,7 @@ SubscriptionAccess computeSubscriptionAccess({
   // passent directement en lecture seule.
   final naturalExpiry = status != 'suspended' && status != 'cancelled';
   final overdueDays = daysLeft == null ? 1 << 30 : -daysLeft;
-  final inGrace = naturalExpiry && daysLeft != null && overdueDays <= kSubscriptionGraceDays;
+  final inGrace = naturalExpiry && daysLeft != null && overdueDays <= graceDays;
 
   return SubscriptionAccess(
     phase: inGrace ? SubscriptionPhase.grace : SubscriptionPhase.readOnly,
@@ -107,6 +108,26 @@ bool ensureSubscriptionWritable(WidgetRef ref, BuildContext context) {
   return true;
 }
 
+/// Délai de grâce (jours) piloté par le super_admin depuis le dashboard, lu via
+/// la RPC curée `get_subscription_settings` (RLS-safe : n'expose que grace_days /
+/// reminder_days). Remplace la constante codée en dur `kSubscriptionGraceDays`.
+/// Fail-soft : au doute (réseau, RPC absente) → défaut historique 15 j.
+/// Online — partagé par l'espace admin_groupe ET la vue recouvrement super_admin.
+final subscriptionGraceDaysProvider =
+    FutureProvider.autoDispose<int>((ref) async {
+  ref.keepAlive();
+  final client = ref.watch(supabaseClientProvider);
+  try {
+    final r = await client.rpc('get_subscription_settings');
+    final map = r is Map ? r : const <String, dynamic>{};
+    final g = map['grace_days'];
+    if (g is int) return g;
+    return int.tryParse('$g') ?? kSubscriptionGraceDays;
+  } catch (_) {
+    return kSubscriptionGraceDays;
+  }
+});
+
 /// État d'accès abonnement du groupe courant (online). Fail-soft : toute erreur
 /// ⇒ `unknown()` (n'entrave rien). N'est consommé que dans l'espace admin_groupe.
 final subscriptionAccessProvider =
@@ -115,6 +136,8 @@ final subscriptionAccessProvider =
   if (groupId == null || groupId.isEmpty) return SubscriptionAccess.unknown();
 
   final client = ref.watch(supabaseClientProvider);
+  // Grâce réglable (fail-soft 15 j) — plus de valeur codée en dur.
+  final graceDays = await ref.watch(subscriptionGraceDaysProvider.future);
   try {
     final row = await client
         .from('school_groups')
@@ -126,7 +149,7 @@ final subscriptionAccessProvider =
     final status = (row['subscription_status'] as String?) ?? 'active';
     final endRaw = row['subscription_end'] as String?;
     final end = endRaw != null ? DateTime.tryParse(endRaw) : null;
-    return computeSubscriptionAccess(status: status, end: end);
+    return computeSubscriptionAccess(status: status, end: end, graceDays: graceDays);
   } catch (_) {
     // Fail-soft absolu : on ne verrouille jamais sur une incertitude.
     return SubscriptionAccess.unknown();
