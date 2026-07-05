@@ -127,4 +127,41 @@ void main() {
       expect(e.grantsModule('notes'), true);    // la route reste ouverte
     });
   });
+
+  group('LicenseEnforcement (miroir global, chokepoint écriture)', () {
+    tearDown(() => LicenseEnforcement.current = const Entitlement.none());
+
+    test('défaut none() → écriture jamais bloquée (fail-soft)', () {
+      LicenseEnforcement.current = const Entitlement.none();
+      expect(LicenseEnforcement.writeBlockedNow, false);
+    });
+
+    test('licence en lecture seule → écriture bloquée', () {
+      LicenseEnforcement.current = Entitlement(
+        license: License(
+          groupId: 'g1', plan: 'pro', modules: const {'notes'}, quotas: const {},
+          validFrom: null,
+          validTo: DateTime.now().toUtc().subtract(const Duration(days: 40)),
+          offlineWindow: const Duration(days: 30), version: 1,
+          issuedAt: DateTime.now().toUtc(),
+        ),
+        lastSyncAt: DateTime.now().toUtc(),
+      );
+      expect(LicenseEnforcement.writeBlockedNow, true);
+    });
+
+    test('licence en grâce → écriture permise', () {
+      LicenseEnforcement.current = Entitlement(
+        license: License(
+          groupId: 'g1', plan: 'pro', modules: const {'notes'}, quotas: const {},
+          validFrom: null,
+          validTo: DateTime.now().toUtc().subtract(const Duration(days: 5)),
+          offlineWindow: const Duration(days: 30), version: 1,
+          issuedAt: DateTime.now().toUtc(),
+        ),
+        lastSyncAt: DateTime.now().toUtc(),
+      );
+      expect(LicenseEnforcement.writeBlockedNow, false);
+    });
+  });
 }

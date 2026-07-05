@@ -40,3 +40,19 @@ class Entitlement {
   /// Écriture autorisée ? Fail-soft : non-enforcé ⇒ `true`.
   bool canWriteAt(DateTime now) => phaseAt(now) != LicensePhase.readOnly;
 }
+
+/// Miroir global de l'entitlement courant, lisible au MOMENT de l'écriture
+/// (sans `ref`). Alimenté par `EntitlementNotifier`. Permet au chokepoint
+/// d'écriture staff `runModuleWrite` d'appliquer la lecture seule de façon
+/// UNIFORME sur tous les modules, sans coupler chaque provider à Riverpod.
+///
+/// Fail-soft : défaut `none()` ⇒ jamais bloquant tant qu'aucune licence enforced.
+/// Ne concerne QUE l'écriture locale (jamais la synchro — C4).
+class LicenseEnforcement {
+  LicenseEnforcement._();
+  static Entitlement current = const Entitlement.none();
+
+  /// L'écriture doit-elle être refusée MAINTENANT (licence en lecture seule) ?
+  static bool get writeBlockedNow =>
+      current.isEnforced && !current.canWriteAt(DateTime.now().toUtc());
+}

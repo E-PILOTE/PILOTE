@@ -56,6 +56,7 @@ class EntitlementNotifier extends AsyncNotifier<Entitlement> {
     } catch (_) {
       ent = const Entitlement.none();
     }
+    LicenseEnforcement.current = ent; // miroir pour le chokepoint d'écriture
 
     // Rafraîchissement hors-bande au login (personnel scolaire uniquement).
     // Auto-inerte tant que les clés ne sont pas épinglées : `refreshLicense`
@@ -82,6 +83,7 @@ class EntitlementNotifier extends AsyncNotifier<Entitlement> {
       final ent = await ref
           .read(licenseServiceProvider)
           .refresh(expectedGroupId: expectedGroupId);
+      LicenseEnforcement.current = ent; // miroir pour le chokepoint d'écriture
       state = AsyncData(ent);
     } catch (_) {
       // fail-soft : on garde l'état courant.

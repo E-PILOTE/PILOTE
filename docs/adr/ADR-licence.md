@@ -70,6 +70,31 @@ infrastructure / présentation), **4 ports seulement** (`SignatureVerifier`,
 - **C6** : module **transverse** `lib/licensing/` (pas `features/`), `infrastructure/` plate.
 - Pas de `LicenseRepository` : `Store` + `Gateway` + `Service` suffisent (anti-cérémonie).
 
+## ADR-0008 — Périmètre d'enforcement uniforme (couverture plateforme)
+**Décision.** L'enforcement couvre la plateforme **sans exception**, mais via
+**deux mécanismes distincts** (C5 : online ≠ offline), chacun uniforme dans son périmètre.
+
+**Personnel scolaire (offline, ~40 modules) — read-only UNIFORME :**
+- Route : verrou plan dans `redirect` sur **tout** module (`moduleSlugForLocation`
+  + hôte générique `/user/m/:slug`).
+- Écriture : **un seul chokepoint** `runModuleWrite` (52 sites, tous domaines) refuse
+  l'écriture locale en lecture seule (`LicenseEnforcement.writeBlockedNow`). Aucun
+  provider n'est gaté individuellement → zéro particularité par écran.
+- Visibilité : `LicenseBanner` sur **tout** écran staff ; `canProvider` masque les
+  actions mutantes (verrou 3), `read`/`export` toujours permis (N12).
+
+**admin_groupe (online, gouvernance) — scope INTENTIONNEL « pas de croissance » :**
+- Passé la grâce, on suspend la **création de ressources facturables** (écoles,
+  utilisateurs) via `ensureSubscriptionWritable`. La **gestion** de l'existant, la
+  consultation et les **exports restent accessibles** (esprit N12 : ne pas piéger
+  un admin dont l'abonnement a lapsé ; permettre la clôture/mise à jour).
+- Ce n'est PAS une lecture seule totale : messages bandeau/snackbar alignés sur ce
+  périmètre. Choix assumé, pas un oubli.
+
+**Invariant commun** : jamais de gate sur la synchro PowerSync (C4) ; fail-soft
+partout (au doute, on autorise) — miroir staff `LicenseEnforcement` défaut `none()`,
+provider admin `subscriptionAccessProvider` défaut `unknown()` = non bloquant.
+
 ---
 
 ## Notes d'environnement

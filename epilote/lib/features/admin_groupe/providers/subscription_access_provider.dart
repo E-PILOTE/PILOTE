@@ -99,8 +99,8 @@ bool ensureSubscriptionWritable(WidgetRef ref, BuildContext context) {
   if (access != null && !access.canWrite) {
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
       backgroundColor: Color(0xFFDC2626),
-      content: Text('Abonnement expiré — espace en lecture seule. '
-          'Renouvelez pour effectuer des modifications.'),
+      content: Text('Abonnement expiré — création suspendue. '
+          'Renouvelez pour ajouter de nouvelles écoles ou utilisateurs.'),
     ));
     return false;
   }
