@@ -67,27 +67,38 @@ class _LicenseBannerState extends ConsumerState<LicenseBanner>
     final ent = ref.watch(entitlementProvider).valueOrNull;
     if (ent == null || !ent.isEnforced) return const SizedBox.shrink();
 
-    final phase = ent.phaseAt(DateTime.now().toUtc());
-    if (phase == LicensePhase.active) return const SizedBox.shrink();
+    final now = DateTime.now().toUtc();
+    final phase = ent.phaseAt(now);
 
-    final isStop = phase == LicensePhase.readOnly;
-    final (bg, border, fg, icon, message) = isStop
-        ? (
-            _kStopBg,
-            _kStopBorder,
-            _kStopFg,
-            _kStopIcon,
-            "Abonnement de l'établissement expiré — application en lecture seule. "
-                'Rapprochez-vous de votre administration.',
-          )
-        : (
-            _kWarnBg,
-            _kWarnBorder,
-            _kWarnFg,
-            _kWarnIcon,
-            "Abonnement de l'établissement échu — régularisation requise auprès "
-                'de votre administration.',
-          );
+    // Priorité d'affichage : hardLock > readOnly > grace > compte à rebours > rien.
+    final (Color bg, Color border, Color fg, IconData icon, Color iconColor, String message) info;
+    switch (phase) {
+      case LicensePhase.hardLock:
+        info = (
+          _kStopBg, _kStopBorder, _kStopFg, Icons.lock_clock_rounded, _kStopIcon,
+          "Accès aux modules suspendu — abonnement de l'établissement à renouveler "
+              'auprès de votre administration.',
+        );
+      case LicensePhase.readOnly:
+        info = (
+          _kStopBg, _kStopBorder, _kStopFg, Icons.lock_clock_rounded, _kStopIcon,
+          "Abonnement de l'établissement expiré — application en lecture seule. "
+              'Rapprochez-vous de votre administration.',
+        );
+      case LicensePhase.grace:
+        info = (
+          _kWarnBg, _kWarnBorder, _kWarnFg, Icons.warning_amber_rounded, _kWarnIcon,
+          "Abonnement de l'établissement échu — régularisation requise auprès "
+              'de votre administration.',
+        );
+      case LicensePhase.active:
+        final countdown = subscriptionCountdownLabel(ent.license?.validTo, now);
+        if (countdown == null) return const SizedBox.shrink();
+        info = (
+          _kWarnBg, _kWarnBorder, _kWarnFg, Icons.schedule_rounded, _kWarnIcon, countdown,
+        );
+    }
+    final (bg, border, fg, icon, iconColor, message) = info;
 
     return Material(
       color: bg,
@@ -97,8 +108,7 @@ class _LicenseBannerState extends ConsumerState<LicenseBanner>
         decoration: BoxDecoration(border: Border(bottom: BorderSide(color: border))),
         child: Row(
           children: [
-            Icon(isStop ? Icons.lock_clock_rounded : Icons.warning_amber_rounded,
-                size: 18, color: icon),
+            Icon(icon, size: 18, color: iconColor),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -111,6 +121,33 @@ class _LicenseBannerState extends ConsumerState<LicenseBanner>
       ),
     );
   }
+}
+
+/// Libellé de compte à rebours d'échéance, dérivé de la date d'expiration
+/// SIGNÉE de la licence (`license.validTo`). Pur & testable — aucune I/O.
+///
+/// Renvoie `null` (= rien à afficher en phase active) quand :
+///   - `validTo` est nul (abonnement perpétuel),
+///   - l'échéance est au-delà de `maxThreshold` jours,
+///   - l'échéance est déjà dépassée (les états grace/hardLock prennent le relais).
+///
+/// Comparaison au jour près (les échéances sont des dates, pas des instants).
+String? subscriptionCountdownLabel(
+  DateTime? validTo,
+  DateTime now, {
+  int maxThreshold = 30,
+}) {
+  if (validTo == null) return null;
+  final end = DateTime.utc(validTo.year, validTo.month, validTo.day);
+  final today = DateTime.utc(now.year, now.month, now.day);
+  final daysLeft = end.difference(today).inDays;
+  if (daysLeft < 0 || daysLeft > maxThreshold) return null;
+  if (daysLeft == 0) {
+    return "L'abonnement de l'établissement expire aujourd'hui ; au-delà, "
+        "l'accès aux modules sera suspendu.";
+  }
+  return "L'abonnement de l'établissement expire dans $daysLeft jour"
+      "${daysLeft > 1 ? 's' : ''} ; au-delà, l'accès aux modules sera suspendu.";
 }
 
 /// Helper d'expertise pour gater une mutation staff quand la licence est en
