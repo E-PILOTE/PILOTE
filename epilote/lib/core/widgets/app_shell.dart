@@ -18,6 +18,7 @@ import '../../features/user/providers/user_profile_provider.dart';
 import 'admin_ui.dart' show kSurface;
 import 'sync_failure_banner.dart';
 import 'subscription_banner.dart';
+import '../../licensing/presentation/license_banner.dart';
 import 'app_shell/app_header.dart';
 import 'app_shell/app_shell_theme.dart';
 import 'app_shell/app_sidebar.dart';
@@ -161,6 +162,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 ),
                 if (isStaff) const ReadOnlyYearBanner(),
                 if (isStaff) const SyncFailureBanner(),
+                if (isStaff) const LicenseBanner(),
                 if (profile?.role == AppConstants.roleAdminGroupe)
                   const SubscriptionBanner(),
                 Expanded(

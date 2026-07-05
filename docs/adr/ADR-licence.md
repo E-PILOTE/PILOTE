@@ -70,6 +70,43 @@ infrastructure / présentation), **4 ports seulement** (`SignatureVerifier`,
 - **C6** : module **transverse** `lib/licensing/` (pas `features/`), `infrastructure/` plate.
 - Pas de `LicenseRepository` : `Store` + `Gateway` + `Service` suffisent (anti-cérémonie).
 
+## ADR-0008 — Périmètre d'enforcement uniforme (couverture plateforme)
+**Décision.** L'enforcement couvre la plateforme **sans exception**, mais via
+**deux mécanismes distincts** (C5 : online ≠ offline), chacun uniforme dans son périmètre.
+
+**Personnel scolaire (offline, modules du catalogue) — read-only UNIFORME :**
+- Route : verrou plan dans `redirect` sur **tout** module (`moduleSlugForLocation`
+  + hôte générique `/user/m/:slug`).
+- Écriture : **un seul chokepoint** `runModuleWrite` (52 sites) refuse l'écriture
+  locale en lecture seule (`LicenseEnforcement.writeBlockedNow`). Il couvre les
+  **7 domaines de modules du catalogue** (classes, evaluation, finance, staff,
+  structure, students, vie_scolaire) ; aucun provider n'est gaté individuellement
+  → zéro particularité par écran DANS le périmètre catalogue.
+- Visibilité : `LicenseBanner` sur **tout** écran staff ; `canProvider` masque les
+  actions mutantes (verrou 3), `read`/`export` toujours permis (N12).
+
+**Exclusions ASSUMÉES du gating écriture staff (hors catalogue) :**
+- `features/communication/` (tissu **natif** hors catalogue : messagerie, annonces,
+  notifications, événements, stories, tickets) et `features/user/` (**espace
+  personnel** : Mon profil, Paramètres, support) écrivent hors `runModuleWrite`.
+- **Choix délibéré**, pas un oubli : la licence gate les **modules facturables**,
+  jamais le canal de communication ni le self-service. Esprit N12 étendu — ne pas
+  transformer en piège le moyen par lequel une école lapsée reçoit l'info ou dépose
+  sa demande de renouvellement/support. Cohérent avec « communication = tissu natif »
+  (hors catalogue de modules).
+
+**admin_groupe (online, gouvernance) — scope INTENTIONNEL « pas de croissance » :**
+- Passé la grâce, on suspend la **création de ressources facturables** (écoles,
+  utilisateurs) via `ensureSubscriptionWritable`. La **gestion** de l'existant, la
+  consultation et les **exports restent accessibles** (esprit N12 : ne pas piéger
+  un admin dont l'abonnement a lapsé ; permettre la clôture/mise à jour).
+- Ce n'est PAS une lecture seule totale : messages bandeau/snackbar alignés sur ce
+  périmètre. Choix assumé, pas un oubli.
+
+**Invariant commun** : jamais de gate sur la synchro PowerSync (C4) ; fail-soft
+partout (au doute, on autorise) — miroir staff `LicenseEnforcement` défaut `none()`,
+provider admin `subscriptionAccessProvider` défaut `unknown()` = non bloquant.
+
 ---
 
 ## Notes d'environnement

@@ -6,11 +6,10 @@
 > Décisions : `docs/adr/ADR-licence.md`. Code : `epilote/lib/licensing/`,
 > `supabase/functions/license-issuer/`.
 
-## 0. Prérequis serveur (une fois)
-- **Compteur de version monotone** : remplacer le `version` INTERIM de la fonction
-  (`epoch(updated_at)`) par un compteur dédié, p.ex. colonne
-  `school_groups.license_version int not null default 0` incrémentée à chaque
-  émission (ancre anti-rollback autoritaire — ADR-0005).
+## 0. Prérequis serveur — ✅ FAIT
+- **Compteur de version monotone** : `school_groups.license_version` +
+  `next_license_version(uuid)` — migration `0026`, **appliquée en prod**. La
+  fonction incrémente à chaque émission (ancre anti-rollback autoritaire, ADR-0005).
 
 ## 1. Générer la paire Ed25519 (hors dépôt — la privée est le secret n°1)
 ```bash
@@ -24,14 +23,30 @@ openssl pkey -in license_pub.pem -pubin -outform DER | tail -c 32 | xxd -i
 > Ne JAMAIS committer `license_priv*`. Stocker la privée hors ligne (coffre).
 
 ## 2. Provisionner le secret + déployer la fonction (PROD)
-```bash
-supabase secrets set \
-  LICENSE_PRIVATE_KEY_PKCS8_B64="$(cat license_priv.pkcs8.b64)" \
-  LICENSE_KID="2026-07" LICENSE_OFFLINE_WINDOW_DAYS="30"
-supabase functions deploy license-issuer --project-ref wqpdamlnrwgozfvzjjpo
+> ⚠️ **Blocage outillage constaté** : le CLI `supabase` (wrapper npm installé) n'a
+> **pas de binaire pour linux-x64** et il faut de toute façon un **Personal Access
+> Token** (dashboard → Account → Access Tokens) que l'environnement n'a pas. Deux
+> voies :
+> - **A. Dashboard** : Edge Functions → New function `license-issuer` → coller
+>   `supabase/functions/license-issuer/index.ts` → Deploy ; puis Settings → Secrets.
+> - **B. CLI avec un vrai binaire + PAT** :
+>   `export SUPABASE_ACCESS_TOKEN=<PAT>` puis binaire officiel (GitHub releases).
+
+Secrets à poser (les 4) :
 ```
-> À ce stade la fonction émet, mais **aucun appareil ne vérifie encore** (clés
-> non épinglées). Toujours dormant côté app.
+LICENSE_PRIVATE_KEY_PKCS8_B64 = <contenu de lic_priv.pkcs8.b64>   # clé privée Ed25519 (secret n°1)
+LICENSE_KID                   = 2026-07
+LICENSE_OFFLINE_WINDOW_DAYS   = 30
+LICENSE_PILOT_GROUP_IDS       = <group_id du PILOTE>              # garde-pilote (voir §4)
+LICENSE_PROVISIONAL_DAYS      = 7                                 # C4 : fenêtre licence provisoire (paiement non confirmé)
+```
+> Colonnes `school_groups` utilisées par l'issuer : `license_version` (mig 0026,
+> compteur monotone), `payment_confirmed` (0027, C4 : false ⇒ licence provisoire),
+> `offline_window_days` (0028, G3 : override de fenêtre par zone, NULL = défaut).
+> **GARDE-PILOTE** : tant que `LICENSE_PILOT_GROUP_IDS` est **définie**, la fonction
+> n'émet QUE pour les groupes listés (les autres reçoivent `403 not_in_pilot` →
+> restent dormants). Déploiement initial = liste = un seul groupe test.
+> À ce stade, aucun appareil ne vérifie encore (clés non épinglées côté app, §3).
 
 ## 3. Épingler la clé publique dans l'app (active la vérification)
 Renseigner `licensePinnedKeysProvider` (`epilote/lib/licensing/presentation/license_providers.dart`)
@@ -45,8 +60,10 @@ avec `{ '2026-07': <les 32 octets de l'étape 1> }`. **C'est l'interrupteur d'ac
 3. Contrôler qu'aucun staff légitime n'est bloqué (les modules émis = `plan_modules`).
 
 ## 5. Élargir progressivement
-Rollout par vagues (zone/groupe), en surveillant. Garder le **feature-flag serveur
-d'assouplissement** (punch-list C) pour revenir à dormant instantanément si besoin.
+Ajouter des group_id à `LICENSE_PILOT_GROUP_IDS` (secret, sans redéploiement du
+code) par vagues, en surveillant. **Fleet-wide** = retirer complètement la variable.
+Revenir à dormant instantanément = vider `licensePinnedKeysProvider` (build) OU
+remettre `LICENSE_PILOT_GROUP_IDS=` (vide → personne).
 
 ## Rollback
 - Vider `licensePinnedKeysProvider` → dormant immédiat (prochaine build).

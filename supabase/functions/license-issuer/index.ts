@@ -16,6 +16,7 @@
 // ============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { computeValidTo, computeOfflineWindowSeconds } from "./_valid_to.ts";
 
 const b64uEncode = (bytes: Uint8Array): string =>
   btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -53,9 +54,18 @@ Deno.serve(async (req: Request) => {
     const groupId = profile?.group_id as string | undefined;
     if (!groupId) return json({ error: "no_group" }, 403);
 
+    // GARDE-PILOTE : si LICENSE_PILOT_GROUP_IDS est DÉFINIE (même vide), on
+    // n'émet QUE pour les groupes listés → rollout contrôlé (déploiement sûr :
+    // liste vide = personne). Retirer complètement la variable = fleet-wide.
+    const pilotEnv = Deno.env.get("LICENSE_PILOT_GROUP_IDS");
+    if (pilotEnv !== undefined) {
+      const allow = pilotEnv.split(",").map((s) => s.trim()).filter(Boolean);
+      if (!allow.includes(groupId)) return json({ error: "not_in_pilot" }, 403);
+    }
+
     const { data: group } = await admin
       .from("school_groups")
-      .select("plan_id, subscription_status, subscription_end, updated_at")
+      .select("plan_id, subscription_status, subscription_end, payment_confirmed, offline_window_days, updated_at")
       .eq("id", groupId).maybeSingle();
     if (!group) return json({ error: "no_group" }, 404);
 
@@ -70,11 +80,18 @@ Deno.serve(async (req: Request) => {
       .filter((m: any) => m && m.is_active)
       .map((m: any) => m.slug);
 
-    // 4) Construire les claims. `version` = source monotone serveur (INTERIM :
-    //    epoch de updated_at ; à remplacer par un compteur dédié — cf. go-live).
+    // 4) Construire les claims. `version` = compteur monotone autoritaire
+    //    (mig 0026 : next_license_version), incrémenté à chaque émission.
     const nowIso = new Date().toISOString();
-    const offlineDays = parseInt(Deno.env.get("LICENSE_OFFLINE_WINDOW_DAYS") ?? "30", 10);
-    const version = Math.floor(new Date(group.updated_at).getTime() / 1000);
+    const defaultOfflineDays = parseInt(Deno.env.get("LICENSE_OFFLINE_WINDOW_DAYS") ?? "30", 10);
+    const { data: version, error: verErr } = await admin.rpc(
+      "next_license_version", { p_group: groupId });
+    if (verErr || version == null) return json({ error: "version_failed" }, 500);
+
+    // C4 — 2 étages (logique extraite/testée dans _valid_to.ts).
+    const provisionalDays = parseInt(Deno.env.get("LICENSE_PROVISIONAL_DAYS") ?? "7", 10);
+    const validToIso = computeValidTo(
+      group.subscription_end, group.payment_confirmed, new Date(), provisionalDays);
 
     const payload = {
       group_id: groupId,
@@ -82,12 +99,13 @@ Deno.serve(async (req: Request) => {
       modules,
       quotas: {},
       valid_from: nowIso,
-      valid_to: group.subscription_end
-        ? new Date(group.subscription_end + "T00:00:00Z").toISOString()
-        : null,
-      offline_window: offlineDays * 86400,
+      valid_to: validToIso,
+      offline_window: computeOfflineWindowSeconds(
+        group.offline_window_days, group.payment_confirmed,
+        defaultOfflineDays, provisionalDays),
       version,
       issued_at: nowIso,
+      provisional: group.payment_confirmed === false, // trace (audit/debug)
       // NB : un groupe suspendu/expiré peut se voir émettre une licence à
       // modules vides ou valid_to passé → l'app dégrade en douceur (fail-soft).
     };

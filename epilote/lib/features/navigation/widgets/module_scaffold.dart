@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/app_shell.dart';
+import '../../../licensing/domain/entitlement.dart';
 import '../providers/permissions_provider.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -131,6 +132,20 @@ Future<bool> runModuleWrite(
   Future<void> Function() op, {
   String? success,
 }) async {
+  // Verrou LICENCE UNIFORME (staff) : en lecture seule (licence expirée au-delà
+  // de la grâce, ou fenêtre de confiance dépassée), on refuse l'écriture LOCALE
+  // avant exécution. Fail-soft (aucune licence ⇒ jamais bloquant). Ne touche
+  // JAMAIS la synchro (C4) : les données déjà créées continuent de remonter.
+  if (LicenseEnforcement.writeBlockedNow) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        backgroundColor: _kRed,
+        content: Text('Abonnement expiré — application en lecture seule. '
+            'Modification impossible pour le moment.'),
+      ));
+    }
+    return false;
+  }
   try {
     await op();
     if (context.mounted && success != null) {

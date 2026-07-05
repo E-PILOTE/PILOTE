@@ -40,8 +40,8 @@ class SubscriptionBanner extends ConsumerWidget {
           _kStopFg,
           Icons.lock_clock_rounded,
           _kStopIcon,
-          'Abonnement expiré — espace en lecture seule. '
-              'Renouvelez pour rétablir les modifications.',
+          "Abonnement expiré — création d'écoles et d'utilisateurs suspendue. "
+              'Renouvelez pour rétablir. La gestion et les exports restent accessibles.',
         ),
       SubscriptionPhase.grace => (
           _kWarnBg,

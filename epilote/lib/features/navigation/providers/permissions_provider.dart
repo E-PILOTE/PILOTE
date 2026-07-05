@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/auth/providers/active_agent_provider.dart';
+import '../../../licensing/presentation/license_providers.dart';
 import '../../../services/powersync/powersync_service.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -102,11 +103,28 @@ final modulePermissionProvider =
   return perms[slug];
 });
 
-/// `can(slug, action)` — verrou 3 pour gating des boutons. Faux si non chargé.
+/// `can(slug, action)` — verrou 3 (profil) pour gating des boutons. Faux si non
+/// chargé. Ajout du **verrou LICENCE** : en lecture seule (licence expirée
+/// au-delà de la grâce, ou fenêtre de confiance dépassée), on coupe les actions
+/// d'ÉCRITURE — jamais la lecture. Fail-soft : sans licence (dormant) ou au
+/// doute, aucun changement de comportement. Ne gate JAMAIS la synchro (C4).
 final canProvider =
     Provider.autoDispose.family<bool, ({String slug, String action})>((ref, key) {
   final perm = ref.watch(modulePermissionProvider(key.slug));
-  return perm?.can(key.action) ?? false;
+  if (!(perm?.can(key.action) ?? false)) return false;
+
+  // Actions MUTANTES coupées en lecture seule. `read` et `export` restent
+  // toujours permis (N12 : export des dossiers élèves autorisé même restreint).
+  const mutating = {
+    'create', 'update', 'delete', 'import', 'validate', 'approve', 'manage', 'write',
+  };
+  if (mutating.contains(key.action)) {
+    final ent = ref.watch(entitlementProvider).valueOrNull;
+    if (ent != null && ent.isEnforced && !ent.canWriteAt(DateTime.now().toUtc())) {
+      return false; // lecture seule → écriture coupée
+    }
+  }
+  return true;
 });
 
 // ─── Périmètre (verrou 4) ──────────────────────────────────────────────────
