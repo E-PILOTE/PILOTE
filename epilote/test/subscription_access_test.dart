@@ -68,5 +68,17 @@ void main() {
     test('unknown() est fail-soft (écriture autorisée)', () {
       expect(SubscriptionAccess.unknown().canWrite, true);
     });
+
+    test('grâce CONFIGURABLE : graceDays=5, échu depuis 10 j → readOnly', () {
+      final a = computeSubscriptionAccess(
+          status: 'active', end: DateTime(2026, 6, 24), today: today, graceDays: 5);
+      expect(a.phase, SubscriptionPhase.readOnly);
+    });
+
+    test('grâce par défaut (15) sur la même date → grace (preuve du non-codage en dur)', () {
+      final a = computeSubscriptionAccess(
+          status: 'active', end: DateTime(2026, 6, 24), today: today);
+      expect(a.phase, SubscriptionPhase.grace);
+    });
   });
 }

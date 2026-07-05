@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../admin_groupe/providers/subscription_access_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 
 /// Vue « recouvrement » super_admin : quels groupes approchent de l'échéance,
@@ -66,6 +67,8 @@ final dunningProvider =
   ref.keepAlive();
   final client = ref.watch(supabaseClientProvider);
   final now = DateTime.now();
+  // Grâce réglable (super_admin), fail-soft 15 j — cohérente avec le soft-gate admin.
+  final graceDays = await ref.watch(subscriptionGraceDaysProvider.future);
 
   try {
     final groups = await client
@@ -94,7 +97,7 @@ final dunningProvider =
       final status = (m['subscription_status'] as String?) ?? 'active';
       final endRaw = m['subscription_end'] as String?;
       final end = endRaw != null ? DateTime.tryParse(endRaw) : null;
-      final bucket = bucketDunning(status: status, end: end, now: now);
+      final bucket = bucketDunning(status: status, end: end, now: now, graceDays: graceDays);
       if (bucket == null) continue;
 
       final gid = m['id'] as String;
