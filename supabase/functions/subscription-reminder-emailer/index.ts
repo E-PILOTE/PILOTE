@@ -3,22 +3,24 @@
 // ----------------------------------------------------------------------------
 // Canal HORS-APP des rappels d'échéance (audit national #2). Double le canal
 // in-app (cloche) par un EMAIL au payeur, car l'admin_groupe n'ouvre pas l'app
-// tous les jours. Envoi via Resend.
+// tous les jours. Envoi via CLOUDFLARE EMAIL SERVICE (domaine epilote.org déjà
+// chez Cloudflare ; supporte les destinataires arbitraires).
 //
 // Déclenchée par pg_cron (via pg_net) peu après le cron de génération des
 // rappels (emit_subscription_reminders). Idempotente : chaque notification
 // 'subscription' non encore envoyée par email (data.emailed != true) est traitée
 // une seule fois (on repose data.emailed = true après envoi réussi).
 //
-// FAIL-SOFT / DORMANT : sans RESEND_API_KEY, la fonction ne fait RIEN (200
-// « dormant ») — aucune erreur, aucun envoi. Activation = poser les secrets.
+// FAIL-SOFT / DORMANT : sans CF_EMAIL_API_TOKEN + CF_ACCOUNT_ID, la fonction ne
+// fait RIEN (200 « dormant ») — aucune erreur, aucun envoi. Activation = poser
+// les secrets. Le token N'EST JAMAIS exposé côté client (server-side only).
 //
 // Secrets attendus (supabase secrets set) :
-//   RESEND_API_KEY   clé API Resend (obligatoire pour activer l'envoi)
-//   RESEND_FROM      expéditeur vérifié (ex. "E-PILOTE <no-reply@e-pilote.cg>")
+//   CF_EMAIL_API_TOKEN  token API Cloudflare avec permission « Email Sending: Edit »
+//   CF_ACCOUNT_ID       identifiant de compte Cloudflare
+//   CF_EMAIL_FROM       expéditeur (déf. "E-PILOTE CONGO <noreply@mail.epilote.org>")
 //   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY  injectés automatiquement
-// verify_jwt = true : l'appelant (pg_net) doit présenter un JWT projet valide
-//   (service_role) → non appelable publiquement.
+// verify_jwt = true : l'appelant (pg_net) doit présenter un JWT projet valide.
 // ============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -29,17 +31,21 @@ const json = (body: unknown, status = 200): Response =>
     headers: { "Content-Type": "application/json" },
   });
 
+const escapeHtml = (s: string): string =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok");
 
   try {
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-    const RESEND_FROM =
-      Deno.env.get("RESEND_FROM") ?? "E-PILOTE <no-reply@e-pilote.cg>";
+    const CF_TOKEN = Deno.env.get("CF_EMAIL_API_TOKEN");
+    const CF_ACCOUNT = Deno.env.get("CF_ACCOUNT_ID");
+    const CF_FROM =
+      Deno.env.get("CF_EMAIL_FROM") ?? "E-PILOTE CONGO <noreply@mail.epilote.org>";
 
-    // DORMANT tant que la clé n'est pas posée : aucun envoi, aucune erreur.
-    if (!RESEND_API_KEY) {
-      return json({ status: "dormant", reason: "RESEND_API_KEY unset" });
+    // DORMANT tant que les secrets ne sont pas posés : aucun envoi, aucune erreur.
+    if (!CF_TOKEN || !CF_ACCOUNT) {
+      return json({ status: "dormant", reason: "CF_EMAIL_API_TOKEN/CF_ACCOUNT_ID unset" });
     }
 
     const url = Deno.env.get("SUPABASE_URL")!;
@@ -55,6 +61,9 @@ Deno.serve(async (req: Request) => {
       .gte("created_at", since)
       .limit(1000);
     if (error) return json({ status: "error", error: `${error.message}` }, 500);
+
+    const endpoint =
+      `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT}/email/sending/send`;
 
     let sent = 0, skipped = 0, failed = 0;
 
@@ -73,21 +82,32 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      const res = await fetch("https://api.resend.com/emails", {
+      const html =
+        `<p>${escapeHtml(n.body)}</p>` +
+        `<p style="color:#64748b;font-size:12px">— E-PILOTE CONGO</p>`;
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${RESEND_API_KEY}`,
+          Authorization: `Bearer ${CF_TOKEN}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: RESEND_FROM,
+          from: CF_FROM,
           to: email,
           subject: n.title,
-          text: `${n.body}\n\n— E-PILOTE CONGO`,
+          html,
         }),
       });
 
-      if (res.ok) {
+      // Cloudflare renvoie { success: true, ... } en cas de succès.
+      let ok = res.ok;
+      try {
+        const r = await res.json();
+        ok = ok && r?.success !== false;
+      } catch (_) { /* corps non-JSON : on se fie au statut HTTP */ }
+
+      if (ok) {
         await admin
           .from("notifications")
           .update({
@@ -101,7 +121,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    return json({ status: "ok", sent, skipped, failed });
+    return json({ status: "ok", provider: "cloudflare", sent, skipped, failed });
   } catch (e) {
     return json({ status: "error", error: `${e}` }, 500);
   }
