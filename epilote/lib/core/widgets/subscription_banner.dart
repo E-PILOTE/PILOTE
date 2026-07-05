@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -20,11 +22,48 @@ const _kStopIcon = Color(0xFFDC2626);
 /// Rend l'expiration VISIBLE et pousse au renouvellement (soft-gate — cf.
 /// docs/ABONNEMENT_LICENCE_ARCHITECTURE.md, cascade grâce→lecture seule).
 /// Ne s'affiche pas quand l'abonnement est actif et loin de l'échéance.
-class SubscriptionBanner extends ConsumerWidget {
+///
+/// **Ré-évaluation (Vague 3 « tick 1×/jour + premier plan »)** : la phase se
+/// dérive de `now` dans `subscriptionAccessProvider`. Pour que la bascule
+/// grâce→lecture-seule apparaisse sans redémarrage sur une session longue, on
+/// invalide le provider au retour au premier plan et sur un timer périodique
+/// (online → refetch peu coûteux). Miroir du tick staff, pour l'uniformité.
+class SubscriptionBanner extends ConsumerStatefulWidget {
   const SubscriptionBanner({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SubscriptionBanner> createState() => _SubscriptionBannerState();
+}
+
+class _SubscriptionBannerState extends ConsumerState<SubscriptionBanner>
+    with WidgetsBindingObserver {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _tick = Timer.periodic(const Duration(hours: 6), (_) {
+      if (mounted) ref.invalidate(subscriptionAccessProvider);
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      ref.invalidate(subscriptionAccessProvider);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final access = ref.watch(subscriptionAccessProvider).valueOrNull;
     if (access == null) return const SizedBox.shrink();
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -20,11 +22,48 @@ const _kStopIcon = Color(0xFFDC2626);
 ///
 /// Invisible quand : pas de licence (dormant), en chargement, ou phase active.
 /// Ne gate JAMAIS la synchro (C4) : purement informatif + signal de lecture seule.
-class LicenseBanner extends ConsumerWidget {
+///
+/// **Ré-évaluation (Vague 3 « tick 1×/jour + premier plan »)** : la phase se
+/// dérive de `now`, mais l'`Entitlement` en mémoire ne change pas sur une session
+/// longue **hors ligne** (cœur de cible rural, appareil laissé allumé). Ce widget
+/// se re-rend donc à chaque retour au premier plan (`resumed`) ET sur un timer
+/// périodique, pour que la bascule grâce→lecture-seule s'affiche sans redémarrage.
+class LicenseBanner extends ConsumerStatefulWidget {
   const LicenseBanner({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LicenseBanner> createState() => _LicenseBannerState();
+}
+
+class _LicenseBannerState extends ConsumerState<LicenseBanner>
+    with WidgetsBindingObserver {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Grain 6 h : garantit la bascule au passage d'un jour dans les 6 h même
+    // sans interaction ; le retour au premier plan rafraîchit immédiatement.
+    _tick = Timer.periodic(const Duration(hours: 6), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final ent = ref.watch(entitlementProvider).valueOrNull;
     if (ent == null || !ent.isEnforced) return const SizedBox.shrink();
 

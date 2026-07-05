@@ -64,16 +64,21 @@ offline/écriture-KO/anti-recul-horloge), `ed25519_roundtrip_test.dart` (signe �
 vérifie → altère → kid inconnu). **80 % de la logique testée sans réseau/plugin.**
 
 ## État & activation
-- **Enforcement DORMANT** : `licensePinnedKeysProvider` est **vide** ⇒ aucun token ne
-  décode ⇒ `Entitlement.none()` ⇒ comportement actuel de l'app **strictement préservé**.
-- **Activation** (Vague 1/7, non faite) : générer la paire Ed25519, déployer l'Edge
-  Function `license-issuer`, **renseigner les clés publiques épinglées**. Réversible.
+- **⚡ ACTIVÉ (pilote METP) le 2026-07-04.** `licensePinnedKeysProvider` contient la
+  clé `2026-07` ; l'émission est bornée serveur par `LICENSE_PILOT_GROUP_IDS`. Vider
+  le map OU la liste = retour dormant immédiat (`Entitlement.none()`, app préservée).
 
-## Reste à faire (vagues suivantes)
-1. **Vague 1** : paire Ed25519 + Edge Function `license-issuer` (clé privée isolée) +
-   2 étages de licence (provisoire/plein terme, gap C4 métier).
-2. **Vague 7** : (ré)émission sur changement d'abonnement + déclencheurs refresh
-   (login / `SyncStatus.connected`) ; câbler `entitlementProvider.refreshLicense`.
-3. **Vague 6 (reste)** : bannière fail-soft offline + gating des mutations sur `canWriteAt`.
-4. **Vague 8 (différé)** : `license_pointer`, activation offline (USB/QR, N8),
-   fenêtre adaptative, supersession de tenant (E1/E2).
+## Reste à faire (état 2026-07-05)
+- ✅ **Vague 1** (émission serveur) : Edge Function `license-issuer` déployée, paire
+  Ed25519, 2 étages provisoire/plein terme (C4, `payment_confirmed`), fenêtre
+  adaptative (G3, `offline_window_days`). Vérité sur `school_groups` (pas `subscriptions`).
+- ✅ **Vague 7** (re-émission/refresh) : compteur `license_version` monotone
+  (`next_license_version`), refresh hors-bande câblé au login staff.
+- ✅ **Vague 6** (enforcement doux) : bannières staff+admin, gating écriture uniforme
+  (`runModuleWrite` + `LicenseEnforcement`, ADR-0008), `canProvider` verrou 3.
+- ✅ **Vague 3 (tick)** : ré-évaluation « 1×/jour + premier plan » sur les deux
+  bannières (resume + timer 6 h) → bascule grâce→lecture-seule sans redémarrage.
+- ⏸ **Quotas souples** (advisory dépassement offline + réconciliation synchro) :
+  différé assumé — `quotas:{}` aujourd'hui, jamais bloquant (backlog).
+- ⏸ **Vague 8 / 4 (différé, au vrai besoin)** : `license_pointer`, activation offline
+  (USB/QR, N8), supersession de tenant (fusion/scission, E1/E2).
