@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../admin_ui.dart' show kNavyDark, kAccent;
 import '../../constants/routes.dart';
 import '../../../data/models/profile_model.dart';
+import '../../../features/navigation/module_routes.dart';
+import '../../../licensing/presentation/license_providers.dart';
 import 'nav_models.dart';
 import 'nav_tile.dart';
 import 'shell_providers.dart';
@@ -105,6 +107,16 @@ class _NavSectionView extends ConsumerWidget {
     // Repliable seulement si titrée, non épinglée, et sidebar en mode étendu.
     final collapsible = hasTitle && !section.pinned && expanded;
 
+    // Hard-lock d'abonnement (ADR-0009) : les entrées de MODULE deviennent des
+    // clics morts (grisées + cadenas). Fail-soft : non-enforcé / grâce / lecture
+    // seule / plan public → false. Les entrées hors catalogue (Dashboard, Profil,
+    // Paramètres, natives) ne sont jamais verrouillées (moduleSlugForLocation == null).
+    final hardLocked = ref
+            .watch(entitlementProvider)
+            .valueOrNull
+            ?.isHardLockedAt(DateTime.now().toUtc()) ??
+        false;
+
     // La section de la page courante est toujours dépliée (on ne cache jamais
     // où l'on se trouve). Idem en mode icônes : pas de repli.
     final collapsed = collapsible &&
@@ -121,6 +133,7 @@ class _NavSectionView extends ConsumerWidget {
             isActive: e.route == activeRoute,
             expanded: expanded,
             badge: _badgeFor(e.route),
+            locked: hardLocked && moduleSlugForLocation(e.route) != null,
             onTap: () => onNavigate(e.route),
           ),
     ];

@@ -83,6 +83,11 @@ Deno.serve(async (req: Request) => {
       .filter((m: any) => m && m.is_active)
       .map((m: any) => m.slug);
 
+    // 3b) Politique de HARD-LOCK (ADR-0009) : UNIFORME pour tous les groupes,
+    //     public comme privé. À l'échéance (au-delà de la grâce), les modules
+    //     deviennent inaccessibles. Pas d'exception par type de plan.
+    const hardLock = true;
+
     // GARDE FAIL-SOFT (fleet-wide) : un groupe NON PROVISIONNÉ (aucun plan, ou
     // plan à 0 module actif) ne doit JAMAIS recevoir une licence enforçant des
     // modules vides — cela le bricquerait (verrou plan → tous les modules
@@ -119,6 +124,7 @@ Deno.serve(async (req: Request) => {
         defaultOfflineDays, provisionalDays),
       version,
       issued_at: nowIso,
+      hard_lock: hardLock, // ADR-0009 : à l'échéance, modules inaccessibles (tous les groupes)
       provisional: group.payment_confirmed === false, // trace (audit/debug)
       // NB : un groupe suspendu/expiré peut se voir émettre une licence à
       // modules vides ou valid_to passé → l'app dégrade en douceur (fail-soft).

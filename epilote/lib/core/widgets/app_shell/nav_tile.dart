@@ -5,8 +5,14 @@ import 'nav_models.dart';
 
 /// Tuile de navigation cliquable (item de la sidebar).
 ///
-/// États : repos / survol / actif. L'item actif porte un fond plein + un liseré
-/// vert à gauche. En mode réduit, un tooltip affiche le libellé.
+/// États : repos / survol / actif / verrouillé. L'item actif porte un fond plein
+/// + un liseré vert à gauche. En mode réduit, un tooltip affiche le libellé.
+///
+/// [locked] : module gelé par le hard-lock d'abonnement impayé (ADR-0009). La
+/// tuile est grisée, porte un cadenas, le curseur devient « interdit » et le clic
+/// est MORT (aucune navigation) — seuls Dashboard et pages hors abonnement
+/// restent vivants. Le mur de renouvellement reste atteignable via le routeur
+/// (deep-link) et la bannière de licence.
 class NavTile extends StatefulWidget {
   const NavTile({
     super.key,
@@ -15,6 +21,7 @@ class NavTile extends StatefulWidget {
     required this.expanded,
     required this.badge,
     required this.onTap,
+    this.locked = false,
   });
 
   final NavEntry entry;
@@ -22,6 +29,7 @@ class NavTile extends StatefulWidget {
   final bool expanded;
   final int badge;
   final VoidCallback onTap;
+  final bool locked;
 
   @override
   State<NavTile> createState() => _NavTileState();
@@ -33,19 +41,29 @@ class _NavTileState extends State<NavTile> {
   @override
   Widget build(BuildContext context) {
     final entry = widget.entry;
-    final isActive = widget.isActive;
+    final locked = widget.locked;
+    // Un item verrouillé ne peut jamais paraître actif ni réagir au survol.
+    final isActive = widget.isActive && !locked;
     final expanded = widget.expanded;
     const white = Colors.white;
 
+    // Opacité du contenu : normal, ou atténué si verrouillé.
+    final double contentAlpha = locked ? 0.34 : 0.80;
+
     return Tooltip(
-      message: expanded ? '' : entry.label,
+      message: locked
+          ? '${entry.label} — abonnement à renouveler'
+          : (expanded ? '' : entry.label),
       preferBelow: false,
       child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hovered = true),
+        cursor: locked
+            ? SystemMouseCursors.forbidden
+            : SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = !locked),
         onExit: (_) => setState(() => _hovered = false),
         child: GestureDetector(
-          onTap: widget.onTap,
+          // Clic MORT quand verrouillé : on absorbe le tap sans naviguer.
+          onTap: locked ? () {} : widget.onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,
@@ -76,7 +94,8 @@ class _NavTileState extends State<NavTile> {
                 _IconWithBadge(
                   icon: entry.icon ?? Icons.circle_outlined,
                   isActive: isActive,
-                  badge: widget.badge,
+                  badge: locked ? 0 : widget.badge,
+                  dimmed: locked,
                 ),
                 if (expanded) ...[
                   const SizedBox(width: 11),
@@ -84,7 +103,9 @@ class _NavTileState extends State<NavTile> {
                     child: Text(
                       entry.label,
                       style: TextStyle(
-                        color: isActive ? white : white.withValues(alpha: 0.80),
+                        color: isActive
+                            ? white
+                            : white.withValues(alpha: contentAlpha),
                         fontSize: 13,
                         fontWeight:
                             isActive ? FontWeight.w600 : FontWeight.w400,
@@ -92,6 +113,12 @@ class _NavTileState extends State<NavTile> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  if (locked)
+                    Icon(
+                      Icons.lock_rounded,
+                      size: 14,
+                      color: white.withValues(alpha: 0.34),
+                    ),
                 ],
               ],
             ),
@@ -107,10 +134,12 @@ class _IconWithBadge extends StatelessWidget {
     required this.icon,
     required this.isActive,
     required this.badge,
+    this.dimmed = false,
   });
   final IconData icon;
   final bool isActive;
   final int badge;
+  final bool dimmed;
 
   @override
   Widget build(BuildContext context) {
@@ -121,7 +150,9 @@ class _IconWithBadge extends StatelessWidget {
         Icon(
           icon,
           size: 19,
-          color: isActive ? white : white.withValues(alpha: 0.62),
+          color: isActive
+              ? white
+              : white.withValues(alpha: dimmed ? 0.30 : 0.62),
         ),
         if (badge > 0)
           Positioned(

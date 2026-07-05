@@ -14,6 +14,7 @@ class License {
     required this.offlineWindow,
     required this.version,
     required this.issuedAt,
+    this.hardLockable = false,
   });
 
   /// Décode une licence depuis les *claims* d'un JWS déjà vérifié.
@@ -51,6 +52,10 @@ class License {
       offlineWindow: Duration(seconds: windowSecs),
       version: (c['version'] is int) ? c['version'] as int : int.tryParse('${c['version']}') ?? 0,
       issuedAt: parseTs(c['issued_at']),
+      // Politique de hard-lock stampée par l'émetteur (`is_public_plan = false`).
+      // Absent ou non-`true` ⇒ false : aucune école ne se durcit tant que le
+      // serveur ne l'a pas explicitement décidé (fail-soft).
+      hardLockable: c['hard_lock'] == true,
     );
   }
 
@@ -72,6 +77,11 @@ class License {
 
   /// Informationnel / audit UNIQUEMENT. Ne sert JAMAIS à rejeter (C3).
   final DateTime? issuedAt;
+
+  /// `true` ⇒ ce tenant est soumis au hard-lock à l'expiration (plan PRIVÉ,
+  /// `is_public_plan = false` côté serveur). `false` (défaut fail-soft) ⇒ au pire
+  /// lecture seule : les écoles publiques/État ne sont jamais bloquées.
+  final bool hardLockable;
 
   bool grantsModule(String slug) => modules.contains(slug);
 }

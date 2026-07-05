@@ -57,6 +57,70 @@ void main() {
       );
       expect(p, LicensePhase.active);
     });
+
+    test('hard-lock LE JOUR MÊME : éligible, échu à peine (1 j)', () {
+      final p = computeLicensePhase(
+        validTo: now.subtract(const Duration(days: 1)),
+        offlineWindow: const Duration(days: 30),
+        lastSyncAt: now.subtract(const Duration(hours: 2)),
+        now: now,
+        hardLockEligible: true,
+      );
+      expect(p, LicensePhase.hardLock); // aucune grâce quand le flag est présent
+    });
+
+    test('hard-lock : éligible et échu de longue date', () {
+      final p = computeLicensePhase(
+        validTo: now.subtract(const Duration(days: 40)),
+        offlineWindow: const Duration(days: 30),
+        lastSyncAt: now.subtract(const Duration(days: 1)),
+        now: now,
+        hardLockEligible: true,
+      );
+      expect(p, LicensePhase.hardLock);
+    });
+
+    test('flag hard_lock absent (fail-soft) → échelle douce : grâce puis lecture seule', () {
+      final grace = computeLicensePhase(
+        validTo: now.subtract(const Duration(days: 10)), // < 15 j
+        offlineWindow: const Duration(days: 30),
+        lastSyncAt: now.subtract(const Duration(days: 1)),
+        now: now,
+        hardLockEligible: false,
+      );
+      expect(grace, LicensePhase.grace);
+
+      final ro = computeLicensePhase(
+        validTo: now.subtract(const Duration(days: 40)), // > 15 j
+        offlineWindow: const Duration(days: 30),
+        lastSyncAt: now.subtract(const Duration(days: 1)),
+        now: now,
+        hardLockEligible: false, // émetteur n'a pas stampé le claim
+      );
+      expect(ro, LicensePhase.readOnly);
+    });
+
+    test('encore actif : échéance FUTURE, éligible → aucun blocage', () {
+      final p = computeLicensePhase(
+        validTo: now.add(const Duration(days: 5)),
+        offlineWindow: const Duration(days: 30),
+        lastSyncAt: now.subtract(const Duration(hours: 1)),
+        now: now,
+        hardLockEligible: true,
+      );
+      expect(p, LicensePhase.active);
+    });
+
+    test('fenêtre de confiance dépassée n\'escalade PAS au hard-lock (réseau ≠ impayé)', () {
+      final p = computeLicensePhase(
+        validTo: now.add(const Duration(days: 60)), // métier OK
+        offlineWindow: const Duration(days: 30),
+        lastSyncAt: now.subtract(const Duration(days: 45)),
+        now: now,
+        hardLockEligible: true, // même éligible, on ne bloque que sur impayé confirmé
+      );
+      expect(p, LicensePhase.readOnly);
+    });
   });
 
   group('LicenseValidator (C3 : anti-rollback = version seule)', () {
@@ -124,7 +188,28 @@ void main() {
         lastSyncAt: now,
       );
       expect(e.canWriteAt(now), false);         // lecture seule
+      expect(e.isHardLockedAt(now), false);     // public → pas de hard-lock
       expect(e.grantsModule('notes'), true);    // la route reste ouverte
+    });
+
+    test('plan privé expiré → hard-lock : canWrite false ET hard-lock actif', () {
+      final e = Entitlement(
+        license: License(
+          groupId: 'g1', plan: 'pro', modules: const {'notes'}, quotas: const {},
+          validFrom: null, validTo: now.subtract(const Duration(days: 40)),
+          offlineWindow: const Duration(days: 30), version: 1, issuedAt: now,
+          hardLockable: true,
+        ),
+        lastSyncAt: now,
+      );
+      expect(e.isHardLockedAt(now), true);
+      expect(e.canWriteAt(now), false);
+      expect(e.grantsModule('notes'), true); // appartenance au plan inchangée
+    });
+
+    test('non-enforcé (none) → jamais de hard-lock (fail-soft)', () {
+      const e = Entitlement.none();
+      expect(e.isHardLockedAt(now), false);
     });
   });
 

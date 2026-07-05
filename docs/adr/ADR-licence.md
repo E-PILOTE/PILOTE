@@ -109,6 +109,53 @@ provider admin `subscriptionAccessProvider` défaut `unknown()` = non bloquant.
 
 ---
 
+## ADR-0009 — Hard-lock UNIFORME à l'expiration (rentabilité)
+**Contexte.** Le read-only souple (ADR-0008) ne crée pas assez de pression de
+paiement sur un marché où un impayé peut être opportuniste : une école lapsée
+continue de consulter/imprimer indéfiniment. Décision produit du propriétaire
+(2026-07-05) : ajouter un cran plus dur APRÈS la grâce.
+
+**Décision.** Nouvelle phase `LicensePhase.hardLock` (plus sévère que `readOnly`) :
+passé la grâce, les **modules deviennent inaccessibles** (clic → mur
+`/user/renouvellement`) ; seuls Dashboard / Profil / Paramètres et les routes
+natives (communication, non-modules) restent — assez pour voir l'état et
+renouveler, rien de plus. L'écriture reste bloquée (déjà via `canWriteAt`).
+
+**Portée : TOUS les groupes, public comme privé.** Décision révisée le 2026-07-05 :
+pas d'exception par type de plan. À l'échéance, tout groupe se durcit de la même
+façon. (La v1 distinguait `is_public_plan` ; abandonné pour rester simple et
+uniforme.)
+
+**Blocage LE JOUR MÊME.** Décision du propriétaire (2026-07-05) : à l'échéance
+(`valid_to` dépassé), le hard-lock frappe immédiatement, **sans grâce**. Assumé
+et voulu pour maximiser la pression de paiement. (La grâce de 15 j n'est conservée
+que dans le chemin fail-soft, quand le flag `hard_lock` est absent — licence
+héritée / dormant.)
+
+**Garde-fous (non négociables).**
+1. **Impayé CONFIRMÉ seulement.** Le hard-lock ne vient QUE de l'horloge métier
+   (`valid_to` dépassé). La **fenêtre de confiance** (offline) n'escalade jamais
+   au-delà de `readOnly` : un souci de réseau ≠ un impayé — une école honnête mal
+   connectée n'est jamais hard-lockée.
+2. **Zone neutre préservée.** Dashboard / Profil / Paramètres / Renouveler /
+   Communication restent ouverts — assez pour constater l'état et payer, rien de
+   plus. Seuls les **modules** sont bloqués.
+3. **Fail-soft absolu.** `hardLockable` par défaut `false` : aucune licence /
+   dormant / flag absent ⇒ jamais de hard-lock (au pire l'échelle douce). Le flag
+   reste dans le domaine comme filet ; l'émetteur le met à `true` pour tout groupe
+   provisionné.
+4. **Invariant C4/ADR-0006 respecté.** Aucune donnée touchée, synchro toujours
+   active ; tout est restauré au paiement (réémission licence, version +1).
+
+**Portée technique.** Espace **staff offline** uniquement. Le chemin online
+`admin_groupe` n'est **pas** hard-locké : c'est l'admin qui renouvelle — le
+bloquer serait contre-productif (scope « pas de croissance » d'ADR-0008).
+
+**Activation.** L'Edge Function `license-issuer` émet `hard_lock: true` pour tout
+groupe provisionné. Déployée le 2026-07-05.
+
+---
+
 ## Notes d'environnement
 - **Build Linux** : `flutter_secure_storage` requiert `libsecret-1-dev`
   (`sudo apt-get install -y libsecret-1-dev`). À reporter dans la CI.
