@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:realtime_client/realtime_client.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
 
@@ -136,6 +139,33 @@ final subscriptionAccessProvider =
   if (groupId == null || groupId.isEmpty) return SubscriptionAccess.unknown();
 
   final client = ref.watch(supabaseClientProvider);
+
+  // Realtime : rafraîchit le bandeau DÈS que l'abonnement du groupe change
+  // (renouvellement, changement de plan par le super_admin). Sans cela, le
+  // bandeau ne se mettait à jour qu'au retour au premier plan / tick 6 h, d'où
+  // une désynchro passagère avec la page Abonnement (qui, elle, écoute déjà
+  // school_groups). `school_groups` est publiée en Realtime depuis la mig 0032.
+  Timer? debounce;
+  try {
+    final channel = client.channel('sub_access_$groupId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'school_groups',
+          filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq, column: 'id', value: groupId),
+          callback: (_) {
+            debounce?.cancel();
+            debounce = Timer(const Duration(milliseconds: 500), ref.invalidateSelf);
+          },
+        )
+        .subscribe();
+    ref.onDispose(() {
+      debounce?.cancel();
+      client.removeChannel(channel);
+    });
+  } catch (_) {}
+
   // Grâce réglable (fail-soft 15 j) — plus de valeur codée en dur.
   final graceDays = await ref.watch(subscriptionGraceDaysProvider.future);
   try {
