@@ -87,31 +87,42 @@ final notificationsProvider =
 
   final client = ref.watch(supabaseClientProvider);
 
-  // ── Realtime : rafraîchit la liste dès qu'une notif est émise/lue ───────────
+  // La cloche est PERSONNELLE : on ne montre que MES notifications (1 ligne par
+  // destinataire générée par le trigger `trg_notify_on_message`). Sans ce filtre,
+  // le super_admin verrait toutes les notifications de la plateforme (RLS large).
+  final myUid = ref.watch(authNotifierProvider).valueOrNull?.id ?? '';
+
+  // ── Realtime : rafraîchit la liste dès qu'une notif M'EST émise/lue ─────────
+  // Filtré sur `recipient_id = moi` : sans ce filtre, un super_admin s'abonnait à
+  // TOUTES les notifications de la plateforme (firehose à l'échelle nationale, ex.
+  // la rafale quotidienne des rappels d'échéance). Le filtre aligne le périmètre
+  // realtime sur celui de la requête.
   Timer? debounce;
   void scheduleInvalidate() {
     debounce?.cancel();
     debounce = Timer(const Duration(seconds: 1), () => ref.invalidateSelf());
   }
-  try {
-    final channel = client.channel('comm_notifications_list')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'notifications',
-          callback: (_) => scheduleInvalidate(),
-        )
-        .subscribe();
-    ref.onDispose(() {
-      debounce?.cancel();
-      client.removeChannel(channel);
-    });
-  } catch (_) {}
+  if (myUid.isNotEmpty) {
+    try {
+      final channel = client.channel('comm_notifications_list')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'notifications',
+            filter: PostgresChangeFilter(
+                type: PostgresChangeFilterType.eq,
+                column: 'recipient_id',
+                value: myUid),
+            callback: (_) => scheduleInvalidate(),
+          )
+          .subscribe();
+      ref.onDispose(() {
+        debounce?.cancel();
+        client.removeChannel(channel);
+      });
+    } catch (_) {}
+  }
 
-  // La cloche est PERSONNELLE : on ne montre que MES notifications (1 ligne par
-  // destinataire générée par le trigger `trg_notify_on_message`). Sans ce filtre,
-  // le super_admin verrait toutes les notifications de la plateforme (RLS large).
-  final myUid = ref.watch(authNotifierProvider).valueOrNull?.id ?? '';
   var query = client
       .from('notifications')
       .select(
