@@ -244,33 +244,41 @@ Rappel : le vrai enforcement ne vient pas de la crypto mais de la **dépendance 
 
 ---
 
-## 11. Découpage de l'implémentation (proposé, non commencé)
+## 11. Découpage de l'implémentation — ÉTAT 2026-07-05
 
-> Ordre pensé pour livrer de la valeur vérifiable tôt et fermer les trous du §9 d'abord.
+> ⚡ **Activé en prod (pilote METP) le 2026-07-04.** Vagues 0→3 livrées & vérifiées ;
+> Vague 4 différée. Décisions gelées : `docs/adr/ADR-licence.md`.
+> ⚠️ Correction de fond appliquée pendant la mise en œuvre : la table `subscriptions`
+> **n'existe pas** ; la vérité d'abonnement est portée par **`school_groups`**
+> (`subscription_status`, `subscription_end`, `plan_id`, `license_version`,
+> `payment_confirmed`, `offline_window_days`). Tout le code cible `school_groups`.
 
-**Vague 0 — Décisions & secrets (bloquant, §9 D/F)**
-- [ ] Générer la paire Ed25519 ; clé privée en service isolé (Edge Function `license-issuer` dédiée).
-- [ ] Stratégie `kid` (rotation, chevauchement) + épinglage de la/les clés publiques dans l'app.
-- [ ] Fixer les 2 étages de licence (provisoire vs plein terme) côté modèle serveur (§9 C4).
+**Vague 0 — Décisions & secrets** ✅
+- [x] Paire Ed25519 ; clé privée = secret de l'Edge Function `license-issuer`.
+- [x] Stratégie `kid` (`2026-07`) + clé publique épinglée dans l'app.
+- [x] 2 étages provisoire/plein terme (§9 C4, `payment_confirmed`).
 
-**Vague 1 — Émission serveur**
-- [ ] Modèle métier **états / transitions** de l'abonnement (branché sur `subscriptions` existant).
-- [ ] Edge Function `license-issuer` : signe le payload §4. Déclenchée sur changement d'abonnement + endpoint PULL authentifié.
-- [ ] (Option) table read-only `license_pointer { group_id, license_version, updated_at }` + sync-rule.
+**Vague 1 — Émission serveur** ✅
+- [x] États/transitions **sur `school_groups`** (PAS `subscriptions` — inexistante).
+- [x] Edge Function `license-issuer` : signe le payload §4, endpoint PULL authentifié,
+      garde-pilote `LICENSE_PILOT_GROUP_IDS`, version via `next_license_version`.
+- [ ] (Option, différée V8) table read-only `license_pointer` + sync-rule.
 
-**Vague 2 — Applicateur client (Flutter)**
-- [ ] `LicenseVault` sur `flutter_secure_storage` (write-temp → vérifie → commit ; survit à `disconnectAndClear()`).
-- [ ] `LicenseVerifier` Ed25519 (signature + `group_id==identité` + version ≥ repère + `issued_at`).
-- [ ] `EntitlementState` + provider Riverpod `keepAlive` (décodage mémoire).
-- [ ] Refresh hors-bande déclenché sur `SyncStatus.connected` / pointeur.
+**Vague 2 — Applicateur client (Flutter)** ✅
+- [x] `SecureLicenseStore` sur `flutter_secure_storage` (survit à `disconnectAndClear()`).
+- [x] `Ed25519Verifier` (signature + `group_id==identité` + **version ≥ repère seule**, C3).
+- [x] `Entitlement` + provider Riverpod `keepAlive` (décodage mémoire).
+- [x] Refresh hors-bande au login staff (`refreshLicense`).
 
-**Vague 3 — Enforcement doux**
-- [ ] **Verrou plan** inséré dans le `redirect` de `app_router.dart` (avant le verrou 3 modules).
-- [ ] Cascade douce expiration (grâce → lecture seule → restriction) + tick 1×/jour + premier plan.
-- [ ] Bannière fail-soft (état utilisable-mais-alerté) — cohérente avec la bannière shell staff existante.
-- [ ] Quotas souples : autoriser dépassement offline + réconciliation/upsell à la synchro.
+**Vague 3 — Enforcement doux** ✅
+- [x] **Verrou plan** dans le `redirect` de `app_router.dart` (avant le verrou 3).
+- [x] Cascade douce grâce → lecture seule (double horloge, `computeLicensePhase`).
+- [x] Bannières fail-soft staff + admin (cohérentes avec le shell).
+- [x] **Tick 1×/jour + premier plan** : ré-évaluation resume + timer 6 h sur les deux
+      bannières (bascule grâce→lecture-seule sans redémarrage).
+- [ ] Quotas souples (advisory offline + réconciliation) — **différé** (`quotas:{}`).
 
-**Vague 4 — Canaux & cas limites (§9 N8 / E1-E2)**
+**Vague 4 — Canaux & cas limites (§9 N8 / E1-E2)** ⏸ différée (au vrai besoin)
 - [ ] Paquet d'activation OFFLINE signé (USB / QR) ingéré une fois.
 - [ ] Feature-flag serveur d'assouplissement + rollout progressif.
 - [ ] Supersession de licence + migration inter-tenant (fusion/scission).
