@@ -1,9 +1,8 @@
 // ============================================================================
 // Edge Function : license-issuer
 // ----------------------------------------------------------------------------
-// ⚠️ STATUT : ARTEFACT REVU, **NON DÉPLOYÉ**, non vérifié end-to-end.
-//    Déploiement = acte de PRODUCTION délibéré (allume l'enforcement). Voir la
-//    procédure de go-live pilote : docs/LICENCE_GOLIVE.md.
+// ⚡ STATUT : DÉPLOYÉE / ACTIVE. Émission en production. Toute modification est
+//    un acte de PRODUCTION délibéré. Procédure : docs/LICENCE_GOLIVE.md.
 //
 // Rôle : émettre une LICENCE signée Ed25519 (JWS compact) pour le GROUPE du
 // personnel authentifié, projection de son abonnement (cf. ADR-0001/0002/0003).
@@ -13,6 +12,10 @@
 //   LICENSE_PRIVATE_KEY_PKCS8_B64  base64 du PKCS8 de la clé privée Ed25519
 //   LICENSE_KID                    identifiant de clé (ex. "2026-07")
 //   LICENSE_OFFLINE_WINDOW_DAYS    fenêtre de confiance (déf. 30)
+//   LICENSE_PILOT_GROUP_IDS        rollout : liste blanche de group_id.
+//     • DÉFINIE (même vide) → n'émet QUE pour les groupes listés (mode pilote).
+//     • ABSENTE (unset)     → FLEET-WIDE : tout groupe provisionné est enrôlé.
+//     Kill-switch instantané = re-définir la variable (vide = personne).
 // ============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -79,6 +82,17 @@ Deno.serve(async (req: Request) => {
       .map((r: any) => r.modules)
       .filter((m: any) => m && m.is_active)
       .map((m: any) => m.slug);
+
+    // GARDE FAIL-SOFT (fleet-wide) : un groupe NON PROVISIONNÉ (aucun plan, ou
+    // plan à 0 module actif) ne doit JAMAIS recevoir une licence enforçant des
+    // modules vides — cela le bricquerait (verrou plan → tous les modules
+    // bloqués). On préfère le laisser DORMANT (403 → Entitlement.none() →
+    // app permissive) jusqu'à ce qu'un plan valide lui soit affecté. Aligné
+    // ADR fail-soft : « au doute, on n'entrave rien ». Un groupe ÉCHU garde
+    // ses modules (≠ 0) → il se dégrade correctement en lecture seule.
+    if (!group.plan_id || modules.length === 0) {
+      return json({ error: "not_provisioned" }, 403);
+    }
 
     // 4) Construire les claims. `version` = compteur monotone autoritaire
     //    (mig 0026 : next_license_version), incrémenté à chaque émission.

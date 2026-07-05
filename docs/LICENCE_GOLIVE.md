@@ -65,6 +65,15 @@ code) par vagues, en surveillant. **Fleet-wide** = retirer complètement la vari
 Revenir à dormant instantanément = vider `licensePinnedKeysProvider` (build) OU
 remettre `LICENSE_PILOT_GROUP_IDS=` (vide → personne).
 
+> ⚡ **FLEET-WIDE ACTIF depuis 2026-07-05.** `LICENSE_PILOT_GROUP_IDS` a été
+> **retirée** après vérification du rayon de souffle (7 groupes : 6 actifs pleins
+> + 1 échu en grâce ; 0 lecture seule, 0 `plan_id` NULL, modules 7→28). Tout groupe
+> **provisionné** est désormais enrôlé à la connexion ; les futurs groupes aussi.
+> **GARDE FAIL-SOFT** (issuer) : un groupe sans plan ou à 0 module actif reçoit
+> `403 not_provisioned` → reste **dormant/permissif** (jamais brické par une licence
+> à modules vides) jusqu'à affectation d'un plan valide.
+> **Kill-switch instantané** : `supabase secrets set LICENSE_PILOT_GROUP_IDS=` (vide).
+
 ## Rollback
 - Vider `licensePinnedKeysProvider` → dormant immédiat (prochaine build).
 - Ou `supabase functions delete license-issuer` → plus d'émission (les licences
