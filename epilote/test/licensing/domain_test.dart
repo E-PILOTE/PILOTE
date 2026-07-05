@@ -58,7 +58,18 @@ void main() {
       expect(p, LicensePhase.active);
     });
 
-    test('hard-lock : plan privé échu au-delà de la grâce', () {
+    test('hard-lock LE JOUR MÊME : éligible, échu à peine (1 j)', () {
+      final p = computeLicensePhase(
+        validTo: now.subtract(const Duration(days: 1)),
+        offlineWindow: const Duration(days: 30),
+        lastSyncAt: now.subtract(const Duration(hours: 2)),
+        now: now,
+        hardLockEligible: true,
+      );
+      expect(p, LicensePhase.hardLock); // aucune grâce quand le flag est présent
+    });
+
+    test('hard-lock : éligible et échu de longue date', () {
       final p = computeLicensePhase(
         validTo: now.subtract(const Duration(days: 40)),
         offlineWindow: const Duration(days: 30),
@@ -69,26 +80,35 @@ void main() {
       expect(p, LicensePhase.hardLock);
     });
 
-    test('flag hard_lock absent (fail-soft) → lecture seule, jamais hardLock', () {
-      final p = computeLicensePhase(
-        validTo: now.subtract(const Duration(days: 40)),
+    test('flag hard_lock absent (fail-soft) → échelle douce : grâce puis lecture seule', () {
+      final grace = computeLicensePhase(
+        validTo: now.subtract(const Duration(days: 10)), // < 15 j
+        offlineWindow: const Duration(days: 30),
+        lastSyncAt: now.subtract(const Duration(days: 1)),
+        now: now,
+        hardLockEligible: false,
+      );
+      expect(grace, LicensePhase.grace);
+
+      final ro = computeLicensePhase(
+        validTo: now.subtract(const Duration(days: 40)), // > 15 j
         offlineWindow: const Duration(days: 30),
         lastSyncAt: now.subtract(const Duration(days: 1)),
         now: now,
         hardLockEligible: false, // émetteur n'a pas stampé le claim
       );
-      expect(p, LicensePhase.readOnly);
+      expect(ro, LicensePhase.readOnly);
     });
 
-    test('grâce reste grâce même si éligible au hard-lock (< 15 j)', () {
+    test('encore actif : échéance FUTURE, éligible → aucun blocage', () {
       final p = computeLicensePhase(
-        validTo: now.subtract(const Duration(days: 10)),
+        validTo: now.add(const Duration(days: 5)),
         offlineWindow: const Duration(days: 30),
-        lastSyncAt: now.subtract(const Duration(days: 1)),
+        lastSyncAt: now.subtract(const Duration(hours: 1)),
         now: now,
         hardLockEligible: true,
       );
-      expect(p, LicensePhase.grace);
+      expect(p, LicensePhase.active);
     });
 
     test('fenêtre de confiance dépassée n\'escalade PAS au hard-lock (réseau ≠ impayé)', () {

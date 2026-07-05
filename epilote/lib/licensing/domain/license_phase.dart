@@ -17,9 +17,10 @@ const int kLicenseGraceDays = 15;
 
 /// Calcul PUR de la phase (double horloge). Aucune dépendance I/O.
 ///
-/// - Horloge 1 (métier) : `validTo` → grâce (≤ [graceDays]) → lecture seule, ou
-///   `hardLock` si [hardLockEligible] (plan privé) : impayé confirmé au-delà de
-///   la grâce ⇒ modules inaccessibles.
+/// - Horloge 1 (métier) : `validTo` dépassé ⇒ si [hardLockEligible] (cas normal,
+///   flag `hard_lock` émis pour tout groupe provisionné) → `hardLock` LE JOUR
+///   MÊME (aucune grâce). Sinon (flag absent : fail-soft) → échelle douce
+///   grâce (≤ [graceDays]) → lecture seule.
 /// - Horloge 2 (confiance) : `now - lastSyncAt > offlineWindow` → lecture seule
 ///   (comble l'angle mort de la révocation invisible hors ligne). N'escalade
 ///   JAMAIS jusqu'à `hardLock` : un appareil resté hors ligne peut être une
@@ -53,15 +54,25 @@ LicensePhase computeLicensePhase({
 
   // Horloge 1 — expiration métier (peut aggraver, jamais adoucir).
   if (validTo != null) {
-    final overdue = now.difference(validTo).inDays; // >0 si dépassé
-    if (overdue > graceDays) {
-      // Impayé CONFIRMÉ au-delà de la grâce : hard-lock si le plan y est éligible
-      // (privé), sinon lecture seule (écoles publiques/État jamais bloquées).
-      final expired =
-          hardLockEligible ? LicensePhase.hardLock : LicensePhase.readOnly;
-      if (expired.index > phase.index) phase = expired;
-    } else if (overdue >= 0 && phase == LicensePhase.active) {
-      phase = LicensePhase.grace;
+    final overdue = now.difference(validTo).inDays; // >=0 si échu
+    if (overdue >= 0) {
+      if (hardLockEligible) {
+        // Blocage LE JOUR MÊME : dès l'échéance, hard-lock (aucune grâce). Tous
+        // les groupes provisionnés portent le flag → traitement uniforme.
+        if (LicensePhase.hardLock.index > phase.index) {
+          phase = LicensePhase.hardLock;
+        }
+      } else {
+        // Filet fail-soft (flag `hard_lock` absent : licence héritée, dormant) :
+        // on conserve l'échelle douce grâce (≤ graceDays) → lecture seule.
+        if (overdue > graceDays) {
+          if (LicensePhase.readOnly.index > phase.index) {
+            phase = LicensePhase.readOnly;
+          }
+        } else if (phase == LicensePhase.active) {
+          phase = LicensePhase.grace;
+        }
+      }
     }
   }
 

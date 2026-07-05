@@ -126,17 +126,24 @@ pas d'exception par type de plan. À l'échéance, tout groupe se durcit de la m
 façon. (La v1 distinguait `is_public_plan` ; abandonné pour rester simple et
 uniforme.)
 
+**Blocage LE JOUR MÊME.** Décision du propriétaire (2026-07-05) : à l'échéance
+(`valid_to` dépassé), le hard-lock frappe immédiatement, **sans grâce**. Assumé
+et voulu pour maximiser la pression de paiement. (La grâce de 15 j n'est conservée
+que dans le chemin fail-soft, quand le flag `hard_lock` est absent — licence
+héritée / dormant.)
+
 **Garde-fous (non négociables).**
-1. **Grâce préservée.** Le hard-lock ne frappe qu'APRÈS `kLicenseGraceDays`
-   (15 j) — une école honnête en léger retard n'est jamais bloquée du jour au
-   lendemain.
-2. **Impayé CONFIRMÉ seulement.** Le hard-lock ne vient QUE de l'horloge métier
-   (`valid_to` dépassé + grâce). La **fenêtre de confiance** (offline) n'escalade
-   jamais au-delà de `readOnly` : un souci de réseau ≠ un impayé.
-3. **Fail-soft absolu.** `hardLockable` par défaut `false` : tant que l'émetteur
-   ne stampe pas le flag `hard_lock`, comportement identique à ADR-0008. Aucune
-   licence / dormant ⇒ jamais de hard-lock. Le flag reste dans le domaine comme
-   filet de sécurité (l'émetteur le met à `true` pour tout groupe provisionné).
+1. **Impayé CONFIRMÉ seulement.** Le hard-lock ne vient QUE de l'horloge métier
+   (`valid_to` dépassé). La **fenêtre de confiance** (offline) n'escalade jamais
+   au-delà de `readOnly` : un souci de réseau ≠ un impayé — une école honnête mal
+   connectée n'est jamais hard-lockée.
+2. **Zone neutre préservée.** Dashboard / Profil / Paramètres / Renouveler /
+   Communication restent ouverts — assez pour constater l'état et payer, rien de
+   plus. Seuls les **modules** sont bloqués.
+3. **Fail-soft absolu.** `hardLockable` par défaut `false` : aucune licence /
+   dormant / flag absent ⇒ jamais de hard-lock (au pire l'échelle douce). Le flag
+   reste dans le domaine comme filet ; l'émetteur le met à `true` pour tout groupe
+   provisionné.
 4. **Invariant C4/ADR-0006 respecté.** Aucune donnée touchée, synchro toujours
    active ; tout est restauré au paiement (réémission licence, version +1).
 
