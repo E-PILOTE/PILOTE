@@ -109,6 +109,42 @@ provider admin `subscriptionAccessProvider` défaut `unknown()` = non bloquant.
 
 ---
 
+## ADR-0009 — Hard-lock à l'expiration, réservé aux plans PRIVÉS (rentabilité)
+**Contexte.** Le read-only souple (ADR-0008) ne crée pas assez de pression de
+paiement sur un marché où un impayé peut être opportuniste : une école lapsée
+continue de consulter/imprimer indéfiniment. Décision produit du propriétaire
+(2026-07-05) : ajouter un cran plus dur APRÈS la grâce.
+
+**Décision.** Nouvelle phase `LicensePhase.hardLock` (plus sévère que `readOnly`) :
+passé la grâce, les **modules deviennent inaccessibles** (clic → mur
+`/user/renouvellement`) ; seuls Dashboard / Profil / Paramètres et les routes
+natives (communication, non-modules) restent. L'écriture reste bloquée (déjà via
+`canWriteAt`).
+
+**Garde-fous (non négociables).**
+1. **Plans privés uniquement.** Déclenché ssi la licence porte `hard_lock = true`,
+   stampé par l'émetteur depuis `subscription_plans.is_public_plan = false`. Les
+   écoles **publiques / État (MEPSA/METP)** ne sont **jamais** hard-lockées
+   (risque politique : l'État est le client) → elles restent en `readOnly`.
+2. **Impayé CONFIRMÉ seulement.** Le hard-lock ne vient QUE de l'horloge métier
+   (`valid_to` dépassé + grâce). La **fenêtre de confiance** (offline) n'escalade
+   jamais au-delà de `readOnly` : un souci de réseau ≠ un impayé.
+3. **Fail-soft absolu.** `hardLockable` par défaut `false` : tant que l'émetteur
+   ne stampe pas le flag, comportement identique à ADR-0008 (aucune régression
+   pour les pilotes en cours).
+4. **Invariant C4/ADR-0006 respecté.** Aucune donnée touchée, synchro toujours
+   active ; tout est restauré au paiement (réémission licence, version +1).
+
+**Portée.** Espace **staff offline** uniquement. Le chemin online `admin_groupe`
+n'est **pas** hard-locké : c'est l'admin qui renouvelle — le bloquer serait
+contre-productif (il reste en scope « pas de croissance » d'ADR-0008).
+
+**Reste à activer.** L'Edge Function `license-issuer` doit ajouter le claim
+`hard_lock` (= `NOT is_public_plan`) au payload. Sans ce déploiement, la phase est
+inatteignable (dormante et sûre).
+
+---
+
 ## Notes d'environnement
 - **Build Linux** : `flutter_secure_storage` requiert `libsecret-1-dev`
   (`sudo apt-get install -y libsecret-1-dev`). À reporter dans la CI.

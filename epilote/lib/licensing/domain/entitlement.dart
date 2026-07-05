@@ -19,8 +19,11 @@ class Entitlement {
   bool get isEnforced => license != null;
 
   /// Verrou plan (route). `true` si non-enforcé OU module présent au plan.
-  /// N'est PAS piloté par la phase : une phase `readOnly` laisse OUVRIR le
-  /// module (lecture seule) — c'est `canWrite` qui bride les mutations.
+  /// N'est PAS piloté par la phase `readOnly` : une phase `readOnly` laisse
+  /// OUVRIR le module (lecture seule) — c'est `canWrite` qui bride les mutations.
+  /// Le hard-lock, lui, se gère séparément via [isHardLockedAt] côté route/sidebar
+  /// (avec liste d'exemptions), pour ne pas mélanger « module hors plan » et
+  /// « module gelé pour impayé ».
   bool grantsModule(String slug) =>
       license == null || license!.grantsModule(slug);
 
@@ -34,11 +37,20 @@ class Entitlement {
       offlineWindow: lic.offlineWindow,
       lastSyncAt: lastSyncAt,
       now: now,
+      hardLockEligible: lic.hardLockable,
     );
   }
 
-  /// Écriture autorisée ? Fail-soft : non-enforcé ⇒ `true`.
-  bool canWriteAt(DateTime now) => phaseAt(now) != LicensePhase.readOnly;
+  /// Écriture autorisée ? `active`/`grace` seulement. Fail-soft : non-enforcé
+  /// ⇒ `true` (aucune licence ⇒ phase `active`).
+  bool canWriteAt(DateTime now) {
+    final p = phaseAt(now);
+    return p == LicensePhase.active || p == LicensePhase.grace;
+  }
+
+  /// Hard-lock actif ? ⇒ les modules (hors zone neutre) deviennent inaccessibles
+  /// (clic mort, mur de renouvellement). Fail-soft : non-enforcé ⇒ `false`.
+  bool isHardLockedAt(DateTime now) => phaseAt(now) == LicensePhase.hardLock;
 }
 
 /// Miroir global de l'entitlement courant, lisible au MOMENT de l'écriture
@@ -52,7 +64,13 @@ class LicenseEnforcement {
   LicenseEnforcement._();
   static Entitlement current = const Entitlement.none();
 
-  /// L'écriture doit-elle être refusée MAINTENANT (licence en lecture seule) ?
+  /// L'écriture doit-elle être refusée MAINTENANT (lecture seule OU hard-lock) ?
   static bool get writeBlockedNow =>
       current.isEnforced && !current.canWriteAt(DateTime.now().toUtc());
+
+  /// Hard-lock actif MAINTENANT ? Lecture sans `ref` pour le shell/router.
+  /// Fail-soft : défaut `none()` ⇒ jamais bloquant tant qu'aucune licence privée
+  /// enforced n'est expirée au-delà de la grâce.
+  static bool get isHardLockedNow =>
+      current.isEnforced && current.isHardLockedAt(DateTime.now().toUtc());
 }

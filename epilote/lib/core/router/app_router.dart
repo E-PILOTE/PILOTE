@@ -72,6 +72,7 @@ import '../../features/navigation/providers/permissions_provider.dart';
 import '../../licensing/presentation/license_providers.dart';
 import '../../features/navigation/widgets/module_coming_soon.dart';
 import '../../features/user/screens/staff_audit_screen.dart';
+import '../../features/user/screens/renewal_wall_screen.dart';
 import '../../features/user/screens/user_dashboard_screen.dart';
 import '../../features/user/screens/user_profile_screen.dart';
 import '../../features/user/screens/user_settings_screen.dart';
@@ -256,12 +257,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         if (isUserSpace) {
           final slug = moduleSlugForLocation(loc);
           if (slug != null) {
-            // ── Verrou PLAN (licence) : le module est-il dans l'entitlement ? ─
-            // S'insère AVANT le verrou 3. Fail-soft : entitlement absent ou
-            // non-enforcé (aucune licence) → grantsModule == true → laisse
-            // passer (comportement actuel préservé tant que les clés ne sont
-            // pas provisionnées). Ne gate JAMAIS la synchro PowerSync (C4).
             final ent = ref.read(entitlementProvider).valueOrNull;
+            // ── Verrou HARD-LOCK (impayé PRIVÉ confirmé au-delà de la grâce) ──
+            // Les modules deviennent inaccessibles → mur de renouvellement.
+            // Seuls Dashboard/Profil/Paramètres + routes natives (slug == null)
+            // restent. Fail-soft : non-enforcé, plan public, ou encore en
+            // grâce/lecture seule → isHardLockedAt == false → aucun effet.
+            // Ne gate JAMAIS la synchro PowerSync (C4/ADR-0006).
+            if (ent != null && ent.isHardLockedAt(DateTime.now().toUtc())) {
+              return Routes.userRenew;
+            }
+            // ── Verrou PLAN (licence) : le module est-il dans l'entitlement ? ─
+            // Fail-soft : entitlement absent ou non-enforcé (aucune licence) →
+            // grantsModule == true → laisse passer (comportement actuel préservé
+            // tant que les clés ne sont pas provisionnées).
             if (ent != null && !ent.grantsModule(slug)) {
               return Routes.userDashboard;
             }
@@ -600,6 +609,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.userProfil,
         builder: (_, _) => const UserProfileScreen(),
+      ),
+      GoRoute(
+        path: Routes.userRenew,
+        builder: (_, _) => const RenewalWallScreen(),
       ),
     ],
     errorBuilder: (_, state) => Scaffold(

@@ -83,6 +83,16 @@ Deno.serve(async (req: Request) => {
       .filter((m: any) => m && m.is_active)
       .map((m: any) => m.slug);
 
+    // 3b) Politique de HARD-LOCK (ADR-0009) : réservée aux plans PRIVÉS
+    //     (is_public_plan = false). Les écoles publiques/État (MEPSA/METP) ne
+    //     sont JAMAIS hard-lockées → au pire lecture seule. Fail-soft : si on ne
+    //     peut pas lire le plan (null), on N'ACTIVE PAS le hard-lock (défaut sûr).
+    const { data: plan } = await admin
+      .from("subscription_plans")
+      .select("is_public_plan")
+      .eq("id", group.plan_id).maybeSingle();
+    const hardLock = plan?.is_public_plan === false;
+
     // GARDE FAIL-SOFT (fleet-wide) : un groupe NON PROVISIONNÉ (aucun plan, ou
     // plan à 0 module actif) ne doit JAMAIS recevoir une licence enforçant des
     // modules vides — cela le bricquerait (verrou plan → tous les modules
@@ -119,6 +129,7 @@ Deno.serve(async (req: Request) => {
         defaultOfflineDays, provisionalDays),
       version,
       issued_at: nowIso,
+      hard_lock: hardLock, // ADR-0009 : plan privé → modules inaccessibles à l'échéance
       provisional: group.payment_confirmed === false, // trace (audit/debug)
       // NB : un groupe suspendu/expiré peut se voir émettre une licence à
       // modules vides ou valid_to passé → l'app dégrade en douceur (fail-soft).

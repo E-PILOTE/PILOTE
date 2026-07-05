@@ -58,6 +58,7 @@ class Routes {
   static const String userAudit       = '/user/journal-audit'; // natif direction (online)
   static const String userParametres  = '/user/parametres';
   static const String userProfil      = '/user/profil';
+  static const String userRenew       = '/user/renouvellement'; // mur hard-lock impayé
   static const String eleves          = '/user/eleves';
   static const String eleveDetail     = '/user/eleves/:id';
   static const String inscriptions    = '/user/inscriptions';
