@@ -420,8 +420,10 @@ class _AccountMenu extends ConsumerWidget {
           case 'settings':
             if (context.mounted) context.go(settingsRoute);
           case 'switch_agent':
-            // Poste partagé : reverrouille → AgentLockGate réaffiche l'écran-verrou.
+            // Réaffiche le sélecteur de profils. En poste partagé, oublier
+            // l'agent suffit ; en poste personnel, forcer explicitement.
             ref.read(selectedAgentIdProvider.notifier).state = null;
+            ref.read(forceAgentPickerProvider.notifier).state = true;
         }
       },
       itemBuilder: (_) => [

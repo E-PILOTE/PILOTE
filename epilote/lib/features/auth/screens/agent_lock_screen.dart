@@ -1,8 +1,6 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/widgets/admin_ui.dart' show kNavy;
 import '../../structure/providers/academic_year_provider.dart'
     show currentSchoolProvider;
 import '../providers/active_agent_provider.dart';
@@ -10,9 +8,12 @@ import '../providers/auth_provider.dart';
 import 'widgets/agent_grid.dart';
 import 'widgets/agent_lock_background.dart';
 import 'widgets/agent_pin_pad.dart';
+import 'widgets/vitrine_shell.dart';
 
-/// Écran-verrou plein écran (poste scolaire partagé). Sélection d'agent + PIN,
-/// session Supabase de l'appareil préservée. Affiché en overlay par AgentLockGate.
+/// Écran-verrou plein écran (poste scolaire partagé) à deux états :
+/// **vitrine de sécurité** au repos, puis **feuille profils/PIN** qui monte en
+/// fondu au clic sur « Ouvrir une session ». Session Supabase de l'appareil
+/// préservée. Affiché en overlay par AgentLockGate.
 class AgentLockScreen extends ConsumerStatefulWidget {
   const AgentLockScreen({super.key});
 
@@ -20,9 +21,36 @@ class AgentLockScreen extends ConsumerStatefulWidget {
   ConsumerState<AgentLockScreen> createState() => _AgentLockScreenState();
 }
 
-class _AgentLockScreenState extends ConsumerState<AgentLockScreen> {
+class _AgentLockScreenState extends ConsumerState<AgentLockScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _reveal;
   AgentOption? _picked;
   bool _isCreate = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _reveal = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 340));
+  }
+
+  @override
+  void dispose() {
+    _reveal.dispose();
+    super.dispose();
+  }
+
+  void _open() => _reveal.forward();
+
+  void _close() {
+    // Bascule forcée (poste personnel) : fermer = revenir à sa propre session.
+    if (ref.read(forceAgentPickerProvider)) {
+      ref.read(forceAgentPickerProvider.notifier).state = false;
+      return;
+    }
+    _reveal.reverse();
+    setState(() => _picked = null);
+  }
 
   Future<void> _pick(AgentOption a) async {
     final hasPin = await ref.read(agentPinServiceProvider).hasPin(a.id);
@@ -36,9 +64,10 @@ class _AgentLockScreenState extends ConsumerState<AgentLockScreen> {
   void _unlock() {
     final a = _picked;
     if (a == null) return;
+    ref.read(agentPinServiceProvider).recordUsage(a.id);
+    ref.read(forceAgentPickerProvider.notifier).state = false;
+    // needsAgentUnlockProvider repasse à false → l'overlay se retire (gate).
     ref.read(selectedAgentIdProvider.notifier).state = a.id;
-    // Pas de navigation : needsAgentUnlockProvider repasse à false → l'overlay
-    // se retire de lui-même (AgentLockGate).
   }
 
   @override
@@ -52,136 +81,175 @@ class _AgentLockScreenState extends ConsumerState<AgentLockScreen> {
         fit: StackFit.expand,
         children: [
           const AgentLockBackground(),
-          Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _SchoolHeader(
-                      name: school?['name'] as String? ?? 'E-PILOTE CONGO',
-                      logoUrl: school?['logo_url'] as String?,
+          AnimatedBuilder(
+            animation: _reveal,
+            builder: (context, _) {
+              final t = Curves.easeOutCubic.transform(_reveal.value);
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Vitrine : s'estompe et se désactive quand la feuille monte.
+                  IgnorePointer(
+                    ignoring: t > 0.5,
+                    child: Opacity(
+                      opacity: 1 - 0.85 * t,
+                      child: VitrineShell(
+                        schoolName:
+                            school?['name'] as String? ?? 'E-PILOTE CONGO',
+                        schoolLogoUrl: school?['logo_url'] as String?,
+                        onOpen: _open,
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    _Card(
-                      child: _picked == null
-                          ? AgentGrid(agents: agents, onPick: _pick)
-                          : AgentPinPad(
-                              agent: _picked!,
-                              isCreate: _isCreate,
-                              onBack: () => setState(() => _picked = null),
-                              onSuccess: _unlock,
-                            ),
+                  ),
+                  // Feuille profils / PIN : monte + fondu.
+                  if (t > 0.01)
+                    IgnorePointer(
+                      ignoring: t < 0.5,
+                      child: Opacity(
+                        opacity: t,
+                        child: Transform.translate(
+                          offset: Offset(0, (1 - t) * 48),
+                          child: _RevealSheet(
+                            agents: agents,
+                            picked: _picked,
+                            isCreate: _isCreate,
+                            onPick: _pick,
+                            onBackToGrid: () => setState(() => _picked = null),
+                            onSuccess: _unlock,
+                            onClose: _close,
+                            onDeviceLogout: _deviceLogout,
+                          ),
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 18),
-                    _DeviceLogout(ref: ref),
-                  ],
-                ),
-              ),
-            ),
+                ],
+              );
+            },
           ),
         ],
       ),
     );
   }
+
+  Future<void> _deviceLogout() async {
+    ref.read(selectedAgentIdProvider.notifier).state = null;
+    ref.read(forceAgentPickerProvider.notifier).state = false;
+    await ref.read(authNotifierProvider.notifier).signOut();
+  }
 }
 
-class _SchoolHeader extends StatelessWidget {
-  const _SchoolHeader({required this.name, required this.logoUrl});
-  final String name;
-  final String? logoUrl;
+/// Feuille bleu nuit qui contient la grille de profils puis le pavé PIN.
+class _RevealSheet extends StatelessWidget {
+  const _RevealSheet({
+    required this.agents,
+    required this.picked,
+    required this.isCreate,
+    required this.onPick,
+    required this.onBackToGrid,
+    required this.onSuccess,
+    required this.onClose,
+    required this.onDeviceLogout,
+  });
+
+  final List<AgentOption> agents;
+  final AgentOption? picked;
+  final bool isCreate;
+  final ValueChanged<AgentOption> onPick;
+  final VoidCallback onBackToGrid;
+  final VoidCallback onSuccess;
+  final VoidCallback onClose;
+  final VoidCallback onDeviceLogout;
 
   @override
   Widget build(BuildContext context) {
-    final has = logoUrl != null && logoUrl!.isNotEmpty;
-    return Column(
-      children: [
-        Container(
-          width: 72,
-          height: 72,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.25),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6)),
-            ],
+    return SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          // La feuille s'ajuste au contenu ; ne défile qu'en dernier recours
+          // (fenêtre très basse). La grille interne défile d'elle-même.
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              padding: const EdgeInsets.fromLTRB(22, 12, 22, 18),
+              decoration: BoxDecoration(
+                color: const Color(0xF20A182E),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.4),
+                      blurRadius: 40,
+                      offset: const Offset(0, 18)),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _Handle(onClose: onClose, showClose: picked == null),
+                  const SizedBox(height: 4),
+                  if (picked == null)
+                    AgentGrid(agents: agents, onPick: onPick)
+                  else
+                    AgentPinPad(
+                      agent: picked!,
+                      isCreate: isCreate,
+                      onBack: onBackToGrid,
+                      onSuccess: onSuccess,
+                    ),
+                  const SizedBox(height: 10),
+                  TextButton.icon(
+                    onPressed: onDeviceLogout,
+                    icon: Icon(Icons.logout_rounded,
+                        size: 15,
+                        color: Colors.white.withValues(alpha: 0.55)),
+                    label: Text('Déconnecter le poste',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withValues(alpha: 0.55))),
+                  ),
+                ],
+              ),
+            ),
           ),
-          child: has
-              ? CachedNetworkImage(
-                  imageUrl: logoUrl!,
-                  fit: BoxFit.cover,
-                  errorWidget: (_, _, _) => const _LogoFallback(),
-                )
-              : const _LogoFallback(),
         ),
-        const SizedBox(height: 12),
-        Text(name,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w800)),
-        const SizedBox(height: 2),
-        Text('Poste partagé · République du Congo',
-            style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
-      ],
+      ),
     );
   }
 }
 
-class _LogoFallback extends StatelessWidget {
-  const _LogoFallback();
-  @override
-  Widget build(BuildContext context) => const ColoredBox(
-        color: kNavy,
-        child: Center(
-          child: Icon(Icons.school_rounded, color: Colors.white, size: 32),
-        ),
-      );
-}
+class _Handle extends StatelessWidget {
+  const _Handle({required this.onClose, required this.showClose});
+  final VoidCallback onClose;
+  final bool showClose;
 
-class _Card extends StatelessWidget {
-  const _Card({required this.child});
-  final Widget child;
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withValues(alpha: 0.22),
-                blurRadius: 28,
-                offset: const Offset(0, 12)),
-          ],
-        ),
-        child: child,
-      );
-}
-
-class _DeviceLogout extends StatelessWidget {
-  const _DeviceLogout({required this.ref});
-  final WidgetRef ref;
-  @override
-  Widget build(BuildContext context) => TextButton.icon(
-        onPressed: () async {
-          ref.read(selectedAgentIdProvider.notifier).state = null;
-          await ref.read(authNotifierProvider.notifier).signOut();
-        },
-        icon: Icon(Icons.logout_rounded,
-            size: 16, color: Colors.white.withValues(alpha: 0.75)),
-        label: Text('Déconnecter le poste',
-            style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.75), fontSize: 12.5)),
+  Widget build(BuildContext context) => Row(
+        children: [
+          const SizedBox(width: 36),
+          Expanded(
+            child: Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 36,
+            child: showClose
+                ? IconButton(
+                    icon: Icon(Icons.keyboard_arrow_down_rounded,
+                        color: Colors.white.withValues(alpha: 0.6)),
+                    tooltip: 'Fermer',
+                    onPressed: onClose,
+                  )
+                : null,
+          ),
+        ],
       );
 }

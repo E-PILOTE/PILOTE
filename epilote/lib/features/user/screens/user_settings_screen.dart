@@ -7,6 +7,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/staff_ui.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../features/auth/screens/widgets/device_mode_setting.dart';
 import '../../../features/navigation/providers/module_navigation_provider.dart';
 import '../../../features/structure/providers/academic_year_provider.dart';
 import '../providers/user_profile_provider.dart';
@@ -78,7 +79,13 @@ class _Body extends ConsumerWidget {
       StaffSection(
         title: 'Sécurité',
         icon: Icons.lock_outline_rounded,
-        child: StaffSecurityCard(lastLogin: profile?.lastLogin),
+        child: Column(
+          children: [
+            StaffSecurityCard(lastLogin: profile?.lastLogin),
+            const SizedBox(height: 12),
+            const DeviceModeTile(),
+          ],
+        ),
       ),
       const SizedBox(height: 22),
 

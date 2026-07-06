@@ -123,11 +123,32 @@ final activeAgentAccessProfileIdProvider =
           rows.isEmpty ? null : rows.first['access_profile_id'] as String?);
 });
 
+/// Pause anti-force-brute selon le nombre d'échecs consécutifs (fonction pure,
+/// testable). Verrou d'attribution → dissuasif mais jamais définitif : on ne
+/// bloque jamais durablement un collègue légitime sur un poste partagé.
+Duration pinCooldown(int failCount) {
+  if (failCount < 5) return Duration.zero;
+  switch (failCount) {
+    case 5:
+      return const Duration(seconds: 30);
+    case 6:
+      return const Duration(seconds: 60);
+    case 7:
+      return const Duration(minutes: 2);
+    default:
+      return const Duration(minutes: 5); // plafond
+  }
+}
+
 // ─── Service PIN (haché localement, jamais synchronisé) ─────────────────────
 class AgentPinService {
   const AgentPinService();
 
   String _key(String profileId) => 'agent_pin_$profileId';
+  String _failKey(String profileId) => 'agent_fails_$profileId';
+  String _untilKey(String profileId) => 'agent_lock_until_$profileId';
+  String _setAtKey(String profileId) => 'agent_pin_set_at_$profileId';
+  static const _recentKey = 'agent_recent_ids';
 
   // sha256(profileId ⊕ pin) — sel = profileId (ralentit un dictionnaire global).
   String _hash(String profileId, String pin) =>
@@ -141,6 +162,10 @@ class AgentPinService {
   Future<void> setPin(String profileId, String pin) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_key(profileId), _hash(profileId, pin));
+    await prefs.setInt(
+        _setAtKey(profileId), DateTime.now().millisecondsSinceEpoch);
+    await prefs.remove(_failKey(profileId));
+    await prefs.remove(_untilKey(profileId));
   }
 
   Future<bool> verifyPin(String profileId, String pin) async {
@@ -150,10 +175,68 @@ class AgentPinService {
     return stored == _hash(profileId, pin);
   }
 
+  /// Date de création du PIN local (sert à la réconciliation d'un reset serveur
+  /// en Phase 2 : un reset plus récent invalide le PIN local).
+  Future<DateTime?> pinSetAt(String profileId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final ms = prefs.getInt(_setAtKey(profileId));
+    return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+  }
+
+  // ── Anti-force-brute (persisté par agent, survit au redémarrage) ──
+  Future<int> failCount(String profileId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_failKey(profileId)) ?? 0;
+  }
+
+  Future<void> recordFail(String profileId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final n = (prefs.getInt(_failKey(profileId)) ?? 0) + 1;
+    await prefs.setInt(_failKey(profileId), n);
+    final cd = pinCooldown(n);
+    if (cd > Duration.zero) {
+      await prefs.setInt(_untilKey(profileId),
+          DateTime.now().add(cd).millisecondsSinceEpoch);
+    }
+  }
+
+  /// Instant de fin de verrouillage s'il est encore actif, sinon null.
+  Future<DateTime?> lockedUntil(String profileId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final ms = prefs.getInt(_untilKey(profileId));
+    if (ms == null) return null;
+    final dt = DateTime.fromMillisecondsSinceEpoch(ms);
+    return dt.isAfter(DateTime.now()) ? dt : null;
+  }
+
+  Future<void> clearFails(String profileId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_failKey(profileId));
+    await prefs.remove(_untilKey(profileId));
+  }
+
+  // ── Récemment utilisés (bascule rapide sur poste partagé) ──
+  Future<List<String>> recentIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_recentKey) ?? const [];
+  }
+
+  Future<void> recordUsage(String profileId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = [...?prefs.getStringList(_recentKey)]
+      ..remove(profileId)
+      ..insert(0, profileId);
+    if (list.length > 8) list.removeRange(8, list.length);
+    await prefs.setStringList(_recentKey, list);
+  }
+
   /// Purge tous les PIN (vraie déconnexion / réinitialisation de l'appareil).
   Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
-    for (final k in prefs.getKeys().where((k) => k.startsWith('agent_pin_'))) {
+    for (final k in prefs
+        .getKeys()
+        .where((k) => k.startsWith('agent_pin_') || k.startsWith('agent_fails_')
+            || k.startsWith('agent_lock_until_'))) {
       await prefs.remove(k);
     }
   }
@@ -161,6 +244,56 @@ class AgentPinService {
 
 final agentPinServiceProvider =
     Provider<AgentPinService>((ref) => const AgentPinService());
+
+// ─── Mode d'appareil : poste PARTAGÉ vs poste PERSONNEL ─────────────────────
+//  Beaucoup d'écoles publiques n'ont qu'un seul ordinateur (→ partagé, verrou +
+//  bascule d'agent). Là où chacun a sa machine (→ personnel), l'utilisateur
+//  connecté EST l'agent : aucun verrou, aucune friction. Choix stocké par
+//  appareil, demandé une fois après la connexion, modifiable dans Paramètres.
+enum DeviceMode { shared, personal }
+
+/// État du mode d'appareil : [loaded] évite d'afficher le sélecteur de mode
+/// tant que la préférence n'est pas relue du disque.
+class DeviceModeState {
+  const DeviceModeState({required this.loaded, this.mode});
+  final bool loaded;
+  final DeviceMode? mode;
+}
+
+class DeviceModeNotifier extends Notifier<DeviceModeState> {
+  static const _key = 'device_mode';
+
+  @override
+  DeviceModeState build() {
+    _load();
+    return const DeviceModeState(loaded: false);
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    state = DeviceModeState(loaded: true, mode: _parse(prefs.getString(_key)));
+  }
+
+  Future<void> set(DeviceMode mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_key, mode.name);
+    state = DeviceModeState(loaded: true, mode: mode);
+  }
+
+  DeviceMode? _parse(String? v) => switch (v) {
+        'shared' => DeviceMode.shared,
+        'personal' => DeviceMode.personal,
+        _ => null,
+      };
+}
+
+final deviceModeProvider =
+    NotifierProvider<DeviceModeNotifier, DeviceModeState>(
+        DeviceModeNotifier.new);
+
+/// Bascule d'agent à la demande (« Changer d'utilisateur ») même en poste
+/// personnel : force le sélecteur de profils une fois, remis à false au choix.
+final forceAgentPickerProvider = StateProvider<bool>((_) => false);
 
 // ─── Verrouillage « poste partagé » ─────────────────────────────────────────
 // Rôles qui NE sont PAS des agents d'un poste scolaire partagé.
@@ -177,28 +310,63 @@ bool agentLockApplies(String? role) =>
     role != null && role.isNotEmpty && !_nonAgentRoles.contains(role);
 
 /// Décision pure : faut-il imposer l'écran-verrou ?
-/// - pas de session (rôle null) → non ;
-/// - rôle hors public agent → non ;
+/// - pas de session / rôle hors public agent → non ;
 /// - aucun agent encore synchronisé → non (on n'enferme jamais dehors) ;
-/// - sinon : verrou tant qu'aucun agent n'est sélectionné.
+/// - agent déjà sélectionné → non ;
+/// - bascule forcée (menu) → oui ;
+/// - sinon : verrou uniquement en mode POSTE PARTAGÉ.
 bool computeNeedsAgentUnlock({
   required String? deviceRole,
   required bool hasAgents,
   required String? selectedAgentId,
+  DeviceMode? deviceMode,
+  bool forcePicker = false,
 }) {
   if (!agentLockApplies(deviceRole)) return false;
   if (!hasAgents) return false;
-  return selectedAgentId == null;
+  if (selectedAgentId != null) return false;
+  if (forcePicker) return true;
+  return deviceMode == DeviceMode.shared;
 }
 
-/// Câble la décision aux providers existants.
+/// Décision pure : faut-il demander le mode d'appareil ? Une seule fois, quand
+/// le personnel est connecté, la préférence absente et des agents synchronisés.
+bool computeNeedsDeviceModeChoice({
+  required String? deviceRole,
+  required DeviceMode? deviceMode,
+  required bool hasAgents,
+}) {
+  if (!agentLockApplies(deviceRole)) return false;
+  if (deviceMode != null) return false;
+  return hasAgents;
+}
+
+/// Câble la décision de verrou aux providers existants.
 final needsAgentUnlockProvider = Provider<bool>((ref) {
   final role = ref.watch(authNotifierProvider).valueOrNull?.role;
   final agents = ref.watch(switchableAgentsProvider).valueOrNull ?? const [];
   final selected = ref.watch(selectedAgentIdProvider);
+  final dm = ref.watch(deviceModeProvider);
+  final force = ref.watch(forceAgentPickerProvider);
+  if (!dm.loaded) return false;
   return computeNeedsAgentUnlock(
     deviceRole: role,
     hasAgents: agents.isNotEmpty,
     selectedAgentId: selected,
+    deviceMode: dm.mode,
+    forcePicker: force,
+  );
+});
+
+/// Câble la décision « demander le mode » aux providers existants.
+final needsDeviceModeChoiceProvider = Provider<bool>((ref) {
+  final role = ref.watch(authNotifierProvider).valueOrNull?.role;
+  final agents = ref.watch(switchableAgentsProvider).valueOrNull ?? const [];
+  final dm = ref.watch(deviceModeProvider);
+  if (!dm.loaded) return false;
+  return computeNeedsDeviceModeChoice(
+    deviceRole: role,
+    deviceMode: dm.mode,
+    hasAgents: agents.isNotEmpty,
   );
 });
