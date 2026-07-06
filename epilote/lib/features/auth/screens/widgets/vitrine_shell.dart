@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
@@ -156,6 +158,38 @@ class _ServiceBanner extends StatefulWidget {
 
 class _ServiceBannerState extends State<_ServiceBanner> {
   int _i = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _maybeStart();
+  }
+
+  @override
+  void didUpdateWidget(_ServiceBanner old) {
+    super.didUpdateWidget(old);
+    if (old.messages.length != widget.messages.length) _maybeStart();
+  }
+
+  void _maybeStart() {
+    _timer?.cancel();
+    // Carrousel lent uniquement s'il y a plusieurs messages ET que l'appareil
+    // n'a pas demandé de réduire les animations (accessibilité).
+    final reduce =
+        WidgetsBinding.instance.platformDispatcher.accessibilityFeatures.disableAnimations;
+    if (widget.messages.length > 1 && !reduce) {
+      _timer = Timer.periodic(const Duration(seconds: 7), (_) {
+        if (mounted) setState(() => _i++);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

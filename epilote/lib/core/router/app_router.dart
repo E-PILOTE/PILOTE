@@ -24,6 +24,7 @@ import '../../features/super_admin/screens/ai_screen.dart';
 import '../../features/communication/screens/announcements_feed.dart';
 import '../../features/communication/screens/messagerie_staff.dart';
 import '../../features/super_admin/screens/tickets_screen.dart';
+import '../../features/super_admin/screens/platform_service_messages_screen.dart';
 import '../../features/super_admin/screens/national_map_screen.dart';
 import '../../features/super_admin/screens/profile_screen.dart';
 import '../../features/admin_groupe/screens/admin_academic_years_screen.dart';
@@ -339,6 +340,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.superAnnonces,
         builder: (_, _) => const StaffAnnouncementsScreen(),
+      ),
+      GoRoute(
+        path: Routes.superMessagesAccueil,
+        builder: (_, _) => const PlatformServiceMessagesScreen(),
       ),
       GoRoute(path: Routes.superIa, builder: (_, _) => const AiScreen()),
       GoRoute(path: Routes.superAudit, builder: (_, _) => const AuditScreen()),

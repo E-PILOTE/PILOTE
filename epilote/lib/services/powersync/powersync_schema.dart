@@ -17,6 +17,14 @@ const schema = Schema([
     Column.text('updated_at'),
   ]),
 
+  // Messages de service (vitrine des postes) — diffusion globale (migration 0034)
+  Table('platform_service_messages', [
+    Column.text('body'),
+    Column.integer('is_active'),
+    Column.text('starts_at'),
+    Column.text('ends_at'),
+  ]),
+
   Table('modules', [
     Column.text('category_id'),
     Column.text('name'),

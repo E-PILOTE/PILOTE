@@ -100,6 +100,11 @@ List<NavSection> _superAdminSections() => const [
           label: 'Tickets support',
           route: Routes.superTickets,
         ),
+        NavEntry.item(
+          icon: Icons.desktop_windows_rounded,
+          label: 'Messages d’accueil des postes',
+          route: Routes.superMessagesAccueil,
+        ),
       ]),
       NavSection(title: 'RAPPORTS & SYSTÈME', pinned: true, entries: [
         NavEntry.item(

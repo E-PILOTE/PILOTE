@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:epilote/features/auth/providers/active_agent_provider.dart';
+import 'package:epilote/features/auth/providers/vitrine_messages_provider.dart';
 import 'package:epilote/features/auth/screens/agent_lock_screen.dart';
 import 'package:epilote/features/auth/screens/device_mode_screen.dart';
 import 'package:epilote/features/structure/providers/academic_year_provider.dart';
@@ -29,6 +30,10 @@ void main() {
         switchableAgentsProvider.overrideWith((ref) => Stream.value(agents)),
         currentSchoolProvider.overrideWith(
             (ref) => Stream.value(const {'name': 'Lycée de Kinkala'})),
+        serviceMessagesProvider.overrideWith((ref) => Stream.value(const [
+              'E-PILOTE 3.0 — les bulletins PDF sont disponibles dans Évaluation.',
+              'Maintenance planifiée dimanche de 22h à 23h.',
+            ])),
       ],
       child: const MaterialApp(home: Scaffold(body: AgentLockScreen())),
     ));

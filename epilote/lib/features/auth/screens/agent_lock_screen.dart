@@ -5,6 +5,7 @@ import '../../structure/providers/academic_year_provider.dart'
     show currentSchoolProvider;
 import '../providers/active_agent_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/vitrine_messages_provider.dart';
 import 'widgets/agent_grid.dart';
 import 'widgets/agent_lock_background.dart';
 import 'widgets/agent_pin_pad.dart';
@@ -80,6 +81,8 @@ class _AgentLockScreenState extends ConsumerState<AgentLockScreen>
   Widget build(BuildContext context) {
     final agents = ref.watch(switchableAgentsProvider).valueOrNull ?? const [];
     final school = ref.watch(currentSchoolProvider).valueOrNull;
+    final serviceMessages =
+        ref.watch(serviceMessagesProvider).valueOrNull ?? const [];
 
     return Material(
       color: Colors.transparent,
@@ -104,6 +107,7 @@ class _AgentLockScreenState extends ConsumerState<AgentLockScreen>
                             school?['name'] as String? ?? 'E-PILOTE CONGO',
                         schoolLogoUrl: school?['logo_url'] as String?,
                         onOpen: _open,
+                        serviceMessages: serviceMessages,
                       ),
                     ),
                   ),

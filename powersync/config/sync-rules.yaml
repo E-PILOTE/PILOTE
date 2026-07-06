@@ -37,6 +37,9 @@ bucket_definitions:
       # Les variantes propres au groupe sont synchronisées via by_group.
       - SELECT * FROM education_levels WHERE is_active = true AND group_id IS NULL
       - SELECT * FROM education_programs WHERE is_active = true AND group_id IS NULL
+      # Messages de service affichés sur la vitrine des postes (migration 0034).
+      - SELECT id, body, is_active, starts_at, ends_at
+          FROM platform_service_messages WHERE is_active = true
 
   # ════════════════════════════════════════════════════════════════════════
   # PROPRE À L'UTILISATEUR (profil, messages, notifications, sa fiche staff)
