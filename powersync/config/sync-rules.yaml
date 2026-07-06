@@ -40,6 +40,11 @@ bucket_definitions:
       # Messages de service affichés sur la vitrine des postes (migration 0034).
       - SELECT id, body, is_active, starts_at, ends_at
           FROM platform_service_messages WHERE is_active = true
+      # Partenaires affichés sur la vitrine (migration 0035). L'opt-in par groupe
+      # (school_groups.partner_display_enabled) descend déjà via by_group (SELECT *).
+      - SELECT id, name, logo_url, website_url, category, is_active,
+          sort_order, starts_at, ends_at
+          FROM platform_partners WHERE is_active = true
 
   # ════════════════════════════════════════════════════════════════════════
   # PROPRE À L'UTILISATEUR (profil, messages, notifications, sa fiche staff)

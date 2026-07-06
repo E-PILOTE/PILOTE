@@ -25,6 +25,18 @@ const schema = Schema([
     Column.text('ends_at'),
   ]),
 
+  // Partenaires (vitrine des postes) — diffusion globale (migration 0035)
+  Table('platform_partners', [
+    Column.text('name'),
+    Column.text('logo_url'),
+    Column.text('website_url'),
+    Column.text('category'),
+    Column.integer('is_active'),
+    Column.integer('sort_order'),
+    Column.text('starts_at'),
+    Column.text('ends_at'),
+  ]),
+
   Table('modules', [
     Column.text('category_id'),
     Column.text('name'),
@@ -131,6 +143,8 @@ const schema = Schema([
     Column.text('address'),
     Column.text('logo_url'),
     Column.integer('is_active'),
+    // Opt-in affichage partenaires sur les postes du groupe (migration 0035)
+    Column.integer('partner_display_enabled'),
     Column.text('notes'),
     Column.text('created_at'),
     Column.text('updated_at'),

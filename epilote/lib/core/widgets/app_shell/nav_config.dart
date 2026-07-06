@@ -105,6 +105,11 @@ List<NavSection> _superAdminSections() => const [
           label: 'Messages d’accueil des postes',
           route: Routes.superMessagesAccueil,
         ),
+        NavEntry.item(
+          icon: Icons.handshake_rounded,
+          label: 'Partenaires des postes',
+          route: Routes.superPartenaires,
+        ),
       ]),
       NavSection(title: 'RAPPORTS & SYSTÈME', pinned: true, entries: [
         NavEntry.item(

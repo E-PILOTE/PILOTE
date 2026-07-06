@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:epilote/features/auth/providers/active_agent_provider.dart';
 import 'package:epilote/features/auth/providers/vitrine_messages_provider.dart';
+import 'package:epilote/features/auth/providers/vitrine_partners_provider.dart';
 import 'package:epilote/features/auth/screens/agent_lock_screen.dart';
 import 'package:epilote/features/auth/screens/device_mode_screen.dart';
 import 'package:epilote/features/structure/providers/academic_year_provider.dart';
@@ -44,6 +45,32 @@ void main() {
     await pumpLock(tester);
     await expectLater(find.byType(AgentLockScreen),
         matchesGoldenFile('goldens/lock_vitrine.png'));
+  });
+
+  testWidgets('capture — vitrine avec partenaires (repli texte)',
+      (tester) async {
+    tester.view.physicalSize = const Size(1280, 832);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        switchableAgentsProvider.overrideWith((ref) => Stream.value(agents)),
+        currentSchoolProvider.overrideWith(
+            (ref) => Stream.value(const {'name': 'Lycée de Kinkala'})),
+        serviceMessagesProvider.overrideWith(
+            (ref) => Stream.value(const ['E-PILOTE 3.0 disponible.'])),
+        // Groupe opté in + partenaires vivants (logo null → repli sur le nom).
+        groupPartnerOptInProvider.overrideWith((ref) => Stream.value(true)),
+        vitrinePartnersProvider.overrideWith((ref) => Stream.value(const [
+              PartnerVitrineItem(name: 'MEPSA'),
+              PartnerVitrineItem(name: 'UNICEF Éducation'),
+            ])),
+      ],
+      child: const MaterialApp(home: Scaffold(body: AgentLockScreen())),
+    ));
+    await tester.pump();
+    await expectLater(find.byType(AgentLockScreen),
+        matchesGoldenFile('goldens/lock_vitrine_partners.png'));
   });
 
   testWidgets('capture — profils', (tester) async {

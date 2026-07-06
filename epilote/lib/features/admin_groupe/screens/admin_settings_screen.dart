@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/routes.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../providers/admin_settings_provider.dart';
+import '../widgets/partner_opt_in_tile.dart';
 import '../../../core/widgets/admin_ui.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -359,6 +360,10 @@ class _GeneralTab extends ConsumerWidget {
 
         // ── Apparence (local, non persisté côté DB) ─────────────────────────
         const _AppearanceCard(),
+        const SizedBox(height: 20),
+
+        // ── Partenaires sur les postes (opt-in, Phase 3b) ───────────────────
+        const PartnerOptInTile(),
         const SizedBox(height: 20),
 
         // ── Mon compte ──────────────────────────────────────────────────────

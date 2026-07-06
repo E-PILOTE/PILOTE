@@ -19,6 +19,7 @@ class VitrineShell extends StatelessWidget {
     required this.onOpen,
     this.serviceMessages = const [],
     this.showPartner = false,
+    this.partners = const [],
   });
 
   final String schoolName;
@@ -26,6 +27,9 @@ class VitrineShell extends StatelessWidget {
   final VoidCallback onOpen;
   final List<String> serviceMessages;
   final bool showPartner;
+
+  /// (nom, logoUrl?) des partenaires à afficher quand [showPartner] est vrai.
+  final List<({String name, String? logoUrl})> partners;
 
   @override
   Widget build(BuildContext context) {
@@ -49,8 +53,8 @@ class VitrineShell extends StatelessWidget {
               child: _OpenButton(onTap: onOpen),
             ),
             const Spacer(),
-            if (showPartner) ...[
-              const _PartnerStrip(),
+            if (showPartner && partners.isNotEmpty) ...[
+              _PartnerStrip(partners: partners),
               const SizedBox(height: 12),
             ],
             const _Footer(),
@@ -294,7 +298,9 @@ class _OpenButton extends StatelessWidget {
 }
 
 class _PartnerStrip extends StatelessWidget {
-  const _PartnerStrip();
+  const _PartnerStrip({required this.partners});
+  final List<({String name, String? logoUrl})> partners;
+
   @override
   Widget build(BuildContext context) => Column(
         children: [
@@ -304,23 +310,40 @@ class _PartnerStrip extends StatelessWidget {
                   fontSize: 8,
                   letterSpacing: 0.6)),
           const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (var i = 0; i < 2; i++)
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 6),
-                  width: 54,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                ),
-            ],
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 14,
+            runSpacing: 6,
+            children: [for (final p in partners) _PartnerLogo(partner: p)],
           ),
         ],
       );
+}
+
+class _PartnerLogo extends StatelessWidget {
+  const _PartnerLogo({required this.partner});
+  final ({String name, String? logoUrl}) partner;
+
+  @override
+  Widget build(BuildContext context) {
+    final has = partner.logoUrl != null && partner.logoUrl!.isNotEmpty;
+    // Repli sur le NOM en texte tant que le logo n'est pas en cache (offline).
+    final fallback = Text(partner.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.85),
+            fontSize: 11,
+            fontWeight: FontWeight.w700));
+    if (!has) return fallback;
+    return CachedNetworkImage(
+      imageUrl: partner.logoUrl!,
+      height: 22,
+      fit: BoxFit.contain,
+      errorWidget: (_, _, _) => fallback,
+      placeholder: (_, _) => fallback,
+    );
+  }
 }
 
 class _Footer extends StatelessWidget {
