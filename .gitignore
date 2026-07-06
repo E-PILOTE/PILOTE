@@ -61,3 +61,6 @@ powersynchToken
 
 # Temp CLI supabase
 supabase/.temp/
+
+# Compagnon visuel brainstorming (superpowers)
+.superpowers/
