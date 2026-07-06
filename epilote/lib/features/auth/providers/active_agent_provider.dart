@@ -362,14 +362,14 @@ final needsAgentUnlockProvider = Provider<bool>((ref) {
   final selected = ref.watch(selectedAgentIdProvider);
   final dm = ref.watch(deviceModeProvider);
   final force = ref.watch(forceAgentPickerProvider);
-  if (!dm.loaded) return false;
-  return computeNeedsAgentUnlock(
-    deviceRole: role,
-    hasAgents: agents.isNotEmpty,
-    selectedAgentId: selected,
-    deviceMode: dm.mode,
-    forcePicker: force,
-  );
+  return dm.loaded &&
+      computeNeedsAgentUnlock(
+        deviceRole: role,
+        hasAgents: agents.isNotEmpty,
+        selectedAgentId: selected,
+        deviceMode: dm.mode,
+        forcePicker: force,
+      );
 });
 
 /// Câble la décision « demander le mode » aux providers existants.

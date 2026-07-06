@@ -14,10 +14,19 @@ import '../device_mode_screen.dart';
 /// ⚠️ Ces écrans sont montés en frère du Navigator (via `MaterialApp.builder`),
 /// donc SANS Overlay ancêtre. Or `Tooltip`, `TextField` (EditableText),
 /// `DropdownButton`… exigent un Overlay au build. On héberge donc l'écran dans
-/// un [Overlay] **stable** (jamais recréé) : l'animation d'apparition vit à
-/// l'intérieur (via un [AnimatedSwitcher] enfant). Un Overlay recréé/détruit par
-/// un AnimatedSwitcher externe déclenchait une assertion Semantics
-/// (`!child.attached`) au reparentage — d'où l'Overlay stable + [IgnorePointer].
+/// un [Overlay] qui LEUR sert d'ancêtre.
+///
+/// ⚠️ Cet Overlay n'est monté **que** quand un écran est réellement affiché
+/// (`showing`). Le garder monté en permanence (même vide, à l'écran de login ou
+/// sur le tableau de bord) empilait un Overlay + AnimatedSwitcher en frère de
+/// l'app : à chaque frame, `flushSemantics` levait `!child.attached`
+/// (des centaines d'exceptions en debug, arbre d'accessibilité cassé). En ne le
+/// montant qu'au besoin, l'app normale n'a aucune interférence sémantique.
+///
+/// [child] reste **toujours** `Stack.children[0]` (position stable) : le
+/// Navigator n'est jamais reparenté, donc l'état de navigation est préservé.
+/// La [ValueKey] force un Overlay neuf lors de la bascule mode → verrou (sinon
+/// `Overlay.initialEntries`, lu une seule fois, figerait le premier contenu).
 class AgentLockGate extends ConsumerWidget {
   const AgentLockGate({super.key, required this.child});
   final Widget child;
@@ -28,34 +37,23 @@ class AgentLockGate extends ConsumerWidget {
     final locked = ref.watch(needsAgentUnlockProvider);
     final showing = needsMode || locked;
 
-    final Widget content = needsMode
-        ? const DeviceModeScreen(key: ValueKey('device-mode'))
-        : locked
-            ? const AgentLockScreen(key: ValueKey('agent-lock'))
-            : const SizedBox.shrink(key: ValueKey('agent-unlocked'));
-
     return Stack(
       children: [
         child,
-        // Overlay STABLE (monté en permanence) pour fournir un Overlay ancêtre ;
-        // l'animation se fait à l'intérieur, l'Overlay lui-même n'est jamais
-        // reparenté. IgnorePointer laisse passer les clics quand rien n'est vu.
-        Positioned.fill(
-          child: IgnorePointer(
-            ignoring: !showing,
+        if (showing)
+          Positioned.fill(
             child: Overlay(
+              key: ValueKey(needsMode ? 'device-mode' : 'agent-lock'),
               initialEntries: [
                 OverlayEntry(
                   maintainState: true,
-                  builder: (_) => AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 280),
-                    child: content,
-                  ),
+                  builder: (_) => needsMode
+                      ? const DeviceModeScreen()
+                      : const AgentLockScreen(),
                 ),
               ],
             ),
           ),
-        ),
       ],
     );
   }

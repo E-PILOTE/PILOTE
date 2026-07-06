@@ -175,7 +175,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       // pour que la photo respire côté card et reste discrète côté héros.
       Positioned.fill(
         child: Image.asset(
-          'assets/images/login_bg.jpg',
+          'assets/images/login_bg.webp',
           fit: BoxFit.cover,
           opacity: const AlwaysStoppedAnimation(0.42),
           errorBuilder: (_, _, _) => const SizedBox.shrink(),

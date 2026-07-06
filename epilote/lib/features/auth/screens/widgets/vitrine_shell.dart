@@ -3,9 +3,10 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import 'auth_colors.dart';
 import 'vitrine_clock.dart';
 
-const _kAccent = Color(0xFF3B8CFF);
+const _kAccent = kAuthAccent;
 
 /// Vitrine de sécurité au repos (plein écran, JAMAIS de scroll). Co-branding
 /// institutionnel, horloge sobre, message de service (données Phase 3), bouton
@@ -206,7 +207,7 @@ class _ServiceBannerState extends State<_ServiceBanner> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: _kAccent.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(kAuthRadius),
               border: Border.all(color: _kAccent.withValues(alpha: 0.3)),
             ),
             child: Row(
@@ -233,17 +234,20 @@ class _ServiceBannerState extends State<_ServiceBanner> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 for (var k = 0; k < msgs.length; k++)
-                  GestureDetector(
-                    onTap: () => setState(() => _i = k),
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: (_i % msgs.length) == k
-                            ? _kAccent
-                            : Colors.white.withValues(alpha: 0.25),
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _i = k),
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: (_i % msgs.length) == k
+                              ? _kAccent
+                              : Colors.white.withValues(alpha: 0.25),
+                        ),
                       ),
                     ),
                   ),
@@ -264,17 +268,17 @@ class _OpenButton extends StatelessWidget {
   Widget build(BuildContext context) => SizedBox(
         width: double.infinity,
         child: Material(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(kAuthRadius),
           elevation: 8,
           shadowColor: _kAccent.withValues(alpha: 0.5),
           child: Ink(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(kAuthRadius),
               gradient: const LinearGradient(
-                  colors: [Color(0xFF1F6FEB), _kAccent]),
+                  colors: [kAuthNavy, _kAccent]),
             ),
             child: InkWell(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(kAuthRadius),
               onTap: onTap,
               child: const Padding(
                 padding: EdgeInsets.symmetric(vertical: 15),

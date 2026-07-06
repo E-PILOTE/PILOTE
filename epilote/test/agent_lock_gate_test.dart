@@ -77,4 +77,41 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('Qui utilise ce poste ?'), findsOneWidget);
   });
+
+  // Régression : le verrou doit RÉAPPARAÎTRE quand le provider repasse à true
+  // APRÈS le montage (cas « Changer d'utilisateur » : aucun remontage, simple
+  // changement de provider). L'ancien Overlay figeait son contenu à la création
+  // (closure dans `initialEntries`) → le verrou ne revenait jamais.
+  testWidgets('verrou déjà monté → réapparaît quand le provider repasse à true',
+      (tester) async {
+    final toggle = StateProvider<bool>((_) => false);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        needsAgentUnlockProvider.overrideWith((ref) => ref.watch(toggle)),
+        needsDeviceModeChoiceProvider.overrideWithValue(false),
+        switchableAgentsProvider.overrideWith((ref) => Stream.value(const [])),
+        currentSchoolProvider.overrideWith(
+            (ref) => Stream.value(const {'name': 'Lycée de Kinkala'})),
+      ],
+      child: MaterialApp(
+        home: const Scaffold(body: Text('APP')),
+        builder: (context, child) =>
+            AgentLockGate(child: child ?? const SizedBox.shrink()),
+      ),
+    ));
+    await tester.pump();
+    // Au départ déverrouillé : pas de vitrine.
+    expect(find.text('Ouvrir une session'), findsNothing);
+
+    // Bascule à true SANS remonter la porte (comme « Changer d'utilisateur »).
+    final container = ProviderScope.containerOf(
+        tester.element(find.text('APP')),
+        listen: false);
+    container.read(toggle.notifier).state = true;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    // La vitrine DOIT réapparaître (échouait avec l'Overlay figé).
+    expect(find.text('Ouvrir une session'), findsOneWidget);
+  });
 }

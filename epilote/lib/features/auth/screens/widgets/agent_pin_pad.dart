@@ -9,7 +9,7 @@ import '../../providers/active_agent_provider.dart';
 import 'agent_keypad.dart';
 import 'auth_colors.dart';
 
-const _kAccent = Color(0xFF3B8CFF);
+const _kAccent = kAuthAccent;
 const _kPinLen = 4;
 
 /// Pavé PIN de l'écran-verrou (feuille bleu nuit). PIN à 4 chiffres :
@@ -284,9 +284,12 @@ class _Dots extends StatelessWidget {
             width: reveal ? 24 : 15,
             height: reveal ? 30 : 15,
             alignment: Alignment.center,
+            // On garde une forme rectangulaire et on n'anime QUE le rayon :
+            // à 15×15 un rayon ≥ 7,5 rend un cercle. Animer `shape` entre cercle
+            // et rectangle est interdit (BoxDecoration.lerp → cercle + rayon →
+            // assertion) — c'était le crash du bouton « Afficher ».
             decoration: BoxDecoration(
-              shape: reveal ? BoxShape.rectangle : BoxShape.circle,
-              borderRadius: reveal ? BorderRadius.circular(6) : null,
+              borderRadius: BorderRadius.circular(reveal ? 6 : 8),
               color: i < pin.length && !reveal ? color : Colors.transparent,
               border: Border.all(
                   color: i < pin.length

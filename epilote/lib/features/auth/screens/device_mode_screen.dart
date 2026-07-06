@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/active_agent_provider.dart';
 import 'widgets/agent_lock_background.dart';
+import 'widgets/auth_colors.dart';
 
-const _kAccent = Color(0xFF3B8CFF);
+const _kAccent = kAuthAccent;
 
 /// Sélecteur du mode d'appareil, affiché une fois après la connexion du
 /// personnel. Détermine si ce poste est **partagé** (verrou + bascule d'agent)
@@ -132,13 +133,13 @@ class _ModeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white.withValues(alpha: 0.09),
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(kAuthRadius),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(kAuthRadius),
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(kAuthRadius),
             border: Border.all(
                 width: recommended ? 1.5 : 1,
                 color: recommended

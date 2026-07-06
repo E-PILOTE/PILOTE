@@ -53,7 +53,7 @@ class _AgentLockBackgroundState extends State<AgentLockBackground>
         // Photo salle de classe — même image que la page de login.
         Positioned.fill(
           child: Image.asset(
-            'assets/images/login_bg.jpg',
+            'assets/images/login_bg.webp',
             fit: BoxFit.cover,
             opacity: const AlwaysStoppedAnimation(0.42),
             errorBuilder: (_, _, _) => const SizedBox.shrink(),

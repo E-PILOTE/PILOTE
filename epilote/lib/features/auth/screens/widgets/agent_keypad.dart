@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'auth_colors.dart';
+
 /// Pavé numérique de l'écran-verrou (thème sombre, sur la feuille bleu nuit).
 /// PIN à 4 chiffres → auto-validation, donc **pas de bouton valider** : bas de
 /// pavé = [·] [0] [⌫] (convention iOS/Android). [enabled] false pendant une
@@ -107,9 +109,9 @@ class _KeyShell extends StatelessWidget {
           height: 54,
           child: Material(
             color: Colors.white.withValues(alpha: 0.09),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(kAuthRadius),
             child: InkWell(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(kAuthRadius),
               onTap: onTap,
               child: Center(child: child),
             ),

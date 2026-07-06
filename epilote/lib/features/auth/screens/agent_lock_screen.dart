@@ -34,6 +34,9 @@ class _AgentLockScreenState extends ConsumerState<AgentLockScreen>
     super.initState();
     _reveal = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 340));
+    // Bascule explicite (« Changer d'utilisateur ») : on saute la vitrine et on
+    // ouvre directement la feuille profils/PIN — c'est l'intention de l'action.
+    if (ref.read(forceAgentPickerProvider)) _reveal.value = 1;
   }
 
   @override
@@ -189,7 +192,9 @@ class _RevealSheet extends StatelessWidget {
           // La feuille s'ajuste au contenu ; ne défile qu'en dernier recours
           // (fenêtre très basse). La grille interne défile d'elle-même.
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460),
+            // Plus large pour afficher les noms complets sans troncature ; la
+            // grille interne reste responsive (voir AgentGrid).
+            constraints: const BoxConstraints(maxWidth: 560),
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               padding: const EdgeInsets.fromLTRB(22, 12, 22, 18),

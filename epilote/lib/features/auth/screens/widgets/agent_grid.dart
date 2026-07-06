@@ -5,8 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../admin_groupe/providers/admin_users_provider.dart'
     show roleLabel;
 import '../../providers/active_agent_provider.dart';
+import 'auth_colors.dart';
 
-const _kAccent = Color(0xFF3B8CFF);
+const _kAccent = kAuthAccent;
 
 /// Modal de sélection d'agent (feuille bleu nuit). Recherche, rangée
 /// « Récemment utilisés », grille défilable **à l'intérieur du modal** (la page
@@ -107,8 +108,13 @@ class _AgentGridState extends ConsumerState<AgentGrid>
                 controller: _scrollCtrl,
                 shrinkWrap: true,
                 padding: const EdgeInsets.only(right: 8, bottom: 4),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
+                // Responsive : chaque carte fait ~250 px de large au maximum
+                // (place suffisante pour le nom complet), et le nombre de
+                // colonnes s'adapte à la largeur disponible (2 sur desktop,
+                // 1 sur fenêtre étroite).
+                gridDelegate:
+                    const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 250,
                   mainAxisExtent: 66,
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 12,
@@ -170,7 +176,7 @@ class _SearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     OutlineInputBorder border(Color c, [double w = 1]) => OutlineInputBorder(
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(kAuthRadius),
         borderSide: BorderSide(color: c, width: w));
     return TextField(
       controller: controller,
@@ -218,7 +224,7 @@ class _RecentsRow extends StatelessWidget {
             Expanded(
               child: InkWell(
                 onTap: () => onPick(a),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(kAuthRadius),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Column(
@@ -298,13 +304,13 @@ class _AgentTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white.withValues(alpha: 0.12),
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(kAuthRadius),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(kAuthRadius),
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(kAuthRadius),
             border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 12),
