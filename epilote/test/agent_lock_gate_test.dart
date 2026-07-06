@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:epilote/features/auth/providers/active_agent_provider.dart';
 import 'package:epilote/features/auth/screens/widgets/agent_lock_gate.dart';
 import 'package:epilote/features/structure/providers/academic_year_provider.dart';
@@ -38,5 +39,42 @@ void main() {
     // Au repos, la vitrine s'affiche avec son bouton d'ouverture de session.
     expect(find.text('Ouvrir une session'), findsOneWidget);
     expect(find.text('CONTENU'), findsOneWidget);
+  });
+
+  // Régression : monté dans `MaterialApp.builder` (frère du Navigator, donc SANS
+  // Overlay ancêtre) — reproduit le vrai câblage. Le TextField de recherche et
+  // les tooltips des profils exigent un Overlay ; jadis « No Overlay widget
+  // found ». La porte doit fournir son propre Overlay.
+  testWidgets('câblage réel (builder) → profils sans erreur Overlay',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        needsAgentUnlockProvider.overrideWithValue(true),
+        needsDeviceModeChoiceProvider.overrideWithValue(false),
+        switchableAgentsProvider.overrideWith((ref) => Stream.value(const [
+              AgentOption(
+                  id: 'a1',
+                  firstName: 'Marie',
+                  lastName: 'Koumba',
+                  role: 'secretaire'),
+            ])),
+        currentSchoolProvider.overrideWith(
+            (ref) => Stream.value(const {'name': 'Lycée de Kinkala'})),
+      ],
+      child: MaterialApp(
+        home: const Scaffold(body: Text('APP')),
+        // Exactement comme main.dart : la porte enveloppe le Navigator.
+        builder: (context, child) =>
+            AgentLockGate(child: child ?? const SizedBox.shrink()),
+      ),
+    ));
+    await tester.pump();
+    await tester.tap(find.text('Ouvrir une session'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    // Grille de profils affichée (TextField recherche + tooltips) sans exception.
+    expect(tester.takeException(), isNull);
+    expect(find.text('Qui utilise ce poste ?'), findsOneWidget);
   });
 }
