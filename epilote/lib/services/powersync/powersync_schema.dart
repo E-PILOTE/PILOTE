@@ -102,6 +102,8 @@ const schema = Schema([
     Column.integer('is_active'),
     Column.text('last_login'),
     Column.text('fcm_token'),
+    // Reset PIN de poste par admin_groupe (migration 0033)
+    Column.text('pin_reset_requested_at'),
     Column.text('created_at'),
     Column.text('updated_at'),
   ]),

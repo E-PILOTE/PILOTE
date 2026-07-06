@@ -147,6 +147,27 @@ void main() {
     });
   });
 
+  group('pinResetInvalidates (reset admin_groupe — Phase 2)', () {
+    final t0 = DateTime(2026, 7, 1, 8);
+    final t1 = DateTime(2026, 7, 6, 9); // plus récent
+
+    test('aucun reset demandé → PIN valide', () {
+      expect(pinResetInvalidates(null, t0), isFalse);
+    });
+    test('reset postérieur au PIN local → invalide (recréer)', () {
+      expect(pinResetInvalidates(t1, t0), isTrue);
+    });
+    test('reset antérieur au PIN local → valide (déjà recréé)', () {
+      expect(pinResetInvalidates(t0, t1), isFalse);
+    });
+    test('reset demandé mais aucune date locale de PIN → invalide', () {
+      expect(pinResetInvalidates(t1, null), isTrue);
+    });
+    test('égaux → non invalidé (pas de reset strictement postérieur)', () {
+      expect(pinResetInvalidates(t0, t0), isFalse);
+    });
+  });
+
   group('pinCooldown (anti-force-brute progressif)', () {
     test('échecs 0 à 4 → aucune pause', () {
       for (var i = 0; i <= 4; i++) {

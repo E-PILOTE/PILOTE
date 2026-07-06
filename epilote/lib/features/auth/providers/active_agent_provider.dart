@@ -50,6 +50,7 @@ class AgentOption {
     this.phone,
     this.dateOfBirth,
     this.employeeNumber,
+    this.pinResetRequestedAt,
   });
 
   final String id;
@@ -61,6 +62,10 @@ class AgentOption {
   final String? phone;
   final DateTime? dateOfBirth;
   final String? employeeNumber;
+
+  /// Demande de reset du PIN posée par admin_groupe (synchro serveur). Comparée
+  /// à `agent_pin_set_at` local pour invalider le PIN — cf. [pinResetInvalidates].
+  final DateTime? pinResetRequestedAt;
 
   String get fullName {
     final n = '${firstName.trim()} ${lastName.trim()}'.trim();
@@ -86,7 +91,7 @@ final switchableAgentsProvider =
       .watch(
         '''
         SELECT id, first_name, last_name, role, access_profile_id, avatar_url,
-               phone, date_of_birth, employee_number
+               phone, date_of_birth, employee_number, pin_reset_requested_at
         FROM   profiles
         WHERE  school_id = ? AND is_active = 1
         ORDER  BY last_name, first_name
@@ -107,6 +112,9 @@ final switchableAgentsProvider =
                     ? DateTime.tryParse(r['date_of_birth'] as String)
                     : null,
                 employeeNumber:   r['employee_number'] as String?,
+                pinResetRequestedAt: (r['pin_reset_requested_at'] as String?) != null
+                    ? DateTime.tryParse(r['pin_reset_requested_at'] as String)
+                    : null,
               ),
           ]);
 });
@@ -139,6 +147,12 @@ Duration pinCooldown(int failCount) {
       return const Duration(minutes: 5); // plafond
   }
 }
+
+/// Un reset serveur invalide-t-il le PIN local ? Vrai si admin_groupe a demandé
+/// un reset ([resetAt] non nul) postérieur à la création locale du PIN ([setAt]),
+/// ou si aucun PIN local n'a de date. Fonction pure, testable.
+bool pinResetInvalidates(DateTime? resetAt, DateTime? setAt) =>
+    resetAt != null && (setAt == null || resetAt.isAfter(setAt));
 
 // ─── Service PIN (haché localement, jamais synchronisé) ─────────────────────
 class AgentPinService {

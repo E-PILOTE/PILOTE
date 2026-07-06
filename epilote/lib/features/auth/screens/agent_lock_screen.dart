@@ -53,11 +53,17 @@ class _AgentLockScreenState extends ConsumerState<AgentLockScreen>
   }
 
   Future<void> _pick(AgentOption a) async {
-    final hasPin = await ref.read(agentPinServiceProvider).hasPin(a.id);
+    final svc = ref.read(agentPinServiceProvider);
+    final hasPin = await svc.hasPin(a.id);
+    // Reset demandé par admin_groupe (synchro) postérieur au PIN local → il faut
+    // en recréer un. Un reset lève aussi un éventuel cooldown en cours.
+    final invalidated =
+        hasPin && pinResetInvalidates(a.pinResetRequestedAt, await svc.pinSetAt(a.id));
+    if (invalidated) await svc.clearFails(a.id);
     if (!mounted) return;
     setState(() {
       _picked = a;
-      _isCreate = !hasPin;
+      _isCreate = !hasPin || invalidated;
     });
   }
 

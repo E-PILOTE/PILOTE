@@ -74,7 +74,8 @@ bucket_definitions:
     data:
       - SELECT id, group_id, school_id, role, access_profile_id,
           first_name, last_name, phone, avatar_url, employee_number,
-          date_of_birth, is_active, last_login, created_at, updated_at
+          date_of_birth, is_active, last_login, created_at, updated_at,
+          pin_reset_requested_at
         FROM profiles
         WHERE school_id = bucket.sid AND is_active = true
 

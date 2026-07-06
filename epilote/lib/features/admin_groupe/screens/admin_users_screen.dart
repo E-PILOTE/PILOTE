@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../../core/widgets/app_shell.dart';
+import '../../auth/providers/active_agent_provider.dart' show agentLockApplies;
 import '../providers/admin_users_provider.dart';
 import '../providers/subscription_access_provider.dart';
 import '../../../core/widgets/admin_ui.dart';
@@ -112,6 +113,39 @@ class _UsersBodyState extends ConsumerState<_UsersBody> {
   void _openResetPwd(AdminUser u) =>
       showDialog(context: context, builder: (_) => ResetPasswordDialog(user: u));
 
+  Future<void> _resetPin(AdminUser u) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Réinitialiser le code du poste'),
+        content: Text('${u.fullName} devra créer un nouveau code PIN à sa '
+            'prochaine ouverture de session sur un poste partagé. Continuer ?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Réinitialiser')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ref.read(adminUsersServiceProvider).resetAgentPin(u.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            backgroundColor: kGreen,
+            content: Text('Code du poste réinitialisé')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(backgroundColor: kRed, content: Text('Erreur : $e')));
+      }
+    }
+  }
+
   void _openDetail(AdminUser u) => showDialog(
         context: context,
         builder: (_) => _UserDetailModal(
@@ -214,6 +248,7 @@ class _UsersBodyState extends ConsumerState<_UsersBody> {
                     onEdit:     _openEdit,
                     onPassword: _openResetPwd,
                     onToggle:   _toggleActive,
+                    onResetPin: _resetPin,
                     data:       data,
                   )
                 else
@@ -224,6 +259,7 @@ class _UsersBodyState extends ConsumerState<_UsersBody> {
                     onEdit:     _openEdit,
                     onPassword: _openResetPwd,
                     onToggle:   _toggleActive,
+                    onResetPin: _resetPin,
                   ),
                 const SizedBox(height: 24),
               ]),
@@ -805,13 +841,13 @@ class _TableView extends StatelessWidget {
   const _TableView({
     required this.users, required this.sortField, required this.sortAsc,
     required this.onSort, required this.onView, required this.onEdit, required this.onPassword,
-    required this.onToggle, required this.data,
+    required this.onToggle, required this.onResetPin, required this.data,
   });
   final List<AdminUser>  users;
   final String sortField;
   final bool   sortAsc;
   final ValueChanged<String>    onSort;
-  final ValueChanged<AdminUser> onView, onEdit, onPassword, onToggle;
+  final ValueChanged<AdminUser> onView, onEdit, onPassword, onToggle, onResetPin;
   final AdminUsersData data;
 
   @override
@@ -845,6 +881,7 @@ class _TableView extends StatelessWidget {
             onEdit:     () => onEdit(e.value),
             onPassword: () => onPassword(e.value),
             onToggle:   () => onToggle(e.value),
+            onResetPin: () => onResetPin(e.value),
           )),
         ]),
       ),
@@ -893,7 +930,7 @@ class _TableHeader extends StatelessWidget {
       _col('ÉCOLE',             'school', flex: 2),
       _col('STATUT',            'status'),
       _col('DERNIÈRE CONNEXION','login',  flex: 2),
-      const SizedBox(width: 118,
+      const SizedBox(width: 150,
           child: Text('ACTIONS', textAlign: TextAlign.end,
               style: TextStyle(color: kTextMuted, fontSize: 11, fontWeight: FontWeight.w700))),
     ]),
@@ -904,11 +941,12 @@ class _TableRow extends StatefulWidget {
   const _TableRow({
     required this.user, required this.isOdd, required this.data,
     required this.onView, required this.onEdit, required this.onPassword, required this.onToggle,
+    required this.onResetPin,
   });
   final AdminUser user;
   final bool isOdd;
   final AdminUsersData data;
-  final VoidCallback onView, onEdit, onPassword, onToggle;
+  final VoidCallback onView, onEdit, onPassword, onToggle, onResetPin;
 
   @override
   State<_TableRow> createState() => _TableRowState();
@@ -989,12 +1027,16 @@ class _TableRowState extends State<_TableRow> {
               style: const TextStyle(fontSize: 11.5, color: kTextMuted),
               overflow: TextOverflow.ellipsis)),
           // Actions
-          SizedBox(width: 118, child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          SizedBox(width: 150, child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
             _ActionBtn(icon: Icons.visibility_outlined, color: _kBlue, tooltip: 'Voir les détails', onTap: widget.onView),
             const SizedBox(width: 4),
             _ActionBtn(icon: Icons.edit_rounded, color: kNavy, tooltip: 'Modifier', onTap: widget.onEdit),
             const SizedBox(width: 4),
             _ActionBtn(icon: Icons.key_rounded, color: kAccent, tooltip: 'Réinitialiser le mot de passe', onTap: widget.onPassword),
+            if (agentLockApplies(u.role)) ...[
+              const SizedBox(width: 4),
+              _ActionBtn(icon: Icons.pin_rounded, color: kNavy, tooltip: 'Réinitialiser le code du poste', onTap: widget.onResetPin),
+            ],
             const SizedBox(width: 4),
             _ActionBtn(
               icon: u.isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
@@ -1084,10 +1126,11 @@ class _CardGrid extends StatelessWidget {
   const _CardGrid({
     required this.users, required this.data, required this.onView,
     required this.onEdit, required this.onPassword, required this.onToggle,
+    required this.onResetPin,
   });
   final List<AdminUser>  users;
   final AdminUsersData   data;
-  final ValueChanged<AdminUser> onView, onEdit, onPassword, onToggle;
+  final ValueChanged<AdminUser> onView, onEdit, onPassword, onToggle, onResetPin;
 
   @override
   Widget build(BuildContext context) {
@@ -1110,6 +1153,7 @@ class _CardGrid extends StatelessWidget {
             onEdit:     () => onEdit(u),
             onPassword: () => onPassword(u),
             onToggle:   () => onToggle(u),
+            onResetPin: () => onResetPin(u),
           ))).toList(),
       );
     });
@@ -1118,9 +1162,9 @@ class _CardGrid extends StatelessWidget {
 
 class _UserCard extends StatefulWidget {
   const _UserCard({required this.user, required this.onView, required this.onEdit,
-      required this.onPassword, required this.onToggle});
+      required this.onPassword, required this.onToggle, required this.onResetPin});
   final AdminUser user;
-  final VoidCallback onView, onEdit, onPassword, onToggle;
+  final VoidCallback onView, onEdit, onPassword, onToggle, onResetPin;
 
   @override
   State<_UserCard> createState() => _UserCardState();
@@ -1178,6 +1222,7 @@ class _UserCardState extends State<_UserCard> {
                 if (v == 'view')     widget.onView();
                 if (v == 'edit')     widget.onEdit();
                 if (v == 'password') widget.onPassword();
+                if (v == 'reset_pin') widget.onResetPin();
                 if (v == 'toggle')   widget.onToggle();
               },
               itemBuilder: (_) => [
@@ -1190,6 +1235,10 @@ class _UserCardState extends State<_UserCard> {
                 const PopupMenuItem(value: 'password', child: Row(children: [
                   Icon(Icons.key_rounded, size: 18, color: kAccent), SizedBox(width: 10), Text('Réinit. mot de passe'),
                 ])),
+                if (agentLockApplies(u.role))
+                  const PopupMenuItem(value: 'reset_pin', child: Row(children: [
+                    Icon(Icons.pin_rounded, size: 18, color: kNavy), SizedBox(width: 10), Text('Réinit. code du poste'),
+                  ])),
                 PopupMenuItem(value: 'toggle', child: Row(children: [
                   Icon(u.isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
                       size: 18, color: u.isActive ? kRed : kGreen),

@@ -366,6 +366,19 @@ class AdminUsersService {
       'p_password': newPassword,
     });
   }
+
+  /// Réinitialise le code PIN de poste de l'agent : pose un horodatage serveur
+  /// qui, synchronisé sur les postes de l'école, invalide le PIN local (l'agent
+  /// devra en recréer un). Cf. migration 0033 + `pinResetInvalidates`.
+  Future<void> resetAgentPin(String userId) async {
+    final client = _ref.read(supabaseClientProvider);
+    final now = DateTime.now().toIso8601String();
+    await client.from('profiles').update({
+      'pin_reset_requested_at': now,
+      'updated_at': now,
+    }).eq('id', userId);
+    _ref.invalidate(adminUsersProvider);
+  }
 }
 
 final adminUsersServiceProvider =
