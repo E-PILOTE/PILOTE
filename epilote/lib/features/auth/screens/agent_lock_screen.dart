@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -187,58 +189,85 @@ class _RevealSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          // La feuille s'ajuste au contenu ; ne défile qu'en dernier recours
-          // (fenêtre très basse). La grille interne défile d'elle-même.
-          child: ConstrainedBox(
-            // Plus large pour afficher les noms complets sans troncature ; la
-            // grille interne reste responsive (voir AgentGrid).
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              padding: const EdgeInsets.fromLTRB(22, 12, 22, 18),
-              decoration: BoxDecoration(
-                color: const Color(0xF20A182E),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.4),
-                      blurRadius: 40,
-                      offset: const Offset(0, 18)),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _Handle(onClose: onClose, showClose: picked == null),
-                  const SizedBox(height: 4),
-                  if (picked == null)
-                    AgentGrid(agents: agents, onPick: onPick)
-                  else
-                    AgentPinPad(
-                      agent: picked!,
-                      isCreate: isCreate,
-                      onBack: onBackToGrid,
-                      onSuccess: onSuccess,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: ConstrainedBox(
+                // Large pour afficher les noms complets ; bornée à la hauteur
+                // visible → la feuille ELLE-MÊME ne défile jamais, seul son
+                // contenu (la grille) défile en interne.
+                constraints: BoxConstraints(
+                  maxWidth: 640,
+                  maxHeight: constraints.maxHeight - 32,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: BackdropFilter(
+                    // Verre dépoli : la photo de fond transparaît, floutée.
+                    filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(22, 12, 22, 18),
+                      decoration: BoxDecoration(
+                        // Plus transparent (glassmorphism) que l'ancien 0xF2.
+                        color: const Color(0xD00A182E),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.16)),
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.45),
+                              blurRadius: 48,
+                              offset: const Offset(0, 20)),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _Handle(onClose: onClose, showClose: picked == null),
+                          const SizedBox(height: 4),
+                          // Flexible + hauteur bornée : la grille prend au plus
+                          // la place disponible et défile au-delà, mais rétrécit
+                          // quand il y a peu d'agents. Le pavé PIN (court) garde
+                          // sa taille naturelle.
+                          Flexible(
+                            child: picked == null
+                                ? AgentGrid(agents: agents, onPick: onPick)
+                                // Pavé PIN : centré, et défilable en dernier
+                                // recours (fenêtre très basse) pour ne jamais
+                                // déborder.
+                                : SingleChildScrollView(
+                                    child: Center(
+                                      child: AgentPinPad(
+                                        agent: picked!,
+                                        isCreate: isCreate,
+                                        onBack: onBackToGrid,
+                                        onSuccess: onSuccess,
+                                      ),
+                                    ),
+                                  ),
+                          ),
+                          const SizedBox(height: 10),
+                          TextButton.icon(
+                            onPressed: onDeviceLogout,
+                            icon: Icon(Icons.logout_rounded,
+                                size: 15,
+                                color: Colors.white.withValues(alpha: 0.55)),
+                            label: Text('Déconnecter le poste',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white.withValues(alpha: 0.55))),
+                          ),
+                        ],
+                      ),
                     ),
-                  const SizedBox(height: 10),
-                  TextButton.icon(
-                    onPressed: onDeviceLogout,
-                    icon: Icon(Icons.logout_rounded,
-                        size: 15,
-                        color: Colors.white.withValues(alpha: 0.55)),
-                    label: Text('Déconnecter le poste',
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white.withValues(alpha: 0.55))),
                   ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

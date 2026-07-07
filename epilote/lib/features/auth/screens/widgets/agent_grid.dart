@@ -97,10 +97,11 @@ class _AgentGridState extends ConsumerState<AgentGrid>
         if (list.isEmpty)
           const _Empty()
         else
-          // S'ajuste au contenu (feuille compacte quand peu d'agents) puis
-          // défile à l'intérieur au-delà de [maxHeight] — la page ne défile pas.
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 360),
+          // Prend la place disponible dans la feuille (bornée à la hauteur
+          // visible par le parent) : compacte quand peu d'agents, défile en
+          // interne quand ils sont nombreux — la feuille elle-même ne défile
+          // jamais.
+          Flexible(
             child: Scrollbar(
               controller: _scrollCtrl,
               thumbVisibility: true,
@@ -108,13 +109,13 @@ class _AgentGridState extends ConsumerState<AgentGrid>
                 controller: _scrollCtrl,
                 shrinkWrap: true,
                 padding: const EdgeInsets.only(right: 8, bottom: 4),
-                // Responsive : chaque carte fait ~250 px de large au maximum
-                // (place suffisante pour le nom complet), et le nombre de
-                // colonnes s'adapte à la largeur disponible (2 sur desktop,
-                // 1 sur fenêtre étroite).
+                // Responsive : `maxCrossAxisExtent` arrondit le nb de colonnes
+                // à la HAUSSE → 340 donne 2 colonnes larges (~298 px, nom
+                // complet) sur la feuille de 640, et 1 colonne en fenêtre
+                // étroite. (280 donnait 3 colonnes trop étroites.)
                 gridDelegate:
                     const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 250,
+                  maxCrossAxisExtent: 340,
                   mainAxisExtent: 66,
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 12,
