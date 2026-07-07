@@ -205,13 +205,16 @@ class _RevealSheet extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(24),
                   child: BackdropFilter(
-                    // Verre dépoli : la photo de fond transparaît, floutée.
-                    filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                    // Verre dépoli : la photo de fond transparaît nettement,
+                    // fortement floutée → lisibilité du texte blanc préservée
+                    // malgré la transparence accrue (bonne pratique glass).
+                    filter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
                     child: Container(
                       padding: const EdgeInsets.fromLTRB(22, 12, 22, 18),
                       decoration: BoxDecoration(
-                        // Plus transparent (glassmorphism) que l'ancien 0xF2.
-                        color: const Color(0xD00A182E),
+                        // Fond très transparent (~68 %) : l'image de fond
+                        // transparaît (0xF2 → 0xD0 → 0xAE).
+                        color: const Color(0xAE0A182E),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
                             color: Colors.white.withValues(alpha: 0.16)),
