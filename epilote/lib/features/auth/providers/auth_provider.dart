@@ -133,15 +133,28 @@ class AuthNotifier extends StateNotifier<AsyncValue<ProfileModel?>> {
       'appareil nécessite internet ; ensuite votre session reste active '
       'hors-ligne tant que vous ne vous déconnectez pas.';
 
-  static bool _isNetworkError(Object e) {
-    if (e is AuthRetryableFetchException) return true;
-    final s = e.toString();
-    return s.contains('SocketException') ||
-        s.contains('ClientException') ||
-        s.contains('Failed host lookup') ||
-        s.contains('Connection refused') ||
-        s.contains('Network is unreachable') ||
-        s.contains('Connection timed out');
+  /// Message affiché quand le serveur d'authentification renvoie une 5xx.
+  /// Ce N'EST PAS la connexion de l'utilisateur qui est en cause : réessayer
+  /// suffit souvent ; sinon le compte a un souci côté serveur (à signaler).
+  static const _serverErrorMsg =
+      "Le serveur d'authentification a rencontré une erreur. Réessayez dans "
+      'un instant ; si le problème persiste, contactez le support '
+      "(ce n'est pas votre connexion internet).";
+
+  /// Traduit l'exception d'authentification en objet d'erreur affichable.
+  /// Sépare une vraie coupure réseau d'une 5xx serveur : les deux remontent
+  /// en `AuthRetryableFetchException`, mais ne disent pas la même chose à
+  /// l'utilisateur (cf. bug login « Database error querying schema » où une
+  /// 500 serveur s'affichait à tort comme « Pas de connexion internet »).
+  static Object _mapAuthError(Object e) {
+    switch (classifyAuthFailure(e)) {
+      case AuthFailureKind.network:
+        return const AuthException(_offlineLoginMsg);
+      case AuthFailureKind.server:
+        return const AuthException(_serverErrorMsg);
+      case AuthFailureKind.other:
+        return e; // ex. « Invalid login credentials » — message d'origine
+    }
   }
 
   Future<void> signIn(String email, String password) async {
@@ -156,15 +169,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<ProfileModel?>> {
         await _loadProfile(response.user!.id, setLoading: false);
       }
     } on AuthException catch (e, st) {
-      state = AsyncValue.error(
-        _isNetworkError(e) ? const AuthException(_offlineLoginMsg) : e,
-        st,
-      );
+      state = AsyncValue.error(_mapAuthError(e), st);
     } catch (e, st) {
-      state = AsyncValue.error(
-        _isNetworkError(e) ? const AuthException(_offlineLoginMsg) : e,
-        st,
-      );
+      state = AsyncValue.error(_mapAuthError(e), st);
     }
   }
 
@@ -189,3 +196,42 @@ final authNotifierProvider =
   final client = ref.watch(supabaseClientProvider);
   return AuthNotifier(client);
 });
+
+// ─── Classification des échecs d'authentification ───────────────────────────
+
+/// Nature d'un échec d'authentification, pour choisir le message utilisateur.
+enum AuthFailureKind {
+  /// Coupure réseau / hôte injoignable : la 1ʳᵉ connexion exige internet.
+  network,
+
+  /// Le serveur d'auth a répondu 5xx : ce n'est PAS la connexion de l'usager.
+  server,
+
+  /// Autre (ex. identifiants invalides 4xx) : afficher le message d'origine.
+  other,
+}
+
+/// Classe une exception d'authentification.
+///
+/// gotrue lève `AuthRetryableFetchException` dans DEUX cas distincts
+/// (`gotrue/src/fetch.dart`) : échec transport (`statusCode` null) OU réponse
+/// HTTP ≥ 500 (`statusCode` = "500"…). On les sépare pour ne pas afficher
+/// « Pas de connexion internet » sur une erreur serveur — bug historique où
+/// des comptes créés par RPC renvoyaient 500 « Database error querying schema »
+/// (colonnes token NULL dans `auth.users`).
+AuthFailureKind classifyAuthFailure(Object e) {
+  if (e is AuthRetryableFetchException) {
+    final code = int.tryParse(e.statusCode ?? '');
+    return (code != null && code >= 500)
+        ? AuthFailureKind.server
+        : AuthFailureKind.network;
+  }
+  final s = e.toString();
+  final isTransport = s.contains('SocketException') ||
+      s.contains('ClientException') ||
+      s.contains('Failed host lookup') ||
+      s.contains('Connection refused') ||
+      s.contains('Network is unreachable') ||
+      s.contains('Connection timed out');
+  return isTransport ? AuthFailureKind.network : AuthFailureKind.other;
+}
