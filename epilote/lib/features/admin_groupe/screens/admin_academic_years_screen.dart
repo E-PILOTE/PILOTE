@@ -8,6 +8,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../providers/admin_academic_year_provider.dart';
 import '../providers/admin_year_analytics_provider.dart';
+import '../providers/school_year_defaults.dart';
 import '../services/admin_year_pdf_service.dart';
 import 'admin_year_calendar_dialog.dart';
 

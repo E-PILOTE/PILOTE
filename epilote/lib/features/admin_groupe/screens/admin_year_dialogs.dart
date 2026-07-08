@@ -54,9 +54,12 @@ class _DateField extends StatelessWidget {
   }
 }
 
-// ─── Dialogue : nouvelle année ─────────────────────────────────────────────────
+// ─── Dialogue : nouvelle année OU édition ──────────────────────────────────────
+// [existing] null → création (pré-remplie sur le calendrier type Congo).
+// [existing] non null → correction du libellé/dates d'une année déjà créée.
 class _YearDialog extends ConsumerStatefulWidget {
-  const _YearDialog();
+  const _YearDialog({this.existing});
+  final AdminYear? existing;
   @override
   ConsumerState<_YearDialog> createState() => _YearDialogState();
 }
@@ -66,6 +69,26 @@ class _YearDialogState extends ConsumerState<_YearDialog> {
   DateTime? _start, _end;
   bool _saving = false;
   String? _error;
+
+  bool get _isEdit => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final ex = widget.existing;
+    if (ex != null) {
+      // Édition : on repart de l'existant tel quel.
+      _label.text = ex.label;
+      _start = ex.startDate;
+      _end = ex.endDate;
+    } else {
+      // Création : défauts calendrier congolais (éditables).
+      final y = defaultSchoolYearStart(DateTime.now());
+      _label.text = schoolYearLabel(y);
+      _start = schoolYearStartDate(y);
+      _end = schoolYearEndDate(y);
+    }
+  }
 
   @override
   void dispose() {
@@ -87,9 +110,16 @@ class _YearDialogState extends ConsumerState<_YearDialog> {
       _error = null;
     });
     try {
-      await ref
-          .read(adminCalendarServiceProvider)
-          .createYear(label: _label.text, start: _start!, end: _end!);
+      final svc = ref.read(adminCalendarServiceProvider);
+      if (_isEdit) {
+        await svc.updateYear(
+            id: widget.existing!.id,
+            label: _label.text,
+            start: _start!,
+            end: _end!);
+      } else {
+        await svc.createYear(label: _label.text, start: _start!, end: _end!);
+      }
       ref.invalidate(adminAcademicYearsProvider);
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -102,12 +132,14 @@ class _YearDialogState extends ConsumerState<_YearDialog> {
   @override
   Widget build(BuildContext context) {
     return AdminFormDialog(
-      icon: Icons.event_rounded,
-      title: 'Nouvelle année scolaire',
-      subtitle: 'Définissez la prochaine année du groupe',
+      icon: _isEdit ? Icons.edit_calendar_rounded : Icons.event_rounded,
+      title: _isEdit ? 'Modifier l\'année scolaire' : 'Nouvelle année scolaire',
+      subtitle: _isEdit
+          ? 'Corrigez le libellé ou les dates'
+          : 'Pré-remplie sur le calendrier congolais — ajustez si besoin',
       width: 480,
       saving: _saving,
-      submitLabel: 'Créer',
+      submitLabel: _isEdit ? 'Enregistrer' : 'Créer',
       submitIcon: Icons.check_rounded,
       onSubmit: _submit,
       body: Column(
@@ -143,15 +175,18 @@ class _YearDialogState extends ConsumerState<_YearDialog> {
               color: kNavy.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Row(children: [
-              Icon(Icons.info_outline_rounded, size: 16, color: kNavy),
-              SizedBox(width: 8),
+            child: Row(children: [
+              const Icon(Icons.info_outline_rounded, size: 16, color: kNavy),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Créée NON courante. Toutes les écoles du groupe '
-                  "l'hériteront à leur prochaine synchro.",
-                  style:
-                      TextStyle(fontSize: 11.5, color: kTextMuted, height: 1.4),
+                  _isEdit
+                      ? 'La correction se propage à toutes les écoles du groupe '
+                          'à leur prochaine synchro.'
+                      : 'Créée NON courante. Toutes les écoles du groupe '
+                          "l'hériteront à leur prochaine synchro.",
+                  style: const TextStyle(
+                      fontSize: 11.5, color: kTextMuted, height: 1.4),
                 ),
               ),
             ]),

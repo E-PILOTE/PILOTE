@@ -270,6 +270,28 @@ class AdminCalendarService {
     });
   }
 
+  /// Corrige une année existante (libellé + dates). Réservé au group-level
+  /// (`school_id` NULL) et scopé au groupe. Ne touche PAS `is_current`/
+  /// `is_locked` (gérés par leurs actions dédiées).
+  Future<void> updateYear({
+    required String id,
+    required String label,
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    final client = _ref.read(supabaseClientProvider);
+    await client
+        .from('academic_years')
+        .update({
+          'label': label.trim(),
+          'start_date': _d(start),
+          'end_date': _d(end),
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', id)
+        .eq('group_id', _groupId);
+  }
+
   /// Définit l'année courante du GROUPE (bascule progressive : chaque école
   /// suit à sa prochaine synchro).
   Future<void> setCurrentYear(String id) async {

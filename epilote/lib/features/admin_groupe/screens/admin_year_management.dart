@@ -248,6 +248,17 @@ class _YearCard extends ConsumerWidget {
                 style: TextButton.styleFrom(foregroundColor: kNavy),
               ),
               const SizedBox(width: 4),
+              if (!year.isLocked)
+                TextButton.icon(
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (_) => _YearDialog(existing: year),
+                  ),
+                  icon: const Icon(Icons.edit_outlined, size: 17),
+                  label: const Text('Modifier'),
+                  style: TextButton.styleFrom(foregroundColor: kNavy),
+                ),
+              const SizedBox(width: 4),
               if (!year.isCurrent && !year.isLocked)
                 TextButton.icon(
                   onPressed: () => _run(context, ref,
