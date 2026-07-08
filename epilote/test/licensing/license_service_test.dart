@@ -50,6 +50,27 @@ void main() {
       expect(e.isEnforced, true);
       expect(e.grantsModule('notes'), true);
     });
+
+    test('licence d’un AUTRE groupe (poste partagé) → purge + none', () async {
+      final store = FakeStore(TrustState(
+        token: 'tok', version: 9, timeHighWater: now, lastSyncAt: now));
+      final svc = build(
+        store: store, gateway: FakeGateway(),
+        decoder: (_) => claims(group: 'ANCIEN', version: 9));
+      final e = await svc.bootstrap(expectedGroupId: 'g1');
+      expect(e.isEnforced, false);      // pas appliquée au groupe courant
+      expect(store.current, isNull);    // coffre purgé
+    });
+
+    test('même groupe → conservée (pas de purge)', () async {
+      final store = FakeStore(TrustState(
+        token: 'tok', version: 1, timeHighWater: now, lastSyncAt: now));
+      final svc = build(
+        store: store, gateway: FakeGateway(), decoder: (_) => claims(group: 'g1'));
+      final e = await svc.bootstrap(expectedGroupId: 'g1');
+      expect(e.isEnforced, true);
+      expect(store.current, isNotNull);
+    });
   });
 
   group('refresh', () {
@@ -80,17 +101,39 @@ void main() {
       expect(store.writes, 0);
     });
 
-    test('mauvaise identité → conserve, aucune écriture', () async {
+    test('mauvaise identité (token ENTRANT d’un autre groupe) → conserve', () async {
+      // Le token stocké appartient bien à g1 ; seul le token FRAIS est étranger.
       final store = FakeStore(TrustState(
         token: 'old', version: 1, timeHighWater: now, lastSyncAt: now));
       final svc = build(
         store: store,
         gateway: FakeGateway('new'),
-        decoder: (_) => claims(group: 'AUTRE', version: 2),
+        decoder: (t) =>
+            t == 'new' ? claims(group: 'AUTRE', version: 2) : claims(version: 1),
       );
       await svc.refresh(expectedGroupId: 'g1');
       expect(store.current!.token, 'old');
       expect(store.writes, 0);
+    });
+
+    test('poste partagé : ancien groupe (version haute) n’empêche PAS la '
+        'licence légitime du nouveau groupe (le cœur du bug pauline)', () async {
+      // Coffre pollué par l'ANCIEN groupe : version 99 + repère temps futur.
+      final store = FakeStore(TrustState(
+        token: 'old', version: 99,
+        timeHighWater: now.add(const Duration(days: 400)), lastSyncAt: now));
+      final svc = build(
+        store: store,
+        gateway: FakeGateway('new'),
+        decoder: (t) => t == 'new'
+            ? claims(group: 'g1', version: 2)          // licence légitime, v2
+            : claims(group: 'ANCIEN', version: 99),    // ancienne, autre groupe
+      );
+      final e = await svc.refresh(expectedGroupId: 'g1');
+      expect(e.isEnforced, true);
+      expect(e.grantsModule('notes'), true);
+      expect(store.current!.token, 'new');   // remplacée malgré version 2 < 99
+      expect(store.current!.version, 2);
     });
 
     test('hors ligne (gateway null) → conserve', () async {
