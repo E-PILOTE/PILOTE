@@ -27,14 +27,16 @@ void main() {
     }
   });
 
-  test('12 départements avec noms attendus et contours non vides', () async {
+  test('15 départements avec noms attendus et contours non vides', () async {
+    // Réforme du 8 octobre 2024 : 12 → 15 départements (ajout de Congo-Oubangui,
+    // Djoué-Léfini, Nkéni-Alima). L'asset congo_adm1.json est à jour.
     final depts = await container.read(congoDepartmentsProvider.future);
-    expect(depts.length, 12);
+    expect(depts.length, 15);
     final names = depts.map((d) => d.name).toSet();
     for (final expected in const [
       'Bouenza', 'Brazzaville', 'Cuvette', 'Cuvette-Ouest', 'Kouilou',
       'Likouala', 'Lékoumou', 'Niari', 'Plateaux', 'Pointe-Noire',
-      'Pool', 'Sangha',
+      'Pool', 'Sangha', 'Congo-Oubangui', 'Djoué-Léfini', 'Nkéni-Alima',
     ]) {
       expect(names.contains(expected), isTrue, reason: 'manque: $expected');
     }
@@ -48,7 +50,11 @@ void main() {
   test('Localités : >300 lieux, types valides, dans l\'emprise', () async {
     final places = await container.read(congoPlacesProvider.future);
     expect(places.length, greaterThan(300));
-    const validTypes = {'city', 'town', 'village'};
+    // Types OSM place=* réellement présents dans l'asset (villes → hameaux).
+    const validTypes = {
+      'city', 'town', 'village', 'hamlet', 'suburb', 'quarter',
+      'neighbourhood', 'isolated_dwelling', 'locality',
+    };
     for (final p in places) {
       expect(validTypes.contains(p.type), isTrue, reason: 'type: ${p.type}');
       expect(inCongo(p.coords.latitude, p.coords.longitude), isTrue,

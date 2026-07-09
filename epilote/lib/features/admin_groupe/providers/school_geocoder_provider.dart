@@ -1,10 +1,11 @@
-import 'dart:convert';
-
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'admin_geo_provider.dart' show GeoPlace;
+import 'admin_geo_provider.dart' show GeoPlace, congoPlacesProvider;
+
+// Réutilise le provider canonique des localités (asset immédiat + enrichissement
+// Overpass en arrière-plan). On le ré-exporte pour les consommateurs du géocodage.
+export 'admin_geo_provider.dart' show congoPlacesProvider;
 
 // ─── Géocodage offline des écoles ───────────────────────────────────────────
 // Résout `schools.city` → coordonnées à partir de l'asset embarqué
@@ -43,22 +44,6 @@ LatLng? geocodeCity(List<GeoPlace> places, String? city) {
   }
   return null;
 }
-
-/// Localités du Congo chargées depuis l'asset (offline, 1532 lieux).
-final congoPlacesProvider = FutureProvider<List<GeoPlace>>((ref) async {
-  final raw = await rootBundle.loadString('assets/geo/congo_places.json');
-  final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
-  return list
-      .map((m) => GeoPlace(
-            name: m['name'] as String,
-            coords: LatLng(
-              (m['lat'] as num).toDouble(),
-              (m['lng'] as num).toDouble(),
-            ),
-            type: m['type'] as String? ?? 'locality',
-          ))
-      .toList();
-});
 
 /// Closure de géocodage prête à l'emploi. Renvoie `null` tant que l'asset
 /// charge (liste vide) ou si la ville est introuvable.
