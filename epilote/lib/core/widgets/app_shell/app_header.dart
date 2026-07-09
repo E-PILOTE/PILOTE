@@ -211,8 +211,16 @@ class _ModuleLauncherState extends ConsumerState<_ModuleLauncher> {
           sections: sections,
           total: total,
           onPick: (slug) {
+            // Fermer le menu PUIS router dans la frame suivante. Fermer
+            // l'overlay et appeler context.go() dans la même frame crée une
+            // course : la navigation peut être avalée par la fermeture du
+            // menu (tap sans effet, intermittent). On diffère d'une frame
+            // pour garantir l'ouverture du module à chaque clic.
+            final route = moduleRoute(slug);
             _menu.close();
-            context.go(moduleRoute(slug));
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) context.go(route);
+            });
           },
         ),
       ],
