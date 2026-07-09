@@ -9,8 +9,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/widgets/app_shell.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../providers/admin_regional_provider.dart' show adminProjectServiceProvider;
 import '../providers/admin_schools_provider.dart';
 import '../providers/admin_users_provider.dart' show roleLabel;
+import '../providers/school_geocoder_provider.dart';
 import '../providers/subscription_access_provider.dart';
 import '../providers/education_provider.dart';
 import '../../../core/widgets/admin_ui.dart';
@@ -2284,6 +2286,18 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
           motto: _motto.text.trim(), foundedYear: year, logoUrl: _logoUrl,
           capacity: cap,
         );
+        // Géolocalisation auto d'une nouvelle école via sa ville (congo_places).
+        // La direction pourra corriger la position sur la carte ensuite.
+        final places = await ref.read(congoPlacesProvider.future);
+        final coords = geocodeCity(places, _city.text.trim());
+        if (coords != null) {
+          await ref.read(adminProjectServiceProvider).patchSchoolGps(
+                schoolId: schoolId,
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+                source: 'geocoded',
+              );
+        }
       }
       // Enregistrer l'offre éducative (cycles / filières / niveaux).
       await eduSvc.saveSchoolEducation(
