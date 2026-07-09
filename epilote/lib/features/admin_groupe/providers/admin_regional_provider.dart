@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
+import 'school_geocoder_provider.dart';
 
 // ─── Centroïdes départementaux — 15 départements (réforme oct. 2024) ─────────
 // Sources : capitales officielles + OSM places. Les 3 nouveaux (Congo-Oubangui,
@@ -400,6 +401,36 @@ final adminProjectServiceProvider =
   final client  = ref.watch(supabaseClientProvider);
   final profile = ref.watch(authNotifierProvider).valueOrNull;
   return AdminProjectService(client, profile?.groupId ?? '');
+});
+
+// ─── Backfill GPS : géocodage de masse des écoles sans position ──────────────
+/// Géocode les écoles du groupe sans GPS mais avec une ville connue
+/// (`congo_places.json`). Écrit `location_source='geocoded'` et retourne le
+/// nombre d'écoles corrigées. Rafraîchit la carte à la fin.
+final geocodeMissingProvider =
+    Provider.autoDispose<Future<int> Function()>((ref) {
+  return () async {
+    // Attendre le chargement de l'asset localités (sinon géocodage vide au démarrage).
+    final places = await ref.read(congoPlacesProvider.future);
+    final data   = await ref.read(adminRegionalProvider.future);
+    final svc    = ref.read(adminProjectServiceProvider);
+    // Les écoles sans GPS vivent dans les agrégats départementaux.
+    final noGps = data.depts.expand((d) => d.schools).where((s) => !s.hasGps);
+    var fixed = 0;
+    for (final s in noGps) {
+      final coords = geocodeCity(places, s.city);
+      if (coords == null) continue;
+      await svc.patchSchoolGps(
+        schoolId:  s.id,
+        latitude:  coords.latitude,
+        longitude: coords.longitude,
+        source:    'geocoded',
+      );
+      fixed++;
+    }
+    if (fixed > 0) ref.invalidate(adminRegionalProvider);
+    return fixed;
+  };
 });
 
 // ─── Utilitaires ─────────────────────────────────────────────────────────────

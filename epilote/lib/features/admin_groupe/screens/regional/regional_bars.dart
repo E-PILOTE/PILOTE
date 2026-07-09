@@ -231,7 +231,72 @@ class _GlobalStats extends StatelessWidget {
                 label: 'Sans GPS',
                 icon: Icons.gps_off_rounded),
           ]),
+          // Backfill : géolocaliser les écoles sans position (via congo_places).
+          if (data.noGpsCount > 0) ...[
+            const SizedBox(height: 10),
+            _GeocodeButton(noGps: data.noGpsCount),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+/// Bouton de géocodage de masse des écoles sans GPS.
+class _GeocodeButton extends ConsumerStatefulWidget {
+  const _GeocodeButton({required this.noGps});
+  final int noGps;
+
+  @override
+  ConsumerState<_GeocodeButton> createState() => _GeocodeButtonState();
+}
+
+class _GeocodeButtonState extends ConsumerState<_GeocodeButton> {
+  bool _running = false;
+
+  Future<void> _run() async {
+    setState(() => _running = true);
+    try {
+      final fixed = await ref.read(geocodeMissingProvider)();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: fixed > 0 ? kGreen : kTextMuted,
+        content: Text(fixed > 0
+            ? '$fixed école${fixed > 1 ? 's' : ''} géolocalisée${fixed > 1 ? 's' : ''}.'
+            : 'Aucune ville reconnue à géocoder.'),
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(backgroundColor: kRed, content: Text('Erreur : $e')));
+    } finally {
+      if (mounted) setState(() => _running = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: _running ? null : _run,
+        icon: _running
+            ? const SizedBox(
+                width: 14, height: 14,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: kNavy))
+            : const Icon(Icons.my_location_rounded, size: 16),
+        label: Text(_running
+            ? 'Géolocalisation…'
+            : 'Géolocaliser ${widget.noGps} école${widget.noGps > 1 ? 's' : ''}'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: kNavy,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8)),
+        ),
       ),
     );
   }
