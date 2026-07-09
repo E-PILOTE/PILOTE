@@ -14,6 +14,7 @@ import '../providers/admin_schools_provider.dart';
 import '../providers/regional_table_provider.dart';
 import '../services/regional_pdf_service.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../widgets/esri_tile_provider.dart';
 import '../widgets/mapillary_viewer.dart';
 import '../widgets/school_satellite_view.dart';
 import 'admin_schools_screen.dart' show openSchoolDetailDialog;
@@ -89,6 +90,7 @@ class _MapLayout extends ConsumerWidget {
     final selectedGps  = selection.schoolOrNull;
     final selectedProj = selection.projectOrNull;
     final isPlacement  = ref.watch(_placementModeProv);
+    final streetViewCenter = ref.watch(_streetViewCenterProv);
 
     // Dialog de création projet déclenché par le tap sur la carte
     ref.listen<LatLng?>(_pendingProjectCoordsProv, (_, coords) {
@@ -247,6 +249,17 @@ class _MapLayout extends ConsumerWidget {
                         ),
                       ]),
                     ),
+                    // Vue rue immersive : couvre toute la zone carte (chrome
+                    // inclus) → présentation intégrée, pas un popup.
+                    if (streetViewCenter != null)
+                      Positioned.fill(
+                        child: MapillaryPanel(
+                          center: streetViewCenter,
+                          onClose: () => ref
+                              .read(_streetViewCenterProv.notifier)
+                              .state = null,
+                        ),
+                      ),
                   ],
                 ),
               ),

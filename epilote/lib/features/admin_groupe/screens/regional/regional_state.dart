@@ -56,6 +56,11 @@ final _placementModeProv =
 final _pendingProjectCoordsProv =
     StateProvider.autoDispose<LatLng?>((ref) => null);
 
+// Vue rue (Mapillary) intégrée : panneau immersif dans la carte plutôt qu'un
+// popup. `null` = fermé ; sinon = point à visualiser.
+final _streetViewCenterProv =
+    StateProvider.autoDispose<LatLng?>((ref) => null);
+
 // Style de fond cartographique (OSM standard / satellite ESRI / hybride)
 enum _TileStyle { standard, satellite, hybrid }
 final _tileStyleProv =

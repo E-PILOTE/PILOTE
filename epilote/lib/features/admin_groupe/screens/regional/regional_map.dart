@@ -459,6 +459,11 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
                   'https://server.arcgisonline.com/ArcGIS/rest/services/'
                   'World_Imagery/MapServer/tile/{z}/{y}/{x}',
               userAgentPackageName: 'com.epilote.congo',
+              // Masque le placeholder « Map data not yet available » : la tuile
+              // de zoom inférieur transparaît (sur-zoom auto par lieu).
+              // headers mutable : flutter_map y ajoute le User-Agent.
+              tileProvider: EsriImageryTileProvider(headers: {}),
+              keepBuffer: 6,
               maxNativeZoom: 19,
               maxZoom: 19,
             ),
@@ -712,11 +717,22 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
               orElse: () => const SizedBox.shrink(),
             ),
 
-          // Indicateur de chargement des données géo (Overpass peut prendre 15-30 s)
-          if (boundaryAsync.isLoading ||
+          // Indicateur de chargement des données géo (Overpass 15-90 s).
+          // Le réseau routier n'a pas de secours embarqué → feedback explicite
+          // pour que le clic sur « Routes » ne paraisse pas sans effet.
+          if (showRoads && roadsAsync.isLoading)
+            const _GeoLoadingOverlay(
+                label: 'Chargement du réseau routier… (15–90 s)')
+          else if (boundaryAsync.isLoading ||
               polygonsAsync.isLoading ||
               placesAsync.isLoading)
-            const _GeoLoadingOverlay(),
+            const _GeoLoadingOverlay()
+          else if (showRoads &&
+              (roadsAsync.hasError ||
+                  (roadsAsync.hasValue && roadsAsync.value!.isEmpty)))
+            const _GeoInfoBanner(
+                icon: Icons.wifi_off_rounded,
+                text: 'Réseau routier indisponible (OSM). Réessayez plus tard.'),
 
           RichAttributionWidget(attributions: [
             TextSourceAttribution(

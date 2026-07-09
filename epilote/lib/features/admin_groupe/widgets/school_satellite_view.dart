@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../core/widgets/admin_ui.dart'
     show kNavy, kTextMuted, kTextPrimary;
 import '../providers/wayback_provider.dart';
+import 'esri_tile_provider.dart';
 
 const _esriCurrent =
     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/'
@@ -64,6 +65,9 @@ class _SchoolSatelliteViewState extends ConsumerState<SchoolSatelliteView> {
                   key: ValueKey(urlTemplate),
                   urlTemplate: urlTemplate,
                   userAgentPackageName: 'com.epilote.congo',
+                  // Masque le placeholder Esri « Map data not yet available ».
+                  tileProvider: EsriImageryTileProvider(headers: {}),
+                  keepBuffer: 6,
                   maxNativeZoom: 19,
                   maxZoom: 19,
                 ),

@@ -337,9 +337,13 @@ class _PlacesNotifier
 // Seule la couche affichage est ici ; les isochrones nécessitent un serveur OSRM.
 
 Future<List<CongoRoad>> _fetchLiveRoads() async {
+  // On exclut « tertiary » (voies locales très nombreuses) : inclure tertiary
+  // fait dépasser le budget Overpass → 504 Gateway Timeout systématique et la
+  // couche Routes ne s'affichait jamais. Le réseau stratégique (national/
+  // régional) = trunk/primary/secondary suffit pour le cockpit territorial.
   const query = '[out:json][timeout:120];\n'
       'relation(192794);map_to_area->.cg;\n'
-      'way(area.cg)["highway"~"^(trunk|primary|secondary|tertiary)\$"];\n'
+      'way(area.cg)["highway"~"^(trunk|primary|secondary)\$"];\n'
       'out geom;';
 
   final resp = await http
@@ -383,20 +387,15 @@ class _RoadsNotifier extends AutoDisposeAsyncNotifier<List<CongoRoad>> {
   @override
   Future<List<CongoRoad>> build() async {
     ref.keepAlive();
-    // Pas d'asset embarqué pour les routes (trop lourd) — débute vide
-    // puis charge en arrière-plan.
-    Future(_refreshLive);
-    return const [];
-  }
-
-  Future<void> _refreshLive() async {
+    // Pas d'asset embarqué pour les routes (trop lourd). On ATTEND le résultat
+    // live pour exposer un vrai état loading/erreur à l'UI (sinon « en cours »
+    // et « échec » seraient tous deux une liste vide, indistinguables).
     try {
-      final live = await _fetchLiveRoads();
-      state = AsyncData(live);
+      return await _fetchLiveRoads();
     } catch (e, st) {
-      // Pas d'asset routier embarqué → en cas d'échec la couche reste vide.
-      appLogger.w('Réseau routier live (Overpass) indisponible — '
-          'couche routes vide', error: e, stackTrace: st);
+      appLogger.w('Réseau routier live (Overpass) indisponible',
+          error: e, stackTrace: st);
+      rethrow; // → AsyncError : l'UI affiche « Routes indisponibles ».
     }
   }
 }

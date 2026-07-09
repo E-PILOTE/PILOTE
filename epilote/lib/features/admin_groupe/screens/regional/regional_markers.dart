@@ -120,7 +120,9 @@ class _DeptLabel extends StatelessWidget {
 
 // ─── Overlay chargement données géo (Overpass prend 15-90 s) ─────────────────
 class _GeoLoadingOverlay extends StatelessWidget {
-  const _GeoLoadingOverlay();
+  const _GeoLoadingOverlay(
+      {this.label = 'Chargement des données cartographiques OSM…'});
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -139,18 +141,55 @@ class _GeoLoadingOverlay extends StatelessWidget {
                   blurRadius: 8)
             ],
           ),
-          child: const Row(mainAxisSize: MainAxisSize.min, children: [
-            SizedBox(
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const SizedBox(
               width: 12, height: 12,
               child: CircularProgressIndicator(
                   color: Colors.white, strokeWidth: 1.8),
             ),
-            SizedBox(width: 8),
-            Text('Chargement des données cartographiques OSM…',
-                style: TextStyle(
+            const SizedBox(width: 8),
+            Text(label,
+                style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     color: Colors.white)),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+// Bandeau d'information en haut de la carte (couche indisponible, etc.).
+class _GeoInfoBanner extends StatelessWidget {
+  const _GeoInfoBanner({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    const c = kRed;
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: c.withValues(alpha: 0.4)),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15), blurRadius: 8),
+            ],
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 14, color: c),
+            const SizedBox(width: 7),
+            Text(text,
+                style: const TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w600, color: c)),
           ]),
         ),
       ),
@@ -315,27 +354,20 @@ class _MapDataStatus extends StatelessWidget {
 // Google Street View ne couvre quasiment pas le Congo ; Mapillary (imagerie
 // participative) offre des photos au sol le long des axes des grandes villes.
 // Le bouton ouvre le visualiseur centré sur la vue courante de la carte.
-class _StreetViewFab extends StatelessWidget {
+class _StreetViewFab extends ConsumerWidget {
   const _StreetViewFab({required this.controller});
   final MapController controller;
 
-  void _open(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black54,
-      builder: (_) => MapillaryViewerDialog(center: controller.camera.center),
-    );
-  }
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Material(
       elevation: 3,
       borderRadius: BorderRadius.circular(8),
       color: Colors.white,
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
-        onTap: () => _open(context),
+        onTap: () => ref.read(_streetViewCenterProv.notifier).state =
+            controller.camera.center,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
           decoration: BoxDecoration(
