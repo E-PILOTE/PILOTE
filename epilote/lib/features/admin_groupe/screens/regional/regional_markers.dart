@@ -1,0 +1,357 @@
+part of '../admin_regional_view.dart';
+
+// ─── Marqueur de lieu : ville / bourg / village ───────────────────────────────
+// Hiérarchie visuelle :
+//   city   → dot 11 px bleu ciel + étiquette blanche/navy (toujours visible)
+//   town   → dot  7 px vert      + étiquette (visible à zoom ≥ 7)
+//   village→ dot  4 px gris      + étiquette (visible à zoom ≥ 9.5)
+class _PlaceMarker extends StatelessWidget {
+  const _PlaceMarker({
+    required this.name,
+    required this.type,
+    required this.onSatellite,
+  });
+  final String name;
+  final String type;
+  final bool onSatellite;
+
+  @override
+  Widget build(BuildContext context) {
+    final isCity    = type == 'city';
+    final isTown    = type == 'town';
+    final dotColor  = isCity
+        ? const Color(0xFF0EA5E9)   // bleu ciel
+        : isTown
+            ? const Color(0xFF10B981) // vert émeraude
+            : const Color(0xFF94A3B8); // ardoise
+    final dotSize   = isCity ? 11.0 : isTown ? 7.5 : 4.5;
+    final fontSize  = isCity ? 9.0  : isTown ? 8.0  : 7.5;
+    final fontW     = isCity ? FontWeight.w800 : FontWeight.w600;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: dotSize,
+          height: dotSize,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: dotColor,
+            border: Border.all(
+                color: Colors.white,
+                width: isCity ? 1.8 : 1.2),
+            boxShadow: isCity
+                ? [BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.28),
+                    blurRadius: 4, offset: const Offset(0, 1))]
+                : isTown
+                    ? [BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.18),
+                        blurRadius: 2)]
+                    : null,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Container(
+          padding: EdgeInsets.symmetric(
+              horizontal: isCity ? 4 : 3,
+              vertical: isCity ? 1.5 : 1),
+          decoration: BoxDecoration(
+            color: onSatellite
+                ? Colors.black.withValues(alpha: isCity ? 0.75 : 0.62)
+                : Colors.white.withValues(alpha: isCity ? 0.95 : 0.88),
+            borderRadius: BorderRadius.circular(3),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.14),
+                  blurRadius: 2)
+            ],
+          ),
+          child: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: fontW,
+              color: onSatellite ? Colors.white : kNavy,
+              letterSpacing: isCity ? 0.2 : 0,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Étiquette nom de département (centroïde géométrique réel) ───────────────
+class _DeptLabel extends StatelessWidget {
+  const _DeptLabel({required this.name, required this.onSatellite});
+  final String name;
+  final bool onSatellite;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        decoration: BoxDecoration(
+          color: onSatellite
+              ? Colors.black.withValues(alpha: 0.62)
+              : kNavy.withValues(alpha: 0.80),
+          borderRadius: BorderRadius.circular(3),
+        ),
+        child: Text(
+          name.toUpperCase(),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 8.5,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+            letterSpacing: 0.6,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Overlay chargement données géo (Overpass prend 15-90 s) ─────────────────
+class _GeoLoadingOverlay extends StatelessWidget {
+  const _GeoLoadingOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: kNavy.withValues(alpha: 0.88),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 8)
+            ],
+          ),
+          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            SizedBox(
+              width: 12, height: 12,
+              child: CircularProgressIndicator(
+                  color: Colors.white, strokeWidth: 1.8),
+            ),
+            SizedBox(width: 8),
+            Text('Chargement des données cartographiques OSM…',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white)),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Légende ────────────────────────────────────────────────────────────────
+class _MapLegend extends ConsumerWidget {
+  const _MapLegend();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pinMode = ref.watch(_pinColorModeProv);
+    Widget circle(Color c, double s) => Container(
+          width: s, height: s,
+          decoration: BoxDecoration(
+            color: c.withValues(alpha: 0.88),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 1.5),
+          ),
+        );
+    Widget sq(Color c, double s) => Container(
+          width: s, height: s,
+          decoration: BoxDecoration(
+            color: c,
+            borderRadius: BorderRadius.circular(3),
+            border: Border.all(color: Colors.white, width: 1.5),
+          ),
+        );
+    Widget colorBox(Color c, double alpha) => Container(
+          width: 14, height: 10,
+          decoration: BoxDecoration(
+            color: c.withValues(alpha: alpha),
+            borderRadius: BorderRadius.circular(2),
+            border: Border.all(color: c.withValues(alpha: alpha + 0.2), width: 1),
+          ),
+        );
+    Widget row(Widget leading, String label) => Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            leading,
+            const SizedBox(width: 7),
+            Text(label, style: const TextStyle(fontSize: 9, color: kTextPrimary)),
+          ]),
+        );
+    return Container(
+      padding: const EdgeInsets.fromLTRB(11, 9, 13, 11),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: kBorder),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.07),
+              blurRadius: 10, offset: const Offset(0, 3)),
+        ],
+      ),
+      child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('LÉGENDE',
+                style: TextStyle(
+                    fontSize: 8.5, fontWeight: FontWeight.w800,
+                    color: kTextMuted, letterSpacing: 1.0)),
+            // Choroplèthe
+            const SizedBox(height: 3),
+            const Text('CHOROPLÈTHE',
+                style: TextStyle(fontSize: 7, fontWeight: FontWeight.w700,
+                    color: kTextMuted, letterSpacing: 0.8)),
+            row(colorBox(kGreen,  0.13), '≥ 75 % actives'),
+            row(colorBox(kNavy,   0.09), '40–74 %'),
+            row(colorBox(_kOrange, 0.13), '< 40 %'),
+            row(colorBox(kRed,    0.10), 'Aucune école'),
+            // Écoles
+            const SizedBox(height: 3),
+            const Text('ÉCOLES & PROJETS',
+                style: TextStyle(fontSize: 7, fontWeight: FontWeight.w700,
+                    color: kTextMuted, letterSpacing: 0.8)),
+            if (pinMode == _PinColorMode.type) ...[
+              row(circle(_kBlue, 11), 'École GPS (publique)'),
+              row(circle(kGreen, 11), 'École GPS (privée)'),
+              row(circle(_kPurple, 11), 'École GPS (mixte)'),
+            ] else if (pinMode == _PinColorMode.load) ...[
+              row(circle(kGreen, 11), 'Effectifs maîtrisés (<40/cl.)'),
+              row(circle(const Color(0xFFF59E0B), 11), 'Classes chargées (40–49)'),
+              row(circle(kRed, 11), 'Classes surchargées (≥50)'),
+              row(circle(kTextMuted, 11), 'Charge inconnue'),
+            ] else ...[
+              row(circle(const Color(0xFFF59E0B), 11), 'Sous-occupée (<70 %)'),
+              row(circle(kGreen, 11), 'Occupation optimale (70–99 %)'),
+              row(circle(kRed, 11), 'Capacité saturée (≥100 %)'),
+              row(circle(kTextMuted, 11), 'Capacité non renseignée'),
+            ],
+            row(circle(kRed, 11), 'École inactive'),
+            row(
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                circle(kNavy, 9),
+                const SizedBox(width: 1),
+                circle(kNavy, 14),
+              ]),
+              'Grappe (zoom < 9.5) · nb écoles',
+            ),
+            row(sq(_kOrange, 10), 'Projet en cours'),
+            row(sq(kGreen, 10), 'Projet achevé'),
+            // Localités
+            const SizedBox(height: 3),
+            const Text('LOCALITÉS',
+                style: TextStyle(fontSize: 7, fontWeight: FontWeight.w700,
+                    color: kTextMuted, letterSpacing: 0.8)),
+            row(circle(const Color(0xFF0EA5E9), 10), 'Ville (toujours visible)'),
+            row(circle(const Color(0xFF10B981),  8), 'Bourg (zoom ≥ 7)'),
+            row(circle(const Color(0xFF94A3B8),  6), 'Village (zoom ≥ 9.5)'),
+          ]),
+    );
+  }
+}
+
+// ─── Bandeau de statut des données écoles (non bloquant) ─────────────────────
+class _MapDataStatus extends StatelessWidget {
+  const _MapDataStatus({required this.loading, required this.error});
+  final bool loading;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    final (IconData icon, String text, Color color) = loading
+        ? (Icons.cloud_sync_rounded, 'Chargement des écoles…', kNavy)
+        : error != null
+            ? (Icons.cloud_off_rounded, 'Écoles indisponibles (réseau)', kRed)
+            : (Icons.location_off_rounded, 'Aucune école géolocalisée', kTextMuted);
+    return Material(
+      elevation: 2,
+      borderRadius: BorderRadius.circular(8),
+      color: Colors.white,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: kBorder),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (loading)
+            const SizedBox(
+              width: 13, height: 13,
+              child: CircularProgressIndicator(strokeWidth: 2, color: kNavy),
+            )
+          else
+            Icon(icon, size: 14, color: color),
+          const SizedBox(width: 7),
+          Text(text,
+              style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+        ]),
+      ),
+    );
+  }
+}
+
+// ─── Bouton « Vue rue » (imagerie au niveau du sol via Mapillary) ────────────
+// Google Street View ne couvre quasiment pas le Congo ; Mapillary (imagerie
+// participative) offre des photos au sol le long des axes des grandes villes.
+// Le bouton ouvre le visualiseur centré sur la vue courante de la carte.
+class _StreetViewFab extends StatelessWidget {
+  const _StreetViewFab({required this.controller});
+  final MapController controller;
+
+  void _open(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (_) => MapillaryViewerDialog(center: controller.camera.center),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 3,
+      borderRadius: BorderRadius.circular(8),
+      color: Colors.white,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => _open(context),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: kBorder),
+          ),
+          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.streetview_rounded, size: 16, color: kNavy),
+            SizedBox(width: 6),
+            Text('Vue rue',
+                style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w700, color: kNavy)),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
