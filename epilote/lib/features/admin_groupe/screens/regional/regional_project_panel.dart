@@ -123,6 +123,14 @@ class _ProjectDetailPanel extends ConsumerWidget {
                     ),
                   ]),
                 ],
+                // ── Vue satellite du site (terrain avant/pendant chantier) ──
+                const SizedBox(height: 14),
+                const Text('VUE SATELLITE DU SITE',
+                    style: TextStyle(
+                        fontSize: 9, fontWeight: FontWeight.w700,
+                        color: kTextMuted, letterSpacing: 0.8)),
+                const SizedBox(height: 8),
+                SchoolSatelliteView(center: project.coords, title: project.name),
                 if (project.budgetXaf != null) ...[
                   const SizedBox(height: 14),
                   const Text('BUDGET',

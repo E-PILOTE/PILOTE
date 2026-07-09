@@ -15,6 +15,7 @@ import '../providers/regional_table_provider.dart';
 import '../services/regional_pdf_service.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../widgets/mapillary_viewer.dart';
+import '../widgets/school_satellite_view.dart';
 import 'admin_schools_screen.dart' show openSchoolDetailDialog;
 import 'regional_table_mode.dart';
 

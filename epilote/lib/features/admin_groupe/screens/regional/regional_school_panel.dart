@@ -111,6 +111,14 @@ class _GpsSchoolDetailPanel extends ConsumerWidget {
                         fontWeight: FontWeight.w500)),
               ]),
             ],
+            // ── Vue satellite datée (objective, sans intervention terrain) ──
+            const SizedBox(height: 14),
+            const Text('VUE SATELLITE',
+                style: TextStyle(
+                    fontSize: 9, fontWeight: FontWeight.w700,
+                    color: kTextMuted, letterSpacing: 0.8)),
+            const SizedBox(height: 8),
+            SchoolSatelliteView(center: school.gpsCoords!, title: school.name),
             const SizedBox(height: 14),
             SizedBox(
               width: double.infinity,
