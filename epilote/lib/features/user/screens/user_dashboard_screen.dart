@@ -10,6 +10,7 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 import '../../../core/constants/routes.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
+import '../../../core/widgets/staff_ui.dart';
 import '../../communication/widgets/user_avatar.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/classes/providers/class_provider.dart';
@@ -29,6 +30,7 @@ part 'dashboard_chart_parts.dart';
 part 'dashboard_block_parts.dart';
 part 'dashboard_cards_parts.dart';
 part 'dashboard_modules_parts.dart';
+part 'dashboard_skeleton_parts.dart';
 
 /// Ombre portée du texte de la bannière — garantit le contraste du blanc sur le
 /// verre translucide (fond variable derrière l'aurora).
@@ -187,6 +189,18 @@ class _DashboardBody extends ConsumerWidget {
         (groupedAsync.isLoading && !groupedAsync.hasValue) ||
         (permsAsync.isLoading && !permsAsync.hasValue);
     final modulesError = groupedAsync.hasError || permsAsync.hasError;
+
+    // Squelette shimmer au TOUT PREMIER chargement : tant que permissions,
+    // modules et école n'ont pas produit leur première valeur, on affiche une
+    // silhouette plutôt qu'un dashboard « résolu-mais-vide » qui se remplirait
+    // par à-coups. Condition `isLoading && !hasValue` → un relancement offline
+    // déjà peuplé s'affiche instantanément, et un re-sync de fond ne clignote
+    // jamais par-dessus le contenu vivant.
+    final firstLoad = (permsAsync.isLoading && !permsAsync.hasValue) ||
+        (groupedAsync.isLoading && !groupedAsync.hasValue) ||
+        (schoolAsync.isLoading && !schoolAsync.hasValue);
+    if (firstLoad) return const _DashboardSkeleton();
+
     var hasModules = false;
     for (final entry in grouped.entries) {
       if (entry.value.any((m) => perms[m.slug]?.canRead ?? false)) {
