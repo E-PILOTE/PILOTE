@@ -237,10 +237,12 @@ Future<List<GeoDepartment>> _fetchLiveDepts() async {
 // ─── Fetch live Overpass (localités) ─────────────────────────────────────────
 
 Future<List<GeoPlace>> _fetchLivePlaces() async {
-  // Inclut tous les types jusqu'au hameau/localité pour couverture maximale Congo
+  // Couverture maximale : jusqu'au hameau/écart ET aux subdivisions urbaines
+  // (quartiers/faubourgs). Sans suburb|neighbourhood|quarter, un rafraîchissement
+  // live ÉCRASAIT l'asset et faisait disparaître les quartiers déjà embarqués.
   const query = '[out:json][timeout:90];\n'
       'relation(192794);map_to_area->.cg;\n'
-      r'node(area.cg)["place"~"^(city|town|village|hamlet|isolated_dwelling|locality)$"]["name"];'
+      r'node(area.cg)["place"~"^(city|town|village|hamlet|isolated_dwelling|locality|suburb|neighbourhood|quarter)$"]["name"];'
       '\nout body;';
 
   final json = await _overpassPost(query, perTry: const Duration(seconds: 90));

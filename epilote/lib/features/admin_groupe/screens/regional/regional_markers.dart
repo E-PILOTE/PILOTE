@@ -19,12 +19,15 @@ class _PlaceMarker extends StatelessWidget {
   Widget build(BuildContext context) {
     final isCity    = type == 'city';
     final isTown    = type == 'town';
+    final isQuarter = type == 'quarter'; // suburb / neighbourhood / quarter
     final dotColor  = isCity
         ? const Color(0xFF0EA5E9)   // bleu ciel
         : isTown
             ? const Color(0xFF10B981) // vert émeraude
-            : const Color(0xFF94A3B8); // ardoise
-    final dotSize   = isCity ? 11.0 : isTown ? 7.5 : 4.5;
+            : isQuarter
+                ? const Color(0xFF7C3AED) // violet (subdivision urbaine)
+                : const Color(0xFF94A3B8); // ardoise (village/hameau)
+    final dotSize   = isCity ? 11.0 : isTown ? 7.5 : isQuarter ? 5.0 : 4.5;
     final fontSize  = isCity ? 9.0  : isTown ? 8.0  : 7.5;
     final fontW     = isCity ? FontWeight.w800 : FontWeight.w600;
 
@@ -303,7 +306,8 @@ class _MapLegend extends ConsumerWidget {
                     color: kTextMuted, letterSpacing: 0.8)),
             row(circle(const Color(0xFF0EA5E9), 10), 'Ville (toujours visible)'),
             row(circle(const Color(0xFF10B981),  8), 'Bourg (zoom ≥ 7)'),
-            row(circle(const Color(0xFF94A3B8),  6), 'Village (zoom ≥ 9.5)'),
+            row(circle(const Color(0xFF94A3B8),  6), 'Village (nom ≥ z9) · hameau (≥ z11)'),
+            row(circle(const Color(0xFF7C3AED),  6), 'Quartier urbain (zoom ≥ 12)'),
           ]),
     );
   }

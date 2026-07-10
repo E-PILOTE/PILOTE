@@ -134,8 +134,9 @@ class _LayerToggleBar extends ConsumerWidget {
                 icon: Icons.holiday_village_rounded,
                 active: showVillages,
                 color: _kPurple,
-                tooltip: 'Localités OSM (villages et hameaux). Données '
-                    'embarquées — s’affichent instantanément.',
+                tooltip: 'Villages, hameaux et quartiers urbains (OSM). Noms '
+                    'affichés progressivement selon le zoom — embarqués, '
+                    'donc instantanés.',
                 onTap: () =>
                     ref.read(_showVillagesLayerProv.notifier).state = !showVillages),
             _FilterChip(

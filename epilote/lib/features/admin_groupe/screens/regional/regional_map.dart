@@ -16,15 +16,42 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
   final _mapBoundaryKey = GlobalKey();
   double _zoom = 6.0;
 
-  // Rebuild aux seuils de lisibilité (villes/bourgs/villages) ET à chaque
-  // demi-niveau de zoom pour que le clustering des écoles s'affine progressivement.
+  // Emprise (élargie d'un tampon) pour laquelle les étiquettes de localités ont
+  // été calculées. Le dataset est dense (~7000 lieux GeoNames) → on ne construit
+  // JAMAIS toutes les étiquettes : on les limite à la vue courante + un tampon,
+  // et on ne recalcule que lorsque la vue déborde de ce tampon.
+  LatLngBounds? _labelBounds;
+
+  bool _viewEscapedLabelBounds(MapCamera cam) {
+    final b = _labelBounds;
+    if (b == null) return true;
+    final v = cam.visibleBounds;
+    return v.west < b.west ||
+        v.east > b.east ||
+        v.south < b.south ||
+        v.north > b.north;
+  }
+
+  // Rebuild aux seuils de lisibilité (villes/bourgs/villages), à chaque
+  // demi-niveau de zoom (clustering écoles), ET quand la vue sort du tampon
+  // d'étiquettes en zoom rapproché (pour re-culler les localités au pan).
   void _onZoom(MapCamera camera, bool _) {
     final z = camera.zoom;
     final cross = (_zoom < 7.0) != (z < 7.0) ||
         (_zoom < 9.5) != (z < 9.5) ||
         (_zoom * 2).floor() != (z * 2).floor();
+    final needCull = z >= 8.0 && _viewEscapedLabelBounds(camera);
+    if (needCull) {
+      final v = camera.visibleBounds;
+      final dLat = (v.north - v.south) * 0.6;
+      final dLng = (v.east - v.west) * 0.6;
+      _labelBounds = LatLngBounds(
+        LatLng(v.south - dLat, v.west - dLng),
+        LatLng(v.north + dLat, v.east + dLng),
+      );
+    }
     _zoom = z;
-    if (cross && mounted) setState(() {});
+    if ((cross || needCull) && mounted) setState(() {});
   }
 
   @override
@@ -410,6 +437,82 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
     }).toList();
   }
 
+  // Localités par niveau de détail (LOD). Trois familles, seuils de zoom
+  // distincts pour montrer les noms tôt sans saturer la carte :
+  //   • villages + localités  → étiquette dès z≥8 (le long des routes)
+  //   • hameaux + écarts       → point dès z≥8, étiquette de près (z≥10.5)
+  //   • quartiers urbains      → point z≥11, étiquette au plus près (z≥12.5)
+  List<Widget> _localityLayers(List<GeoPlace> places, bool onSat) {
+    if (places.isEmpty) return const [];
+    final villages = <GeoPlace>[];
+    final hamlets  = <GeoPlace>[];
+    final quarters = <GeoPlace>[];
+    for (final p in places) {
+      final t = p.type;
+      if (t == 'village' || t == 'locality') {
+        villages.add(p);
+      } else if (t == 'hamlet' || t == 'isolated_dwelling') {
+        hamlets.add(p);
+      } else if (t == 'suburb' || t == 'neighbourhood' || t == 'quarter') {
+        quarters.add(p);
+      }
+    }
+
+    // Ne garde que les localités dans le tampon d'étiquettes (perf : dataset
+    // dense). Sans tampon connu (1ʳᵉ frame), on ne restreint pas.
+    final b = _labelBounds;
+    bool inView(GeoPlace p) => b == null || b.contains(p.coords);
+
+    Marker label(GeoPlace p, String type, double perChar) => Marker(
+          point: p.coords,
+          width: (p.name.length * perChar + 10).clamp(40, 110),
+          height: 22,
+          child: _PlaceMarker(name: p.name, type: type, onSatellite: onSat),
+        );
+    final dotColor = (onSat ? Colors.white : kTextMuted).withValues(alpha: 0.7);
+    CircleMarker dot(GeoPlace p, double r, Color c) => CircleMarker(
+          point: p.coords,
+          radius: r,
+          color: c,
+          borderStrokeWidth: 0.8,
+          borderColor: Colors.white.withValues(alpha: 0.6),
+        );
+
+    final layers = <Widget>[];
+    // Villages & localités : point en vue départementale, nom dès z≥9 (culé).
+    if (_zoom >= 9.0) {
+      layers.add(MarkerLayer(markers: [
+        for (final p in villages)
+          if (inView(p)) label(p, 'village', 4.6),
+      ]));
+    } else {
+      layers.add(CircleLayer(
+          circles: [for (final p in villages) dot(p, 3.0, dotColor)]));
+    }
+    // Hameaux / écarts (très nombreux) : point dès z≥8.5, nom au plus près z≥11.
+    if (_zoom >= 11.0) {
+      layers.add(MarkerLayer(markers: [
+        for (final p in hamlets)
+          if (inView(p)) label(p, 'village', 4.2),
+      ]));
+    } else if (_zoom >= 8.5) {
+      layers.add(CircleLayer(
+          circles: [for (final p in hamlets) dot(p, 2.2, dotColor)]));
+    }
+    // Quartiers urbains : point z≥11, nom au plus près z≥12.5.
+    if (_zoom >= 12.5) {
+      layers.add(MarkerLayer(markers: [
+        for (final p in quarters)
+          if (inView(p)) label(p, 'quarter', 4.4),
+      ]));
+    } else if (_zoom >= 11.0) {
+      layers.add(CircleLayer(circles: [
+        for (final p in quarters) dot(p, 2.6, _kPurple.withValues(alpha: 0.8)),
+      ]));
+    }
+    return layers;
+  }
+
   @override
   Widget build(BuildContext context) {
     final selection    = ref.watch(_selectionProv);
@@ -731,45 +834,12 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
               orElse: () => const SizedBox.shrink(),
             ),
 
-          // ── Couche 3 : villages + hameaux + localités — point + étiquette à zoom ≥ 9.5 ──
+          // ── Couche 3 : localités par niveau de détail (villages nommés dès le
+          // zoom départemental, hameaux de plus près, quartiers urbains au plus
+          // près). Rend enfin visibles les quartiers (suburb/neighbourhood/quarter)
+          // et affiche les noms de villages plus tôt (repérage le long des routes).
           if (showVillages)
-            placesAsync.maybeWhen(
-              data: (places) {
-                final villages = places.where((p) =>
-                    p.type == 'village' || p.type == 'hamlet' ||
-                    p.type == 'isolated_dwelling' || p.type == 'locality').toList();
-                if (_zoom >= 9.5) {
-                  return MarkerLayer(
-                    markers: villages
-                        .map((p) => Marker(
-                              point: p.coords,
-                              width: (p.name.length * 4.5 + 10).clamp(40, 95),
-                              height: 22,
-                              child: _PlaceMarker(
-                                  name: p.name,
-                                  type: 'village',
-                                  onSatellite: tileStyle != _TileStyle.standard),
-                            ))
-                        .toList(),
-                  );
-                }
-                return CircleLayer(
-                  circles: villages
-                      .map((p) => CircleMarker(
-                            point: p.coords,
-                            radius: 3.0,
-                            color: (tileStyle == _TileStyle.standard
-                                    ? kTextMuted
-                                    : Colors.white)
-                                .withValues(alpha: 0.65),
-                            borderStrokeWidth: 0.8,
-                            borderColor: Colors.white.withValues(alpha: 0.55),
-                          ))
-                      .toList(),
-                );
-              },
-              orElse: () => const SizedBox.shrink(),
-            ),
+            ..._localityLayers(placesAsync.valueOrNull ?? const [], onSatellite),
 
           // ── Réseau routier OSM (trunk/primary/secondary/tertiary) ─────────
           // Visible à partir de zoom 6 — coloré par type de voie.
