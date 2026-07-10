@@ -17,8 +17,50 @@ import '../../../core/utils/app_logger.dart';
 //
 // En cas d'échec réseau : les assets restent définitivement → jamais de carte vide.
 
-const _kAgent    = 'E-PILOTE-Congo/1.0 (gestion-scolaire; libemessenger@gmail.com)';
-const _kOverpass = 'https://overpass-api.de/api/interpreter';
+const _kAgent = 'E-PILOTE-Congo/1.0 (gestion-scolaire; libemessenger@gmail.com)';
+
+// Miroirs Overpass essayés dans l'ordre. L'endpoint public principal
+// (overpass-api.de) est fréquemment saturé → 504 Gateway Timeout, ce qui faisait
+// que la couche Routes ne se chargeait jamais. On bascule sur un miroir dès
+// qu'un serveur renvoie une erreur/temporisation, ce qui rend le chargement
+// beaucoup plus fiable (kumi.systems est généralement le plus rapide).
+const _kOverpassMirrors = <String>[
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+];
+
+/// POST une requête Overpass en essayant chaque miroir jusqu'au premier succès.
+/// Renvoie le JSON décodé ; lève si TOUS les miroirs échouent (504/429/réseau/
+/// temporisation). `perTry` borne l'attente par miroir.
+Future<Map<String, dynamic>> _overpassPost(
+  String query, {
+  Duration perTry = const Duration(seconds: 90),
+}) async {
+  Object? lastErr;
+  for (final url in _kOverpassMirrors) {
+    try {
+      final resp = await http
+          .post(
+            Uri.parse(url),
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'User-Agent': _kAgent,
+            },
+            body: {'data': query},
+          )
+          .timeout(perTry);
+      if (resp.statusCode == 200) {
+        return jsonDecode(resp.body) as Map<String, dynamic>;
+      }
+      // 504/429/503 : miroir saturé → on tente le suivant.
+      lastErr = Exception('Overpass ${resp.statusCode} @ $url');
+    } catch (e) {
+      lastErr = e; // temporisation / réseau → miroir suivant
+    }
+  }
+  throw Exception('Overpass indisponible (tous les miroirs) : $lastErr');
+}
 
 // ─── Modèles ─────────────────────────────────────────────────────────────────
 
@@ -148,19 +190,7 @@ Future<List<GeoDepartment>> _fetchLiveDepts() async {
       'relation(area.cg)["boundary"="administrative"]["admin_level"="4"];\n'
       'out geom;';
 
-  final resp = await http
-      .post(
-        Uri.parse(_kOverpass),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': _kAgent,
-        },
-        body: {'data': query},
-      )
-      .timeout(const Duration(seconds: 125));
-  if (resp.statusCode != 200) throw Exception('Overpass ${resp.statusCode}');
-
-  final json = jsonDecode(resp.body) as Map<String, dynamic>;
+  final json = await _overpassPost(query, perTry: const Duration(seconds: 100));
   final elements = json['elements'] as List? ?? [];
 
   final result = <GeoDepartment>[];
@@ -213,19 +243,7 @@ Future<List<GeoPlace>> _fetchLivePlaces() async {
       r'node(area.cg)["place"~"^(city|town|village|hamlet|isolated_dwelling|locality)$"]["name"];'
       '\nout body;';
 
-  final resp = await http
-      .post(
-        Uri.parse(_kOverpass),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': _kAgent,
-        },
-        body: {'data': query},
-      )
-      .timeout(const Duration(seconds: 95));
-  if (resp.statusCode != 200) throw Exception('Overpass ${resp.statusCode}');
-
-  final json = jsonDecode(resp.body) as Map<String, dynamic>;
+  final json = await _overpassPost(query, perTry: const Duration(seconds: 90));
   final elements = json['elements'] as List? ?? [];
 
   return elements.map((e) {
@@ -346,19 +364,7 @@ Future<List<CongoRoad>> _fetchLiveRoads() async {
       'way(area.cg)["highway"~"^(trunk|primary|secondary)\$"];\n'
       'out geom;';
 
-  final resp = await http
-      .post(
-        Uri.parse(_kOverpass),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': _kAgent,
-        },
-        body: {'data': query},
-      )
-      .timeout(const Duration(seconds: 125));
-  if (resp.statusCode != 200) throw Exception('Overpass roads ${resp.statusCode}');
-
-  final json = jsonDecode(resp.body) as Map<String, dynamic>;
+  final json = await _overpassPost(query, perTry: const Duration(seconds: 100));
   final elements = json['elements'] as List? ?? [];
 
   final roads = <CongoRoad>[];

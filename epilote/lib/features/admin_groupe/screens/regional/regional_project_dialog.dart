@@ -5,11 +5,28 @@ class _ProjectFormDialog extends ConsumerStatefulWidget {
   const _ProjectFormDialog({
     required this.initialCoords,
     this.project,
+    this.suggestedDepartment,
     required this.onSaved,
   });
   final LatLng initialCoords;
   final AdminProjectPin? project;
+
+  /// Département pré-sélectionné (déduit du point tapé sur la carte) à la
+  /// création. Ignoré s'il ne fait pas partie de [_departments].
+  final String? suggestedDepartment;
   final VoidCallback onSaved;
+
+  // Départements du Congo (réforme oct. 2024 : 15). Source unique pour le menu
+  // ET pour valider la valeur reçue : un projet dont le `department` n'est pas
+  // dans cette liste (nom hérité / accents) ferait planter le DropdownButton
+  // (« exactly one item »). On le ramène alors à « Non précisé ».
+  static const List<String> _departments = [
+    'Bouenza', 'Brazzaville', 'Congo-Oubangui',
+    'Cuvette', 'Cuvette-Ouest', 'Djoué-Léfini',
+    'Kouilou', 'Lékoumou', 'Likouala', 'Niari',
+    'Nkéni-Alima', 'Plateaux', 'Pointe-Noire',
+    'Pool', 'Sangha',
+  ];
 
   @override
   ConsumerState<_ProjectFormDialog> createState() => _ProjectFormDialogState();
@@ -44,7 +61,10 @@ class _ProjectFormDialogState extends ConsumerState<_ProjectFormDialog> {
     _status       = p?.status ?? 'etude';
     _priority     = p?.priority ?? 'moyenne';
     _schoolType   = p?.schoolType;
-    _department   = p?.department;
+    // Édition : département du projet ; création : suggestion depuis la carte.
+    // Coercition à null si hors liste → jamais de crash du DropdownButton.
+    final dept = p?.department ?? widget.suggestedDepartment;
+    _department = _ProjectFormDialog._departments.contains(dept) ? dept : null;
   }
 
   @override
@@ -320,14 +340,8 @@ class _ProjectFormDialogState extends ConsumerState<_ProjectFormDialog> {
                         items: [
                           const DropdownMenuItem(
                               value: null, child: Text('— Non précisé')),
-                          ...const [
-                            'Bouenza', 'Brazzaville', 'Congo-Oubangui',
-                            'Cuvette', 'Cuvette-Ouest', 'Djoué-Léfini',
-                            'Kouilou', 'Lékoumou', 'Likouala', 'Niari',
-                            'Nkéni-Alima', 'Plateaux', 'Pointe-Noire',
-                            'Pool', 'Sangha',
-                          ].map((d) => DropdownMenuItem(
-                                value: d, child: Text(d))),
+                          ..._ProjectFormDialog._departments.map(
+                              (d) => DropdownMenuItem(value: d, child: Text(d))),
                         ],
                         onChanged: (v) => setState(() => _department = v),
                       ),

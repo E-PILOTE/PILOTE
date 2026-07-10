@@ -1,11 +1,18 @@
+import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../providers/wayback_provider.dart';
 
 import '../providers/admin_dashboard_provider.dart';
 import '../providers/admin_geo_provider.dart';
@@ -25,6 +32,7 @@ part 'regional/regional_bars.dart';
 part 'regional/regional_toggles.dart';
 part 'regional/regional_markers.dart';
 part 'regional/regional_map.dart';
+part 'regional/regional_map_controls.dart';
 part 'regional/regional_pipeline.dart';
 part 'regional/regional_panels.dart';
 part 'regional/regional_school_panel.dart';
@@ -96,11 +104,16 @@ class _MapLayout extends ConsumerWidget {
     ref.listen<LatLng?>(_pendingProjectCoordsProv, (_, coords) {
       if (coords == null) return;
       ref.read(_pendingProjectCoordsProv.notifier).state = null;
+      // Pré-remplit le département depuis le point tapé (centroïde le plus proche).
+      final depts = ref.read(congoDepartmentsProvider).valueOrNull ??
+          const <GeoDepartment>[];
+      final suggested = _nearestDeptName(depts, coords);
       showDialog(
         context: context,
         barrierColor: Colors.black54,
         builder: (_) => _ProjectFormDialog(
           initialCoords: coords,
+          suggestedDepartment: suggested,
           onSaved: () => ref.invalidate(adminProjectsProvider),
         ),
       );

@@ -61,6 +61,19 @@ final _pendingProjectCoordsProv =
 final _streetViewCenterProv =
     StateProvider.autoDispose<LatLng?>((ref) => null);
 
+// Lecture des coordonnées géographiques sous le curseur (repère administratif).
+// `null` = pas de survol (tactile / curseur hors carte).
+final _hoverCoordProv = StateProvider.autoDispose<LatLng?>((ref) => null);
+
+// Outil de mesure de distance : mode actif + sommets successifs cliqués.
+final _measureModeProv = StateProvider.autoDispose<bool>((ref) => false);
+final _measurePointsProv =
+    StateProvider.autoDispose<List<LatLng>>((ref) => const []);
+
+// Imagerie satellite datée (Esri Wayback) sur la carte principale : index dans
+// la liste des versions (triées récent → ancien), -1 = imagerie la plus récente.
+final _waybackIndexProv = StateProvider.autoDispose<int>((ref) => -1);
+
 // Style de fond cartographique (OSM standard / satellite ESRI / hybride)
 enum _TileStyle { standard, satellite, hybrid }
 final _tileStyleProv =

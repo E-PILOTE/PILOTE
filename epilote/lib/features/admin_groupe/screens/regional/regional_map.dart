@@ -11,6 +11,9 @@ class _OsmMap extends ConsumerStatefulWidget {
 
 class _OsmMapState extends ConsumerState<_OsmMap> {
   final _mapController = MapController();
+  // Délimite le canevas cartographique pour l'export image (exclut les
+  // contrôles superposés : on n'exporte que la carte + ses calques).
+  final _mapBoundaryKey = GlobalKey();
   double _zoom = 6.0;
 
   // Rebuild aux seuils de lisibilité (villes/bourgs/villages) ET à chaque
@@ -28,6 +31,60 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
   void dispose() {
     _mapController.dispose();
     super.dispose();
+  }
+
+  // Zoom incrémental (boutons +/−) borné à la plage de la carte.
+  void _zoomBy(double delta) {
+    final c = _mapController.camera;
+    _mapController.move(c.center, (c.zoom + delta).clamp(5.8, 19.0));
+  }
+
+  // Recadre sur l'emprise nationale du Congo (bouton « accueil »).
+  void _recenter() => _mapController.fitCamera(
+        CameraFit.bounds(bounds: _kCongoBounds, padding: const EdgeInsets.all(28)),
+      );
+
+  // Bascule l'outil de mesure ; désactive le placement (modes exclusifs) et
+  // repart d'une mesure vierge à chaque (dés)activation.
+  void _toggleMeasure() {
+    final on = !ref.read(_measureModeProv);
+    ref.read(_measureModeProv.notifier).state = on;
+    ref.read(_measurePointsProv.notifier).state = const [];
+    if (on) ref.read(_placementModeProv.notifier).state = false;
+  }
+
+  // Capture le canevas cartographique courant en PNG et l'enregistre dans le
+  // dossier Téléchargements (repli : dossier temporaire), puis l'ouvre. Sert à
+  // joindre une vue territoriale datée à un rapport / une note gouvernementale.
+  Future<void> _exportImage() async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    try {
+      final boundary = _mapBoundaryKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary == null) return;
+      final image = await boundary.toImage(pixelRatio: 2.0);
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (data == null) return;
+      final bytes = data.buffer.asUint8List();
+
+      final dir = await getDownloadsDirectory() ??
+          await getTemporaryDirectory();
+      final stamp = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
+      final file = File('${dir.path}/carte_territoriale_$stamp.png');
+      await file.writeAsBytes(bytes);
+      await launchUrl(Uri.file(file.path));
+
+      messenger?.showSnackBar(SnackBar(
+        content: Text('Carte exportée : ${file.path}'),
+        backgroundColor: kGreen,
+        duration: const Duration(seconds: 4),
+      ));
+    } catch (e) {
+      messenger?.showSnackBar(SnackBar(
+        content: Text('Échec de l’export : $e'),
+        backgroundColor: kRed,
+      ));
+    }
   }
 
   List<Marker> _buildDeptMarkers(
@@ -370,6 +427,23 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
     final showVillages     = ref.watch(_showVillagesLayerProv);
     final showRoads        = ref.watch(_showRoadsLayerProv);
     final pinColorMode     = ref.watch(_pinColorModeProv);
+    final measureMode      = ref.watch(_measureModeProv);
+    final measurePoints    = ref.watch(_measurePointsProv);
+    final onSatellite      = tileStyle != _TileStyle.standard;
+    // Imagerie satellite datée (Wayback) : on ne charge la liste des versions
+    // que si un fond satellite est actif. `index = -1` → imagerie la plus récente.
+    final waybackIndex     = ref.watch(_waybackIndexProv);
+    final releases         = onSatellite
+        ? (ref.watch(waybackReleasesProvider).valueOrNull ??
+            const <WaybackRelease>[])
+        : const <WaybackRelease>[];
+    final useWayback       = waybackIndex >= 0 && waybackIndex < releases.length;
+    const esriImageryTmpl =
+        'https://server.arcgisonline.com/ArcGIS/rest/services/'
+        'World_Imagery/MapServer/tile/{z}/{y}/{x}';
+    final satelliteUrl     = useWayback
+        ? releases[waybackIndex].tileUrlTemplate
+        : esriImageryTmpl;
     // Charge pédagogique (élèves/classe) et occupation (effectif/capacité) par
     // école, depuis le provider tableau — servent à colorer pins et grappes.
     final loadById = <String, int>{};
@@ -411,8 +485,10 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
     }
 
     return Stack(children: [
-      MouseRegion(
-      cursor: isPlacement
+      RepaintBoundary(
+      key: _mapBoundaryKey,
+      child: MouseRegion(
+      cursor: isPlacement || measureMode
           ? SystemMouseCursors.precise
           : MouseCursor.defer,
       child: FlutterMap(
@@ -421,10 +497,7 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
           // Adapte automatiquement le zoom au Congo quelle que soit la taille
           // de l'écran — plus fiable que fixer un initialZoom statique.
           initialCameraFit: CameraFit.bounds(
-            bounds: LatLngBounds(
-              const LatLng(-5.2, 11.0),
-              const LatLng(3.8, 18.8),
-            ),
+            bounds: _kCongoBounds,
             padding: const EdgeInsets.all(28),
           ),
           minZoom: 5.8,
@@ -433,8 +506,33 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
           maxZoom: 19,
           cameraConstraint: const CameraConstraint.unconstrained(),
           onPositionChanged: _onZoom,
+          // Lecture des coordonnées sous le curseur (repère administratif).
+          onPointerHover: (_, latlng) =>
+              ref.read(_hoverCoordProv.notifier).state = latlng,
           onTap: (_, latlng) {
+            // Outil de mesure : chaque clic ajoute un sommet à la ligne.
+            if (measureMode) {
+              ref.read(_measurePointsProv.notifier).state = [
+                ...ref.read(_measurePointsProv),
+                latlng,
+              ];
+              return;
+            }
             if (isPlacement) {
+              // Garde-fou : un projet DOIT être placé sur le territoire congolais.
+              // Un clic hors des limites (océan, pays voisin) ne crée rien et
+              // laisse le mode placement actif pour réessayer.
+              if (!_isInCongoBounds(latlng)) {
+                ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                  const SnackBar(
+                    content: Text('Point hors du Congo — placez le projet '
+                        'sur le territoire national.'),
+                    backgroundColor: kRed,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+                return;
+              }
               ref.read(_placementModeProv.notifier).state = false;
               ref.read(_pendingProjectCoordsProv.notifier).state = latlng;
             } else {
@@ -455,9 +553,9 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
           if (tileStyle == _TileStyle.satellite ||
               tileStyle == _TileStyle.hybrid)
             TileLayer(
-              urlTemplate:
-                  'https://server.arcgisonline.com/ArcGIS/rest/services/'
-                  'World_Imagery/MapServer/tile/{z}/{y}/{x}',
+              // Clé = URL → recharge les tuiles quand on déplace la frise datée.
+              key: ValueKey(satelliteUrl),
+              urlTemplate: satelliteUrl,
               userAgentPackageName: 'com.epilote.congo',
               // Masque le placeholder « Map data not yet available » : la tuile
               // de zoom inférieur transparaît (sur-zoom auto par lieu).
@@ -514,33 +612,42 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
           if (showPolygons)
             polygonsAsync.maybeWhen(
               data: (osmDepts) {
-                // Table de ratios d'activité : nom normalisé → ratio [0..1] ou -1
+                // Table de ratios d'activité : nom normalisé → ratio [0..1] ou -1.
+                // Basée sur TOUTES les écoles (GPS incluses) : sinon, dès que les
+                // écoles sont géolocalisées, `depts` (écoles sans GPS) se vide, les
+                // choroplèthes retombent tous transparents et les départements ne
+                // paraissent plus « découpés ». (Même correctif que KPI/PDF.)
                 final ratios = <String, double>{};
-                for (final d in widget.data.depts) {
+                for (final d in widget.data.allDepts) {
                   ratios[_normDept(d.dept)] = d.schoolCount > 0
                       ? d.activeCount / d.schoolCount
                       : 0.0;
                 }
                 return PolygonLayer(
+                  // Frontières inter-départementales bien lisibles (trait plus
+                  // épais et plus contrasté qu'un simple filet) → les 15 dépts
+                  // sont visiblement découpés, avec ou sans données.
                   polygons: osmDepts.map((d) {
                     final ratio = ratios[_normDept(d.name)] ?? -1.0;
                     final fillColor = ratio < 0
                         ? Colors.transparent
                         : ratio >= 0.75
-                            ? kGreen.withValues(alpha: 0.13)
+                            ? kGreen.withValues(alpha: 0.16)
                             : ratio >= 0.4
-                                ? kNavy.withValues(alpha: 0.09)
+                                ? kNavy.withValues(alpha: 0.12)
                                 : ratio > 0
-                                    ? _kOrange.withValues(alpha: 0.13)
-                                    : kRed.withValues(alpha: 0.10);
+                                    ? _kOrange.withValues(alpha: 0.16)
+                                    : kRed.withValues(alpha: 0.12);
                     return Polygon(
                       points: d.outline,
                       color: fillColor,
-                      borderStrokeWidth: 1.5,
+                      borderStrokeWidth: 2.2,
                       borderColor: (tileStyle == _TileStyle.standard
                               ? kNavy
                               : Colors.white)
-                          .withValues(alpha: 0.55),
+                          .withValues(alpha: tileStyle == _TileStyle.standard
+                              ? 0.85
+                              : 0.9),
                     );
                   }).toList(),
                 );
@@ -734,6 +841,51 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
                 icon: Icons.wifi_off_rounded,
                 text: 'Réseau routier indisponible (OSM). Réessayez plus tard.'),
 
+          // ── Outil de mesure : ligne + sommets cliqués ─────────────────────
+          if (measureMode && measurePoints.isNotEmpty) ...[
+            PolylineLayer(polylines: [
+              Polyline(
+                points: measurePoints,
+                color: _kOrange,
+                strokeWidth: 3,
+                borderColor: Colors.white,
+                borderStrokeWidth: 1,
+              ),
+            ]),
+            MarkerLayer(
+              markers: [
+                for (final p in measurePoints)
+                  Marker(
+                    point: p,
+                    width: 14,
+                    height: 14,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: _kOrange,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+
+          // Échelle métrique — repère indispensable pour un pilotage territorial
+          // (apprécier les distances entre écoles/localités). Couleur adaptée au
+          // fond (sombre sur satellite, navy sur carte).
+          Scalebar(
+            alignment: Alignment.bottomCenter,
+            padding: const EdgeInsets.only(bottom: 12),
+            lineColor: tileStyle == _TileStyle.standard ? kNavy : Colors.white,
+            strokeWidth: 2.5,
+            textStyle: TextStyle(
+              color: tileStyle == _TileStyle.standard ? kNavy : Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+
           RichAttributionWidget(attributions: [
             TextSourceAttribution(
                 tileStyle == _TileStyle.standard
@@ -744,6 +896,52 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
         ],
       ),
       ),
+      ),
+      // Contrôles de navigation + outils (zoom, recadrage, mesure, export).
+      Align(
+        alignment: Alignment.centerRight,
+        child: Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: _MapControls(
+            onZoomIn: () => _zoomBy(1),
+            onZoomOut: () => _zoomBy(-1),
+            onRecenter: _recenter,
+            onMeasure: _toggleMeasure,
+            measureActive: measureMode,
+            onExport: _exportImage,
+          ),
+        ),
+      ),
+      // Lecture des coordonnées sous le curseur (repère administratif).
+      const Positioned(top: 10, left: 10, child: _CoordReadout()),
+      // Bandeau de l'outil de mesure (distance cumulée + annuler/effacer/fermer).
+      if (measureMode)
+        Positioned(
+          top: 0, left: 0, right: 0,
+          child: _MeasureBanner(
+            points: measurePoints,
+            onUndo: measurePoints.isEmpty
+                ? null
+                : () => ref.read(_measurePointsProv.notifier).state =
+                    measurePoints.sublist(0, measurePoints.length - 1),
+            onClear: () =>
+                ref.read(_measurePointsProv.notifier).state = const [],
+            onClose: _toggleMeasure,
+          ),
+        ),
+      // Frise satellite datée (Esri Wayback) — seulement en fond satellite/hybride.
+      if (onSatellite && releases.isNotEmpty)
+        Positioned(
+          left: 0, right: 0, bottom: 44,
+          child: Center(
+            child: _WaybackFrieze(
+              releases: releases,
+              index: waybackIndex,
+              onChanged: (i) =>
+                  ref.read(_waybackIndexProv.notifier).state = i,
+            ),
+          ),
+        ),
       Positioned(
         right: 12,
         bottom: 92,
@@ -752,4 +950,3 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
     ]);
   }
 }
-
