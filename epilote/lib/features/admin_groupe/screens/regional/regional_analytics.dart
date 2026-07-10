@@ -8,9 +8,11 @@ class _RegionalAnalytics extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final projectsAsync = ref.watch(adminProjectsProvider);
-    final maxSchools    = data.depts.isEmpty
+    // Classement départemental : sur TOUTES les écoles (GPS incluses), sinon
+    // le classement se vide dès que les écoles sont géolocalisées.
+    final maxSchools    = data.allDepts.isEmpty
         ? 1
-        : data.depts.fold(0, (m, d) => d.schoolCount > m ? d.schoolCount : m);
+        : data.allDepts.fold(0, (m, d) => d.schoolCount > m ? d.schoolCount : m);
     final avgStudents   = data.totalSchools > 0
         ? (data.totalStudents / data.totalSchools).toStringAsFixed(1)
         : '0';
@@ -160,7 +162,7 @@ class _RegionalAnalytics extends ConsumerWidget {
                         fontSize: 9, fontWeight: FontWeight.w700,
                         color: kTextMuted, letterSpacing: 1.0)),
                 const SizedBox(height: 10),
-                ...data.depts.take(8).toList().asMap().entries.map((e) {
+                ...data.allDepts.take(8).toList().asMap().entries.map((e) {
                   final i = e.key;
                   final d = e.value;
                   final ratio =

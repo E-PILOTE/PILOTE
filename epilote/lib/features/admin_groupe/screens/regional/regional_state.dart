@@ -116,39 +116,30 @@ AdminRegionalData _applyFilter(AdminRegionalData data, _RegionalFilter f) {
     return true;
   }).toList();
 
-  // Dept schools filter (existing logic)
-  final depts = <AdminDeptEntry>[];
-  var totSchools = 0, totStudents = 0, totActive = 0;
-  for (final d in data.depts) {
-    final pins = d.schools.where((p) {
-      if (f.type != null && p.type != f.type) return false;
-      if (f.activeOnly && !p.isActive) return false;
-      return true;
-    }).toList();
-    if (pins.isEmpty) continue;
-    final stu = pins.fold<int>(0, (a, p) => a + p.students);
-    final act = pins.where((p) => p.isActive).length;
-    depts.add(AdminDeptEntry(
-      dept: d.dept, coords: d.coords,
-      schoolCount: pins.length, studentCount: stu,
-      activeCount: act, schools: pins,
-    ));
-    totSchools += pins.length;
-    totStudents += stu;
-    totActive += act;
-  }
-  depts.sort((a, b) => b.schoolCount.compareTo(a.schoolCount));
+  // Écoles sans GPS filtrées (bulles carte)
+  final noGpsFiltered = data.depts.expand((d) => d.schools).where((p) {
+    if (f.type != null && p.type != f.type) return false;
+    if (f.activeOnly && !p.isActive) return false;
+    return true;
+  }).toList();
 
-  final gpsStu    = gpsFiltered.fold<int>(0, (a, s) => a + s.students);
-  final gpsActive = gpsFiltered.where((s) => s.isActive).length;
+  final depts = buildDeptEntries(noGpsFiltered);
+  // Agrégat complet (GPS + non-GPS) pour KPI / analytique / PDF.
+  final allDepts = buildDeptEntries([...noGpsFiltered, ...gpsFiltered]);
+
+  final noGpsStu    = noGpsFiltered.fold<int>(0, (a, p) => a + p.students);
+  final noGpsActive = noGpsFiltered.where((p) => p.isActive).length;
+  final gpsStu      = gpsFiltered.fold<int>(0, (a, s) => a + s.students);
+  final gpsActive   = gpsFiltered.where((s) => s.isActive).length;
 
   return AdminRegionalData(
     depts:         depts,
+    allDepts:      allDepts,
     gpsSchools:    gpsFiltered,
-    totalSchools:  totSchools + gpsFiltered.length,
-    totalStudents: totStudents + gpsStu,
-    coveredDepts:  depts.length,
-    activeSchools: totActive + gpsActive,
+    totalSchools:  noGpsFiltered.length + gpsFiltered.length,
+    totalStudents: noGpsStu + gpsStu,
+    coveredDepts:  countCoveredDepts(allDepts),
+    activeSchools: noGpsActive + gpsActive,
   );
 }
 

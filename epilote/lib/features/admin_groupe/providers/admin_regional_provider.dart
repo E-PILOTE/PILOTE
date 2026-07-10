@@ -125,13 +125,20 @@ class AdminDeptEntry {
 class AdminRegionalData {
   const AdminRegionalData({
     required this.depts,
+    required this.allDepts,
     required this.gpsSchools,
     required this.totalSchools,
     required this.totalStudents,
     required this.coveredDepts,
     required this.activeSchools,
   });
-  final List<AdminDeptEntry> depts;       // écoles sans GPS, agrégées par département
+  /// Écoles SANS GPS, agrégées par département → sert UNIQUEMENT aux bulles
+  /// « Pôles » de la carte (les écoles géolocalisées ont leur propre pin).
+  final List<AdminDeptEntry> depts;
+  /// TOUTES les écoles (GPS + non-GPS) agrégées par département → KPI,
+  /// analytique et rapport PDF. Sans cela, géolocaliser les écoles vidait la
+  /// répartition départementale et mettait « Départements couverts » à 0.
+  final List<AdminDeptEntry> allDepts;
   final List<AdminSchoolPin> gpsSchools;  // écoles avec GPS, positionnées individuellement
   final int totalSchools;
   final int totalStudents;
@@ -142,11 +149,41 @@ class AdminRegionalData {
   int get noGpsCount => totalSchools - gpsCount;
 
   static const empty = AdminRegionalData(
-    depts: [], gpsSchools: [],
+    depts: [], allDepts: [], gpsSchools: [],
     totalSchools: 0, totalStudents: 0,
     coveredDepts: 0, activeSchools: 0,
   );
 }
+
+/// Libellé de département d'un pin (« Non précisé » si absent).
+String deptKeyOf(AdminSchoolPin p) {
+  final d = p.department;
+  return (d == null || d.isEmpty) ? 'Non précisé' : d;
+}
+
+/// Agrège une liste de pins par département, triée par nombre d'écoles décroissant.
+List<AdminDeptEntry> buildDeptEntries(Iterable<AdminSchoolPin> pins) {
+  final byDept = <String, List<AdminSchoolPin>>{};
+  for (final p in pins) {
+    byDept.putIfAbsent(deptKeyOf(p), () => []).add(p);
+  }
+  return byDept.entries.map((e) {
+    final list = e.value;
+    return AdminDeptEntry(
+      dept:         e.key,
+      coords:       _resolveCoords(e.key),
+      schoolCount:  list.length,
+      studentCount: list.fold<int>(0, (a, p) => a + p.students),
+      activeCount:  list.where((p) => p.isActive).length,
+      schools:      list,
+    );
+  }).toList()
+    ..sort((a, b) => b.schoolCount.compareTo(a.schoolCount));
+}
+
+/// Nombre de départements réellement couverts (hors « Non précisé »).
+int countCoveredDepts(List<AdminDeptEntry> allDepts) =>
+    allDepts.where((d) => d.dept != 'Non précisé').length;
 
 // ─── Provider principal (écoles + effectifs) ────────────────────────────────
 final adminRegionalProvider =
@@ -210,6 +247,7 @@ final adminRegionalProvider =
   }
 
   final List<AdminSchoolPin> gpsSchools = [];
+  final List<AdminSchoolPin> allPins    = [];
   final Map<String, List<AdminSchoolPin>> pinsByDept = {};
 
   for (final s in schools) {
@@ -234,37 +272,26 @@ final adminRegionalProvider =
       students:           studentsBySchool[id] ?? 0,
     );
 
+    allPins.add(pin);
     if (pin.hasGps) {
       gpsSchools.add(pin);
     } else {
-      final dept = pin.department;
-      final key  = (dept == null || dept.isEmpty) ? 'Non précisé' : dept;
-      pinsByDept.putIfAbsent(key, () => []).add(pin);
+      pinsByDept.putIfAbsent(deptKeyOf(pin), () => []).add(pin);
     }
   }
 
-  final depts = pinsByDept.entries.map((e) {
-    final pins = e.value;
-    return AdminDeptEntry(
-      dept:         e.key,
-      coords:       _resolveCoords(e.key),
-      schoolCount:  pins.length,
-      // Effectif = somme des écoles de CE département uniquement (cohérent avec
-      // la liste détaillée et avec _applyFilter). Les écoles géolocalisées sont
-      // comptées à part dans gpsSchools, pas dans l'agrégat départemental.
-      studentCount: pins.fold<int>(0, (a, p) => a + p.students),
-      activeCount:  pins.where((p) => p.isActive).length,
-      schools:      pins,
-    );
-  }).toList()
-    ..sort((a, b) => b.schoolCount.compareTo(a.schoolCount));
+  // Bulles carte : écoles SANS GPS uniquement (les GPS ont leur pin propre).
+  final depts = buildDeptEntries(pinsByDept.values.expand((e) => e));
+  // KPI / analytique / PDF : TOUTES les écoles.
+  final allDepts = buildDeptEntries(allPins);
 
   return AdminRegionalData(
     depts:         depts,
+    allDepts:      allDepts,
     gpsSchools:    gpsSchools,
     totalSchools:  schools.length,
     totalStudents: students.length,
-    coveredDepts:  depts.length,
+    coveredDepts:  countCoveredDepts(allDepts),
     activeSchools: schools.where((s) => (s as Map)['is_active'] as bool? ?? true).length,
   );
 });

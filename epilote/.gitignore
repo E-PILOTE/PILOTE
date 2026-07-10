@@ -48,3 +48,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Artefacts de tests golden (diffs générés en cas d'échec)
+test/failures/

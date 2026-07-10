@@ -80,6 +80,8 @@ class _LayerToggleBar extends ConsumerWidget {
                 icon: Icons.center_focus_strong_rounded,
                 active: showMask,
                 color: kRed,
+                tooltip: 'Assombrit tout ce qui est hors du Congo pour '
+                    'concentrer la carte sur le pays.',
                 onTap: () =>
                     ref.read(_showMaskLayerProv.notifier).state = !showMask),
             _FilterChip(
@@ -87,6 +89,8 @@ class _LayerToggleBar extends ConsumerWidget {
                 icon: Icons.crop_square_rounded,
                 active: showPolygons,
                 color: kNavy,
+                tooltip: 'Contours des 15 départements du Congo, colorés selon '
+                    'le taux d’écoles actives (choroplèthe).',
                 onTap: () =>
                     ref.read(_showPolygonsLayerProv.notifier).state = !showPolygons),
             _FilterChip(
@@ -94,6 +98,8 @@ class _LayerToggleBar extends ConsumerWidget {
                 icon: Icons.map_rounded,
                 active: showDept,
                 color: _kBlue,
+                tooltip: 'Bulle par département indiquant le nombre d’écoles '
+                    'agrégées (écoles sans position GPS précise).',
                 onTap: () =>
                     ref.read(_showDeptLayerProv.notifier).state = !showDept),
             _FilterChip(
@@ -101,6 +107,8 @@ class _LayerToggleBar extends ConsumerWidget {
                 icon: Icons.gps_fixed_rounded,
                 active: showGps,
                 color: kGreen,
+                tooltip: 'Écoles géolocalisées, positionnées précisément à leur '
+                    'emplacement réel.',
                 onTap: () =>
                     ref.read(_showGpsLayerProv.notifier).state = !showGps),
             _FilterChip(
@@ -108,6 +116,8 @@ class _LayerToggleBar extends ConsumerWidget {
                 icon: Icons.business_center_rounded,
                 active: showProj,
                 color: _kOrange,
+                tooltip: 'Projets de construction de nouvelles écoles '
+                    '(pipeline d’expansion).',
                 onTap: () =>
                     ref.read(_showProjLayerProv.notifier).state = !showProj),
             _FilterChip(
@@ -115,6 +125,8 @@ class _LayerToggleBar extends ConsumerWidget {
                 icon: Icons.location_city_rounded,
                 active: showCities,
                 color: _kBlue,
+                tooltip: 'Villes et bourgs principaux, comme repères '
+                    '(toujours visibles).',
                 onTap: () =>
                     ref.read(_showCitiesLayerProv.notifier).state = !showCities),
             _FilterChip(
@@ -122,6 +134,8 @@ class _LayerToggleBar extends ConsumerWidget {
                 icon: Icons.holiday_village_rounded,
                 active: showVillages,
                 color: _kPurple,
+                tooltip: 'Localités OSM (villages et hameaux). Données '
+                    'embarquées — s’affichent instantanément.',
                 onTap: () =>
                     ref.read(_showVillagesLayerProv.notifier).state = !showVillages),
             _FilterChip(
@@ -129,6 +143,8 @@ class _LayerToggleBar extends ConsumerWidget {
                 icon: Icons.route_rounded,
                 active: showRoads,
                 color: const Color(0xFFF59E0B),
+                tooltip: 'Réseau routier national (axes principaux). Chargé '
+                    'depuis OpenStreetMap — peut prendre 15 à 90 s.',
                 onTap: () {
                   ref.read(_showRoadsLayerProv.notifier).state = !showRoads;
                   // Déclenche le chargement la 1ère fois qu'on active
@@ -159,14 +175,18 @@ class _PinColorSwitch extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mode = ref.watch(_pinColorModeProv);
-    Widget btn(String label, IconData icon, _PinColorMode m,
+    Widget btn(String label, IconData icon, _PinColorMode m, String tip,
         {bool first = false, bool last = false}) {
       final active = mode == m;
       final radius = BorderRadius.horizontal(
           left: first ? const Radius.circular(6) : Radius.zero,
           right: last ? const Radius.circular(6) : Radius.zero);
       return Expanded(
-        child: InkWell(
+        child: Tooltip(
+          message: tip,
+          waitDuration: const Duration(milliseconds: 400),
+          preferBelow: false,
+          child: InkWell(
           onTap: () => ref.read(_pinColorModeProv.notifier).state = m,
           borderRadius: radius,
           child: Container(
@@ -187,6 +207,7 @@ class _PinColorSwitch extends ConsumerWidget {
             ]),
           ),
         ),
+        ),
       );
     }
 
@@ -198,11 +219,17 @@ class _PinColorSwitch extends ConsumerWidget {
         borderRadius: BorderRadius.circular(7),
       ),
       child: Row(children: [
-        btn('Type', Icons.category_outlined, _PinColorMode.type, first: true),
+        btn('Type', Icons.category_outlined, _PinColorMode.type,
+            'Colore les écoles selon leur type : publique, privée ou mixte.',
+            first: true),
         sep(),
-        btn('Charge', Icons.groups_2_outlined, _PinColorMode.load),
+        btn('Charge', Icons.groups_2_outlined, _PinColorMode.load,
+            'Colore les écoles selon la charge pédagogique '
+            '(nombre d’élèves par classe). Rouge = surchargée.'),
         sep(),
         btn('Occup.', Icons.event_seat_outlined, _PinColorMode.occupancy,
+            'Colore les écoles selon le taux d’occupation '
+            '(effectif ÷ capacité). Rouge = sur-occupée.',
             last: true),
       ]),
     );
@@ -270,16 +297,18 @@ class _FilterChip extends StatelessWidget {
     required this.color,
     required this.onTap,
     this.icon,
+    this.tooltip,
   });
   final String label;
   final bool active;
   final Color color;
   final VoidCallback onTap;
   final IconData? icon;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
+    final chip = MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: onTap,
@@ -308,6 +337,13 @@ class _FilterChip extends StatelessWidget {
           ),
         ),
       ),
+    );
+    if (tooltip == null) return chip;
+    return Tooltip(
+      message: tooltip!,
+      waitDuration: const Duration(milliseconds: 400),
+      preferBelow: false,
+      child: chip,
     );
   }
 }

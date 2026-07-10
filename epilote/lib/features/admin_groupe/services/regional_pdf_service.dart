@@ -55,7 +55,7 @@ class RegionalPdfService {
     // 15 départements officiels (réforme oct. 2024) — source unique partagée.
     final officialDepts = adminMajorAgglomerations.keys.toList();
     final coveredNorm = <String>{
-      ...data.depts.map((d) => _norm(d.dept)),
+      ...data.allDepts.map((d) => _norm(d.dept)),
       ...data.gpsSchools
           .map((s) => s.department)
           .whereType<String>()
@@ -295,7 +295,7 @@ class RegionalPdfService {
     pw.Font fontMedium,
     pw.Font fontRegular,
   ) {
-    final rows = data.depts.map((d) {
+    final rows = data.allDepts.map((d) {
       final rate =
           d.schoolCount > 0 ? (d.activeCount / d.schoolCount * 100).round() : 0;
       return [
