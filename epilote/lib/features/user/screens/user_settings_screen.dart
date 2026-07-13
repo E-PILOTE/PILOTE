@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../auth/providers/active_agent_provider.dart';
 import '../../../core/widgets/logout_guard.dart';
 import 'package:go_router/go_router.dart';
 
@@ -198,27 +199,34 @@ class _Body extends ConsumerWidget {
         ],
         const SizedBox(height: 24),
 
-        // ── Déconnexion (avec confirmation) ─────────────────────────────────
-        OutlinedButton.icon(
-          onPressed: () => _confirmSignOut(context, ref),
-          icon: const Icon(Icons.logout_rounded, size: 18),
-          label: const Text('Déconnexion'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: kRed,
-            side: BorderSide(color: kRed.withValues(alpha: 0.3)),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        // ── Déconnecter le poste ────────────────────────────────────────────
+        // Réservé à la direction sur un poste partagé : l'action prive TOUTE
+        // l'école de son mode hors-ligne (cf. `canUnenrollDevice`).
+        if (canUnenrollDevice(
+          role: ref.watch(authNotifierProvider).valueOrNull?.role,
+          mode: ref.watch(deviceModeProvider).mode,
+        )) ...[
+          OutlinedButton.icon(
+            onPressed: () => _confirmSignOut(context, ref),
+            icon: const Icon(Icons.link_off_rounded, size: 18),
+            label: const Text('Déconnecter ce poste…'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: kRed,
+              side: BorderSide(color: kRed.withValues(alpha: 0.3)),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
+          const SizedBox(height: 16),
+        ],
       ],
     );
   }
 
   Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
-    final ok = await showLogoutConfirmDialog(context);
-    if (!ok || !context.mounted) return;
+    // `guardedSignOut` porte déjà l'avertissement complet (offline + travail en
+    // attente) — un second dialogue générique par-dessus ne ferait que du bruit.
     await guardedSignOut(context, ref, sharedDevice: true);
   }
 }

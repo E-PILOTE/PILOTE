@@ -252,17 +252,30 @@ class _RevealSheet extends StatelessWidget {
                                     ),
                                   ),
                           ),
-                          const SizedBox(height: 10),
-                          TextButton.icon(
-                            onPressed: onDeviceLogout,
-                            icon: Icon(Icons.logout_rounded,
-                                size: 15,
-                                color: Colors.white.withValues(alpha: 0.55)),
-                            label: Text('Déconnecter le poste',
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.white.withValues(alpha: 0.55))),
-                          ),
+                          // ⚠️ Désenrôler l'appareil depuis l'écran-verrou, donc
+                          // SANS s'être identifié, permettait à n'importe qui
+                          // passant devant la machine (élève, visiteur) de
+                          // priver l'école entière de son mode hors-ligne.
+                          // Le désenrôlement passe désormais par : déverrouiller
+                          // en tant que direction → menu compte. Le bouton n'est
+                          // conservé que comme SECOURS quand aucun agent n'est
+                          // encore synchronisé (poste neuf ou mal configuré) —
+                          // là, personne ne peut se connecter, donc on
+                          // n'enferme personne dehors.
+                          if (agents.isEmpty) ...[
+                            const SizedBox(height: 10),
+                            TextButton.icon(
+                              onPressed: onDeviceLogout,
+                              icon: Icon(Icons.logout_rounded,
+                                  size: 15,
+                                  color: Colors.white.withValues(alpha: 0.55)),
+                              label: Text('Déconnecter le poste',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color:
+                                          Colors.white.withValues(alpha: 0.55))),
+                            ),
+                          ],
                         ],
                       ),
                     ),

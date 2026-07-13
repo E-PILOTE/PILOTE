@@ -323,6 +323,34 @@ const Set<String> _nonAgentRoles = {
 bool agentLockApplies(String? role) =>
     role != null && role.isNotEmpty && !_nonAgentRoles.contains(role);
 
+/// Rôles de DIRECTION — seuls habilités à désenrôler un poste partagé.
+const Set<String> directionRoles = {
+  AppConstants.roleDirecteur,
+  AppConstants.roleProviseur,
+};
+
+/// Décision pure : cet agent peut-il DÉSENRÔLER le poste (« Déconnecter ce
+/// poste ») ?
+///
+/// Désenrôler retire à l'appareil son droit de travailler hors-ligne : plus
+/// aucun agent ne peut ouvrir de session tant qu'internet n'est pas revenu.
+/// C'est donc une action à **rayon de destruction = l'école entière**.
+///
+/// Principe du moindre privilège — et surtout : **désenrôler n'est jamais
+/// urgent**. Aucun scénario légitime n'exige qu'un enseignant désenrôle un
+/// poste sur-le-champ ; un appareil volé se révoque côté serveur, pas depuis
+/// l'appareil. On peut donc le réserver sans rien bloquer d'utile.
+///
+/// • Poste PERSONNEL (une machine, une personne) → toujours autorisé : c'est
+///   sa machine, la lui verrouiller serait absurde.
+/// • Poste PARTAGÉ → direction uniquement.
+bool canUnenrollDevice({required String? role, required DeviceMode? mode}) {
+  if (role == null || role.isEmpty) return false;
+  if (!agentLockApplies(role)) return true; // super_admin / admin_groupe / parent
+  if (mode == DeviceMode.personal) return true;
+  return directionRoles.contains(role);
+}
+
 /// Décision pure : faut-il imposer l'écran-verrou ?
 /// - pas de session / rôle hors public agent → non ;
 /// - aucun agent encore synchronisé → non (on n'enferme jamais dehors) ;

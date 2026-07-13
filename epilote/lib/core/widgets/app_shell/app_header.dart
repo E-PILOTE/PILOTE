@@ -416,6 +416,13 @@ class _AccountMenu extends ConsumerWidget {
       _ => Routes.userParametres,
     };
 
+    // Désenrôler le poste = le priver d'offline pour TOUTE l'école → direction
+    // uniquement sur un poste partagé (cf. `canUnenrollDevice`).
+    final mayUnenroll = canUnenrollDevice(
+      role: profile?.role,
+      mode: ref.watch(deviceModeProvider).mode,
+    );
+
     return PopupMenuButton<String>(
       tooltip: 'Mon compte',
       offset: const Offset(0, 48),
@@ -483,22 +490,24 @@ class _AccountMenu extends ConsumerWidget {
               Text('Verrouiller / changer d’utilisateur'),
             ]),
           ),
-        const PopupMenuDivider(),
-        // Déconnexion de l'APPAREIL : rare, destructrice de l'offline.
-        // Libellée sans ambiguïté sur un poste scolaire.
-        PopupMenuItem(
-          value: 'logout',
-          child: Row(children: [
-            const Icon(Icons.link_off_rounded, size: 18, color: Colors.red),
-            const SizedBox(width: 10),
-            Text(
-              agentLockApplies(profile?.role)
-                  ? 'Déconnecter ce poste…'
-                  : 'Déconnexion',
-              style: const TextStyle(color: Colors.red),
-            ),
-          ]),
-        ),
+        // Déconnexion de l'APPAREIL : rare, destructrice de l'offline, réservée
+        // à la direction sur un poste partagé. Libellée sans ambiguïté.
+        if (mayUnenroll) ...[
+          const PopupMenuDivider(),
+          PopupMenuItem(
+            value: 'logout',
+            child: Row(children: [
+              const Icon(Icons.link_off_rounded, size: 18, color: Colors.red),
+              const SizedBox(width: 10),
+              Text(
+                agentLockApplies(profile?.role)
+                    ? 'Déconnecter ce poste…'
+                    : 'Déconnexion',
+                style: const TextStyle(color: Colors.red),
+              ),
+            ]),
+          ),
+        ],
       ],
       child: Row(
         children: [
