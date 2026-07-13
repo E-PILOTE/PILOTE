@@ -31,6 +31,9 @@ class SchoolDetail {
     this.directorId,
     this.logoUrl,
     this.capacity,
+    this.latitude,
+    this.longitude,
+    this.locationSource,
   });
   final String id;
   final String name;
@@ -53,10 +56,15 @@ class SchoolDetail {
   final String? directorId;
   final String? logoUrl;
   final int? capacity;
+  final double? latitude;
+  final double? longitude;
+  final String? locationSource; // 'gps' | 'geocoded' | 'manual'
 
   /// Taux d'occupation = effectif / capacité. null si capacité non renseignée.
   double? get occupancy =>
       (capacity != null && capacity! > 0) ? students / capacity! : null;
+
+  bool get hasGps => latitude != null && longitude != null;
 }
 
 class AdminSchoolsData {
@@ -160,7 +168,8 @@ final adminSchoolsProvider =
     final rows = await client.from('schools').select(
             'id, name, school_type, school_code, address, city, province, '
             'arrondissement, department, phone, email, website, motto, '
-            'founded_year, director_id, logo_url, is_active, capacity')
+            'founded_year, director_id, logo_url, is_active, capacity, '
+            'latitude, longitude, location_source')
         .eq('group_id', groupId)
         .order('name') as List;
     for (final s in rows) {
@@ -183,6 +192,9 @@ final adminSchoolsProvider =
         directorId:     s['director_id'] as String?,
         logoUrl:        s['logo_url'] as String?,
         capacity:       s['capacity'] as int?,
+        latitude:       (s['latitude']  as num?)?.toDouble(),
+        longitude:      (s['longitude'] as num?)?.toDouble(),
+        locationSource: s['location_source'] as String?,
         isActive:       s['is_active'] as bool? ?? true,
         students:       stu[id] ?? 0,
         staff:          sta[id] ?? 0,

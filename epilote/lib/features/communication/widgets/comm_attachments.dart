@@ -7,7 +7,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../providers/messages_provider.dart';
 import 'audio_message_player.dart';
 import 'feed_video_player.dart';
-import 'media_compression.dart';
+import '../../../core/utils/media_compression.dart';
 import 'media_viewer.dart';
 
 // ════════════════════════════════════════════════════════════════════════════

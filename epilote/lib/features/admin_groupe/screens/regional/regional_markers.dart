@@ -1,5 +1,110 @@
 part of '../admin_regional_view.dart';
 
+// ─── Disque d'un marqueur école ──────────────────────────────────────────────
+// Répartition des variables visuelles (règle de sémiologie cartographique) :
+//   • la COULEUR encode l'ÉTAT (type / charge / occupation / inactive) → elle
+//     est légendable, donc lisible par tous ; elle ne doit JAMAIS servir
+//     d'identifiant d'école (l'œil ne distingue pas 20 teintes arbitraires).
+//   • l'IDENTITÉ de l'école est portée par son LOGO (+ son nom sous le pin),
+//     exactement comme un établissement sur Google Maps. Sans logo → icône
+//     générique sur fond coloré (repli).
+//   • le badge « ≈ » signale une position approximative (centroïde de ville).
+class _SchoolMarkerDisc extends StatelessWidget {
+  const _SchoolMarkerDisc({
+    required this.size,
+    required this.color,
+    required this.approx,
+    required this.selected,
+    this.logoUrl,
+  });
+
+  final double size;
+  final Color color;
+  final bool approx;
+  final bool selected;
+  final String? logoUrl;
+
+  bool get _hasLogo => logoUrl != null && logoUrl!.startsWith('http');
+
+  @override
+  Widget build(BuildContext context) {
+    final ring = selected ? 3.0 : 2.2;
+    final shadow = [
+      BoxShadow(
+          color: color.withValues(alpha: 0.4),
+          blurRadius: 8,
+          offset: const Offset(0, 3)),
+    ];
+
+    // Avec logo : pastille blanche cerclée de la couleur d'état (l'anneau reste
+    // le signal analytique, le cœur devient la signature de l'école).
+    // Sans logo : disque plein coloré + icône école.
+    final Widget disc = _hasLogo
+        ? Container(
+            width: size,
+            height: size,
+            padding: EdgeInsets.all(ring * 0.6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: color, width: ring),
+              boxShadow: shadow,
+            ),
+            child: ClipOval(
+              child: CachedNetworkImage(
+                imageUrl: logoUrl!,
+                fit: BoxFit.cover,
+                fadeInDuration: const Duration(milliseconds: 150),
+                placeholder: (_, _) => ColoredBox(
+                    color: color.withValues(alpha: 0.15), child: const SizedBox()),
+                errorWidget: (_, _, _) =>
+                    Icon(Icons.school_rounded, color: color, size: size * 0.42),
+              ),
+            ),
+          )
+        : Container(
+            width: size,
+            height: size,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: approx ? 0.55 : 0.9),
+              shape: BoxShape.circle,
+              border:
+                  Border.all(color: Colors.white, width: selected ? 2.5 : 2.0),
+              boxShadow: shadow,
+            ),
+            child: Icon(Icons.school_rounded,
+                color: Colors.white, size: size * 0.46),
+          );
+
+    return Stack(clipBehavior: Clip.none, children: [
+      // Position approximative → disque atténué (jamais de fausse précision).
+      approx ? Opacity(opacity: 0.75, child: disc) : disc,
+      if (approx)
+        Positioned(
+          top: -4,
+          right: -4,
+          child: Container(
+            width: 14,
+            height: 14,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: color, width: 1.4),
+            ),
+            child: Text('≈',
+                style: TextStyle(
+                    fontSize: 9,
+                    height: 1,
+                    fontWeight: FontWeight.w900,
+                    color: color)),
+          ),
+        ),
+    ]);
+  }
+}
+
 // ─── Marqueur de lieu : ville / bourg / village ───────────────────────────────
 // Hiérarchie visuelle :
 //   city   → dot 11 px bleu ciel + étiquette blanche/navy (toujours visible)
@@ -289,6 +394,21 @@ class _MapLegend extends ConsumerWidget {
               row(circle(kTextMuted, 11), 'Capacité non renseignée'),
             ],
             row(circle(kRed, 11), 'École inactive'),
+            row(
+              Container(
+                width: 11, height: 11,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: kTextMuted.withValues(alpha: 0.55),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: const Text('≈', style: TextStyle(
+                    fontSize: 7, height: 1,
+                    fontWeight: FontWeight.w900, color: Colors.white)),
+              ),
+              'Position approximative (ville)',
+            ),
             row(
               Row(mainAxisSize: MainAxisSize.min, children: [
                 circle(kNavy, 9),

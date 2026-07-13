@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/utils/media_compression.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/admin_regional_provider.dart' show adminProjectServiceProvider;
@@ -15,6 +16,7 @@ import '../providers/admin_users_provider.dart' show roleLabel;
 import '../providers/school_geocoder_provider.dart';
 import '../providers/subscription_access_provider.dart';
 import '../providers/education_provider.dart';
+import '../widgets/school_location_picker.dart';
 import '../../../core/widgets/admin_ui.dart';
 
 // ─── Couleurs locales (complètent admin_ui.dart) ─────────────────────────────
@@ -2146,6 +2148,11 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
   bool    _saving     = false;
   String? _error;
 
+  // ── Géolocalisation : contrôleur pont formulaire (cascade) ↔ carte ──
+  SchoolLocation? _initialLoc;
+  late final SchoolLocationController _locCtrl;
+  final _cityFocus = FocusNode();
+
   // ── Logo de l'école ──
   String?    _logoUrl;
   Uint8List? _logoPreviewBytes;
@@ -2184,6 +2191,12 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
     _department = (s?.department != null && _kDepartements.contains(s!.department))
         ? s.department
         : null;
+    if (s != null && s.hasGps) {
+      _initialLoc = SchoolLocation(
+        lat: s.latitude!, lng: s.longitude!,
+        source: s.locationSource ?? 'manual');
+    }
+    _locCtrl = SchoolLocationController(_initialLoc);
     _btnCtrl  = AnimationController(vsync: this, duration: const Duration(milliseconds: 100));
     _btnScale = Tween<double>(begin: 1.0, end: 0.96).animate(_btnCtrl);
 
@@ -2215,13 +2228,28 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
                      _address, _phone, _email, _website, _founded, _capacity, _motto]) {
       c.dispose();
     }
+    _cityFocus.dispose();
+    _locCtrl.dispose();
     _btnCtrl.dispose();
     super.dispose();
   }
 
+  /// Types acceptés par le bucket `group-logos` (allowed_mime_types).
+  static const _kLogoExts = ['png', 'jpg', 'jpeg', 'webp', 'svg'];
+
+  static String _mimeForExt(String ext) => switch (ext) {
+        'png' => 'image/png',
+        'webp' => 'image/webp',
+        'svg' => 'image/svg+xml',
+        _ => 'image/jpeg',
+      };
+
   Future<void> _pickAndUploadLogo() async {
+    // `FileType.custom` (et non `.image`) : le bucket n'accepte que ces formats
+    // — un .gif/.bmp serait rejeté côté serveur avec un message opaque.
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
+      type: FileType.custom,
+      allowedExtensions: _kLogoExts,
       allowMultiple: false,
       withData: true,
     );
@@ -2229,19 +2257,31 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
     final file = result.files.first;
     if (file.bytes == null) return;
 
-    setState(() {
-      _logoPreviewBytes = file.bytes;
-      _uploadingLogo = true;
-    });
+    setState(() => _uploadingLogo = true);
     try {
+      final srcExt = (file.extension ?? 'png').toLowerCase();
+      // Compression AVANT upload : redimensionne ≤512 px et ré-encode.
+      final media = await compressLogo(
+        bytes: file.bytes!,
+        fileName: file.name,
+        mime: _mimeForExt(srcExt),
+      );
+      if (!mounted) return;
+      setState(() => _logoPreviewBytes = media.bytes);
+
       final client = ref.read(supabaseClientProvider);
-      final ext = (file.extension ?? 'jpg').toLowerCase();
-      final fileName = 'school_${DateTime.now().millisecondsSinceEpoch}.$ext';
-      final path = 'schools/$fileName';
+      final ext = media.fileName.split('.').last.toLowerCase();
+      final path = 'schools/school_${DateTime.now().millisecondsSinceEpoch}.$ext';
+      // Pas d'`upsert` : le nom est déjà unique (horodaté), et `upsert` force un
+      // `ON CONFLICT DO UPDATE` qui exige un droit SELECT sur storage.objects →
+      // rejet RLS 403 (c'était la cause du bug d'upload).
       await client.storage.from('group-logos').uploadBinary(
         path,
-        file.bytes!,
-        fileOptions: FileOptions(contentType: 'image/$ext', upsert: true),
+        media.bytes,
+        fileOptions: FileOptions(
+          contentType: media.mime,
+          cacheControl: '86400',
+        ),
       );
       final url = client.storage.from('group-logos').getPublicUrl(path);
       if (mounted) setState(() => _logoUrl = url);
@@ -2286,19 +2326,8 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
           motto: _motto.text.trim(), foundedYear: year, logoUrl: _logoUrl,
           capacity: cap,
         );
-        // Géolocalisation auto d'une nouvelle école via sa ville (congo_places).
-        // La direction pourra corriger la position sur la carte ensuite.
-        final places = await ref.read(congoPlacesProvider.future);
-        final coords = geocodeCity(places, _city.text.trim());
-        if (coords != null) {
-          await ref.read(adminProjectServiceProvider).patchSchoolGps(
-                schoolId: schoolId,
-                latitude: coords.latitude,
-                longitude: coords.longitude,
-                source: 'geocoded',
-              );
-        }
       }
+      await _persistLocation(schoolId);
       // Enregistrer l'offre éducative (cycles / filières / niveaux).
       await eduSvc.saveSchoolEducation(
         schoolId: schoolId,
@@ -2317,6 +2346,125 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
       setState(() { _error = '$e'; _saving = false; });
     }
   }
+
+  /// Persiste la position selon le sélecteur cartographique. Fail-soft : une
+  /// erreur de géolocalisation ne doit jamais faire échouer l'école elle-même.
+  Future<void> _persistLocation(String schoolId) async {
+    final gps = ref.read(adminProjectServiceProvider);
+    final loc = _locCtrl.value;
+    try {
+      if (loc != null) {
+        // N'écrit que si la position a changé (évite un patch inutile en édition).
+        if (loc != _initialLoc) {
+          await gps.patchSchoolGps(
+            schoolId: schoolId,
+            latitude: loc.lat,
+            longitude: loc.lng,
+            source: loc.source,
+          );
+        }
+      } else if (_isEdit) {
+        // L'utilisateur a retiré la position d'une école qui en avait une.
+        if (_initialLoc != null) await gps.clearSchoolGps(schoolId);
+      } else {
+        // Création sans repère : repli géocodage auto via la ville (approximatif),
+        // corrigeable ensuite sur la carte. Préserve le comportement historique.
+        final places = await ref.read(congoPlacesProvider.future);
+        final coords = geocodeCity(places, _city.text.trim());
+        if (coords != null) {
+          await gps.patchSchoolGps(
+            schoolId: schoolId,
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+            source: 'geocoded',
+          );
+        }
+      }
+    } catch (_) {
+      // Fail-soft : position corrigeable via « Corriger la position » sur la carte.
+    }
+  }
+
+  // ── Cascade : Ville/Village recherchable, filtré par le département choisi ──
+  // Sélectionner une localité pose automatiquement le repère approximatif sur
+  // la carte (via le contrôleur) ; le champ reste libre (village hors référentiel).
+  Widget _localityField() {
+    final places = ref.watch(localitiesInDeptProvider(_department));
+    return RawAutocomplete<GeoPlace>(
+      textEditingController: _city,
+      focusNode: _cityFocus,
+      displayStringForOption: (p) => p.name,
+      optionsBuilder: (value) {
+        final q = normalizePlaceName(value.text);
+        final base = q.isEmpty
+            ? places
+            : places.where((p) => normalizePlaceName(p.name).contains(q));
+        return base.take(40);
+      },
+      onSelected: (p) {
+        _city.text = p.name;
+        _locCtrl.requestApprox(p.coords);
+        _cityFocus.unfocus();
+      },
+      fieldViewBuilder: (context, controller, focusNode, _) => TextFormField(
+        controller: controller,
+        focusNode: focusNode,
+        decoration: _inputDec(_department == null
+            ? 'Ville / Village'
+            : 'Ville / Village ($_department)'),
+      ),
+      optionsViewBuilder: (context, onSelected, options) => Align(
+        alignment: Alignment.topLeft,
+        child: Material(
+          elevation: 4,
+          borderRadius: BorderRadius.circular(8),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 240, maxWidth: 340),
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              shrinkWrap: true,
+              itemCount: options.length,
+              itemBuilder: (_, i) {
+                final p = options.elementAt(i);
+                return InkWell(
+                  onTap: () => onSelected(p),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                    child: Row(children: [
+                      Icon(_placeIcon(p.type), size: 15, color: kTextMuted),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(p.name,
+                          style: const TextStyle(fontSize: 13),
+                          overflow: TextOverflow.ellipsis)),
+                      Text(_placeLabel(p.type),
+                          style: const TextStyle(fontSize: 10.5, color: kTextMuted)),
+                    ]),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  IconData _placeIcon(String type) => switch (type) {
+        'city' => Icons.location_city_rounded,
+        'town' => Icons.apartment_rounded,
+        'suburb' || 'neighbourhood' || 'quarter' => Icons.holiday_village_rounded,
+        _ => Icons.cottage_rounded,
+      };
+
+  String _placeLabel(String type) => switch (type) {
+        'city' => 'Ville',
+        'town' => 'Bourg',
+        'village' => 'Village',
+        'hamlet' || 'isolated_dwelling' => 'Hameau',
+        'locality' => 'Localité',
+        'suburb' || 'neighbourhood' || 'quarter' => 'Quartier',
+        _ => 'Lieu',
+      };
 
   InputDecoration _inputDec(String hint) => InputDecoration(
     hintText: hint,
@@ -2876,23 +3024,6 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
                 const _SchFormLabel('LOCALISATION'),
                 const SizedBox(height: 14),
                 Row(children: [
-                  Expanded(child: TextFormField(
-                    controller: _city,
-                    decoration: _inputDec('Ville / Commune'),
-                  )),
-                  const SizedBox(width: 12),
-                  Expanded(child: TextFormField(
-                    controller: _province,
-                    decoration: _inputDec('Province'),
-                  )),
-                ]),
-                const SizedBox(height: 12),
-                Row(children: [
-                  Expanded(child: TextFormField(
-                    controller: _arrondissement,
-                    decoration: _inputDec('Arrondissement / Quartier'),
-                  )),
-                  const SizedBox(width: 12),
                   Expanded(child: DropdownButtonFormField<String>(
                     initialValue: _department,
                     isExpanded: true,
@@ -2902,11 +3033,39 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
                     )).toList(),
                     onChanged: (v) => setState(() => _department = v),
                   )),
+                  const SizedBox(width: 12),
+                  Expanded(child: _localityField()),
+                ]),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: TextFormField(
+                    controller: _province,
+                    decoration: _inputDec('Province'),
+                  )),
+                  const SizedBox(width: 12),
+                  Expanded(child: TextFormField(
+                    controller: _arrondissement,
+                    decoration: _inputDec('Arrondissement / Quartier'),
+                  )),
                 ]),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _address,
                   decoration: _inputDec('Adresse complète'),
+                ),
+                const SizedBox(height: 18),
+                const _SchFormLabel('POSITION SUR LA CARTE'),
+                const SizedBox(height: 4),
+                const Text(
+                  'Posez le repère précis de l\'établissement (facultatif). Une '
+                  'position réelle alimente la carte territoriale, les distances '
+                  'et les analyses d\'implantation.',
+                  style: TextStyle(fontSize: 11.5, color: kTextMuted, height: 1.4),
+                ),
+                const SizedBox(height: 12),
+                SchoolLocationField(
+                  controller: _locCtrl,
+                  cityName: () => _city.text,
                 ),
                 const _SchFormDivider(),
                 const _SchFormLabel('CONTACTS'),

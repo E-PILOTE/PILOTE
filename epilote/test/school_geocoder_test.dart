@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:epilote/features/admin_groupe/providers/admin_geo_provider.dart';
 import 'package:epilote/features/admin_groupe/providers/school_geocoder_provider.dart';
 
 void main() {

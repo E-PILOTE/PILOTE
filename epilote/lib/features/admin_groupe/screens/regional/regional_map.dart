@@ -330,7 +330,13 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
       Map<String, int> occById) {
     final isSelected = selectedGps?.id == school.id;
     final color = _pinColor(school, colorMode, loadById, occById);
-    final size = isSelected ? 34.0 : 26.0;
+    final hasLogo = (school.logoUrl ?? '').startsWith('http');
+    // Un logo a besoin d'un peu plus de surface qu'une icône pour rester lisible.
+    final size = isSelected ? (hasLogo ? 40.0 : 34.0) : (hasLogo ? 32.0 : 26.0);
+    // Provenance : une école géocodée (centroïde de ville) est APPROXIMATIVE →
+    // pin atténué + badge « ≈ » pour ne jamais faire passer un point supposé
+    // pour un relevé précis (intégrité cartographique).
+    final approx = school.locationSource == 'geocoded';
     return Marker(
       point: school.gpsCoords!,
       width: isSelected ? 150 : 110,
@@ -343,22 +349,12 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
           if (!isSelected) _mapController.move(school.gpsCoords!, 10.0);
         },
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(
-            width: size, height: size,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.9),
-              shape: BoxShape.circle,
-              border: Border.all(
-                  color: Colors.white, width: isSelected ? 2.5 : 2.0),
-              boxShadow: [
-                BoxShadow(
-                    color: color.withValues(alpha: 0.4),
-                    blurRadius: 8, offset: const Offset(0, 3)),
-              ],
-            ),
-            child: Icon(Icons.school_rounded,
-                color: Colors.white, size: size * 0.46),
+          _SchoolMarkerDisc(
+            size: size,
+            color: color,
+            approx: approx,
+            selected: isSelected,
+            logoUrl: school.logoUrl,
           ),
           const SizedBox(height: 2),
           Container(

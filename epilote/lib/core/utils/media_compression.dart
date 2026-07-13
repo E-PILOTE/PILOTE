@@ -109,6 +109,97 @@ CompressedMedia compressImageBytes({
   );
 }
 
+// ─── Logos d'établissement ──────────────────────────────────────────────────
+// Un logo n'est pas une photo : il est affiché petit (88 px dans le formulaire,
+// ~44 px sur un marqueur de carte) et porte souvent de la transparence.
+//
+// ⚠️ WebP : le paquet `image` sait LIRE le WebP mais **pas l'encoder** (aucun
+// encodeur WebP en pur Dart). Encoder en WebP imposerait un plugin natif
+// (`flutter_image_compress`) qui ne fonctionne QUE sur Android/iOS — donc pas
+// sur le desktop Linux où tourne l'app d'administration. On garde donc un
+// pipeline universel : redimensionnement + PNG (si transparence) ou JPEG.
+// Le gain réel vient du redimensionnement (un logo de 3 Mo tombe à ~30 Ko).
+
+/// Plus long côté (px) cible pour un logo (rendu ≤ 96 px, marge rétine ×4+).
+const int kMaxLogoEdge = 512;
+
+/// Qualité JPEG d'un logo opaque (un peu plus haute : aplats + texte fin).
+const int kLogoJpegQuality = 85;
+
+/// Compresse un logo hors du thread UI. SVG et formats indécodables passent
+/// tels quels (fail-soft : jamais de blocage de l'upload).
+Future<CompressedMedia> compressLogo({
+  required Uint8List bytes,
+  required String fileName,
+  required String mime,
+}) async {
+  if (!mime.startsWith('image/') || mime.contains('svg')) {
+    return CompressedMedia(bytes: bytes, fileName: fileName, mime: mime);
+  }
+  try {
+    return await compute(
+      _compressLogoIsolate,
+      (bytes: bytes, fileName: fileName, mime: mime),
+    );
+  } catch (_) {
+    return CompressedMedia(bytes: bytes, fileName: fileName, mime: mime);
+  }
+}
+
+CompressedMedia _compressLogoIsolate(
+        ({Uint8List bytes, String fileName, String mime}) a) =>
+    compressLogoBytes(bytes: a.bytes, fileName: a.fileName, mime: a.mime);
+
+/// Redimensionne un logo ≤ [kMaxLogoEdge] et le ré-encode dans le format le
+/// plus léger qui préserve son rendu : PNG si le logo est détouré
+/// (transparence), JPEG sinon. Renvoie l'original si le résultat est plus lourd.
+CompressedMedia compressLogoBytes({
+  required Uint8List bytes,
+  required String fileName,
+  required String mime,
+}) {
+  img.Image? decoded;
+  try {
+    decoded = img.decodeImage(bytes);
+  } catch (_) {
+    decoded = null;
+  }
+  if (decoded == null) {
+    return CompressedMedia(bytes: bytes, fileName: fileName, mime: mime);
+  }
+
+  var out = decoded;
+  final longest =
+      decoded.width > decoded.height ? decoded.width : decoded.height;
+  if (longest > kMaxLogoEdge) {
+    out = decoded.width >= decoded.height
+        ? img.copyResize(decoded,
+            width: kMaxLogoEdge, interpolation: img.Interpolation.average)
+        : img.copyResize(decoded,
+            height: kMaxLogoEdge, interpolation: img.Interpolation.average);
+  }
+
+  final detoure = out.hasAlpha && _hasTransparency(out);
+  final encoded =
+      detoure ? img.encodePng(out, level: 9) : img.encodeJpg(out, quality: kLogoJpegQuality);
+  if (encoded.length >= bytes.length) {
+    return CompressedMedia(bytes: bytes, fileName: fileName, mime: mime);
+  }
+  return CompressedMedia(
+    bytes: Uint8List.fromList(encoded),
+    fileName: _withExtension(fileName, detoure ? 'png' : 'jpg'),
+    mime: detoure ? 'image/png' : 'image/jpeg',
+  );
+}
+
+/// Vrai dès qu'un pixel n'est pas totalement opaque (logo détouré).
+bool _hasTransparency(img.Image im) {
+  for (final p in im) {
+    if (p.a < 250) return true;
+  }
+  return false;
+}
+
 /// Compresse une **vidéo** (mobile uniquement). Renvoie l'original ailleurs ou
 /// si le transcodage échoue. Écrit un fichier temporaire pour `video_compress`.
 Future<CompressedMedia> compressVideoBytes({

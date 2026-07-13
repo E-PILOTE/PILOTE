@@ -51,6 +51,7 @@ class AdminSchoolPin {
     this.longitude,
     this.locationSource,
     this.locationCapturedAt,
+    this.logoUrl,
   });
   final String id;
   final String name;
@@ -63,6 +64,7 @@ class AdminSchoolPin {
   final double? longitude;
   final String? locationSource; // 'gps' | 'geocoded' | 'manual'
   final DateTime? locationCapturedAt;
+  final String? logoUrl;
 
   bool get hasGps => latitude != null && longitude != null;
   LatLng? get gpsCoords => hasGps ? LatLng(latitude!, longitude!) : null;
@@ -225,7 +227,7 @@ final adminRegionalProvider =
   final results = await Future.wait([
     client
         .from('schools')
-        .select('id, name, school_type, department, city, is_active, '
+        .select('id, name, school_type, department, city, is_active, logo_url, '
                 'latitude, longitude, location_source, location_captured_at')
         .eq('group_id', groupId),
     client
@@ -269,6 +271,7 @@ final adminRegionalProvider =
       longitude:          lng,
       locationSource:     m['location_source'] as String?,
       locationCapturedAt: capRaw != null ? DateTime.tryParse(capRaw) : null,
+      logoUrl:            m['logo_url'] as String?,
       students:           studentsBySchool[id] ?? 0,
     );
 
@@ -419,6 +422,16 @@ class AdminProjectService {
       'longitude':            longitude,
       'location_source':      source,
       'location_captured_at': DateTime.now().toIso8601String(),
+    }).eq('id', schoolId);
+  }
+
+  /// Retire la position d'une école (remise à « non localisée »).
+  Future<void> clearSchoolGps(String schoolId) async {
+    await _client.from('schools').update({
+      'latitude':             null,
+      'longitude':            null,
+      'location_source':      null,
+      'location_captured_at': null,
     }).eq('id', schoolId);
   }
 }

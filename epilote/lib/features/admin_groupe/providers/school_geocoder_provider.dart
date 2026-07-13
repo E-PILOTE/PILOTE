@@ -1,11 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'admin_geo_provider.dart' show GeoPlace, congoPlacesProvider;
+import 'admin_geo_provider.dart'
+    show GeoPlace, congoPlacesProvider, congoDepartmentsProvider;
 
 // Réutilise le provider canonique des localités (asset immédiat + enrichissement
 // Overpass en arrière-plan). On le ré-exporte pour les consommateurs du géocodage.
-export 'admin_geo_provider.dart' show congoPlacesProvider;
+export 'admin_geo_provider.dart' show congoPlacesProvider, GeoPlace;
 
 // ─── Géocodage offline des écoles ───────────────────────────────────────────
 // Résout `schools.city` → coordonnées à partir de l'asset embarqué
@@ -50,4 +51,64 @@ LatLng? geocodeCity(List<GeoPlace> places, String? city) {
 final schoolGeocoderProvider = Provider<LatLng? Function(String?)>((ref) {
   final places = ref.watch(congoPlacesProvider).valueOrNull ?? const [];
   return (city) => geocodeCity(places, city);
+});
+
+// ─── Localités par département (cascade de saisie) ───────────────────────────
+// `congo_places.json` ne porte pas le département → on rattache chaque localité
+// par POINT-DANS-POLYGONE sur les contours des 15 départements (asset ADM1).
+
+/// Ray casting : le point est-il à l'intérieur de l'anneau ?
+bool pointInRing(LatLng p, List<LatLng> ring) {
+  var inside = false;
+  final n = ring.length;
+  for (var i = 0, j = n - 1; i < n; j = i++) {
+    final yi = ring[i].latitude, xi = ring[i].longitude;
+    final yj = ring[j].latitude, xj = ring[j].longitude;
+    final crosses = (yi > p.latitude) != (yj > p.latitude) &&
+        p.longitude < (xj - xi) * (p.latitude - yi) / (yj - yi) + xi;
+    if (crosses) inside = !inside;
+  }
+  return inside;
+}
+
+int _placeRank(String t) => switch (t) {
+      'city' => 0,
+      'town' => 1,
+      'village' => 2,
+      'locality' => 3,
+      'suburb' || 'neighbourhood' || 'quarter' => 4,
+      _ => 5,
+    };
+
+/// Localités du département donné (triées ville→bourg→village, puis alpha).
+/// `dept` nul/vide → toutes les localités. Repli sur toutes si le contour du
+/// département n'est pas encore chargé (fail-soft, jamais de liste vide à tort).
+final localitiesInDeptProvider =
+    Provider.autoDispose.family<List<GeoPlace>, String?>((ref, dept) {
+  final places = ref.watch(congoPlacesProvider).valueOrNull ?? const <GeoPlace>[];
+  if (places.isEmpty) return const [];
+
+  var result = places;
+  if (dept != null && dept.trim().isNotEmpty) {
+    final depts = ref.watch(congoDepartmentsProvider).valueOrNull ?? const [];
+    final target = normalizePlaceName(dept);
+    List<LatLng>? poly;
+    for (final d in depts) {
+      final dn = normalizePlaceName(d.name);
+      if (dn == target || dn.contains(target) || target.contains(dn)) {
+        poly = d.outline;
+        break;
+      }
+    }
+    if (poly != null && poly.length >= 3) {
+      final filtered = places.where((p) => pointInRing(p.coords, poly!)).toList();
+      if (filtered.isNotEmpty) result = filtered;
+    }
+  }
+
+  final sorted = [...result]..sort((a, b) {
+    final r = _placeRank(a.type).compareTo(_placeRank(b.type));
+    return r != 0 ? r : a.name.compareTo(b.name);
+  });
+  return sorted;
 });
