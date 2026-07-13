@@ -181,8 +181,21 @@ class AuthNotifier extends StateNotifier<AsyncValue<ProfileModel?>> {
     if (user != null) await _loadProfile(user.id, setLoading: false);
   }
 
+  /// Déconnexion — TOUJOURS effective localement, même sans réseau.
+  ///
+  /// `gotrue.signOut()` supprime la session locale et émet `signedOut` AVANT
+  /// d'appeler `/auth/v1/logout`. Hors-ligne, cet appel HTTP échoue et
+  /// l'exception remontait jusqu'ici : la ligne suivante n'était jamais
+  /// exécutée, et l'app restait sur les écrans du personnel avec un profil
+  /// fantôme alors que la session n'existait plus (écrans vides). On avale donc
+  /// l'échec réseau : le serveur révoquera le jeton à son expiration.
   Future<void> signOut() async {
-    await _client.auth.signOut();
+    try {
+      await _client.auth.signOut();
+    } catch (_) {
+      // Session locale déjà supprimée par gotrue → la déconnexion a bien eu
+      // lieu du point de vue de l'appareil. Ne pas bloquer l'utilisateur.
+    }
     state = const AsyncValue.data(null);
   }
 

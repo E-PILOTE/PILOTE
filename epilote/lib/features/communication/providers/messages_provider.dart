@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../services/powersync/powersync_service.dart';
+import '../../../services/powersync/upload_outbox.dart';
 import 'communication_scope.dart';
 
 // ─── Modèles ──────────────────────────────────────────────────────────────────
@@ -643,7 +644,14 @@ Future<void> unarchiveMessage(dynamic client, String id) async {
 /// Téléverse une pièce jointe (bucket `message-attachments` par défaut,
 /// `communication-attachments` pour annonces/événements) et renvoie ses
 /// métadonnées. Chemin imprévisible : `{groupId}/{uuid}_{nom}`.
-/// ⚠️ Nécessite une connexion internet (Supabase Storage).
+///
+/// HORS-LIGNE (personnel scolaire uniquement) : le réseau manque → le fichier
+/// est MIS EN FILE (`upload_outbox`) et l'on renvoie quand même la pièce jointe,
+/// avec son chemin Storage définitif mais sans URL signée. Le message part donc
+/// normalement (PowerSync), et le fichier sera téléversé à ce chemin exact au
+/// retour du réseau — l'URL se re-signe alors toute seule depuis `path`.
+/// Un REFUS du serveur (RLS, quota, MIME) n'est jamais mis en file : il est
+/// remonté, car il se reproduirait à l'identique.
 Future<MessageAttachment> uploadMessageAttachment({
   required SupabaseClient client,
   required String groupId,
@@ -652,29 +660,38 @@ Future<MessageAttachment> uploadMessageAttachment({
   required String mime,
   String bucket = 'message-attachments',
 }) async {
-  final safeName = fileName.replaceAll(RegExp(r'[^\w\.\-]+'), '_');
-  // Dossier = groupe (RLS Storage). Vide pour super_admin sans groupe.
-  final folder = groupId.isEmpty ? 'platform' : groupId;
-  final path = '$folder/${const Uuid().v4()}_$safeName';
-  await client.storage.from(bucket).uploadBinary(
-        path,
-        bytes,
-        fileOptions: FileOptions(contentType: mime, upsert: false),
+  final path = buildStoragePath(groupId: groupId, fileName: fileName);
+
+  MessageAttachment staged(String url) => MessageAttachment(
+        url:    url,
+        name:   fileName,
+        mime:   mime,
+        size:   bytes.length,
+        kind:   MessageAttachment.kindFor(mime),
+        path:   path,
+        bucket: bucket,
       );
-  // Bucket privé → signed URL longue durée (1 an) : fallback d'affichage + cache
-  // hors-ligne. L'affichage re-signe au besoin via `signedAttachmentUrlProvider`.
-  final url = await client.storage
-      .from(bucket)
-      .createSignedUrl(path, 31536000);
-  return MessageAttachment(
-    url:    url,
-    name:   fileName,
-    mime:   mime,
-    size:   bytes.length,
-    kind:   MessageAttachment.kindFor(mime),
-    path:   path,
-    bucket: bucket,
-  );
+
+  try {
+    await client.storage.from(bucket).uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(contentType: mime, upsert: false),
+        );
+    // Bucket privé → signed URL longue durée (1 an) : fallback d'affichage +
+    // cache hors-ligne. L'affichage re-signe au besoin depuis `path`.
+    return staged(await client.storage.from(bucket).createSignedUrl(path, 31536000));
+  } catch (e) {
+    if (!isOfflineCapableDevice || !isTransportFailure(e)) rethrow;
+    await enqueueUpload(
+      bucket: bucket,
+      storagePath: path,
+      bytes: bytes,
+      mime: mime,
+      fileName: fileName,
+    );
+    return staged(''); // pas d'URL tant que le fichier n'est pas parti
+  }
 }
 
 /// Cache mémoire des URLs signées (bucket privé) — évite de re-signer à chaque

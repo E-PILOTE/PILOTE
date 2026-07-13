@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/widgets/logout_guard.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/routes.dart';
@@ -217,6 +219,6 @@ class _Body extends ConsumerWidget {
   Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
     final ok = await showLogoutConfirmDialog(context);
     if (!ok || !context.mounted) return;
-    await ref.read(authNotifierProvider.notifier).signOut();
+    await guardedSignOut(context, ref, sharedDevice: true);
   }
 }

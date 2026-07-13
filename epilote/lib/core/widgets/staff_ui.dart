@@ -187,6 +187,11 @@ class FeedSkeleton extends StatelessWidget {
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxWidth),
             child: ListView(
+              // Un squelette n'a rien à faire défiler : `shrinkWrap` le rend
+              // utilisable AUSSI dans une Column (sinon « Vertical viewport was
+              // given unbounded height » → carré rouge à la place du squelette).
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.all(24),
               children: [
                 const SkeletonBox(height: 86, radius: 14),

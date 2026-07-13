@@ -3,10 +3,11 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/widgets/logout_guard.dart';
+
 import '../../structure/providers/academic_year_provider.dart'
     show currentSchoolProvider;
 import '../providers/active_agent_provider.dart';
-import '../providers/auth_provider.dart';
 import '../providers/vitrine_messages_provider.dart';
 import '../providers/vitrine_partners_provider.dart';
 import 'widgets/agent_grid.dart';
@@ -158,9 +159,9 @@ class _AgentLockScreenState extends ConsumerState<AgentLockScreen>
   }
 
   Future<void> _deviceLogout() async {
+    if (!await guardedSignOut(context, ref, sharedDevice: true)) return;
     ref.read(selectedAgentIdProvider.notifier).state = null;
     ref.read(forceAgentPickerProvider.notifier).state = false;
-    await ref.read(authNotifierProvider.notifier).signOut();
   }
 }
 

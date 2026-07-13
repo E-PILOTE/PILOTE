@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../logout_guard.dart';
 import 'package:go_router/go_router.dart';
 
 import '../admin_ui.dart'
@@ -421,17 +423,16 @@ class _AccountMenu extends ConsumerWidget {
       onSelected: (value) async {
         switch (value) {
           case 'logout':
-            ref.read(selectedAgentIdProvider.notifier).state = null;
-            await ref.read(authNotifierProvider.notifier).signOut();
+            // Déconnexion de l'APPAREIL : sur un poste scolaire, elle lui
+            // retire son droit de travailler hors-ligne → avertissement fort.
+            await guardedSignOut(context, ref,
+                sharedDevice: agentLockApplies(profile?.role));
           case 'profile':
             if (context.mounted) context.go(profileRoute);
           case 'settings':
             if (context.mounted) context.go(settingsRoute);
           case 'switch_agent':
-            // Réaffiche le sélecteur de profils. En poste partagé, oublier
-            // l'agent suffit ; en poste personnel, forcer explicitement.
-            ref.read(selectedAgentIdProvider.notifier).state = null;
-            ref.read(forceAgentPickerProvider.notifier).state = true;
+            lockDevice(ref);
         }
       },
       itemBuilder: (_) => [
@@ -472,24 +473,30 @@ class _AccountMenu extends ConsumerWidget {
             Text('Paramètres'),
           ]),
         ),
-        // Poste partagé : reverrouiller l'appareil (personnel scolaire, hors
-        // parent/élève — même public que le verrou).
+        // Poste partagé : verrouiller = quitter son écran (local, hors-ligne).
         if (agentLockApplies(profile?.role))
           const PopupMenuItem(
             value: 'switch_agent',
             child: Row(children: [
               Icon(Icons.lock_outline_rounded, size: 18, color: kNavy),
               SizedBox(width: 10),
-              Text('Changer d’utilisateur'),
+              Text('Verrouiller / changer d’utilisateur'),
             ]),
           ),
         const PopupMenuDivider(),
-        const PopupMenuItem(
+        // Déconnexion de l'APPAREIL : rare, destructrice de l'offline.
+        // Libellée sans ambiguïté sur un poste scolaire.
+        PopupMenuItem(
           value: 'logout',
           child: Row(children: [
-            Icon(Icons.logout_rounded, size: 18, color: Colors.red),
-            SizedBox(width: 10),
-            Text('Déconnexion', style: TextStyle(color: Colors.red)),
+            const Icon(Icons.link_off_rounded, size: 18, color: Colors.red),
+            const SizedBox(width: 10),
+            Text(
+              agentLockApplies(profile?.role)
+                  ? 'Déconnecter ce poste…'
+                  : 'Déconnexion',
+              style: const TextStyle(color: Colors.red),
+            ),
           ]),
         ),
       ],

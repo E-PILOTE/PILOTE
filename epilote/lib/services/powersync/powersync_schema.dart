@@ -1228,4 +1228,23 @@ const schema = Schema([
     Column.text('summary'),      // libellé lisible (ex. « Inscription d'élève »)
     Column.integer('acknowledged'), // 0 = à voir, 1 = acquitté par l'utilisateur
   ]),
+
+  // ── File d'attente d'envoi de fichiers (local-only) ────────────────────────
+  // PowerSync met en file les écritures SQL, mais PAS les fichiers : Supabase
+  // Storage exige le réseau. Sans cela, joindre une photo hors-ligne faisait
+  // échouer l'envoi ENTIER du message (le texte partait pourtant très bien).
+  // Ici : les octets sont écrits sur le disque, le chemin Storage est calculé
+  // en local (UUID, aucun réseau) et le message référence ce chemin tout de
+  // suite. Le fichier est téléversé au retour du réseau, à ce chemin exact.
+  Table.localOnly('upload_outbox', [
+    Column.text('bucket'),      // bucket Storage cible
+    Column.text('storage_path'),// chemin définitif ({groupId}/{uuid}_{nom})
+    Column.text('local_path'),  // fichier sur le disque, en attente
+    Column.text('mime'),
+    Column.text('file_name'),
+    Column.integer('size'),
+    Column.text('created_at'),  // ISO-8601 UTC
+    Column.integer('attempts'), // tentatives d'envoi
+    Column.text('last_error'),  // dernier échec (diagnostic)
+  ]),
 ]);
