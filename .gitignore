@@ -64,3 +64,6 @@ supabase/.temp/
 
 # Compagnon visuel brainstorming (superpowers)
 .superpowers/
+
+# Artefacts d'empaquetage (.deb, bundles)
+dist/
