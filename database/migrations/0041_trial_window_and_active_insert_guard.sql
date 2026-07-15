@@ -116,7 +116,55 @@ CREATE TRIGGER trg_guard_active_requires_payment_ins
   BEFORE INSERT ON public.school_groups
   FOR EACH ROW EXECUTE FUNCTION fn_guard_active_requires_payment();
 
--- ④ Backfill : dater les essais existants SANS échéance depuis leur création.
+-- ④ Découpler la FACTURE (terme payé) de la FENÊTRE D'ESSAI (accès gratuit borné).
+--    fn_auto_create_invoice posait period_end = COALESCE(subscription_end, +1 an).
+--    Or ② renseigne désormais subscription_end = +N jours (essai) → sans ce
+--    correctif la facture ne couvrirait que N jours au prix annuel, ET un plan
+--    GRATUIT deviendrait actif N jours au lieu d'un an. On calcule toujours le
+--    terme d'abonnement (1 an à partir du début), indépendamment de l'essai.
+CREATE OR REPLACE FUNCTION public.fn_auto_create_invoice()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_price      integer;
+  v_start      date;
+  v_end        date;
+  v_inv_number varchar;
+BEGIN
+  SELECT price_xaf INTO v_price FROM subscription_plans WHERE id = NEW.plan_id;
+  v_start := COALESCE(NEW.subscription_start, CURRENT_DATE);
+  v_end   := (v_start + INTERVAL '1 year')::date;   -- terme d'abonnement = 1 an
+
+  -- Plan gratuit → actif immédiatement pour un an (l'essai ne s'applique pas).
+  IF v_price IS NULL OR v_price = 0 THEN
+    UPDATE school_groups SET
+      subscription_status = 'active'::subscription_status,
+      subscription_start  = v_start,
+      subscription_end    = v_end
+    WHERE id = NEW.id;
+    RETURN NEW;
+  END IF;
+
+  -- Plan payant → facture PENDING pour le terme COMPLET. Le groupe reste en
+  -- essai (subscription_end court) jusqu'au paiement ; mark_invoice_paid posera
+  -- alors subscription_end = period_end (= v_end). La fenêtre d'essai est un
+  -- accès gratuit borné, distinct du terme facturé.
+  v_inv_number := generate_invoice_number();
+  INSERT INTO group_invoices (
+    group_id, invoice_number, amount_xaf,
+    period_start, period_end, plan_id, status, created_by
+  ) VALUES (
+    NEW.id, v_inv_number, v_price,
+    v_start, v_end, NEW.plan_id,
+    'pending'::invoice_status,
+    COALESCE(NEW.created_by, auth.uid())
+  );
+  RETURN NEW;
+END;
+$function$;
+
+-- ⑤ Backfill : dater les essais existants SANS échéance depuis leur création.
 --    Un essai créé il y a longtemps obtient une échéance passée → le prochain
 --    passage de expire_subscriptions() le basculera en 'expired' (comportement
 --    correct : il a déjà largement dépassé sa fenêtre). Le super_admin peut
