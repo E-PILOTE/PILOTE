@@ -70,7 +70,7 @@ Comment=Plateforme nationale de gestion scolaire (MEPSA · METP)
 Exec=/opt/epilote/epilote %U
 Icon=${APPID}
 Terminal=false
-Categories=Office;Education;
+Categories=Education;
 StartupWMClass=${APPID}
 Keywords=école;scolaire;gestion;epilote;congo;inscription;
 EOF
