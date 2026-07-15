@@ -1,6 +1,14 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/material.dart';
+
+/// Point d'injection d'horloge pour les tests de rendu (goldens déterministes) :
+/// la vitrine affiche l'heure ET la date courantes, ce qui rendait ses captures
+/// non reproductibles (elles cassaient chaque jour). Un test fixe cet instant ;
+/// en production, `null` → heure réelle qui défile.
+@visibleForTesting
+DateTime Function()? debugVitrineClock;
 
 /// Horloge vivante de la vitrine (sobre, pas « borne géante »). Se met à jour
 /// chaque seconde ; date en français en dessous.
@@ -13,11 +21,13 @@ class VitrineClock extends StatefulWidget {
 
 class _VitrineClockState extends State<VitrineClock> {
   Timer? _timer;
-  DateTime _now = DateTime.now();
+  late DateTime _now = (debugVitrineClock ?? DateTime.now)();
 
   @override
   void initState() {
     super.initState();
+    // Horloge figée (test) → pas de timer : le rendu reste stable.
+    if (debugVitrineClock != null) return;
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _now = DateTime.now());
     });

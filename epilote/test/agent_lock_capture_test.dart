@@ -7,11 +7,17 @@ import 'package:epilote/features/auth/providers/vitrine_messages_provider.dart';
 import 'package:epilote/features/auth/providers/vitrine_partners_provider.dart';
 import 'package:epilote/features/auth/screens/agent_lock_screen.dart';
 import 'package:epilote/features/auth/screens/device_mode_screen.dart';
+import 'package:epilote/features/auth/screens/widgets/vitrine_clock.dart';
 import 'package:epilote/features/structure/providers/academic_year_provider.dart';
 
 /// Captures visuelles (goldens) des états de l'écran-verrou, pour inspection.
 /// Générer/rafraîchir avec : flutter test --update-goldens test/agent_lock_capture_test.dart
 void main() {
+  // Horloge FIGÉE : la vitrine affiche l'heure et la date courantes ; sans ce
+  // gel, les goldens cassaient chaque jour (date) et chaque minute (heure).
+  setUp(() => debugVitrineClock = () => DateTime(2026, 1, 15, 10, 30));
+  tearDown(() => debugVitrineClock = null);
+
   const agents = [
     AgentOption(id: 'a1', firstName: 'Marie', lastName: 'Koumba', role: 'secretaire'),
     AgentOption(id: 'a2', firstName: 'Alain', lastName: 'Ngoma', role: 'comptable'),

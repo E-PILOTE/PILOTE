@@ -10,6 +10,7 @@ import '../../super_admin/providers/invoices_provider.dart' show InvoiceDetail;
 import '../../super_admin/providers/receipts_provider.dart' show ReceiptModel;
 import '../../super_admin/services/financial_pdf_service.dart';
 import '../providers/admin_subscription_provider.dart';
+import 'admin_subscription_renew_dialog.dart';
 import '../../../core/widgets/admin_ui.dart';
 
 class AdminSubscriptionScreen extends ConsumerWidget {
@@ -501,6 +502,25 @@ class _CurrentPlanCard extends StatelessWidget {
               AdminBadge('Expire dans ${sub.daysLeft} j', color: kAccent, icon: Icons.timelapse_rounded)
             else if (sub.daysLeft != null)
               AdminBadge('${sub.daysLeft} jours restants', color: kGreen, icon: Icons.check_circle_rounded),
+            // Réabonnement en libre-service : visible dès que l'échéance
+            // approche ou est dépassée. Génère une facture de renouvellement du
+            // MÊME plan (cf. showRenewSubscriptionDialog / create_renewal_invoice).
+            if (sub.expired || sub.expireSoon) ...[
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: () => showRenewSubscriptionDialog(context, sub),
+                icon: const Icon(Icons.autorenew_rounded, size: 17),
+                label: const Text('Renouveler mon abonnement'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: sub.expired ? kRed : kNavy,
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
           ],
         );
         if (narrow) {

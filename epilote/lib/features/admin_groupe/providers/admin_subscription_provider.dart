@@ -425,6 +425,26 @@ class AdminSubscriptionService {
     });
     _ref.invalidate(adminSubscriptionProvider);
   }
+
+  /// Réabonnement au MÊME plan : génère (ou récupère) une facture de
+  /// renouvellement via `create_renewal_invoice` (SECURITY DEFINER, gère
+  /// l'autorisation et l'idempotence côté base). Renvoie le résultat brut :
+  ///   { created:true, invoice_number, amount_xaf, period_start, period_end }
+  ///   { already_pending:true, ... }  — une facture impayée existait déjà
+  ///   { free:true, period_end }      — plan gratuit, prolongé directement
+  /// Le paiement lui-même reste confirmé par la plateforme (mark_invoice_paid).
+  Future<Map<String, dynamic>> requestRenewal() async {
+    final client  = _ref.read(supabaseClientProvider);
+    final groupId = _ref.read(authNotifierProvider).valueOrNull?.groupId;
+    if (groupId == null) throw Exception('Session invalide');
+
+    final res = await client.rpc('create_renewal_invoice',
+        params: {'p_group_id': groupId});
+    _ref.invalidate(adminSubscriptionProvider);
+    return (res is Map)
+        ? Map<String, dynamic>.from(res)
+        : <String, dynamic>{'success': true};
+  }
 }
 
 final adminSubscriptionServiceProvider =
