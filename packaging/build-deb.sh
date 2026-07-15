@@ -34,7 +34,7 @@ VERSION="$(grep -E '^version:' "$APP_DIR/pubspec.yaml" | awk '{print $2}' | cut 
 echo "▶ E-PILOTE — empaquetage .deb v${VERSION}"
 
 BUNDLE="$APP_DIR/build/linux/x64/release/bundle"
-ICON_SRC="$APP_DIR/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png"
+ICONS_SRC="$REPO_ROOT/packaging/icons"   # icônes pré-rendues + SVG (versionnées)
 STAGE="$(mktemp -d)/epilote_${VERSION}_${ARCH}"
 DIST="$REPO_ROOT/dist"
 
@@ -53,9 +53,13 @@ mkdir -p "$STAGE/DEBIAN" "$STAGE/opt/epilote" "$STAGE/usr/bin" \
 cp -a "$BUNDLE"/. "$STAGE/opt/epilote/"
 
 # Lanceur dans le PATH.
+# GDK_SCALE=1 : sur écran HiDPI avec pilote GL Nouveau/Mesa, l'embedder Flutter
+# Linux plante sur un décalage de taille de frame OpenGL (« Timed out waiting
+# for OpenGL frame ») quand GDK applique un facteur d'échelle >1. Forcer 1 rend
+# le démarrage fiable, GL matériel conservé. cf packaging/INSTALL.md.
 cat > "$STAGE/usr/bin/epilote" <<'EOF'
 #!/bin/sh
-exec /opt/epilote/epilote "$@"
+exec env GDK_SCALE=1 /opt/epilote/epilote "$@"
 EOF
 chmod 755 "$STAGE/usr/bin/epilote"
 
@@ -67,7 +71,7 @@ Version=1.0
 Name=E-PILOTE CONGO
 GenericName=Gestion scolaire
 Comment=Plateforme nationale de gestion scolaire (MEPSA · METP)
-Exec=/opt/epilote/epilote %U
+Exec=/usr/bin/epilote %U
 Icon=${APPID}
 Terminal=false
 Categories=Education;
@@ -75,12 +79,17 @@ StartupWMClass=${APPID}
 Keywords=école;scolaire;gestion;epilote;congo;inscription;
 EOF
 
-# Icônes hicolor (depuis le 1024²).
+# Icônes hicolor : copie des PNG pré-rendus + SVG scalable (versionnés dans
+# packaging/icons, régénérés par packaging/render-icons.sh depuis le logo).
 for sz in 512 256 128 64 48 32 16; do
+  src="$ICONS_SRC/hicolor/${sz}x${sz}/apps/${APPID}.png"
   d="$STAGE/usr/share/icons/hicolor/${sz}x${sz}/apps"
   mkdir -p "$d"
-  convert "$ICON_SRC" -resize ${sz}x${sz} "$d/${APPID}.png"
+  cp "$src" "$d/${APPID}.png"
 done
+mkdir -p "$STAGE/usr/share/icons/hicolor/scalable/apps"
+cp "$ICONS_SRC/hicolor/scalable/apps/${APPID}.svg" \
+   "$STAGE/usr/share/icons/hicolor/scalable/apps/${APPID}.svg"
 
 # ── 3) Dépendances runtime EXACTES via dpkg-shlibdeps ────────────────────────
 echo "▶ Calcul des dépendances (dpkg-shlibdeps)"

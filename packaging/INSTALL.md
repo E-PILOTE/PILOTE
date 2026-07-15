@@ -67,6 +67,14 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ./epilote_3.0.0_amd64.deb
 
 ---
 
+## Écrans HiDPI (mise à l'échelle) — pris en charge
+
+Sur certaines configurations **HiDPI + pilote GL Nouveau/Mesa**, l'application
+Flutter plantait au démarrage (`Timed out waiting for OpenGL frame`) à cause
+d'un décalage de taille de frame OpenGL. Le lanceur installé (`/usr/bin/epilote`)
+force `GDK_SCALE=1`, ce qui rend le démarrage fiable **en conservant
+l'accélération matérielle**. C'est transparent pour l'utilisateur.
+
 ## Ce que le paquet installe
 
 | Chemin | Rôle |
