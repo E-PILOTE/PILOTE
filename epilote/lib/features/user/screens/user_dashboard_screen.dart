@@ -190,17 +190,6 @@ class _DashboardBody extends ConsumerWidget {
         (permsAsync.isLoading && !permsAsync.hasValue);
     final modulesError = groupedAsync.hasError || permsAsync.hasError;
 
-    // Squelette shimmer au TOUT PREMIER chargement : tant que permissions,
-    // modules et école n'ont pas produit leur première valeur, on affiche une
-    // silhouette plutôt qu'un dashboard « résolu-mais-vide » qui se remplirait
-    // par à-coups. Condition `isLoading && !hasValue` → un relancement offline
-    // déjà peuplé s'affiche instantanément, et un re-sync de fond ne clignote
-    // jamais par-dessus le contenu vivant.
-    final firstLoad = (permsAsync.isLoading && !permsAsync.hasValue) ||
-        (groupedAsync.isLoading && !groupedAsync.hasValue) ||
-        (schoolAsync.isLoading && !schoolAsync.hasValue);
-    if (firstLoad) return const _DashboardSkeleton();
-
     var hasModules = false;
     for (final entry in grouped.entries) {
       if (entry.value.any((m) => perms[m.slug]?.canRead ?? false)) {
@@ -208,6 +197,23 @@ class _DashboardBody extends ConsumerWidget {
         break;
       }
     }
+
+    // Squelette shimmer tant que le dashboard n'a pas de contenu STABLE :
+    // 1) vrai premier chargement (aucune valeur produite : `isLoading && !hasValue`),
+    // 2) le piège PowerSync : `db.watch()` émet une liste VIDE avant la première
+    //    synchro (hasValue=true, isLoading=false). Sans garde, « Aucun module »
+    //    et des KPI à zéro clignotent une fraction de seconde avant que les
+    //    données descendent. On garde donc la silhouette tant qu'aucun module
+    //    n'est là ET que la synchro initiale n'a JAMAIS abouti (`lastSyncedAt`
+    //    est persisté : après la 1ʳᵉ synchro, un relancement offline s'affiche
+    //    instantanément et un re-sync de fond ne clignote jamais par-dessus le
+    //    contenu vivant).
+    final everSynced = ref.watch(lastSyncedAtProvider) != null;
+    final firstLoad = (permsAsync.isLoading && !permsAsync.hasValue) ||
+        (groupedAsync.isLoading && !groupedAsync.hasValue) ||
+        (schoolAsync.isLoading && !schoolAsync.hasValue);
+    final awaitingFirstSync = !hasModules && !everSynced && !modulesError;
+    if (firstLoad || awaitingFirstSync) return const _DashboardSkeleton();
 
     // Permissions d'affichage des blocs métier.
     final showClasses = perms['classes']?.canRead ?? false;
