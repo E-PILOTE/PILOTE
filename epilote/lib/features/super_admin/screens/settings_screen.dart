@@ -49,6 +49,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   final _receiptPrefixCtrl = TextEditingController(text: 'REC');
   final _dueDaysCtrl       = TextEditingController(text: '30');
   final _graceCtrl         = TextEditingController(text: '7');
+  final _trialDaysCtrl     = TextEditingController(text: '3');
   final _companyNameCtrl   = TextEditingController(text: 'E-PILOTE CONGO SARL');
   final _companyRccCtrl    = TextEditingController(text: 'RC-BZV-2024-B-0001');
   final _companyTaxCtrl    = TextEditingController(text: 'M202400001');
@@ -153,6 +154,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     txt(_receiptPrefixCtrl, 'receipt_prefix');
     txt(_dueDaysCtrl,       'due_days');
     txt(_graceCtrl,         'grace_days');
+    txt(_trialDaysCtrl,     'trial_days');
     txt(_companyNameCtrl,   'company_name');
     txt(_companyRccCtrl,    'company_rcc');
     txt(_companyTaxCtrl,    'company_tax');
@@ -217,6 +219,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     'receipt_prefix':  _receiptPrefixCtrl.text.trim(),
     'due_days':        _dueDaysCtrl.text.trim(),
     'grace_days':      _graceCtrl.text.trim(),
+    'trial_days':      _trialDaysCtrl.text.trim(),
     'company_name':    _companyNameCtrl.text.trim(),
     'company_rcc':     _companyRccCtrl.text.trim(),
     'company_tax':     _companyTaxCtrl.text.trim(),
@@ -266,7 +269,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       _platformNameCtrl, _platformDescCtrl, _supportEmailCtrl, _supportPhoneCtrl,
       _websiteCtrl, _maxGroupsCtrl, _maxSchoolsCtrl,
       _taxRateCtrl, _invoicePrefixCtrl, _receiptPrefixCtrl, _dueDaysCtrl,
-      _graceCtrl, _companyNameCtrl, _companyRccCtrl, _companyTaxCtrl,
+      _graceCtrl, _trialDaysCtrl, _companyNameCtrl, _companyRccCtrl, _companyTaxCtrl,
       _bankNameCtrl, _bankIbanCtrl,
       _notifEmailCtrl, _notifReminderCtrl,
       _sessionDurationCtrl, _maxLoginAttemptsCtrl, _lockoutDurationCtrl, _ipWhitelistCtrl,
@@ -691,7 +694,10 @@ class _TabFacturationState extends State<_TabFacturation> {
                 _FieldRow(label: 'Préfixe facture', ctrl: s._invoicePrefixCtrl, hint: 'INV'),
                 _FieldRow(label: 'Préfixe reçu', ctrl: s._receiptPrefixCtrl, hint: 'REC'),
               ),
-              _FieldRow(label: 'Délai de grâce', ctrl: s._graceCtrl, numeric: true, suffix: 'jours après échéance'),
+              _row2(
+                _FieldRow(label: 'Délai de grâce', ctrl: s._graceCtrl, numeric: true, suffix: 'jours après échéance'),
+                _FieldRow(label: "Durée d'essai", ctrl: s._trialDaysCtrl, numeric: true, suffix: 'jours (nouveaux groupes)'),
+              ),
               _SwitchRow(
                 label: 'Facturation automatique',
                 sub: 'Génère les factures automatiquement à la date de renouvellement',
