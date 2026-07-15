@@ -4,11 +4,18 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
 import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../providers/subscriptions_provider.dart';
 import '../services/subscription_pdf_service.dart';
+
+/// Message lisible d'une erreur base : un garde-fou métier (ex. « Activation
+/// refusée : aucun reçu payé… ») remonte via PostgrestException.message — on
+/// l'affiche tel quel plutôt que le `toString()` verbeux (code, hint, détails).
+String cleanDbError(Object e) =>
+    e is PostgrestException ? e.message : e.toString();
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
 const _kNavy    = Color(0xFF1E3A5F);
@@ -155,7 +162,7 @@ class _SubsBodyState extends ConsumerState<_SubsBody> {
       ref.invalidate(subscriptionsProvider);
       if (mounted) _showSuccess('Statut mis à jour : ${_statusLabel(status)}');
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError(cleanDbError(e));
     }
   }
 
@@ -1440,7 +1447,7 @@ class _SubFormModalState extends ConsumerState<_SubFormModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur : $e'),
+        content: Text(cleanDbError(e)),
         backgroundColor: _kRed,
         behavior: SnackBarBehavior.floating,
       ));

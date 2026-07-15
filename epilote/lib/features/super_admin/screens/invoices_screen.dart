@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
 import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
@@ -10,6 +11,10 @@ import '../providers/school_groups_provider.dart';
 import '../widgets/dunning_panel.dart';
 import '../../communication/providers/notifications_provider.dart';
 import '../services/financial_pdf_service.dart';
+
+/// Message lisible d'une erreur base (garde-fou métier via .message).
+String cleanInvoiceError(Object e) =>
+    e is PostgrestException ? e.message : 'Erreur : $e';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _kNavy    = Color(0xFF1E3A5F);
@@ -205,7 +210,7 @@ class _InvoicesBodyState extends ConsumerState<_InvoicesBody> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Erreur : $e'),
+          content: Text(cleanInvoiceError(e)),
           backgroundColor: _kRed,
           behavior: SnackBarBehavior.floating,
         ));
@@ -234,7 +239,7 @@ class _InvoicesBodyState extends ConsumerState<_InvoicesBody> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Erreur : $e'),
+          content: Text(cleanInvoiceError(e)),
           backgroundColor: _kRed,
           behavior: SnackBarBehavior.floating,
         ));
@@ -263,7 +268,7 @@ class _InvoicesBodyState extends ConsumerState<_InvoicesBody> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Erreur : $e'),
+          content: Text(cleanInvoiceError(e)),
           backgroundColor: _kRed,
           behavior: SnackBarBehavior.floating,
         ));

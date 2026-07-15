@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/material.dart';
 
 /// Point d'injection d'horloge pour les tests de rendu (goldens déterministes) :
