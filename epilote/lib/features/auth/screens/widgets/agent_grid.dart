@@ -225,6 +225,7 @@ class _RecentsRow extends StatelessWidget {
             Expanded(
               child: InkWell(
                 onTap: () => onPick(a),
+                mouseCursor: SystemMouseCursors.click,
                 borderRadius: BorderRadius.circular(kAuthRadius),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6),
@@ -308,6 +309,7 @@ class _AgentTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(kAuthRadius),
       child: InkWell(
         onTap: onTap,
+        mouseCursor: SystemMouseCursors.click,
         borderRadius: BorderRadius.circular(kAuthRadius),
         child: Ink(
           decoration: BoxDecoration(

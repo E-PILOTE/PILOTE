@@ -112,6 +112,10 @@ class _KeyShell extends StatelessWidget {
             borderRadius: BorderRadius.circular(kAuthRadius),
             child: InkWell(
               borderRadius: BorderRadius.circular(kAuthRadius),
+              // Curseur main sur toute touche active (règle : tout cliquable).
+              mouseCursor: onTap == null
+                  ? SystemMouseCursors.basic
+                  : SystemMouseCursors.click,
               onTap: onTap,
               child: Center(child: child),
             ),

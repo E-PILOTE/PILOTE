@@ -411,21 +411,26 @@ class _OpenButtonState extends State<_OpenButton>
             child: child,
           );
         },
-        child: SizedBox(
-          width: double.infinity,
-          child: Material(
-            borderRadius: BorderRadius.circular(kAuthRadius),
-            elevation: 8,
-            shadowColor: _kAccent.withValues(alpha: 0.5),
-            child: Ink(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(kAuthRadius),
-                gradient: const LinearGradient(colors: [kAuthNavy, _kAccent]),
-              ),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(kAuthRadius),
-                onTap: widget.onTap,
-                child: const Padding(
+        // Curseur MAIN sur toute l'emprise du bouton (règle : tout élément
+        // cliquable affiche le curseur main pour signaler l'interaction).
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: SizedBox(
+            width: double.infinity,
+            child: Material(
+              borderRadius: BorderRadius.circular(kAuthRadius),
+              elevation: 8,
+              shadowColor: _kAccent.withValues(alpha: 0.5),
+              child: Ink(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(kAuthRadius),
+                  gradient: const LinearGradient(colors: [kAuthNavy, _kAccent]),
+                ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(kAuthRadius),
+                  mouseCursor: SystemMouseCursors.click,
+                  onTap: widget.onTap,
+                  child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 15),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -445,7 +450,8 @@ class _OpenButtonState extends State<_OpenButton>
             ),
           ),
         ),
-      );
+      ),
+    );
 }
 
 class _PartnerStrip extends StatelessWidget {
