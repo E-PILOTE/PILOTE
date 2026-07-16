@@ -210,7 +210,7 @@ class _GradeSheetState extends ConsumerState<_GradeSheet> {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       decoration: BoxDecoration(
-        color: r.isAbsent ? kRed.withValues(alpha: 0.04) : Colors.white,
+        color: r.isAbsent ? kRed.withValues(alpha: 0.04) : kCardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kBorder),
       ),

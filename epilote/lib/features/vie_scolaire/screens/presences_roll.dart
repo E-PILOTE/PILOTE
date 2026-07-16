@@ -355,7 +355,7 @@ class _RollSheetState extends ConsumerState<_RollSheet> {
       decoration: BoxDecoration(
         color: r.status == 'absent'
             ? kRed.withValues(alpha: 0.04)
-            : Colors.white,
+            : kCardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kBorder),
       ),

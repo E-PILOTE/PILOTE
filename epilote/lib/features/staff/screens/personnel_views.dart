@@ -314,7 +314,7 @@ class _Tr extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
-          color: even ? Colors.white : kSurface.withValues(alpha: 0.4),
+          color: even ? kCardBg : kSurface.withValues(alpha: 0.4),
           border: Border(
               top: BorderSide(color: kBorder, width: 0.6)),
         ),

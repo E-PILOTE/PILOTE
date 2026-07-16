@@ -179,7 +179,7 @@ class _YearTile extends ConsumerWidget {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: selected ? kNavy.withValues(alpha: 0.06) : Colors.white,
+          color: selected ? kNavy.withValues(alpha: 0.06) : kCardBg,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: selected ? kNavy : kBorder, width: selected ? 1.4 : 1),
         ),

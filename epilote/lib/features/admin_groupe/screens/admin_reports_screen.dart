@@ -586,7 +586,7 @@ class _SectionTabs extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: sel ? kNavy : Colors.white,
+                  color: sel ? kNavy : kCardBg,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: sel ? kNavy : kBorder),
                   boxShadow: sel
@@ -1651,7 +1651,7 @@ class _SchoolRowState extends State<_SchoolRow> {
                 ? kNavy.withValues(alpha: 0.05)
                 : widget.isOdd
                     ? kSurface.withValues(alpha: 0.5)
-                    : Colors.white,
+                    : kCardBg,
             border: Border(
                 bottom: BorderSide(color: kBorder, width: 0.6)),
           ),

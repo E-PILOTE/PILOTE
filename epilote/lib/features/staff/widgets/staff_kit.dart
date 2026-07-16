@@ -221,7 +221,7 @@ class _SegCard extends StatelessWidget {
             width: 168,
             padding: const EdgeInsets.fromLTRB(13, 10, 13, 10),
             decoration: BoxDecoration(
-              color: selected ? seg.color.withValues(alpha: 0.10) : Colors.white,
+              color: selected ? seg.color.withValues(alpha: 0.10) : kCardBg,
               borderRadius: BorderRadius.circular(11),
               border: Border.all(
                   color: selected ? seg.color : kBorder,

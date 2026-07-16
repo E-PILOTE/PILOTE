@@ -530,7 +530,7 @@ class _FeedMediaCarouselState extends State<FeedMediaCarousel> {
                         height: 7,
                         decoration: BoxDecoration(
                           color: i == _index
-                              ? Colors.white
+                              ? kCardBg
                               : Colors.white.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(20),
                         ),

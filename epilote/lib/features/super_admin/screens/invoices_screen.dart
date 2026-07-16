@@ -1566,7 +1566,7 @@ class _PaymentConfirmDialogState extends State<_PaymentConfirmDialog> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: sel ? _kNavy : Colors.white,
+                            color: sel ? _kNavy : kCardBg,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: sel ? _kNavy : _kBorder,

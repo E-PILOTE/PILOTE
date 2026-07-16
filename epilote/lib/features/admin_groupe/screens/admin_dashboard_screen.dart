@@ -407,7 +407,7 @@ class _QaChipState extends State<_QaChip> {
           duration: const Duration(milliseconds: 160),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: _hover ? kNavy.withValues(alpha: 0.06) : Colors.white,
+            color: _hover ? kNavy.withValues(alpha: 0.06) : kCardBg,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: _hover ? kNavy : kBorder),
           ),

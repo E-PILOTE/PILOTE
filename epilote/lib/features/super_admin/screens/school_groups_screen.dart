@@ -2727,7 +2727,7 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
                       duration: const Duration(milliseconds: 150),
                       width: 20, height: 20,
                       decoration: BoxDecoration(
-                        color: _confirmed ? _kRed : Colors.white,
+                        color: _confirmed ? _kRed : kCardBg,
                         borderRadius: BorderRadius.circular(5),
                         border: Border.all(
                           color: _confirmed

@@ -970,7 +970,7 @@ class _TableRowState extends State<_TableRow> {
         decoration: BoxDecoration(
           color: _hov
               ? kNavy.withValues(alpha: 0.04)
-              : widget.isOdd ? kSurface.withValues(alpha: 0.5) : Colors.white,
+              : widget.isOdd ? kSurface.withValues(alpha: 0.5) : kCardBg,
           border: Border(bottom: BorderSide(color: kBorder.withValues(alpha: 0.6))),
         ),
         child: Row(children: [

@@ -293,7 +293,7 @@ class _CheckSquare extends StatelessWidget {
             duration: const Duration(milliseconds: 120),
             width: 20, height: 20,
             decoration: BoxDecoration(
-              color: checked ? kNavy : Colors.white,
+              color: checked ? kNavy : kCardBg,
               borderRadius: BorderRadius.circular(5),
               border: Border.all(color: checked ? kNavy : kBorder, width: 1.5),
             ),
@@ -391,7 +391,7 @@ class _BulkBtn extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
-              color: subtle ? Colors.transparent : Colors.white,
+              color: subtle ? Colors.transparent : kCardBg,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: subtle ? Colors.white.withValues(alpha: 0.4) : Colors.white,

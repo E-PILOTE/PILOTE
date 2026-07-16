@@ -297,7 +297,7 @@ class _AwardChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
-          color: selected ? color.withValues(alpha: 0.14) : Colors.white,
+          color: selected ? color.withValues(alpha: 0.14) : kCardBg,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
               color: selected ? color : kBorder,

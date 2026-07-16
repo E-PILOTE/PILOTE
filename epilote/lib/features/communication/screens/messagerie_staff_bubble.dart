@@ -366,7 +366,7 @@ class _ReactionChips extends StatelessWidget {
               decoration: BoxDecoration(
                 color: e.value.contains(myId)
                     ? kNavy.withValues(alpha: 0.12)
-                    : Colors.white,
+                    : kCardBg,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                     color: e.value.contains(myId) ? kNavy : kBorder,

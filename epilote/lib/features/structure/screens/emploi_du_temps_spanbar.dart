@@ -224,7 +224,7 @@ class _DayChip extends StatelessWidget {
               width: 5,
               height: 5,
               decoration: BoxDecoration(
-                color: selected ? Colors.white : kNavy,
+                color: selected ? kCardBg : kNavy,
                 shape: BoxShape.circle,
               ),
             ),

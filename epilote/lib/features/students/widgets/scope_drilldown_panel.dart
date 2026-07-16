@@ -296,7 +296,7 @@ class _CycleCard extends StatelessWidget {
     return SizedBox(
       width: 226,
       child: Material(
-        color: selected ? color.withValues(alpha: 0.07) : Colors.white,
+        color: selected ? color.withValues(alpha: 0.07) : kCardBg,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,

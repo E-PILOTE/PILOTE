@@ -59,7 +59,7 @@ class _CycleTile extends StatelessWidget {
           duration: const Duration(milliseconds: 160),
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
           decoration: BoxDecoration(
-            color: selected ? color.withValues(alpha: 0.08) : Colors.white,
+            color: selected ? color.withValues(alpha: 0.08) : kCardBg,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
                 color: selected ? color : kBorder,
@@ -151,7 +151,7 @@ class _CycleChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           decoration: BoxDecoration(
-            color: selected ? color : Colors.white,
+            color: selected ? color : kCardBg,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: selected ? color : kBorder),
           ),

@@ -308,7 +308,7 @@ class _MediaViewerState extends State<_MediaViewer> {
                     height: 7,
                     decoration: BoxDecoration(
                       color: i == _index
-                          ? Colors.white
+                          ? kCardBg
                           : Colors.white.withValues(alpha: 0.45),
                       borderRadius: BorderRadius.circular(20),
                     ),

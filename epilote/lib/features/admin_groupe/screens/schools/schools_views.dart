@@ -162,7 +162,7 @@ class _TableRowState extends State<_TableRow> {
                   ? kNavy.withValues(alpha: 0.04)
                   : widget.isOdd
                       ? kSurface.withValues(alpha: 0.5)
-                      : Colors.white,
+                      : kCardBg,
           border: Border(bottom: BorderSide(color: kBorder.withValues(alpha: 0.6))),
         ),
         child: Row(children: [

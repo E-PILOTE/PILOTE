@@ -113,7 +113,7 @@ class _PlaceholderScreen extends ConsumerWidget {
       backgroundColor: _kSurface,
       appBar: AppBar(
         backgroundColor: _kNavy,
-        foregroundColor: Colors.white,
+        foregroundColor: kCardBg,
         title: Text(
           title,
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),

@@ -309,13 +309,13 @@ Widget eduChip({
       if (custom) ...[
         const SizedBox(width: 5),
         Container(width: 5, height: 5, decoration: BoxDecoration(
-            color: selected ? Colors.white : _kPurple, shape: BoxShape.circle)),
+            color: selected ? kCardBg : _kPurple, shape: BoxShape.circle)),
       ],
     ]),
   );
   return Container(
     decoration: BoxDecoration(
-      color: selected ? color : Colors.white,
+      color: selected ? color : kCardBg,
       borderRadius: BorderRadius.circular(8),
       border: Border.all(color: selected ? color : kBorder, width: 1.2),
     ),

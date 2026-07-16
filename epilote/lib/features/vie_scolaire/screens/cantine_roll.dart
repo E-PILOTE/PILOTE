@@ -222,7 +222,7 @@ class _MealSheetState extends ConsumerState<_MealSheet> {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
       decoration: BoxDecoration(
-        color: r.present == false ? kAccent.withValues(alpha: 0.05) : Colors.white,
+        color: r.present == false ? kAccent.withValues(alpha: 0.05) : kCardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kBorder),
       ),

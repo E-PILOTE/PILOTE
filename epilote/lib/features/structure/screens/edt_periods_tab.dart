@@ -326,7 +326,7 @@ class _CycleSelector extends StatelessWidget {
                 duration: const Duration(milliseconds: 150),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: on ? color.withValues(alpha: 0.12) : Colors.white,
+                  color: on ? color.withValues(alpha: 0.12) : kCardBg,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                       color: on ? color : kBorder, width: on ? 1.5 : 1),

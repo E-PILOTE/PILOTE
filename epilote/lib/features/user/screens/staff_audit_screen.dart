@@ -113,7 +113,7 @@ class _Chip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: active ? kNavy : Colors.white,
+            color: active ? kNavy : kCardBg,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: active ? kNavy : kBorder),
           ),
