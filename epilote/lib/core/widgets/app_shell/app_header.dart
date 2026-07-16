@@ -9,6 +9,8 @@ import 'package:go_router/go_router.dart';
 import '../admin_ui.dart'
     show kNavy, kGreen, kBorder, kTextPrimary, kTextMuted;
 import '../year_selector.dart';
+import '../../theme/palette.dart';
+import '../../theme/theme_provider.dart';
 import '../../constants/app_constants.dart';
 import '../../constants/routes.dart';
 import '../../../data/models/module_model.dart';
@@ -20,7 +22,6 @@ import '../../../features/navigation/module_routes.dart';
 import '../../../features/navigation/providers/module_navigation_provider.dart';
 import '../../../features/navigation/providers/permissions_provider.dart';
 import 'app_shell_theme.dart';
-import 'shell_providers.dart';
 
 /// Barre supérieure de l'AppShell : toggle sidebar, titre, sélecteur d'année
 /// (personnel), cloche de notifications, bascule de thème, menu compte.
@@ -115,23 +116,58 @@ class AppHeader extends ConsumerWidget {
   }
 }
 
+/// Icône du thème [id] — également réutilisée par les écrans Paramètres.
+IconData themeIcon(EpiloteThemeId id) => switch (id) {
+      EpiloteThemeId.clair => Icons.light_mode_rounded,
+      EpiloteThemeId.sombre => Icons.dark_mode_rounded,
+      EpiloteThemeId.melack => Icons.shield_moon_rounded,
+    };
+
+/// Choix du thème — personnel à l'agent au clavier, jamais à l'appareil.
 class _ThemeToggle extends ConsumerWidget {
   const _ThemeToggle();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
-    return Tooltip(
-      message: isDark ? 'Mode clair' : 'Mode sombre',
-      child: IconButton(
-        icon: Icon(
-          isDark ? Icons.light_mode_rounded : Icons.dark_mode_outlined,
-          color: kTextMuted,
-          size: 22,
-        ),
-        onPressed: () => ref.read(themeModeProvider.notifier).state =
-            isDark ? ThemeMode.light : ThemeMode.dark,
-      ),
+    final current = ref.watch(themeIdProvider);
+    return PopupMenuButton<EpiloteThemeId>(
+      tooltip: 'Thème',
+      offset: const Offset(0, 44),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      icon: Icon(themeIcon(current), color: kTextMuted, size: 22),
+      onSelected: (id) => ref.read(themeIdProvider.notifier).set(id),
+      itemBuilder: (_) => [
+        for (final id in EpiloteThemeId.values)
+          PopupMenuItem(
+            value: id,
+            child: Row(children: [
+              Icon(themeIcon(id),
+                  size: 18, color: id == current ? kGreen : kTextMuted),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(id.label,
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: id == current
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: kTextPrimary)),
+                    Text(id.description,
+                        style: TextStyle(fontSize: 10.5, color: kTextMuted)),
+                  ],
+                ),
+              ),
+              if (id == current) ...[
+                const SizedBox(width: 8),
+                Icon(Icons.check_rounded, size: 16, color: kGreen),
+              ],
+            ]),
+          ),
+      ],
     );
   }
 }

@@ -34,7 +34,6 @@ import 'year_selector.dart';
 export 'app_shell/shell_providers.dart'
     show
         sidebarExpandedProvider,
-        themeModeProvider,
         contentOverlayProvider,
         showContentOverlay,
         closeContentOverlay;

@@ -13,7 +13,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/constants/supabase_constants.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
-import 'core/widgets/app_shell.dart';
+import 'core/theme/palette.dart';
+import 'core/theme/theme_provider.dart';
 import 'features/auth/screens/widgets/agent_lock_gate.dart';
 import 'services/powersync/powersync_service.dart';
 
@@ -70,14 +71,17 @@ class EpiloteApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
 
-    final themeMode = ref.watch(themeModeProvider);
+    // Les écrans lisent les jetons globaux (`kNavy`…) plutôt que Theme.of :
+    // changer de thème n'invalide donc AUCUN widget. La clé force la
+    // reconstruction complète de l'arbre — c'est elle qui rend la bascule
+    // visible (cf. spec §2.3).
+    final themeId = ref.watch(themeIdProvider);
 
     return MaterialApp.router(
+      key: ValueKey(themeId),
       title: 'E-PILOTE CONGO',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      themeMode: themeMode,
+      theme: AppTheme.from(EpilotePalette.of(themeId)),
       routerConfig: router,
       builder: (context, child) =>
           AgentLockGate(child: child ?? const SizedBox.shrink()),

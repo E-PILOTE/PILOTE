@@ -6,9 +6,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/routes.dart';
 import '../../../core/widgets/app_shell.dart';
+import '../../../core/theme/theme_provider.dart';
+import '../../../core/widgets/admin_ui.dart';
+import '../../../features/user/widgets/user_settings_cards.dart' show ThemePicker;
 import '../providers/admin_settings_provider.dart';
 import '../widgets/partner_opt_in_tile.dart';
-import '../../../core/widgets/admin_ui.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PARAMÈTRES — espace admin_groupe (online, scope group_id)
@@ -927,18 +929,17 @@ class _AppearanceCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeProvider);
+    final current = ref.watch(themeIdProvider);
     return AdminCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const AdminSectionTitle('Apparence', icon: Icons.palette_outlined),
-        const SizedBox(height: 8),
-        _ToggleRow(
-          icon: Icons.dark_mode_outlined,
-          title: 'Mode sombre',
-          subtitle: 'Basculer entre le thème clair et sombre',
-          value: themeMode == ThemeMode.dark,
-          onChanged: (v) => ref.read(themeModeProvider.notifier).state =
-              v ? ThemeMode.dark : ThemeMode.light,
+        const SizedBox(height: 4),
+        Text('Votre choix, sur ce poste.',
+            style: TextStyle(fontSize: 11.5, color: kTextMuted)),
+        const SizedBox(height: 12),
+        ThemePicker(
+          current: current,
+          onPick: (id) => ref.read(themeIdProvider.notifier).set(id),
         ),
       ]),
     );

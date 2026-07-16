@@ -5,8 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// localement par l'AppShell pour permettre le drag-resize).
 final sidebarExpandedProvider = StateProvider<bool>((_) => true);
 
-/// Thème clair / sombre de l'application.
-final themeModeProvider = StateProvider<ThemeMode>((_) => ThemeMode.light);
 
 /// Titres des sections de nav repliées (accordéon de la sidebar).
 ///

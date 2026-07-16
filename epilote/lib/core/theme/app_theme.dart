@@ -1,9 +1,133 @@
 import 'package:flutter/material.dart';
 
+import 'palette.dart';
+
 /// Thème E-PILOTE CONGO
 /// Couleurs principales : Vert Congo + Or
 class AppTheme {
   AppTheme._();
+
+  /// `ThemeData` construit depuis la palette active.
+  ///
+  /// L'essentiel des couleurs de l'app ne passe PAS par ici (les écrans lisent
+  /// les jetons `kNavy`/`kSurface`… directement) : ce ThemeData habille les
+  /// widgets Material natifs (dialogues, champs, menus) pour qu'ils s'accordent
+  /// aux jetons plutôt que de rester blancs sur un fond noir.
+  static ThemeData from(EpilotePalette p) {
+    final dark = p.brightness == Brightness.dark;
+    return ThemeData(
+      useMaterial3: true,
+      brightness: p.brightness,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: p.green,
+        brightness: p.brightness,
+        primary: dark ? p.green : primary,
+        secondary: p.accent,
+        surface: p.cardBg,
+        error: p.red,
+        onSurface: p.textPrimary,
+      ),
+      scaffoldBackgroundColor: p.surface,
+      canvasColor: p.cardBg,
+      dividerColor: p.border,
+      appBarTheme: AppBarTheme(
+        backgroundColor: dark ? p.navyDeep : primary,
+        foregroundColor: textLight,
+        elevation: 0,
+        centerTitle: false,
+        titleTextStyle: const TextStyle(
+          color: textLight,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.3,
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: p.cardBg,
+        elevation: dark ? 0 : 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: dark ? BorderSide(color: p.border) : BorderSide.none,
+        ),
+        margin: EdgeInsets.zero,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: p.cardBg,
+        titleTextStyle: TextStyle(
+            color: p.textPrimary, fontSize: 18, fontWeight: FontWeight.w700),
+        contentTextStyle: TextStyle(color: p.textPrimary, fontSize: 14),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: p.cardBg,
+        textStyle: TextStyle(color: p.textPrimary, fontSize: 13),
+      ),
+      menuTheme: MenuThemeData(
+        style: MenuStyle(backgroundColor: WidgetStatePropertyAll(p.cardBg)),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(backgroundColor: p.cardBg),
+      drawerTheme: DrawerThemeData(backgroundColor: p.cardBg),
+      listTileTheme: ListTileThemeData(
+        textColor: p.textPrimary,
+        iconColor: p.textMuted,
+      ),
+      iconTheme: IconThemeData(color: p.textMuted),
+      textTheme: dark
+          ? Typography.whiteMountainView.apply(
+              bodyColor: p.textPrimary, displayColor: p.textPrimary)
+          : Typography.blackMountainView.apply(
+              bodyColor: p.textPrimary, displayColor: p.textPrimary),
+      // Boutons à 8px (convention plateforme) — sinon Material 3 = pilule.
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: dark ? p.surface : Colors.grey[50],
+        hintStyle: TextStyle(color: p.textMuted),
+        labelStyle: TextStyle(color: p.textMuted),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: p.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: p.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: dark ? p.green : primary, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: p.red),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: p.green.withValues(alpha: 0.1),
+        labelStyle: TextStyle(color: dark ? p.green : primary, fontSize: 12),
+        side: const BorderSide(color: Colors.transparent),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+    );
+  }
 
   // ─── Palette ──────────────────────────────────────────────────────────────
   static const Color primary = Color(0xFF006B3C);       // Vert Congo
