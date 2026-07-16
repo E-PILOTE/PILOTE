@@ -260,7 +260,7 @@ class _SchoolEducationSectionState
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kNavy.withValues(alpha: 0.22)),
       ),
@@ -382,7 +382,7 @@ class _SchoolEducationSectionState
     final res = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: kCardBg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(title, style: TextStyle(
             fontSize: 15, fontWeight: FontWeight.w800, color: kTextPrimary)),

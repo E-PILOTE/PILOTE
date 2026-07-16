@@ -69,7 +69,7 @@ class _DashTabs extends ConsumerWidget {
         child: Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: kCardBg,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: kBorder),
           ),
@@ -696,7 +696,7 @@ class _KpiCardState extends State<_KpiCard> with SingleTickerProviderStateMixin 
     final card = AnimatedContainer(
       duration: const Duration(milliseconds: 160),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
             color: _hover ? k.color.withValues(alpha: 0.5) : kBorder),
@@ -2402,7 +2402,7 @@ class _ReasonChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(7),
           border: Border.all(color: color.withValues(alpha: 0.30))),
       child: Row(
@@ -2778,7 +2778,7 @@ class _LoadingState extends StatelessWidget {
     Widget block(double h) => Container(
           height: h,
           decoration: BoxDecoration(
-              color: Colors.white, borderRadius: BorderRadius.circular(14)),
+              color: kCardBg, borderRadius: BorderRadius.circular(14)),
         );
     return Shimmer.fromColors(
       baseColor: const Color(0xFFE8EDF3),

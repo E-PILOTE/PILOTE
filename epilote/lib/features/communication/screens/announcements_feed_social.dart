@@ -551,7 +551,7 @@ class _ReactionBarState extends State<_ReactionBar>
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: kCardBg,
                   borderRadius: BorderRadius.circular(30),
                   boxShadow: [
                     BoxShadow(

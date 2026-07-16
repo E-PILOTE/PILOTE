@@ -170,7 +170,7 @@ class _IdentityCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: kBorder),
       ),

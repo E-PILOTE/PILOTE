@@ -64,7 +64,7 @@ class _PdfPreviewDialog extends StatelessWidget {
     final w = (size.width * 0.72).clamp(420.0, 900.0);
     final h = (size.height * 0.9).clamp(420.0, 1180.0);
     return Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: kCardBg,
       insetPadding: const EdgeInsets.all(24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
@@ -76,7 +76,7 @@ class _PdfPreviewDialog extends StatelessWidget {
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               border: Border(bottom: BorderSide(color: kBorder)),
             ),
             child: Row(children: [
@@ -134,9 +134,9 @@ class _PdfPreviewDialog extends StatelessWidget {
               pdfFileName: pdfFileName,
               previewPageMargin: const EdgeInsets.all(12),
               scrollViewDecoration: BoxDecoration(color: kSurface),
-              pdfPreviewPageDecoration: const BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
+              pdfPreviewPageDecoration: BoxDecoration(
+                color: kCardBg,
+                boxShadow: const [
                   BoxShadow(
                       color: Color(0x22000000),
                       blurRadius: 8,

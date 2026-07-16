@@ -71,6 +71,35 @@ void main() {
         expect(contrastRatio(p.textMuted, p.surface), greaterThanOrEqualTo(4.5));
         expect(contrastRatio(p.textMuted, p.cardBg), greaterThanOrEqualTo(4.5));
       });
+
+      // ── Régression vécue (2026-07-16) ─────────────────────────────────────
+      // `navy` avait été traité comme une couleur de CHROME et foncé à #1B2634
+      // en Sombre : contraste 1.13 sur les cartes → les titres de section
+      // (« Taux de recouvrement »…) devenaient INVISIBLES. Or `navy` sert
+      // d'abord de couleur de premier plan (432 usages texte/icône contre 282
+      // en fond). Vu seulement à l'écran, jamais par l'analyse — d'où ce test.
+      test('$name : navy reste lisible comme TEXTE sur les cartes', () {
+        expect(contrastRatio(p.navy, p.cardBg), greaterThanOrEqualTo(4.5),
+            reason: 'navy est majoritairement du texte : il doit s\'éclaircir '
+                'en thème sombre, pas foncer');
+        expect(contrastRatio(p.navy, p.surface), greaterThanOrEqualTo(4.5));
+      });
+
+      // `navy` sert aussi de fond de bandeau (blanc par-dessus) : on ne peut
+      // pas l'éclaircir sans limite. Seuil composants d'interface (3:1).
+      test('$name : blanc reste lisible SUR navy (bandeaux)', () {
+        expect(contrastRatio(const Color(0xFFFFFFFF), p.navy),
+            greaterThanOrEqualTo(3.0),
+            reason: 'navy trop clair → le blanc des bandeaux devient illisible');
+      });
+
+      // Le chrome, lui, reste sombre : c'est un fond, jamais du texte.
+      test('$name : le chrome (navyDeep/navyDark) reste un fond sombre', () {
+        expect(contrastRatio(const Color(0xFFFFFFFF), p.navyDeep),
+            greaterThanOrEqualTo(4.5));
+        expect(contrastRatio(const Color(0xFFFFFFFF), p.navyDark),
+            greaterThanOrEqualTo(4.5));
+      });
     }
 
     // ── Dette documentée, volontairement NON corrigée ──────────────────────

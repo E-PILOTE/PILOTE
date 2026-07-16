@@ -152,7 +152,7 @@ class _KpiCardState extends State<_KpiCard> with SingleTickerProviderStateMixin 
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: kBorder),
               boxShadow: [BoxShadow(
@@ -239,7 +239,7 @@ class _ShimmerSkeleton extends StatelessWidget {
 
   Widget _box(double w, double h, {double r = 10}) => Container(
     width: w, height: h,
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(r)),
+    decoration: BoxDecoration(color: kCardBg, borderRadius: BorderRadius.circular(r)),
   );
 
   @override

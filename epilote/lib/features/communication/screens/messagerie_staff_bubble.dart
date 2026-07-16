@@ -478,7 +478,7 @@ class _ComposeContextBar extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(8),
         border: const Border(
             left: BorderSide(color: Color(0xFF00A884), width: 3)),

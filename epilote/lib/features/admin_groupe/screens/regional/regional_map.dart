@@ -159,7 +159,7 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: kCardBg,
                 borderRadius: BorderRadius.circular(5),
                 border: Border.all(color: kBorder),
                 boxShadow: [
@@ -300,7 +300,7 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(color: kBorder),
             ),
@@ -360,7 +360,7 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(color: kBorder),
             ),

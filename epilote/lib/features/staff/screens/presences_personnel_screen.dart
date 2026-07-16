@@ -245,7 +245,7 @@ class _BodyState extends ConsumerState<_Body> {
             prefixIcon:
                 Icon(Icons.search_rounded, size: 19, color: kTextMuted),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: kCardBg,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide(color: kBorder),
@@ -296,7 +296,7 @@ class _AgentRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kBorder),
       ),
@@ -385,7 +385,7 @@ class _DateBtn extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: kBorder),
             ),

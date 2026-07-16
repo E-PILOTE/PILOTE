@@ -34,7 +34,7 @@ part 'schools/school_form_widgets.dart';
 const _kPurple = Color(0xFF7C3AED);
 const _kBlue   = Color(0xFF0EA5E9);
 const _kOrange = Color(0xFFFF6B35);
-const _kGold   = Color(0xFFFBBC04);
+Color get _kGold => kAccent;
 
 // 15 départements — réforme territoriale du 8 octobre 2024
 const _kDepartements = [

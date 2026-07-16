@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -16,7 +18,7 @@ const _kWarnIcon = Color(0xFFD97706);
 const _kStopBg = Color(0xFFFEF2F2);
 const _kStopBorder = Color(0xFFFECACA);
 const _kStopFg = Color(0xFF991B1B);
-const _kStopIcon = Color(0xFFDC2626);
+Color get _kStopIcon => kRed;
 
 /// Bandeau d'abonnement affiché en haut du shell **admin_groupe uniquement**.
 /// Rend l'expiration VISIBLE et pousse au renouvellement (soft-gate — cf.

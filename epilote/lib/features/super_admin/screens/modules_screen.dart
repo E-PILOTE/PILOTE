@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
@@ -11,21 +13,21 @@ import '../providers/modules_provider.dart';
 import '../services/module_pdf_service.dart';
 
 // ─── Design tokens (identiques à administrators_screen) ──────────────────────
-const _kNavy    = Color(0xFF1E3A5F);
-const _kGreen   = Color(0xFF009A44);
-const _kGold    = Color(0xFFFBBC04);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
+Color get _kGold => kAccent;
 const _kOrange  = Color(0xFFFF6B35);
 const _kPurple  = Color(0xFF7C3AED);
 const _kBlue    = Color(0xFF0EA5E9);
 const _kRed     = Color(0xFFEF4444);
-const _kSurface = Color(0xFFF0F4F8);
+Color get _kSurface => kSurface;
 const _kBg      = Color(0xFFFFFFFF);
-const _kBorder  = Color(0xFFE2E8F0);
-const _kText    = Color(0xFF0F172A);
-const _kMuted   = Color(0xFF64748B);
+Color get _kBorder => kBorder;
+Color get _kText => kTextPrimary;
+Color get _kMuted => kTextMuted;
 
 // ─── Palette catégories (cyclée par ordre) ───────────────────────────────────
-const _catPalette = [
+List<Color> get _catPalette => [
   _kNavy, _kGreen, _kGold, _kBlue, _kPurple, _kOrange, _kRed,
 ];
 Color _catColor(int order) => _catPalette[order.abs() % _catPalette.length];
@@ -234,9 +236,9 @@ class _ModulesBodyState extends ConsumerState<_ModulesBody> {
       loading: () => const _ShimmerSkeleton(),
       error: (e, _) => Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
+          Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
           const SizedBox(height: 12),
-          Text('Erreur : $e', style: const TextStyle(color: _kMuted)),
+          Text('Erreur : $e', style: TextStyle(color: _kMuted)),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => ref.invalidate(modulesProvider),
@@ -492,7 +494,7 @@ class _KpiCardState extends State<_KpiCard> with SingleTickerProviderStateMixin 
                           fontWeight: FontWeight.w900, letterSpacing: -0.5,
                         )),
                         const SizedBox(height: 2),
-                        Text(d.label, style: const TextStyle(
+                        Text(d.label, style: TextStyle(
                           color: _kMuted, fontSize: 11.5, fontWeight: FontWeight.w600,
                         ), overflow: TextOverflow.ellipsis),
                         if (d.sub != null)
@@ -551,7 +553,7 @@ class _ShimmerSkeleton extends StatelessWidget {
   Widget _box(double w, double h, {double r = 10}) => Container(
     width: w, height: h,
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: kCardBg,
       borderRadius: BorderRadius.circular(r),
     ),
   );
@@ -623,9 +625,9 @@ class _CategoriesPanel extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.category_rounded, size: 16, color: _kNavy),
+          Icon(Icons.category_rounded, size: 16, color: _kNavy),
           const SizedBox(width: 8),
-          const Text('Catégories', style: TextStyle(
+          Text('Catégories', style: TextStyle(
               color: _kText, fontSize: 14, fontWeight: FontWeight.w800)),
           const SizedBox(width: 8),
           Container(
@@ -634,7 +636,7 @@ class _CategoriesPanel extends StatelessWidget {
               color: _kSurface, borderRadius: BorderRadius.circular(10),
               border: Border.all(color: _kBorder),
             ),
-            child: Text('${categories.length}', style: const TextStyle(
+            child: Text('${categories.length}', style: TextStyle(
                 color: _kMuted, fontSize: 11, fontWeight: FontWeight.w700)),
           ),
           const Spacer(),
@@ -649,9 +651,9 @@ class _CategoriesPanel extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: _kNavy.withValues(alpha: 0.25)),
                 ),
-                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.add_rounded, size: 14, color: _kNavy),
-                  SizedBox(width: 4),
+                  const SizedBox(width: 4),
                   Text('Catégorie', style: TextStyle(
                       color: _kNavy, fontSize: 12, fontWeight: FontWeight.w700)),
                 ]),
@@ -661,8 +663,8 @@ class _CategoriesPanel extends StatelessWidget {
         ]),
         const SizedBox(height: 12),
         if (categories.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text('Aucune catégorie. Créez-en une pour organiser les modules.',
                 style: TextStyle(color: _kMuted, fontSize: 12.5)),
           )
@@ -740,7 +742,7 @@ class _CategoryChipState extends State<_CategoryChip> {
                   fontWeight: FontWeight.w700)),
               Text('${c.moduleCount} module${c.moduleCount > 1 ? "s" : ""} · '
                   '${c.activeModuleCount} actif${c.activeModuleCount > 1 ? "s" : ""}',
-                  style: const TextStyle(color: _kMuted, fontSize: 10)),
+                  style: TextStyle(color: _kMuted, fontSize: 10)),
             ]),
             if (_hov || sel) ...[
               const SizedBox(width: 8),
@@ -840,11 +842,11 @@ class _FilterBar extends StatelessWidget {
                 onChanged: onSearchChange,
                 decoration: InputDecoration(
                   hintText: 'Rechercher par nom, slug, catégorie…',
-                  hintStyle: const TextStyle(color: _kMuted, fontSize: 13),
-                  prefixIcon: const Icon(Icons.search_rounded, color: _kMuted, size: 20),
+                  hintStyle: TextStyle(color: _kMuted, fontSize: 13),
+                  prefixIcon: Icon(Icons.search_rounded, color: _kMuted, size: 20),
                   suffixIcon: searchCtrl.text.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.close_rounded, size: 18, color: _kMuted),
+                          icon: Icon(Icons.close_rounded, size: 18, color: _kMuted),
                           onPressed: () { searchCtrl.clear(); onSearchChange(''); })
                       : null,
                   filled: true,
@@ -874,7 +876,7 @@ class _FilterBar extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: _kBorder),
                     ),
-                    child: const Icon(Icons.refresh_rounded, size: 20, color: _kMuted),
+                    child: Icon(Icons.refresh_rounded, size: 20, color: _kMuted),
                   ),
                 ),
               ),
@@ -1077,10 +1079,10 @@ class _ResultHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(children: [
     Text('$filtered module${filtered > 1 ? "s" : ""}',
-        style: const TextStyle(color: _kText, fontSize: 14, fontWeight: FontWeight.w700)),
+        style: TextStyle(color: _kText, fontSize: 14, fontWeight: FontWeight.w700)),
     if (filtered < total) ...[
       const SizedBox(width: 8),
-      Text('sur $total', style: const TextStyle(color: _kMuted, fontSize: 13)),
+      Text('sur $total', style: TextStyle(color: _kMuted, fontSize: 13)),
     ],
   ]);
 }
@@ -1107,7 +1109,7 @@ class _TableView extends StatelessWidget {
     flex: flex,
     child: Align(
       alignment: center ? Alignment.center : Alignment.centerLeft,
-      child: Text(label, style: const TextStyle(
+      child: Text(label, style: TextStyle(
           color: _kMuted, fontSize: 11,
           fontWeight: FontWeight.w700, letterSpacing: 0.4),
           overflow: TextOverflow.ellipsis),
@@ -1139,18 +1141,18 @@ class _TableView extends StatelessWidget {
               _hdr('Catégorie',     3),
               _hdr('Slug',          3),
               _hdr('Plans',         2, center: true),
-              const SizedBox(width: _statusW,
+              SizedBox(width: _statusW,
                 child: Text('Statut', style: TextStyle(
                     color: _kMuted, fontSize: 11,
                     fontWeight: FontWeight.w700, letterSpacing: 0.4))),
               _hdr('Ordre',         2, center: true),
-              const SizedBox(width: _actionsW,
+              SizedBox(width: _actionsW,
                 child: Center(child: Text('Actions', style: TextStyle(
                     color: _kMuted, fontSize: 11,
                     fontWeight: FontWeight.w700, letterSpacing: 0.4)))),
             ]),
           ),
-          const Divider(height: 1, color: _kBorder),
+          Divider(height: 1, color: _kBorder),
           ...modules.asMap().entries.map((e) => _TableRow(
             module:   e.value,
             isOdd:    e.key.isOdd,
@@ -1230,11 +1232,11 @@ class _TableRowState extends State<_TableRow> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(m.name,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kText),
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kText),
                       overflow: TextOverflow.ellipsis),
                   if ((m.description ?? '').trim().isNotEmpty)
                     Text(m.description!.trim(),
-                        style: const TextStyle(fontSize: 10.5, color: _kMuted),
+                        style: TextStyle(fontSize: 10.5, color: _kMuted),
                         maxLines: 1, overflow: TextOverflow.ellipsis),
                 ],
               ),
@@ -1243,7 +1245,7 @@ class _TableRowState extends State<_TableRow> {
           Expanded(flex: 3, child: _CategoryBadge(
               name: m.categoryName, color: _kGold)),
           Expanded(flex: 3, child: Text(m.slug,
-              style: const TextStyle(fontSize: 11.5, color: _kNavy,
+              style: TextStyle(fontSize: 11.5, color: _kNavy,
                   fontFamily: 'monospace'),
               overflow: TextOverflow.ellipsis)),
           Expanded(flex: 2, child: Center(child: Container(
@@ -1293,7 +1295,7 @@ class _TableRowState extends State<_TableRow> {
             ),
           ),
           Expanded(flex: 2, child: Center(child: Text('#${m.displayOrder}',
-              style: const TextStyle(fontSize: 11.5, color: _kMuted,
+              style: TextStyle(fontSize: 11.5, color: _kMuted,
                   fontWeight: FontWeight.w600)))),
           SizedBox(
             width: widget.actionsW,
@@ -1436,10 +1438,10 @@ class _ModuleCardState extends State<_ModuleCard> {
             Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(m.name, style: const TextStyle(
+                Text(m.name, style: TextStyle(
                     color: _kText, fontSize: 13.5, fontWeight: FontWeight.w800),
                     overflow: TextOverflow.ellipsis),
-                Text(m.slug, style: const TextStyle(
+                Text(m.slug, style: TextStyle(
                     color: _kMuted, fontSize: 11, fontFamily: 'monospace'),
                     overflow: TextOverflow.ellipsis),
               ],
@@ -1474,9 +1476,9 @@ class _ModuleCardState extends State<_ModuleCard> {
           ]),
           const SizedBox(height: 10),
           Row(children: [
-            const Icon(Icons.tag_rounded, size: 12, color: _kMuted),
+            Icon(Icons.tag_rounded, size: 12, color: _kMuted),
             const SizedBox(width: 4),
-            Text('Ordre #${m.displayOrder}', style: const TextStyle(
+            Text('Ordre #${m.displayOrder}', style: TextStyle(
                 color: _kMuted, fontSize: 11.5, fontWeight: FontWeight.w500)),
           ]),
           const Spacer(),
@@ -1593,12 +1595,12 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(vertical: 64),
     alignment: Alignment.center,
-    child: const Column(mainAxisSize: MainAxisSize.min, children: [
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
       Icon(Icons.extension_off_rounded, size: 56, color: _kBorder),
-      SizedBox(height: 16),
+      const SizedBox(height: 16),
       Text('Aucun module trouvé', style: TextStyle(
           color: _kText, fontSize: 16, fontWeight: FontWeight.w700)),
-      SizedBox(height: 6),
+      const SizedBox(height: 6),
       Text('Modifiez vos filtres ou créez un nouveau module.',
           style: TextStyle(color: _kMuted, fontSize: 13)),
     ]),
@@ -1785,10 +1787,10 @@ class _ModuleFormModalState extends ConsumerState<_ModuleFormModal> {
                       child: DropdownButton<String>(
                         value: _categoryId,
                         isExpanded: true,
-                        hint: const Text('Sélectionner une catégorie *',
+                        hint: Text('Sélectionner une catégorie *',
                             style: TextStyle(color: _kMuted, fontSize: 13)),
-                        icon: const Icon(Icons.expand_more_rounded, size: 18, color: _kMuted),
-                        style: const TextStyle(color: _kText, fontSize: 13),
+                        icon: Icon(Icons.expand_more_rounded, size: 18, color: _kMuted),
+                        style: TextStyle(color: _kText, fontSize: 13),
                         items: cats.map((c) => DropdownMenuItem(
                           value: c.id,
                           child: Row(children: [
@@ -1817,16 +1819,16 @@ class _ModuleFormModalState extends ConsumerState<_ModuleFormModal> {
                     style: const TextStyle(fontSize: 13),
                     decoration: InputDecoration(
                       hintText: 'Décrivez la fonction de ce module…',
-                      hintStyle: const TextStyle(color: _kMuted, fontSize: 12.5),
+                      hintStyle: TextStyle(color: _kMuted, fontSize: 12.5),
                       filled: true, fillColor: _kSurface,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: _kBorder)),
+                          borderSide: BorderSide(color: _kBorder)),
                       enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: _kBorder)),
+                          borderSide: BorderSide(color: _kBorder)),
                       focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: _kNavy, width: 1.5)),
+                          borderSide: BorderSide(color: _kNavy, width: 1.5)),
                       contentPadding: const EdgeInsets.all(12),
                     ),
                   ),
@@ -2019,7 +2021,7 @@ class _EmojiPickerRow extends StatelessWidget {
         child: Text(selected, style: const TextStyle(fontSize: 36)),
       )),
       const SizedBox(height: 12),
-      const Text('Icône', style: TextStyle(
+      Text('Icône', style: TextStyle(
           fontSize: 11, fontWeight: FontWeight.w700,
           color: _kMuted, letterSpacing: 0.5)),
       const SizedBox(height: 8),
@@ -2068,16 +2070,16 @@ class _FormHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.fromLTRB(22, 16, 16, 16),
-    decoration: const BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    decoration: BoxDecoration(
+      color: kCardBg,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       border: Border(bottom: BorderSide(color: _kBorder)),
     ),
     child: Row(children: [
       Container(
         width: 38, height: 38,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFF1A2F5A), _kNavy]),
+          gradient: LinearGradient(colors: [const Color(0xFF1A2F5A), _kNavy]),
           borderRadius: BorderRadius.circular(10),
           boxShadow: [BoxShadow(color: _kNavy.withValues(alpha: 0.25),
               blurRadius: 8, offset: const Offset(0, 3))],
@@ -2086,9 +2088,9 @@ class _FormHeader extends StatelessWidget {
       ),
       const SizedBox(width: 12),
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(
+        Text(title, style: TextStyle(
             color: _kText, fontSize: 15, fontWeight: FontWeight.w800)),
-        Text(subtitle, style: const TextStyle(color: _kMuted, fontSize: 11)),
+        Text(subtitle, style: TextStyle(color: _kMuted, fontSize: 11)),
       ]),
       const Spacer(),
       Builder(builder: (context) => InkWell(
@@ -2102,7 +2104,7 @@ class _FormHeader extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: _kBorder),
           ),
-          child: const Icon(Icons.close_rounded, size: 15, color: _kMuted),
+          child: Icon(Icons.close_rounded, size: 15, color: _kMuted),
         ),
       )),
     ]),
@@ -2118,10 +2120,10 @@ class _FormFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.fromLTRB(22, 12, 22, 16),
-    decoration: const BoxDecoration(
+    decoration: BoxDecoration(
       color: _kSurface,
       border: Border(top: BorderSide(color: _kBorder)),
-      borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
     ),
     child: Row(children: [
       MouseRegion(
@@ -2135,7 +2137,7 @@ class _FormFooter extends StatelessWidget {
               border: Border.all(color: _kBorder),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Text('Annuler', style: TextStyle(
+            child: Text('Annuler', style: TextStyle(
                 color: _kMuted, fontSize: 13, fontWeight: FontWeight.w600)),
           ),
         ),
@@ -2193,12 +2195,12 @@ class _ActiveToggleTile extends StatelessWidget {
           size: 18, color: value ? _kGreen : _kMuted),
       const SizedBox(width: 10),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(value ? 'Module actif' : 'Module inactif', style: const TextStyle(
+        Text(value ? 'Module actif' : 'Module inactif', style: TextStyle(
             color: _kText, fontSize: 13, fontWeight: FontWeight.w700)),
         Text(value
             ? 'Visible et assignable aux plans d\'abonnement'
             : 'Masqué de la navigation et des plans',
-            style: const TextStyle(color: _kMuted, fontSize: 11)),
+            style: TextStyle(color: _kMuted, fontSize: 11)),
       ])),
       Switch(
         value: value,
@@ -2261,9 +2263,9 @@ class _ModuleDetailModalState extends State<_ModuleDetailModal>
         child: Column(children: [
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 14, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            decoration: BoxDecoration(
+              color: kCardBg,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               border: Border(bottom: BorderSide(color: _kBorder)),
             ),
             child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
@@ -2272,7 +2274,7 @@ class _ModuleDetailModalState extends State<_ModuleDetailModal>
               Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(m.name, style: const TextStyle(
+                  Text(m.name, style: TextStyle(
                       color: _kText, fontSize: 17, fontWeight: FontWeight.w800),
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 5),
@@ -2293,10 +2295,10 @@ class _ModuleDetailModalState extends State<_ModuleDetailModal>
                   ]),
                   const SizedBox(height: 5),
                   Row(children: [
-                    const Icon(Icons.link_rounded, size: 12, color: _kMuted),
+                    Icon(Icons.link_rounded, size: 12, color: _kMuted),
                     const SizedBox(width: 4),
                     Flexible(child: Text(m.slug,
-                        style: const TextStyle(color: _kMuted, fontSize: 11.5,
+                        style: TextStyle(color: _kMuted, fontSize: 11.5,
                             fontFamily: 'monospace'),
                         overflow: TextOverflow.ellipsis)),
                   ]),
@@ -2342,7 +2344,7 @@ class _ModuleDetailModalState extends State<_ModuleDetailModal>
           ),
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(top: BorderSide(color: _kBorder)),
             ),
             child: Row(children: [
@@ -2423,7 +2425,7 @@ class _ModInfoTab extends StatelessWidget {
               border: Border.all(color: _kBorder),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(m.description!.trim(), style: const TextStyle(
+            child: Text(m.description!.trim(), style: TextStyle(
                 color: _kText, fontSize: 13, height: 1.5)),
           ),
           const SizedBox(height: 14),
@@ -2487,9 +2489,9 @@ class _ModAccessTab extends StatelessWidget {
             const SizedBox(width: 16),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-              Text(m.categoryName, style: const TextStyle(
+              Text(m.categoryName, style: TextStyle(
                   color: _kGold, fontSize: 16, fontWeight: FontWeight.w800)),
-              const Text('Catégorie de navigation',
+              Text('Catégorie de navigation',
                   style: TextStyle(color: _kMuted, fontSize: 12.5,
                       fontWeight: FontWeight.w600)),
             ])),
@@ -2607,12 +2609,12 @@ class _DRow extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
     decoration: BoxDecoration(
-      border: last ? null : const Border(bottom: BorderSide(color: _kBorder)),
+      border: last ? null : Border(bottom: BorderSide(color: _kBorder)),
     ),
     child: Row(children: [
       Icon(icon, size: 15, color: _kNavy),
       const SizedBox(width: 10),
-      Text(label, style: const TextStyle(
+      Text(label, style: TextStyle(
           color: _kMuted, fontSize: 12, fontWeight: FontWeight.w600)),
       const Spacer(),
       Flexible(child: Text(value, style: TextStyle(
@@ -2640,8 +2642,8 @@ class _DRow extends StatelessWidget {
                 }
               },
               borderRadius: BorderRadius.circular(6),
-              child: const Padding(
-                padding: EdgeInsets.all(2),
+              child: Padding(
+                padding: const EdgeInsets.all(2),
                 child: Icon(Icons.copy_rounded, size: 13, color: _kNavy),
               ),
             ),
@@ -2680,7 +2682,7 @@ class _DSectionTitle extends StatelessWidget {
   const _DSectionTitle(this.text);
   final String text;
   @override
-  Widget build(BuildContext context) => Text(text, style: const TextStyle(
+  Widget build(BuildContext context) => Text(text, style: TextStyle(
       color: _kNavy, fontSize: 13, fontWeight: FontWeight.w800));
 }
 
@@ -2707,9 +2709,9 @@ class _TimelineItem extends StatelessWidget {
       ),
       const SizedBox(width: 14),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(
+        Text(title, style: TextStyle(
             color: _kText, fontSize: 13, fontWeight: FontWeight.w600)),
-        Text(_fmtDateTime(date), style: const TextStyle(color: _kMuted, fontSize: 11.5)),
+        Text(_fmtDateTime(date), style: TextStyle(color: _kMuted, fontSize: 11.5)),
       ])),
     ]),
   );
@@ -2799,9 +2801,9 @@ class _ModulePrintPreviewModalState extends State<_ModulePrintPreviewModal> {
         child: Column(children: [
           Container(
             padding: const EdgeInsets.fromLTRB(22, 14, 14, 14),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: _kNavy,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
             ),
             child: Row(children: [
               Container(
@@ -2851,9 +2853,9 @@ class _ModulePrintPreviewModalState extends State<_ModulePrintPreviewModal> {
           ),
           Container(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
+            decoration: BoxDecoration(
+              color: kCardBg,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(18)),
               border: Border(top: BorderSide(color: _kBorder)),
             ),
             child: Row(children: [
@@ -2868,9 +2870,9 @@ class _ModulePrintPreviewModalState extends State<_ModulePrintPreviewModal> {
                       border: Border.all(color: _kBorder),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.close_rounded, size: 13, color: _kMuted),
-                      SizedBox(width: 5),
+                      const SizedBox(width: 5),
                       Text('Fermer', style: TextStyle(
                           color: _kMuted, fontSize: 12.5, fontWeight: FontWeight.w600)),
                     ]),
@@ -2893,13 +2895,13 @@ class _ModulePrintPreviewModalState extends State<_ModulePrintPreviewModal> {
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       if (_printing)
-                        const SizedBox(width: 13, height: 13,
+                        SizedBox(width: 13, height: 13,
                             child: CircularProgressIndicator(strokeWidth: 2, color: _kNavy))
                       else
-                        const Icon(Icons.print_rounded, size: 14, color: _kNavy),
+                        Icon(Icons.print_rounded, size: 14, color: _kNavy),
                       const SizedBox(width: 6),
                       Text(_printing ? 'Impression…' : 'Imprimer',
-                          style: const TextStyle(color: _kNavy, fontSize: 12.5,
+                          style: TextStyle(color: _kNavy, fontSize: 12.5,
                               fontWeight: FontWeight.w700)),
                     ]),
                   ),
@@ -3004,7 +3006,7 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(widget.title, style: const TextStyle(
                       color: _kRed, fontSize: 16, fontWeight: FontWeight.w800)),
-                  const Text('Cette action est irréversible',
+                  Text('Cette action est irréversible',
                       style: TextStyle(color: _kMuted, fontSize: 11.5)),
                 ]),
               ]),
@@ -3029,10 +3031,10 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(widget.name, style: const TextStyle(
+                    Text(widget.name, style: TextStyle(
                         fontWeight: FontWeight.w700, fontSize: 14, color: _kText),
                         overflow: TextOverflow.ellipsis),
-                    Text(widget.subtitle, style: const TextStyle(
+                    Text(widget.subtitle, style: TextStyle(
                         fontSize: 12, color: _kMuted)),
                   ])),
                 ]),
@@ -3069,7 +3071,7 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
                     ),
                     const SizedBox(width: 10),
                     Expanded(child: Text(widget.confirmLabel,
-                        style: const TextStyle(fontSize: 12.5, color: _kText))),
+                        style: TextStyle(fontSize: 12.5, color: _kText))),
                   ]),
                 ),
               ),
@@ -3086,7 +3088,7 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
                         border: Border.all(color: _kBorder),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text('Annuler', style: TextStyle(
+                      child: Text('Annuler', style: TextStyle(
                           color: _kMuted, fontSize: 13, fontWeight: FontWeight.w600)),
                     ),
                   ),
@@ -3134,7 +3136,7 @@ class _SectionTitle extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Text(text,
-      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
           color: _kMuted, letterSpacing: 0.5));
 }
 
@@ -3173,13 +3175,13 @@ class _FormField extends StatelessWidget {
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: _kBorder),
+        borderSide: BorderSide(color: _kBorder),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
         borderSide: readOnly
-            ? const BorderSide(color: _kBorder)
-            : const BorderSide(color: _kNavy, width: 1.5),
+            ? BorderSide(color: _kBorder)
+            : BorderSide(color: _kNavy, width: 1.5),
       ),
       contentPadding: const EdgeInsets.all(12),
     ),

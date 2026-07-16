@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,15 +9,15 @@ import '../../../features/auth/providers/auth_provider.dart';
 import '../providers/platform_settings_provider.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const _kNavy   = Color(0xFF1E3A5F);
-const _kGreen  = Color(0xFF009A44);
-const _kGold   = Color(0xFFFBBC04);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
+Color get _kGold => kAccent;
 const _kOrange = Color(0xFFFF6B35);
 const _kRed    = Color(0xFFEF4444);
-const _kCard   = Colors.white;
-const _kText   = Color(0xFF0F172A);
-const _kSub    = Color(0xFF64748B);
-const _kBorder = Color(0xFFE2E8F0);
+Color get _kCard => kCardBg;
+Color get _kText => kTextPrimary;
+Color get _kSub => kTextMuted;
+Color get _kBorder => kBorder;
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -327,7 +329,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       child: Column(
         children: [
           Container(
-            color: Colors.white,
+            color: kCardBg,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Row(
               children: [
@@ -440,12 +442,12 @@ class _Section extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kNavy)),
+                Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kNavy)),
                 ?trailing,
               ],
             ),
           ),
-          const Divider(height: 16, thickness: 1, indent: 16, endIndent: 16, color: _kBorder),
+          Divider(height: 16, thickness: 1, indent: 16, endIndent: 16, color: _kBorder),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Column(children: children),
@@ -466,7 +468,7 @@ class _FieldRow extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kText)),
+        Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kText)),
         const SizedBox(height: 4),
         TextField(
           controller: ctrl,
@@ -485,15 +487,15 @@ class _FieldRow extends StatelessWidget {
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: _kBorder),
+              borderSide: BorderSide(color: _kBorder),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: _kBorder),
+              borderSide: BorderSide(color: _kBorder),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: _kNavy, width: 1.5),
+              borderSide: BorderSide(color: _kNavy, width: 1.5),
             ),
           ),
         ),
@@ -503,7 +505,7 @@ class _FieldRow extends StatelessWidget {
 }
 
 class _SwitchRow extends StatelessWidget {
-  const _SwitchRow({required this.label, required this.sub, required this.value, required this.onChanged, this.color = _kNavy});
+  _SwitchRow({required this.label, required this.sub, required this.value, required this.onChanged, Color? color}) : color = color ?? _kNavy;
   final String label; final String sub; final bool value;
   final ValueChanged<bool> onChanged; final Color color;
   @override
@@ -514,8 +516,8 @@ class _SwitchRow extends StatelessWidget {
         Expanded(child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: _kText)),
-            Text(sub, style: const TextStyle(fontSize: 11, color: _kSub)),
+            Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: _kText)),
+            Text(sub, style: TextStyle(fontSize: 11, color: _kSub)),
           ],
         )),
         Switch(
@@ -538,7 +540,7 @@ class _SelectRow extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kText)),
+        Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kText)),
         const SizedBox(height: 4),
         DropdownButtonFormField<String>(
           initialValue: value,
@@ -548,9 +550,9 @@ class _SelectRow extends StatelessWidget {
           decoration: InputDecoration(
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _kBorder)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _kBorder)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _kNavy, width: 1.5)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _kBorder)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _kBorder)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _kNavy, width: 1.5)),
           ),
         ),
       ],
@@ -780,7 +782,7 @@ class _TabNotificationsState extends State<_TabNotifications> {
                 onChanged: (v) => setState(() => s._notifSmsEnabled = v),
               ),
               if (s._notifEmailEnabled) ...[
-                const Divider(height: 16, color: _kBorder),
+                Divider(height: 16, color: _kBorder),
                 _FieldRow(label: 'Email destinataire admin', ctrl: s._notifEmailCtrl, hint: 'admin@...'),
               ],
             ],
@@ -947,7 +949,7 @@ class _TabSecuriteState extends State<_TabSecurite> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(children: [
-              const Icon(Icons.info_outline_rounded, color: _kNavy, size: 16),
+              Icon(Icons.info_outline_rounded, color: _kNavy, size: 16),
               const SizedBox(width: 8),
               Expanded(child: Text(
                 'Supabase gère l\'infrastructure d\'authentification. Ces paramètres '
@@ -1009,8 +1011,8 @@ class _TabIntegrationsState extends State<_TabIntegrations> {
                 enabled: s._visaEnabled,
                 onToggle: (v) => setState(() => s._visaEnabled = v),
                 child: s._visaEnabled
-                    ? const Padding(
-                        padding: EdgeInsets.only(top: 4, bottom: 8),
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 4, bottom: 8),
                         child: Text('Configuration via Stripe ou Flutterwave — contacter le support.',
                             style: TextStyle(fontSize: 11, color: _kSub)),
                       )
@@ -1075,7 +1077,7 @@ class _TabIntegrationsState extends State<_TabIntegrations> {
                 _FieldRow(label: 'Clé API SMS Gateway', ctrl: s._smsApiKeyCtrl, hint: 'sk_live_…'),
             ],
           ),
-          const _Section(
+          _Section(
             title: 'Infrastructure Supabase',
             children: [
               _InfoRow(label: 'Project ID',  value: 'wqpdamlnrwgozfvzjjpo'),
@@ -1134,13 +1136,13 @@ class _WebhookItem extends StatelessWidget {
     padding: const EdgeInsets.only(bottom: 8),
     child: Row(
       children: [
-        const Icon(Icons.link_rounded, size: 14, color: _kSub),
+        Icon(Icons.link_rounded, size: 14, color: _kSub),
         const SizedBox(width: 6),
         Expanded(child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kText)),
-            Text(url, style: const TextStyle(fontSize: 10, color: _kSub, fontFamily: 'monospace'),
+            Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kText)),
+            Text(url, style: TextStyle(fontSize: 10, color: _kSub, fontFamily: 'monospace'),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
           ],
         )),
@@ -1158,7 +1160,7 @@ class _WebhookItem extends StatelessWidget {
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value, this.color = _kText});
+  _InfoRow({required this.label, required this.value, Color? color}) : color = color ?? _kText;
   final String label; final String value; final Color color;
   @override
   Widget build(BuildContext context) => Padding(
@@ -1167,7 +1169,7 @@ class _InfoRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(width: 120, child: Text(label,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kSub))),
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kSub))),
         Expanded(child: Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: color,
             fontFamily: label == 'URL API' || label == 'Project ID' ? 'monospace' : null))),
       ],

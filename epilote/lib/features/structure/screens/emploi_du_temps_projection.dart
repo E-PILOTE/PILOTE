@@ -293,7 +293,7 @@ class _ProjectionSummary extends StatelessWidget {
                 width: 150,
                 padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: kCardBg,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: c.withValues(alpha: 0.25)),
                 ),
@@ -337,7 +337,7 @@ class _SubjectVolumeTable extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: kBorder),
       ),

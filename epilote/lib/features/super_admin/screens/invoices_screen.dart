@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
@@ -17,17 +19,17 @@ String cleanInvoiceError(Object e) =>
     e is PostgrestException ? e.message : 'Erreur : $e';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const _kNavy    = Color(0xFF1E3A5F);
-const _kGreen   = Color(0xFF009A44);
-const _kGold    = Color(0xFFFBBC04);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
+Color get _kGold => kAccent;
 const _kOrange  = Color(0xFFFF6B35);
 const _kRed     = Color(0xFFEF4444);
 const _kPurple  = Color(0xFF7C3AED);
-const _kSurface = Color(0xFFF0F4F8);
+Color get _kSurface => kSurface;
 const _kBg      = Color(0xFFFFFFFF);
-const _kBorder  = Color(0xFFE2E8F0);
-const _kText    = Color(0xFF0F172A);
-const _kMuted   = Color(0xFF64748B);
+Color get _kBorder => kBorder;
+Color get _kText => kTextPrimary;
+Color get _kMuted => kTextMuted;
 
 // ─── Helpers statut ───────────────────────────────────────────────────────────
 Color _statusColor(String s) => switch (s) {
@@ -259,8 +261,8 @@ class _InvoicesBodyState extends ConsumerState<_InvoicesBody> {
           .eq('id', inv.id);
       ref.invalidate(invoicesProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Facture remise en attente'),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Facture remise en attente'),
           backgroundColor: _kNavy,
           behavior: SnackBarBehavior.floating,
         ));
@@ -286,9 +288,9 @@ class _InvoicesBodyState extends ConsumerState<_InvoicesBody> {
       loading: () => const _ShimmerSkeleton(),
       error: (e, _) => Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
+          Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
           const SizedBox(height: 12),
-          Text('Erreur : $e', style: const TextStyle(color: _kMuted)),
+          Text('Erreur : $e', style: TextStyle(color: _kMuted)),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => ref.invalidate(invoicesProvider),
@@ -503,7 +505,7 @@ class _KpiCardState extends State<_KpiCard> with SingleTickerProviderStateMixin 
                           fontWeight: FontWeight.w900, letterSpacing: -0.5,
                         ), overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 2),
-                        Text(d.label, style: const TextStyle(
+                        Text(d.label, style: TextStyle(
                           color: _kMuted, fontSize: 11.5, fontWeight: FontWeight.w600,
                         ), overflow: TextOverflow.ellipsis),
                         if (d.sub != null)
@@ -553,7 +555,7 @@ class _ShimmerSkeleton extends StatelessWidget {
   Widget _box(double w, double h, {double r = 10}) => Container(
     width: w, height: h,
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: kCardBg,
       borderRadius: BorderRadius.circular(r),
     ),
   );
@@ -636,11 +638,11 @@ class _FilterBar extends StatelessWidget {
               onChanged: onSearchChange,
               decoration: InputDecoration(
                 hintText: 'Rechercher par groupe, N° facture, plan…',
-                hintStyle: const TextStyle(color: _kMuted, fontSize: 13),
-                prefixIcon: const Icon(Icons.search_rounded, color: _kMuted, size: 20),
+                hintStyle: TextStyle(color: _kMuted, fontSize: 13),
+                prefixIcon: Icon(Icons.search_rounded, color: _kMuted, size: 20),
                 suffixIcon: searchCtrl.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 18, color: _kMuted),
+                        icon: Icon(Icons.close_rounded, size: 18, color: _kMuted),
                         onPressed: () { searchCtrl.clear(); onSearchChange(''); })
                     : null,
                 filled: true,
@@ -818,10 +820,10 @@ class _ResultHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(children: [
     Text('$filtered résultat${filtered > 1 ? "s" : ""}',
-        style: const TextStyle(color: _kText, fontSize: 14, fontWeight: FontWeight.w700)),
+        style: TextStyle(color: _kText, fontSize: 14, fontWeight: FontWeight.w700)),
     if (filtered < total) ...[
       const SizedBox(width: 8),
-      Text('sur $total', style: const TextStyle(color: _kMuted, fontSize: 13)),
+      Text('sur $total', style: TextStyle(color: _kMuted, fontSize: 13)),
     ],
   ]);
 }
@@ -835,7 +837,7 @@ class _TableView extends StatelessWidget {
 
   static Widget _hdr(String label, int flex) => Expanded(
     flex: flex,
-    child: Text(label, style: const TextStyle(
+    child: Text(label, style: TextStyle(
         color: _kMuted, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.4),
         overflow: TextOverflow.ellipsis),
   );
@@ -868,14 +870,14 @@ class _TableView extends StatelessWidget {
               _hdr('Période',      3),
               _hdr('Mode',         2),
               _hdr('Payée le',     2),
-              const SizedBox(width: 80, child: Center(
+              SizedBox(width: 80, child: Center(
                 child: Text('Statut', style: TextStyle(
                     color: _kMuted, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.4)),
               )),
               const SizedBox(width: 36),
             ]),
           ),
-          const Divider(height: 1, color: _kBorder),
+          Divider(height: 1, color: _kBorder),
           ...items.asMap().entries.map((e) => _TableRow(
             inv:   e.value,
             isOdd: e.key.isOdd,
@@ -923,13 +925,13 @@ class _TableRowState extends State<_TableRow> {
             // N° Facture
             Expanded(flex: 2, child: Text(
               inv.invoiceNumber,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kNavy),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kNavy),
               overflow: TextOverflow.ellipsis,
             )),
             // Groupe
             Expanded(flex: 3, child: Text(
               inv.groupName,
-              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: _kText),
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: _kText),
               overflow: TextOverflow.ellipsis,
             )),
             // Plan
@@ -941,13 +943,13 @@ class _TableRowState extends State<_TableRow> {
             // Montant
             Expanded(flex: 2, child: Text(
               '${_money(inv.amountXaf)} F',
-              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: _kText),
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: _kText),
               overflow: TextOverflow.ellipsis,
             )),
             // Période
             Expanded(flex: 3, child: Text(
               _fmtPeriod(inv.periodStart, inv.periodEnd),
-              style: const TextStyle(fontSize: 11, color: _kMuted),
+              style: TextStyle(fontSize: 11, color: _kMuted),
               overflow: TextOverflow.ellipsis,
             )),
             // Mode paiement
@@ -956,14 +958,14 @@ class _TableRowState extends State<_TableRow> {
               const SizedBox(width: 4),
               Flexible(child: Text(
                 _methodLabel(inv.paymentMethod),
-                style: const TextStyle(fontSize: 11, color: _kMuted),
+                style: TextStyle(fontSize: 11, color: _kMuted),
                 overflow: TextOverflow.ellipsis,
               )),
             ])),
             // Payée le
             Expanded(flex: 2, child: Text(
               _fmtDate(inv.paidAt),
-              style: const TextStyle(fontSize: 11, color: _kMuted),
+              style: TextStyle(fontSize: 11, color: _kMuted),
               overflow: TextOverflow.ellipsis,
             )),
             // Statut
@@ -1062,10 +1064,10 @@ class _InvoiceCardState extends State<_InvoiceCard> {
               ),
               const SizedBox(width: 10),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(inv.invoiceNumber, style: const TextStyle(
+                Text(inv.invoiceNumber, style: TextStyle(
                     fontSize: 12.5, fontWeight: FontWeight.w800, color: _kNavy),
                     overflow: TextOverflow.ellipsis),
-                Text(inv.groupName, style: const TextStyle(
+                Text(inv.groupName, style: TextStyle(
                     fontSize: 11.5, color: _kMuted),
                     overflow: TextOverflow.ellipsis),
               ])),
@@ -1076,25 +1078,25 @@ class _InvoiceCardState extends State<_InvoiceCard> {
               color: color, fontSize: 18, fontWeight: FontWeight.w900,
             )),
             const SizedBox(height: 4),
-            Text(inv.planName ?? 'Sans plan', style: const TextStyle(
+            Text(inv.planName ?? 'Sans plan', style: TextStyle(
                 color: _kMuted, fontSize: 11.5)),
             const Spacer(),
             Row(children: [
-              const Icon(Icons.calendar_today_rounded, size: 11, color: _kMuted),
+              Icon(Icons.calendar_today_rounded, size: 11, color: _kMuted),
               const SizedBox(width: 4),
               Expanded(child: Text(
                 _fmtPeriod(inv.periodStart, inv.periodEnd),
-                style: const TextStyle(fontSize: 10.5, color: _kMuted),
+                style: TextStyle(fontSize: 10.5, color: _kMuted),
                 overflow: TextOverflow.ellipsis,
               )),
             ]),
             if (inv.paidAt != null) ...[
               const SizedBox(height: 2),
               Row(children: [
-                const Icon(Icons.check_circle_outline_rounded, size: 11, color: _kGreen),
+                Icon(Icons.check_circle_outline_rounded, size: 11, color: _kGreen),
                 const SizedBox(width: 4),
                 Text('Payée le ${_fmtDate(inv.paidAt)}',
-                    style: const TextStyle(fontSize: 10.5, color: _kGreen)),
+                    style: TextStyle(fontSize: 10.5, color: _kGreen)),
               ]),
             ],
           ]),
@@ -1144,12 +1146,12 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(vertical: 64),
     alignment: Alignment.center,
-    child: const Column(mainAxisSize: MainAxisSize.min, children: [
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
       Icon(Icons.description_rounded, size: 56, color: _kBorder),
-      SizedBox(height: 16),
+      const SizedBox(height: 16),
       Text('Aucune facture trouvée', style: TextStyle(
           color: _kText, fontSize: 16, fontWeight: FontWeight.w700)),
-      SizedBox(height: 6),
+      const SizedBox(height: 6),
       Text('Modifiez vos filtres pour voir plus de résultats.',
           style: TextStyle(color: _kMuted, fontSize: 13)),
     ]),
@@ -1194,9 +1196,9 @@ class _InvoiceDetailModal extends StatelessWidget {
           // Header
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 14, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            decoration: BoxDecoration(
+              color: kCardBg,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               border: Border(bottom: BorderSide(color: _kBorder)),
             ),
             child: Row(children: [
@@ -1211,10 +1213,10 @@ class _InvoiceDetailModal extends StatelessWidget {
               ),
               const SizedBox(width: 14),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(inv.invoiceNumber, style: const TextStyle(
+                Text(inv.invoiceNumber, style: TextStyle(
                     color: _kText, fontSize: 16, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 3),
-                Text(inv.groupName, style: const TextStyle(
+                Text(inv.groupName, style: TextStyle(
                     color: _kMuted, fontSize: 13)),
               ])),
               _StatusBadge(status: inv.status),
@@ -1230,7 +1232,7 @@ class _InvoiceDetailModal extends StatelessWidget {
                       color: _kSurface, borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: _kBorder),
                     ),
-                    child: const Icon(Icons.close_rounded, size: 15, color: _kMuted),
+                    child: Icon(Icons.close_rounded, size: 15, color: _kMuted),
                   ),
                 ),
               ),
@@ -1259,11 +1261,11 @@ class _InvoiceDetailModal extends StatelessWidget {
                           fontWeight: FontWeight.w900, letterSpacing: -1)),
                       const SizedBox(height: 4),
                       Text(inv.planName ?? 'Sans plan',
-                          style: const TextStyle(color: _kMuted, fontSize: 13)),
+                          style: TextStyle(color: _kMuted, fontSize: 13)),
                     ])),
                     Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                      const Text('Émise le', style: TextStyle(color: _kMuted, fontSize: 11)),
-                      Text(_fmtDate(inv.createdAt), style: const TextStyle(
+                      Text('Émise le', style: TextStyle(color: _kMuted, fontSize: 11)),
+                      Text(_fmtDate(inv.createdAt), style: TextStyle(
                           color: _kText, fontSize: 13, fontWeight: FontWeight.w700)),
                     ]),
                   ]),
@@ -1285,7 +1287,7 @@ class _InvoiceDetailModal extends StatelessWidget {
                   _DetailSection('Notes', [
                     Padding(
                       padding: const EdgeInsets.fromLTRB(0, 4, 0, 0),
-                      child: Text(inv.notes!, style: const TextStyle(
+                      child: Text(inv.notes!, style: TextStyle(
                           color: _kMuted, fontSize: 13)),
                     ),
                   ]),
@@ -1297,7 +1299,7 @@ class _InvoiceDetailModal extends StatelessWidget {
           // Actions footer
           Container(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(top: BorderSide(color: _kBorder)),
             ),
             child: Row(children: [
@@ -1380,7 +1382,7 @@ class _DetailSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    Text(title.toUpperCase(), style: const TextStyle(
+    Text(title.toUpperCase(), style: TextStyle(
         color: _kMuted, fontSize: 10.5, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
     const SizedBox(height: 10),
     Container(
@@ -1406,8 +1408,8 @@ class _DetailRow extends StatelessWidget {
     child: Row(children: [
       Icon(icon, size: 14, color: _kMuted),
       const SizedBox(width: 10),
-      Expanded(child: Text(label, style: const TextStyle(color: _kMuted, fontSize: 12.5))),
-      Text(value, style: const TextStyle(
+      Expanded(child: Text(label, style: TextStyle(color: _kMuted, fontSize: 12.5))),
+      Text(value, style: TextStyle(
           color: _kText, fontSize: 12.5, fontWeight: FontWeight.w600)),
     ]),
   );
@@ -1499,12 +1501,12 @@ class _PaymentConfirmDialogState extends State<_PaymentConfirmDialog> {
             // Header
             Container(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [_kNavy, Color(0xFF2A4F7A)],
+                  colors: [_kNavy, const Color(0xFF2A4F7A)],
                   begin: Alignment.topLeft, end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               ),
               child: Row(children: [
                 const Icon(Icons.payment_rounded, color: Colors.white, size: 20),
@@ -1539,20 +1541,20 @@ class _PaymentConfirmDialogState extends State<_PaymentConfirmDialog> {
                       border: Border.all(color: _kGreen.withValues(alpha: 0.2)),
                     ),
                     child: Row(children: [
-                      const Icon(Icons.monetization_on_rounded, color: _kGreen, size: 20),
+                      Icon(Icons.monetization_on_rounded, color: _kGreen, size: 20),
                       const SizedBox(width: 10),
                       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const Text('Montant à encaisser',
+                        Text('Montant à encaisser',
                             style: TextStyle(fontSize: 11, color: _kMuted)),
                         Text('${_money(inv.amountXaf)} XAF',
-                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _kGreen)),
+                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _kGreen)),
                       ]),
                     ]),
                   ),
                   const SizedBox(height: 16),
 
                   // Méthode de paiement
-                  const Text('Mode de paiement',
+                  Text('Mode de paiement',
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kText)),
                   const SizedBox(height: 8),
                   Wrap(
@@ -1588,7 +1590,7 @@ class _PaymentConfirmDialogState extends State<_PaymentConfirmDialog> {
                   const SizedBox(height: 14),
 
                   // Référence
-                  const Text('Référence de paiement (optionnel)',
+                  Text('Référence de paiement (optionnel)',
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kText)),
                   const SizedBox(height: 6),
                   TextField(
@@ -1596,19 +1598,19 @@ class _PaymentConfirmDialogState extends State<_PaymentConfirmDialog> {
                     style: const TextStyle(fontSize: 13),
                     decoration: InputDecoration(
                       hintText: 'Ex: TXN-0045678, reçu papier n°…',
-                      hintStyle: const TextStyle(fontSize: 12, color: _kMuted),
+                      hintStyle: TextStyle(fontSize: 12, color: _kMuted),
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border:        OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _kBorder)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _kBorder)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _kNavy)),
+                      border:        OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _kBorder)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _kBorder)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _kNavy)),
                       filled: true, fillColor: const Color(0xFFF8FAFC),
                     ),
                   ),
                   const SizedBox(height: 12),
 
                   // Notes
-                  const Text('Notes internes (optionnel)',
+                  Text('Notes internes (optionnel)',
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kText)),
                   const SizedBox(height: 6),
                   TextField(
@@ -1617,12 +1619,12 @@ class _PaymentConfirmDialogState extends State<_PaymentConfirmDialog> {
                     style: const TextStyle(fontSize: 13),
                     decoration: InputDecoration(
                       hintText: 'Observations…',
-                      hintStyle: const TextStyle(fontSize: 12, color: _kMuted),
+                      hintStyle: TextStyle(fontSize: 12, color: _kMuted),
                       isDense: true,
                       contentPadding: const EdgeInsets.all(12),
-                      border:        OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _kBorder)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _kBorder)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _kNavy)),
+                      border:        OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _kBorder)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _kBorder)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _kNavy)),
                       filled: true, fillColor: const Color(0xFFF8FAFC),
                     ),
                   ),
@@ -1655,7 +1657,7 @@ class _PaymentConfirmDialogState extends State<_PaymentConfirmDialog> {
                         onPressed: () => Navigator.pop(context),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: _kMuted,
-                          side: const BorderSide(color: _kBorder),
+                          side: BorderSide(color: _kBorder),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         ),

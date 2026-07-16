@@ -21,7 +21,7 @@ ERR_RE = re.compile(
     r"^\s*error • .* • (lib/[^ :]+\.dart):(\d+):(\d+) • non_constant_default_value$"
 )
 # `this.<nom> = <jeton>` — le jeton est l'un de nos 11 (tous préfixés `k`).
-PARAM_RE = re.compile(r"this\.(\w+)\s*=\s*(k[A-Z]\w*)")
+PARAM_RE = re.compile(r"this\.(\w+)\s*=\s*(_?k[A-Z]\w*)")
 
 
 def analyze_sites():

@@ -97,7 +97,7 @@ class _SchoolDetailModalState extends State<_SchoolDetailModal>
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 14, 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               border: Border(bottom: BorderSide(color: kBorder)),
             ),

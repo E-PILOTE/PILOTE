@@ -246,7 +246,7 @@ class _InlineCommentsState extends ConsumerState<InlineComments> {
                 hintStyle: TextStyle(color: kTextMuted, fontSize: 12.5),
                 isDense: true,
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: kCardBg,
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 border: OutlineInputBorder(
@@ -312,7 +312,7 @@ class _CommentTile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: kCardBg,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: kBorder),
               ),

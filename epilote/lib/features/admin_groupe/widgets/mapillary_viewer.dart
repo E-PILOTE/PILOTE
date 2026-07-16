@@ -190,7 +190,7 @@ class _Viewer extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: kCardBg,
             border: Border(top: BorderSide(color: kBorder)),
             borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
           ),

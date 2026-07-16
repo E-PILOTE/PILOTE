@@ -7,7 +7,7 @@ import '../logout_guard.dart';
 import 'package:go_router/go_router.dart';
 
 import '../admin_ui.dart'
-    show kNavy, kGreen, kBorder, kTextPrimary, kTextMuted;
+    show kNavy, kGreen, kBorder, kTextPrimary, kTextMuted, kCardBg;
 import '../year_selector.dart';
 import '../../theme/palette.dart';
 import '../../theme/theme_provider.dart';
@@ -55,7 +55,7 @@ class AppHeader extends ConsumerWidget {
     return Container(
       height: kShellHeaderHeight,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),

@@ -54,9 +54,9 @@ class _StudentPaymentsSheet extends ConsumerWidget {
       minChildSize: 0.5,
       maxChildSize: 0.95,
       builder: (ctx, scroll) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: kCardBg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(children: [
           const SizedBox(height: 10),
@@ -135,7 +135,7 @@ class _StudentPaymentsSheet extends ConsumerWidget {
                     return Container(
                       padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: kCardBg,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: kBorder),
                       ),

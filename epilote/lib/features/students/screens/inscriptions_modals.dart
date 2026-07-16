@@ -305,7 +305,7 @@ class _DetailActionBar extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-            color: Colors.white,
+            color: kCardBg,
             border: Border(top: BorderSide(color: kBorder))),
         child: Row(children: [
           Icon(Icons.lock_outline_rounded, size: 16, color: kTextMuted),
@@ -320,7 +320,7 @@ class _DetailActionBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           border: Border(top: BorderSide(color: kBorder))),
       child: Row(children: [
         if (isPending && onValidate != null) ...[
@@ -1001,7 +1001,7 @@ class _TutorEditorCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
             color: draft.isPrimary ? kNavy.withValues(alpha: 0.3) : kBorder),

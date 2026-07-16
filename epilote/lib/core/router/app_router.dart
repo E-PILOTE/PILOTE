@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -82,8 +84,8 @@ import '../../features/classes/screens/classes_screen.dart';
 import '../../features/classes/screens/classe_detail_screen.dart';
 
 // ─── Couleurs Design System ───────────────────────────────────────────────────
-const _kNavy = Color(0xFF1E3A5F);
-const _kSurface = Color(0xFFF0F4F8);
+Color get _kNavy => kNavy;
+Color get _kSurface => kSurface;
 
 /// Notifier qui écoute authNotifierProvider via Riverpod
 /// et déclenche le refresh du router à chaque changement d'état auth.
@@ -167,7 +169,7 @@ class _PlaceholderScreen extends ConsumerWidget {
               label: const Text('Se déconnecter → page Login'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: _kNavy,
-                side: const BorderSide(color: _kNavy),
+                side: BorderSide(color: _kNavy),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
                   vertical: 12,

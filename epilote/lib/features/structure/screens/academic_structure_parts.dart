@@ -228,7 +228,7 @@ class _DetailPanel extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: kBorder),
       ),
@@ -339,7 +339,7 @@ class _CycleFilieres extends ConsumerWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: kCardBg,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: kBorder),
                   ),
@@ -535,7 +535,7 @@ class _ClassTable extends StatelessWidget {
       // En-tête colonnes
       Container(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        color: Colors.white,
+        color: kCardBg,
         child: const Row(children: [
           Expanded(flex: 3, child: _Th('CLASSE')),
           Expanded(flex: 2, child: _Th('FILIÈRE')),
@@ -571,7 +571,7 @@ class _ClassRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: kCardBg,
       child: InkWell(
         onTap: onTap,
         child: Container(
@@ -675,7 +675,7 @@ class _ClassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: kCardBg,
       child: InkWell(
         onTap: onTap,
         child: Container(

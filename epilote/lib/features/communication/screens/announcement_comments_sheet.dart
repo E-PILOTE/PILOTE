@@ -192,7 +192,7 @@ class _StaffCommentsSheetState extends ConsumerState<StaffCommentsSheet> {
             // ── Zone de saisie ────────────────────────────────────────────────
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: kCardBg,
                 border: Border(top: BorderSide(color: kBorder)),
               ),
               padding: const EdgeInsets.fromLTRB(16, 10, 12, 12),

@@ -34,7 +34,7 @@ class InscriptionModalFrame extends StatelessWidget {
         constraints: BoxConstraints(maxHeight: maxHeight),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
@@ -69,7 +69,7 @@ class InscriptionHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 16, 14, 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         border: Border(bottom: BorderSide(color: kBorder)),
       ),
       child: Row(children: [
@@ -226,7 +226,7 @@ class InscriptionNavBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 14, 22, 18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         border: Border(top: BorderSide(color: kBorder)),
       ),
       child: Row(children: [
@@ -486,7 +486,7 @@ class ResumeCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: kBorder),
       ),

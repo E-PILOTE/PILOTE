@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/loading_widget.dart';
@@ -8,13 +10,13 @@ import '../../../features/structure/providers/academic_year_provider.dart';
 import '../providers/class_provider.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const _kNavy   = Color(0xFF1E3A5F);
-const _kGreen  = Color(0xFF009A44);
-const _kGold   = Color(0xFFFBBC04);
-const _kRed    = Color(0xFFDC2626);
-const _kCard   = Colors.white;
-const _kText   = Color(0xFF0F172A);
-const _kMuted  = Color(0xFF64748B);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
+Color get _kGold => kAccent;
+Color get _kRed => kRed;
+Color get _kCard => kCardBg;
+Color get _kText => kTextPrimary;
+Color get _kMuted => kTextMuted;
 
 class ClasseDetailScreen extends ConsumerWidget {
   const ClasseDetailScreen({super.key, required this.classId});
@@ -85,9 +87,9 @@ class _ClassContent extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(24, 12, 24, 4),
           child: Row(
             children: [
-              const Icon(Icons.people_rounded, size: 18, color: _kNavy),
+              Icon(Icons.people_rounded, size: 18, color: _kNavy),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Élèves inscrits',
                 style: TextStyle(
                   fontSize: 15,
@@ -106,7 +108,7 @@ class _ClassContent extends StatelessWidget {
                   ),
                   child: Text(
                     '${list.length}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: _kNavy,
                       fontWeight: FontWeight.w700,
                       fontSize: 13,
@@ -187,13 +189,13 @@ class _ClassInfoCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(classe.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
                           color: _kText,
                         )),
                     Text('Année $yearLabel',
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 13, color: _kMuted)),
                   ],
                 ),
@@ -280,7 +282,7 @@ class _InfoPair extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(
+            Text(label, style: TextStyle(
                 fontSize: 10, color: _kMuted)),
             Text(value, style: TextStyle(
                 fontSize: 13,
@@ -311,7 +313,7 @@ class _StudentTile extends StatelessWidget {
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 6),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      color: Colors.white,
+      color: kCardBg,
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
         leading: CircleAvatar(
@@ -327,18 +329,18 @@ class _StudentTile extends StatelessWidget {
         ),
         title: Text(
           enrollment.studentFullName,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 14, fontWeight: FontWeight.w600, color: _kText),
         ),
         subtitle: enrollment.studentMatricule != null
             ? Text(
                 'Matricule : ${enrollment.studentMatricule}',
-                style: const TextStyle(fontSize: 12, color: _kMuted),
+                style: TextStyle(fontSize: 12, color: _kMuted),
               )
             : null,
         trailing: Text(
           '$rank',
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 14, color: _kMuted, fontWeight: FontWeight.w500),
         ),
       ),
@@ -366,7 +368,7 @@ class _EmptyEnrollments extends StatelessWidget {
           Icon(Icons.people_outline_rounded,
               size: 56, color: Colors.grey.shade300),
           const SizedBox(height: 12),
-          const Text('Aucun élève inscrit',
+          Text('Aucun élève inscrit',
               style: TextStyle(
                   fontSize: 16, fontWeight: FontWeight.w600,
                   color: _kText)),

@@ -409,7 +409,7 @@ class _KpiCardState extends State<_KpiCard> with SingleTickerProviderStateMixin 
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: kBorder),
               boxShadow: [BoxShadow(
@@ -496,7 +496,7 @@ class _ShimmerSkeleton extends StatelessWidget {
 
   Widget _box(double w, double h, {double r = 10}) => Container(
     width: w, height: h,
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(r)),
+    decoration: BoxDecoration(color: kCardBg, borderRadius: BorderRadius.circular(r)),
   );
 
   @override
@@ -575,7 +575,7 @@ class _FilterBar extends StatelessWidget {
     child: Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: kBorder),
       ),
@@ -861,7 +861,7 @@ class _TableView extends StatelessWidget {
     }
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: kBorder),
         boxShadow: [BoxShadow(
@@ -1186,7 +1186,7 @@ class _UserCardState extends State<_UserCard> {
         duration: const Duration(milliseconds: 160),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: _hov ? kNavy.withValues(alpha: 0.3) : kBorder),
           boxShadow: [BoxShadow(
@@ -1362,7 +1362,7 @@ class _UserDetailModalState extends State<_UserDetailModal>
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 14, 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               border: Border(bottom: BorderSide(color: kBorder)),
             ),
@@ -2114,7 +2114,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
         constraints: const BoxConstraints(maxWidth: 560, maxHeight: 700),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: kCardBg,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [BoxShadow(
               color: Colors.black.withValues(alpha: 0.15),
@@ -2128,7 +2128,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
               Container(
                 padding: const EdgeInsets.fromLTRB(20, 16, 14, 16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: kCardBg,
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                   border: Border(bottom: BorderSide(color: kBorder)),
                 ),

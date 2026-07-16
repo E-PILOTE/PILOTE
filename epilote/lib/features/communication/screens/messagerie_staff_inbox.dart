@@ -296,7 +296,7 @@ class _MiniAction extends StatelessWidget {
     return Row(mainAxisSize: MainAxisSize.min, children: [
       // Étiquette
       Material(
-        color: Colors.white,
+        color: kCardBg,
         elevation: 2,
         borderRadius: BorderRadius.circular(8),
         child: Padding(

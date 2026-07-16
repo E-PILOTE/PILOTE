@@ -59,7 +59,7 @@ class _EdtHistoryView extends ConsumerWidget {
     final async = ref.watch(edtAuditProvider);
     final w = MediaQuery.of(context).size.width;
     return Material(
-      color: Colors.white,
+      color: kCardBg,
       child: SizedBox(
         width: w < 560 ? w : 500,
         height: double.infinity,
@@ -113,7 +113,7 @@ class _EdtHistoryView extends ConsumerWidget {
                     return Container(
                       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: kCardBg,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: kBorder),
                       ),

@@ -69,7 +69,7 @@ class _SearchField extends StatelessWidget {
         prefixIcon:
             Icon(Icons.search_rounded, size: 19, color: kTextMuted),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: kCardBg,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(color: kBorder),
@@ -186,7 +186,7 @@ class _AgentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final a = agent;
     return Material(
-      color: Colors.white,
+      color: kCardBg,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: () => onOpen(a),
@@ -260,7 +260,7 @@ class _PersonnelTable extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: kBorder),
       ),

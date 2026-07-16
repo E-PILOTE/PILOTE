@@ -69,7 +69,7 @@ class _EdtSettingsViewState extends State<EdtSettingsView> {
     ];
     final w = MediaQuery.of(context).size.width;
     return Material(
-      color: Colors.white,
+      color: kCardBg,
       child: SizedBox(
         width: w < 620 ? w : 560,
         height: double.infinity,

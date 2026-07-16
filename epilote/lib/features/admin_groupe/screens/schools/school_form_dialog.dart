@@ -255,7 +255,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
         width: 700,
         constraints: const BoxConstraints(maxHeight: 760),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [BoxShadow(
             color: Colors.black.withValues(alpha: 0.18),
@@ -267,7 +267,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
           Container(
             padding: const EdgeInsets.fromLTRB(22, 18, 16, 18),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
               border: Border(bottom: BorderSide(color: kBorder)),
             ),
@@ -444,7 +444,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
           Container(
             padding: const EdgeInsets.fromLTRB(22, 14, 22, 18),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               borderRadius: const BorderRadius.vertical(bottom: Radius.circular(18)),
               border: Border(top: BorderSide(color: kBorder)),
             ),

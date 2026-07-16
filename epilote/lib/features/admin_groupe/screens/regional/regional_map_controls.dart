@@ -52,7 +52,7 @@ class _MapControls extends StatelessWidget {
     return Material(
       elevation: 3,
       borderRadius: BorderRadius.circular(8),
-      color: Colors.white,
+      color: kCardBg,
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),

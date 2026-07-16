@@ -211,7 +211,7 @@ class AudioRecordingBanner extends StatelessWidget {
         margin: const EdgeInsets.only(right: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-            color: Colors.white, borderRadius: BorderRadius.circular(22)),
+            color: kCardBg, borderRadius: BorderRadius.circular(22)),
         child: Row(children: [
           const _PulsingDot(),
           const SizedBox(width: 10),

@@ -414,7 +414,7 @@ class _KpiCardState extends State<_KpiCard> with SingleTickerProviderStateMixin 
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: kBorder),
               boxShadow: [BoxShadow(
@@ -503,7 +503,7 @@ class _ShimmerSkeleton extends StatelessWidget {
 
   Widget _box(double w, double h, {double r = 10}) => Container(
     width: w, height: h,
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(r)),
+    decoration: BoxDecoration(color: kCardBg, borderRadius: BorderRadius.circular(r)),
   );
 
   @override
@@ -567,7 +567,7 @@ class _FilterBar extends StatelessWidget {
     child: Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: kBorder),
       ),
@@ -755,7 +755,7 @@ class _TableView extends StatelessWidget {
     }
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: kBorder),
         boxShadow: [BoxShadow(
@@ -1064,7 +1064,7 @@ class _ProfileCardState extends State<_ProfileCard> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: kCardBg,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: _hov ? _kPurple.withValues(alpha: 0.3) : kBorder),
             boxShadow: [BoxShadow(
@@ -1207,7 +1207,7 @@ class _DeleteProfileDialogState extends ConsumerState<_DeleteProfileDialog> {
       child: Container(
         width: 460,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [BoxShadow(
             color: Colors.black.withValues(alpha: 0.15),
@@ -1349,7 +1349,7 @@ class _ConfirmEmptyPermsDialog extends StatelessWidget {
       child: Container(
         width: 440,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [BoxShadow(
             color: Colors.black.withValues(alpha: 0.15),
@@ -1465,7 +1465,7 @@ class _ProfileDetailModalState extends ConsumerState<_ProfileDetailModal>
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 14, 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               border: Border(bottom: BorderSide(color: kBorder)),
             ),
@@ -2269,7 +2269,7 @@ class _ProfileWizardDialogState extends ConsumerState<ProfileWizardDialog> {
       child: Container(
         constraints: const BoxConstraints(maxWidth: 980, maxHeight: 860),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
@@ -2321,7 +2321,7 @@ class _ProfileWizardDialogState extends ConsumerState<ProfileWizardDialog> {
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 16, 14, 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
         border: Border(bottom: BorderSide(color: kBorder)),
       ),
@@ -2519,7 +2519,7 @@ class _ProfileWizardDialogState extends ConsumerState<ProfileWizardDialog> {
                           onPressed: () => setState(() => _search.clear()))
                       : null,
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: kCardBg,
                   contentPadding: EdgeInsets.zero,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -2780,7 +2780,7 @@ class _MatrixCategory extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: kBorder),
       ),

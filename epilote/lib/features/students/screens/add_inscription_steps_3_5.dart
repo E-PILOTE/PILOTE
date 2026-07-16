@@ -79,10 +79,10 @@ class _Step3ScolariteState extends ConsumerState<_Step3Scolarite> {
           const FormSectionTitle('Affectation'),
           yearsAsync.when(
             loading: () => const LinearProgressIndicator(),
-            error:   (e, _) => Text('Erreur : $e', style: const TextStyle(color: _kRed)),
+            error:   (e, _) => Text('Erreur : $e', style: TextStyle(color: _kRed)),
             data:    (years) {
               if (years.isEmpty) {
-                return const Text(
+                return Text(
                   'Aucune année scolaire active.',
                   style: TextStyle(color: _kMuted),
                 );
@@ -97,10 +97,10 @@ class _Step3ScolariteState extends ConsumerState<_Step3Scolarite> {
           ),
           classesAsync.when(
             loading: () => const LinearProgressIndicator(),
-            error:   (e, _) => Text('Erreur : $e', style: const TextStyle(color: _kRed)),
+            error:   (e, _) => Text('Erreur : $e', style: TextStyle(color: _kRed)),
             data:    (classes) {
               if (classes.isEmpty) {
-                return const Text(
+                return Text(
                   'Aucune classe disponible.',
                   style: TextStyle(color: _kMuted),
                 );
@@ -221,8 +221,8 @@ class _Step4DocumentsState extends ConsumerState<_Step4Documents> {
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const FormSectionTitle('Dossier de l\'élève'),
-        const Padding(
-          padding: EdgeInsets.only(bottom: 14),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 14),
           child: Text(
             'Téléversez les pièces (PDF ou image). Le dossier suit l\'élève : '
             'en réinscription, les pièces déjà présentes sont conservées.',
@@ -274,13 +274,13 @@ class _DocRow extends StatelessWidget {
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(label,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w600, color: _kText)),
             if (has)
               Text(entry!.fileName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: _kMuted)),
+                  style: TextStyle(fontSize: 11, color: _kMuted)),
           ]),
         ),
         const SizedBox(width: 8),
@@ -297,7 +297,7 @@ class _DocRow extends StatelessWidget {
                     foregroundColor: _kNavy, minimumSize: const Size(0, 32)),
                 child: const Text('Remplacer', style: TextStyle(fontSize: 12))),
             IconButton(
-              icon: const Icon(Icons.close_rounded, size: 18, color: _kRed),
+              icon: Icon(Icons.close_rounded, size: 18, color: _kRed),
               tooltip: 'Retirer',
               onPressed: onRemove,
             ),
@@ -309,7 +309,7 @@ class _DocRow extends StatelessWidget {
             label: const Text('Téléverser'),
             style: OutlinedButton.styleFrom(
               foregroundColor: _kNavy,
-              side: const BorderSide(color: _kNavy),
+              side: BorderSide(color: _kNavy),
               minimumSize: const Size(0, 36),
               shape:
                   RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -388,10 +388,10 @@ class _Step5Resume extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: _kGreen.withValues(alpha: 0.3)),
             ),
-            child: const Row(
+            child: Row(
               children: [
                 Icon(Icons.info_outline, color: _kGreen, size: 18),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'L\'inscription sera créée avec le statut "En attente de validation". '

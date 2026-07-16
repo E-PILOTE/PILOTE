@@ -316,7 +316,7 @@ class _TutorFormState extends State<_TutorForm> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                     color: _kNavy,
@@ -325,7 +325,7 @@ class _TutorFormState extends State<_TutorForm> {
                 const Spacer(),
                 if (widget.onRemove != null)
                   IconButton(
-                    icon: const Icon(Icons.delete_outline, color: _kRed, size: 18),
+                    icon: Icon(Icons.delete_outline, color: _kRed, size: 18),
                     onPressed: widget.onRemove,
                     tooltip: 'Supprimer',
                   ),

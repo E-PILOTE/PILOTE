@@ -465,7 +465,7 @@ class _PdfOverlay extends StatelessWidget {
               height: h,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: kCardBg,
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(

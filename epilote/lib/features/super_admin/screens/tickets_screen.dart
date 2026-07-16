@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -9,12 +11,12 @@ import '../../communication/widgets/ticket_thread_view.dart';
 import '../providers/tickets_provider.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const _kNavy   = Color(0xFF1E3A5F);
-const _kGreen  = Color(0xFF009A44);
-const _kCard   = Colors.white;
-const _kText   = Color(0xFF0F172A);
-const _kSub    = Color(0xFF64748B);
-const _kBg     = Color(0xFFF0F4F8);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
+Color get _kCard => kCardBg;
+Color get _kText => kTextPrimary;
+Color get _kSub => kTextMuted;
+Color get _kBg => kSurface;
 
 final _fmtDate  = DateFormat('dd/MM/yyyy HH:mm', 'fr_FR');
 final _fmtShort = DateFormat('dd MMM', 'fr_FR');
@@ -87,8 +89,8 @@ class _TopBar extends ConsumerWidget {
                 style: const TextStyle(fontSize: 13),
                 decoration: InputDecoration(
                   hintText: 'Rechercher un ticket…',
-                  hintStyle: const TextStyle(fontSize: 12, color: _kSub),
-                  prefixIcon: const Icon(Icons.search_rounded, size: 18, color: _kSub),
+                  hintStyle: TextStyle(fontSize: 12, color: _kSub),
+                  prefixIcon: Icon(Icons.search_rounded, size: 18, color: _kSub),
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
@@ -147,9 +149,9 @@ class _SortMenu extends ConsumerWidget {
           border: Border.all(color: const Color(0xFFE2E8F0)),
         ),
         child: Row(children: [
-          const Icon(Icons.swap_vert_rounded, size: 16, color: _kSub),
+          Icon(Icons.swap_vert_rounded, size: 16, color: _kSub),
           const SizedBox(width: 6),
-          Text(items[sort]!.$1, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kNavy)),
+          Text(items[sort]!.$1, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kNavy)),
         ]),
       ),
     );
@@ -273,7 +275,7 @@ class _KpiChip extends StatelessWidget {
       ),
       child: Column(children: [
         Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: color)),
-        Text(label, style: const TextStyle(fontSize: 9, color: _kSub, fontWeight: FontWeight.w500)),
+        Text(label, style: TextStyle(fontSize: 9, color: _kSub, fontWeight: FontWeight.w500)),
       ]),
     ),
   );
@@ -293,7 +295,7 @@ class _FilterBar extends ConsumerWidget {
       child: Column(
         children: [
           Row(children: [
-            const Text('Statut :', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _kSub)),
+            Text('Statut :', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _kSub)),
             const SizedBox(width: 6),
             _FilterChip(label: 'Tous',      value: 'all',         current: status,   onTap: () => ref.read(ticketsStatusFilter.notifier).state = 'all'),
             const SizedBox(width: 4),
@@ -305,7 +307,7 @@ class _FilterBar extends ConsumerWidget {
           ]),
           const SizedBox(height: 6),
           Row(children: [
-            const Text('Priorité :', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _kSub)),
+            Text('Priorité :', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _kSub)),
             const SizedBox(width: 6),
             _FilterChip(label: 'Toutes',  value: 'all',    current: priority, onTap: () => ref.read(ticketsPriorityFilter.notifier).state = 'all'),
             const SizedBox(width: 4),
@@ -370,7 +372,7 @@ class _TicketTile extends StatelessWidget {
                     _PriorityDot(priority: ticket.priority),
                     const SizedBox(width: 6),
                     Expanded(child: Text(ticket.groupName,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kText),
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kText),
                         maxLines: 1, overflow: TextOverflow.ellipsis)),
                   ]),
                 ),
@@ -379,16 +381,16 @@ class _TicketTile extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(ticket.subject,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kText),
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kText),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 2),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(child: Text(ticket.category,
-                    style: const TextStyle(fontSize: 10, color: _kSub),
+                    style: TextStyle(fontSize: 10, color: _kSub),
                     maxLines: 1, overflow: TextOverflow.ellipsis)),
-                Text(date, style: const TextStyle(fontSize: 10, color: _kSub)),
+                Text(date, style: TextStyle(fontSize: 10, color: _kSub)),
               ],
             ),
           ],
@@ -473,7 +475,7 @@ class _TicketDetailState extends ConsumerState<_TicketDetail> {
               children: [
                 Row(children: [
                   Expanded(child: Text(t.subject,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _kText))),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _kText))),
                   _StatusBadge(status: t.status),
                   const SizedBox(width: 8),
                   IconButton(
@@ -590,7 +592,7 @@ class _MetaBadge extends StatelessWidget {
     children: [
       Icon(icon, size: 12, color: _kSub),
       const SizedBox(width: 4),
-      Text(label, style: const TextStyle(fontSize: 11, color: _kSub)),
+      Text(label, style: TextStyle(fontSize: 11, color: _kSub)),
     ],
   );
 }
@@ -601,9 +603,9 @@ class _NoSelection extends StatelessWidget {
     child: Column(mainAxisSize: MainAxisSize.min, children: [
       Icon(Icons.confirmation_num_outlined, size: 56, color: Colors.grey.shade300),
       const SizedBox(height: 12),
-      const Text('Sélectionnez un ticket', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: _kSub)),
+      Text('Sélectionnez un ticket', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: _kSub)),
       const SizedBox(height: 4),
-      const Text('Cliquez sur un ticket dans la liste pour le traiter', style: TextStyle(fontSize: 12, color: _kSub)),
+      Text('Cliquez sur un ticket dans la liste pour le traiter', style: TextStyle(fontSize: 12, color: _kSub)),
     ]),
   );
 }
@@ -614,7 +616,7 @@ class _EmptyList extends StatelessWidget {
     child: Column(mainAxisSize: MainAxisSize.min, children: [
       Icon(Icons.check_circle_outline_rounded, size: 48, color: Colors.grey.shade300),
       const SizedBox(height: 10),
-      const Text('Aucun ticket', style: TextStyle(fontSize: 14, color: _kSub)),
+      Text('Aucun ticket', style: TextStyle(fontSize: 14, color: _kSub)),
     ]),
   );
 }
@@ -642,7 +644,7 @@ class _Err extends StatelessWidget {
   Widget build(BuildContext context) => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
     const Icon(Icons.error_outline_rounded, size: 48, color: Color(0xFFEF4444)),
     const SizedBox(height: 12),
-    Text(error, style: const TextStyle(fontSize: 12, color: _kSub), textAlign: TextAlign.center),
+    Text(error, style: TextStyle(fontSize: 12, color: _kSub), textAlign: TextAlign.center),
     const SizedBox(height: 16),
     ElevatedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh_rounded, size: 16), label: const Text('Réessayer')),
   ]));

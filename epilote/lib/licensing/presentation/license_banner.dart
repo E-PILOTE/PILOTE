@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/license_phase.dart';
@@ -14,7 +16,7 @@ const _kWarnIcon = Color(0xFFD97706);
 const _kStopBg = Color(0xFFFEF2F2);
 const _kStopBorder = Color(0xFFFECACA);
 const _kStopFg = Color(0xFF991B1B);
-const _kStopIcon = Color(0xFFDC2626);
+Color get _kStopIcon => kRed;
 
 /// Bandeau licence côté PERSONNEL (offline). Rend visible la phase dérivée de la
 /// licence (grâce / lecture seule). À la différence du bandeau admin_groupe, le
@@ -156,9 +158,9 @@ String? subscriptionCountdownLabel(
 bool ensureLicenseWritable(WidgetRef ref, BuildContext context) {
   final ent = ref.read(entitlementProvider).valueOrNull;
   if (ent != null && ent.isEnforced && !ent.canWriteAt(DateTime.now().toUtc())) {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       backgroundColor: _kStopIcon,
-      content: Text('Abonnement expiré — application en lecture seule. '
+      content: const Text('Abonnement expiré — application en lecture seule. '
           'Modification impossible pour le moment.'),
     ));
     return false;

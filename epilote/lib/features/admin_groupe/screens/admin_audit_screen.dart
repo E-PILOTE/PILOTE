@@ -2334,7 +2334,7 @@ class _ExportDialogState extends ConsumerState<_ExportDialog> {
         width: 520,
         constraints: const BoxConstraints(maxHeight: 680),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
@@ -2360,7 +2360,7 @@ class _ExportDialogState extends ConsumerState<_ExportDialog> {
         Container(
           padding: const EdgeInsets.fromLTRB(22, 18, 16, 18),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: kCardBg,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
             border: Border(bottom: BorderSide(color: kBorder)),
           ),
@@ -2593,7 +2593,7 @@ class _ExportDialogState extends ConsumerState<_ExportDialog> {
         Container(
           padding: const EdgeInsets.fromLTRB(22, 18, 16, 18),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: kCardBg,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
             border: Border(bottom: BorderSide(color: kBorder)),
           ),
@@ -2875,7 +2875,7 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
       child: Container(
         constraints: const BoxConstraints(maxWidth: 740),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
@@ -2892,7 +2892,7 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
             Container(
               padding: const EdgeInsets.fromLTRB(22, 18, 16, 18),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: kCardBg,
                 borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(18)),
                 border: Border(bottom: BorderSide(color: kBorder)),
@@ -2991,7 +2991,7 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: kCardBg,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(color: kBorder),
                           ),

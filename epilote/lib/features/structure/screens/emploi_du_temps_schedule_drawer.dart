@@ -17,7 +17,7 @@ class _SlotDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = _subjectColor(slot.subjectId);
     return Material(
-      color: Colors.white,
+      color: kCardBg,
       child: SizedBox(
         width: 380,
         height: double.infinity,

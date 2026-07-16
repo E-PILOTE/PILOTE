@@ -97,7 +97,7 @@ class VsHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: kBorder),
       ),
@@ -269,7 +269,7 @@ class _CoverageCard extends StatelessWidget {
             ? kGreen
             : (r.ok == 0 ? const Color(0xFFF59E0B) : const Color(0xFF0EA5E9)));
     return Material(
-      color: Colors.white,
+      color: kCardBg,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,

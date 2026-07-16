@@ -464,7 +464,7 @@ class _Pin extends StatelessWidget {
         child: Container(
           width: 12, height: 12,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: kCardBg,
             shape: BoxShape.circle,
             border: Border.all(color: color, width: 2),
           ),

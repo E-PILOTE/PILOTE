@@ -305,7 +305,7 @@ class _StaffMessagesScreenState extends ConsumerState<StaffMessagesScreen> {
             child: Container(
                 clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: kCardBg,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: kBorder),
                 ),

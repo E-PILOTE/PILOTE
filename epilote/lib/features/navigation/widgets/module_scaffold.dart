@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/app_shell.dart';
@@ -12,10 +14,10 @@ import '../providers/permissions_provider.dart';
 //  • runModuleWrite  : exécute une mutation locale en remontant les erreurs.
 // ════════════════════════════════════════════════════════════════════════════
 
-const _kNavy   = Color(0xFF1E3A5F);
-const _kGreen  = Color(0xFF009A44);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
 const _kRed    = Color(0xFFEF4444);
-const _kMuted  = Color(0xFF64748B);
+Color get _kMuted => kTextMuted;
 
 /// Enveloppe un écran de module : titre + AppShell + garde `can_read`.
 /// Tant que les permissions chargent → spinner ; non accordé → page « Accès
@@ -81,14 +83,14 @@ class _Denied extends StatelessWidget {
               const SizedBox(height: 16),
               Text(title,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 18, fontWeight: FontWeight.w700, color: _kNavy)),
               const SizedBox(height: 8),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: Text(message,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 13, color: _kMuted, height: 1.5)),
+                    style: TextStyle(fontSize: 13, color: _kMuted, height: 1.5)),
               ),
             ],
           ),

@@ -42,7 +42,7 @@ class FeedComposerCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: kBorder),
           boxShadow: [

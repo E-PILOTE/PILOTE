@@ -57,9 +57,21 @@ class EpilotePalette {
   final EpiloteThemeId id;
   final Brightness brightness;
 
-  /// Chrome (sidebar / en-tête) — du plus sombre au plus clair.
+  /// Chrome pur (sidebar, bandeaux) — jamais du texte.
   final Color navyDeep;
   final Color navyDark;
+
+  /// ⚠️ Jeton à DOUBLE rôle : couleur primaire de premier plan (432 usages en
+  /// texte/icône) ET fond de bandeau (282 usages). Les deux tirent en sens
+  /// opposés en thème sombre : le fond veut foncer, le texte veut éclaircir.
+  ///
+  /// Le premier plan l'emporte (il est majoritaire, et un texte invisible est
+  /// pire qu'un bandeau d'une teinte inattendue) → en palette sombre, `navy`
+  /// s'ÉCLAIRCIT. C'est aussi la convention Material (la primaire s'éclaircit
+  /// en sombre). Les fonds qui doivent rester sombres utilisent `navyDark` /
+  /// `navyDeep`, pas `navy`.
+  ///
+  /// Contrainte vérifiée par `palette_test.dart` : lisible sur `cardBg`.
   final Color navy;
 
   /// Accents sémantiques.
@@ -109,7 +121,7 @@ const EpilotePalette kPaletteSombre = EpilotePalette(
   brightness: Brightness.dark,
   navyDeep: Color(0xFF0A0F16),
   navyDark: Color(0xFF111823),
-  navy: Color(0xFF1B2634),
+  navy: Color(0xFF5B8FD4), // éclairci : `navy` est d'abord une couleur de TEXTE
   green: Color(0xFF22C55E),
   accent: Color(0xFFFBBF24),
   red: Color(0xFFF87171),
@@ -130,7 +142,8 @@ const EpilotePalette kPaletteMelack = EpilotePalette(
   brightness: Brightness.dark,
   navyDeep: Color(0xFF000000),
   navyDark: Color(0xFF04070B),
-  navy: Color(0xFF080D14),
+  navy: Color(0xFF3892CC), // éclairci + plus froid que Sombre ; borné pour que
+                           // le blanc des bandeaux reste lisible dessus
   green: Color(0xFF00E08A),
   accent: Color(0xFFFFB300),
   red: Color(0xFFFF3B30),

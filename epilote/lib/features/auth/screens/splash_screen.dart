@@ -1,14 +1,16 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 // ─── Palette — cohérente avec auth_colors.dart ────────────────────────────────
-const Color _kPrimaryDeep  = Color(0xFF091828);
-const Color _kPrimaryDark  = Color(0xFF0F2340);
-const Color _kPrimary      = Color(0xFF1E3A5F);
-const Color _kCongoGreen   = Color(0xFF009A44);
+Color get _kPrimaryDeep => kNavyDeep;
+Color get _kPrimaryDark => kNavyDark;
+Color get _kPrimary => kNavy;
+Color get _kCongoGreen => kGreen;
 const Color _kCongoYellow  = Color(0xFFFCDD09);
-const Color _kCongoRed     = Color(0xFFDC2626);
+Color get _kCongoRed => kRed;
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -196,12 +198,12 @@ class _SplashScreenState extends State<SplashScreen>
     return Stack(children: [
       // Gradient diagonal principal
       Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [_kPrimaryDeep, _kPrimaryDark, _kPrimary],
-            stops: [0.0, 0.5, 1.0],
+            stops: const [0.0, 0.5, 1.0],
           ),
         ),
       ),
@@ -415,7 +417,7 @@ class _SplashScreenState extends State<SplashScreen>
   // ── BADGE DRAPEAU ──────────────────────────────────────────────────────────
   // Drapeau Congo correct : Vert – Jaune – Rouge (gauche → droite)
   Widget _buildFlagBadge(double subSz) {
-    const flagColors = [_kCongoGreen, _kCongoYellow, _kCongoRed];
+    final flagColors = [_kCongoGreen, _kCongoYellow, _kCongoRed];
     final flagH = (subSz * 1.3).clamp(14.0, 20.0);
     final flagW = (flagH * 0.44).clamp(5.5, 9.0);
 
@@ -497,7 +499,7 @@ class _SplashScreenState extends State<SplashScreen>
                       height: 3,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(4),
-                        gradient: const LinearGradient(
+                        gradient: LinearGradient(
                           colors: [_kCongoGreen, _kCongoYellow, _kCongoRed],
                         ),
                         boxShadow: [

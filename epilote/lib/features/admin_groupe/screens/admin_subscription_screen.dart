@@ -39,7 +39,7 @@ class _SubscriptionSkeleton extends StatelessWidget {
         width: w,
         height: h,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(r),
         ),
       );
@@ -676,7 +676,7 @@ class _QuotaCardState extends State<_QuotaCard> with SingleTickerProviderStateMi
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: kBorder),
               boxShadow: [BoxShadow(

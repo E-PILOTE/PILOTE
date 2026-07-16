@@ -232,7 +232,7 @@ class _ControlBarState extends ConsumerState<_ControlBar> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: kBorder),
         boxShadow: [
@@ -712,7 +712,7 @@ class _KpiCardState extends State<_KpiCard>
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: kBorder),
               boxShadow: [
@@ -1559,7 +1559,7 @@ class _SchoolsTable extends StatelessWidget {
   Widget build(BuildContext context) {
     final table = Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: kBorder),
         boxShadow: [
@@ -2153,7 +2153,7 @@ class _ShimmerSkeleton extends StatelessWidget {
         width: w,
         height: h,
         decoration: BoxDecoration(
-            color: Colors.white, borderRadius: BorderRadius.circular(r)),
+            color: kCardBg, borderRadius: BorderRadius.circular(r)),
       );
 
   @override

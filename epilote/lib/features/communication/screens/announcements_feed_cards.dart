@@ -107,7 +107,7 @@ class _StaffAnnCardState extends ConsumerState<StaffAnnCard> {
     }
 
     return Material(
-      color: Colors.white,
+      color: kCardBg,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,

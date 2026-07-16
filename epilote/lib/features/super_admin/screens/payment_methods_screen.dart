@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -7,13 +9,13 @@ import '../../auth/providers/auth_provider.dart';
 import '../providers/payment_methods_provider.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const _kNavy   = Color(0xFF1E3A5F);
-const _kGreen  = Color(0xFF009A44);
-const _kGold   = Color(0xFFFBBC04);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
+Color get _kGold => kAccent;
 const _kOrange = Color(0xFFFF6B35);
-const _kCard   = Colors.white;
-const _kText   = Color(0xFF0F172A);
-const _kSub    = Color(0xFF64748B);
+Color get _kCard => kCardBg;
+Color get _kText => kTextPrimary;
+Color get _kSub => kTextMuted;
 
 final _fmtDate = DateFormat('dd/MM/yyyy', 'fr_FR');
 
@@ -134,8 +136,8 @@ class _KpiCard extends StatelessWidget {
         child: Icon(icon, color: color, size: 18)),
       const SizedBox(width: 10),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-        Text(label, style: const TextStyle(fontSize: 10, color: _kSub, fontWeight: FontWeight.w500)),
-        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _kText)),
+        Text(label, style: TextStyle(fontSize: 10, color: _kSub, fontWeight: FontWeight.w500)),
+        Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _kText)),
         Text(sub,   style: TextStyle(fontSize: 9, color: Colors.grey.shade400)),
       ])),
     ]),
@@ -151,10 +153,10 @@ class _ProviderOverview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final providers = [
-      const _ProvDef(key: 'mtn_money',    label: 'MTN Mobile Money', icon: Icons.phone_android_rounded,  color: _kGold,               desc: 'Paiement mobile Orange/MTN'),
+      _ProvDef(key: 'mtn_money',    label: 'MTN Mobile Money', icon: Icons.phone_android_rounded,  color: _kGold,               desc: 'Paiement mobile Orange/MTN'),
       const _ProvDef(key: 'airtel_money', label: 'Airtel Money',      icon: Icons.phone_android_rounded,  color: Color(0xFFEF4444), desc: 'Paiement mobile Airtel'),
       const _ProvDef(key: 'visa',         label: 'Visa / Mastercard',  icon: Icons.credit_card_rounded,    color: Color(0xFF1A1F71), desc: 'Carte bancaire internationale'),
-      const _ProvDef(key: 'especes',      label: 'Espèces',            icon: Icons.payments_rounded,       color: _kGreen,              desc: 'Dépôt / paiement en main propre'),
+      _ProvDef(key: 'especes',      label: 'Espèces',            icon: Icons.payments_rounded,       color: _kGreen,              desc: 'Dépôt / paiement en main propre'),
     ];
 
     return Padding(
@@ -209,7 +211,7 @@ class _ProviderTile extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(def.desc, style: const TextStyle(fontSize: 9, color: _kSub),
+            Text(def.desc, style: TextStyle(fontSize: 9, color: _kSub),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -245,12 +247,12 @@ class _FilterBar extends ConsumerWidget {
             style: const TextStyle(fontSize: 13),
             decoration: InputDecoration(
               hintText: 'Rechercher par groupe ou fournisseur…',
-              hintStyle: const TextStyle(fontSize: 12, color: _kSub),
-              prefixIcon: const Icon(Icons.search_rounded, size: 18, color: _kSub),
+              hintStyle: TextStyle(fontSize: 12, color: _kSub),
+              prefixIcon: Icon(Icons.search_rounded, size: 18, color: _kSub),
               isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-              filled: true, fillColor: Colors.white,
+              filled: true, fillColor: kCardBg,
             ),
           ),
         ),
@@ -274,7 +276,7 @@ class _FilterBar extends ConsumerWidget {
             isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-            filled: true, fillColor: Colors.white,
+            filled: true, fillColor: kCardBg,
           ),
         ),
       ),
@@ -427,7 +429,7 @@ class _ConfigCardState extends ConsumerState<_ConfigCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(provLabel, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: isActive ? _kText : _kSub)),
-                    Text(widget.config.groupName, style: const TextStyle(fontSize: 11, color: _kSub)),
+                    Text(widget.config.groupName, style: TextStyle(fontSize: 11, color: _kSub)),
                   ],
                 ),
               ),
@@ -436,7 +438,7 @@ class _ConfigCardState extends ConsumerState<_ConfigCard> {
                   margin: const EdgeInsets.only(right: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                   decoration: BoxDecoration(color: _kGold.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
-                  child: const Text('TEST', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: _kGold)),
+                  child: Text('TEST', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: _kGold)),
                 ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
@@ -454,20 +456,20 @@ class _ConfigCardState extends ConsumerState<_ConfigCard> {
           Row(
             children: [
               if (widget.config.merchantId.isNotEmpty) ...[
-                const Icon(Icons.store_rounded, size: 12, color: _kSub),
+                Icon(Icons.store_rounded, size: 12, color: _kSub),
                 const SizedBox(width: 4),
                 Text('ID: ${widget.config.merchantId}',
-                    style: const TextStyle(fontSize: 11, color: _kSub, fontFamily: 'monospace')),
+                    style: TextStyle(fontSize: 11, color: _kSub, fontFamily: 'monospace')),
                 const SizedBox(width: 12),
               ],
-              const Icon(Icons.calendar_today_rounded, size: 12, color: _kSub),
+              Icon(Icons.calendar_today_rounded, size: 12, color: _kSub),
               const SizedBox(width: 4),
-              Text('Configuré le $configDate', style: const TextStyle(fontSize: 11, color: _kSub)),
+              Text('Configuré le $configDate', style: TextStyle(fontSize: 11, color: _kSub)),
               if (widget.config.notes.isNotEmpty) ...[
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(widget.config.notes,
-                      style: const TextStyle(fontSize: 10, color: _kSub, fontStyle: FontStyle.italic),
+                      style: TextStyle(fontSize: 10, color: _kSub, fontStyle: FontStyle.italic),
                       maxLines: 1, overflow: TextOverflow.ellipsis),
                 ),
               ],
@@ -478,14 +480,14 @@ class _ConfigCardState extends ConsumerState<_ConfigCard> {
           const SizedBox(height: 10),
           Row(
             children: [
-              const Text('Actif', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _kText)),
+              Text('Actif', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _kText)),
               Switch(
                 value: isActive,
                 onChanged: _saving ? null : _toggleActive,
                 activeThumbColor: _kGreen,
               ),
               const SizedBox(width: 16),
-              const Text('Mode test', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _kText)),
+              Text('Mode test', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _kText)),
               Switch(
                 value: isTest,
                 onChanged: _saving ? null : _toggleTest,
@@ -500,7 +502,7 @@ class _ConfigCardState extends ConsumerState<_ConfigCard> {
                 icon: const Icon(Icons.edit_rounded, size: 14),
                 label: const Text('Modifier'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: _kNavy, side: const BorderSide(color: _kNavy),
+                  foregroundColor: _kNavy, side: BorderSide(color: _kNavy),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   textStyle: const TextStyle(fontSize: 12),
                 ),
@@ -613,22 +615,22 @@ class _PaymentConfigDialogState extends ConsumerState<_PaymentConfigDialog> {
 
   InputDecoration _dec(String label) => InputDecoration(
     labelText: label,
-    labelStyle: const TextStyle(fontSize: 12, color: _kSub),
+    labelStyle: TextStyle(fontSize: 12, color: _kSub),
     isDense: true,
     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     border:        OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
     enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _kNavy)),
+    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _kNavy)),
   );
 
   @override
   Widget build(BuildContext context) {
     final groupsAsync = ref.watch(paymentConfigGroupsProvider);
     return AlertDialog(
-      backgroundColor: Colors.white,
+      backgroundColor: kCardBg,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       title: Text(_isEdit ? 'Modifier le mode de paiement' : 'Nouveau mode de paiement',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _kText)),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _kText)),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 440),
         child: SizedBox(
@@ -643,7 +645,7 @@ class _PaymentConfigDialogState extends ConsumerState<_PaymentConfigDialog> {
                   if (_isEdit)
                     InputDecorator(
                       decoration: _dec('Groupe'),
-                      child: Text(widget.config!.groupName, style: const TextStyle(fontSize: 13, color: _kText)),
+                      child: Text(widget.config!.groupName, style: TextStyle(fontSize: 13, color: _kText)),
                     )
                   else
                     groupsAsync.when(
@@ -693,10 +695,10 @@ class _PaymentConfigDialogState extends ConsumerState<_PaymentConfigDialog> {
                   const SizedBox(height: 8),
                   Row(children: [
                     Switch(value: _isActive, activeThumbColor: _kGreen, onChanged: (v) => setState(() => _isActive = v)),
-                    const Text('Actif', style: TextStyle(fontSize: 13, color: _kText)),
+                    Text('Actif', style: TextStyle(fontSize: 13, color: _kText)),
                     const SizedBox(width: 12),
                     Switch(value: _isTest, activeThumbColor: _kGold, onChanged: (v) => setState(() => _isTest = v)),
-                    const Text('Mode test', style: TextStyle(fontSize: 13, color: _kText)),
+                    Text('Mode test', style: TextStyle(fontSize: 13, color: _kText)),
                   ]),
                 ],
               ),
@@ -707,7 +709,7 @@ class _PaymentConfigDialogState extends ConsumerState<_PaymentConfigDialog> {
       actions: [
         TextButton(
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          child: const Text('Annuler', style: TextStyle(color: _kSub)),
+          child: Text('Annuler', style: TextStyle(color: _kSub)),
         ),
         FilledButton(
           onPressed: _saving ? null : _save,
@@ -730,10 +732,10 @@ class _EmptyState extends StatelessWidget {
     child: Column(mainAxisSize: MainAxisSize.min, children: [
       Icon(Icons.payment_rounded, size: 56, color: Colors.grey.shade300),
       const SizedBox(height: 12),
-      const Text('Aucun mode de paiement configuré',
+      Text('Aucun mode de paiement configuré',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _kText)),
       const SizedBox(height: 4),
-      const Text('Configurez les modes de paiement par groupe scolaire',
+      Text('Configurez les modes de paiement par groupe scolaire',
           style: TextStyle(fontSize: 12, color: _kSub)),
     ]),
   );
@@ -779,7 +781,7 @@ class _ErrorView extends StatelessWidget {
   Widget build(BuildContext context) => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
     const Icon(Icons.error_outline_rounded, size: 48, color: Color(0xFFEF4444)),
     const SizedBox(height: 12),
-    Text('Erreur : $error', style: const TextStyle(fontSize: 12, color: _kSub), textAlign: TextAlign.center),
+    Text('Erreur : $error', style: TextStyle(fontSize: 12, color: _kSub), textAlign: TextAlign.center),
     const SizedBox(height: 16),
     ElevatedButton.icon(onPressed: onRetry,
         icon: const Icon(Icons.refresh_rounded, size: 16), label: const Text('Réessayer')),

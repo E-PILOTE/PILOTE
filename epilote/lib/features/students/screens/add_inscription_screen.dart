@@ -19,12 +19,12 @@ part 'add_inscription_steps_1_2.dart';
 part 'add_inscription_steps_3_5.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const _kNavy   = Color(0xFF1E3A5F);
-const _kGreen  = Color(0xFF009A44);
-const _kRed    = Color(0xFFDC2626);
-const _kMuted  = Color(0xFF64748B);
-const _kText   = Color(0xFF0F172A);
-const _kBorder = Color(0xFFE2E8F0);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
+Color get _kRed => kRed;
+Color get _kMuted => kTextMuted;
+Color get _kText => kTextPrimary;
+Color get _kBorder => kBorder;
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -302,8 +302,8 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Inscription créée — en attente de validation'),
+          SnackBar(
+            content: const Text('Inscription créée — en attente de validation'),
             backgroundColor: _kGreen,
           ),
         );

@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -11,16 +13,16 @@ import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const _kNavy   = Color(0xFF1E3A5F);
-const _kGreen  = Color(0xFF009A44);
-const _kGold   = Color(0xFFFBBC04);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
+Color get _kGold => kAccent;
 const _kOrange = Color(0xFFFF6B35);
 const _kPurple = Color(0xFF7C3AED);
 const _kRed    = Color(0xFFEF4444);
 const _kBlue   = Color(0xFF0EA5E9);
-const _kCard   = Colors.white;
-const _kText   = Color(0xFF0F172A);
-const _kSub    = Color(0xFF64748B);
+Color get _kCard => kCardBg;
+Color get _kText => kTextPrimary;
+Color get _kSub => kTextMuted;
 
 final _fmtXaf  = NumberFormat.currency(locale: 'fr_FR', symbol: 'XAF', decimalDigits: 0);
 
@@ -310,7 +312,7 @@ class AiScreen extends ConsumerWidget {
       child: Column(
         children: [
           Container(
-            color: Colors.white,
+            color: kCardBg,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Row(
               children: [
@@ -452,7 +454,7 @@ class _KpiCard extends StatelessWidget {
                   fontSize: 22, fontWeight: FontWeight.w900, color: kpi.color, letterSpacing: -0.5),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 3),
-                Text(kpi.label, style: const TextStyle(fontSize: 11.5, color: _kSub, fontWeight: FontWeight.w600),
+                Text(kpi.label, style: TextStyle(fontSize: 11.5, color: _kSub, fontWeight: FontWeight.w600),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 1),
                 Text(kpi.sub, style: TextStyle(fontSize: 10, color: kpi.color.withValues(alpha: 0.70)),
@@ -528,7 +530,7 @@ class _RecoTile extends StatelessWidget {
                   ),
                 ]),
                 const SizedBox(height: 4),
-                Text(rec.description, style: const TextStyle(fontSize: 12, color: _kText, height: 1.4)),
+                Text(rec.description, style: TextStyle(fontSize: 12, color: _kText, height: 1.4)),
               ],
             ),
           ),
@@ -562,13 +564,13 @@ class _ForecastChart extends StatelessWidget {
       height:   360,
       child: SfCartesianChart(
         plotAreaBorderWidth: 0,
-        primaryXAxis: const CategoryAxis(
+        primaryXAxis: CategoryAxis(
           labelStyle: TextStyle(fontSize: 9, color: _kSub),
-          majorGridLines: MajorGridLines(width: 0),
-          axisLine: AxisLine(width: 0),
+          majorGridLines: const MajorGridLines(width: 0),
+          axisLine: const AxisLine(width: 0),
         ),
         primaryYAxis: NumericAxis(
-          labelStyle: const TextStyle(fontSize: 9, color: _kSub),
+          labelStyle: TextStyle(fontSize: 9, color: _kSub),
           axisLine: const AxisLine(width: 0),
           majorTickLines: const MajorTickLines(size: 0),
           numberFormat: NumberFormat.compact(locale: 'fr_FR'),
@@ -656,7 +658,7 @@ class _RiskGauge extends StatelessWidget {
             child: Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
           ),
           const SizedBox(height: 14),
-          const _RiskLegendItem(color: _kGreen,  label: 'Faible (0–29)',  range: [0, 29]),
+          _RiskLegendItem(color: _kGreen,  label: 'Faible (0–29)',  range: const [0, 29]),
           const _RiskLegendItem(color: _kOrange, label: 'Modéré (30–59)', range: [30, 59]),
           const _RiskLegendItem(color: _kRed,    label: 'Élevé (60–100)', range: [60, 100]),
         ],
@@ -674,7 +676,7 @@ class _RiskLegendItem extends StatelessWidget {
     child: Row(children: [
       Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
       const SizedBox(width: 8),
-      Text(label, style: const TextStyle(fontSize: 11, color: _kSub)),
+      Text(label, style: TextStyle(fontSize: 11, color: _kSub)),
     ]),
   );
 }
@@ -688,14 +690,14 @@ class _RiskTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (data.groupsAtRisk.isEmpty) {
-      return const _Card(
+      return _Card(
         title:    'Groupes à surveiller',
         subtitle: 'Analyse par score de risque',
         child: Padding(
-          padding: EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
           child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.check_circle_rounded, size: 40, color: _kGreen),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text('Tous les groupes sont en bonne santé !',
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _kGreen)),
             Text('Aucun risque détecté', style: TextStyle(fontSize: 12, color: _kSub)),
@@ -751,7 +753,7 @@ class _RiskTable extends StatelessWidget {
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: color)),
                 ])),
                 _Td(child: Text('${g.schoolCount}',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kNavy))),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kNavy))),
                 _Td(child: Text(g.overdueInvoices > 0 ? '${g.overdueInvoices} retard' : '✓',
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
                         color: g.overdueInvoices > 0 ? _kRed : _kGreen))),
@@ -782,7 +784,7 @@ class _Th extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-    child: Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kSub)),
+    child: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kSub)),
   );
 }
 
@@ -931,7 +933,7 @@ class _AiAssistantState extends ConsumerState<_AiAssistant> {
                 onSubmitted: _sendMessage,
                 decoration: InputDecoration(
                   hintText: 'Posez une question à l\'IA…',
-                  hintStyle: const TextStyle(fontSize: 12, color: _kSub),
+                  hintStyle: TextStyle(fontSize: 12, color: _kSub),
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
@@ -940,7 +942,7 @@ class _AiAssistantState extends ConsumerState<_AiAssistant> {
                       borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
                   focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
                       borderSide: const BorderSide(color: _kPurple, width: 1.5)),
-                  filled: true, fillColor: Colors.white,
+                  filled: true, fillColor: kCardBg,
                 ),
               ),
             ),
@@ -1028,12 +1030,12 @@ class _Card extends StatelessWidget {
               gradient: const LinearGradient(colors: [_kPurple, _kBlue], begin: Alignment.topCenter, end: Alignment.bottomCenter),
               borderRadius: BorderRadius.circular(3))),
           const SizedBox(width: 8),
-          Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _kText)),
+          Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _kText)),
         ]),
         const SizedBox(height: 2),
         Padding(
           padding: const EdgeInsets.only(left: 14),
-          child: Text(subtitle, style: const TextStyle(fontSize: 11, color: _kSub)),
+          child: Text(subtitle, style: TextStyle(fontSize: 11, color: _kSub)),
         ),
         const SizedBox(height: 12),
         if (height != null) Expanded(child: child) else child,
@@ -1089,7 +1091,7 @@ class _ErrorView extends StatelessWidget {
   Widget build(BuildContext context) => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
     const Icon(Icons.error_outline_rounded, size: 48, color: _kRed),
     const SizedBox(height: 12),
-    Text('Erreur : $error', style: const TextStyle(fontSize: 12, color: _kSub), textAlign: TextAlign.center),
+    Text('Erreur : $error', style: TextStyle(fontSize: 12, color: _kSub), textAlign: TextAlign.center),
     const SizedBox(height: 16),
     ElevatedButton.icon(onPressed: onRetry,
         icon: const Icon(Icons.refresh_rounded, size: 16), label: const Text('Réessayer')),

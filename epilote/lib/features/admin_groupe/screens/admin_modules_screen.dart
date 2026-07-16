@@ -571,7 +571,7 @@ class _ModKpiCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: kBorder),
         boxShadow: [
@@ -1414,7 +1414,7 @@ class _ModuleFilterBar extends StatelessWidget {
               contentPadding: const EdgeInsets.symmetric(
                   horizontal: 12, vertical: 0),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: kCardBg,
               isDense: true,
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -1522,7 +1522,7 @@ class _ModuleFilterBar extends StatelessWidget {
               height: 36,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: kCardBg,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: kBorder),
               ),
@@ -1548,7 +1548,7 @@ class _ModuleFilterBar extends StatelessWidget {
                 height: 36,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: kCardBg,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: kBorder),
                 ),
@@ -1570,7 +1570,7 @@ class _ModuleFilterBar extends StatelessWidget {
       Container(
         height: 36,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: kBorder),
         ),
@@ -1619,7 +1619,7 @@ class _DropFilter<T> extends StatelessWidget {
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: kBorder),
       ),
@@ -1970,7 +1970,7 @@ class _ModuleCard extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isSelected ? kNavy : catColor.withValues(alpha: 0.35),
@@ -2255,7 +2255,7 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
 
     return Material(
       elevation: 16,
-      color: Colors.white,
+      color: kCardBg,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -2276,7 +2276,7 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
                 height: 44,
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: kCardBg,
                   border: Border(bottom: BorderSide(color: kBorder)),
                 ),
                 child: Row(children: [
@@ -2303,7 +2303,7 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
               // ── Barre d'onglets ──────────────────────────────────────────
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: kCardBg,
                   border: Border(bottom: BorderSide(color: kBorder)),
                 ),
                 child: TabBar(

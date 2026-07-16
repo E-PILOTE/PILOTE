@@ -34,7 +34,7 @@ class _TableView extends StatelessWidget {
     }
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: kBorder),
         boxShadow: [BoxShadow(
@@ -333,7 +333,7 @@ class _SchoolCardState extends State<_SchoolCard> {
         child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: _hov ? kNavy.withValues(alpha: 0.3) : kBorder),
           boxShadow: [BoxShadow(

@@ -120,7 +120,7 @@ class _FilterBar extends ConsumerWidget {
         padding: const EdgeInsets.all(6),
         constraints: const BoxConstraints(maxWidth: 280),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: kBorder),
           boxShadow: [

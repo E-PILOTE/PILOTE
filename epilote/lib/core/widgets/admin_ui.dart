@@ -624,7 +624,7 @@ class AdminFormDialog extends StatelessWidget {
         width: width,
         constraints: BoxConstraints(maxHeight: maxHeight),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
@@ -638,7 +638,7 @@ class AdminFormDialog extends StatelessWidget {
           Container(
             padding: const EdgeInsets.fromLTRB(22, 18, 16, 18),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
               border: Border(bottom: BorderSide(color: kBorder)),
             ),
@@ -706,7 +706,7 @@ class AdminFormDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.fromLTRB(22, 14, 22, 18),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: kCardBg,
                 borderRadius: const BorderRadius.vertical(bottom: Radius.circular(18)),
                 border: Border(top: BorderSide(color: kBorder)),
               ),

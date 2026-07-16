@@ -61,7 +61,7 @@ class _AgendaTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           border: Border(bottom: BorderSide(color: kBorder)),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -585,7 +585,7 @@ class _StickyFilterBar extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.fromLTRB(16, 11, 16, 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           border: Border(bottom: BorderSide(color: kBorder)),
         ),
         child: Column(

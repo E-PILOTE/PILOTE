@@ -45,7 +45,7 @@ class _SchoolMarkerDisc extends StatelessWidget {
             height: size,
             padding: EdgeInsets.all(ring * 0.6),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               shape: BoxShape.circle,
               border: Border.all(color: color, width: ring),
               boxShadow: shadow,
@@ -89,7 +89,7 @@ class _SchoolMarkerDisc extends StatelessWidget {
             height: 14,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               shape: BoxShape.circle,
               border: Border.all(color: color, width: 1.4),
             ),
@@ -284,7 +284,7 @@ class _GeoInfoBanner extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: kCardBg,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: c.withValues(alpha: 0.4)),
             boxShadow: [
@@ -347,7 +347,7 @@ class _MapLegend extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(11, 9, 13, 11),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kBorder),
         boxShadow: [
@@ -449,7 +449,7 @@ class _MapDataStatus extends StatelessWidget {
     return Material(
       elevation: 2,
       borderRadius: BorderRadius.circular(8),
-      color: Colors.white,
+      color: kCardBg,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
@@ -487,7 +487,7 @@ class _StreetViewFab extends ConsumerWidget {
     return Material(
       elevation: 3,
       borderRadius: BorderRadius.circular(8),
-      color: Colors.white,
+      color: kCardBg,
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: () => ref.read(_streetViewCenterProv.notifier).state =

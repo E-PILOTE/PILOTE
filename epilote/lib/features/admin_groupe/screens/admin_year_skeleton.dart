@@ -11,7 +11,7 @@ class _YearsSkeleton extends StatelessWidget {
         width: w,
         height: h,
         decoration: BoxDecoration(
-            color: Colors.white, borderRadius: BorderRadius.circular(r)),
+            color: kCardBg, borderRadius: BorderRadius.circular(r)),
       );
 
   @override

@@ -37,7 +37,7 @@ class StoriesStrip extends ConsumerWidget {
     return Container(
       height: _kCardH + 20,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: kBorder),
         boxShadow: [
@@ -145,7 +145,7 @@ class _CreateStoryCard extends StatelessWidget {
                   Container(
                     height: footer,
                     width: double.infinity,
-                    color: Colors.white,
+                    color: kCardBg,
                     alignment: Alignment.bottomCenter,
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Text('Créer une story',
@@ -378,8 +378,8 @@ class _Avatar extends StatelessWidget {
   Widget build(BuildContext context) {
     const d = 30.0;
     final ring = Container(
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle, color: Colors.white,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle, color: kCardBg,
       ),
       padding: const EdgeInsets.all(1.5),
       child: ClipOval(

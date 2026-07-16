@@ -287,7 +287,7 @@ class _ClassOrientationState extends ConsumerState<_ClassOrientation> {
                     prefixIcon: Icon(Icons.search_rounded,
                         size: 19, color: kTextMuted),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: kCardBg,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                       borderSide: BorderSide(color: kBorder),
@@ -324,7 +324,7 @@ class _ClassOrientationState extends ConsumerState<_ClassOrientation> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kBorder),
       ),

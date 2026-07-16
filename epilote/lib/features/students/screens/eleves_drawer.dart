@@ -22,7 +22,7 @@ class _StudentDrawer extends ConsumerWidget {
       child: Container(
         width: w < 520 ? w : 460,
         height: double.infinity,
-        decoration: const BoxDecoration(color: Colors.white),
+        decoration: BoxDecoration(color: kCardBg),
         child: SafeArea(
           child: Column(children: [
             _DwHeader(row: row),

@@ -587,7 +587,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           border: Border(bottom: BorderSide(color: kBorder)),
         ),
         child: Row(children: [
@@ -736,7 +736,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
       if (_searching)
         Container(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-          color: Colors.white,
+          color: kCardBg,
           child: TextField(
             controller: _searchCtrl,
             autofocus: true,
@@ -831,7 +831,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 12),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: kCardBg,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(22),
                         borderSide: BorderSide.none,

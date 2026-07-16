@@ -153,7 +153,7 @@ class FeedComposer extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: kBorder),
           boxShadow: [
@@ -233,7 +233,7 @@ class StaffFilterCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: kBorder),
         ),
@@ -520,7 +520,7 @@ class StaffDetailDialog extends StatelessWidget {
           width: width,
           constraints: const BoxConstraints(maxHeight: 680),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: kCardBg,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(

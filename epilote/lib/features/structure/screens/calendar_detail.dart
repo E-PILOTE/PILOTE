@@ -19,7 +19,7 @@ class _YearDetail extends ConsumerWidget {
     final counts = ref.watch(yearContentCountProvider(year.id)).valueOrNull;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Container(
-        color: Colors.white,
+        color: kCardBg,
         padding: const EdgeInsets.fromLTRB(24, 18, 24, 18),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
@@ -285,7 +285,7 @@ class _TrimesterCard extends ConsumerWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: kBorder),
       ),

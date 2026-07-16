@@ -207,7 +207,7 @@ class _BodyState extends ConsumerState<_Body> {
       Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: kBorder),
         ),
@@ -245,7 +245,7 @@ class _BodyState extends ConsumerState<_Body> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: kBorder),
       ),
