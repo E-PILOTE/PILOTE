@@ -114,7 +114,7 @@ passage à `#5A6675` suffirait).
 |---|---|---|---|
 | `kNavyDeep` | `#091828` | `#0A0F16` | `#000000` |
 | `kNavyDark` | `#0F2340` | `#111823` | `#04070B` |
-| `kNavy` | `#1E3A5F` | `#1B2634` | `#080D14` |
+| `kNavy` | `#1E3A5F` | `#5B8FD4` ⚠️ | `#3892CC` ⚠️ |
 | `kGreen` | `#009A44` | `#22C55E` | `#00E08A` |
 | `kAccent` | `#FBBC04` | `#FBBF24` | `#FFB300` |
 | `kRed` | `#DC2626` | `#F87171` | `#FF3B30` |
@@ -123,6 +123,12 @@ passage à `#5A6675` suffirait).
 | `kTextPrimary` | `#0F172A` | `#E6EDF3` | `#E8F0F7` |
 | `kTextMuted` | `#64748B` | `#8B949E` | `#7D8B9A` |
 | `kBorder` | `#E2E8F0` | `#2D333B` | `#1B2531` |
+
+⚠️ `kNavy` **s'éclaircit** en thème sombre au lieu de foncer — contre-intuitif
+pour un jeton nommé « navy », mais c'est un jeton de PREMIER PLAN avant d'être
+un fond (432 usages texte/icône contre 282 en fond). Foncé, il rendait les
+titres de section invisibles. Voir §11.4 : la règle est encodée dans
+`palette_test.dart`, ne la « corrigez » pas sans lire ce paragraphe.
 
 **Clair** : strictement les valeurs actuelles. Non-régression par construction.
 
