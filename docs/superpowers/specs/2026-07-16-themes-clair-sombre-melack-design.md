@@ -1,6 +1,7 @@
 # Thèmes E-PILOTE — Clair · Sombre · Melack
 
 > Spec de conception — 2026-07-16 — branche `feat/poste-vitrine-securite`
+> **LIVRÉ 2026-07-17** — voir §11 : ce que la mise en œuvre a démenti.
 
 ## 1. Problème
 
@@ -234,3 +235,76 @@ avant de livrer.
 - Suivi du thème système (`ThemeMode.system`).
 - Refonte `ThemeExtension` (§2.3).
 - Thème de la vitrine / login / écran-verrou : déjà sombres par conception.
+
+---
+
+## 11. Ce que la mise en œuvre a démenti (2026-07-17)
+
+La spec avait raison sur la structure, faux sur trois chiffres — et il a manqué
+un défaut qu'aucune analyse statique ne pouvait voir.
+
+### 11.1 Les « 76 déclarations top-level » étaient 14
+
+Le `grep` surestimait : l'analyseur n'en signale que 14 (puis 8 de plus après le
+rebranchement des palettes locales, §11.3). La règle, elle, tenait : rendues
+`final`, elles auraient figé la couleur au démarrage. Toutes converties en
+getters. Plusieurs étaient en réalité des variables **locales** dans un
+`build()` — pour celles-là `final` suffit (réévaluées à chaque build).
+
+### 11.2 `non_constant_default_value` n'était PAS mécanique
+
+La spec les rangeait avec les autres `const` à retirer. C'est faux : en Dart une
+valeur par défaut doit être une constante de compilation **quelle que soit** la
+constness du constructeur — retirer `const` ne corrige rien. Les 18 sites
+(`this.color = kNavy`) sont devenus `Color? color` résolu dans la liste
+d'initialisation : le champ reste non-nullable, aucun site d'usage ne change.
+
+### 11.3 super_admin avait sa PROPRE palette (angle mort de la spec)
+
+Le levier « 11 jetons dans `admin_ui`, 121 fichiers » ne couvrait pas
+`super_admin` : **160 jetons locaux en dur dans 18 de ses 20 fichiers**
+(`const _kNavy = Color(0xFF1E3A5F);`), dupliquant la palette canonique au hex
+près. Sans traitement, cet espace serait resté clair pendant que le reste
+passait au sombre — précisément le « moitié fait » que §8 interdit. Les jetons
+dupliqués sont rebranchés en getters vers les jetons globaux ; les accents
+décoratifs propres (violet, orange…) restent `const`.
+
+### 11.4 ⚠️ Le vrai défaut : `navy` est à DOUBLE rôle
+
+Invisible à l'analyse, invisible aux tests d'alors, visible en 2 secondes à
+l'écran : les titres de section (« Taux de recouvrement »…) DISPARAISSAIENT en
+Sombre.
+
+`navy` avait été traité comme une couleur de chrome et foncé (`#1B2634`) →
+contraste **1.13** sur les cartes. Or `navy` sert d'abord de **premier plan** :
+**432 usages texte/icône contre 282 en fond** (mesuré). Les deux rôles tirent en
+sens opposés en thème sombre. Le premier plan l'emporte → `navy` s'ÉCLAIRCIT
+(Sombre `#5B8FD4`, Melack `#3892CC`), ce qui est aussi la convention Material.
+Borné par le haut : le blanc des bandeaux doit rester lisible dessus (≥ 3:1).
+
+**La règle est désormais dans `palette_test.dart`**, pas dans une intention :
+`navy` lisible sur `cardBg` (≥4.5), blanc lisible sur `navy` (≥3.0), chrome
+`navyDeep`/`navyDark` toujours foncé. Le premier essai de correction a été
+rattrapé par ce test (`#4FB0E8` : blanc à 2.41 dessus).
+
+### 11.5 Les blancs en dur : deux passes, pas une
+
+§6 disait « auditer par motif ». Insuffisant : le motif `color: Colors.white`
+rate les **ternaires** (`color: selected ? x : Colors.white`) — 32 fonds
+supplémentaires, dont les cartes cycle et les bulles de chat, restés blancs au
+1ᵉʳ passage. Le tri fiable est le **constructeur englobant** (`BoxDecoration` vs
+`TextStyle`), pas le nom de la propriété : `color:` ne dit rien à lui seul.
+Total : 250 fonds convertis, 391 blancs de premier plan laissés.
+
+### 11.6 Bilan
+
+`flutter analyze` 0 · 236 tests verts (19 neufs) · vérifié à l'écran dans les 3
+thèmes (Tableau de bord, Inscriptions, Élèves, Matières, Paiements, Paramètres)
++ persistance par agent vérifiée au redémarrage. Outils du codemod conservés
+dans `epilote/tools/` (`strip_const.py`, `fix_defaults.py`, `fix_white_bg.py`,
+`relink_local_tokens.py`) : réutilisables si un nouvel espace doit rejoindre la
+palette.
+
+**Reste** : les avertissements `ListTile ... may be invisible` observés au
+lancement sont **antérieurs** à ce chantier (log daté avant toute bascule) et
+non traités ici.
