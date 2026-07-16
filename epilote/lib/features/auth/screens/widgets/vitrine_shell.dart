@@ -158,15 +158,14 @@ class _SecureBadgeState extends State<_SecureBadge>
     with SingleTickerProviderStateMixin {
   late final AnimationController _spin;
 
-  bool get _reduce => WidgetsBinding
-      .instance.platformDispatcher.accessibilityFeatures.disableAnimations;
-
   @override
   void initState() {
     super.initState();
     _spin = AnimationController(
-        vsync: this, duration: const Duration(seconds: 7));
-    if (!_reduce && !vitrineClockFrozen) _spin.repeat();
+        vsync: this, duration: const Duration(seconds: 6));
+    // Boucle continue en production (rotation ambiante, sobre) ; figée seulement
+    // sous horloge de test pour des captures déterministes.
+    if (!vitrineClockFrozen) _spin.repeat();
   }
 
   @override
@@ -374,15 +373,13 @@ class _OpenButtonState extends State<_OpenButton>
     with SingleTickerProviderStateMixin {
   late final AnimationController _glow;
 
-  bool get _reduce => WidgetsBinding
-      .instance.platformDispatcher.accessibilityFeatures.disableAnimations;
-
   @override
   void initState() {
     super.initState();
     _glow = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1900));
-    if (!_reduce && !vitrineClockFrozen) _glow.repeat(reverse: true);
+    // Lueur pulsée en boucle continue en production ; figée sous horloge de test.
+    if (!vitrineClockFrozen) _glow.repeat(reverse: true);
   }
 
   @override
