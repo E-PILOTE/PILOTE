@@ -20,6 +20,7 @@ class VitrineShell extends StatefulWidget {
     required this.schoolName,
     required this.schoolLogoUrl,
     required this.onOpen,
+    this.groupName,
     this.serviceMessages = const [],
     this.showPartner = false,
     this.partners = const [],
@@ -27,6 +28,10 @@ class VitrineShell extends StatefulWidget {
 
   final String schoolName;
   final String? schoolLogoUrl;
+
+  /// Nom du groupe scolaire (réseau) — co-branding en haut à gauche, à côté du
+  /// drapeau. Repli sur « MEPSA · METP » si absent (offline non encore synchro).
+  final String? groupName;
   final VoidCallback onOpen;
   final List<String> serviceMessages;
   final bool showPartner;
@@ -42,7 +47,7 @@ class _VitrineShellState extends State<VitrineShell> {
   /// Délai d'inactivité avant « repos profond » : les animations se figent pour
   /// ne pas solliciter le GPU d'un poste allumé toute la journée. Tout geste
   /// (souris/clavier) réveille la vitrine.
-  static const _restAfter = Duration(minutes: 2);
+  static const _restAfter = Duration(minutes: 1);
   Timer? _idle;
   bool _awake = true;
 
@@ -99,8 +104,11 @@ class _VitrineShellState extends State<VitrineShell> {
           child: Column(
             children: [
               _Crest(
-                  schoolName: widget.schoolName,
-                  logoUrl: widget.schoolLogoUrl),
+                schoolName: widget.schoolName,
+                logoUrl: widget.schoolLogoUrl,
+                groupName: widget.groupName,
+                animate: _animate,
+              ),
               const Spacer(),
               _SecureBadge(animate: _animate),
               const SizedBox(height: 14),
@@ -128,48 +136,149 @@ class _VitrineShellState extends State<VitrineShell> {
   }
 }
 
+const _kCrestText = Color(0xFFCDD9EA);
+
 class _Crest extends StatelessWidget {
-  const _Crest({required this.schoolName, required this.logoUrl});
+  const _Crest({
+    required this.schoolName,
+    required this.logoUrl,
+    required this.groupName,
+    required this.animate,
+  });
   final String schoolName;
   final String? logoUrl;
+  final String? groupName;
+  final bool animate;
 
   @override
-  Widget build(BuildContext context) => Row(
-        // spaceBetween : drapeau collé à GAUCHE, école collée à DROITE (symétrie
-        // exacte). L'ancien Spacer + Flexible laissait un vide à droite de l'école.
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Flexible(
-            child: _chip(const Text('🇨🇬', style: TextStyle(fontSize: 14)),
-                'MEPSA · METP'),
+  Widget build(BuildContext context) {
+    // GAUCHE : drapeau + nom du GROUPE scolaire (réseau). Repli institutionnel
+    // « MEPSA · METP » tant que la ligne du groupe n'est pas encore synchronisée.
+    final group = (groupName != null && groupName!.trim().isNotEmpty)
+        ? groupName!.trim()
+        : 'MEPSA · METP';
+    return Row(
+      // spaceBetween : groupe collé à GAUCHE, école collée à DROITE (symétrie).
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Flexible(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('🇨🇬', style: TextStyle(fontSize: 14)),
+              const SizedBox(width: 7),
+              Flexible(
+                child: Text(group,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: _kCrestText,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700)),
+              ),
+            ],
           ),
-          const SizedBox(width: 16),
-          Flexible(
-            child: _chip(
-              _SchoolLogo(url: logoUrl),
-              schoolName,
-              trailing: true,
-            ),
-          ),
-        ],
-      );
+        ),
+        const SizedBox(width: 16),
+        // DROITE : nom de l'ÉCOLE animé (sheen discret) + logo établissement.
+        Flexible(
+          child: _SchoolChip(
+              name: schoolName, logoUrl: logoUrl, animate: animate),
+        ),
+      ],
+    );
+  }
+}
 
-  Widget _chip(Widget leading, String label, {bool trailing = false}) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (!trailing) ...[leading, const SizedBox(width: 7)],
-          Flexible(
-            child: Text(label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    color: Color(0xFFCDD9EA),
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700)),
-          ),
-          if (trailing) ...[const SizedBox(width: 7), leading],
-        ],
-      );
+/// Nom de l'école (droite du crest) parcouru par un léger reflet lumineux
+/// (« sheen ») qui balaie le texte toutes les ~5 s — pattern premium sobre qui
+/// signale l'identité vivante de l'établissement. Gelé au repos profond, sous
+/// reduced-motion et en test (captures déterministes).
+class _SchoolChip extends StatefulWidget {
+  const _SchoolChip(
+      {required this.name, required this.logoUrl, required this.animate});
+  final String name;
+  final String? logoUrl;
+  final bool animate;
+  @override
+  State<_SchoolChip> createState() => _SchoolChipState();
+}
+
+class _SchoolChipState extends State<_SchoolChip>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _sheen;
+
+  bool get _live => widget.animate && !vitrineClockFrozen;
+
+  @override
+  void initState() {
+    super.initState();
+    _sheen = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 4200));
+    _sync();
+  }
+
+  void _sync() {
+    if (_live) {
+      if (!_sheen.isAnimating) _sheen.repeat();
+    } else {
+      _sheen.stop();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _SchoolChip old) {
+    super.didUpdateWidget(old);
+    if (old.animate != widget.animate) _sync();
+  }
+
+  @override
+  void dispose() {
+    _sheen.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Text(widget.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+            color: _kCrestText, fontSize: 12.5, fontWeight: FontWeight.w700));
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: _live
+              ? AnimatedBuilder(
+                  animation: _sheen,
+                  builder: (context, child) => ShaderMask(
+                    blendMode: BlendMode.srcIn,
+                    shaderCallback: (bounds) {
+                      // Centre de la bande lumineuse, de -0.3 à 1.3 (entre/sort).
+                      final c = -0.3 + 1.6 * _sheen.value;
+                      return LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: const [_kCrestText, Colors.white, _kCrestText],
+                        stops: [
+                          (c - 0.16).clamp(0.0, 1.0),
+                          c.clamp(0.0, 1.0),
+                          (c + 0.16).clamp(0.0, 1.0),
+                        ],
+                      ).createShader(bounds);
+                    },
+                    child: child,
+                  ),
+                  child: text,
+                )
+              : text,
+        ),
+        const SizedBox(width: 7),
+        _SchoolLogo(url: widget.logoUrl),
+      ],
+    );
+  }
 }
 
 class _SchoolLogo extends StatelessWidget {

@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/logout_guard.dart';
 
 import '../../structure/providers/academic_year_provider.dart'
-    show currentSchoolProvider;
+    show currentSchoolProvider, currentGroupProvider;
 import '../providers/active_agent_provider.dart';
 import '../providers/vitrine_messages_provider.dart';
 import '../providers/vitrine_partners_provider.dart';
@@ -88,6 +88,7 @@ class _AgentLockScreenState extends ConsumerState<AgentLockScreen>
   Widget build(BuildContext context) {
     final agents = ref.watch(switchableAgentsProvider).valueOrNull ?? const [];
     final school = ref.watch(currentSchoolProvider).valueOrNull;
+    final group = ref.watch(currentGroupProvider).valueOrNull;
     final serviceMessages =
         ref.watch(serviceMessagesProvider).valueOrNull ?? const [];
     final partners =
@@ -117,6 +118,7 @@ class _AgentLockScreenState extends ConsumerState<AgentLockScreen>
                         schoolName:
                             school?['name'] as String? ?? 'E-PILOTE CONGO',
                         schoolLogoUrl: school?['logo_url'] as String?,
+                        groupName: group?['name'] as String?,
                         onOpen: _open,
                         serviceMessages: serviceMessages,
                         showPartner:
