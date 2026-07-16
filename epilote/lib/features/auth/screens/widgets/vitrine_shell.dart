@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'auth_colors.dart';
 import 'vitrine_clock.dart';
@@ -13,7 +14,7 @@ const _kAccent = kAuthAccent;
 /// institutionnel, horloge sobre, message de service (données Phase 3), bouton
 /// unique « Ouvrir une session », encart partenaire (opt-in, Phase 3), pied
 /// E-PILOTE. C'est la surface éditoriale du parc national.
-class VitrineShell extends StatelessWidget {
+class VitrineShell extends StatefulWidget {
   const VitrineShell({
     super.key,
     required this.schoolName,
@@ -34,33 +35,93 @@ class VitrineShell extends StatelessWidget {
   final List<({String name, String? logoUrl})> partners;
 
   @override
+  State<VitrineShell> createState() => _VitrineShellState();
+}
+
+class _VitrineShellState extends State<VitrineShell> {
+  /// Délai d'inactivité avant « repos profond » : les animations se figent pour
+  /// ne pas solliciter le GPU d'un poste allumé toute la journée. Tout geste
+  /// (souris/clavier) réveille la vitrine.
+  static const _restAfter = Duration(minutes: 2);
+  Timer? _idle;
+  bool _awake = true;
+
+  bool get _reduce => WidgetsBinding
+      .instance.platformDispatcher.accessibilityFeatures.disableAnimations;
+
+  /// Les composants animent seulement si la vitrine est éveillée ET que
+  /// l'utilisateur n'a pas demandé de réduire les animations (accessibilité).
+  bool get _animate => _awake && !_reduce;
+
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_onKey);
+    _scheduleRest();
+  }
+
+  @override
+  void dispose() {
+    _idle?.cancel();
+    HardwareKeyboard.instance.removeHandler(_onKey);
+    super.dispose();
+  }
+
+  void _scheduleRest() {
+    _idle?.cancel();
+    _idle = Timer(_restAfter, () {
+      if (mounted && _awake) setState(() => _awake = false);
+    });
+  }
+
+  /// Réveille (relance les animations) et repousse le repos.
+  void _wake() {
+    if (!_awake && mounted) setState(() => _awake = true);
+    _scheduleRest();
+  }
+
+  bool _onKey(KeyEvent _) {
+    _wake();
+    return false; // ne consomme pas l'évènement
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
-        child: Column(
-          children: [
-            _Crest(schoolName: schoolName, logoUrl: schoolLogoUrl),
-            const Spacer(),
-            const _SecureBadge(),
-            const SizedBox(height: 14),
-            const VitrineClock(),
-            const SizedBox(height: 26),
-            if (serviceMessages.isNotEmpty) ...[
-              _ServiceBanner(messages: serviceMessages),
-              const SizedBox(height: 22),
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerHover: (_) => _wake(),
+      onPointerDown: (_) => _wake(),
+      onPointerMove: (_) => _wake(),
+      onPointerSignal: (_) => _wake(),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+          child: Column(
+            children: [
+              _Crest(
+                  schoolName: widget.schoolName,
+                  logoUrl: widget.schoolLogoUrl),
+              const Spacer(),
+              _SecureBadge(animate: _animate),
+              const SizedBox(height: 14),
+              const VitrineClock(),
+              const SizedBox(height: 26),
+              if (widget.serviceMessages.isNotEmpty) ...[
+                _ServiceBanner(messages: widget.serviceMessages),
+                const SizedBox(height: 22),
+              ],
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 340),
+                child: _OpenButton(onTap: widget.onOpen, animate: _animate),
+              ),
+              const Spacer(),
+              if (widget.showPartner && widget.partners.isNotEmpty) ...[
+                _PartnerStrip(partners: widget.partners),
+                const SizedBox(height: 12),
+              ],
+              const _Footer(),
             ],
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 340),
-              child: _OpenButton(onTap: onOpen),
-            ),
-            const Spacer(),
-            if (showPartner && partners.isNotEmpty) ...[
-              _PartnerStrip(partners: partners),
-              const SizedBox(height: 12),
-            ],
-            const _Footer(),
-          ],
+          ),
         ),
       ),
     );
@@ -149,7 +210,8 @@ class _LogoFallback extends StatelessWidget {
 /// Sobriété institutionnelle : rotation lente, un seul arc net. Respecte le
 /// reduced-motion et l'horloge de test figée (anneau immobile → golden stable).
 class _SecureBadge extends StatefulWidget {
-  const _SecureBadge();
+  const _SecureBadge({required this.animate});
+  final bool animate;
   @override
   State<_SecureBadge> createState() => _SecureBadgeState();
 }
@@ -163,9 +225,23 @@ class _SecureBadgeState extends State<_SecureBadge>
     super.initState();
     _spin = AnimationController(
         vsync: this, duration: const Duration(seconds: 6));
-    // Boucle continue en production (rotation ambiante, sobre) ; figée seulement
-    // sous horloge de test pour des captures déterministes.
-    if (!vitrineClockFrozen) _spin.repeat();
+    _sync();
+  }
+
+  /// Boucle tant que la vitrine est éveillée (et hors test figé) ; se fige au
+  /// repos profond pour épargner le GPU. Reprend là où elle s'était arrêtée.
+  void _sync() {
+    if (widget.animate && !vitrineClockFrozen) {
+      if (!_spin.isAnimating) _spin.repeat();
+    } else {
+      _spin.stop();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _SecureBadge old) {
+    super.didUpdateWidget(old);
+    if (old.animate != widget.animate) _sync();
   }
 
   @override
@@ -363,8 +439,9 @@ class _ServiceBannerState extends State<_ServiceBanner> {
 /// pulse doucement pour inviter au clic sans agiter l'écran. Respecte le
 /// reduced-motion et l'horloge de test figée (glow au repos → golden stable).
 class _OpenButton extends StatefulWidget {
-  const _OpenButton({required this.onTap});
+  const _OpenButton({required this.onTap, required this.animate});
   final VoidCallback onTap;
+  final bool animate;
   @override
   State<_OpenButton> createState() => _OpenButtonState();
 }
@@ -378,8 +455,24 @@ class _OpenButtonState extends State<_OpenButton>
     super.initState();
     _glow = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1900));
-    // Lueur pulsée en boucle continue en production ; figée sous horloge de test.
-    if (!vitrineClockFrozen) _glow.repeat(reverse: true);
+    _sync();
+  }
+
+  /// Pulse tant que la vitrine est éveillée (hors test) ; au repos, se fige sur
+  /// la lueur minimale (t=0) pour ne pas solliciter le GPU inutilement.
+  void _sync() {
+    if (widget.animate && !vitrineClockFrozen) {
+      if (!_glow.isAnimating) _glow.repeat(reverse: true);
+    } else {
+      _glow.stop();
+      _glow.value = 0;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _OpenButton old) {
+    super.didUpdateWidget(old);
+    if (old.animate != widget.animate) _sync();
   }
 
   @override

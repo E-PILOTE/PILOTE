@@ -87,6 +87,11 @@ class _Body extends ConsumerWidget {
             StaffSecurityCard(lastLogin: profile?.lastLogin),
             const SizedBox(height: 12),
             const DeviceModeTile(),
+            // Verrouillage auto : pertinent uniquement sur un poste PARTAGÉ.
+            if (ref.watch(deviceModeProvider).mode == DeviceMode.shared) ...[
+              const SizedBox(height: 12),
+              const AutoLockTile(),
+            ],
           ],
         ),
       ),

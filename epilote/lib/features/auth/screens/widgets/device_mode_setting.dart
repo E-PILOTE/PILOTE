@@ -105,3 +105,66 @@ class DeviceModeTile extends ConsumerWidget {
         ),
       );
 }
+
+/// Réglage « Verrouillage auto » (Paramètres › Sécurité, poste PARTAGÉ) : délai
+/// d'inactivité avant que la vitrine ne revienne réclamer le PIN. Persisté par
+/// appareil via [autoLockMinutesProvider]. « Jamais » désactive la fonction.
+class AutoLockTile extends ConsumerWidget {
+  const AutoLockTile({super.key});
+
+  static String label(int m) => m == 0 ? 'Jamais' : '$m minutes';
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final minutes = ref.watch(autoLockMinutesProvider);
+    return AdminCard(
+      padding: EdgeInsets.zero,
+      child: SettingsTile(
+        icon: Icons.lock_clock_rounded,
+        color: kNavy,
+        title: 'Verrouillage auto',
+        subtitle: minutes == 0
+            ? 'Désactivé — le poste reste ouvert'
+            : "Après ${label(minutes)} sans activité, retour à l'écran-verrou",
+        trailing: const Icon(Icons.chevron_right_rounded, color: kTextMuted),
+        onTap: () => _pick(context, ref, minutes),
+      ),
+    );
+  }
+
+  Future<void> _pick(BuildContext context, WidgetRef ref, int current) async {
+    final chosen = await showDialog<int>(
+      context: context,
+      builder: (_) => SimpleDialog(
+        title: const Text('Verrouillage automatique'),
+        children: [
+          for (final m in kAutoLockChoices)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, m),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Icon(m == 0 ? Icons.lock_open_rounded : Icons.lock_clock_rounded,
+                        color: kNavy, size: 20),
+                    const SizedBox(width: 12),
+                    Text(label(m),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, color: kTextPrimary)),
+                    if (m == current) ...[
+                      const SizedBox(width: 8),
+                      const Icon(Icons.check_circle_rounded,
+                          color: kNavy, size: 16),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+    if (chosen != null && chosen != current) {
+      await ref.read(autoLockMinutesProvider.notifier).set(chosen);
+    }
+  }
+}

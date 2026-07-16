@@ -210,5 +210,11 @@ void main() {
     test('mode inconnu (non chargé) → désarmé', () {
       expect(shouldArmAutoLock(mode: null, hasActiveAgent: true), isFalse);
     });
+    test('délai 0 (« Jamais ») → désarmé même en partagé', () {
+      expect(
+          shouldArmAutoLock(
+              mode: DeviceMode.shared, hasActiveAgent: true, minutes: 0),
+          isFalse);
+    });
   });
 }

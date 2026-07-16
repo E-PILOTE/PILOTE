@@ -305,6 +305,40 @@ final deviceModeProvider =
     NotifierProvider<DeviceModeNotifier, DeviceModeState>(
         DeviceModeNotifier.new);
 
+// ─── Délai de re-verrouillage automatique (poste partagé) ───────────────────
+//  Minutes d'inactivité avant que la vitrine ne revienne réclamer le PIN.
+//  0 = désactivé. Préférence par APPAREIL (offline), défaut 5 min. Choix parmi
+//  [kAutoLockChoices]. La sécurité d'un poste abandonné sans imposer une valeur
+//  unique à toutes les écoles.
+const List<int> kAutoLockChoices = [2, 5, 10, 0]; // 0 = jamais
+const int kAutoLockDefaultMinutes = 5;
+
+class AutoLockNotifier extends Notifier<int> {
+  static const _key = 'auto_lock_minutes';
+
+  @override
+  int build() {
+    _load();
+    return kAutoLockDefaultMinutes;
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final v = prefs.getInt(_key);
+    if (v != null && kAutoLockChoices.contains(v)) state = v;
+  }
+
+  Future<void> set(int minutes) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_key, minutes);
+    state = minutes;
+  }
+}
+
+/// Minutes avant re-verrouillage auto (0 = désactivé). cf [[kAutoLockChoices]].
+final autoLockMinutesProvider =
+    NotifierProvider<AutoLockNotifier, int>(AutoLockNotifier.new);
+
 /// Bascule d'agent à la demande (« Changer d'utilisateur ») même en poste
 /// personnel : force le sélecteur de profils une fois, remis à false au choix.
 final forceAgentPickerProvider = StateProvider<bool>((_) => false);

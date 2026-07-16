@@ -4,6 +4,10 @@ Application de bureau pour Debian / Ubuntu (et dérivés). Paquet natif :
 intégration au menu, icône, gestion automatique des dépendances, mise à jour
 et désinstallation propres via `apt`/`dpkg`.
 
+> Le numéro de version dans le nom du fichier (`epilote_<version>_amd64.deb`)
+> suit `epilote/pubspec.yaml` et **augmente à chaque release** — c'est ce qui
+> permet à `apt upgrade` de pousser la mise à jour sans `--reinstall`.
+>
 > Construit et testé pour **Ubuntu 24.04 LTS et ultérieur** (glibc `t64`).
 > Pour Ubuntu 22.04, reconstruire le paquet sur cette génération
 > (`./packaging/build-deb.sh`) — les dépendances s'ajustent automatiquement.
@@ -13,7 +17,7 @@ et désinstallation propres via `apt`/`dpkg`.
 ## 1. Installation (poste utilisateur)
 
 ```bash
-sudo apt install ./epilote_3.0.0_amd64.deb
+sudo apt install ./epilote_3.0.1_amd64.deb
 ```
 
 `apt` télécharge et installe automatiquement les bibliothèques requises
@@ -23,7 +27,7 @@ n'installe pas les dépendances.
 Alternative hors-ligne (dépendances déjà présentes) :
 
 ```bash
-sudo dpkg -i epilote_3.0.0_amd64.deb
+sudo dpkg -i epilote_3.0.1_amd64.deb
 sudo apt-get install -f      # complète les dépendances manquantes si besoin
 ```
 
@@ -56,13 +60,13 @@ mises à jour par `apt upgrade`, comme n'importe quel logiciel système.
 
 ```bash
 # copier le .deb puis, sur chaque poste :
-sudo apt install ./epilote_3.0.0_amd64.deb
+sudo apt install ./epilote_3.0.1_amd64.deb
 ```
 
 **Installation silencieuse** (scripts / MDM) :
 
 ```bash
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ./epilote_3.0.0_amd64.deb
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ./epilote_3.0.1_amd64.deb
 ```
 
 ---

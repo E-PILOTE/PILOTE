@@ -8,17 +8,15 @@ import '../../providers/active_agent_provider.dart';
 import '../agent_lock_screen.dart';
 import '../device_mode_screen.dart';
 
-/// Délai d'inactivité avant re-verrouillage automatique d'un poste PARTAGÉ.
-/// Sécurité : un agent qui s'éloigne ne laisse pas sa session ouverte au
-/// suivant. Assez long pour ne pas gêner une lecture (5 min), assez court pour
-/// protéger un poste abandonné.
-const Duration kAutoLockIdle = Duration(minutes: 5);
-
 /// Décision pure (testable) : faut-il armer le re-verrouillage automatique ?
-/// Uniquement en poste PARTAGÉ avec un agent réellement actif. En personnel
-/// (une machine = une personne) ou vitrine déjà affichée → non.
-bool shouldArmAutoLock({required DeviceMode? mode, required bool hasActiveAgent}) =>
-    mode == DeviceMode.shared && hasActiveAgent;
+/// Uniquement en poste PARTAGÉ, avec un agent réellement actif, ET un délai > 0
+/// (0 = désactivé par réglage). En personnel ou vitrine déjà affichée → non.
+bool shouldArmAutoLock({
+  required DeviceMode? mode,
+  required bool hasActiveAgent,
+  int minutes = kAutoLockDefaultMinutes,
+}) =>
+    mode == DeviceMode.shared && hasActiveAgent && minutes > 0;
 
 /// Porte du verrou : empile par-dessus [child], selon l'état :
 /// 1. mode d'appareil non choisi → [DeviceModeScreen] ;
@@ -91,15 +89,18 @@ class _InactivityAutoLock extends ConsumerStatefulWidget {
 class _InactivityAutoLockState extends ConsumerState<_InactivityAutoLock> {
   Timer? _timer;
 
+  int get _minutes => ref.read(autoLockMinutesProvider);
+
   bool get _armed => shouldArmAutoLock(
         mode: ref.read(deviceModeProvider).mode,
         hasActiveAgent: ref.read(selectedAgentIdProvider) != null,
+        minutes: _minutes,
       );
 
   /// Repousse l'échéance à chaque interaction ; désarme si non pertinent.
   void _bump() {
     _timer?.cancel();
-    if (_armed) _timer = Timer(kAutoLockIdle, _lock);
+    if (_armed) _timer = Timer(Duration(minutes: _minutes), _lock);
   }
 
   void _lock() {
@@ -135,6 +136,7 @@ class _InactivityAutoLockState extends ConsumerState<_InactivityAutoLock> {
     // que sur changement réel, pas à chaque frame).
     ref.listen(selectedAgentIdProvider, (_, _) => _bump());
     ref.listen(deviceModeProvider, (_, _) => _bump());
+    ref.listen(autoLockMinutesProvider, (_, _) => _bump());
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (_) => _bump(),
