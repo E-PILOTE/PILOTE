@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:epilote/features/auth/providers/active_agent_provider.dart';
+import 'package:epilote/features/auth/screens/widgets/agent_lock_gate.dart';
 
 void main() {
   group('agentLockApplies', () {
@@ -187,6 +188,27 @@ void main() {
       expect(pinCooldown(8), const Duration(minutes: 5));
       expect(pinCooldown(12), const Duration(minutes: 5));
       expect(pinCooldown(100), const Duration(minutes: 5));
+    });
+  });
+
+  group('shouldArmAutoLock', () {
+    test('poste PARTAGÉ avec agent actif → armé', () {
+      expect(
+          shouldArmAutoLock(mode: DeviceMode.shared, hasActiveAgent: true),
+          isTrue);
+    });
+    test('partagé mais vitrine affichée (aucun agent) → désarmé', () {
+      expect(
+          shouldArmAutoLock(mode: DeviceMode.shared, hasActiveAgent: false),
+          isFalse);
+    });
+    test('poste PERSONNEL → jamais (une machine = une personne)', () {
+      expect(
+          shouldArmAutoLock(mode: DeviceMode.personal, hasActiveAgent: true),
+          isFalse);
+    });
+    test('mode inconnu (non chargé) → désarmé', () {
+      expect(shouldArmAutoLock(mode: null, hasActiveAgent: true), isFalse);
     });
   });
 }

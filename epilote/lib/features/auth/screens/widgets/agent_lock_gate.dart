@@ -1,9 +1,24 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/active_agent_provider.dart';
 import '../agent_lock_screen.dart';
 import '../device_mode_screen.dart';
+
+/// Délai d'inactivité avant re-verrouillage automatique d'un poste PARTAGÉ.
+/// Sécurité : un agent qui s'éloigne ne laisse pas sa session ouverte au
+/// suivant. Assez long pour ne pas gêner une lecture (5 min), assez court pour
+/// protéger un poste abandonné.
+const Duration kAutoLockIdle = Duration(minutes: 5);
+
+/// Décision pure (testable) : faut-il armer le re-verrouillage automatique ?
+/// Uniquement en poste PARTAGÉ avec un agent réellement actif. En personnel
+/// (une machine = une personne) ou vitrine déjà affichée → non.
+bool shouldArmAutoLock({required DeviceMode? mode, required bool hasActiveAgent}) =>
+    mode == DeviceMode.shared && hasActiveAgent;
 
 /// Porte du verrou : empile par-dessus [child], selon l'état :
 /// 1. mode d'appareil non choisi → [DeviceModeScreen] ;
@@ -39,7 +54,8 @@ class AgentLockGate extends ConsumerWidget {
 
     return Stack(
       children: [
-        child,
+        // Détecteur d'inactivité : re-verrouille un poste partagé abandonné.
+        _InactivityAutoLock(child: child),
         if (showing)
           Positioned.fill(
             child: Overlay(
@@ -55,6 +71,76 @@ class AgentLockGate extends ConsumerWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Enveloppe l'app et re-verrouille un poste PARTAGÉ après [kAutoLockIdle] sans
+/// interaction (souris ou clavier). Le re-verrouillage se limite à effacer
+/// l'agent actif → la vitrine revient et réclame le PIN. Il NE déconnecte PAS
+/// la session appareil et NE purge RIEN : le travail hors-ligne est préservé
+/// (cf. « Verrouiller ≠ Déconnecter »).
+class _InactivityAutoLock extends ConsumerStatefulWidget {
+  const _InactivityAutoLock({required this.child});
+  final Widget child;
+  @override
+  ConsumerState<_InactivityAutoLock> createState() =>
+      _InactivityAutoLockState();
+}
+
+class _InactivityAutoLockState extends ConsumerState<_InactivityAutoLock> {
+  Timer? _timer;
+
+  bool get _armed => shouldArmAutoLock(
+        mode: ref.read(deviceModeProvider).mode,
+        hasActiveAgent: ref.read(selectedAgentIdProvider) != null,
+      );
+
+  /// Repousse l'échéance à chaque interaction ; désarme si non pertinent.
+  void _bump() {
+    _timer?.cancel();
+    if (_armed) _timer = Timer(kAutoLockIdle, _lock);
+  }
+
+  void _lock() {
+    // Efface juste l'agent actif → re-verrouillage. Aucune déconnexion/purge.
+    if (ref.read(selectedAgentIdProvider) != null) {
+      ref.read(selectedAgentIdProvider.notifier).state = null;
+    }
+  }
+
+  bool _onKey(KeyEvent _) {
+    _bump();
+    return false; // ne consomme pas l'évènement
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_onKey);
+    // Armer après le premier frame (providers lisibles).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _bump());
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    HardwareKeyboard.instance.removeHandler(_onKey);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Ré-arme quand l'agent actif ou le mode d'appareil change (ne se déclenche
+    // que sur changement réel, pas à chaque frame).
+    ref.listen(selectedAgentIdProvider, (_, _) => _bump());
+    ref.listen(deviceModeProvider, (_, _) => _bump());
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => _bump(),
+      onPointerMove: (_) => _bump(),
+      onPointerSignal: (_) => _bump(),
+      child: widget.child,
     );
   }
 }
