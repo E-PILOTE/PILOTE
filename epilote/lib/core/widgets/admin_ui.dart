@@ -1,17 +1,51 @@
 import 'package:flutter/material.dart';
 
-// ─── Design tokens — identiques à l'espace super_admin ──────────────────────
-const Color kNavyDeep    = Color(0xFF091828);
-const Color kNavyDark    = Color(0xFF0F2340);
-const Color kNavy        = Color(0xFF1E3A5F);
-const Color kGreen       = Color(0xFF009A44);
-const Color kAccent      = Color(0xFFFBBC04);
-const Color kRed         = Color(0xFFDC2626);
-const Color kSurface     = Color(0xFFF0F4F8);
-const Color kCardBg      = Colors.white;
-const Color kTextPrimary = Color(0xFF0F172A);
-const Color kTextMuted   = Color(0xFF64748B);
-const Color kBorder      = Color(0xFFE2E8F0);
+import '../theme/palette.dart';
+
+// ─── Design tokens — la palette ACTIVE, sous les noms historiques ───────────
+//
+// Ces jetons ne sont plus `const` : c'est ce qui rend les thèmes possibles.
+// Toute couleur qui varie à l'exécution tue le `const` — c'est le prix du
+// thème, pas celui d'une astuce (cf. spec §2.3).
+//
+// ⚠️ Ce sont des variables globales, écrites par `applyPalette` UNIQUEMENT.
+// Ne jamais les réaffecter ailleurs. Ne jamais les capturer dans un `final`
+// top-level : la valeur serait figée au démarrage et ne suivrait plus le
+// thème (bug muet, invisible à `flutter analyze`) — utiliser un getter.
+Color kNavyDeep    = kPaletteClair.navyDeep;
+Color kNavyDark    = kPaletteClair.navyDark;
+Color kNavy        = kPaletteClair.navy;
+Color kGreen       = kPaletteClair.green;
+Color kAccent      = kPaletteClair.accent;
+Color kRed         = kPaletteClair.red;
+Color kSurface     = kPaletteClair.surface;
+Color kCardBg      = kPaletteClair.cardBg;
+Color kTextPrimary = kPaletteClair.textPrimary;
+Color kTextMuted   = kPaletteClair.textMuted;
+Color kBorder      = kPaletteClair.border;
+
+/// Palette actuellement appliquée (source de vérité pour `AppTheme.from`).
+EpilotePalette get activePalette => _active;
+EpilotePalette _active = kPaletteClair;
+
+/// Bascule les jetons sur [p]. Unique porte d'écriture des couleurs globales.
+///
+/// N'entraîne AUCUN rebuild par elle-même : l'appelant doit reconstruire
+/// l'arbre (`MaterialApp(key: ValueKey(themeId))` dans `main.dart`).
+void applyPalette(EpilotePalette p) {
+  _active = p;
+  kNavyDeep = p.navyDeep;
+  kNavyDark = p.navyDark;
+  kNavy = p.navy;
+  kGreen = p.green;
+  kAccent = p.accent;
+  kRed = p.red;
+  kSurface = p.surface;
+  kCardBg = p.cardBg;
+  kTextPrimary = p.textPrimary;
+  kTextMuted = p.textMuted;
+  kBorder = p.border;
+}
 
 // ─── Formateurs ─────────────────────────────────────────────────────────────
 
@@ -114,11 +148,11 @@ class AdminSectionTitle extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(title,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 16, fontWeight: FontWeight.w700, color: kTextPrimary)),
               if (subtitle != null)
                 Text(subtitle!,
-                    style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                    style: TextStyle(fontSize: 12, color: kTextMuted)),
             ],
           ),
         ),
@@ -179,7 +213,7 @@ class AdminStatCard extends StatelessWidget {
           Text(label,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12.5, color: kTextMuted, fontWeight: FontWeight.w600)),
           if (subtitle != null) ...[
             const SizedBox(height: 2),
@@ -261,12 +295,12 @@ class AdminEmptyState extends StatelessWidget {
             const SizedBox(height: 20),
             Text(title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 18, fontWeight: FontWeight.w800, color: kTextPrimary)),
             const SizedBox(height: 8),
             Text(message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13.5, color: kTextMuted, height: 1.5)),
+                style: TextStyle(fontSize: 13.5, color: kTextMuted, height: 1.5)),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 24),
               FilledButton.icon(
@@ -321,14 +355,14 @@ class AdminProgressBar extends StatelessWidget {
 
 // ─── Bouton d'action en-tête (style super_admin) ────────────────────────────
 class AdminActionButton extends StatelessWidget {
-  const AdminActionButton({
+  AdminActionButton({
     super.key,
     required this.label,
     required this.icon,
     required this.onPressed,
     this.filled = true,
-    this.color = kNavy,
-  });
+    Color? color,
+  }) : color = color ?? kNavy;
   final String label;
   final IconData icon;
   final VoidCallback onPressed;
@@ -357,7 +391,7 @@ class AdminActionButton extends StatelessWidget {
       label: Text(label),
       style: OutlinedButton.styleFrom(
         foregroundColor: color,
-        side: const BorderSide(color: kBorder),
+        side: BorderSide(color: kBorder),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
@@ -403,11 +437,11 @@ InputDecoration adminInputDecoration(String label, {IconData? icon, String? hint
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: kBorder),
+        borderSide: BorderSide(color: kBorder),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: kNavy, width: 1.6),
+        borderSide: BorderSide(color: kNavy, width: 1.6),
       ),
     );
 
@@ -422,9 +456,9 @@ class AdminDialogHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(colors: [kNavyDark, kNavy]),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: Row(
         children: [
@@ -464,15 +498,15 @@ class AdminDialogHeader extends StatelessWidget {
 
 // ─── Pied de boîte de dialogue (Annuler / Action) ───────────────────────────
 class AdminDialogFooter extends StatelessWidget {
-  const AdminDialogFooter({
+  AdminDialogFooter({
     super.key,
     required this.saving,
     required this.submitLabel,
     required this.onCancel,
     required this.onSubmit,
-    this.submitColor = kNavy,
+    Color? submitColor,
     this.submitIcon,
-  });
+  }) : submitColor = submitColor ?? kNavy;
   final bool saving;
   final String submitLabel;
   final VoidCallback onCancel;
@@ -484,7 +518,7 @@ class AdminDialogFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(top: BorderSide(color: kBorder)),
       ),
       child: Row(
@@ -492,7 +526,7 @@ class AdminDialogFooter extends StatelessWidget {
         children: [
           TextButton(
             onPressed: saving ? null : onCancel,
-            child: const Text('Annuler', style: TextStyle(color: kTextMuted)),
+            child: Text('Annuler', style: TextStyle(color: kTextMuted)),
           ),
           const SizedBox(width: 10),
           FilledButton.icon(
@@ -523,7 +557,7 @@ class AdminDialogFooter extends StatelessWidget {
 //  Réutilisable : à privilégier pour tout nouveau formulaire admin_groupe.
 // ════════════════════════════════════════════════════════════════════════════
 class AdminFormDialog extends StatelessWidget {
-  const AdminFormDialog({
+  AdminFormDialog({
     super.key,
     required this.icon,
     required this.title,
@@ -537,9 +571,9 @@ class AdminFormDialog extends StatelessWidget {
     this.saving = false,
     this.submitLabel,
     this.submitIcon,
-    this.submitColor = kNavy,
+    Color? submitColor,
     this.onSubmit,
-  });
+  }) : submitColor = submitColor ?? kNavy;
 
   final IconData icon;
   final String title;
@@ -603,9 +637,9 @@ class AdminFormDialog extends StatelessWidget {
           // ── En-tête ──
           Container(
             padding: const EdgeInsets.fromLTRB(22, 18, 16, 18),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
               border: Border(bottom: BorderSide(color: kBorder)),
             ),
             child: Row(children: [
@@ -613,8 +647,8 @@ class AdminFormDialog extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1A2F5A), kNavy],
+                  gradient: LinearGradient(
+                    colors: [const Color(0xFF1A2F5A), kNavy],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -635,14 +669,14 @@ class AdminFormDialog extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(title,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w800,
                             color: kTextPrimary)),
                     if (subtitle != null) ...[
                       const SizedBox(height: 2),
                       Text(subtitle!,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 11.5, color: kTextMuted)),
                     ],
                   ],
@@ -659,7 +693,7 @@ class AdminFormDialog extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: kBorder),
                   ),
-                  child: const Icon(Icons.close_rounded,
+                  child: Icon(Icons.close_rounded,
                       size: 16, color: kTextMuted),
                 ),
               ),
@@ -671,9 +705,9 @@ class AdminFormDialog extends StatelessWidget {
           if (foot != null)
             Container(
               padding: const EdgeInsets.fromLTRB(22, 14, 22, 18),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(18)),
                 border: Border(top: BorderSide(color: kBorder)),
               ),
               child: foot,
@@ -701,7 +735,7 @@ class AdminFormSectionLabel extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(text,
-              style: const TextStyle(
+              style: TextStyle(
                   color: kNavy,
                   fontSize: 10.5,
                   fontWeight: FontWeight.w800,
@@ -714,8 +748,8 @@ class AdminFormSectionLabel extends StatelessWidget {
 class AdminFormDivider extends StatelessWidget {
   const AdminFormDivider({super.key});
   @override
-  Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 18),
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 18),
         child: Divider(color: kBorder, height: 1),
       );
 }
@@ -724,7 +758,7 @@ class AdminFormDivider extends StatelessWidget {
 InputDecoration adminFilledInput(String hint, {IconData? icon}) =>
     InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: kTextMuted, fontSize: 13),
+      hintStyle: TextStyle(color: kTextMuted, fontSize: 13),
       prefixIcon:
           icon != null ? Icon(icon, size: 18, color: kTextMuted) : null,
       filled: true,
@@ -732,30 +766,30 @@ InputDecoration adminFilledInput(String hint, {IconData? icon}) =>
       isDense: true,
       border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: kBorder)),
+          borderSide: BorderSide(color: kBorder)),
       enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: kBorder)),
+          borderSide: BorderSide(color: kBorder)),
       focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: kNavy, width: 1.5)),
+          borderSide: BorderSide(color: kNavy, width: 1.5)),
       errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: kRed)),
+          borderSide: BorderSide(color: kRed)),
       contentPadding:
           const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
     );
 
 /// Bouton primaire « pilule » à dégradé (style bouton enregistrer de l'école).
 class AdminPrimaryButton extends StatelessWidget {
-  const AdminPrimaryButton({
+  AdminPrimaryButton({
     super.key,
     required this.label,
     required this.onTap,
     this.icon,
-    this.color = kNavy,
+    Color? color,
     this.saving = false,
-  });
+  }) : color = color ?? kNavy;
   final String label;
   final VoidCallback onTap;
   final IconData? icon;
@@ -830,10 +864,10 @@ class AdminPdfButton extends StatelessWidget {
               border: Border.all(color: kRed.withValues(alpha: 0.22)),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.picture_as_pdf_outlined, size: 15, color: kRed),
+              Icon(Icons.picture_as_pdf_outlined, size: 15, color: kRed),
               const SizedBox(width: 6),
               Text(label,
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: kRed, fontSize: 12.5, fontWeight: FontWeight.w700)),
             ]),
           ),
@@ -879,7 +913,7 @@ class AdminModalSectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     title.toUpperCase(),
-    style: const TextStyle(
+    style: TextStyle(
         fontSize: 11.5, fontWeight: FontWeight.w800, color: kNavy, letterSpacing: 0.6),
   );
 }
@@ -911,12 +945,12 @@ class AdminDetailRow extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
     decoration: BoxDecoration(
-      border: last ? null : const Border(bottom: BorderSide(color: kBorder)),
+      border: last ? null : Border(bottom: BorderSide(color: kBorder)),
     ),
     child: Row(children: [
       Icon(icon, size: 16, color: kTextMuted),
       const SizedBox(width: 10),
-      Text(label, style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
+      Text(label, style: TextStyle(fontSize: 12.5, color: kTextMuted)),
       const SizedBox(width: 12),
       Expanded(
         child: Text(
@@ -983,9 +1017,9 @@ class AdminErrorBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded, color: kRed, size: 18),
+          Icon(Icons.error_outline_rounded, color: kRed, size: 18),
           const SizedBox(width: 10),
-          Expanded(child: Text(message, style: const TextStyle(color: kRed, fontSize: 12.5))),
+          Expanded(child: Text(message, style: TextStyle(color: kRed, fontSize: 12.5))),
         ],
       ),
     );

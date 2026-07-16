@@ -226,7 +226,7 @@ class _MiniStat extends StatelessWidget {
                 Text(stat.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w600,
                         color: kTextMuted)),
@@ -252,9 +252,9 @@ class _AudienceCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(children: [
+            Row(children: [
               Icon(Icons.donut_small_rounded, size: 15, color: kNavy),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text('Répartition par audience',
                   style: TextStyle(
                       fontSize: 13,
@@ -296,7 +296,7 @@ class _AudienceBar extends StatelessWidget {
                 child: Text(label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: kTextPrimary)),
@@ -369,9 +369,9 @@ class _ContributorsCardState extends State<_ContributorsCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(children: [
+          Row(children: [
             Icon(Icons.workspace_premium_rounded, size: 15, color: kNavy),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Expanded(
               child: Text('Contributeurs actifs',
                   style: TextStyle(
@@ -381,7 +381,7 @@ class _ContributorsCardState extends State<_ContributorsCard> {
             ),
           ]),
           const SizedBox(height: 4),
-          const Text('Touchez un nom pour voir ses publications',
+          Text('Touchez un nom pour voir ses publications',
               style: TextStyle(fontSize: 10.5, color: kTextMuted)),
           if (searchable) ...[
             const SizedBox(height: 10),
@@ -393,8 +393,8 @@ class _ContributorsCardState extends State<_ContributorsCard> {
           ],
           const SizedBox(height: 10),
           if (shown.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
               child: Text('Aucun contributeur trouvé',
                   style: TextStyle(fontSize: 12, color: kTextMuted)),
             )
@@ -431,7 +431,7 @@ class _RailSearchField extends StatelessWidget {
           decoration: InputDecoration(
             isDense: true,
             hintText: hint,
-            hintStyle: const TextStyle(fontSize: 12.5, color: kTextMuted),
+            hintStyle: TextStyle(fontSize: 12.5, color: kTextMuted),
             prefixIcon: const Icon(Icons.search_rounded, size: 18),
             prefixIconConstraints:
                 const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -454,11 +454,11 @@ class _RailSearchField extends StatelessWidget {
             fillColor: const Color(0xFFF4F6F9),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: kBorder),
+              borderSide: BorderSide(color: kBorder),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: kNavy, width: 1.4),
+              borderSide: BorderSide(color: kNavy, width: 1.4),
             ),
           ),
         ),
@@ -493,14 +493,14 @@ class _ContributorRow extends StatelessWidget {
               Text(c.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
                       color: kTextPrimary)),
               Text(roleLabelFr(c.role),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 10.5, color: kTextMuted)),
+                  style: TextStyle(fontSize: 10.5, color: kTextMuted)),
             ],
           ),
         ),
@@ -570,9 +570,9 @@ class _AgendaCardState extends State<_AgendaCard> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 10, 10),
             child: Row(children: [
-              const Icon(Icons.event_rounded, size: 16, color: kNavy),
+              Icon(Icons.event_rounded, size: 16, color: kNavy),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text('Événements à venir',
                     style: TextStyle(
                         fontSize: 13.5,
@@ -582,7 +582,7 @@ class _AgendaCardState extends State<_AgendaCard> {
               if (widget.upcoming.isNotEmpty && widget.onSeeAgenda != null)
                 GestureDetector(
                   onTap: widget.onSeeAgenda,
-                  child: const Text('Agenda',
+                  child: Text('Agenda',
                       style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w700,
@@ -599,12 +599,12 @@ class _AgendaCardState extends State<_AgendaCard> {
                 onChanged: (v) => setState(() => _q = v),
               ),
             ),
-          const Divider(height: 1, color: kBorder),
+          Divider(height: 1, color: kBorder),
           if (widget.upcoming.isEmpty)
             _EventsEmpty(onAddEvent: widget.onAddEvent)
           else if (shown.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 18),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 18),
               child: Center(
                 child: Text('Aucun événement trouvé',
                     style: TextStyle(fontSize: 12, color: kTextMuted)),
@@ -639,16 +639,16 @@ class _EventsEmpty extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.event_available_rounded, size: 36, color: kBorder),
+              Icon(Icons.event_available_rounded, size: 36, color: kBorder),
               const SizedBox(height: 10),
-              const Text('Aucun événement à venir',
+              Text('Aucun événement à venir',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
                       color: kTextMuted)),
               const SizedBox(height: 4),
-              const Text('Planifiez un événement pour votre communauté',
+              Text('Planifiez un événement pour votre communauté',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 11, color: kTextMuted, height: 1.4)),
               if (onAddEvent != null) ...[
@@ -661,7 +661,7 @@ class _EventsEmpty extends StatelessWidget {
                           TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: kNavy,
-                    side: const BorderSide(color: kBorder),
+                    side: BorderSide(color: kBorder),
                     padding:
                         const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                     shape: RoundedRectangleBorder(
@@ -724,7 +724,7 @@ class _EventRow extends StatelessWidget {
               Text(event.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
                       color: kTextPrimary,
@@ -743,7 +743,7 @@ class _EventRow extends StatelessWidget {
                       event.location ?? event.startTime ?? 'Toute la journée',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                      style: TextStyle(fontSize: 11, color: kTextMuted)),
                 ),
               ]),
             ],

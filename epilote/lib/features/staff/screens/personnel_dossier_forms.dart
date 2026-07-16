@@ -77,8 +77,8 @@ class _CareerFormState extends ConsumerState<_CareerForm> {
 
   Future<void> _save() async {
     if (_position.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Le poste est requis'), backgroundColor: kRed));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Le poste est requis'), backgroundColor: kRed));
       return;
     }
     final p = ref.read(authNotifierProvider).valueOrNull;
@@ -208,8 +208,8 @@ class _DiplomaFormState extends ConsumerState<_DiplomaForm> {
 
   Future<void> _save() async {
     if (_title.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('L\'intitulé est requis'), backgroundColor: kRed));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('L\'intitulé est requis'), backgroundColor: kRed));
       return;
     }
     final p = ref.read(authNotifierProvider).valueOrNull;
@@ -333,7 +333,7 @@ class _DisabledField extends StatelessWidget {
   @override
   Widget build(BuildContext context) => InputDecorator(
         decoration: adminFilledInput(label, icon: Icons.lock_clock_outlined),
-        child: const Text('—',
+        child: Text('—',
             style: TextStyle(fontSize: 13.5, color: kTextMuted)),
       );
 }
@@ -358,14 +358,14 @@ class _Section extends StatelessWidget {
         Icon(icon, size: 18, color: kNavy),
         const SizedBox(width: 8),
         Text(title,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 14.5, fontWeight: FontWeight.w800, color: kNavy)),
         const Spacer(),
         if (onAdd != null)
           IconButton(
             visualDensity: VisualDensity.compact,
             onPressed: onAdd,
-            icon: const Icon(Icons.add_circle_rounded, color: kNavy),
+            icon: Icon(Icons.add_circle_rounded, color: kNavy),
             tooltip: 'Ajouter',
           ),
       ]),
@@ -394,13 +394,13 @@ class _ItemCard extends StatelessWidget {
         Expanded(child: child),
         if (onEdit != null || onDelete != null)
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert_rounded, size: 18, color: kTextMuted),
+            icon: Icon(Icons.more_vert_rounded, size: 18, color: kTextMuted),
             onSelected: (v) => v == 'edit' ? onEdit?.call() : onDelete?.call(),
             itemBuilder: (_) => [
               if (onEdit != null)
                 const PopupMenuItem(value: 'edit', child: Text('Modifier')),
               if (onDelete != null)
-                const PopupMenuItem(
+                PopupMenuItem(
                     value: 'delete',
                     child: Text('Supprimer', style: TextStyle(color: kRed))),
             ],
@@ -433,7 +433,7 @@ class _Empty extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 14),
         child: Text(text,
-            style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
+            style: TextStyle(fontSize: 12.5, color: kTextMuted)),
       );
 }
 

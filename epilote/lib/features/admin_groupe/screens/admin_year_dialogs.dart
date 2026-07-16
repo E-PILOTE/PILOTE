@@ -18,7 +18,7 @@ class _DateField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 12, fontWeight: FontWeight.w600, color: kNavy)),
       const SizedBox(height: 6),
       InkWell(
@@ -41,7 +41,7 @@ class _DateField extends StatelessWidget {
             border: Border.all(color: kBorder),
           ),
           child: Row(children: [
-            const Icon(Icons.calendar_today_rounded,
+            Icon(Icons.calendar_today_rounded,
                 size: 15, color: kTextMuted),
             const SizedBox(width: 8),
             Text(value != null ? _fmt.format(value!) : 'Choisir…',
@@ -176,7 +176,7 @@ class _YearDialogState extends ConsumerState<_YearDialog> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(children: [
-              const Icon(Icons.info_outline_rounded, size: 16, color: kNavy),
+              Icon(Icons.info_outline_rounded, size: 16, color: kNavy),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -185,7 +185,7 @@ class _YearDialogState extends ConsumerState<_YearDialog> {
                           'à leur prochaine synchro.'
                       : 'Créée NON courante. Toutes les écoles du groupe '
                           "l'hériteront à leur prochaine synchro.",
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 11.5, color: kTextMuted, height: 1.4),
                 ),
               ),
@@ -370,7 +370,7 @@ class _RolloverDialogState extends ConsumerState<_RolloverDialog> {
                 Icon(Icons.event_note_rounded,
                     size: 18, color: _copyCalendar ? kGreen : kTextMuted),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Reporter le calendrier (trimestres & séquences, +1 an)',
                     style: TextStyle(
@@ -394,9 +394,9 @@ class _RolloverDialogState extends ConsumerState<_RolloverDialog> {
               color: kNavy.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Row(children: [
+            child: Row(children: [
               Icon(Icons.info_outline_rounded, size: 16, color: kNavy),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Année créée NON courante. Les écoles prépareront leurs '

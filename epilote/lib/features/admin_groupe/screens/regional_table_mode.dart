@@ -34,21 +34,21 @@ class RegionalTableMode extends ConsumerWidget {
           border: Border.all(color: kBorder),
         ),
         child: async.when(
-          loading: () => const Center(
+          loading: () => Center(
               child: CircularProgressIndicator(color: kNavy, strokeWidth: 2.5)),
           error: (e, _) => Center(
             child: Text('Erreur de chargement\n$e',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12, color: kRed)),
+                style: TextStyle(fontSize: 12, color: kRed)),
           ),
           data: (rows) {
             final view = applyRegionalQuery(rows, query);
             return Column(
               children: [
                 _Toolbar(allRows: rows, shown: view.length),
-                const Divider(height: 1, color: kBorder),
+                Divider(height: 1, color: kBorder),
                 _QualityAlerts(rows: rows),
-                const Divider(height: 1, color: kBorder),
+                Divider(height: 1, color: kBorder),
                 // En-tête + lignes partagent UN seul scroll horizontal et la
                 // même largeur `tableW` → l'en-tête reste aligné aux colonnes
                 // et ne déborde plus sur écran étroit.
@@ -63,14 +63,14 @@ class RegionalTableMode extends ConsumerWidget {
                         child: Column(
                           children: [
                             _Header(query: query, tableW: tableW),
-                            const Divider(height: 1, color: kBorder),
+                            Divider(height: 1, color: kBorder),
                             Expanded(
                               child: view.isEmpty
                                   ? const _Empty()
                                   : ListView.separated(
                                       itemCount: view.length,
                                       separatorBuilder: (_, _) =>
-                                          const Divider(
+                                          Divider(
                                               height: 1, color: kBorder),
                                       itemBuilder: (_, i) => _SchoolRow(
                                           row: view[i], tableW: tableW),
@@ -158,32 +158,32 @@ class _Toolbar extends ConsumerWidget {
                     isDense: true,
                     hintText: 'Rechercher une école, code, ville, département…',
                     hintStyle:
-                        const TextStyle(fontSize: 12.5, color: kTextMuted),
+                        TextStyle(fontSize: 12.5, color: kTextMuted),
                     prefixIcon:
-                        const Icon(Icons.search_rounded, size: 18, color: kTextMuted),
+                        Icon(Icons.search_rounded, size: 18, color: kTextMuted),
                     contentPadding: const EdgeInsets.symmetric(vertical: 8),
                     filled: true,
                     fillColor: kSurface,
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: kBorder)),
+                        borderSide: BorderSide(color: kBorder)),
                     enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: kBorder)),
+                        borderSide: BorderSide(color: kBorder)),
                     focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: kNavy)),
+                        borderSide: BorderSide(color: kNavy)),
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 10),
             Text('$shown / ${allRows.length}',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: kTextPrimary)),
-            const Text(' écoles',
+            Text(' écoles',
                 style: TextStyle(fontSize: 11, color: kTextMuted)),
           ]),
           const SizedBox(height: 10),
@@ -270,7 +270,7 @@ class _QualityAlerts extends ConsumerWidget {
         const SizedBox(width: 12),
         Expanded(
           child: clean
-              ? const Text('Toutes les fiches sont complètes et géolocalisées.',
+              ? Text('Toutes les fiches sont complètes et géolocalisées.',
                   style: TextStyle(fontSize: 11, color: kTextMuted),
                   overflow: TextOverflow.ellipsis)
               : Wrap(spacing: 8, runSpacing: 8, children: [
@@ -305,11 +305,11 @@ class _QualityAlerts extends ConsumerWidget {
           InkWell(
             onTap: () => notifier.update((s) => s.copyWith(gap: null)),
             borderRadius: BorderRadius.circular(6),
-            child: const Padding(
-              padding: EdgeInsets.all(3),
+            child: Padding(
+              padding: const EdgeInsets.all(3),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 Icon(Icons.close_rounded, size: 13, color: kTextMuted),
-                SizedBox(width: 2),
+                const SizedBox(width: 2),
                 Text('Filtre actif',
                     style: TextStyle(fontSize: 10, color: kTextMuted)),
               ]),
@@ -502,7 +502,7 @@ class _HCell extends StatelessWidget {
         width: width,
         child: Text(label,
             textAlign: center ? TextAlign.center : TextAlign.start,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 9.5,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.4,
@@ -540,7 +540,7 @@ class _SchoolRow extends ConsumerWidget {
                       Text(s.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: kTextPrimary)),
@@ -564,7 +564,7 @@ class _SchoolRow extends ConsumerWidget {
                             child: Text('· ${s.code}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 10, color: kTextMuted)),
                           ),
                         ],
@@ -582,7 +582,7 @@ class _SchoolRow extends ConsumerWidget {
                   Text(s.department ?? '—',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: kTextPrimary)),
@@ -591,7 +591,7 @@ class _SchoolRow extends ConsumerWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style:
-                            const TextStyle(fontSize: 10, color: kTextMuted)),
+                            TextStyle(fontSize: 10, color: kTextMuted)),
                 ]),
           ),
           // Cycles
@@ -615,7 +615,7 @@ class _SchoolRow extends ConsumerWidget {
           SizedBox(
             width: _wLoad,
             child: row.loadLevel == 0
-                ? const Text('—',
+                ? Text('—',
                     textAlign: TextAlign.right,
                     style: TextStyle(fontSize: 12, color: kTextMuted))
                 : Align(
@@ -639,7 +639,7 @@ class _SchoolRow extends ConsumerWidget {
           SizedBox(
             width: _wOcc,
             child: row.occupancyPct == null
-                ? const Text('—',
+                ? Text('—',
                     textAlign: TextAlign.right,
                     style: TextStyle(fontSize: 12, color: kTextMuted))
                 : Align(
@@ -707,7 +707,7 @@ class _Num extends StatelessWidget {
         width: width,
         child: Text(value,
             textAlign: TextAlign.right,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
                 color: kTextPrimary)),
@@ -749,7 +749,7 @@ class _Cycles extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (codes.isEmpty) {
-      return const Text('—', style: TextStyle(fontSize: 11, color: kTextMuted));
+      return Text('—', style: TextStyle(fontSize: 11, color: kTextMuted));
     }
     final show = codes.take(3).toList();
     return Wrap(spacing: 3, runSpacing: 3, children: [
@@ -760,12 +760,12 @@ class _Cycles extends StatelessWidget {
               color: kNavy.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(4)),
           child: Text(c.toUpperCase(),
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 8.5, fontWeight: FontWeight.w800, color: kNavy)),
         ),
       if (codes.length > 3)
         Text('+${codes.length - 3}',
-            style: const TextStyle(fontSize: 9, color: kTextMuted)),
+            style: TextStyle(fontSize: 9, color: kTextMuted)),
     ]);
   }
 }
@@ -890,7 +890,7 @@ class _Empty extends StatelessWidget {
           Icon(Icons.filter_alt_off_rounded,
               size: 32, color: kTextMuted.withValues(alpha: 0.5)),
           const SizedBox(height: 10),
-          const Text('Aucune école pour ces filtres',
+          Text('Aucune école pour ces filtres',
               style: TextStyle(fontSize: 12.5, color: kTextMuted)),
         ]),
       );

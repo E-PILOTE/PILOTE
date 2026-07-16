@@ -182,13 +182,13 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Row(children: [
-                  const Icon(Icons.meeting_room_outlined,
+                  Icon(Icons.meeting_room_outlined,
                       size: 18, color: kNavy),
                   const SizedBox(width: 10),
                   Expanded(child: Text(c.name)),
                   Text('${c.studentCount ?? 0}'
                       '${c.capacity != null ? '/${c.capacity}' : ''}',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 12, color: kTextMuted)),
                 ]),
               ),
@@ -454,7 +454,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('Erreur : $e', style: const TextStyle(color: kRed)),
+          child: Text('Erreur : $e', style: TextStyle(color: kRed)),
         ),
       ),
       data: (all) {
@@ -710,11 +710,11 @@ class _EvolutionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(left: 8, bottom: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 8, bottom: 6),
             child: Row(children: [
               _LegendDot(color: kNavy, label: 'Inscriptions du mois'),
-              SizedBox(width: 16),
+              const SizedBox(width: 16),
               _LegendDot(color: kGreen, label: 'Effectif cumulé', line: true),
             ]),
           ),
@@ -722,22 +722,22 @@ class _EvolutionCard extends StatelessWidget {
             height: 220,
             child: SfCartesianChart(
               margin: EdgeInsets.zero,
-              primaryXAxis: const CategoryAxis(
-                majorGridLines: MajorGridLines(width: 0),
+              primaryXAxis: CategoryAxis(
+                majorGridLines: const MajorGridLines(width: 0),
                 labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
               ),
-              primaryYAxis: const NumericAxis(
-                axisLine: AxisLine(width: 0),
-                majorTickLines: MajorTickLines(size: 0),
+              primaryYAxis: NumericAxis(
+                axisLine: const AxisLine(width: 0),
+                majorTickLines: const MajorTickLines(size: 0),
                 labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
               ),
-              axes: const <ChartAxis>[
+              axes: <ChartAxis>[
                 NumericAxis(
                   name: 'cumul',
                   opposedPosition: true,
-                  axisLine: AxisLine(width: 0),
-                  majorGridLines: MajorGridLines(width: 0),
-                  majorTickLines: MajorTickLines(size: 0),
+                  axisLine: const AxisLine(width: 0),
+                  majorGridLines: const MajorGridLines(width: 0),
+                  majorTickLines: const MajorTickLines(size: 0),
                   labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
                 ),
               ],
@@ -788,7 +788,7 @@ class _LegendDot extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         Text(label,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 11.5, fontWeight: FontWeight.w600, color: kTextMuted)),
       ]);
 }
@@ -845,12 +845,12 @@ class _FilterBar extends StatelessWidget {
               onChanged: onSearch,
               decoration: InputDecoration(
                 hintText: 'Rechercher (nom, matricule)…',
-                hintStyle: const TextStyle(color: kTextMuted, fontSize: 13),
+                hintStyle: TextStyle(color: kTextMuted, fontSize: 13),
                 prefixIcon:
-                    const Icon(Icons.search_rounded, color: kTextMuted, size: 20),
+                    Icon(Icons.search_rounded, color: kTextMuted, size: 20),
                 suffixIcon: searchCtrl.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.close_rounded,
+                        icon: Icon(Icons.close_rounded,
                             size: 18, color: kTextMuted),
                         onPressed: () { searchCtrl.clear(); onSearch(''); })
                     : null,
@@ -927,9 +927,9 @@ class _FilterBar extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: kRed.withValues(alpha: 0.25)),
                     ),
-                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.filter_alt_off_rounded, size: 13, color: kRed),
-                      SizedBox(width: 4),
+                      const SizedBox(width: 4),
                       Text('Réinitialiser',
                           style: TextStyle(
                               color: kRed,
@@ -962,17 +962,17 @@ class _ScopeChip extends StatelessWidget {
             border: Border.all(color: kNavy.withValues(alpha: 0.25)),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.filter_alt_rounded, size: 14, color: kNavy),
+            Icon(Icons.filter_alt_rounded, size: 14, color: kNavy),
             const SizedBox(width: 6),
             Text(label,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12.5, fontWeight: FontWeight.w700, color: kNavy)),
             const SizedBox(width: 2),
             InkWell(
               onTap: onClear,
               borderRadius: BorderRadius.circular(20),
-              child: const Padding(
-                padding: EdgeInsets.all(3),
+              child: Padding(
+                padding: const EdgeInsets.all(3),
                 child: Icon(Icons.close_rounded, size: 15, color: kNavy),
               ),
             ),
@@ -995,9 +995,9 @@ class _AddButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: kAccent.withValues(alpha: 0.30)),
         ),
-        child: const Row(mainAxisSize: MainAxisSize.min, children: [
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.lock_clock_rounded, size: 15, color: kAccent),
-          SizedBox(width: 6),
+          const SizedBox(width: 6),
           Text('Année verrouillée',
               style: TextStyle(
                   color: kAccent, fontSize: 12.5, fontWeight: FontWeight.w700)),
@@ -1014,7 +1014,7 @@ class _AddButton extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 colors: [kNavyDark, kNavy],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -1178,12 +1178,12 @@ class _ResultHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(children: [
         Text('$filtered inscrit${filtered > 1 ? 's' : ''}',
-            style: const TextStyle(
+            style: TextStyle(
                 color: kTextPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
         if (filtered < total) ...[
           const SizedBox(width: 8),
           Text('sur $total',
-              style: const TextStyle(color: kTextMuted, fontSize: 13)),
+              style: TextStyle(color: kTextMuted, fontSize: 13)),
         ],
         const Spacer(),
         if (onExportPdf != null) AdminPdfButton(onTap: onExportPdf!),

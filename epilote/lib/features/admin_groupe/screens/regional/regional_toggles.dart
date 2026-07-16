@@ -16,7 +16,7 @@ class _LayerToggleBar extends ConsumerWidget {
     final showVillages = ref.watch(_showVillagesLayerProv);
     final showRoads    = ref.watch(_showRoadsLayerProv);
 
-    const sectionLabel = TextStyle(
+    final sectionLabel = TextStyle(
         fontSize: 9, fontWeight: FontWeight.w700,
         color: kTextMuted, letterSpacing: 1.0);
 
@@ -28,9 +28,9 @@ class _LayerToggleBar extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ── Fond de carte ──────────────────────────────────────────────────
-          const Row(children: [
+          Row(children: [
             Icon(Icons.travel_explore_rounded, size: 13, color: kTextMuted),
-            SizedBox(width: 6),
+            const SizedBox(width: 6),
             Text('FOND DE CARTE', style: sectionLabel),
           ]),
           const SizedBox(height: 6),
@@ -65,12 +65,12 @@ class _LayerToggleBar extends ConsumerWidget {
             ]),
           ),
           const SizedBox(height: 10),
-          const Divider(height: 1, color: kBorder),
+          Divider(height: 1, color: kBorder),
           const SizedBox(height: 8),
           // ── Couches de données ──────────────────────────────────────────────
-          const Row(children: [
+          Row(children: [
             Icon(Icons.layers_rounded, size: 13, color: kTextMuted),
-            SizedBox(width: 6),
+            const SizedBox(width: 6),
             Text('COUCHES', style: sectionLabel),
           ]),
           const SizedBox(height: 6),
@@ -153,12 +153,12 @@ class _LayerToggleBar extends ConsumerWidget {
                 }),
           ]),
           const SizedBox(height: 10),
-          const Divider(height: 1, color: kBorder),
+          Divider(height: 1, color: kBorder),
           const SizedBox(height: 8),
           // ── Coloration des écoles ──────────────────────────────────────────
-          const Row(children: [
+          Row(children: [
             Icon(Icons.palette_outlined, size: 13, color: kTextMuted),
-            SizedBox(width: 6),
+            const SizedBox(width: 6),
             Text('COULEUR DES ÉCOLES', style: sectionLabel),
           ]),
           const SizedBox(height: 6),

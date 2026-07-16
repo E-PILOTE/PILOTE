@@ -49,8 +49,8 @@ class _CoveragePanel extends ConsumerWidget {
       ..sort((a, b) => b.total.compareTo(a.total));
 
     if (covs.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(24),
+      return Padding(
+        padding: const EdgeInsets.all(24),
         child: Center(
           child: Text('Aucun établissement\npour ce filtre',
               textAlign: TextAlign.center,
@@ -65,16 +65,16 @@ class _CoveragePanel extends ConsumerWidget {
       Padding(
         padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
         child: Row(children: [
-          const Icon(Icons.travel_explore_rounded, size: 12, color: kNavy),
+          Icon(Icons.travel_explore_rounded, size: 12, color: kNavy),
           const SizedBox(width: 6),
-          const Expanded(
+          Expanded(
             child: Text('COUVERTURE TERRITORIALE',
                 style: TextStyle(
                     fontSize: 9.5, fontWeight: FontWeight.w800,
                     color: kTextMuted, letterSpacing: 0.8)),
           ),
           Text('${covs.length} dépt.',
-              style: const TextStyle(fontSize: 9, color: kTextMuted)),
+              style: TextStyle(fontSize: 9, color: kTextMuted)),
         ]),
       ),
     ];
@@ -112,7 +112,7 @@ class _CoveragePanel extends ConsumerWidget {
             SizedBox(
               width: 18,
               child: Text('${i + 1}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 10, fontWeight: FontWeight.w800,
                       color: kTextMuted)),
             ),
@@ -123,7 +123,7 @@ class _CoveragePanel extends ConsumerWidget {
                     Row(children: [
                       Expanded(
                         child: Text(c.dept,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 12, fontWeight: FontWeight.w700,
                                 color: kTextPrimary),
                             maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -155,7 +155,7 @@ class _CoveragePanel extends ConsumerWidget {
                     const SizedBox(height: 3),
                     Text('${c.total} écoles · ${c.students} élèves',
                         style:
-                            const TextStyle(fontSize: 9, color: kTextMuted)),
+                            TextStyle(fontSize: 9, color: kTextMuted)),
                   ]),
             ),
           ]),
@@ -181,7 +181,7 @@ class _DeptDetail extends ConsumerWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [kNavyDark, kNavy],
               begin: Alignment.topLeft, end: Alignment.bottomRight,
@@ -228,14 +228,14 @@ class _DeptDetail extends ConsumerWidget {
                 _TypeMix(schools: dept.schools),
                 const SizedBox(height: 14),
                 Row(children: [
-                  const Text('Établissements',
+                  Text('Établissements',
                       style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: kTextPrimary)),
                   const Spacer(),
                   Text('${dept.schoolCount}',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
                           color: kNavy)),
@@ -264,7 +264,7 @@ class _DeptDetail extends ConsumerWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(s.name,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w600,
                                             color: kTextPrimary),
@@ -273,7 +273,7 @@ class _DeptDetail extends ConsumerWidget {
                                     Text(
                                         [if (s.city != null) s.city!, _typeLabel(s.type)]
                                             .join(' · '),
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             fontSize: 9, color: kTextMuted),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis),
@@ -281,11 +281,11 @@ class _DeptDetail extends ConsumerWidget {
                             ),
                             const SizedBox(width: 6),
                             Text('${s.students}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
                                     color: kNavy)),
-                            const Text(' él.',
+                            Text(' él.',
                                 style: TextStyle(
                                     fontSize: 8.5, color: kTextMuted)),
                           ]),

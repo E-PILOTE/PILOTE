@@ -63,10 +63,10 @@ class _Body extends ConsumerWidget {
               title: 'Mon profil',
               subtitle: 'Voir et modifier mes informations',
               trailing:
-                  const Icon(Icons.chevron_right_rounded, color: kTextMuted),
+                  Icon(Icons.chevron_right_rounded, color: kTextMuted),
               onTap: () => context.go(Routes.userProfil),
             ),
-            const Divider(height: 1, color: kBorder),
+            Divider(height: 1, color: kBorder),
             SettingsTile(
               icon: Icons.email_outlined,
               color: kGreen,
@@ -134,7 +134,7 @@ class _Body extends ConsumerWidget {
             title: 'Centre de notifications',
             subtitle: 'Annonces, messages et alertes de votre école',
             trailing:
-                const Icon(Icons.chevron_right_rounded, color: kTextMuted),
+                Icon(Icons.chevron_right_rounded, color: kTextMuted),
             onTap: () => Scaffold.of(context).openEndDrawer(),
           ),
         ),
@@ -142,7 +142,7 @@ class _Body extends ConsumerWidget {
       const SizedBox(height: 22),
 
       // ── À propos ─────────────────────────────────────────────────────────
-      const StaffSection(
+      StaffSection(
         title: 'À propos',
         icon: Icons.info_outline,
         child: AdminCard(

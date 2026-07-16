@@ -236,9 +236,9 @@ class _SchoolLocationFieldState extends ConsumerState<SchoolLocationField> {
         _actionBtn(Icons.check_rounded, 'Appliquer', _applyManual, subtle: true),
       ]),
       const SizedBox(height: 8),
-      const Row(children: [
+      Row(children: [
         Icon(Icons.info_outline_rounded, size: 13, color: kTextMuted),
-        SizedBox(width: 6),
+        const SizedBox(width: 6),
         Expanded(child: Text(
           'Choisissez département puis localité ci-dessus : le repère se pose '
           'automatiquement. Glissez-le (ou touchez la carte, idéalement en '

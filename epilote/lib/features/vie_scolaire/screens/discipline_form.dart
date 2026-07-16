@@ -59,15 +59,15 @@ class _IncidentFormState extends ConsumerState<_IncidentForm> {
         lastDate: DateTime.now().add(const Duration(days: 365)),
         builder: (ctx, child) => Theme(
           data: Theme.of(ctx)
-              .copyWith(colorScheme: const ColorScheme.light(primary: kNavy)),
+              .copyWith(colorScheme: ColorScheme.light(primary: kNavy)),
           child: child!,
         ),
       );
 
   Future<void> _save() async {
     if (_studentId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Choisissez un élève'), backgroundColor: kRed));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Choisissez un élève'), backgroundColor: kRed));
       return;
     }
     final p = ref.read(authNotifierProvider).valueOrNull;

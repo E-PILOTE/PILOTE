@@ -21,8 +21,13 @@ Future<void> showPdfPreviewDialog(
   required PdfBuilder build,
   required String pdfFileName,
   Future<String?> Function()? onDownload,
-  Color accent = kNavy,
+  // Résolu au corps, pas en défaut : une valeur par défaut doit être une
+  // constante de compilation, or les jetons suivent désormais le thème.
+  Color? accent,
 }) {
+  // Locale plutôt que `accent ??=` : une variable capturée par la closure du
+  // builder n'est pas promue par Dart.
+  final acc = accent ?? kNavy;
   return showDialog(
     context: context,
     barrierColor: Colors.black54,
@@ -32,7 +37,7 @@ Future<void> showPdfPreviewDialog(
       builder: build,
       pdfFileName: pdfFileName,
       onDownload: onDownload,
-      accent: accent,
+      accent: acc,
     ),
   );
 }
@@ -70,7 +75,7 @@ class _PdfPreviewDialog extends StatelessWidget {
           // En-tête sobre : pastille accent + titre, sur fond blanc.
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: Colors.white,
               border: Border(bottom: BorderSide(color: kBorder)),
             ),
@@ -93,7 +98,7 @@ class _PdfPreviewDialog extends StatelessWidget {
                     Text(title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: kTextPrimary,
                             fontSize: 14.5,
                             fontWeight: FontWeight.w800)),
@@ -102,7 +107,7 @@ class _PdfPreviewDialog extends StatelessWidget {
                       Text(subtitle!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: kTextMuted, fontSize: 11.5)),
                     ],
                   ],
@@ -111,7 +116,7 @@ class _PdfPreviewDialog extends StatelessWidget {
               IconButton(
                 tooltip: 'Fermer',
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.close_rounded, color: kTextMuted),
+                icon: Icon(Icons.close_rounded, color: kTextMuted),
                 onPressed: () => Navigator.pop(context),
               ),
             ]),
@@ -128,7 +133,7 @@ class _PdfPreviewDialog extends StatelessWidget {
               canDebug: false,
               pdfFileName: pdfFileName,
               previewPageMargin: const EdgeInsets.all(12),
-              scrollViewDecoration: const BoxDecoration(color: kSurface),
+              scrollViewDecoration: BoxDecoration(color: kSurface),
               pdfPreviewPageDecoration: const BoxDecoration(
                 color: Colors.white,
                 boxShadow: [

@@ -51,9 +51,9 @@ class AdminAccessScreen extends ConsumerWidget {
         loading: () => const _ShimmerSkeleton(),
         error: (e, _) => Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.cloud_off_rounded, size: 48, color: kTextMuted),
+            Icon(Icons.cloud_off_rounded, size: 48, color: kTextMuted),
             const SizedBox(height: 12),
-            Text('Erreur : $e', style: const TextStyle(color: kTextMuted)),
+            Text('Erreur : $e', style: TextStyle(color: kTextMuted)),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () => ref.invalidate(adminAccessProvider),
@@ -443,7 +443,7 @@ class _KpiCardState extends State<_KpiCard> with SingleTickerProviderStateMixin 
                           fontWeight: FontWeight.w900, letterSpacing: -0.5,
                         )),
                         const SizedBox(height: 2),
-                        Text(d.label, style: const TextStyle(
+                        Text(d.label, style: TextStyle(
                           color: kTextMuted, fontSize: 11.5, fontWeight: FontWeight.w600,
                         ), overflow: TextOverflow.ellipsis),
                         if (d.sub != null)
@@ -579,11 +579,11 @@ class _FilterBar extends StatelessWidget {
             onChanged: onSearchChange,
             decoration: InputDecoration(
               hintText: 'Rechercher un profil (nom, description)…',
-              hintStyle: const TextStyle(color: kTextMuted, fontSize: 13),
-              prefixIcon: const Icon(Icons.search_rounded, color: kTextMuted, size: 20),
+              hintStyle: TextStyle(color: kTextMuted, fontSize: 13),
+              prefixIcon: Icon(Icons.search_rounded, color: kTextMuted, size: 20),
               suffixIcon: searchCtrl.text.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.close_rounded, size: 18, color: kTextMuted),
+                      icon: Icon(Icons.close_rounded, size: 18, color: kTextMuted),
                       onPressed: () { searchCtrl.clear(); onSearchChange(''); })
                   : null,
               filled: true,
@@ -615,7 +615,7 @@ class _FilterBar extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: kBorder),
                 ),
-                child: const Icon(Icons.refresh_rounded, size: 20, color: kTextMuted),
+                child: Icon(Icons.refresh_rounded, size: 20, color: kTextMuted),
               ),
             ),
           ),
@@ -722,10 +722,10 @@ class _ResultHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(children: [
     Text('$filtered profil${filtered > 1 ? 's' : ''}',
-        style: const TextStyle(color: kTextPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
+        style: TextStyle(color: kTextPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
     if (filtered < total) ...[
       const SizedBox(width: 8),
-      Text('sur $total', style: const TextStyle(color: kTextMuted, fontSize: 13)),
+      Text('sur $total', style: TextStyle(color: kTextMuted, fontSize: 13)),
     ],
   ]);
 }
@@ -797,7 +797,7 @@ class _TableHeader extends StatelessWidget {
         child: Row(children: [
           Flexible(child: Text(label,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: kTextMuted, fontSize: 11, fontWeight: FontWeight.w700))),
+              style: TextStyle(color: kTextMuted, fontSize: 11, fontWeight: FontWeight.w700))),
           const SizedBox(width: 3),
           Icon(
             sortField == field
@@ -822,7 +822,7 @@ class _TableHeader extends StatelessWidget {
       _col('MEMBRES',  'members', flex: 2),
       _col('MODULES',  'modules', flex: 2),
       _col('STATUT',   'status',  flex: 2),
-      const SizedBox(width: 118,
+      SizedBox(width: 118,
           child: Text('ACTIONS', textAlign: TextAlign.end,
               style: TextStyle(color: kTextMuted, fontSize: 11, fontWeight: FontWeight.w700))),
     ]),
@@ -878,23 +878,23 @@ class _TableRowState extends State<_TableRow> {
           const SizedBox(width: 12),
           Expanded(flex: 4, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(p.name,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary),
                 overflow: TextOverflow.ellipsis),
             Text(p.description?.isNotEmpty == true ? p.description! : 'Aucune description',
-                style: const TextStyle(fontSize: 11, color: kTextMuted),
+                style: TextStyle(fontSize: 11, color: kTextMuted),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
           ])),
           Expanded(flex: 2, child: Row(children: [
-            const Icon(Icons.people_outline_rounded, size: 14, color: kNavy),
+            Icon(Icons.people_outline_rounded, size: 14, color: kNavy),
             const SizedBox(width: 5),
             Text('${p.memberCount}',
-                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: kTextPrimary)),
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: kTextPrimary)),
           ])),
           Expanded(flex: 2, child: Row(children: [
-            const Icon(Icons.widgets_outlined, size: 14, color: kGreen),
+            Icon(Icons.widgets_outlined, size: 14, color: kGreen),
             const SizedBox(width: 5),
             Text('${p.moduleCount}',
-                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: kTextPrimary)),
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: kTextPrimary)),
           ])),
           Expanded(flex: 2, child: Row(children: [
             Icon(p.isActive ? Icons.check_circle_rounded : Icons.cancel_rounded,
@@ -965,7 +965,7 @@ class _RowMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) => PopupMenuButton<String>(
         tooltip: "Plus d'actions",
-        icon: const Icon(Icons.more_horiz_rounded, size: 18, color: kTextMuted),
+        icon: Icon(Icons.more_horiz_rounded, size: 18, color: kTextMuted),
         padding: EdgeInsets.zero,
         splashRadius: 18,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -988,9 +988,9 @@ class _RowMenu extends StatelessWidget {
             Text(isActive ? 'Désactiver' : 'Activer'),
           ])),
           const PopupMenuDivider(),
-          const PopupMenuItem(value: 'delete', child: Row(children: [
+          PopupMenuItem(value: 'delete', child: Row(children: [
             Icon(Icons.delete_outline_rounded, size: 18, color: kRed),
-            SizedBox(width: 10),
+            const SizedBox(width: 10),
             Text('Supprimer', style: TextStyle(color: kRed)),
           ])),
         ],
@@ -1096,9 +1096,9 @@ class _ProfileCardState extends State<_ProfileCard> {
                     ),
                     const SizedBox(width: 10),
                     Expanded(child: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kTextPrimary))),
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kTextPrimary))),
                     PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert_rounded, color: kTextMuted, size: 20),
+                      icon: Icon(Icons.more_vert_rounded, color: kTextMuted, size: 20),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       onSelected: (v) {
                         if (v == 'view')        widget.onView();
@@ -1116,9 +1116,9 @@ class _ProfileCardState extends State<_ProfileCard> {
                           Icon(Icons.tune_rounded, size: 18, color: _kPurple),
                           SizedBox(width: 10), Text('Permissions'),
                         ])),
-                        const PopupMenuItem(value: 'edit', child: Row(children: [
+                        PopupMenuItem(value: 'edit', child: Row(children: [
                           Icon(Icons.edit_outlined, size: 18, color: kNavy),
-                          SizedBox(width: 10), Text('Modifier les infos'),
+                          const SizedBox(width: 10), const Text('Modifier les infos'),
                         ])),
                         PopupMenuItem(value: 'toggle', child: Row(children: [
                           Icon(p.isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
@@ -1127,9 +1127,9 @@ class _ProfileCardState extends State<_ProfileCard> {
                           Text(p.isActive ? 'Désactiver' : 'Activer'),
                         ])),
                         const PopupMenuDivider(),
-                        const PopupMenuItem(value: 'delete', child: Row(children: [
+                        PopupMenuItem(value: 'delete', child: Row(children: [
                           Icon(Icons.delete_outline_rounded, size: 18, color: kRed),
-                          SizedBox(width: 10),
+                          const SizedBox(width: 10),
                           Text('Supprimer', style: TextStyle(color: kRed)),
                         ])),
                       ],
@@ -1139,7 +1139,7 @@ class _ProfileCardState extends State<_ProfileCard> {
                   Text(
                     p.description?.isNotEmpty == true ? p.description! : 'Aucune description',
                     maxLines: 2, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12.5, color: kTextMuted, height: 1.4),
+                    style: TextStyle(fontSize: 12.5, color: kTextMuted, height: 1.4),
                   ),
                   const SizedBox(height: 12),
                   Wrap(spacing: 8, runSpacing: 8, children: [
@@ -1160,7 +1160,7 @@ class _ProfileCardState extends State<_ProfileCard> {
                       label: const Text('Configurer les permissions'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: _kPurple,
-                        side: const BorderSide(color: kBorder),
+                        side: BorderSide(color: kBorder),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
@@ -1225,10 +1225,10 @@ class _DeleteProfileDialogState extends ConsumerState<_DeleteProfileDialog> {
                   color: kRed.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(11),
                 ),
-                child: const Icon(Icons.delete_outline_rounded, color: kRed, size: 22),
+                child: Icon(Icons.delete_outline_rounded, color: kRed, size: 22),
               ),
               const SizedBox(width: 14),
-              const Expanded(child: Text('Supprimer le profil ?',
+              Expanded(child: Text('Supprimer le profil ?',
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: kTextPrimary))),
             ]),
           ),
@@ -1245,21 +1245,21 @@ class _DeleteProfileDialogState extends ConsumerState<_DeleteProfileDialog> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     RichText(text: TextSpan(
-                      style: const TextStyle(fontSize: 13.5, color: kTextMuted, height: 1.5),
+                      style: TextStyle(fontSize: 13.5, color: kTextMuted, height: 1.5),
                       children: [
                         const TextSpan(text: 'Le profil '),
                         TextSpan(text: '« ${p.name} »',
-                            style: const TextStyle(fontWeight: FontWeight.w700, color: kTextPrimary)),
+                            style: TextStyle(fontWeight: FontWeight.w700, color: kTextPrimary)),
                         const TextSpan(text: ' et toutes ses permissions seront '
                             'définitivement supprimés. Cette action est irréversible.'),
                       ],
                     )),
                     const SizedBox(height: 14),
                     if (loading)
-                      const Row(children: [
+                      Row(children: [
                         SizedBox(width: 16, height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2, color: kNavy)),
-                        SizedBox(width: 10),
+                        const SizedBox(width: 10),
                         Text('Vérification des membres rattachés…',
                             style: TextStyle(fontSize: 12.5, color: kTextMuted)),
                       ])
@@ -1281,7 +1281,7 @@ class _DeleteProfileDialogState extends ConsumerState<_DeleteProfileDialog> {
                             'rattaché${attached > 1 ? 's' : ''} à ce profil. Réattribuez-'
                             '${attached > 1 ? 'les' : 'le'} depuis la page Utilisateurs '
                             'avant de pouvoir le supprimer.',
-                            style: const TextStyle(fontSize: 12, color: kTextPrimary, height: 1.4),
+                            style: TextStyle(fontSize: 12, color: kTextPrimary, height: 1.4),
                           )),
                         ]),
                       ),
@@ -1302,7 +1302,7 @@ class _DeleteProfileDialogState extends ConsumerState<_DeleteProfileDialog> {
                 return Row(mainAxisAlignment: MainAxisAlignment.end, children: [
                   TextButton(
                     onPressed: _deleting ? null : () => Navigator.of(context).pop(false),
-                    child: const Text('Annuler', style: TextStyle(color: kTextMuted)),
+                    child: Text('Annuler', style: TextStyle(color: kTextMuted)),
                   ),
                   const SizedBox(width: 10),
                   FilledButton.icon(
@@ -1369,12 +1369,12 @@ class _ConfirmEmptyPermsDialog extends StatelessWidget {
                 child: const Icon(Icons.lock_open_rounded, color: _kOrange, size: 22),
               ),
               const SizedBox(width: 14),
-              const Expanded(child: Text('Aucune permission accordée',
+              Expanded(child: Text('Aucune permission accordée',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kTextPrimary))),
             ]),
           ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 0, 20, 4),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
             child: Text(
               "Ce profil n'autorisera l'accès à aucun module. Les membres qui en "
               'héritent ne pourront rien voir ni faire. Voulez-vous continuer '
@@ -1387,7 +1387,7 @@ class _ConfirmEmptyPermsDialog extends StatelessWidget {
             child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Revenir aux permissions',
+                child: Text('Revenir aux permissions',
                     style: TextStyle(color: kTextMuted)),
               ),
               const SizedBox(width: 10),
@@ -1464,9 +1464,9 @@ class _ProfileDetailModalState extends ConsumerState<_ProfileDetailModal>
           // ─ Header ──────────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 14, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               border: Border(bottom: BorderSide(color: kBorder)),
             ),
             child: Row(children: [
@@ -1483,7 +1483,7 @@ class _ProfileDetailModalState extends ConsumerState<_ProfileDetailModal>
               Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(p.name, style: const TextStyle(
+                  Text(p.name, style: TextStyle(
                       color: kTextPrimary, fontSize: 17, fontWeight: FontWeight.w800),
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 6),
@@ -1499,7 +1499,7 @@ class _ProfileDetailModalState extends ConsumerState<_ProfileDetailModal>
                   const SizedBox(height: 6),
                   Text(
                     p.description?.isNotEmpty == true ? p.description! : 'Aucune description',
-                    style: const TextStyle(color: kTextMuted, fontSize: 11.5),
+                    style: TextStyle(color: kTextMuted, fontSize: 11.5),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
                 ],
               )),
@@ -1548,7 +1548,7 @@ class _ProfileDetailModalState extends ConsumerState<_ProfileDetailModal>
           // ─ Footer ───────────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(top: BorderSide(color: kBorder)),
             ),
             child: Row(children: [
@@ -1655,9 +1655,9 @@ class _ProfileInfoTab extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: _kOrange.withValues(alpha: 0.2)),
             ),
-            child: const Row(children: [
-              Icon(Icons.info_outline_rounded, size: 16, color: _kOrange),
-              SizedBox(width: 8),
+            child: Row(children: [
+              const Icon(Icons.info_outline_rounded, size: 16, color: _kOrange),
+              const SizedBox(width: 8),
               Expanded(child: Text(
                 "Aucun membre n'utilise encore ce profil. "
                 'Attribuez-le depuis la page Utilisateurs.',
@@ -1685,16 +1685,16 @@ class _ProfilePermsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final permsAsync = ref.watch(accessProfilePermsProvider(profile.id));
     return permsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator(color: kNavy)),
+      loading: () => Center(child: CircularProgressIndicator(color: kNavy)),
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.cloud_off_rounded, size: 40, color: kTextMuted),
+            Icon(Icons.cloud_off_rounded, size: 40, color: kTextMuted),
             const SizedBox(height: 12),
             Text('Impossible de charger les permissions.\n${_friendlyError(e)}',
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: kTextMuted, fontSize: 13)),
+                style: TextStyle(color: kTextMuted, fontSize: 13)),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () => ref.invalidate(accessProfilePermsProvider(profile.id)),
@@ -1810,7 +1810,7 @@ class _PermSummaryRow extends StatelessWidget {
           Text(icon, style: const TextStyle(fontSize: 16)),
           const SizedBox(width: 8),
           Expanded(child: Text(name,
-              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: kTextPrimary))),
+              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: kTextPrimary))),
           AdminBadge(
             row.dataScope == 'own_classes' ? 'Ses classes' : "Toute l'école",
             color: kNavy, icon: Icons.visibility_outlined,
@@ -2219,19 +2219,19 @@ class _ProfileWizardDialogState extends ConsumerState<ProfileWizardDialog> {
           padding: const EdgeInsets.all(40),
           child: Center(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.cloud_off_rounded, size: 44, color: kTextMuted),
+              Icon(Icons.cloud_off_rounded, size: 44, color: kTextMuted),
               const SizedBox(height: 14),
               Text('Impossible de charger les permissions du profil.\n'
                   '${_friendlyError(async.error!)}',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: kTextMuted, fontSize: 13)),
+                  style: TextStyle(color: kTextMuted, fontSize: 13)),
               const SizedBox(height: 16),
               Row(mainAxisSize: MainAxisSize.min, children: [
                 OutlinedButton(
                   onPressed: () => Navigator.of(context).pop(),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: kTextMuted,
-                    side: const BorderSide(color: kBorder),
+                    side: BorderSide(color: kBorder),
                   ),
                   child: const Text('Fermer'),
                 ),
@@ -2259,7 +2259,7 @@ class _ProfileWizardDialogState extends ConsumerState<ProfileWizardDialog> {
       body = _step == 0 ? _buildIdentity() : _buildPermissions();
       footer = _buildFooter();
     }
-    body ??= const SizedBox(
+    body ??= SizedBox(
         height: 280,
         child: Center(child: CircularProgressIndicator(color: kNavy)));
 
@@ -2320,9 +2320,9 @@ class _ProfileWizardDialogState extends ConsumerState<ProfileWizardDialog> {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 16, 14, 16),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
         border: Border(bottom: BorderSide(color: kBorder)),
       ),
       child: Row(children: [
@@ -2339,7 +2339,7 @@ class _ProfileWizardDialogState extends ConsumerState<ProfileWizardDialog> {
         Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(_isEdit ? 'Modifier le profil' : "Nouveau profil d'accès",
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 16, fontWeight: FontWeight.w800, color: kTextPrimary)),
           const SizedBox(height: 8),
           Row(children: [
@@ -2353,7 +2353,7 @@ class _ProfileWizardDialogState extends ConsumerState<ProfileWizardDialog> {
         const SizedBox(width: 8),
         IconButton(
           onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.close_rounded, size: 20, color: kTextMuted),
+          icon: Icon(Icons.close_rounded, size: 20, color: kTextMuted),
           tooltip: 'Fermer',
         ),
       ]),
@@ -2373,7 +2373,7 @@ class _ProfileWizardDialogState extends ConsumerState<ProfileWizardDialog> {
               Row(children: [
                 const Icon(Icons.auto_awesome_rounded, size: 14, color: _kPurple),
                 const SizedBox(width: 6),
-                const Text('Modèles de profil',
+                Text('Modèles de profil',
                     style: TextStyle(
                         fontSize: 12, fontWeight: FontWeight.w700, color: kTextPrimary)),
                 const SizedBox(width: 6),
@@ -2398,9 +2398,9 @@ class _ProfileWizardDialogState extends ConsumerState<ProfileWizardDialog> {
                   ),
               ]),
               const SizedBox(height: 18),
-              const Divider(color: kBorder, height: 1),
+              Divider(color: kBorder, height: 1),
               const SizedBox(height: 18),
-              const Text('Nom du profil *',
+              Text('Nom du profil *',
                   style: TextStyle(
                       fontSize: 12, fontWeight: FontWeight.w700, color: kTextPrimary)),
               const SizedBox(height: 6),
@@ -2414,7 +2414,7 @@ class _ProfileWizardDialogState extends ConsumerState<ProfileWizardDialog> {
                     icon: Icons.label_outline),
               ),
               const SizedBox(height: 14),
-              const Text('Type de profil',
+              Text('Type de profil',
                   style: TextStyle(
                       fontSize: 12, fontWeight: FontWeight.w700, color: kTextPrimary)),
               const SizedBox(height: 6),
@@ -2438,7 +2438,7 @@ class _ProfileWizardDialogState extends ConsumerState<ProfileWizardDialog> {
                 onChanged: (v) => setState(() => _roleType = v),
               ),
               const SizedBox(height: 14),
-              const Text('Description',
+              Text('Description',
                   style: TextStyle(
                       fontSize: 12, fontWeight: FontWeight.w700, color: kTextPrimary)),
               const SizedBox(height: 6),
@@ -2461,7 +2461,7 @@ class _ProfileWizardDialogState extends ConsumerState<ProfileWizardDialog> {
                   Icon(Icons.info_outline_rounded,
                       size: 16, color: kNavy.withValues(alpha: 0.7)),
                   const SizedBox(width: 10),
-                  const Expanded(
+                  Expanded(
                       child: Text(
                     'À l\'étape suivante, choisissez précisément les modules accessibles '
                     'et les actions autorisées (voir, créer, modifier, supprimer, exporter…).',
@@ -2496,7 +2496,7 @@ class _ProfileWizardDialogState extends ConsumerState<ProfileWizardDialog> {
       // Barre outils : recherche + résumé
       Container(
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: kSurface,
           border: Border(bottom: BorderSide(color: kBorder)),
         ),
@@ -2509,12 +2509,12 @@ class _ProfileWizardDialogState extends ConsumerState<ProfileWizardDialog> {
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
                   hintText: 'Rechercher un module…',
-                  hintStyle: const TextStyle(color: kTextMuted, fontSize: 13),
+                  hintStyle: TextStyle(color: kTextMuted, fontSize: 13),
                   prefixIcon:
-                      const Icon(Icons.search_rounded, color: kTextMuted, size: 19),
+                      Icon(Icons.search_rounded, color: kTextMuted, size: 19),
                   suffixIcon: _search.text.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.close_rounded,
+                          icon: Icon(Icons.close_rounded,
                               size: 17, color: kTextMuted),
                           onPressed: () => setState(() => _search.clear()))
                       : null,
@@ -2523,11 +2523,11 @@ class _ProfileWizardDialogState extends ConsumerState<ProfileWizardDialog> {
                   contentPadding: EdgeInsets.zero,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: kBorder),
+                    borderSide: BorderSide(color: kBorder),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: kBorder),
+                    borderSide: BorderSide(color: kBorder),
                   ),
                 ),
               ),
@@ -2549,8 +2549,8 @@ class _ProfileWizardDialogState extends ConsumerState<ProfileWizardDialog> {
             const _MatrixLegend(),
             const SizedBox(height: 12),
             if (cats.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 40),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 40),
                 child: Center(
                     child: Text('Aucun module ne correspond à la recherche.',
                         style: TextStyle(color: kTextMuted))),
@@ -2583,7 +2583,7 @@ class _ProfileWizardDialogState extends ConsumerState<ProfileWizardDialog> {
   Widget _buildFooter() {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(top: BorderSide(color: kBorder)),
       ),
       child: Row(children: [
@@ -2594,7 +2594,7 @@ class _ProfileWizardDialogState extends ConsumerState<ProfileWizardDialog> {
             label: const Text('Identité'),
             style: OutlinedButton.styleFrom(
               foregroundColor: kTextMuted,
-              side: const BorderSide(color: kBorder),
+              side: BorderSide(color: kBorder),
             ),
           )
         else
@@ -2602,7 +2602,7 @@ class _ProfileWizardDialogState extends ConsumerState<ProfileWizardDialog> {
             onPressed: _saving ? null : () => Navigator.of(context).pop(),
             style: OutlinedButton.styleFrom(
               foregroundColor: kTextMuted,
-              side: const BorderSide(color: kBorder),
+              side: BorderSide(color: kBorder),
             ),
             child: const Text('Annuler'),
           ),
@@ -2722,7 +2722,7 @@ class _MatrixLegend extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: kBorder),
       ),
-      child: const Row(children: [
+      child: Row(children: [
         Expanded(
           child: Text(
             'Activez les actions autorisées par module. Cocher une action active '
@@ -2732,19 +2732,19 @@ class _MatrixLegend extends StatelessWidget {
             style: TextStyle(fontSize: 11.5, color: kTextMuted, height: 1.4),
           ),
         ),
-        SizedBox(width: 12),
+        const SizedBox(width: 12),
         Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Row(mainAxisSize: MainAxisSize.min, children: [
+          const Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.warning_amber_rounded, size: 13, color: _kOrange),
             SizedBox(width: 4),
             Text('action sensible',
                 style: TextStyle(
                     fontSize: 11, fontWeight: FontWeight.w600, color: _kOrange)),
           ]),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.lock_outline, size: 13, color: kTextMuted),
-            SizedBox(width: 4),
+            const SizedBox(width: 4),
             Text('hors plan',
                 style: TextStyle(
                     fontSize: 11, fontWeight: FontWeight.w600, color: kTextMuted)),
@@ -2801,7 +2801,7 @@ class _MatrixCategory extends StatelessWidget {
               Flexible(
                 child: Text(category.name,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
                         color: kNavy,
@@ -2823,7 +2823,7 @@ class _MatrixCategory extends StatelessWidget {
           ),
         ),
         if (!collapsed) ...[
-          const Divider(height: 1, color: kBorder),
+          Divider(height: 1, color: kBorder),
           Padding(
             padding: const EdgeInsets.all(10),
             child: Column(children: [
@@ -2863,7 +2863,7 @@ class _MiniBtn extends StatelessWidget {
               Icon(icon, size: 13, color: kTextMuted),
               const SizedBox(width: 4),
               Text(label,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: kTextMuted)),
@@ -2899,13 +2899,13 @@ class _MatrixModuleRow extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(module.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w700,
                       color: kTextPrimary)),
             ),
             if (locked)
-              const AdminBadge('Hors plan',
+              AdminBadge('Hors plan',
                   color: kTextMuted, icon: Icons.lock_outline)
             else if (row.sensitiveCount > 0)
               AdminBadge(
@@ -3004,8 +3004,8 @@ class _ScopeDropdown extends StatelessWidget {
         child: DropdownButton<String>(
           value: value,
           isDense: true,
-          icon: const Icon(Icons.arrow_drop_down_rounded, size: 18, color: kTextMuted),
-          style: const TextStyle(fontSize: 12, color: kTextPrimary, fontWeight: FontWeight.w600),
+          icon: Icon(Icons.arrow_drop_down_rounded, size: 18, color: kTextMuted),
+          style: TextStyle(fontSize: 12, color: kTextPrimary, fontWeight: FontWeight.w600),
           items: const [
             DropdownMenuItem(value: 'own_school', child: Text('Toute l\'école')),
             DropdownMenuItem(value: 'own_classes', child: Text('Ses classes')),

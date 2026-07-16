@@ -118,7 +118,7 @@ class _MealSheetState extends ConsumerState<_MealSheet> {
                   if (rows.length > 8) _searchField(rows.length),
                   Expanded(
                     child: filtered.isEmpty
-                        ? const Center(
+                        ? Center(
                             child: Text('Aucun élève trouvé',
                                 style: TextStyle(color: kTextMuted)))
                         : ListView.separated(
@@ -146,8 +146,8 @@ class _MealSheetState extends ConsumerState<_MealSheet> {
           decoration: InputDecoration(
             isDense: true,
             hintText: 'Rechercher un élève parmi $total…',
-            hintStyle: const TextStyle(fontSize: 13, color: kTextMuted),
-            prefixIcon: const Icon(Icons.search_rounded, size: 19, color: kTextMuted),
+            hintStyle: TextStyle(fontSize: 13, color: kTextMuted),
+            prefixIcon: Icon(Icons.search_rounded, size: 19, color: kTextMuted),
             suffixIcon: _q.isEmpty
                 ? null
                 : IconButton(
@@ -179,21 +179,21 @@ class _MealSheetState extends ConsumerState<_MealSheet> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(widget.breadcrumb,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: kTextMuted,
                           letterSpacing: 0.2)),
                   const SizedBox(height: 1),
                   Text(widget.className,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
                           color: kTextPrimary)),
                   Text(
                       '${widget.subtitle} · servis $served · absents $absent · '
                       '$done/${rows.length} pointés',
-                      style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                      style: TextStyle(fontSize: 12, color: kTextMuted)),
                 ]),
           ),
           IconButton(
@@ -230,7 +230,7 @@ class _MealSheetState extends ConsumerState<_MealSheet> {
         SizedBox(
             width: 22,
             child: Text('$index',
-                style: const TextStyle(fontSize: 11, color: kTextMuted))),
+                style: TextStyle(fontSize: 11, color: kTextMuted))),
         Expanded(
           child: Text(r.studentName,
               maxLines: 1,

@@ -193,12 +193,12 @@ class _FileChip extends StatelessWidget {
                 Text(att.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: kTextPrimary)),
                 Text('$action · ${humanFileSize(att.size)}',
-                    style: const TextStyle(fontSize: 10, color: kTextMuted)),
+                    style: TextStyle(fontSize: 10, color: kTextMuted)),
               ],
             ),
           ),
@@ -305,12 +305,12 @@ class _PendingChip extends StatelessWidget {
                   Text(att.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: kTextPrimary)),
                   Text('Aperçu · ${humanFileSize(att.size)}',
-                      style: const TextStyle(fontSize: 10, color: kTextMuted)),
+                      style: TextStyle(fontSize: 10, color: kTextMuted)),
                 ],
               ),
             ),

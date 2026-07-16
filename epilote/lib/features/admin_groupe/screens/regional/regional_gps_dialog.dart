@@ -67,8 +67,8 @@ class _SchoolGpsDialogState extends ConsumerState<_SchoolGpsDialog> {
         Navigator.of(context).pop();
         widget.onSaved();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Position mise à jour'), backgroundColor: kGreen),
+          SnackBar(
+              content: const Text('Position mise à jour'), backgroundColor: kGreen),
         );
       }
     } catch (e) {
@@ -103,11 +103,11 @@ class _SchoolGpsDialogState extends ConsumerState<_SchoolGpsDialog> {
             // Header
             Container(
               padding: const EdgeInsets.fromLTRB(20, 18, 12, 18),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                     colors: [kNavy, _kBlue],
                     begin: Alignment.topLeft, end: Alignment.bottomRight),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               ),
               child: Row(children: [
                 const Icon(Icons.edit_location_alt_rounded,
@@ -130,7 +130,7 @@ class _SchoolGpsDialogState extends ConsumerState<_SchoolGpsDialog> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                 Text(widget.school.name,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13, fontWeight: FontWeight.w700,
                         color: kTextPrimary)),
                 const SizedBox(height: 14),
@@ -164,10 +164,10 @@ class _SchoolGpsDialogState extends ConsumerState<_SchoolGpsDialog> {
                   ),
                 ]),
                 const SizedBox(height: 10),
-                const Row(children: [
+                Row(children: [
                   Icon(Icons.info_outline_rounded,
                       size: 13, color: kTextMuted),
-                  SizedBox(width: 6),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                         'La position sera marquée « saisie manuelle ». '
@@ -182,7 +182,7 @@ class _SchoolGpsDialogState extends ConsumerState<_SchoolGpsDialog> {
             // Footer
             Container(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(top: BorderSide(color: kBorder)),
               ),
               child: Row(children: [
@@ -191,11 +191,11 @@ class _SchoolGpsDialogState extends ConsumerState<_SchoolGpsDialog> {
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 12),
-                    side: const BorderSide(color: kBorder),
+                    side: BorderSide(color: kBorder),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text('Annuler',
+                  child: Text('Annuler',
                       style: TextStyle(color: kTextMuted)),
                 ),
                 const Spacer(),

@@ -233,7 +233,7 @@ class _AdminModulesScreenState extends ConsumerState<AdminModulesScreen>
               skipLoadingOnReload: true,
               skipLoadingOnRefresh: true,
               loading: () =>
-                  const Center(child: CircularProgressIndicator(color: kNavy)),
+                  Center(child: CircularProgressIndicator(color: kNavy)),
               error: (e, _) => ListView(children: [
                 const SizedBox(height: 120),
                 Center(child: AdminErrorBanner(message: 'Erreur : $e')),
@@ -609,7 +609,7 @@ class _ModKpiCard extends StatelessWidget {
                   const SizedBox(height: 14),
                   // Valeur
                   Text(value,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w800,
                           color: kTextPrimary)),
@@ -618,7 +618,7 @@ class _ModKpiCard extends StatelessWidget {
                   Text(label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 12.5,
                           color: kTextMuted,
                           fontWeight: FontWeight.w600)),
@@ -744,7 +744,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
                   color: kNavy.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(9),
                 ),
-                child: const Icon(Icons.insights_rounded,
+                child: Icon(Icons.insights_rounded,
                     size: 18, color: kNavy),
               ),
               const SizedBox(width: 12),
@@ -752,7 +752,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Adoption des modules par école',
+                    Text('Adoption des modules par école',
                         style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
@@ -764,7 +764,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
                           : filterSchoolId != null
                               ? 'Filtré sur une école — modules actifs à droite'
                               : 'Modules adoptés par école (% du catalogue)',
-                      style: const TextStyle(fontSize: 11.5, color: kTextMuted),
+                      style: TextStyle(fontSize: 11.5, color: kTextMuted),
                     ),
                   ],
                 ),
@@ -774,7 +774,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
             const SizedBox(height: 16),
 
             // ── Légende ────────────────────────────────────────────────
-            const Wrap(
+            Wrap(
               spacing: 16,
               runSpacing: 6,
               children: [
@@ -791,8 +791,8 @@ class _ModuleAdoptionChart extends ConsumerWidget {
             async.when(
               skipLoadingOnReload: true,
               skipLoadingOnRefresh: true,
-              loading: () => const Padding(
-                padding: EdgeInsets.symmetric(vertical: 32),
+              loading: () => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
                 child: Center(
                     child: CircularProgressIndicator(
                         color: kNavy, strokeWidth: 2)),
@@ -800,7 +800,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
               error: (e, _) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text('Erreur : $e',
-                    style: const TextStyle(color: kRed, fontSize: 12)),
+                    style: TextStyle(color: kRed, fontSize: 12)),
               ),
               data: _buildData,
             ),
@@ -814,8 +814,8 @@ class _ModuleAdoptionChart extends ConsumerWidget {
 
   Widget _buildData(ModuleAdoptionData data) {
     if (data.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 16),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
         child: Text(
           'Aucune donnée — configurez des profils d\'accès '
           'et assignez-les aux utilisateurs.',
@@ -866,7 +866,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
         children: [
           leftPanel,
           const SizedBox(height: 16),
-          const Divider(color: kBorder),
+          Divider(color: kBorder),
           const SizedBox(height: 16),
           rightPanel,
         ],
@@ -883,8 +883,8 @@ class _ModuleAdoptionChart extends ConsumerWidget {
       double chartH,
       int totalMods) {
     if (schools.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 16),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
         child: Text('Aucune école configurée.',
             style: TextStyle(fontSize: 12.5, color: kTextMuted)),
       );
@@ -934,7 +934,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Modules adoptés par école',
           style: TextStyle(
               fontSize: 12, fontWeight: FontWeight.w600, color: kTextMuted),
@@ -946,20 +946,20 @@ class _ModuleAdoptionChart extends ConsumerWidget {
             plotAreaBackgroundColor: Colors.transparent,
             borderWidth: 0,
             margin: const EdgeInsets.only(right: 8),
-            primaryXAxis: const CategoryAxis(
-              majorGridLines: MajorGridLines(width: 0),
-              axisLine: AxisLine(width: 0),
+            primaryXAxis: CategoryAxis(
+              majorGridLines: const MajorGridLines(width: 0),
+              axisLine: const AxisLine(width: 0),
               labelStyle: TextStyle(
                   fontSize: 11,
                   color: kTextMuted,
                   fontWeight: FontWeight.w600),
             ),
-            primaryYAxis: const NumericAxis(
+            primaryYAxis: NumericAxis(
               minimum: 0,
               maximum: 100,
               labelFormat: '{value}%',
               majorGridLines: MajorGridLines(color: kBorder, width: 0.6),
-              axisLine: AxisLine(width: 0),
+              axisLine: const AxisLine(width: 0),
               labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
             ),
             tooltipBehavior: TooltipBehavior(
@@ -979,7 +979,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
                     const BorderRadius.horizontal(right: Radius.circular(6)),
                 width: 0.5,
                 animationDuration: 500,
-                dataLabelSettings: const DataLabelSettings(
+                dataLabelSettings: DataLabelSettings(
                   isVisible: true,
                   labelAlignment: ChartDataLabelAlignment.outer,
                   textStyle: TextStyle(
@@ -1034,7 +1034,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Distribution globale',
           style: TextStyle(
               fontSize: 12, fontWeight: FontWeight.w600, color: kTextMuted),
@@ -1043,7 +1043,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
         SizedBox(
           height: 190,
           child: slices.isEmpty
-              ? const Center(
+              ? Center(
                   child: Text('—', style: TextStyle(color: kTextMuted)))
               : SfCircularChart(
                   margin: EdgeInsets.zero,
@@ -1053,7 +1053,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text('$activeCount',
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.w800,
                                   color: kNavy)),
@@ -1061,7 +1061,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
                             activeCount == 1
                                 ? 'module actif'
                                 : 'modules actifs',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 10, color: kTextMuted),
                           ),
                         ],
@@ -1100,11 +1100,11 @@ class _ModuleAdoptionChart extends ConsumerWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(s.label,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 11.5, color: kTextMuted)),
               ),
               Text('${s.count}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                       color: kTextPrimary)),
@@ -1121,7 +1121,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
         .where((e) => e.moduleId == filterModuleId)
         .firstOrNull;
     if (entry == null) {
-      return const Text('Module non trouvé dans les données d\'adoption.',
+      return Text('Module non trouvé dans les données d\'adoption.',
           style: TextStyle(fontSize: 12.5, color: kTextMuted));
     }
     final pct = data.totalSchools > 0
@@ -1140,7 +1140,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
           Expanded(
             child: Text(
               entry.moduleName,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: kTextPrimary),
@@ -1153,7 +1153,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
         Text(
           '${entry.schoolCount} / ${data.totalSchools} '
           'école${data.totalSchools > 1 ? 's' : ''}',
-          style: const TextStyle(fontSize: 11.5, color: kTextMuted),
+          style: TextStyle(fontSize: 11.5, color: kTextMuted),
         ),
         const SizedBox(height: 8),
         ClipRRect(
@@ -1222,7 +1222,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
       children: [
         Text(
           schoolName,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
@@ -1230,7 +1230,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
         const SizedBox(height: 4),
         Text(
           '$modCount / $total module${total > 1 ? 's' : ''} utilisé${modCount > 1 ? 's' : ''}',
-          style: const TextStyle(fontSize: 11.5, color: kTextMuted),
+          style: TextStyle(fontSize: 11.5, color: kTextMuted),
         ),
         const SizedBox(height: 8),
         ClipRRect(
@@ -1244,12 +1244,12 @@ class _ModuleAdoptionChart extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
         if (usedModules.isEmpty)
-          const Text(
+          Text(
             'Aucun module configuré pour cette école.',
             style: TextStyle(fontSize: 12, color: kTextMuted),
           )
         else ...[
-          const Text('Modules actifs',
+          Text('Modules actifs',
               style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -1272,7 +1272,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
                       e.moduleName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 11.5,
                           color: kTextPrimary,
                           fontWeight: FontWeight.w500),
@@ -1284,7 +1284,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
           if (usedModules.length > 8)
             Text(
               '+ ${usedModules.length - 8} autres',
-              style: const TextStyle(fontSize: 11, color: kTextMuted),
+              style: TextStyle(fontSize: 11, color: kTextMuted),
             ),
         ],
       ],
@@ -1306,7 +1306,7 @@ class _Legend extends StatelessWidget {
           color: color, borderRadius: BorderRadius.circular(3)),
       ),
       const SizedBox(width: 5),
-      Text(label, style: const TextStyle(fontSize: 11, color: kTextMuted)),
+      Text(label, style: TextStyle(fontSize: 11, color: kTextMuted)),
     ]);
   }
 }
@@ -1401,13 +1401,13 @@ class _ModuleFilterBar extends StatelessWidget {
             onChanged: onSearchChange,
             decoration: InputDecoration(
               hintText: 'Rechercher…',
-              hintStyle: const TextStyle(fontSize: 13, color: kTextMuted),
-              prefixIcon: const Icon(Icons.search_rounded,
+              hintStyle: TextStyle(fontSize: 13, color: kTextMuted),
+              prefixIcon: Icon(Icons.search_rounded,
                   size: 17, color: kTextMuted),
               suffixIcon: searchCtrl.text.isNotEmpty
                   ? GestureDetector(
                       onTap: () => onSearchChange(''),
-                      child: const Icon(Icons.clear_rounded,
+                      child: Icon(Icons.clear_rounded,
                           size: 15, color: kTextMuted),
                     )
                   : null,
@@ -1418,14 +1418,14 @@ class _ModuleFilterBar extends StatelessWidget {
               isDense: true,
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: kBorder)),
+                  borderSide: BorderSide(color: kBorder)),
               enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: kBorder)),
+                  borderSide: BorderSide(color: kBorder)),
               focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide:
-                      const BorderSide(color: kNavy, width: 1.5)),
+                      BorderSide(color: kNavy, width: 1.5)),
             ),
             style: const TextStyle(fontSize: 13),
           ),
@@ -1552,7 +1552,7 @@ class _ModuleFilterBar extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: kBorder),
                 ),
-                child: const Icon(Icons.filter_alt_off_rounded,
+                child: Icon(Icons.filter_alt_off_rounded,
                     size: 16, color: kRed),
               ),
             ),
@@ -1564,7 +1564,7 @@ class _ModuleFilterBar extends StatelessWidget {
     final summaryRow = Row(children: [
       Text(
         '$resultCount / $totalCount module${totalCount > 1 ? "s" : ""}',
-        style: const TextStyle(fontSize: 12.5, color: kTextMuted),
+        style: TextStyle(fontSize: 12.5, color: kTextMuted),
       ),
       const Spacer(),
       Container(
@@ -1629,8 +1629,8 @@ class _DropFilter<T> extends StatelessWidget {
           items: items,
           onChanged: onChanged,
           isDense: true,
-          style: const TextStyle(fontSize: 13, color: kTextPrimary),
-          icon: const Icon(Icons.expand_more_rounded,
+          style: TextStyle(fontSize: 13, color: kTextPrimary),
+          icon: Icon(Icons.expand_more_rounded,
               size: 16, color: kTextMuted),
         ),
       ),
@@ -1737,9 +1737,9 @@ class _TableView extends StatelessWidget {
         // Header row
         Container(
           height: 40,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: kSurface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(11)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
           ),
           child: Row(children: [
             const SizedBox(width: 16),
@@ -2042,7 +2042,7 @@ class _ModuleCard extends StatelessWidget {
                         Text(module.description!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 11.5,
                                 color: kTextMuted,
                                 height: 1.3)),
@@ -2079,7 +2079,7 @@ class _ModuleCard extends StatelessWidget {
                         if (auth > 0 &&
                             totalProfiles > 0 &&
                             auth >= totalProfiles)
-                          const Icon(Icons.verified_rounded,
+                          Icon(Icons.verified_rounded,
                               size: 13, color: kGreen),
                       ]),
                     ],
@@ -2275,14 +2275,14 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
               Container(
                 height: 44,
                 padding: const EdgeInsets.symmetric(horizontal: 6),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border(bottom: BorderSide(color: kBorder)),
                 ),
                 child: Row(children: [
                   IconButton(
                     onPressed: widget.onClose,
-                    icon: const Icon(Icons.close_rounded, size: 20, color: kTextMuted),
+                    icon: Icon(Icons.close_rounded, size: 20, color: kTextMuted),
                     tooltip: 'Fermer',
                   ),
                   const SizedBox(width: 6),
@@ -2291,7 +2291,7 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
                       async.valueOrNull?.name ?? widget.slug,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: kTextPrimary),
@@ -2302,7 +2302,7 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
 
               // ── Barre d'onglets ──────────────────────────────────────────
               Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border(bottom: BorderSide(color: kBorder)),
                 ),
@@ -2330,16 +2330,16 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
                   skipLoadingOnReload: true,
                   skipLoadingOnRefresh: true,
                   loading: () =>
-                      const Center(child: CircularProgressIndicator(color: kNavy)),
+                      Center(child: CircularProgressIndicator(color: kNavy)),
                   error: (e, _) => Padding(
                     padding: const EdgeInsets.all(24),
                     child: Center(
                       child: Text('Erreur : $e',
-                          style: const TextStyle(color: kTextMuted, fontSize: 13)),
+                          style: TextStyle(color: kTextMuted, fontSize: 13)),
                     ),
                   ),
                   data: (module) => module == null
-                      ? const Center(
+                      ? Center(
                           child: Text('Module introuvable',
                               style: TextStyle(color: kTextMuted)))
                       : TabBarView(
@@ -2383,9 +2383,9 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: kAccent.withValues(alpha: 0.28)),
             ),
-            child: const Row(children: [
+            child: Row(children: [
               Icon(Icons.warning_amber_rounded, color: kAccent, size: 18),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   "Ce module n'est pas inclus dans votre plan d'abonnement.",
@@ -2406,7 +2406,7 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
             ),
             child: (module.icon != null && module.icon!.isNotEmpty)
                 ? Text(module.icon!, style: const TextStyle(fontSize: 32))
-                : const Icon(Icons.widgets_outlined, size: 32, color: kNavy),
+                : Icon(Icons.widgets_outlined, size: 32, color: kNavy),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -2414,7 +2414,7 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
               Text(module.name,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 18, fontWeight: FontWeight.w800, color: kTextPrimary)),
               const SizedBox(height: 10),
               Wrap(spacing: 6, runSpacing: 6, children: [
@@ -2435,7 +2435,7 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
         if (module.description != null && module.description!.isNotEmpty) ...[
           const SizedBox(height: 16),
           Text(module.description!,
-              style: const TextStyle(fontSize: 13.5, color: kTextMuted, height: 1.5)),
+              style: TextStyle(fontSize: 13.5, color: kTextMuted, height: 1.5)),
         ],
 
         const SizedBox(height: 20),
@@ -2468,7 +2468,7 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
           const Divider(height: 1),
           const SizedBox(height: 16),
           Row(children: [
-            const Expanded(
+            Expanded(
               child: Text('Adoption par école',
                   style: TextStyle(
                       fontSize: 12,
@@ -2478,7 +2478,7 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
             ),
             Text(
               '${adoptEntry.schoolCount}/$totalSchools école${totalSchools > 1 ? "s" : ""}',
-              style: const TextStyle(fontSize: 12, color: kTextMuted),
+              style: TextStyle(fontSize: 12, color: kTextMuted),
             ),
           ]),
           const SizedBox(height: 10),
@@ -2533,12 +2533,12 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
         // Actions rapides — fixées en haut
         Container(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: kSurface,
             border: Border(bottom: BorderSide(color: kBorder)),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('ACTIONS RAPIDES',
+            Text('ACTIONS RAPIDES',
                 style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
@@ -2546,8 +2546,8 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
                     letterSpacing: 0.8)),
             const SizedBox(height: 10),
             if (_bulkLoading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Center(child: CircularProgressIndicator(color: kNavy, strokeWidth: 2)),
               )
             else
@@ -2611,11 +2611,11 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
                     onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(
                       hintText: 'Rechercher un profil…',
-                      hintStyle: const TextStyle(fontSize: 13, color: kTextMuted),
-                      prefixIcon: const Icon(Icons.search_rounded, size: 18, color: kTextMuted),
+                      hintStyle: TextStyle(fontSize: 13, color: kTextMuted),
+                      prefixIcon: Icon(Icons.search_rounded, size: 18, color: kTextMuted),
                       suffixIcon: _filterCtrl.text.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear_rounded, size: 16, color: kTextMuted),
+                              icon: Icon(Icons.clear_rounded, size: 16, color: kTextMuted),
                               onPressed: () => setState(() => _filterCtrl.clear()),
                             )
                           : null,
@@ -2624,13 +2624,13 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
                       fillColor: kSurface,
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(9),
-                          borderSide: const BorderSide(color: kBorder)),
+                          borderSide: BorderSide(color: kBorder)),
                       enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(9),
-                          borderSide: const BorderSide(color: kBorder)),
+                          borderSide: BorderSide(color: kBorder)),
                       focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(9),
-                          borderSide: const BorderSide(color: kNavy, width: 1.5)),
+                          borderSide: BorderSide(color: kNavy, width: 1.5)),
                       isDense: true,
                     ),
                     style: const TextStyle(fontSize: 13),
@@ -2646,7 +2646,7 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
                       _filterCtrl.text.isEmpty
                           ? 'Aucun profil dans ce groupe'
                           : 'Aucun profil correspondant',
-                      style: const TextStyle(color: kTextMuted, fontSize: 13),
+                      style: TextStyle(color: kTextMuted, fontSize: 13),
                     ),
                   ),
                 )
@@ -2670,9 +2670,9 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(children: [
-                  const Icon(Icons.tune_rounded, size: 14, color: kTextMuted),
+                  Icon(Icons.tune_rounded, size: 14, color: kTextMuted),
                   const SizedBox(width: 8),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       "Réglage fin (9 actions, périmètre) profil par profil : ouvrez Profils d'accès.",
                       style: TextStyle(fontSize: 12, color: kTextMuted, height: 1.4),
@@ -2681,7 +2681,7 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
                   const SizedBox(width: 8),
                   TextButton(
                     onPressed: () => context.go(Routes.adminProfils),
-                    child: const Text("Profils d'accès",
+                    child: Text("Profils d'accès",
                         style: TextStyle(color: kNavy, fontWeight: FontWeight.w700)),
                   ),
                 ]),
@@ -2729,7 +2729,7 @@ class _StatBox extends StatelessWidget {
         Text(label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 11, color: kTextMuted)),
+            style: TextStyle(fontSize: 11, color: kTextMuted)),
       ]),
     );
   }
@@ -2764,7 +2764,7 @@ class _SchoolAdoptRow extends StatelessWidget {
                     uses ? FontWeight.w600 : FontWeight.normal)),
       ),
       if (uses)
-        const Icon(Icons.check_rounded, size: 13, color: kGreen),
+        Icon(Icons.check_rounded, size: 13, color: kGreen),
     ]);
   }
 }
@@ -2916,7 +2916,7 @@ class _PanelProfileRowState extends ConsumerState<_PanelProfileRow> {
             Text(p.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
                     color: kTextPrimary)),
@@ -2927,7 +2927,7 @@ class _PanelProfileRowState extends ConsumerState<_PanelProfileRow> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style:
-                        const TextStyle(fontSize: 12, color: kTextMuted)),
+                        TextStyle(fontSize: 12, color: kTextMuted)),
               ),
               if (custom) ...[
                 const SizedBox(width: 6),
@@ -2969,7 +2969,7 @@ class _PanelProfileRowState extends ConsumerState<_PanelProfileRow> {
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         if (_saving)
-          const SizedBox(
+          SizedBox(
               width: 14,
               height: 14,
               child: CircularProgressIndicator(
@@ -2985,7 +2985,7 @@ class _PanelProfileRowState extends ConsumerState<_PanelProfileRow> {
                 color: widget.enabled ? kTextPrimary : kTextMuted)),
         if (widget.enabled) ...[
           const SizedBox(width: 4),
-          const Icon(Icons.expand_more_rounded,
+          Icon(Icons.expand_more_rounded,
               size: 16, color: kTextMuted),
         ],
       ]),
@@ -3006,11 +3006,11 @@ class _PanelProfileRowState extends ConsumerState<_PanelProfileRow> {
               Icon(_levelIcon(l), size: 16, color: _levelColor(l)),
               const SizedBox(width: 10),
               Text(l,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13, color: kTextPrimary)),
               if (l == level) ...[
                 const Spacer(),
-                const Icon(Icons.check_rounded,
+                Icon(Icons.check_rounded,
                     size: 16, color: kGreen),
               ],
             ]),

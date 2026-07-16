@@ -96,8 +96,8 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
       // Rafraîchit l'en-tête (best-effort en ligne ; sans effet hors-ligne).
       await ref.read(authNotifierProvider.notifier).reload();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            backgroundColor: kGreen, content: Text('Profil mis à jour.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            backgroundColor: kGreen, content: const Text('Profil mis à jour.')));
       }
     } catch (e) {
       setState(() => _error = e.toString());
@@ -245,17 +245,17 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
             color: kNavy.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(Icons.lock_outline_rounded, color: kNavy, size: 20),
+          child: Icon(Icons.lock_outline_rounded, color: kNavy, size: 20),
         ),
         const SizedBox(width: 14),
-        const Expanded(
+        Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Mot de passe',
                 style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: kTextPrimary)),
-            SizedBox(height: 2),
+            const SizedBox(height: 2),
             Text('Le changement nécessite une connexion internet.',
                 style: TextStyle(fontSize: 12, color: kTextMuted)),
           ]),
@@ -268,7 +268,7 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
           label: const Text('Changer le mot de passe'),
           style: OutlinedButton.styleFrom(
             foregroundColor: kNavy,
-            side: const BorderSide(color: kBorder),
+            side: BorderSide(color: kBorder),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),

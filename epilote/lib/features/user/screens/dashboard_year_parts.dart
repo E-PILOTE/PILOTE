@@ -32,7 +32,7 @@ class _AcademicYearCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(children: [
-        const Icon(Icons.school_rounded, size: 20, color: kGreen),
+        Icon(Icons.school_rounded, size: 20, color: kGreen),
         const SizedBox(width: 10),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -42,11 +42,11 @@ class _AcademicYearCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF059669))),
             Text('$start — $end',
-                style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                style: TextStyle(fontSize: 12, color: kTextMuted)),
           ]),
         ),
         if (year.isLocked as bool) ...[
-          const Tooltip(
+          Tooltip(
             message: 'Année archivée',
             child: Icon(Icons.lock_rounded, size: 16, color: kTextMuted),
           ),
@@ -99,9 +99,9 @@ class _CalendarStrip extends ConsumerWidget {
     return AdminCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(children: [
-        const Icon(Icons.event_note_rounded, size: 18, color: kNavy),
+        Icon(Icons.event_note_rounded, size: 18, color: kNavy),
         const SizedBox(width: 10),
-        const Text('Calendrier',
+        Text('Calendrier',
             style: TextStyle(
                 fontSize: 12.5, fontWeight: FontWeight.w700, color: kTextMuted)),
         const SizedBox(width: 12),

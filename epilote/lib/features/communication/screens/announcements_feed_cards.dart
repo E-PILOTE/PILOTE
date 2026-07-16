@@ -191,7 +191,7 @@ class _StaffAnnCardState extends ConsumerState<StaffAnnCard> {
                                             : 'Réseau scolaire'),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w800,
                                         color: kTextPrimary),
@@ -211,9 +211,9 @@ class _StaffAnnCardState extends ConsumerState<StaffAnnCard> {
                                 TextSpan(
                                     text: fmtRelativeFr(
                                         ann.publishedAt ?? ann.createdAt),
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 11.5, color: kTextMuted)),
-                                const TextSpan(
+                                TextSpan(
                                     text: '  ·  ',
                                     style: TextStyle(
                                         fontSize: 11.5, color: kTextMuted)),
@@ -224,14 +224,14 @@ class _StaffAnnCardState extends ConsumerState<StaffAnnCard> {
                                         fontWeight: FontWeight.w600,
                                         color: aColor)),
                                 if (_isEdited(ann))
-                                  const TextSpan(
+                                  TextSpan(
                                       text: '  ·  modifié',
                                       style: TextStyle(
                                           fontSize: 11.5,
                                           fontStyle: FontStyle.italic,
                                           color: kTextMuted)),
                                 if (ann.isArchived)
-                                  const TextSpan(
+                                  TextSpan(
                                       text: '  ·  archivé',
                                       style: TextStyle(
                                           fontSize: 11.5,
@@ -269,7 +269,7 @@ class _StaffAnnCardState extends ConsumerState<StaffAnnCard> {
                       // Menu ⋯ universel (gestion + actions sociales).
                       PopupMenuButton<String>(
                         tooltip: 'Options',
-                        icon: const Icon(Icons.more_horiz_rounded,
+                        icon: Icon(Icons.more_horiz_rounded,
                             size: 20, color: kTextMuted),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10)),
@@ -319,7 +319,7 @@ class _StaffAnnCardState extends ConsumerState<StaffAnnCard> {
                                     ann.isArchived
                                         ? 'Désarchiver'
                                         : 'Archiver')),
-                            const PopupMenuItem(
+                            PopupMenuItem(
                                 value: 'delete',
                                 child: _MenuRow(Icons.delete_outline_rounded,
                                     'Supprimer',
@@ -338,7 +338,7 @@ class _StaffAnnCardState extends ConsumerState<StaffAnnCard> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(ann.title,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 16.5,
                                   fontWeight: FontWeight.w800,
                                   height: 1.3,
@@ -394,7 +394,7 @@ class _StaffAnnCardState extends ConsumerState<StaffAnnCard> {
                         onTap: () => setState(() => _commentsOpen = true),
                         child: Text(
                             '$commentCount commentaire${commentCount > 1 ? 's' : ''}',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 12, color: kTextMuted)),
                       ),
                   ]),
@@ -409,7 +409,7 @@ class _StaffAnnCardState extends ConsumerState<StaffAnnCard> {
                 ),
 
               // ── Séparateur ───────────────────────────────────────────────────
-              const Divider(height: 1, thickness: 1, color: kBorder),
+              Divider(height: 1, thickness: 1, color: kBorder),
 
               // ── Barre d'actions ──────────────────────────────────────────────
               AnnSocialActionBar(

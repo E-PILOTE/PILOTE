@@ -39,15 +39,15 @@ const List<Shadow> _kBannerTextShadow = [
 ];
 
 /// Palette cyclique pour les tuiles / graphes.
-const _kPalette = [
+List<Color> get _kPalette => [
   kNavy,
   kGreen,
-  Color(0xFF0EA5E9),
-  Color(0xFF7C3AED),
-  Color(0xFFEF4444),
-  Color(0xFFF59E0B),
-  Color(0xFF0891B2),
-  Color(0xFFDB2777),
+  const Color(0xFF0EA5E9),
+  const Color(0xFF7C3AED),
+  const Color(0xFFEF4444),
+  const Color(0xFFF59E0B),
+  const Color(0xFF0891B2),
+  const Color(0xFFDB2777),
 ];
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -699,7 +699,7 @@ class _SchoolLogoBadge extends StatelessWidget {
 class _TricolorStrip extends StatelessWidget {
   const _TricolorStrip();
   @override
-  Widget build(BuildContext context) => const SizedBox(
+  Widget build(BuildContext context) => SizedBox(
         height: 4,
         child: Row(children: [
           Expanded(child: ColoredBox(color: kGreen)),

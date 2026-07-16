@@ -90,13 +90,13 @@ class _ExtraSessionFormState extends ConsumerState<_ExtraSessionForm> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: kBorder))),
             child: Row(children: [
               const Icon(Icons.add_circle_outline_rounded,
                   size: 18, color: Color(0xFF14B8A6)),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text('Séance exceptionnelle',
                     style: TextStyle(
                         fontSize: 15.5,
@@ -209,7 +209,7 @@ class _TimeBox extends StatelessWidget {
         child: InputDecorator(
           decoration: adminFilledInput(label, icon: Icons.schedule_rounded),
           child: Text(value,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
         ),
       );

@@ -45,8 +45,8 @@ class _FeeFormState extends ConsumerState<_FeeForm> {
   Future<void> _save() async {
     final amount = int.tryParse(_amount.text.trim().replaceAll(' ', ''));
     if (_name.text.trim().isEmpty || amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Nom et montant (> 0) requis'), backgroundColor: kRed));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Nom et montant (> 0) requis'), backgroundColor: kRed));
       return;
     }
     final p = ref.read(authNotifierProvider).valueOrNull;

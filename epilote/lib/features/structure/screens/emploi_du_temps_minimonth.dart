@@ -56,7 +56,7 @@ class _MiniMonth extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('${_frMonthsFull[m]} $y',
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 13, fontWeight: FontWeight.w800, color: kTextPrimary)),
         const SizedBox(height: 8),
         Row(children: [
@@ -64,7 +64,7 @@ class _MiniMonth extends StatelessWidget {
             Expanded(
               child: Center(
                 child: Text(_frWeekdayLetters[d],
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w800,
                         color: kTextMuted)),
@@ -166,12 +166,12 @@ class _DayCell extends StatelessWidget {
                     ? Container(
                         width: 4,
                         height: 4,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                             color: kNavy, shape: BoxShape.circle))
                     : Text('$sessions séance${sessions > 1 ? 's' : ''}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 8.5,
                             fontWeight: FontWeight.w700,
                             color: kNavy)),

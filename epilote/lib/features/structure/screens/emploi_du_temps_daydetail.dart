@@ -106,21 +106,21 @@ class _DayExceptionsSheet extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 14, 12, 8),
             child: Row(children: [
-              const Icon(Icons.event_note_rounded, size: 19, color: kNavy),
+              Icon(Icons.event_note_rounded, size: 19, color: kNavy),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(dateLabel,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 15.5,
                               fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
                       if (className != null)
                         Text(className!,
                             style:
-                                const TextStyle(fontSize: 12, color: kTextMuted)),
+                                TextStyle(fontSize: 12, color: kTextMuted)),
                     ]),
               ),
               IconButton(
@@ -136,8 +136,8 @@ class _DayExceptionsSheet extends ConsumerWidget {
               children: [
                 const _DaySectionLabel('Séances prévues (trame)'),
                 if (daySlots.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     child: Text('Aucune séance prévue ce jour.',
                         style: TextStyle(fontSize: 12.5, color: kTextMuted)),
                   )
@@ -196,7 +196,7 @@ class _DaySectionLabel extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Text(text.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.4,
@@ -255,7 +255,7 @@ class _ScheduledRow extends StatelessWidget {
                 Text(
                     '${slot.timeLabel}'
                     '${(slot.teacherName ?? '').isNotEmpty ? ' · ${slot.teacherName}' : ''}',
-                    style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                    style: TextStyle(fontSize: 11.5, color: kTextMuted)),
               ]),
         ),
         if (isCancelled)
@@ -263,7 +263,7 @@ class _ScheduledRow extends StatelessWidget {
               ? TextButton(
                   onPressed: () => onRestore(cancelled!.id),
                   child: const Text('Rétablir'))
-              : const Text('Annulée',
+              : Text('Annulée',
                   style: TextStyle(
                       fontSize: 12, fontWeight: FontWeight.w700, color: kRed))
         else if (canCancel)
@@ -302,7 +302,7 @@ class _ExtraRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(exc.subjectName ?? 'Séance exceptionnelle',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w700,
                         color: kTextPrimary)),
@@ -312,15 +312,15 @@ class _ExtraRow extends StatelessWidget {
                       if ((exc.staffName ?? '').isNotEmpty) exc.staffName,
                       if ((exc.roomName ?? '').isNotEmpty) exc.roomName,
                     ].where((e) => (e ?? '').isNotEmpty).join(' · '),
-                    style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                    style: TextStyle(fontSize: 11.5, color: kTextMuted)),
               ]),
         ),
         if (canDelete)
           InkWell(
             onTap: onDelete,
             borderRadius: BorderRadius.circular(20),
-            child: const Padding(
-              padding: EdgeInsets.all(5),
+            child: Padding(
+              padding: const EdgeInsets.all(5),
               child: Icon(Icons.close_rounded, size: 16, color: kTextMuted),
             ),
           ),

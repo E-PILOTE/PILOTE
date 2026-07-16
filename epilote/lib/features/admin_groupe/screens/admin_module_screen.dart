@@ -94,10 +94,10 @@ class AdminModuleScreen extends ConsumerWidget {
         child: async.when(
           skipLoadingOnReload: true,
           skipLoadingOnRefresh: true,
-          loading: () => const Center(child: CircularProgressIndicator(color: kNavy)),
+          loading: () => Center(child: CircularProgressIndicator(color: kNavy)),
           error: (e, _) => Center(
             child: Text('Erreur : $e',
-                style: const TextStyle(color: kTextMuted)),
+                style: TextStyle(color: kTextMuted)),
           ),
           data: (m) => m == null ? const _NotFound() : _Body(module: m),
         ),
@@ -148,13 +148,13 @@ class _Body extends ConsumerWidget {
                 ),
                 child: (module.icon != null && module.icon!.isNotEmpty)
                     ? Text(module.icon!, style: const TextStyle(fontSize: 30))
-                    : const Icon(Icons.widgets_rounded, color: kNavy, size: 30),
+                    : Icon(Icons.widgets_rounded, color: kNavy, size: 30),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(module.name,
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kTextPrimary)),
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kTextPrimary)),
                   const SizedBox(height: 8),
                   Wrap(spacing: 8, runSpacing: 6, children: [
                     if (module.categoryName != null)
@@ -177,10 +177,10 @@ class _Body extends ConsumerWidget {
             ]),
             if (module.description != null && module.description!.isNotEmpty) ...[
               const SizedBox(height: 14),
-              const Divider(color: kBorder),
+              Divider(color: kBorder),
               const SizedBox(height: 12),
               Text(module.description!,
-                  style: const TextStyle(fontSize: 13.5, color: kTextMuted, height: 1.6)),
+                  style: TextStyle(fontSize: 13.5, color: kTextMuted, height: 1.6)),
             ],
           ]),
         ),
@@ -230,7 +230,7 @@ class _Body extends ConsumerWidget {
               )
             else
               for (int i = 0; i < profiles.length; i++) ...[
-                if (i > 0) const Divider(height: 1, color: kBorder),
+                if (i > 0) Divider(height: 1, color: kBorder),
                 _ProfileAccessRow(
                   slug: module.slug,
                   moduleId: module.id,
@@ -249,9 +249,9 @@ class _Body extends ConsumerWidget {
             border: Border.all(color: kBorder),
           ),
           child: Row(children: [
-            const Icon(Icons.tune_rounded, color: kTextMuted, size: 18),
+            Icon(Icons.tune_rounded, color: kTextMuted, size: 18),
             const SizedBox(width: 10),
-            const Expanded(
+            Expanded(
               child: Text(
                 "Réglage fin (9 actions, périmètre des données) profil par profil — disponible dans Profils d'accès.",
                 style: TextStyle(fontSize: 12.5, color: kTextMuted, height: 1.4),
@@ -260,7 +260,7 @@ class _Body extends ConsumerWidget {
             const SizedBox(width: 8),
             TextButton(
               onPressed: () => context.go(Routes.adminProfils),
-              child: const Text('Profils d\'accès',
+              child: Text('Profils d\'accès',
                   style: TextStyle(color: kNavy, fontWeight: FontWeight.w700, fontSize: 12.5)),
             ),
           ]),
@@ -408,7 +408,7 @@ class _KpiTile extends StatelessWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: kTextPrimary,
@@ -468,11 +468,11 @@ class _SchoolAdoptionCard extends StatelessWidget {
                   border: Border.all(color: kGreen.withValues(alpha: 0.25)),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.school_outlined, size: 13, color: kGreen),
+                  Icon(Icons.school_outlined, size: 13, color: kGreen),
                   const SizedBox(width: 6),
                   Text(
                     name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
                       color: kTextPrimary,
@@ -556,8 +556,8 @@ class _BulkActionsCardState extends ConsumerState<_BulkActionsCard> {
         ),
         const SizedBox(height: 14),
         if (_applying)
-          const Center(child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
+          Center(child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
             child: CircularProgressIndicator(color: kNavy, strokeWidth: 2),
           ))
         else
@@ -697,7 +697,7 @@ class _ProfileAccessRowState extends ConsumerState<_ProfileAccessRow> {
               p.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w700,
                 color: kTextPrimary,
@@ -710,7 +710,7 @@ class _ProfileAccessRowState extends ConsumerState<_ProfileAccessRow> {
                   sub,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: kTextMuted),
+                  style: TextStyle(fontSize: 12, color: kTextMuted),
                 ),
               ),
               if (custom) ...[
@@ -777,7 +777,7 @@ class _LevelSelector extends StatelessWidget {
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         if (saving)
-          const SizedBox(
+          SizedBox(
             width: 14, height: 14,
             child: CircularProgressIndicator(strokeWidth: 2, color: kNavy),
           )
@@ -798,7 +798,7 @@ class _LevelSelector extends StatelessWidget {
         ),
         if (enabled) ...[
           const SizedBox(width: 4),
-          const Icon(Icons.expand_more_rounded, size: 15, color: kTextMuted),
+          Icon(Icons.expand_more_rounded, size: 15, color: kTextMuted),
         ],
       ]),
     );
@@ -818,10 +818,10 @@ class _LevelSelector extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(l,
-                    style: const TextStyle(fontSize: 13, color: kTextPrimary)),
+                    style: TextStyle(fontSize: 13, color: kTextPrimary)),
               ),
               if (l == level)
-                const Icon(Icons.check_rounded, size: 16, color: kGreen),
+                Icon(Icons.check_rounded, size: 16, color: kGreen),
             ]),
           ),
       ],
@@ -845,9 +845,9 @@ class _PlanWarning extends StatelessWidget {
         border: Border.all(color: kAccent.withValues(alpha: 0.40)),
       ),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Icon(Icons.lock_outline_rounded, color: kAccent, size: 22),
+        Icon(Icons.lock_outline_rounded, color: kAccent, size: 22),
         const SizedBox(width: 12),
-        const Expanded(
+        Expanded(
           child: Text(
             "Ce module n'est pas inclus dans votre plan actuel. "
             "Mettez à niveau votre abonnement pour débloquer l'accès.",
@@ -859,7 +859,7 @@ class _PlanWarning extends StatelessWidget {
           onPressed: () => context.go(Routes.adminAbonnement),
           style: OutlinedButton.styleFrom(
             foregroundColor: kNavy,
-            side: const BorderSide(color: kBorder),
+            side: BorderSide(color: kBorder),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
           child: const Text('Voir les plans'),

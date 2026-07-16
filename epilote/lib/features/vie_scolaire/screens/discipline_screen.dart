@@ -249,9 +249,9 @@ class _FilterBar extends StatelessWidget {
             onChanged: onSearch,
             decoration: InputDecoration(
               hintText: 'Rechercher (élève, motif)…',
-              hintStyle: const TextStyle(color: kTextMuted, fontSize: 13),
+              hintStyle: TextStyle(color: kTextMuted, fontSize: 13),
               prefixIcon:
-                  const Icon(Icons.search_rounded, color: kTextMuted, size: 20),
+                  Icon(Icons.search_rounded, color: kTextMuted, size: 20),
               filled: true,
               fillColor: kSurface,
               border: OutlineInputBorder(
@@ -291,7 +291,7 @@ class _FilterBar extends StatelessWidget {
         IconButton(
           tooltip: 'Réinitialiser',
           onPressed: onReset,
-          icon: const Icon(Icons.filter_alt_off_outlined, color: kTextMuted),
+          icon: Icon(Icons.filter_alt_off_outlined, color: kTextMuted),
         ),
         const SizedBox(width: 4),
         if (canCreate)
@@ -312,7 +312,7 @@ class _AddBtn extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                   colors: [kNavyDark, kNavy],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight),
@@ -377,7 +377,7 @@ class _IncidentCard extends StatelessWidget {
                       child: Text(i.studentName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 14.5,
                               fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
@@ -389,7 +389,7 @@ class _IncidentCard extends StatelessWidget {
                   Text(
                       '${i.date}${i.className != null ? ' · ${i.className}' : ''}'
                       '${i.hasSanction ? ' · ${sanctionLabel(i.sanction)}' : ''}',
-                      style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                      style: TextStyle(fontSize: 12, color: kTextMuted)),
                   if ((i.description ?? '').trim().isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(i.description!.trim(),
@@ -408,7 +408,7 @@ class _IncidentCard extends StatelessWidget {
                     ),
                     if (i.hasSanction && (i.followUp ?? '').trim().isEmpty) ...[
                       const SizedBox(width: 8),
-                      const _Tag(Icons.pending_actions_rounded, 'Suivi requis', kRed),
+                      _Tag(Icons.pending_actions_rounded, 'Suivi requis', kRed),
                     ],
                   ]),
                 ]),
@@ -416,7 +416,7 @@ class _IncidentCard extends StatelessWidget {
           if (canEdit || canDelete)
             PopupMenuButton<String>(
               icon:
-                  const Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
+                  Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
               onSelected: (v) => v == 'edit' ? onEdit() : onDelete(),
               itemBuilder: (ctx) => [
                 if (canEdit)
@@ -428,11 +428,11 @@ class _IncidentCard extends StatelessWidget {
                         Text('Modifier'),
                       ])),
                 if (canDelete)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                       value: 'delete',
                       child: Row(children: [
                         Icon(Icons.delete_outline_rounded, size: 16, color: kRed),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Text('Supprimer', style: TextStyle(color: kRed)),
                       ])),
               ],

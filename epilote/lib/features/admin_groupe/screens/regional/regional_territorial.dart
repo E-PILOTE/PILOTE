@@ -19,7 +19,7 @@ class _TerritorialAnalysis extends ConsumerWidget {
     Widget header() => Row(children: [
           const Icon(Icons.straighten_rounded, size: 13, color: _kPurple),
           const SizedBox(width: 6),
-          const Text('ANALYSE TERRITORIALE',
+          Text('ANALYSE TERRITORIALE',
               style: TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.w700,
@@ -51,9 +51,9 @@ class _TerritorialAnalysis extends ConsumerWidget {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: kAccent.withValues(alpha: 0.25)),
           ),
-          child: const Row(children: [
+          child: Row(children: [
             Icon(Icons.location_off_rounded, size: 18, color: kAccent),
-            SizedBox(width: 10),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 'Aucune école géolocalisée (GPS). Les distances ne sont '
@@ -95,7 +95,7 @@ class _TerritorialAnalysis extends ConsumerWidget {
         ),
       ]),
       const SizedBox(height: 12),
-      const Text('ÉCOLES LES PLUS ISOLÉES',
+      Text('ÉCOLES LES PLUS ISOLÉES',
           style: TextStyle(
               fontSize: 9,
               fontWeight: FontWeight.w700,
@@ -128,7 +128,7 @@ class _TerritorialAnalysis extends ConsumerWidget {
                       Text(s.school.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               color: kTextPrimary)),
@@ -138,7 +138,7 @@ class _TerritorialAnalysis extends ConsumerWidget {
                               : '${s.nearestCity} ${_fmtKm(s.nearestCityKm)}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 9, color: kTextMuted)),
                     ]),
               ),
@@ -152,14 +152,14 @@ class _TerritorialAnalysis extends ConsumerWidget {
           borderRadius: BorderRadius.circular(6),
         ),
         child: Row(children: [
-          const Icon(Icons.info_outline_rounded, size: 13, color: kTextMuted),
+          Icon(Icons.info_outline_rounded, size: 13, color: kTextMuted),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
               '${report.gpsSchools}/${report.totalSchools} écoles avec GPS réel. '
               'Les autres sont positionnées au chef-lieu départemental '
               '(approximation, exclues du calcul de distance).',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 9, color: kTextMuted, height: 1.4),
             ),
           ),
@@ -200,7 +200,7 @@ class _TerritorialKpi extends StatelessWidget {
             child: Text(label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w600,
                     color: kTextMuted)),
@@ -213,7 +213,7 @@ class _TerritorialKpi extends StatelessWidget {
         Text(hint,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 8, color: kTextMuted)),
+            style: TextStyle(fontSize: 8, color: kTextMuted)),
       ]),
     );
   }
@@ -304,7 +304,7 @@ class _DataGaps extends StatelessWidget {
                   Row(children: [
                     Expanded(
                       child: Text(title,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               color: kTextPrimary)),
@@ -327,7 +327,7 @@ class _DataGaps extends StatelessWidget {
                   ]),
                   const SizedBox(height: 2),
                   Text(desc,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 9, color: kTextMuted, height: 1.3)),
                   const SizedBox(height: 4),
                   Row(children: [
@@ -354,9 +354,9 @@ class _DataGaps extends StatelessWidget {
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       // ── Couches disponibles ──────────────────────────────────────────────────
-      const Row(children: [
+      Row(children: [
         Icon(Icons.layers_rounded, size: 13, color: kGreen),
-        SizedBox(width: 6),
+        const SizedBox(width: 6),
         Text('COUCHES DISPONIBLES',
             style: TextStyle(
                 fontSize: 9, fontWeight: FontWeight.w700,
@@ -366,20 +366,20 @@ class _DataGaps extends StatelessWidget {
       ...available.map((i) => tile(i.$1, i.$2, i.$3, i.$4, i.$5)),
 
       const SizedBox(height: 10),
-      const Divider(color: kBorder),
+      Divider(color: kBorder),
       const SizedBox(height: 10),
 
       // ── Couches manquantes ───────────────────────────────────────────────────
-      const Row(children: [
+      Row(children: [
         Icon(Icons.layers_clear_rounded, size: 13, color: kRed),
-        SizedBox(width: 6),
+        const SizedBox(width: 6),
         Text('COUCHES MANQUANTES',
             style: TextStyle(
                 fontSize: 9, fontWeight: FontWeight.w700,
                 color: kTextMuted, letterSpacing: 1.0)),
       ]),
       const SizedBox(height: 4),
-      const Text(
+      Text(
         'Données d\'institutions nationales — non présentes en base. '
         'Aucune n\'est simulée (« ne rien inventer »).',
         style: TextStyle(fontSize: 9, color: kTextMuted, height: 1.4),

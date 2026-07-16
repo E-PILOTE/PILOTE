@@ -36,7 +36,7 @@ class DeviceModeTile extends ConsumerWidget {
         color: kNavy,
         title: 'Type de poste',
         subtitle: '$label · $sub',
-        trailing: const Icon(Icons.chevron_right_rounded, color: kTextMuted),
+        trailing: Icon(Icons.chevron_right_rounded, color: kTextMuted),
         onTap: () => _pick(context, ref, mode),
       ),
     );
@@ -83,19 +83,19 @@ class DeviceModeTile extends ConsumerWidget {
                     Row(
                       children: [
                         Text(title,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 color: kTextPrimary)),
                         if (mode == current) ...[
                           const SizedBox(width: 8),
-                          const Icon(Icons.check_circle_rounded,
+                          Icon(Icons.check_circle_rounded,
                               color: kNavy, size: 16),
                         ],
                       ],
                     ),
                     const SizedBox(height: 3),
                     Text(desc,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 12, color: kTextMuted, height: 1.35)),
                   ],
                 ),
@@ -126,7 +126,7 @@ class AutoLockTile extends ConsumerWidget {
         subtitle: minutes == 0
             ? 'Désactivé — le poste reste ouvert'
             : "Après ${label(minutes)} sans activité, retour à l'écran-verrou",
-        trailing: const Icon(Icons.chevron_right_rounded, color: kTextMuted),
+        trailing: Icon(Icons.chevron_right_rounded, color: kTextMuted),
         onTap: () => _pick(context, ref, minutes),
       ),
     );
@@ -149,11 +149,11 @@ class AutoLockTile extends ConsumerWidget {
                         color: kNavy, size: 20),
                     const SizedBox(width: 12),
                     Text(label(m),
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontWeight: FontWeight.w700, color: kTextPrimary)),
                     if (m == current) ...[
                       const SizedBox(width: 8),
-                      const Icon(Icons.check_circle_rounded,
+                      Icon(Icons.check_circle_rounded,
                           color: kNavy, size: 16),
                     ],
                   ],

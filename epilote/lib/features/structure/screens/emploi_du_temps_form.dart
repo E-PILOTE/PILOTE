@@ -276,7 +276,7 @@ class _SlotFormState extends ConsumerState<_SlotForm> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: kBorder))),
             child: Row(children: [
               Icon(_isEdit ? Icons.edit_rounded : Icons.add_rounded,
@@ -284,7 +284,7 @@ class _SlotFormState extends ConsumerState<_SlotForm> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(_isEdit ? 'Modifier le créneau' : 'Nouveau créneau',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 15.5,
                         fontWeight: FontWeight.w800,
                         color: kTextPrimary)),

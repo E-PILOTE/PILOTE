@@ -288,8 +288,8 @@ class _InfoRow extends StatelessWidget {
     final white = Colors.white;
     if (!expanded) {
       return entry.loading
-          ? const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: Center(
                 child: SizedBox(
                   width: 16,
@@ -308,7 +308,7 @@ class _InfoRow extends StatelessWidget {
       child: Row(
         children: [
           if (entry.loading)
-            const SizedBox(
+            SizedBox(
               width: 13,
               height: 13,
               child: CircularProgressIndicator(strokeWidth: 2, color: kAccent),

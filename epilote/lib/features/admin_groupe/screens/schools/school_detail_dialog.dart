@@ -96,9 +96,9 @@ class _SchoolDetailModalState extends State<_SchoolDetailModal>
           // ─ Header ──────────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 14, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               border: Border(bottom: BorderSide(color: kBorder)),
             ),
             child: Row(children: [
@@ -111,7 +111,7 @@ class _SchoolDetailModalState extends State<_SchoolDetailModal>
               Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(s.name, style: const TextStyle(
+                  Text(s.name, style: TextStyle(
                       color: kTextPrimary, fontSize: 17, fontWeight: FontWeight.w800),
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 6),
@@ -125,18 +125,18 @@ class _SchoolDetailModalState extends State<_SchoolDetailModal>
                   ]),
                   const SizedBox(height: 6),
                   Row(children: [
-                    const Icon(Icons.location_on_outlined, size: 12, color: kTextMuted),
+                    Icon(Icons.location_on_outlined, size: 12, color: kTextMuted),
                     const SizedBox(width: 3),
                     Flexible(child: Text(
                         [s.city, s.department].where((e) => e != null && e.isNotEmpty).join(', '),
-                        style: const TextStyle(color: kTextMuted, fontSize: 11.5),
+                        style: TextStyle(color: kTextMuted, fontSize: 11.5),
                         overflow: TextOverflow.ellipsis)),
                     if (s.foundedYear != null) ...[
                       const SizedBox(width: 10),
-                      const Icon(Icons.history_edu_outlined, size: 12, color: kTextMuted),
+                      Icon(Icons.history_edu_outlined, size: 12, color: kTextMuted),
                       const SizedBox(width: 3),
                       Text('Fondée en ${s.foundedYear}',
-                          style: const TextStyle(color: kTextMuted, fontSize: 11.5)),
+                          style: TextStyle(color: kTextMuted, fontSize: 11.5)),
                     ],
                   ]),
                 ],
@@ -185,7 +185,7 @@ class _SchoolDetailModalState extends State<_SchoolDetailModal>
           // ─ Footer ───────────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(top: BorderSide(color: kBorder)),
             ),
             child: Row(children: [

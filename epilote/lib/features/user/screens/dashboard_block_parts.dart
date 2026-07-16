@@ -8,7 +8,7 @@ Widget _dashSeeAll(BuildContext context, String route) => TextButton(
         visualDensity: VisualDensity.compact,
         padding: const EdgeInsets.symmetric(horizontal: 8),
       ),
-      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
         Text('Voir',
             style: TextStyle(
                 color: kNavy, fontWeight: FontWeight.w700, fontSize: 13)),
@@ -184,12 +184,12 @@ class _RecouvrementBar extends StatelessWidget {
             child: _ChartTitle('Taux de recouvrement', Icons.savings_rounded),
           ),
           Text('$pctLabel%',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 22, fontWeight: FontWeight.w800, color: kGreen)),
         ]),
         const SizedBox(height: 4),
         Text('${_xaf(encaisse)} encaissés sur ${_xaf(total)} FCFA attendus',
-            style: const TextStyle(fontSize: 12, color: kTextMuted)),
+            style: TextStyle(fontSize: 12, color: kTextMuted)),
         const SizedBox(height: 14),
         // Barre segmentée animée (vert = encaissé, ambre = en attente).
         ClipRRect(
@@ -207,7 +207,7 @@ class _RecouvrementBar extends StatelessWidget {
                   if (flexEnc > 0)
                     Expanded(
                         flex: flexEnc,
-                        child: const ColoredBox(color: kGreen)),
+                        child: ColoredBox(color: kGreen)),
                   if (flexAtt > 0)
                     Expanded(
                         flex: flexAtt,
@@ -249,9 +249,9 @@ class _RecouvrementLegend extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(label,
-                  style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                  style: TextStyle(fontSize: 11, color: kTextMuted)),
               Text('$value FCFA',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: kTextPrimary)),

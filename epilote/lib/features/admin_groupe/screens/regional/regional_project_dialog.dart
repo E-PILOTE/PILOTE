@@ -263,7 +263,7 @@ class _ProjectFormDialogState extends ConsumerState<_ProjectFormDialog> {
                 Text(
                     '${widget.initialCoords.latitude.toStringAsFixed(5)}, '
                     '${widget.initialCoords.longitude.toStringAsFixed(5)}',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 11, color: kTextMuted,
                         fontFamily: 'monospace')),
               ]),
@@ -297,14 +297,14 @@ class _ProjectFormDialogState extends ConsumerState<_ProjectFormDialog> {
                   const SizedBox(height: 18),
                   const _ProjSection(
                       icon: Icons.flag_outlined, label: 'Pilotage'),
-                  const Text("État d'avancement",
+                  Text("État d'avancement",
                       style: TextStyle(
                           fontSize: 11, fontWeight: FontWeight.w600,
                           color: kTextMuted)),
                   const SizedBox(height: 8),
                   _statusSelector(),
                   const SizedBox(height: 14),
-                  const Text('Priorité',
+                  Text('Priorité',
                       style: TextStyle(
                           fontSize: 11, fontWeight: FontWeight.w600,
                           color: kTextMuted)),
@@ -416,7 +416,7 @@ class _ProjectFormDialogState extends ConsumerState<_ProjectFormDialog> {
             // Footer
             Container(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(top: BorderSide(color: kBorder)),
               ),
               child: Row(children: [
@@ -425,11 +425,11 @@ class _ProjectFormDialogState extends ConsumerState<_ProjectFormDialog> {
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 12),
-                    side: const BorderSide(color: kBorder),
+                    side: BorderSide(color: kBorder),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text('Annuler',
+                  child: Text('Annuler',
                       style: TextStyle(color: kTextMuted)),
                 ),
                 const Spacer(),
@@ -473,11 +473,11 @@ class _ProjSection extends StatelessWidget {
           Icon(icon, size: 14, color: _kOrange),
           const SizedBox(width: 7),
           Text(label.toUpperCase(),
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 10, fontWeight: FontWeight.w800,
                   color: kTextPrimary, letterSpacing: 0.6)),
           const SizedBox(width: 10),
-          const Expanded(child: Divider(height: 1, color: kBorder)),
+          Expanded(child: Divider(height: 1, color: kBorder)),
         ]),
       );
 }

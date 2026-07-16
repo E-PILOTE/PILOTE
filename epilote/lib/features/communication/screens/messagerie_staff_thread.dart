@@ -443,7 +443,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
                 const Icon(Icons.done_all_rounded, size: 18, color: _waTickRead),
                 const SizedBox(width: 8),
                 Text('Lu par ${read.length}/${others.length}',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
                         color: kTextPrimary)),
@@ -455,7 +455,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
                 const SizedBox(height: 8),
               ],
               if (notRead.isNotEmpty) ...[
-                const _ReadInfoLabel('Non lu', kTextMuted),
+                _ReadInfoLabel('Non lu', kTextMuted),
                 for (final mem in notRead) _ReadInfoRow(member: mem, read: false),
               ],
             ],
@@ -586,7 +586,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
     return Column(children: [
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: Colors.white,
           border: Border(bottom: BorderSide(color: kBorder)),
         ),
@@ -595,7 +595,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
             IconButton(
               onPressed: widget.onBack,
               tooltip: 'Retour',
-              icon: const Icon(Icons.arrow_back_rounded,
+              icon: Icon(Icons.arrow_back_rounded,
                   size: 20, color: kNavy),
             ),
           // En-tête tappable pour un groupe → ouvre « Infos du groupe ».
@@ -626,7 +626,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
                             child: Text(widget.conv.otherName,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w700,
                                     color: kTextPrimary)),
@@ -680,7 +680,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
                                       : baseSubject(widget.conv.first.subject)),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 11, color: kTextMuted)),
                       ],
                     ),
@@ -709,8 +709,8 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
             )
           else ...[
             if (archived)
-              const Padding(
-                padding: EdgeInsets.only(right: 8),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
                 child: AdminBadge('Archivée',
                     color: kTextMuted, icon: Icons.archive_outlined),
               ),
@@ -744,18 +744,18 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
             onChanged: (v) => setState(() => _searchQuery = v),
             decoration: InputDecoration(
               hintText: 'Rechercher dans la conversation…',
-              hintStyle: const TextStyle(fontSize: 12.5, color: kTextMuted),
+              hintStyle: TextStyle(fontSize: 12.5, color: kTextMuted),
               prefixIcon:
-                  const Icon(Icons.search_rounded, size: 18, color: kTextMuted),
+                  Icon(Icons.search_rounded, size: 18, color: kTextMuted),
               isDense: true,
               filled: true,
               fillColor: kSurface,
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: kBorder)),
+                  borderSide: BorderSide(color: kBorder)),
               enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: kBorder)),
+                  borderSide: BorderSide(color: kBorder)),
             ),
           ),
         ),
@@ -826,7 +826,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
                     decoration: InputDecoration(
                       hintText: 'Répondre à ${widget.conv.otherName}…',
                       hintStyle:
-                          const TextStyle(color: kTextMuted, fontSize: 13),
+                          TextStyle(color: kTextMuted, fontSize: 13),
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 12),
@@ -848,7 +848,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.attach_file_rounded,
+                      : Icon(Icons.attach_file_rounded,
                           size: 20, color: kTextMuted),
                 ),
                 // Photo / galerie d'images.
@@ -856,7 +856,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
                   onPressed:
                       _uploading ? null : () => _attach(imagesOnly: true),
                   tooltip: 'Envoyer une photo',
-                  icon: const Icon(Icons.image_outlined,
+                  icon: Icon(Icons.image_outlined,
                       size: 21, color: kTextMuted),
                 ),
               ],
@@ -949,17 +949,17 @@ class _ThreadMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) => PopupMenuButton<String>(
         tooltip: 'Plus',
-        icon: const Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
+        icon: Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
         onSelected: (v) {
           if (v == 'delete') onDelete();
         },
-        itemBuilder: (_) => const [
+        itemBuilder: (_) => [
           PopupMenuItem(
             value: 'delete',
             height: 42,
             child: Row(children: [
               Icon(Icons.delete_outline_rounded, size: 18, color: kRed),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               Text('Supprimer la discussion',
                   style: TextStyle(fontSize: 13, color: kRed)),
             ]),
@@ -1001,7 +1001,7 @@ class _ReadInfoRow extends StatelessWidget {
             child: Text(member.name ?? 'Membre',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w600,
                     color: kTextPrimary)),

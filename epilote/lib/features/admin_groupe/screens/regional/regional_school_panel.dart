@@ -75,7 +75,7 @@ class _GpsSchoolDetailPanel extends ConsumerWidget {
             ]),
             const SizedBox(height: 14),
             // Coordonnées
-            const Text('COORDONNÉES GPS',
+            Text('COORDONNÉES GPS',
                 style: TextStyle(
                     fontSize: 9, fontWeight: FontWeight.w700,
                     color: kTextMuted, letterSpacing: 0.8)),
@@ -102,18 +102,18 @@ class _GpsSchoolDetailPanel extends ConsumerWidget {
             if (school.city != null) ...[
               const SizedBox(height: 12),
               Row(children: [
-                const Icon(Icons.location_city_rounded,
+                Icon(Icons.location_city_rounded,
                     size: 13, color: kTextMuted),
                 const SizedBox(width: 6),
                 Text(school.city!,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12, color: kTextPrimary,
                         fontWeight: FontWeight.w500)),
               ]),
             ],
             // ── Vue satellite datée (objective, sans intervention terrain) ──
             const SizedBox(height: 14),
-            const Text('VUE SATELLITE',
+            Text('VUE SATELLITE',
                 style: TextStyle(
                     fontSize: 9, fontWeight: FontWeight.w700,
                     color: kTextMuted, letterSpacing: 0.8)),
@@ -142,7 +142,7 @@ class _GpsSchoolDetailPanel extends ConsumerWidget {
                 label: const Text('Corriger la position'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: kNavy,
-                  side: const BorderSide(color: kBorder),
+                  side: BorderSide(color: kBorder),
                   padding: const EdgeInsets.symmetric(vertical: 11),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8)),
@@ -195,11 +195,11 @@ class _CoordRow extends StatelessWidget {
         SizedBox(
           width: 72,
           child: Text(label,
-              style: const TextStyle(fontSize: 10, color: kTextMuted)),
+              style: TextStyle(fontSize: 10, color: kTextMuted)),
         ),
         Expanded(
           child: SelectableText(value,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 10, fontWeight: FontWeight.w700,
                   color: kTextPrimary,
                   fontFamily: 'monospace')),
@@ -207,7 +207,7 @@ class _CoordRow extends StatelessWidget {
         GestureDetector(
           onTap: () =>
               Clipboard.setData(ClipboardData(text: value)),
-          child: const Icon(Icons.copy_rounded, size: 12, color: kTextMuted),
+          child: Icon(Icons.copy_rounded, size: 12, color: kTextMuted),
         ),
       ]);
 }

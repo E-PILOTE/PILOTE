@@ -203,18 +203,18 @@ class _ClassPaymentsState extends ConsumerState<_ClassPayments> {
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          const Icon(Icons.class_rounded, size: 18, color: kNavy),
+          Icon(Icons.class_rounded, size: 18, color: kNavy),
           const SizedBox(width: 8),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             if (widget.breadcrumb.isNotEmpty)
               Text(widget.breadcrumb,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w700,
                       color: kTextMuted,
                       letterSpacing: 0.2)),
             Text(widget.className,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 15, fontWeight: FontWeight.w800, color: kNavy)),
           ]),
         ]),
@@ -252,26 +252,26 @@ class _ClassPaymentsState extends ConsumerState<_ClassPayments> {
                   decoration: InputDecoration(
                     isDense: true,
                     hintText: 'Rechercher un élève parmi ${rows.length}…',
-                    hintStyle: const TextStyle(fontSize: 13, color: kTextMuted),
-                    prefixIcon: const Icon(Icons.search_rounded,
+                    hintStyle: TextStyle(fontSize: 13, color: kTextMuted),
+                    prefixIcon: Icon(Icons.search_rounded,
                         size: 19, color: kTextMuted),
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: kBorder),
+                      borderSide: BorderSide(color: kBorder),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: kBorder),
+                      borderSide: BorderSide(color: kBorder),
                     ),
                   ),
                 ),
                 const SizedBox(height: 12),
               ],
               if (filtered.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   child: Center(
                       child: Text('Aucun élève trouvé',
                           style: TextStyle(color: kTextMuted))),
@@ -325,7 +325,7 @@ class _ClassPaymentsState extends ConsumerState<_ClassPayments> {
                             ? 'Aucun paiement'
                             : '${r.count} paiement${r.count > 1 ? 's' : ''}'
                                 '${r.lastDate != null ? ' · dernier ${r.lastDate}' : ''}',
-                        style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                        style: TextStyle(fontSize: 11.5, color: kTextMuted)),
                   ]),
             ),
             Text(r.paid == 0 ? '—' : fmtXaf(r.paid),
@@ -333,7 +333,7 @@ class _ClassPaymentsState extends ConsumerState<_ClassPayments> {
                     fontSize: 13.5,
                     fontWeight: FontWeight.w800,
                     color: r.hasPaid ? kGreen : kTextMuted)),
-            const Icon(Icons.chevron_right_rounded, color: kTextMuted),
+            Icon(Icons.chevron_right_rounded, color: kTextMuted),
           ]),
         ),
       ),

@@ -67,7 +67,7 @@ class _EvaluationFormState extends ConsumerState<_EvaluationForm> {
       lastDate: DateTime(_date.year + 2),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx)
-            .copyWith(colorScheme: const ColorScheme.light(primary: kNavy)),
+            .copyWith(colorScheme: ColorScheme.light(primary: kNavy)),
         child: child!,
       ),
     );
@@ -150,14 +150,14 @@ class _EvaluationFormState extends ConsumerState<_EvaluationForm> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: kBorder))),
             child: Row(children: [
-              const Icon(Icons.grade_rounded, size: 18, color: kNavy),
+              Icon(Icons.grade_rounded, size: 18, color: kNavy),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(_isEdit ? 'Modifier l\'évaluation' : 'Nouvelle évaluation',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 15.5,
                         fontWeight: FontWeight.w800,
                         color: kTextPrimary)),

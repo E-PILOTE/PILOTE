@@ -144,7 +144,7 @@ class _RequesterCreateDialogState extends ConsumerState<RequesterCreateDialog> {
               label: const Text('Image'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: kNavy,
-                side: const BorderSide(color: kBorder),
+                side: BorderSide(color: kBorder),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
@@ -155,7 +155,7 @@ class _RequesterCreateDialogState extends ConsumerState<RequesterCreateDialog> {
               label: const Text('Document'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: kNavy,
-                side: const BorderSide(color: kBorder),
+                side: BorderSide(color: kBorder),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
@@ -166,8 +166,8 @@ class _RequesterCreateDialogState extends ConsumerState<RequesterCreateDialog> {
             ],
           ]),
           if (_offline)
-            const Padding(
-              padding: EdgeInsets.only(top: 4),
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
               child: Text('Le téléversement nécessite une connexion internet.',
                   style: TextStyle(fontSize: 10.5, color: kTextMuted)),
             ),
@@ -186,21 +186,21 @@ class _RequesterCreateDialogState extends ConsumerState<RequesterCreateDialog> {
   Widget _label(String t) => Padding(
         padding: const EdgeInsets.only(bottom: 6),
         child: Text(t,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12, fontWeight: FontWeight.w600, color: kTextPrimary)),
       );
 
   InputDecoration _deco(String? hint) => InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(fontSize: 12, color: kTextMuted),
+        hintStyle: TextStyle(fontSize: 12, color: kTextMuted),
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorder)),
+            borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
         enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorder)),
+            borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
         focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kNavy)),
+            borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kNavy)),
         filled: true,
         fillColor: kSurface,
       );

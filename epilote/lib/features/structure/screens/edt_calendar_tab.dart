@@ -94,7 +94,7 @@ class _CalendarTab extends ConsumerWidget {
                     ? 'Aucune année active.'
                     : 'Année ${year.label} — jours fériés et vacances scolaires. '
                         'Les cours ne seront pas projetés sur ces jours.',
-                style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                style: TextStyle(fontSize: 12, color: kTextMuted)),
             const SizedBox(height: 14),
             if (canCreate)
               Row(children: [
@@ -190,7 +190,7 @@ class _CalSummary extends StatelessWidget {
                       fontSize: 17, fontWeight: FontWeight.w800, color: c)),
               Text(l,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 10.5, color: kTextMuted)),
+                  style: TextStyle(fontSize: 10.5, color: kTextMuted)),
             ]),
           ),
         );
@@ -216,7 +216,7 @@ class _CalGroupTitle extends StatelessWidget {
           Icon(icon, size: 15, color: kTextMuted),
           const SizedBox(width: 7),
           Text(label.toUpperCase(),
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.4,
@@ -251,7 +251,7 @@ class _HolidayRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(holiday.label,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w700,
                         color: kTextPrimary)),
@@ -259,15 +259,15 @@ class _HolidayRow extends StatelessWidget {
                     holiday.isSingleDay
                         ? holiday.rangeLabel
                         : '${holiday.rangeLabel} · ${holiday.dayCount} jours',
-                    style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                    style: TextStyle(fontSize: 11.5, color: kTextMuted)),
               ]),
         ),
         if (canDelete)
           InkWell(
             onTap: onDelete,
             borderRadius: BorderRadius.circular(20),
-            child: const Padding(
-              padding: EdgeInsets.all(5),
+            child: Padding(
+              padding: const EdgeInsets.all(5),
               child: Icon(Icons.close_rounded, size: 16, color: kTextMuted),
             ),
           ),
@@ -313,7 +313,7 @@ class _HolidayFormState extends ConsumerState<_HolidayForm> {
       lastDate: last,
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-            colorScheme: const ColorScheme.light(primary: kNavy)),
+            colorScheme: ColorScheme.light(primary: kNavy)),
         child: child!,
       ),
     );
@@ -364,12 +364,12 @@ class _HolidayFormState extends ConsumerState<_HolidayForm> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: kBorder))),
             child: Row(children: [
-              const Icon(Icons.event_busy_outlined, size: 18, color: kNavy),
+              Icon(Icons.event_busy_outlined, size: 18, color: kNavy),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text('Ajouter un jour non ouvré',
                     style: TextStyle(
                         fontSize: 15.5,

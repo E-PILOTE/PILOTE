@@ -55,7 +55,7 @@ class _BodyState extends ConsumerState<_Body> {
       lastDate: DateTime.now().add(const Duration(days: 1)),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx)
-            .copyWith(colorScheme: const ColorScheme.light(primary: kNavy)),
+            .copyWith(colorScheme: ColorScheme.light(primary: kNavy)),
         child: child!,
       ),
     );
@@ -102,7 +102,7 @@ class _BodyState extends ConsumerState<_Body> {
               width: 175,
               onTap: _pickDate,
               child: Text(_dateLabel,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: kTextPrimary)),

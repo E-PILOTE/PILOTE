@@ -109,7 +109,7 @@ class _SchoolEducationSectionState
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const _SchFormLabel('CYCLES D\'ENSEIGNEMENT'),
       const SizedBox(height: 4),
-      const Text(
+      Text(
         'Sélectionnez les cycles proposés par l\'établissement, puis les niveaux '
         'exacts. Une école peut combiner plusieurs cycles simultanément.',
         style: TextStyle(fontSize: 11.5, color: kTextMuted, height: 1.4),
@@ -125,8 +125,8 @@ class _SchoolEducationSectionState
     ]);
   }
 
-  Widget _eduSpinner() => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 22),
+  Widget _eduSpinner() => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 22),
         child: Center(
           child: SizedBox(
             width: 22, height: 22,
@@ -156,7 +156,7 @@ class _SchoolEducationSectionState
       ],
       if (_cycleIds.isEmpty) ...[
         const SizedBox(height: 6),
-        const Text('Aucun cycle sélectionné pour l\'instant.',
+        Text('Aucun cycle sélectionné pour l\'instant.',
             style: TextStyle(fontSize: 11, color: kTextMuted, fontStyle: FontStyle.italic)),
       ],
     ]);
@@ -167,7 +167,7 @@ class _SchoolEducationSectionState
       Row(children: [
         Icon(_cycleIcon(c.code), size: 16, color: kNavy),
         const SizedBox(width: 8),
-        Expanded(child: Text(c.name, style: const TextStyle(
+        Expanded(child: Text(c.name, style: TextStyle(
             fontSize: 12.5, fontWeight: FontWeight.w800, color: kTextPrimary))),
       ]),
       const SizedBox(height: 10),
@@ -183,7 +183,7 @@ class _SchoolEducationSectionState
         ..add(eduSubHeader('Filières', onAdd: () => _addProgram(c)))
         ..add(const SizedBox(height: 8))
         ..add(progs.isEmpty
-            ? const Text('Aucune filière. Ajoutez-en une.',
+            ? Text('Aucune filière. Ajoutez-en une.',
                 style: TextStyle(fontSize: 11, color: kTextMuted))
             : Wrap(spacing: 8, runSpacing: 8, children: [
                 for (final p in progs)
@@ -216,7 +216,7 @@ class _SchoolEducationSectionState
                   onAdd: () => _addLevel(c, program: p)),
               const SizedBox(height: 8),
               if (lvls.isEmpty)
-                const Text('Aucun niveau. Ajoutez-en un.',
+                Text('Aucun niveau. Ajoutez-en un.',
                     style: TextStyle(fontSize: 11, color: kTextMuted))
               else
                 Wrap(spacing: 8, runSpacing: 8, children: [
@@ -242,7 +242,7 @@ class _SchoolEducationSectionState
         ..add(eduSubHeader('Niveaux', onAdd: () => _addLevel(c)))
         ..add(const SizedBox(height: 8))
         ..add(lvls.isEmpty
-            ? const Text('Aucun niveau. Ajoutez-en un.',
+            ? Text('Aucun niveau. Ajoutez-en un.',
                 style: TextStyle(fontSize: 11, color: kTextMuted))
             : Wrap(spacing: 8, runSpacing: 8, children: [
                 for (final l in lvls)
@@ -384,7 +384,7 @@ class _SchoolEducationSectionState
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text(title, style: const TextStyle(
+        title: Text(title, style: TextStyle(
             fontSize: 15, fontWeight: FontWeight.w800, color: kTextPrimary)),
         content: SizedBox(
           width: 360,

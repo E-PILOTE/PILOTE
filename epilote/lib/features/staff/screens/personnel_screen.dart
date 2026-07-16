@@ -132,7 +132,7 @@ class _BodyState extends ConsumerState<_Body> {
             const SizedBox(height: 18),
             // Distinction par axe
             Row(children: [
-              const Text('Répartir par',
+              Text('Répartir par',
                   style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
@@ -227,8 +227,8 @@ class _Toolbar extends StatelessWidget {
       PopupMenuButton<String>(
         enabled: onPdf != null || onCsv != null,
         onSelected: (v) => v == 'pdf' ? onPdf?.call() : onCsv?.call(),
-        itemBuilder: (_) => const [
-          PopupMenuItem(
+        itemBuilder: (_) => [
+          const PopupMenuItem(
               value: 'pdf',
               child: Row(children: [
                 Icon(Icons.picture_as_pdf_outlined, size: 17, color: Color(0xFF7C3AED)),
@@ -239,14 +239,14 @@ class _Toolbar extends StatelessWidget {
               value: 'csv',
               child: Row(children: [
                 Icon(Icons.table_chart_outlined, size: 17, color: kGreen),
-                SizedBox(width: 8),
-                Text('Exporter CSV'),
+                const SizedBox(width: 8),
+                const Text('Exporter CSV'),
               ])),
         ],
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
                 colors: [kNavyDark, kNavy],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight),

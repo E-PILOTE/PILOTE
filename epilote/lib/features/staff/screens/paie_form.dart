@@ -166,7 +166,7 @@ class _PayrollFormState extends ConsumerState<_PayrollForm> {
                     border: Border.all(color: kGreen.withValues(alpha: 0.3)),
                   ),
                   child: Row(children: [
-                    const Icon(Icons.account_balance_wallet_rounded,
+                    Icon(Icons.account_balance_wallet_rounded,
                         size: 18, color: kGreen),
                     const SizedBox(width: 10),
                     const Text('Net à payer',
@@ -174,7 +174,7 @@ class _PayrollFormState extends ConsumerState<_PayrollForm> {
                             fontSize: 13, fontWeight: FontWeight.w700)),
                     const Spacer(),
                     Text(fmtXaf(_net),
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
                             color: kGreen)),

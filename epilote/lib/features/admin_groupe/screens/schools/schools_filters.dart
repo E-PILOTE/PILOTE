@@ -52,11 +52,11 @@ class _FilterBar extends StatelessWidget {
               onChanged: onSearchChange,
               decoration: InputDecoration(
                 hintText: 'Rechercher une école, code, ville, département…',
-                hintStyle: const TextStyle(color: kTextMuted, fontSize: 13),
-                prefixIcon: const Icon(Icons.search_rounded, color: kTextMuted, size: 20),
+                hintStyle: TextStyle(color: kTextMuted, fontSize: 13),
+                prefixIcon: Icon(Icons.search_rounded, color: kTextMuted, size: 20),
                 suffixIcon: searchCtrl.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 18, color: kTextMuted),
+                        icon: Icon(Icons.close_rounded, size: 18, color: kTextMuted),
                         onPressed: () { searchCtrl.clear(); onSearchChange(''); })
                     : null,
                 filled: true,
@@ -86,7 +86,7 @@ class _FilterBar extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: kBorder),
                   ),
-                  child: const Icon(Icons.refresh_rounded, size: 20, color: kTextMuted),
+                  child: Icon(Icons.refresh_rounded, size: 20, color: kTextMuted),
                 ),
               ),
             ),
@@ -103,7 +103,7 @@ class _FilterBar extends StatelessWidget {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: quotaReached
-                          ? const [kTextMuted, kTextMuted]
+                          ? [kTextMuted, kTextMuted]
                           : const [Color(0xFF1A2F5A), Color(0xFF1E3A5F)],
                       begin: Alignment.topLeft, end: Alignment.bottomRight,
                     ),
@@ -172,9 +172,9 @@ class _FilterBar extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: kRed.withValues(alpha: 0.25)),
                   ),
-                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
                     Icon(Icons.filter_alt_off_rounded, size: 13, color: kRed),
-                    SizedBox(width: 4),
+                    const SizedBox(width: 4),
                     Text('Réinitialiser', style: TextStyle(
                       color: kRed, fontSize: 11.5, fontWeight: FontWeight.w600)),
                   ]),
@@ -270,10 +270,10 @@ class _ResultHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(children: [
     Text('$filtered résultat${filtered > 1 ? 's' : ''}',
-        style: const TextStyle(color: kTextPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
+        style: TextStyle(color: kTextPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
     if (filtered < total) ...[
       const SizedBox(width: 8),
-      Text('sur $total', style: const TextStyle(color: kTextMuted, fontSize: 13)),
+      Text('sur $total', style: TextStyle(color: kTextMuted, fontSize: 13)),
     ],
   ]);
 }

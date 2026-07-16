@@ -254,7 +254,7 @@ class _StudentEditModalState extends ConsumerState<_StudentEditModal> {
             height: 240,
             child: Center(
                 child:
-                    Text('Erreur : $e', style: const TextStyle(color: kRed)))),
+                    Text('Erreur : $e', style: TextStyle(color: kRed)))),
         data: (d) {
           if (!_primed) _prime(d);
           return Column(mainAxisSize: MainAxisSize.min, children: [
@@ -437,11 +437,11 @@ class _TutorCard extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Text(draft.isPrimary ? 'Tuteur principal' : 'Contact ${index + 1}',
-              style: const TextStyle(
+              style: TextStyle(
                   fontWeight: FontWeight.w800, fontSize: 14, color: kNavy)),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, color: kRed, size: 18),
+            icon: Icon(Icons.delete_outline_rounded, color: kRed, size: 18),
             tooltip: 'Supprimer ce tuteur',
             onPressed: onRemove,
           ),
@@ -574,7 +574,7 @@ class _PhotoPicker extends StatelessWidget {
         radius: 46,
         backgroundColor: kNavy.withValues(alpha: 0.10),
         child: Text(initials,
-            style: const TextStyle(
+            style: TextStyle(
                 color: kNavy, fontSize: 28, fontWeight: FontWeight.w800)),
       );
     }

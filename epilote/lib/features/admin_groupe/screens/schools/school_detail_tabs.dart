@@ -14,7 +14,7 @@ class _SchoolCyclesTab extends ConsumerWidget {
     final selAsync = ref.watch(schoolEducationProvider(schoolId));
 
     if (catAsync.isLoading || selAsync.isLoading) {
-      return const Center(child: CircularProgressIndicator(color: kNavy));
+      return Center(child: CircularProgressIndicator(color: kNavy));
     }
     if (catAsync.hasError || selAsync.hasError) {
       return const Center(
@@ -156,7 +156,7 @@ class _CycleSection extends StatelessWidget {
 
   static Widget _emptyRow(String msg) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Text(msg, style: const TextStyle(fontSize: 12, color: kTextMuted)),
+        child: Text(msg, style: TextStyle(fontSize: 12, color: kTextMuted)),
       );
 }
 
@@ -223,7 +223,7 @@ class _SchoolUsersTab extends ConsumerWidget {
     return usersAsync.when(
       skipLoadingOnReload: true,
       skipLoadingOnRefresh: true,
-      loading: () => const Center(child: CircularProgressIndicator(color: kNavy)),
+      loading: () => Center(child: CircularProgressIndicator(color: kNavy)),
       error: (_, _) => const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
@@ -258,7 +258,7 @@ class _SchoolUsersList extends StatelessWidget {
           children: [
             for (int i = 0; i < users.length; i++) ...[
               _SchoolUserRow(user: users[i]),
-              if (i < users.length - 1) const Divider(height: 1, color: kBorder),
+              if (i < users.length - 1) Divider(height: 1, color: kBorder),
             ],
           ],
         ),
@@ -298,7 +298,7 @@ class _SchoolUserRow extends StatelessWidget {
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(user.fullName.isEmpty ? '—' : user.fullName,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13.5, fontWeight: FontWeight.w700, color: kTextPrimary)),
             const SizedBox(height: 3),
             Wrap(spacing: 6, runSpacing: 4, children: [
@@ -414,9 +414,9 @@ class _SchoolStatsTab extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: kBorder),
           ),
-          child: const Row(children: [
+          child: Row(children: [
             Icon(Icons.info_outline_rounded, size: 16, color: kTextMuted),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Expanded(child: Text(
               'Les ratios élevés (rouge) signalent une surcharge potentielle : '
               '> 50 élèves/classe ou > 35 élèves/agent.',
@@ -448,7 +448,7 @@ class _BigStat extends StatelessWidget {
       const SizedBox(height: 10),
       Text(value, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: color)),
       const SizedBox(height: 2),
-      Text(label, style: const TextStyle(fontSize: 11.5, color: kTextMuted, fontWeight: FontWeight.w600)),
+      Text(label, style: TextStyle(fontSize: 11.5, color: kTextMuted, fontWeight: FontWeight.w600)),
     ]),
   );
 }

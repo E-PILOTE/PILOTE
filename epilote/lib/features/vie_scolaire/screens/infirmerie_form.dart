@@ -69,8 +69,8 @@ class _VisitFormState extends ConsumerState<_VisitForm> {
 
   Future<void> _save() async {
     if (_studentId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Choisissez un élève'), backgroundColor: kRed));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Choisissez un élève'), backgroundColor: kRed));
       return;
     }
     final p = ref.read(authNotifierProvider).valueOrNull;

@@ -135,14 +135,14 @@ class FeedAvatar extends StatelessWidget {
 /// Pastille « Partagez… » qui ouvre le formulaire de publication. Affichée
 /// uniquement à ceux qui ont le droit de publier (gouvernance conservée).
 class FeedComposer extends StatelessWidget {
-  const FeedComposer({
+  FeedComposer({
     super.key,
     required this.hint,
     required this.onTap,
-    this.avatarColor = kNavy,
+    Color? avatarColor,
     this.avatarIcon = Icons.campaign_rounded,
     this.actionIcon = Icons.add_rounded,
-  });
+  }) : avatarColor = avatarColor ?? kNavy;
   final String hint;
   final VoidCallback onTap;
   final Color avatarColor;
@@ -184,7 +184,7 @@ class FeedComposer extends StatelessWidget {
                   child: Text(hint,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13.5, color: kTextMuted)),
+                      style: TextStyle(fontSize: 13.5, color: kTextMuted)),
                 ),
               ),
             ),
@@ -259,12 +259,12 @@ class StaffSearchField extends StatelessWidget {
         onChanged: onChanged,
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(color: kTextMuted, fontSize: 13),
+          hintStyle: TextStyle(color: kTextMuted, fontSize: 13),
           prefixIcon:
-              const Icon(Icons.search_rounded, color: kTextMuted, size: 20),
+              Icon(Icons.search_rounded, color: kTextMuted, size: 20),
           suffixIcon: controller.text.isNotEmpty
               ? IconButton(
-                  icon: const Icon(Icons.close_rounded,
+                  icon: Icon(Icons.close_rounded,
                       size: 18, color: kTextMuted),
                   onPressed: () {
                     controller.clear();
@@ -337,14 +337,14 @@ class StaffFilterDropdown extends StatelessWidget {
 
 // ─── Toggle « chip » (ex. Épinglées) ────────────────────────────────────────
 class StaffToggleChip extends StatelessWidget {
-  const StaffToggleChip({
+  StaffToggleChip({
     super.key,
     required this.icon,
     required this.label,
     required this.active,
     required this.onTap,
-    this.color = kAccent,
-  });
+    Color? color,
+  }) : color = color ?? kAccent;
   final IconData icon;
   final String label;
   final bool active;
@@ -402,9 +402,9 @@ class StaffResetChip extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: kRed.withValues(alpha: 0.25)),
             ),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.filter_alt_off_rounded, size: 13, color: kRed),
-              SizedBox(width: 4),
+              const SizedBox(width: 4),
               Text('Réinitialiser',
                   style: TextStyle(
                       color: kRed,
@@ -430,14 +430,14 @@ class StaffResultCount extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(children: [
         Text('$filtered $singular${filtered > 1 ? 's' : ''}',
-            style: const TextStyle(
+            style: TextStyle(
                 color: kTextPrimary,
                 fontSize: 14,
                 fontWeight: FontWeight.w700)),
         if (filtered < total) ...[
           const SizedBox(width: 8),
           Text('sur $total',
-              style: const TextStyle(color: kTextMuted, fontSize: 13)),
+              style: TextStyle(color: kTextMuted, fontSize: 13)),
         ],
       ]);
 }
@@ -463,13 +463,13 @@ class StaffNoResults extends StatelessWidget {
                   size: 34, color: kNavy.withValues(alpha: 0.55)),
             ),
             const SizedBox(height: 16),
-            const Text('Aucun résultat',
+            Text('Aucun résultat',
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
                     color: kTextPrimary)),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Aucun élément ne correspond à votre recherche ou à vos filtres.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13, color: kTextMuted, height: 1.5),
@@ -481,7 +481,7 @@ class StaffNoResults extends StatelessWidget {
               label: const Text('Réinitialiser les filtres'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: kNavy,
-                side: const BorderSide(color: kBorder),
+                side: BorderSide(color: kBorder),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                 shape: RoundedRectangleBorder(

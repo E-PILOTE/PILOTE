@@ -18,8 +18,8 @@ class _CycleRail extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 4, bottom: 8),
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
           child: Text('CYCLES',
               style: TextStyle(
                   fontSize: 11,
@@ -98,7 +98,7 @@ class _CycleTile extends StatelessWidget {
               const SizedBox(height: 9),
               Text(
                   '${_pl(cycle.levels.length, 'niveau', 'niveaux')} · ${_pl(cycle.classCount, 'classe', 'classes')} · ${_pl(cycle.enrolled, 'élève', 'élèves')}',
-                  style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                  style: TextStyle(fontSize: 11, color: kTextMuted)),
               const SizedBox(height: 8),
               _FillBar(ratio: cycle.fillRatio, color: color),
             ],
@@ -252,7 +252,7 @@ class _DetailPanel extends StatelessWidget {
                   filtering
                       ? 'Aucune classe ne correspond.'
                       : 'Aucun niveau dans ce cycle.',
-                  style: const TextStyle(color: kTextMuted, fontSize: 13)),
+                  style: TextStyle(color: kTextMuted, fontSize: 13)),
             ),
           )
         else
@@ -293,7 +293,7 @@ class _DetailHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(cycle.name,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w800,
                         color: kTextPrimary)),
@@ -301,7 +301,7 @@ class _DetailHeader extends StatelessWidget {
                 Text(
                     '${_pl(cycle.levels.length, 'niveau', 'niveaux')} · ${_pl(cycle.classCount, 'classe', 'classes')} · ${_pl(cycle.enrolled, 'élève', 'élèves')}'
                     '${cycle.capacity > 0 ? ' · ${cycle.enrolled}/${cycle.capacity} places' : ''}',
-                    style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                    style: TextStyle(fontSize: 12, color: kTextMuted)),
               ],
             ),
           ),
@@ -329,8 +329,8 @@ class _CycleFilieres extends ConsumerWidget {
       data: (fils) => fils.isEmpty
           ? const SizedBox.shrink()
           : Wrap(spacing: 6, runSpacing: 6, children: [
-              const Padding(
-                padding: EdgeInsets.only(top: 3, right: 2),
+              Padding(
+                padding: const EdgeInsets.only(top: 3, right: 2),
                 child: Icon(Icons.workspaces_outline,
                     size: 14, color: kTextMuted),
               ),
@@ -345,7 +345,7 @@ class _CycleFilieres extends ConsumerWidget {
                   ),
                   child: Text(f.name,
                       style:
-                          const TextStyle(fontSize: 11, color: kTextMuted)),
+                          TextStyle(fontSize: 11, color: kTextMuted)),
                 ),
             ]),
       orElse: () => const SizedBox.shrink(),
@@ -389,7 +389,7 @@ class _Toolbar extends StatelessWidget {
             child: DropdownButtonFormField<String>(
               initialValue: filiere,
               isExpanded: true,
-              style: const TextStyle(fontSize: 13.5, color: kTextPrimary),
+              style: TextStyle(fontSize: 13.5, color: kTextPrimary),
               decoration: adminFilledInput('Toutes les filières',
                   icon: Icons.workspaces_outline),
               items: [
@@ -456,7 +456,7 @@ class _NiveauBlock extends StatelessWidget {
                       ? 'Aucune classe'
                       : '${_pl(classes.length, 'classe', 'classes')} · ${level.enrolled}'
                           '${level.capacity > 0 ? '/${level.capacity}' : ''} ${level.enrolled <= 1 ? 'élève' : 'élèves'}',
-                  style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                  style: TextStyle(fontSize: 11.5, color: kTextMuted)),
             ),
             if (!readOnly)
               _MiniAddBtn(color: color, onTap: onAdd),
@@ -483,7 +483,7 @@ class _NiveauBlock extends StatelessWidget {
                 readOnly
                     ? '—'
                     : 'Ce niveau n\'a pas encore de classe. Cliquez « + » pour en créer une.',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12,
                     color: kTextMuted,
                     fontStyle: FontStyle.italic)),
@@ -556,7 +556,7 @@ class _Th extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Text(text,
-      style: const TextStyle(
+      style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.6,
@@ -575,7 +575,7 @@ class _ClassRow extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
               border: Border(top: BorderSide(color: kBorder))),
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
           child: Row(children: [
@@ -592,7 +592,7 @@ class _ClassRow extends StatelessWidget {
                   child: Text(cls.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                           color: kTextPrimary)),
@@ -604,7 +604,7 @@ class _ClassRow extends StatelessWidget {
                 child: Text(cls.filiereLabel ?? '—',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12.5, color: kTextMuted))),
+                    style: TextStyle(fontSize: 12.5, color: kTextMuted))),
             Expanded(flex: 3, child: _EffectifCell(cls: cls, color: color)),
             Expanded(
               flex: 3,
@@ -612,9 +612,9 @@ class _ClassRow extends StatelessWidget {
                   ? Text(cls.teacherName!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 12.5, color: kTextPrimary))
-                  : const Text('Non assigné',
+                  : Text('Non assigné',
                       style: TextStyle(
                           fontSize: 12,
                           color: kTextMuted,
@@ -625,12 +625,12 @@ class _ClassRow extends StatelessWidget {
                 child: Text(cls.room ?? '—',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12.5, color: kTextMuted))),
+                    style: TextStyle(fontSize: 12.5, color: kTextMuted))),
             SizedBox(
               width: 36,
               child: onTap == null
                   ? const SizedBox.shrink()
-                  : const Icon(Icons.edit_outlined, size: 16, color: kTextMuted),
+                  : Icon(Icons.edit_outlined, size: 16, color: kTextMuted),
             ),
           ]),
         ),
@@ -679,7 +679,7 @@ class _ClassCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
               border: Border(top: BorderSide(color: kBorder))),
           padding: const EdgeInsets.all(12),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -691,24 +691,24 @@ class _ClassCard extends StatelessWidget {
                       BoxDecoration(color: color, shape: BoxShape.circle)),
               const SizedBox(width: 8),
               Text(cls.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w800,
                       color: kTextPrimary)),
               if (cls.filiereLabel != null) ...[
                 const SizedBox(width: 8),
                 Text(cls.filiereLabel!,
-                    style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                    style: TextStyle(fontSize: 11.5, color: kTextMuted)),
               ],
               const Spacer(),
               if (onTap != null)
-                const Icon(Icons.edit_outlined, size: 15, color: kTextMuted),
+                Icon(Icons.edit_outlined, size: 15, color: kTextMuted),
             ]),
             const SizedBox(height: 8),
             _EffectifCell(cls: cls, color: color),
             const SizedBox(height: 6),
             Row(children: [
-              const Icon(Icons.person_outline_rounded,
+              Icon(Icons.person_outline_rounded,
                   size: 14, color: kTextMuted),
               const SizedBox(width: 4),
               Expanded(
@@ -722,11 +722,11 @@ class _ClassCard extends StatelessWidget {
                             : kTextMuted)),
               ),
               if (cls.room != null) ...[
-                const Icon(Icons.meeting_room_outlined,
+                Icon(Icons.meeting_room_outlined,
                     size: 14, color: kTextMuted),
                 const SizedBox(width: 4),
                 Text(cls.room!,
-                    style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                    style: TextStyle(fontSize: 11.5, color: kTextMuted)),
               ],
             ]),
           ]),

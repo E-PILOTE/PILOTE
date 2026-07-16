@@ -19,13 +19,13 @@ class _LevelBreakdown extends StatelessWidget {
     return AdminCard(
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+        Row(children: [
           Icon(Icons.stairs_outlined, size: 16, color: kNavy),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Text('Programmes par niveau',
               style: TextStyle(
                   fontSize: 14, fontWeight: FontWeight.w800, color: kNavy)),
-          Spacer(),
+          const Spacer(),
           Text('cliquez pour filtrer',
               style: TextStyle(fontSize: 11.5, color: kTextMuted)),
         ]),
@@ -79,7 +79,7 @@ class _LevelBar extends StatelessWidget {
             child: Text(label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
                     color: kTextPrimary)),
@@ -100,7 +100,7 @@ class _LevelBar extends StatelessWidget {
             width: 80,
             child: Text(_pl(count, 'programme', 'programmes'),
                 textAlign: TextAlign.end,
-                style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                style: TextStyle(fontSize: 11.5, color: kTextMuted)),
           ),
         ]),
       ),
@@ -216,9 +216,9 @@ class _ProgFilterBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: kAccent.withValues(alpha: 0.30)),
               ),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
                 Icon(Icons.lock_clock_rounded, size: 15, color: kAccent),
-                SizedBox(width: 6),
+                const SizedBox(width: 6),
                 Text('Année verrouillée',
                     style: TextStyle(
                         color: kAccent,
@@ -261,8 +261,8 @@ class _Dd extends StatelessWidget {
         child: DropdownButtonFormField<String?>(
           initialValue: value,
           isExpanded: true,
-          style: const TextStyle(fontSize: 13, color: kTextPrimary),
-          icon: const Icon(Icons.expand_more_rounded,
+          style: TextStyle(fontSize: 13, color: kTextPrimary),
+          icon: Icon(Icons.expand_more_rounded,
               size: 18, color: kTextMuted),
           decoration: adminFilledInput(entries.first.$2),
           selectedItemBuilder: (context) => [
@@ -390,9 +390,9 @@ class _ResetChip extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: kRed.withValues(alpha: 0.25)),
             ),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.filter_alt_off_rounded, size: 14, color: kRed),
-              SizedBox(width: 5),
+              const SizedBox(width: 5),
               Text('Réinitialiser',
                   style: TextStyle(
                       color: kRed,
@@ -416,10 +416,10 @@ class _ResultHeader extends StatelessWidget {
         ? _pl(total, 'programme', 'programmes')
         : '$filtered / ${_pl(total, 'programme', 'programmes')}';
     return Row(children: [
-      const Icon(Icons.article_outlined, size: 16, color: kTextMuted),
+      Icon(Icons.article_outlined, size: 16, color: kTextMuted),
       const SizedBox(width: 8),
       Text(txt,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
       const Spacer(),
       if (onExportPdf != null) AdminPdfButton(onTap: onExportPdf!),
@@ -456,9 +456,9 @@ class _ProgTable extends ConsumerWidget {
       child: Column(children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: kSurface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
           ),
           child: Row(children: [
             if (canBulk) ...[
@@ -505,7 +505,7 @@ class _Check extends StatelessWidget {
           activeColor: kNavy,
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           visualDensity: VisualDensity.compact,
-          side: const BorderSide(color: kTextMuted, width: 1.5),
+          side: BorderSide(color: kTextMuted, width: 1.5),
         ),
       );
 }
@@ -519,7 +519,7 @@ class _Th extends StatelessWidget {
         flex: flex,
         child: Text(label,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.4,
@@ -556,7 +556,7 @@ class _ProgRow extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? kNavy.withValues(alpha: 0.04) : null,
           border:
-              last ? null : const Border(bottom: BorderSide(color: kBorder)),
+              last ? null : Border(bottom: BorderSide(color: kBorder)),
         ),
         child: Row(children: [
           if (canBulk) ...[
@@ -571,7 +571,7 @@ class _ProgRow extends StatelessWidget {
                   Text(p.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w700,
                           color: kTextPrimary)),
@@ -580,7 +580,7 @@ class _ProgRow extends StatelessWidget {
                     Text(p.preview,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 11.5, color: kTextMuted)),
                   ],
                 ]),
@@ -590,7 +590,7 @@ class _ProgRow extends StatelessWidget {
             child: Text(p.subjectName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
                     color: kTextPrimary)),
@@ -604,14 +604,14 @@ class _ProgRow extends StatelessWidget {
           Expanded(
             flex: 2,
             child: Text(p.trimesterLabelOrAll,
-                style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                style: TextStyle(fontSize: 12, color: kTextMuted)),
           ),
           Expanded(
             flex: 2,
             child: Align(
               alignment: Alignment.centerLeft,
               child: p.isOfficial
-                  ? const AdminBadge('Officiel', color: kGreen)
+                  ? AdminBadge('Officiel', color: kGreen)
                   : AdminBadge(p.isShared ? 'Partagé' : 'Perso',
                       color: p.isShared ? kNavy : const Color(0xFFF59E0B)),
             ),
@@ -623,7 +623,7 @@ class _ProgRow extends StatelessWidget {
                 IconButton(
                   tooltip: 'Modifier',
                   visualDensity: VisualDensity.compact,
-                  icon: const Icon(Icons.edit_outlined, size: 18, color: kNavy),
+                  icon: Icon(Icons.edit_outlined, size: 18, color: kNavy),
                   onPressed: onEdit,
                 ),
               if (canDelete && canMutate)
@@ -631,10 +631,10 @@ class _ProgRow extends StatelessWidget {
                   tooltip: 'Supprimer',
                   visualDensity: VisualDensity.compact,
                   icon:
-                      const Icon(Icons.delete_outline_rounded, size: 18, color: kRed),
+                      Icon(Icons.delete_outline_rounded, size: 18, color: kRed),
                   onPressed: onDelete,
                 ),
-              const Icon(Icons.chevron_right_rounded,
+              Icon(Icons.chevron_right_rounded,
                   size: 18, color: kTextMuted),
             ]),
           ),
@@ -711,7 +711,7 @@ class _ProgCard extends StatelessWidget {
             child: Text(p.title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                     color: kTextPrimary)),
@@ -720,14 +720,14 @@ class _ProgCard extends StatelessWidget {
             IconButton(
               tooltip: 'Modifier',
               visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.edit_outlined, size: 17, color: kNavy),
+              icon: Icon(Icons.edit_outlined, size: 17, color: kNavy),
               onPressed: onEdit,
             ),
           if (canDelete)
             IconButton(
               tooltip: 'Supprimer',
               visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.delete_outline_rounded,
+              icon: Icon(Icons.delete_outline_rounded,
                   size: 17, color: kRed),
               onPressed: onDelete,
             ),
@@ -738,16 +738,16 @@ class _ProgCard extends StatelessWidget {
           AdminBadge(p.levelLabel, color: kNavy),
           AdminBadge(p.trimesterLabelOrAll, color: kTextMuted),
           if (p.isOfficial)
-            const AdminBadge('Officiel', color: kGreen)
+            AdminBadge('Officiel', color: kGreen)
           else if (p.isShared)
-            const AdminBadge('Partagé', color: kNavy),
+            AdminBadge('Partagé', color: kNavy),
         ]),
         if (p.hasContent) ...[
           const SizedBox(height: 10),
           Text(p.preview,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12, color: kTextMuted, height: 1.4)),
         ],
       ]),

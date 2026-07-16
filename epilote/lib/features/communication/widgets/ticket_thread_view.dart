@@ -173,7 +173,7 @@ class _TicketThreadViewState extends ConsumerState<TicketThreadView> {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: kGreen.withValues(alpha: 0.25)),
           ),
-          child: const Text(
+          child: Text(
             'Demande traitée — répondre la rouvrira auprès du support.',
             style: TextStyle(fontSize: 11.5, color: kTextMuted),
           ),
@@ -214,7 +214,7 @@ class _TicketThreadViewState extends ConsumerState<TicketThreadView> {
               hintText: widget.viewerIsSupport
                   ? 'Répondre au demandeur…'
                   : 'Écrire au support…',
-              hintStyle: const TextStyle(color: kTextMuted, fontSize: 12.5),
+              hintStyle: TextStyle(color: kTextMuted, fontSize: 12.5),
               isDense: true,
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
@@ -265,7 +265,7 @@ class _AttachBtn extends StatelessWidget {
         color: kNavy,
         iconSize: 20,
         icon: busy
-            ? const SizedBox(
+            ? SizedBox(
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(strokeWidth: 2, color: kNavy))
@@ -305,7 +305,7 @@ class _TicketBubble extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         alignment: Alignment.center,
-        child: const Icon(Icons.support_agent_rounded, size: 17, color: kNavy),
+        child: Icon(Icons.support_agent_rounded, size: 17, color: kNavy),
       );
     }
     return UserAvatarCircle(
@@ -435,7 +435,7 @@ class TicketThreadDialog extends ConsumerWidget {
               decoration: BoxDecoration(
                   color: kNavy.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10)),
-              child: const Icon(Icons.support_agent_rounded,
+              child: Icon(Icons.support_agent_rounded,
                   color: kNavy, size: 19),
             ),
             const SizedBox(width: 12),
@@ -446,11 +446,11 @@ class TicketThreadDialog extends ConsumerWidget {
                     Text(subject,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w800,
                             color: kTextPrimary)),
-                    const Text('Conversation avec le support',
+                    Text('Conversation avec le support',
                         style:
                             TextStyle(fontSize: 11.5, color: kTextMuted)),
                   ]),
@@ -459,7 +459,7 @@ class TicketThreadDialog extends ConsumerWidget {
             const SizedBox(width: 6),
             IconButton(
               onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.close_rounded, color: kTextMuted),
+              icon: Icon(Icons.close_rounded, color: kTextMuted),
             ),
           ]),
           if (metaBadges.isNotEmpty) ...[
@@ -470,7 +470,7 @@ class TicketThreadDialog extends ConsumerWidget {
             ),
           ],
           const SizedBox(height: 8),
-          const Divider(height: 1, color: kBorder),
+          Divider(height: 1, color: kBorder),
           const SizedBox(height: 8),
           Flexible(
             child: TicketThreadView(

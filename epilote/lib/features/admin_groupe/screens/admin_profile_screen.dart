@@ -56,8 +56,8 @@ class _BodyState extends ConsumerState<_Body> {
             phone: _phone.text.trim(),
           );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          backgroundColor: kGreen, content: Text('Profil mis à jour.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          backgroundColor: kGreen, content: const Text('Profil mis à jour.')));
       }
     } catch (e) {
       setState(() => _error = e.toString());
@@ -73,7 +73,7 @@ class _BodyState extends ConsumerState<_Body> {
     final groupName = ref.watch(adminGroupProfileProvider).valueOrNull?.name;
 
     if (profile == null) {
-      return const Center(child: CircularProgressIndicator(color: kNavy));
+      return Center(child: CircularProgressIndicator(color: kNavy));
     }
     if (!_init) {
       _first.text = profile.firstName;
@@ -102,7 +102,7 @@ class _BodyState extends ConsumerState<_Body> {
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(profile.fullName.isEmpty ? '—' : profile.fullName,
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: kTextPrimary)),
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: kTextPrimary)),
                       const SizedBox(height: 4),
                       Row(children: [
                         AdminBadge(roleLabel(profile.role), color: kGreen, icon: Icons.shield_rounded),
@@ -151,7 +151,7 @@ class _BodyState extends ConsumerState<_Body> {
                       icon: const Icon(Icons.lock_reset_rounded, size: 17),
                       label: const Text('Changer le mot de passe'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: kNavy, side: const BorderSide(color: kBorder),
+                        foregroundColor: kNavy, side: BorderSide(color: kBorder),
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
@@ -217,8 +217,8 @@ class _PasswordDialogState extends ConsumerState<_PasswordDialog> {
       await ref.read(adminSelfServiceProvider).changePassword(_pwd.text);
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            backgroundColor: kGreen, content: Text('Mot de passe modifié.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            backgroundColor: kGreen, content: const Text('Mot de passe modifié.')));
       }
     } catch (e) {
       setState(() => _error = e.toString());

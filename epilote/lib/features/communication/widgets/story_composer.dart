@@ -135,9 +135,9 @@ class _StoryComposerDialogState extends ConsumerState<StoryComposerDialog> {
         padding: const EdgeInsets.all(20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Row(children: [
-            const Icon(Icons.auto_awesome_rounded, size: 18, color: kNavy),
+            Icon(Icons.auto_awesome_rounded, size: 18, color: kNavy),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Text('Nouvelle story',
                   style: TextStyle(
                       fontSize: 15,
@@ -147,7 +147,7 @@ class _StoryComposerDialogState extends ConsumerState<StoryComposerDialog> {
             IconButton(
               visualDensity: VisualDensity.compact,
               onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.close_rounded, color: kTextMuted),
+              icon: Icon(Icons.close_rounded, color: kTextMuted),
             ),
           ]),
           const SizedBox(height: 12),
@@ -282,7 +282,7 @@ class _StoryComposerDialogState extends ConsumerState<StoryComposerDialog> {
           style: const TextStyle(fontSize: 13),
           decoration: InputDecoration(
             hintText: 'Légende (optionnelle)…',
-            hintStyle: const TextStyle(fontSize: 13, color: kTextMuted),
+            hintStyle: TextStyle(fontSize: 13, color: kTextMuted),
             isDense: true,
             filled: true,
             fillColor: kSurface,
@@ -290,10 +290,10 @@ class _StoryComposerDialogState extends ConsumerState<StoryComposerDialog> {
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: kBorder)),
+                borderSide: BorderSide(color: kBorder)),
             enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: kBorder)),
+                borderSide: BorderSide(color: kBorder)),
           ),
         ),
       ]);
@@ -312,16 +312,16 @@ class _StoryComposerDialogState extends ConsumerState<StoryComposerDialog> {
         child: Center(
           child: _busy
               ? const CircularProgressIndicator(strokeWidth: 2)
-              : const Column(mainAxisSize: MainAxisSize.min, children: [
+              : Column(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.add_photo_alternate_outlined,
                       size: 44, color: kNavy),
-                  SizedBox(height: 10),
+                  const SizedBox(height: 10),
                   Text('Ajouter une photo ou une vidéo',
                       style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: kTextPrimary)),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text('Nécessite une connexion internet',
                       style: TextStyle(fontSize: 11, color: kTextMuted)),
                 ]),

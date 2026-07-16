@@ -45,13 +45,13 @@ const _kDepartements = [
 
 // ─── Avatar école (logo si présent, sinon icône) ─────────────────────────────
 class _SchoolAvatar extends StatelessWidget {
-  const _SchoolAvatar({
+  _SchoolAvatar({
     required this.logoUrl,
     this.size = 46,
     this.radius = 11,
-    this.iconColor = kNavy,
+    Color? iconColor,
     this.iconSize,
-  });
+  }) : iconColor = iconColor ?? kNavy;
   final String? logoUrl;
   final double  size;
   final double  radius;
@@ -97,9 +97,9 @@ class AdminSchoolsScreen extends ConsumerWidget {
         loading: () => const _ShimmerSkeleton(),
         error: (e, _) => Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.cloud_off_rounded, size: 48, color: kTextMuted),
+            Icon(Icons.cloud_off_rounded, size: 48, color: kTextMuted),
             const SizedBox(height: 12),
-            Text('Erreur : $e', style: const TextStyle(color: kTextMuted)),
+            Text('Erreur : $e', style: TextStyle(color: kTextMuted)),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () => ref.invalidate(adminSchoolsProvider),

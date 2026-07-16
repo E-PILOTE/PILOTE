@@ -77,12 +77,12 @@ class _EdtSettingsViewState extends State<EdtSettingsView> {
           // En-tête.
           Container(
             padding: const EdgeInsets.fromLTRB(20, 20, 12, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: kBorder))),
             child: Row(children: [
-              const Icon(Icons.tune_rounded, size: 19, color: kNavy),
+              Icon(Icons.tune_rounded, size: 19, color: kNavy),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text('Paramètres de l\'emploi du temps',
                     style: TextStyle(
                         fontSize: 16,
@@ -199,7 +199,7 @@ class _TimeField extends StatelessWidget {
         child: InputDecorator(
           decoration: adminFilledInput(label, icon: Icons.schedule_rounded),
           child: Text(value,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
         ),
       );

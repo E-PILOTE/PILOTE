@@ -181,7 +181,7 @@ class _KpiCardState extends State<_KpiCard> with SingleTickerProviderStateMixin 
                           fontWeight: FontWeight.w900, letterSpacing: -0.5,
                         )),
                         const SizedBox(height: 2),
-                        Text(d.label, style: const TextStyle(
+                        Text(d.label, style: TextStyle(
                           color: kTextMuted, fontSize: 11.5, fontWeight: FontWeight.w600,
                         ), overflow: TextOverflow.ellipsis),
                         if (d.sub != null)

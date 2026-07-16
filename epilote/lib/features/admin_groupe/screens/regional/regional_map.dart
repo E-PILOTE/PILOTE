@@ -172,7 +172,7 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
                   isSelected
                       ? '${dept.dept} · ${dept.studentCount} él.'
                       : dept.dept,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 9, fontWeight: FontWeight.w700,
                       color: kTextPrimary),
                   maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -305,7 +305,7 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
               border: Border.all(color: kBorder),
             ),
             child: Text('$students él.',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 8, fontWeight: FontWeight.w700,
                     color: kTextPrimary)),
           ),
@@ -366,7 +366,7 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
             ),
             child: Text(
               _truncate(school.name, isSelected ? 18 : 13),
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 8, fontWeight: FontWeight.w700,
                   color: kTextPrimary),
               maxLines: 1,
@@ -565,7 +565,7 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
     // En cas d'erreur (hasError) on laisse passer : la carte s'affiche sans masque
     // plutôt que de bloquer indéfiniment.
     if (boundaryAsync.isLoading) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -573,7 +573,7 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
               width: 32, height: 32,
               child: CircularProgressIndicator(color: kNavy, strokeWidth: 2.5),
             ),
-            SizedBox(height: 14),
+            const SizedBox(height: 14),
             Text(
               'Chargement de la carte…',
               style: TextStyle(fontSize: 13, color: kTextMuted),
@@ -623,11 +623,11 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
               // laisse le mode placement actif pour réessayer.
               if (!_isInCongoBounds(latlng)) {
                 ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-                  const SnackBar(
-                    content: Text('Point hors du Congo — placez le projet '
+                  SnackBar(
+                    content: const Text('Point hors du Congo — placez le projet '
                         'sur le territoire national.'),
                     backgroundColor: kRed,
-                    duration: Duration(seconds: 2),
+                    duration: const Duration(seconds: 2),
                   ),
                 );
                 return;

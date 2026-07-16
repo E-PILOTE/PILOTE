@@ -12,12 +12,12 @@ import '../providers/academic_year_context.dart';
 part 'academic_structure_parts.dart';
 
 // ─── Accents par cycle (cohérents avec la page Inscriptions) ─────────────────
-const _cycleColors = <String, Color>{
-  'prescolaire': Color(0xFFEC4899),
-  'primaire': Color(0xFF0EA5E9),
+Map<String, Color> get _cycleColors => <String, Color>{
+  'prescolaire': const Color(0xFFEC4899),
+  'primaire': const Color(0xFF0EA5E9),
   'college': kGreen,
   'lycee': kNavy,
-  'formation_pro': Color(0xFFF59E0B),
+  'formation_pro': const Color(0xFFF59E0B),
 };
 Color _cycleColor(String code) => _cycleColors[code] ?? kNavy;
 
@@ -81,7 +81,7 @@ class _BodyState extends ConsumerState<_Body> {
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('Erreur : $e', style: const TextStyle(color: kRed)),
+          child: Text('Erreur : $e', style: TextStyle(color: kRed)),
         ),
       ),
       data: (st) {

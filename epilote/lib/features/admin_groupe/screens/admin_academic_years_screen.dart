@@ -48,17 +48,17 @@ Color _typeColor(String t) => switch (t) {
       _ => kTextMuted,
     };
 
-const _palette = <Color>[
+List<Color> get _palette => <Color>[
   kNavy,
   kGreen,
-  Color(0xFF0EA5E9),
-  Color(0xFF7C3AED),
-  Color(0xFFEF4444),
-  Color(0xFFF59E0B),
-  Color(0xFF0891B2),
-  Color(0xFFDB2777),
-  Color(0xFF65A30D),
-  Color(0xFF9333EA),
+  const Color(0xFF0EA5E9),
+  const Color(0xFF7C3AED),
+  const Color(0xFFEF4444),
+  const Color(0xFFF59E0B),
+  const Color(0xFF0891B2),
+  const Color(0xFFDB2777),
+  const Color(0xFF65A30D),
+  const Color(0xFF9333EA),
 ];
 Color _palAt(int i) => _palette[i % _palette.length];
 
@@ -199,10 +199,10 @@ class _Header extends StatelessWidget {
             color: kNavy.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(Icons.event_note_rounded, color: kNavy, size: 24),
+          child: Icon(Icons.event_note_rounded, color: kNavy, size: 24),
         ),
         const SizedBox(width: 14),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -211,7 +211,7 @@ class _Header extends StatelessWidget {
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
                       color: kTextPrimary)),
-              SizedBox(height: 3),
+              const SizedBox(height: 3),
               Text(
                 "Pilotage national du calendrier : l'année est définie ici puis "
                 'héritée par toutes les écoles (synchro progressive).',
@@ -288,7 +288,7 @@ class _ExportYearButtonState extends ConsumerState<_ExportYearButton> {
     return OutlinedButton.icon(
       onPressed: _busy ? null : _export,
       icon: _busy
-          ? const SizedBox(
+          ? SizedBox(
               width: 16,
               height: 16,
               child: CircularProgressIndicator(strokeWidth: 2, color: kNavy))
@@ -296,7 +296,7 @@ class _ExportYearButtonState extends ConsumerState<_ExportYearButton> {
       label: Text(_busy ? 'Génération…' : 'Exporter le bilan'),
       style: OutlinedButton.styleFrom(
         foregroundColor: kNavy,
-        side: const BorderSide(color: kBorder),
+        side: BorderSide(color: kBorder),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -318,16 +318,16 @@ class _StatsSelectorBar extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(Icons.insights_rounded, size: 18, color: kNavy),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text('Statistiques par année',
                   style: TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w800,
                       color: kTextPrimary)),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   "— sélectionnez l'année à analyser ; KPI et graphiques "

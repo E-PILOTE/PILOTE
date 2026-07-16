@@ -120,7 +120,7 @@ class _TabChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
           decoration: BoxDecoration(
             gradient: selected
-                ? const LinearGradient(colors: [kNavyDark, kNavy])
+                ? LinearGradient(colors: [kNavyDark, kNavy])
                 : null,
             borderRadius: BorderRadius.circular(9),
           ),
@@ -226,7 +226,7 @@ class _PageHeader extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [kNavyDeep, kNavyDark, kNavy],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -417,7 +417,7 @@ class _QaChipState extends State<_QaChip> {
               Icon(widget.icon, size: 16, color: kNavy),
               const SizedBox(width: 8),
               Text(widget.label,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
                       color: kTextPrimary)),
@@ -743,7 +743,7 @@ class _KpiCardState extends State<_KpiCard> with SingleTickerProviderStateMixin 
                   _CountUp(
                     value: k.rawValue,
                     fmt: k.fmt,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                         color: kTextPrimary),
@@ -752,7 +752,7 @@ class _KpiCardState extends State<_KpiCard> with SingleTickerProviderStateMixin 
                   Text(k.label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 12.5,
                           color: kTextMuted,
                           fontWeight: FontWeight.w600)),
@@ -1083,10 +1083,10 @@ class _EnrollmentChartState extends State<_EnrollmentChart> {
                     plotAreaBorderWidth: 0,
                     margin: EdgeInsets.zero,
                     tooltipBehavior: _tt,
-                    primaryXAxis: const CategoryAxis(
-                      majorGridLines: MajorGridLines(width: 0),
-                      axisLine: AxisLine(width: 0),
-                      majorTickLines: MajorTickLines(size: 0),
+                    primaryXAxis: CategoryAxis(
+                      majorGridLines: const MajorGridLines(width: 0),
+                      axisLine: const AxisLine(width: 0),
+                      majorTickLines: const MajorTickLines(size: 0),
                       labelStyle:
                           TextStyle(fontSize: 11, color: kTextMuted),
                     ),
@@ -1100,7 +1100,7 @@ class _EnrollmentChartState extends State<_EnrollmentChart> {
                         dashArray: const <double>[4, 4],
                       ),
                       labelStyle:
-                          const TextStyle(fontSize: 11, color: kTextMuted),
+                          TextStyle(fontSize: 11, color: kTextMuted),
                     ),
                     series: <CartesianSeries<MonthlyPoint, String>>[
                       SplineAreaSeries<MonthlyPoint, String>(
@@ -1130,7 +1130,7 @@ class _EnrollmentChartState extends State<_EnrollmentChart> {
                         color: kGreen,
                         width: 2.5,
                         splineType: SplineType.natural,
-                        markerSettings: const MarkerSettings(
+                        markerSettings: MarkerSettings(
                           isVisible: true,
                           shape: DataMarkerType.circle,
                           height: 7,
@@ -1223,11 +1223,11 @@ class _TypeDonutState extends State<_TypeDonut> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(fmtInt(d.ecolesTotal),
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
-                      const Text('écoles',
+                      Text('écoles',
                           style: TextStyle(fontSize: 11, color: kTextMuted)),
                     ],
                   ),
@@ -1243,8 +1243,8 @@ class _TypeDonutState extends State<_TypeDonut> {
                   _LegendDot(color: p.color, text: '${p.label} ${p.y}'),
               ],
             ),
-            const Divider(height: 26, color: kBorder),
-            const Text('Parité élèves',
+            Divider(height: 26, color: kBorder),
+            Text('Parité élèves',
                 style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
@@ -1283,7 +1283,7 @@ class _LegendDot extends StatelessWidget {
             height: 9,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 6),
-        Text(text, style: const TextStyle(fontSize: 12, color: kTextMuted)),
+        Text(text, style: TextStyle(fontSize: 12, color: kTextMuted)),
       ],
     );
   }
@@ -1309,7 +1309,7 @@ class _GenderRow extends StatelessWidget {
         SizedBox(
           width: 60,
           child: Text(label,
-              style: const TextStyle(fontSize: 12.5, color: kTextPrimary)),
+              style: TextStyle(fontSize: 12.5, color: kTextPrimary)),
         ),
         Expanded(
           child: AdminProgressBar(
@@ -1317,13 +1317,13 @@ class _GenderRow extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         Text('$count',
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
                 color: kTextPrimary)),
         if (total > 0)
           Text('  ·  $pct%',
-              style: const TextStyle(fontSize: 11, color: kTextMuted)),
+              style: TextStyle(fontSize: 11, color: kTextMuted)),
       ],
     );
   }
@@ -1346,7 +1346,7 @@ class _ChartEmpty extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Text(message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
+                style: TextStyle(fontSize: 12.5, color: kTextMuted)),
           ),
         ],
       ),
@@ -1418,7 +1418,7 @@ class _RhSection extends StatelessWidget {
             ),
           if (total > 0) ...[
             const SizedBox(height: 18),
-            const Divider(height: 1, color: kBorder),
+            Divider(height: 1, color: kBorder),
             const SizedBox(height: 14),
             Wrap(
               spacing: 18,
@@ -1553,19 +1553,19 @@ class _RhTile extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(fmtInt(value),
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w800,
                   color: kTextPrimary,
                   height: 1)),
           const SizedBox(height: 5),
           Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
                   color: kTextPrimary)),
           const SizedBox(height: 2),
-          Text(hint, style: const TextStyle(fontSize: 10.5, color: kTextMuted)),
+          Text(hint, style: TextStyle(fontSize: 10.5, color: kTextMuted)),
         ],
       ),
     );
@@ -1587,7 +1587,7 @@ class _RhBreakdown extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Détail par type de contrat',
+        Text('Détail par type de contrat',
             style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
@@ -1604,13 +1604,13 @@ class _RhBreakdown extends StatelessWidget {
                     _LegendDot(color: _contractColor(k), text: _contractLabel(k)),
                     const Spacer(),
                     Text('$v',
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w800,
                             color: kTextPrimary)),
                     const SizedBox(width: 6),
                     Text('· ${total == 0 ? 0 : (v / total * 100).round()} %',
-                        style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                        style: TextStyle(fontSize: 11, color: kTextMuted)),
                   ],
                 ),
                 const SizedBox(height: 7),
@@ -1761,7 +1761,7 @@ class _DeptBar extends StatelessWidget {
                     AnimatedRotation(
                       duration: const Duration(milliseconds: 180),
                       turns: selected ? 0.25 : 0,
-                      child: const Icon(Icons.chevron_right_rounded,
+                      child: Icon(Icons.chevron_right_rounded,
                           size: 16, color: kTextMuted),
                     ),
                     const SizedBox(width: 4),
@@ -1769,19 +1769,19 @@ class _DeptBar extends StatelessWidget {
                       child: Text(name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: kTextPrimary)),
                     ),
                     Text('$schools école${schools > 1 ? 's' : ''}',
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: kNavy)),
                     const SizedBox(width: 10),
                     Text('$students élève${students > 1 ? 's' : ''}',
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 11.5, color: kTextMuted)),
                   ],
                 ),
@@ -1814,7 +1814,7 @@ class _DeptSchools extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Écoles · $dept',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12, fontWeight: FontWeight.w700, color: kTextMuted)),
           const SizedBox(height: 8),
           for (final s in list)
@@ -1828,13 +1828,13 @@ class _DeptSchools extends StatelessWidget {
                     child: Text(s.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 12.5, color: kTextPrimary)),
                   ),
                   _TypeChip(s.type),
                   const SizedBox(width: 8),
                   Text('${s.students} él.',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
                           color: kTextMuted)),
@@ -1983,7 +1983,7 @@ class _SubHead extends StatelessWidget {
         Icon(icon, size: 16, color: kNavy),
         const SizedBox(width: 7),
         Text(text,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
       ],
     );
@@ -2011,7 +2011,7 @@ class _AlertRow extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(alert.text,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12.5, color: kTextPrimary, height: 1.3)),
           ),
           if (onTap != null)
@@ -2061,7 +2061,7 @@ class _CheckRow extends StatelessWidget {
 List<_Alert> _buildAlerts(AdminDashboardData d) {
   final out = <_Alert>[];
   if (d.expireBientot) {
-    out.add(const _Alert(Icons.event_busy_rounded, kRed,
+    out.add(_Alert(Icons.event_busy_rounded, kRed,
         'Votre abonnement arrive à échéance prochainement.', Routes.adminAbonnement));
   }
   final inactive = d.ecolesTotal - d.ecolesActives;
@@ -2083,11 +2083,11 @@ List<_Alert> _buildAlerts(AdminDashboardData d) {
         '${d.elevesImpayes} élève(s) en situation d\'impayé.', Routes.adminRapports));
   }
   if (d.tauxOccupationEleves >= 90) {
-    out.add(const _Alert(Icons.warning_amber_rounded, kRed,
+    out.add(_Alert(Icons.warning_amber_rounded, kRed,
         "Quota d'élèves de votre plan presque atteint.", Routes.adminAbonnement));
   }
   if (out.isEmpty) {
-    out.add(const _Alert(Icons.verified_rounded, kGreen,
+    out.add(_Alert(Icons.verified_rounded, kGreen,
         'Aucune alerte — votre groupe est conforme.'));
   }
   return out;
@@ -2191,7 +2191,7 @@ class _RiskCenter extends StatelessWidget {
             subtitle: 'Indicateurs de risque · interventions prioritaires',
             trailing: TextButton(
               onPressed: () => context.go(Routes.adminEcoles),
-              child: const Text('Gérer',
+              child: Text('Gérer',
                   style: TextStyle(
                       color: kNavy,
                       fontWeight: FontWeight.w600,
@@ -2240,7 +2240,7 @@ class _RiskCenter extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 2, left: 2),
                 child: Text(
                     '+ ${risks.length - shown.length} autre(s) établissement(s) à examiner',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12,
                         color: kTextMuted,
                         fontStyle: FontStyle.italic)),
@@ -2285,7 +2285,7 @@ class _RiskStat extends StatelessWidget {
                   fontSize: 18, fontWeight: FontWeight.w800, color: c)),
           const SizedBox(width: 6),
           Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: kTextMuted)),
@@ -2335,7 +2335,7 @@ class _RiskRow extends StatelessWidget {
                           child: Text(risk.school.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 13.5,
                                   fontWeight: FontWeight.w700,
                                   color: kTextPrimary)),
@@ -2415,7 +2415,7 @@ class _ReasonChip extends StatelessWidget {
                   BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 6),
           Text(text,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11.5,
                   color: kTextPrimary,
                   fontWeight: FontWeight.w500)),
@@ -2447,10 +2447,10 @@ class _AllClearRow extends StatelessWidget {
             decoration: BoxDecoration(
                 color: kGreen.withValues(alpha: 0.14),
                 shape: BoxShape.circle),
-            child: const Icon(Icons.verified_rounded, color: kGreen, size: 20),
+            child: Icon(Icons.verified_rounded, color: kGreen, size: 20),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -2459,7 +2459,7 @@ class _AllClearRow extends StatelessWidget {
                         fontSize: 13.5,
                         fontWeight: FontWeight.w700,
                         color: kTextPrimary)),
-                SizedBox(height: 3),
+                const SizedBox(height: 3),
                 Text(
                     'Tous vos établissements actifs disposent d\'élèves, de personnel et de classes configurées.',
                     style: TextStyle(fontSize: 12, color: kTextMuted)),
@@ -2520,7 +2520,7 @@ class _TopSchools extends StatelessWidget {
             subtitle: 'Classés par effectif élèves',
             trailing: TextButton(
               onPressed: () => context.go(Routes.adminEcoles),
-              child: const Text('Tout voir',
+              child: Text('Tout voir',
                   style: TextStyle(
                       color: kNavy, fontWeight: FontWeight.w600, fontSize: 12.5)),
             ),
@@ -2577,7 +2577,7 @@ class _SchoolRankRow extends StatelessWidget {
                           child: Text(s.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 13.5,
                                   fontWeight: FontWeight.w700,
                                   color: kTextPrimary)),
@@ -2610,7 +2610,7 @@ class _SchoolRankRow extends StatelessWidget {
                                   child: Text(s.city!,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                           fontSize: 11, color: kTextMuted)),
                                 ),
                               ],
@@ -2668,7 +2668,7 @@ class _MiniStat extends StatelessWidget {
           Text(emoji, style: const TextStyle(fontSize: 12)),
           const SizedBox(width: 3),
           Text(value,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w600,
                   color: kTextMuted)),
@@ -2694,7 +2694,7 @@ class _ActivityCard extends StatelessWidget {
             icon: Icons.history_rounded,
             trailing: TextButton(
               onPressed: () => context.go(Routes.adminAudit),
-              child: const Text('Journal',
+              child: Text('Journal',
                   style: TextStyle(
                       color: kNavy, fontWeight: FontWeight.w600, fontSize: 12.5)),
             ),
@@ -2725,12 +2725,12 @@ class _ActivityCard extends StatelessWidget {
                           Text(a.title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w600,
                                   color: kTextPrimary)),
                           Text(a.time,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 11, color: kTextMuted)),
                         ],
                       ),
@@ -2757,11 +2757,11 @@ class _InlineEmpty extends StatelessWidget {
           BoxDecoration(color: kSurface, borderRadius: BorderRadius.circular(10)),
       child: Row(
         children: [
-          const Icon(Icons.inbox_rounded, size: 18, color: kTextMuted),
+          Icon(Icons.inbox_rounded, size: 18, color: kTextMuted),
           const SizedBox(width: 10),
           Expanded(
             child: Text(message,
-                style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
+                style: TextStyle(fontSize: 12.5, color: kTextMuted)),
           ),
         ],
       ),
@@ -2836,11 +2836,11 @@ class _ErrorState extends StatelessWidget {
                   decoration: BoxDecoration(
                       color: kRed.withValues(alpha: 0.08),
                       shape: BoxShape.circle),
-                  child: const Icon(Icons.cloud_off_rounded,
+                  child: Icon(Icons.cloud_off_rounded,
                       size: 40, color: kRed),
                 ),
                 const SizedBox(height: 18),
-                const Text('Impossible de charger le tableau de bord',
+                Text('Impossible de charger le tableau de bord',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         fontSize: 16,
@@ -2851,7 +2851,7 @@ class _ErrorState extends StatelessWidget {
                     textAlign: TextAlign.center,
                     maxLines: 4,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
+                    style: TextStyle(fontSize: 12.5, color: kTextMuted)),
                 const SizedBox(height: 20),
                 FilledButton.icon(
                   onPressed: onRetry,

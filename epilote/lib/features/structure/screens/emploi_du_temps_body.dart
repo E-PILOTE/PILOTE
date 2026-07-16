@@ -180,7 +180,7 @@ extension _EdtBody on _EdtPageState {
       Row(children: [
         Expanded(
           child: Text(title,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 15, fontWeight: FontWeight.w800, color: kNavy)),
         ),
         if (_view == TtView.classe && klass != null)

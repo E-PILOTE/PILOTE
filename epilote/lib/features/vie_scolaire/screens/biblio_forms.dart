@@ -49,8 +49,8 @@ class _ItemFormState extends ConsumerState<_ItemForm> {
   Future<void> _save() async {
     final qty = int.tryParse(_qty.text.trim());
     if (_title.text.trim().isEmpty || qty == null || qty < 1) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Titre et nombre d\'exemplaires (≥1) requis'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Titre et nombre d\'exemplaires (≥1) requis'),
           backgroundColor: kRed));
       return;
     }
@@ -172,8 +172,8 @@ class _LoanFormState extends ConsumerState<_LoanForm> {
 
   Future<void> _save() async {
     if (_itemId == null || _borrowerId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Choisissez un ouvrage et un emprunteur'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Choisissez un ouvrage et un emprunteur'),
           backgroundColor: kRed));
       return;
     }

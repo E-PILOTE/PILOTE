@@ -46,15 +46,15 @@ class SchoolCalendarScreen extends ConsumerWidget {
 class _Denied extends StatelessWidget {
   const _Denied();
   @override
-  Widget build(BuildContext context) => const Center(
+  Widget build(BuildContext context) => Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: const EdgeInsets.all(32),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.lock_outline_rounded, size: 56, color: kTextMuted),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text('Réservé à la direction',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: kNavy)),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text('La gestion du calendrier scolaire est réservée au chef d\'établissement.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, color: kTextMuted)),
@@ -72,7 +72,7 @@ class _Body extends ConsumerWidget {
     final yearsAsync = ref.watch(academicYearsProvider);
     return yearsAsync.when(
       loading: () => const SplitSkeleton(),
-      error: (e, _) => Center(child: Text('Erreur : $e', style: const TextStyle(color: kRed))),
+      error: (e, _) => Center(child: Text('Erreur : $e', style: TextStyle(color: kRed))),
       data: (years) {
         final selected = ref.watch(_selectedYearProvider);
         final current = years.where((y) => y.isCurrent).toList();
@@ -101,13 +101,13 @@ class _Body extends ConsumerWidget {
 class _EmptyDetail extends StatelessWidget {
   const _EmptyDetail();
   @override
-  Widget build(BuildContext context) => const Center(
+  Widget build(BuildContext context) => Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.event_note_rounded, size: 56, color: kTextMuted),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           Text('Aucune année scolaire',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kNavy)),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text('Les années sont définies par le groupe et héritées par votre '
               'école. Aucune n\'est encore disponible.',
               textAlign: TextAlign.center,
@@ -126,8 +126,8 @@ class _YearsColumn extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const Padding(
-        padding: EdgeInsets.fromLTRB(16, 16, 12, 10),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 12, 10),
         child: Row(children: [
           Expanded(
             child: Text('Années scolaires',
@@ -139,10 +139,10 @@ class _YearsColumn extends ConsumerWidget {
           ),
         ]),
       ),
-      const Divider(height: 1, color: kBorder),
+      Divider(height: 1, color: kBorder),
       Expanded(
         child: years.isEmpty
-            ? const Center(child: Text('—', style: TextStyle(color: kTextMuted)))
+            ? Center(child: Text('—', style: TextStyle(color: kTextMuted)))
             : ListView.builder(
                 padding: const EdgeInsets.all(10),
                 itemCount: years.length,
@@ -187,14 +187,14 @@ class _YearTile extends ConsumerWidget {
           Row(children: [
             Expanded(
               child: Text(year.label,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kNavy)),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kNavy)),
             ),
-            if (year.isCurrent) const _Tag(text: 'Courante', color: kGreen),
-            if (year.isLocked) ...[const SizedBox(width: 4), const _Tag(text: 'Archivée', color: kAccent)],
+            if (year.isCurrent) _Tag(text: 'Courante', color: kGreen),
+            if (year.isLocked) ...[const SizedBox(width: 4), _Tag(text: 'Archivée', color: kAccent)],
           ]),
           const SizedBox(height: 4),
           Text('${_fmtDate.format(year.startDate)} → ${_fmtDate.format(year.endDate)}',
-              style: const TextStyle(fontSize: 11, color: kTextMuted)),
+              style: TextStyle(fontSize: 11, color: kTextMuted)),
           const SizedBox(height: 6),
           // Contenu de l'année
           Row(children: [
@@ -249,7 +249,7 @@ class _CountChip extends StatelessWidget {
           Icon(icon, size: 12, color: kTextMuted),
           const SizedBox(width: 4),
           Text('${value ?? '…'} $label',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 10.5, fontWeight: FontWeight.w700, color: kTextMuted)),
         ]),
       );
@@ -268,12 +268,12 @@ class _Tag extends StatelessWidget {
 }
 
 class _MiniBtn extends StatelessWidget {
-  const _MiniBtn({
+  _MiniBtn({
     required this.label,
     required this.icon,
     required this.onTap,
-    this.color = kNavy,
-  });
+    Color? color,
+  }) : color = color ?? kNavy;
   final String label;
   final IconData icon;
   final VoidCallback onTap;

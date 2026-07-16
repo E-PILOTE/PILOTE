@@ -31,11 +31,11 @@ const _purple = Color(0xFF8B5CF6);
 const _amber = Color(0xFFF59E0B);
 
 /// Catalogue ordonné des distinctions (système congolais / secondaire).
-const List<CouncilAward> councilAwards = [
+List<CouncilAward> get councilAwards => [
   CouncilAward('felicitations', 'Félicitations', kGreen, Icons.workspace_premium_rounded, true),
-  CouncilAward('encouragements', 'Encouragements', _blue, Icons.thumb_up_rounded, true),
-  CouncilAward('tableau_honneur', 'Tableau d\'honneur', _purple, Icons.emoji_events_rounded, true),
-  CouncilAward('avertissement_travail', 'Avertissement (travail)', _amber, Icons.warning_amber_rounded, false),
+  const CouncilAward('encouragements', 'Encouragements', _blue, Icons.thumb_up_rounded, true),
+  const CouncilAward('tableau_honneur', 'Tableau d\'honneur', _purple, Icons.emoji_events_rounded, true),
+  const CouncilAward('avertissement_travail', 'Avertissement (travail)', _amber, Icons.warning_amber_rounded, false),
   CouncilAward('avertissement_conduite', 'Avertissement (conduite)', kAccent, Icons.report_problem_rounded, false),
   CouncilAward('blame', 'Blâme', kRed, Icons.gavel_rounded, false),
 ];

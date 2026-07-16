@@ -6,15 +6,15 @@ part of 'user_dashboard_screen.dart';
 class _SyncingModulesCard extends StatelessWidget {
   const _SyncingModulesCard();
   @override
-  Widget build(BuildContext context) => const AdminCard(
-        padding: EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+  Widget build(BuildContext context) => AdminCard(
+        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           SizedBox(
               width: 20,
               height: 20,
               child:
                   CircularProgressIndicator(strokeWidth: 2.4, color: kNavy)),
-          SizedBox(width: 14),
+          const SizedBox(width: 14),
           Flexible(
             child: Text('Synchronisation de vos modules…',
                 style: TextStyle(

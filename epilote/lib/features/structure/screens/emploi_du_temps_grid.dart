@@ -98,7 +98,7 @@ class _TimetableGrid extends StatelessWidget {
                 ),
                 child: Center(
                   child: Text(frDays[d],
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w800,
                           color: kTextPrimary)),
@@ -119,12 +119,12 @@ class _TimetableGrid extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(r.start,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w700,
                                   color: kTextPrimary)),
                           Text(r.end,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 11, color: kTextMuted)),
                         ]),
                   ),
@@ -163,9 +163,9 @@ class _TimetableGrid extends StatelessWidget {
           padding: const EdgeInsets.only(top: 4, right: 6),
           child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Text(start,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 11, fontWeight: FontWeight.w700, color: kTextMuted)),
-            Text(end, style: const TextStyle(fontSize: 10, color: kTextMuted)),
+            Text(end, style: TextStyle(fontSize: 10, color: kTextMuted)),
           ]),
         ),
       ),
@@ -186,7 +186,7 @@ class _TimetableGrid extends StatelessWidget {
                   fontSize: 12, fontWeight: FontWeight.w700, color: color)),
           const SizedBox(width: 8),
           Text('$start–$end',
-              style: const TextStyle(fontSize: 11, color: kTextMuted)),
+              style: TextStyle(fontSize: 11, color: kTextMuted)),
         ]),
       ),
     ]);
@@ -274,7 +274,7 @@ class _Cell extends StatelessWidget {
             border: Border.all(color: kBorder),
           ),
           child: addable
-              ? const Center(
+              ? Center(
                   child: Icon(Icons.add_rounded, size: 18, color: kBorder))
               : null,
         ),
@@ -410,7 +410,7 @@ class _SlotTile extends StatelessWidget {
             children: [
               Row(children: [
                 if (conflict) ...[
-                  const Icon(Icons.warning_amber_rounded,
+                  Icon(Icons.warning_amber_rounded,
                       size: 13, color: kRed),
                   const SizedBox(width: 3),
                 ],
@@ -426,8 +426,8 @@ class _SlotTile extends StatelessWidget {
                 if (canDelete)
                   InkWell(
                     onTap: onDelete,
-                    child: const Padding(
-                      padding: EdgeInsets.all(2),
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
                       child: Icon(Icons.close_rounded,
                           size: 14, color: kTextMuted),
                     ),
@@ -437,13 +437,13 @@ class _SlotTile extends StatelessWidget {
                 Text(secondary.trim(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 11.5, color: kTextPrimary)),
               Row(children: [
-                const Icon(Icons.schedule_rounded, size: 11, color: kTextMuted),
+                Icon(Icons.schedule_rounded, size: 11, color: kTextMuted),
                 const SizedBox(width: 4),
                 Text(s.timeLabel,
-                    style: const TextStyle(fontSize: 10.5, color: kTextMuted)),
+                    style: TextStyle(fontSize: 10.5, color: kTextMuted)),
                 if ((tertiaryTrailing ?? '').trim().isNotEmpty) ...[
                   const SizedBox(width: 8),
                   Icon(showRoom ? Icons.place_outlined : Icons.person_outline,
@@ -454,7 +454,7 @@ class _SlotTile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style:
-                            const TextStyle(fontSize: 10.5, color: kTextMuted)),
+                            TextStyle(fontSize: 10.5, color: kTextMuted)),
                   ),
                 ],
               ]),

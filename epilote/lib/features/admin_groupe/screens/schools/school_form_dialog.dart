@@ -266,17 +266,17 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
           // ── Header ──────────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(22, 18, 16, 18),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
               border: Border(bottom: BorderSide(color: kBorder)),
             ),
             child: Row(children: [
               Container(
                 width: 38, height: 38,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1A2F5A), kNavy],
+                  gradient: LinearGradient(
+                    colors: [const Color(0xFF1A2F5A), kNavy],
                     begin: Alignment.topLeft, end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(10),
@@ -291,7 +291,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(
                   _isEdit ? 'Modifier l\'école' : 'Nouvelle école',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w800, color: kTextPrimary),
                 ),
                 const SizedBox(height: 2),
@@ -299,7 +299,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
                   _isEdit
                       ? 'Modifiez les informations de l\'établissement'
                       : 'Renseignez les informations du nouvel établissement',
-                  style: const TextStyle(fontSize: 11.5, color: kTextMuted),
+                  style: TextStyle(fontSize: 11.5, color: kTextMuted),
                 ),
               ])),
               InkWell(
@@ -312,7 +312,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: kBorder),
                   ),
-                  child: const Icon(Icons.close_rounded, size: 16, color: kTextMuted),
+                  child: Icon(Icons.close_rounded, size: 16, color: kTextMuted),
                 ),
               ),
             ]),
@@ -412,7 +412,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
                 const SizedBox(height: 18),
                 const _SchFormLabel('POSITION SUR LA CARTE'),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'Posez le repère précis de l\'établissement (facultatif). Une '
                   'position réelle alimente la carte territoriale, les distances '
                   'et les analyses d\'implantation.',
@@ -443,9 +443,9 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
           // ── Footer ───────────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(22, 14, 22, 18),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(18)),
               border: Border(top: BorderSide(color: kBorder)),
             ),
             child: Row(children: [
@@ -461,8 +461,8 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
                   height: 40,
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                        colors: [Color(0xFF1A2F5A), kNavy],
+                    gradient: LinearGradient(
+                        colors: [const Color(0xFF1A2F5A), kNavy],
                         begin: Alignment.topLeft, end: Alignment.bottomRight),
                     borderRadius: BorderRadius.circular(12),
                   ),

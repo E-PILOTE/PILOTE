@@ -143,9 +143,9 @@ class _FilterBar extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.tune_rounded, size: 13, color: kTextMuted),
+              Icon(Icons.tune_rounded, size: 13, color: kTextMuted),
               const SizedBox(width: 6),
-              const Text('FILTRER',
+              Text('FILTRER',
                   style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
@@ -179,7 +179,7 @@ class _GlobalStats extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [kNavyDark, kNavy],
           begin: Alignment.topLeft, end: Alignment.bottomRight,
@@ -281,7 +281,7 @@ class _GeocodeButtonState extends ConsumerState<_GeocodeButton> {
       child: ElevatedButton.icon(
         onPressed: _running ? null : _run,
         icon: _running
-            ? const SizedBox(
+            ? SizedBox(
                 width: 14, height: 14,
                 child: CircularProgressIndicator(
                     strokeWidth: 2, color: kNavy))

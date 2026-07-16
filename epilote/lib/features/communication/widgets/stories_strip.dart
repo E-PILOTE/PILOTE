@@ -148,7 +148,7 @@ class _CreateStoryCard extends StatelessWidget {
                     color: Colors.white,
                     alignment: Alignment.bottomCenter,
                     padding: const EdgeInsets.only(bottom: 8),
-                    child: const Text('Créer une story',
+                    child: Text('Créer une story',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(

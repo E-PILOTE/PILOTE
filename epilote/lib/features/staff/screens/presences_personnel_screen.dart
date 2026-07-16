@@ -186,7 +186,7 @@ class _BodyState extends ConsumerState<_Body> {
       const SizedBox(height: 18),
       // Distinction : axe + segments cliquables (couverture par segment)
       Row(children: [
-        const Text('Répartir par',
+        Text('Répartir par',
             style: TextStyle(
                 fontSize: 12.5, fontWeight: FontWeight.w700, color: kTextMuted)),
         const SizedBox(width: 10),
@@ -241,26 +241,26 @@ class _BodyState extends ConsumerState<_Body> {
           decoration: InputDecoration(
             isDense: true,
             hintText: 'Rechercher un agent parmi ${agents.length}…',
-            hintStyle: const TextStyle(fontSize: 13, color: kTextMuted),
+            hintStyle: TextStyle(fontSize: 13, color: kTextMuted),
             prefixIcon:
-                const Icon(Icons.search_rounded, size: 19, color: kTextMuted),
+                Icon(Icons.search_rounded, size: 19, color: kTextMuted),
             filled: true,
             fillColor: Colors.white,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: kBorder),
+              borderSide: BorderSide(color: kBorder),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: kBorder),
+              borderSide: BorderSide(color: kBorder),
             ),
           ),
         ),
         const SizedBox(height: 12),
       ],
       if (filtered.isEmpty)
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 20),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20),
           child: Center(
               child: Text('Aucun agent trouvé',
                   style: TextStyle(color: kTextMuted))),
@@ -309,7 +309,7 @@ class _AgentRow extends StatelessWidget {
                 style: const TextStyle(
                     fontSize: 13.5, fontWeight: FontWeight.w700)),
             Text(staffCategoryLabel(staffCategory(agent.role)),
-                style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                style: TextStyle(fontSize: 11, color: kTextMuted)),
           ]),
         ),
         const SizedBox(width: 8),
@@ -390,10 +390,10 @@ class _DateBtn extends StatelessWidget {
               border: Border.all(color: kBorder),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.calendar_today_rounded, size: 15, color: kNavy),
+              Icon(Icons.calendar_today_rounded, size: 15, color: kNavy),
               const SizedBox(width: 8),
               Text(label,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w700, color: kNavy)),
             ]),
           ),

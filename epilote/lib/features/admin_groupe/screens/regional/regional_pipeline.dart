@@ -17,8 +17,8 @@ class _PipelinePanel extends ConsumerWidget {
     final selectedId = ref.watch(_selectionProv).projectOrNull?.id;
 
     return async.when(
-      loading: () => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 18),
+      loading: () => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 18),
         child: Center(
             child: SizedBox(
                 width: 18, height: 18,
@@ -40,7 +40,7 @@ class _PipelinePanel extends ConsumerWidget {
             child: Row(children: [
               const Icon(Icons.rocket_launch_rounded, size: 12, color: _kOrange),
               const SizedBox(width: 6),
-              const Expanded(
+              Expanded(
                 child: Text("PIPELINE D'EXPANSION",
                     style: TextStyle(
                         fontSize: 9.5, fontWeight: FontWeight.w800,
@@ -64,12 +64,12 @@ class _PipelinePanel extends ConsumerWidget {
         ];
 
         if (projects.isEmpty) {
-          items.add(const Padding(
-            padding: EdgeInsets.fromLTRB(14, 2, 14, 14),
+          items.add(Padding(
+            padding: const EdgeInsets.fromLTRB(14, 2, 14, 14),
             child: Row(children: [
               Icon(Icons.add_location_alt_outlined,
                   size: 15, color: kTextMuted),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                     'Aucun projet. Bouton + sur la carte pour en placer un.',
@@ -119,7 +119,7 @@ class _PipelinePanel extends ConsumerWidget {
                       color: color, letterSpacing: 0.5)),
               const SizedBox(width: 6),
               Text('${inStatus.length}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 9, fontWeight: FontWeight.w700,
                       color: kTextMuted)),
             ]),
@@ -147,7 +147,7 @@ class _PipelinePanel extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(p.name,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w600,
                                   color: kTextPrimary),
@@ -156,13 +156,13 @@ class _PipelinePanel extends ConsumerWidget {
                               [if (p.city != null) p.city!,
                                 if (p.department != null) p.department!]
                                   .join(' · '),
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 9, color: kTextMuted),
                               maxLines: 1, overflow: TextOverflow.ellipsis),
                         ]),
                   ),
                   if (p.priority == 'haute')
-                    const Icon(Icons.priority_high_rounded,
+                    Icon(Icons.priority_high_rounded,
                         size: 13, color: kRed),
                 ]),
               ),
@@ -210,7 +210,7 @@ class _PipelineStat extends StatelessWidget {
                   Text(label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 8.5, color: kTextMuted)),
                 ]),
           ),

@@ -79,7 +79,7 @@ class AppHeader extends ConsumerWidget {
           const SizedBox(width: 8),
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               color: kTextPrimary,
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -140,15 +140,15 @@ class _ThemeToggle extends ConsumerWidget {
 // Popover ancré au header (pattern « app switcher » Notion/Linear/Google).
 // Grille de modules groupée par catégorie, filtrée `can_read` (verrou 3),
 // ouverture/fermeture fluides via MenuAnchor, responsive (largeur clampée).
-const List<Color> _launcherPalette = [
+List<Color> get _launcherPalette => [
   kNavy,
   kGreen,
-  Color(0xFF0EA5E9),
-  Color(0xFF7C3AED),
-  Color(0xFFEF4444),
-  Color(0xFFF59E0B),
-  Color(0xFF0891B2),
-  Color(0xFFDB2777),
+  const Color(0xFF0EA5E9),
+  const Color(0xFF7C3AED),
+  const Color(0xFFEF4444),
+  const Color(0xFFF59E0B),
+  const Color(0xFF0891B2),
+  const Color(0xFFDB2777),
 ];
 
 class _LauncherSection {
@@ -203,7 +203,7 @@ class _ModuleLauncherState extends ConsumerState<_ModuleLauncher> {
       builder: (context, controller, _) => Tooltip(
         message: 'Accès rapide',
         child: IconButton(
-          icon: const Icon(Icons.grid_view_rounded, color: kTextMuted, size: 22),
+          icon: Icon(Icons.grid_view_rounded, color: kTextMuted, size: 22),
           onPressed: () =>
               controller.isOpen ? controller.close() : controller.open(),
         ),
@@ -268,19 +268,19 @@ class _LauncherPanel extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
               child: Row(children: [
-                const Icon(Icons.grid_view_rounded, size: 18, color: kNavy),
+                Icon(Icons.grid_view_rounded, size: 18, color: kNavy),
                 const SizedBox(width: 9),
-                const Text('Accès rapide',
+                Text('Accès rapide',
                     style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
                         color: kTextPrimary)),
                 const Spacer(),
                 Text('$total module${total > 1 ? 's' : ''}',
-                    style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                    style: TextStyle(fontSize: 12, color: kTextMuted)),
               ]),
             ),
-            const Divider(height: 1, color: kBorder),
+            Divider(height: 1, color: kBorder),
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
@@ -319,7 +319,7 @@ class _LauncherSectionView extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Text(section.title.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.5,
@@ -375,7 +375,7 @@ class _LauncherTile extends StatelessWidget {
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 11.5,
                       height: 1.15,
                       fontWeight: FontWeight.w600,
@@ -450,7 +450,7 @@ class _AccountMenu extends ConsumerWidget {
             children: [
               Text(
                 displayName,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w700,
                   color: kTextPrimary,
                   fontSize: 13,
@@ -458,36 +458,36 @@ class _AccountMenu extends ConsumerWidget {
               ),
               Text(
                 roleLabel,
-                style: const TextStyle(color: kTextMuted, fontSize: 11),
+                style: TextStyle(color: kTextMuted, fontSize: 11),
               ),
             ],
           ),
         ),
         const PopupMenuDivider(),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'profile',
           child: Row(children: [
             Icon(Icons.person_outline, size: 18, color: kNavy),
-            SizedBox(width: 10),
-            Text('Mon profil'),
+            const SizedBox(width: 10),
+            const Text('Mon profil'),
           ]),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'settings',
           child: Row(children: [
             Icon(Icons.settings_outlined, size: 18, color: kNavy),
-            SizedBox(width: 10),
-            Text('Paramètres'),
+            const SizedBox(width: 10),
+            const Text('Paramètres'),
           ]),
         ),
         // Poste partagé : verrouiller = quitter son écran (local, hors-ligne).
         if (agentLockApplies(profile?.role))
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'switch_agent',
             child: Row(children: [
               Icon(Icons.lock_outline_rounded, size: 18, color: kNavy),
-              SizedBox(width: 10),
-              Text('Verrouiller / changer d’utilisateur'),
+              const SizedBox(width: 10),
+              const Text('Verrouiller / changer d’utilisateur'),
             ]),
           ),
         // Déconnexion de l'APPAREIL : rare, destructrice de l'offline, réservée
@@ -533,7 +533,7 @@ class _AccountMenu extends ConsumerWidget {
                 children: [
                   Text(
                     _shortName(displayName),
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: kTextPrimary,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -542,13 +542,13 @@ class _AccountMenu extends ConsumerWidget {
                   ),
                   Text(
                     roleLabel,
-                    style: const TextStyle(color: kTextMuted, fontSize: 10),
+                    style: TextStyle(color: kTextMuted, fontSize: 10),
                   ),
                 ],
               ),
             ),
           const SizedBox(width: 4),
-          const Icon(Icons.arrow_drop_down, color: kTextMuted, size: 20),
+          Icon(Icons.arrow_drop_down, color: kTextMuted, size: 20),
         ],
       ),
     );

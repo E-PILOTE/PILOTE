@@ -222,7 +222,7 @@ extension _EdtActions on _EdtPageState {
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Row(children: [
-                  const Icon(Icons.groups_2_rounded, size: 18, color: kNavy),
+                  Icon(Icons.groups_2_rounded, size: 18, color: kNavy),
                   const SizedBox(width: 10),
                   Expanded(child: Text(c.name)),
                 ]),
@@ -392,8 +392,8 @@ extension _EdtActions on _EdtPageState {
   // Export PDF de la sélection courante (vue classe / enseignant / salle).
   void _exportPdf(List<TimetableSlot> slots) {
     if (slots.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Aucun créneau à exporter'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Aucun créneau à exporter'),
           backgroundColor: kTextMuted));
       return;
     }

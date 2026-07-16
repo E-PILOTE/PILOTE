@@ -287,7 +287,7 @@ class _StaffMessagesScreenState extends ConsumerState<StaffMessagesScreen> {
         loading: () => const SplitSkeleton(),
         error: (e, _) => Center(
             child:
-                Text('Erreur : $e', style: const TextStyle(color: kTextMuted))),
+                Text('Erreur : $e', style: TextStyle(color: kTextMuted))),
         data: (data) {
           final direct   = _group(data.messages, uid);
           final groups   = _groupThreads(groupConvs, data.messages, uid, reads);
@@ -314,7 +314,7 @@ class _StaffMessagesScreenState extends ConsumerState<StaffMessagesScreen> {
                         SizedBox(
                             width: 340,
                             child: _inboxPane(convs, filtered, uid, online)),
-                        const VerticalDivider(width: 1, color: kBorder),
+                        VerticalDivider(width: 1, color: kBorder),
                         Expanded(
                           child: selected == null
                               ? const _NoSelection()
@@ -368,7 +368,7 @@ class _StaffMessagesScreenState extends ConsumerState<StaffMessagesScreen> {
             suffixIcon: _query.isEmpty
                 ? null
                 : IconButton(
-                    icon: const Icon(Icons.close_rounded,
+                    icon: Icon(Icons.close_rounded,
                         size: 16, color: kTextMuted),
                     onPressed: () {
                       _searchCtrl.clear();
@@ -384,7 +384,7 @@ class _StaffMessagesScreenState extends ConsumerState<StaffMessagesScreen> {
             // Barre d'actions groupées (sélection multiple active)
             ? Row(children: [
                 Text('${_checked.length} sél.',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w800,
                         color: kNavy)),
@@ -393,7 +393,7 @@ class _StaffMessagesScreenState extends ConsumerState<StaffMessagesScreen> {
                   tooltip: 'Marquer lues',
                   visualDensity: VisualDensity.compact,
                   onPressed: () => _bulkMarkRead(all, me),
-                  icon: const Icon(Icons.mark_email_read_outlined,
+                  icon: Icon(Icons.mark_email_read_outlined,
                       size: 18, color: kGreen),
                 ),
                 IconButton(
@@ -413,7 +413,7 @@ class _StaffMessagesScreenState extends ConsumerState<StaffMessagesScreen> {
                   tooltip: 'Annuler la sélection',
                   visualDensity: VisualDensity.compact,
                   onPressed: () => setState(() => _checked.clear()),
-                  icon: const Icon(Icons.close_rounded,
+                  icon: Icon(Icons.close_rounded,
                       size: 18, color: kTextMuted),
                 ),
               ])
@@ -453,14 +453,14 @@ class _StaffMessagesScreenState extends ConsumerState<StaffMessagesScreen> {
                 ]),
               ),
       ),
-      const Divider(height: 1, color: kBorder),
+      Divider(height: 1, color: kBorder),
       Expanded(
         child: filtered.isEmpty
             ? _emptyList(all)
             : ListView.separated(
                 itemCount: filtered.length,
                 separatorBuilder: (_, _) =>
-                    const Divider(height: 1, color: kBorder),
+                    Divider(height: 1, color: kBorder),
                 itemBuilder: (_, i) {
                   final c = filtered[i];
                   return _ConvTile(

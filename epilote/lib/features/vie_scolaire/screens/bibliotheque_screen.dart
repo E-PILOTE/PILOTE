@@ -256,9 +256,9 @@ class _BodyState extends ConsumerState<_Body> {
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: const TextStyle(color: kTextMuted, fontSize: 13),
+              hintStyle: TextStyle(color: kTextMuted, fontSize: 13),
               prefixIcon:
-                  const Icon(Icons.search_rounded, color: kTextMuted, size: 20),
+                  Icon(Icons.search_rounded, color: kTextMuted, size: 20),
               filled: true,
               fillColor: kSurface,
               border: OutlineInputBorder(
@@ -282,7 +282,7 @@ class _BodyState extends ConsumerState<_Body> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                   colors: [kNavyDark, kNavy],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight),

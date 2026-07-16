@@ -12,13 +12,13 @@ import '../providers/class_subjects_provider.dart';
 const _kSlug = 'matieres';
 
 // Accents par cycle (cohérents avec la page Matières).
-const _cycleColors = <String, Color>{
-  'prescolaire': Color(0xFFEC4899),
-  'primaire': Color(0xFF0EA5E9),
+Map<String, Color> get _cycleColors => <String, Color>{
+  'prescolaire': const Color(0xFFEC4899),
+  'primaire': const Color(0xFF0EA5E9),
   'college': kGreen,
   'lycee': kNavy,
-  'formation_pro': Color(0xFFF59E0B),
-  'fp': Color(0xFFF59E0B),
+  'formation_pro': const Color(0xFFF59E0B),
+  'fp': const Color(0xFFF59E0B),
 };
 Color _cyc(String? c) => _cycleColors[c ?? ''] ?? kNavy;
 
@@ -62,7 +62,7 @@ class _SubjectDetailDialog extends ConsumerWidget {
               ),
               error: (e, _) => Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text('Erreur : $e', style: const TextStyle(color: kRed)),
+                child: Text('Erreur : $e', style: TextStyle(color: kRed)),
               ),
               data: (rows) =>
                   _Body(subject: subject, rows: rows, canEdit: canEdit),
@@ -85,7 +85,7 @@ class _Header extends StatelessWidget {
       decoration: BoxDecoration(
         color: accent.withValues(alpha: 0.06),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        border: const Border(bottom: BorderSide(color: kBorder)),
+        border: Border(bottom: BorderSide(color: kBorder)),
       ),
       child: Row(children: [
         Container(
@@ -102,7 +102,7 @@ class _Header extends StatelessWidget {
             Text(subject.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                     color: kTextPrimary)),
@@ -120,7 +120,7 @@ class _Header extends StatelessWidget {
         ),
         IconButton(
           tooltip: 'Fermer',
-          icon: const Icon(Icons.close_rounded, color: kTextMuted),
+          icon: Icon(Icons.close_rounded, color: kTextMuted),
           onPressed: () => Navigator.pop(context),
         ),
       ]),
@@ -165,9 +165,9 @@ class _Body extends ConsumerWidget {
         ]),
         const SizedBox(height: 18),
         Row(children: [
-          const Icon(Icons.school_outlined, size: 16, color: kNavy),
+          Icon(Icons.school_outlined, size: 16, color: kNavy),
           const SizedBox(width: 8),
-          const Text('Dispensée dans ces classes',
+          Text('Dispensée dans ces classes',
               style: TextStyle(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w800,
@@ -218,7 +218,7 @@ class _Body extends ConsumerWidget {
                   color: Color(0xFFF59E0B), shape: BoxShape.circle),
             ),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Text(
                   'Coefficient ajusté pour cette classe (différent du coef du niveau).',
                   style: TextStyle(fontSize: 11.5, color: kTextMuted)),
@@ -247,14 +247,14 @@ class _Stat extends StatelessWidget {
             Icon(icon, size: 16, color: color),
             const SizedBox(height: 8),
             Text(value,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.w800,
                     color: kTextPrimary)),
             Text(label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                style: TextStyle(fontSize: 11, color: kTextMuted)),
           ]),
         ),
       );
@@ -277,7 +277,7 @@ class _AssignmentRow extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        border: last ? null : const Border(bottom: BorderSide(color: kBorder)),
+        border: last ? null : Border(bottom: BorderSide(color: kBorder)),
       ),
       child: Row(children: [
         Container(
@@ -296,7 +296,7 @@ class _AssignmentRow extends ConsumerWidget {
             Text(a.className,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
                     color: kTextPrimary)),
@@ -315,16 +315,16 @@ class _AssignmentRow extends ConsumerWidget {
                         color: a.hasTeacher ? kNavy : kTextMuted)),
               ),
               const SizedBox(width: 10),
-              const Icon(Icons.groups_2_outlined, size: 13, color: kTextMuted),
+              Icon(Icons.groups_2_outlined, size: 13, color: kTextMuted),
               const SizedBox(width: 4),
               Text('${a.studentCount}',
-                  style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                  style: TextStyle(fontSize: 11.5, color: kTextMuted)),
               if (a.weeklyHours != null) ...[
                 const SizedBox(width: 10),
-                const Icon(Icons.schedule_outlined, size: 13, color: kTextMuted),
+                Icon(Icons.schedule_outlined, size: 13, color: kTextMuted),
                 const SizedBox(width: 4),
                 Text('${a.weeklyHours}h',
-                    style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                    style: TextStyle(fontSize: 11.5, color: kTextMuted)),
               ],
             ]),
           ]),
@@ -347,7 +347,7 @@ class _AssignmentRow extends ConsumerWidget {
         if (canEdit)
           PopupMenuButton<String>(
             tooltip: 'Actions',
-            icon: const Icon(Icons.more_vert_rounded,
+            icon: Icon(Icons.more_vert_rounded,
                 size: 18, color: kTextMuted),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10)),
@@ -370,28 +370,28 @@ class _AssignmentRow extends ConsumerWidget {
                       success: 'Retirée du programme de ${a.className}');
               }
             },
-            itemBuilder: (_) => const [
+            itemBuilder: (_) => [
               PopupMenuItem(
                   value: 'coef',
                   child: Row(children: [
                     Icon(Icons.tune_rounded, size: 17, color: kNavy),
-                    SizedBox(width: 10),
-                    Text('Coefficient / horaire'),
+                    const SizedBox(width: 10),
+                    const Text('Coefficient / horaire'),
                   ])),
               PopupMenuItem(
                   value: 'teacher',
                   child: Row(children: [
                     Icon(Icons.person_add_alt_1_outlined,
                         size: 17, color: kNavy),
-                    SizedBox(width: 10),
-                    Text('Professeur'),
+                    const SizedBox(width: 10),
+                    const Text('Professeur'),
                   ])),
               PopupMenuItem(
                   value: 'remove',
                   child: Row(children: [
                     Icon(Icons.link_off_rounded, size: 17, color: kRed),
-                    SizedBox(width: 10),
-                    Text('Retirer de la classe'),
+                    const SizedBox(width: 10),
+                    const Text('Retirer de la classe'),
                   ])),
             ],
           ),
@@ -451,8 +451,8 @@ class _AssignClassDialogState extends ConsumerState<_AssignClassDialog> {
       submitIcon: Icons.check_rounded,
       onSubmit: (_saving || _picked.isEmpty) ? null : _save,
       body: candidates.isEmpty
-          ? const Padding(
-              padding: EdgeInsets.symmetric(vertical: 18),
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 18),
               child: Text(
                   'Toutes les classes éligibles ont déjà cette matière, ou '
                   'aucune classe n\'existe pour ce niveau.',
@@ -474,7 +474,7 @@ class _AssignClassDialogState extends ConsumerState<_AssignClassDialog> {
                       onChanged: (v) => setState(() =>
                           v == true ? _picked.add(c.id) : _picked.remove(c.id)),
                       title: Text(c.label,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 13.5,
                               fontWeight: FontWeight.w600,
                               color: kTextPrimary)),
@@ -550,16 +550,16 @@ class _AssignmentEditDialogState extends ConsumerState<_AssignmentEditDialog> {
             _inherit = v;
             if (v) _coef = widget.subject.coefficient;
           }),
-          title: const Text('Hériter du coef. par défaut',
+          title: Text('Hériter du coef. par défaut',
               style: TextStyle(
                   fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary)),
           subtitle: Text('Coef. par défaut = ${widget.subject.coefficient}',
-              style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+              style: TextStyle(fontSize: 11.5, color: kTextMuted)),
         ),
         ),
         if (!_inherit) ...[
           const SizedBox(height: 8),
-          const Text('Coefficient de cette classe',
+          Text('Coefficient de cette classe',
               style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
@@ -572,7 +572,7 @@ class _AssignmentEditDialogState extends ConsumerState<_AssignmentEditDialog> {
             Expanded(
               child: Center(
                 child: Text('$_coef',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
                         color: kNavy)),
@@ -584,7 +584,7 @@ class _AssignmentEditDialogState extends ConsumerState<_AssignmentEditDialog> {
           ]),
         ],
         const SizedBox(height: 16),
-        const Text('Volume horaire hebdomadaire (optionnel)',
+        Text('Volume horaire hebdomadaire (optionnel)',
             style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
@@ -652,7 +652,7 @@ class _TeacherPickerDialogState extends ConsumerState<_TeacherPickerDialog> {
       submitIcon: Icons.check_rounded,
       onSubmit: _saving ? null : _save,
       body: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Enseignant titulaire',
+        Text('Enseignant titulaire',
             style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
@@ -661,8 +661,8 @@ class _TeacherPickerDialogState extends ConsumerState<_TeacherPickerDialog> {
         DropdownButtonFormField<String?>(
           initialValue: hasSel ? _teacherId : null,
           isExpanded: true,
-          style: const TextStyle(fontSize: 13.5, color: kTextPrimary),
-          icon: const Icon(Icons.expand_more_rounded,
+          style: TextStyle(fontSize: 13.5, color: kTextPrimary),
+          icon: Icon(Icons.expand_more_rounded,
               size: 18, color: kTextMuted),
           decoration: adminFilledInput('Non affecté'),
           items: [
@@ -673,8 +673,8 @@ class _TeacherPickerDialogState extends ConsumerState<_TeacherPickerDialog> {
           onChanged: (v) => setState(() => _teacherId = v),
         ),
         if (teachers.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
             child: Text(
                 'Aucun enseignant enregistré. Ajoutez le personnel depuis '
                 '« Personnel ».',

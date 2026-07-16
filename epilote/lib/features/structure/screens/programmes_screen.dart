@@ -19,13 +19,13 @@ part 'programmes_form.dart';
 const _kSlug = 'programmes';
 
 // Accents par cycle (cohérents avec Matières / Inscriptions).
-const _cycleColors = <String, Color>{
-  'prescolaire': Color(0xFFEC4899),
-  'primaire': Color(0xFF0EA5E9),
+Map<String, Color> get _cycleColors => <String, Color>{
+  'prescolaire': const Color(0xFFEC4899),
+  'primaire': const Color(0xFF0EA5E9),
   'college': kGreen,
   'lycee': kNavy,
-  'formation_pro': Color(0xFFF59E0B),
-  'fp': Color(0xFFF59E0B),
+  'formation_pro': const Color(0xFFF59E0B),
+  'fp': const Color(0xFFF59E0B),
 };
 Color _cyc(String? c) => _cycleColors[c ?? ''] ?? kNavy;
 
@@ -260,7 +260,7 @@ class _BodyState extends ConsumerState<_Body> {
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('Erreur : $e', style: const TextStyle(color: kRed)),
+          child: Text('Erreur : $e', style: TextStyle(color: kRed)),
         ),
       ),
       data: (all) {

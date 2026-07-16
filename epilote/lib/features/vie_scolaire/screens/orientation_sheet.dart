@@ -88,18 +88,18 @@ class _OrientationSheetState extends ConsumerState<_OrientationSheet> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 12, 10),
             child: Row(children: [
-              const Icon(Icons.explore_rounded, size: 18, color: kNavy),
+              Icon(Icons.explore_rounded, size: 18, color: kNavy),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(widget.row.studentName,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: kTextPrimary)),
               ),
               if (!widget.canEdit)
-                const Padding(
-                  padding: EdgeInsets.only(right: 4),
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
                   child: Icon(Icons.lock_outline_rounded,
                       size: 16, color: kTextMuted),
                 ),

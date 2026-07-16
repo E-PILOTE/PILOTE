@@ -7,7 +7,7 @@ part of 'school_calendar_screen.dart';
 // ════════════════════════════════════════════════════════════════════════════
 
 /// Palette des trimestres (T1/T2/T3/…).
-const _kTrimColors = [kNavy, kGreen, Color(0xFF0EA5E9), Color(0xFF7C3AED)];
+List<Color> get _kTrimColors => [kNavy, kGreen, const Color(0xFF0EA5E9), const Color(0xFF7C3AED)];
 
 class _YearDetail extends ConsumerWidget {
   const _YearDetail({required this.year});
@@ -24,13 +24,13 @@ class _YearDetail extends ConsumerWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Text(year.label,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 20, fontWeight: FontWeight.w800, color: kNavy)),
             const SizedBox(width: 10),
-            if (year.isCurrent) const _Tag(text: 'Courante', color: kGreen),
+            if (year.isCurrent) _Tag(text: 'Courante', color: kGreen),
             if (year.isLocked) ...[
               const SizedBox(width: 6),
-              const _Tag(text: 'Archivée', color: kAccent),
+              _Tag(text: 'Archivée', color: kAccent),
             ],
             const Spacer(),
             _CountChip(icon: Icons.class_rounded, value: counts?.classes, label: 'classes'),
@@ -39,17 +39,17 @@ class _YearDetail extends ConsumerWidget {
           ]),
           const SizedBox(height: 4),
           Text('${_fmtDate.format(year.startDate)} → ${_fmtDate.format(year.endDate)}',
-              style: const TextStyle(fontSize: 13, color: kTextMuted)),
+              style: TextStyle(fontSize: 13, color: kTextMuted)),
           const SizedBox(height: 12),
           _YearProgress(year: year),
         ]),
       ),
-      const Divider(height: 1, color: kBorder),
+      Divider(height: 1, color: kBorder),
       Expanded(
         child: trimAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator(color: kNavy)),
+          loading: () => Center(child: CircularProgressIndicator(color: kNavy)),
           error: (e, _) =>
-              Center(child: Text('Erreur : $e', style: const TextStyle(color: kRed))),
+              Center(child: Text('Erreur : $e', style: TextStyle(color: kRed))),
           data: (trims) {
             if (trims.isEmpty) {
               return const Center(
@@ -142,9 +142,9 @@ class _YearTimeline extends StatelessWidget {
 
     return AdminCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+        Row(children: [
           Icon(Icons.timeline_rounded, size: 17, color: kNavy),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Text("Déroulé de l'année",
               style: TextStyle(
                   fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
@@ -270,7 +270,7 @@ class _LegendDot extends StatelessWidget {
                 color: current ? color : kTextMuted)),
         if (current) ...[
           const SizedBox(width: 4),
-          const Icon(Icons.circle, size: 5, color: kGreen),
+          Icon(Icons.circle, size: 5, color: kGreen),
         ],
       ]);
 }
@@ -301,7 +301,7 @@ class _TrimesterCard extends ConsumerWidget {
                   color: kNavy.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8)),
               child: Text('T${trimester.trimesterNumber}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w800, color: kNavy)),
             ),
             const SizedBox(width: 12),
@@ -309,15 +309,15 @@ class _TrimesterCard extends ConsumerWidget {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
                   Text(trimester.label,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 14, fontWeight: FontWeight.w700, color: kNavy)),
                   const SizedBox(width: 8),
-                  if (trimester.isCurrent) const _Tag(text: 'Courant', color: kGreen),
+                  if (trimester.isCurrent) _Tag(text: 'Courant', color: kGreen),
                 ]),
                 const SizedBox(height: 2),
                 Text(
                     '${_fmtDate.format(trimester.startDate)} → ${_fmtDate.format(trimester.endDate)}',
-                    style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                    style: TextStyle(fontSize: 11, color: kTextMuted)),
               ]),
             ),
           ]),
@@ -328,22 +328,22 @@ class _TrimesterCard extends ConsumerWidget {
           data: (seqs) {
             if (seqs.isEmpty) return const SizedBox.shrink();
             return Column(children: [
-              const Divider(height: 1, color: kBorder),
+              Divider(height: 1, color: kBorder),
               ...seqs.map((s) => Padding(
                     padding: const EdgeInsets.fromLTRB(20, 8, 16, 8),
                     child: Row(children: [
-                      const Icon(Icons.fiber_manual_record, size: 8, color: kTextMuted),
+                      Icon(Icons.fiber_manual_record, size: 8, color: kTextMuted),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text('Séq. ${s.sequenceNumber} · ${s.label}',
-                            style: const TextStyle(fontSize: 12.5, color: kNavy)),
+                            style: TextStyle(fontSize: 12.5, color: kNavy)),
                       ),
                       Text(
                           '${_fmtDate.format(s.startDate)} → ${_fmtDate.format(s.endDate)}',
-                          style: const TextStyle(fontSize: 10.5, color: kTextMuted)),
+                          style: TextStyle(fontSize: 10.5, color: kTextMuted)),
                       if (s.isCurrent) ...[
                         const SizedBox(width: 8),
-                        const _Tag(text: 'Courante', color: kGreen),
+                        _Tag(text: 'Courante', color: kGreen),
                       ],
                     ]),
                   )),

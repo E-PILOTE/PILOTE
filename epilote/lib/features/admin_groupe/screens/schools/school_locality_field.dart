@@ -79,7 +79,7 @@ class SchoolLocalityField extends ConsumerWidget {
                           style: const TextStyle(fontSize: 13),
                           overflow: TextOverflow.ellipsis)),
                       Text(_placeLabel(p.type),
-                          style: const TextStyle(fontSize: 10.5, color: kTextMuted)),
+                          style: TextStyle(fontSize: 10.5, color: kTextMuted)),
                     ]),
                   ),
                 );

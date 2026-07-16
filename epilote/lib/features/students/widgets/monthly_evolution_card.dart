@@ -16,14 +16,14 @@ class EvoPoint {
 }
 
 class MonthlyEvolutionCard extends StatelessWidget {
-  const MonthlyEvolutionCard({
+  MonthlyEvolutionCard({
     super.key,
     required this.points,
     this.barLabel = 'Entrées du mois',
     this.lineLabel = 'Effectif cumulé',
-    this.barColor = kNavy,
-    this.lineColor = kGreen,
-  });
+    Color? barColor,
+    Color? lineColor,
+  }) : barColor = barColor ?? kNavy, lineColor = lineColor ?? kGreen;
   final List<EvoPoint> points;
   final String barLabel, lineLabel;
   final Color barColor, lineColor;
@@ -47,22 +47,22 @@ class MonthlyEvolutionCard extends StatelessWidget {
             height: 220,
             child: SfCartesianChart(
               margin: EdgeInsets.zero,
-              primaryXAxis: const CategoryAxis(
-                majorGridLines: MajorGridLines(width: 0),
+              primaryXAxis: CategoryAxis(
+                majorGridLines: const MajorGridLines(width: 0),
                 labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
               ),
-              primaryYAxis: const NumericAxis(
-                axisLine: AxisLine(width: 0),
-                majorTickLines: MajorTickLines(size: 0),
+              primaryYAxis: NumericAxis(
+                axisLine: const AxisLine(width: 0),
+                majorTickLines: const MajorTickLines(size: 0),
                 labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
               ),
-              axes: const <ChartAxis>[
+              axes: <ChartAxis>[
                 NumericAxis(
                   name: 'cumul',
                   opposedPosition: true,
-                  axisLine: AxisLine(width: 0),
-                  majorGridLines: MajorGridLines(width: 0),
-                  majorTickLines: MajorTickLines(size: 0),
+                  axisLine: const AxisLine(width: 0),
+                  majorGridLines: const MajorGridLines(width: 0),
+                  majorTickLines: const MajorTickLines(size: 0),
                   labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
                 ),
               ],
@@ -115,6 +115,6 @@ class _LegendDot extends StatelessWidget {
               borderRadius: BorderRadius.circular(line ? 2 : 3)),
         ),
         const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+        Text(label, style: TextStyle(fontSize: 11.5, color: kTextMuted)),
       ]);
 }

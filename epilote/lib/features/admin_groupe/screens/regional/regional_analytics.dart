@@ -25,7 +25,7 @@ class _RegionalAnalytics extends ConsumerWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [kNavyDark, kNavy],
               begin: Alignment.topLeft, end: Alignment.bottomRight,
@@ -61,7 +61,7 @@ class _RegionalAnalytics extends ConsumerWidget {
                     border: Border.all(color: kGreen.withValues(alpha: 0.2)),
                   ),
                   child: Row(children: [
-                    const Icon(Icons.gps_fixed_rounded,
+                    Icon(Icons.gps_fixed_rounded,
                         size: 16, color: kGreen),
                     const SizedBox(width: 8),
                     Expanded(
@@ -69,18 +69,18 @@ class _RegionalAnalytics extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('$gpsPct% géolocalisées',
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
                                     color: kTextPrimary)),
                             Text('${data.gpsCount} / ${data.totalSchools} écoles avec GPS',
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 9, color: kTextMuted)),
                           ]),
                     ),
                     if (data.noGpsCount > 0)
                       Text('${data.noGpsCount} sans',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 10, color: kRed,
                               fontWeight: FontWeight.w600)),
                   ]),
@@ -113,12 +113,12 @@ class _RegionalAnalytics extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text('${projects.length} projet${projects.length > 1 ? 's' : ''}',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w700,
                                         color: kTextPrimary)),
                                 Text('$inProgress en cours · $done achevé${done > 1 ? 's' : ''}',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 9, color: kTextMuted)),
                               ]),
                         ),
@@ -130,7 +130,7 @@ class _RegionalAnalytics extends ConsumerWidget {
                 const SizedBox(height: 16),
                 _TerritorialAnalysis(data: data),
                 const SizedBox(height: 14),
-                const Text('INDICATEURS CLÉS',
+                Text('INDICATEURS CLÉS',
                     style: TextStyle(
                         fontSize: 9, fontWeight: FontWeight.w700,
                         color: kTextMuted, letterSpacing: 1.0)),
@@ -151,13 +151,13 @@ class _RegionalAnalytics extends ConsumerWidget {
                   ...data.gpsSchools,
                 ]),
                 const SizedBox(height: 16),
-                const Divider(color: kBorder),
+                Divider(color: kBorder),
                 const SizedBox(height: 12),
                 const _CreationsTimeline(),
                 const SizedBox(height: 16),
-                const Divider(color: kBorder),
+                Divider(color: kBorder),
                 const SizedBox(height: 12),
-                const Text('CLASSEMENT PAR ÉCOLES',
+                Text('CLASSEMENT PAR ÉCOLES',
                     style: TextStyle(
                         fontSize: 9, fontWeight: FontWeight.w700,
                         color: kTextMuted, letterSpacing: 1.0)),
@@ -192,14 +192,14 @@ class _RegionalAnalytics extends ConsumerWidget {
                             const SizedBox(width: 8),
                             Expanded(
                                 child: Text(d.dept,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,
                                         color: kTextPrimary),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis)),
                             Text('${d.schoolCount}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w800,
                                     color: kNavy)),
@@ -221,14 +221,14 @@ class _RegionalAnalytics extends ConsumerWidget {
                             ),
                             const SizedBox(width: 8),
                             Text('${d.studentCount} él.',
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 9, color: kTextMuted)),
                           ]),
                         ]),
                   );
                 }),
                 const SizedBox(height: 16),
-                const Divider(color: kBorder),
+                Divider(color: kBorder),
                 const SizedBox(height: 12),
                 const _DataGaps(),
               ]),
@@ -248,7 +248,7 @@ class _CreationsTimeline extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final rows = ref.watch(regionalTableRowsProvider).valueOrNull;
     if (rows == null) {
-      return const SizedBox(
+      return SizedBox(
         height: 60,
         child: Center(
             child: SizedBox(
@@ -271,7 +271,7 @@ class _CreationsTimeline extends ConsumerWidget {
       }
     }
 
-    const header = Text('CRÉATIONS PAR ANNÉE',
+    final header = Text('CRÉATIONS PAR ANNÉE',
         style: TextStyle(
             fontSize: 9, fontWeight: FontWeight.w700,
             color: kTextMuted, letterSpacing: 1.0));
@@ -284,7 +284,7 @@ class _CreationsTimeline extends ConsumerWidget {
             unknown == 0
                 ? 'Aucune école.'
                 : "Année de fondation non renseignée ($unknown école${unknown > 1 ? 's' : ''}).",
-            style: const TextStyle(fontSize: 10.5, color: kTextMuted)),
+            style: TextStyle(fontSize: 10.5, color: kTextMuted)),
       ]);
     }
 
@@ -302,7 +302,7 @@ class _CreationsTimeline extends ConsumerWidget {
         header,
         const Spacer(),
         Text('$total au total',
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 9, fontWeight: FontWeight.w700, color: kNavy)),
       ]),
       const SizedBox(height: 10),
@@ -319,7 +319,7 @@ class _CreationsTimeline extends ConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       Text(byYear[y] != null ? '${byYear[y]}' : '',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 8.5,
                               fontWeight: FontWeight.w800,
                               color: kNavy)),
@@ -333,7 +333,7 @@ class _CreationsTimeline extends ConsumerWidget {
                       ),
                       const SizedBox(height: 3),
                       Text("'${y % 100}",
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 8, color: kTextMuted)),
                     ],
                   ),
@@ -345,7 +345,7 @@ class _CreationsTimeline extends ConsumerWidget {
       if (unknown > 0) ...[
         const SizedBox(height: 8),
         Text('$unknown sans année de fondation',
-            style: const TextStyle(fontSize: 9, color: kTextMuted)),
+            style: TextStyle(fontSize: 9, color: kTextMuted)),
       ],
     ]);
   }

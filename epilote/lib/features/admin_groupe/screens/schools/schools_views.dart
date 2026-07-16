@@ -82,7 +82,7 @@ class _TableHeader extends StatelessWidget {
         child: Row(children: [
           Flexible(child: Text(label,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: kTextMuted, fontSize: 11, fontWeight: FontWeight.w700))),
+              style: TextStyle(color: kTextMuted, fontSize: 11, fontWeight: FontWeight.w700))),
           const SizedBox(width: 3),
           Icon(
             sortField == field
@@ -114,10 +114,10 @@ class _TableHeader extends StatelessWidget {
       _col('ÉLÈVES',          'students'),
       _col('PERSONNEL',       'staff'),
       _col('CLASSES',         'classes'),
-      const SizedBox(width: 32,
+      SizedBox(width: 32,
           child: Text('ÉTAT',
               style: TextStyle(color: kTextMuted, fontSize: 11, fontWeight: FontWeight.w700))),
-      const SizedBox(width: 110,
+      SizedBox(width: 110,
           child: Text('ACTIONS', textAlign: TextAlign.end,
               style: TextStyle(color: kTextMuted, fontSize: 11, fontWeight: FontWeight.w700))),
     ]),
@@ -179,23 +179,23 @@ class _TableRowState extends State<_TableRow> {
           const SizedBox(width: 12),
           Expanded(flex: 3, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(s.name,
-                style: const TextStyle(color: kTextPrimary, fontSize: 13, fontWeight: FontWeight.w700),
+                style: TextStyle(color: kTextPrimary, fontSize: 13, fontWeight: FontWeight.w700),
                 overflow: TextOverflow.ellipsis),
             if (s.code != null)
               Text('Code : ${s.code}',
-                  style: const TextStyle(color: kTextMuted, fontSize: 11),
+                  style: TextStyle(color: kTextMuted, fontSize: 11),
                   overflow: TextOverflow.ellipsis),
           ])),
           Expanded(child: _TypeBadge(type: s.type)),
           Expanded(child: Text(s.department ?? '—',
-              style: const TextStyle(color: kTextPrimary, fontSize: 12.5),
+              style: TextStyle(color: kTextPrimary, fontSize: 12.5),
               overflow: TextOverflow.ellipsis)),
           Expanded(child: Text('${s.students}',
-              style: const TextStyle(color: kTextPrimary, fontSize: 13, fontWeight: FontWeight.w700))),
+              style: TextStyle(color: kTextPrimary, fontSize: 13, fontWeight: FontWeight.w700))),
           Expanded(child: Text('${s.staff}',
-              style: const TextStyle(color: kTextPrimary, fontSize: 13, fontWeight: FontWeight.w700))),
+              style: TextStyle(color: kTextPrimary, fontSize: 13, fontWeight: FontWeight.w700))),
           Expanded(child: Text('${s.classes}',
-              style: const TextStyle(color: kTextPrimary, fontSize: 13, fontWeight: FontWeight.w700))),
+              style: TextStyle(color: kTextPrimary, fontSize: 13, fontWeight: FontWeight.w700))),
           SizedBox(
             width: 32,
             child: Icon(
@@ -365,12 +365,12 @@ class _SchoolCardState extends State<_SchoolCard> {
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(s.name, maxLines: 2, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kTextPrimary)),
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kTextPrimary)),
                   if (s.code != null)
-                    Text('Code : ${s.code}', style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                    Text('Code : ${s.code}', style: TextStyle(fontSize: 11, color: kTextMuted)),
                 ])),
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert_rounded, color: kTextMuted, size: 20),
+                  icon: Icon(Icons.more_vert_rounded, color: kTextMuted, size: 20),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   onSelected: (v) {
                     if (v == 'view') { widget.onView(); }
@@ -382,9 +382,9 @@ class _SchoolCardState extends State<_SchoolCard> {
                       Icon(Icons.visibility_outlined, size: 18, color: _kBlue),
                       SizedBox(width: 10), Text('Voir les détails'),
                     ])),
-                    const PopupMenuItem(value: 'edit', child: Row(children: [
+                    PopupMenuItem(value: 'edit', child: Row(children: [
                       Icon(Icons.edit_outlined, size: 18, color: kNavy),
-                      SizedBox(width: 10), Text('Modifier'),
+                      const SizedBox(width: 10), const Text('Modifier'),
                     ])),
                     PopupMenuItem(value: 'toggle', child: Row(children: [
                       Icon(s.isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
@@ -399,9 +399,9 @@ class _SchoolCardState extends State<_SchoolCard> {
               Wrap(spacing: 8, runSpacing: 8, children: [
                 _TypeBadge(type: s.type),
                 if (s.city != null) AdminBadge(s.city!, color: kTextMuted, icon: Icons.location_on_outlined),
-                if (!s.isActive) const AdminBadge('Inactive', color: kRed, icon: Icons.block_rounded),
+                if (!s.isActive) AdminBadge('Inactive', color: kRed, icon: Icons.block_rounded),
               ]),
-              const Divider(height: 26, color: kBorder),
+              Divider(height: 26, color: kBorder),
               Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
                 _Stat(icon: Icons.groups_rounded,  label: 'Élèves',    value: s.students, color: _kPurple),
                 _Stat(icon: Icons.badge_rounded,   label: 'Personnel', value: s.staff,    color: _kBlue),
@@ -427,8 +427,8 @@ class _Stat extends StatelessWidget {
   Widget build(BuildContext context) => Column(children: [
     Icon(icon, size: 18, color: color),
     const SizedBox(height: 4),
-    Text('$value', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kTextPrimary)),
-    Text(label, style: const TextStyle(fontSize: 11, color: kTextMuted)),
+    Text('$value', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kTextPrimary)),
+    Text(label, style: TextStyle(fontSize: 11, color: kTextMuted)),
   ]);
 }
 

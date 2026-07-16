@@ -12,11 +12,11 @@ class _EffectifEvolution extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final pts = ref.watch(effectifEvolutionProvider).valueOrNull ?? const [];
     if (pts.length < 2) {
-      return const AdminCard(
-        padding: EdgeInsets.all(20),
+      return AdminCard(
+        padding: const EdgeInsets.all(20),
         child: Row(children: [
           Icon(Icons.timeline_rounded, size: 18, color: kTextMuted),
-          SizedBox(width: 10),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
                 'Pas encore assez d\'historique pour tracer une évolution '
@@ -128,17 +128,17 @@ class _ScopeChip extends StatelessWidget {
             border: Border.all(color: kNavy.withValues(alpha: 0.25)),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.filter_alt_rounded, size: 14, color: kNavy),
+            Icon(Icons.filter_alt_rounded, size: 14, color: kNavy),
             const SizedBox(width: 6),
             Text(label,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12.5, fontWeight: FontWeight.w700, color: kNavy)),
             const SizedBox(width: 2),
             InkWell(
               onTap: onClear,
               borderRadius: BorderRadius.circular(20),
-              child: const Padding(
-                padding: EdgeInsets.all(3),
+              child: Padding(
+                padding: const EdgeInsets.all(3),
                 child: Icon(Icons.close_rounded, size: 15, color: kNavy),
               ),
             ),
@@ -164,12 +164,12 @@ class _Drop extends StatelessWidget {
       child: DropdownButtonFormField<String>(
         initialValue: items.containsKey(value) ? value : null,
         isExpanded: true,
-        style: const TextStyle(fontSize: 13, color: kTextPrimary),
-        icon: const Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
+        style: TextStyle(fontSize: 13, color: kTextPrimary),
+        icon: Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
         decoration: adminFilledInput(hint),
         hint: Text(hint,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 13, color: kTextMuted)),
+            style: TextStyle(fontSize: 13, color: kTextMuted)),
         items: [
           DropdownMenuItem(value: null, child: Text(hint)),
           for (final e in items.entries)
@@ -204,7 +204,7 @@ class _ViewToggle extends StatelessWidget {
                 size: 16, color: kNavy),
             const SizedBox(width: 7),
             Text(isTable ? 'Cartes' : 'Table',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w600, color: kNavy)),
           ]),
         ),
@@ -304,10 +304,10 @@ class _ResultHeader extends StatelessWidget {
         ? _pl(total, 'élève', 'élèves')
         : '$filtered / ${_pl(total, 'élève', 'élèves')}';
     return Row(children: [
-      const Icon(Icons.groups_outlined, size: 16, color: kTextMuted),
+      Icon(Icons.groups_outlined, size: 16, color: kTextMuted),
       const SizedBox(width: 8),
       Text(txt,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
       const Spacer(),
       if (onExportPdf != null) AdminPdfButton(onTap: onExportPdf!),
@@ -344,9 +344,9 @@ class _StudentTable extends StatelessWidget {
       child: Column(children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: kSurface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
           ),
           child: Row(children: [
             if (!readOnly)
@@ -386,7 +386,7 @@ class _Th extends StatelessWidget {
       Flexible(
         child: Text(label,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.4,
@@ -433,7 +433,7 @@ class _StudentRow extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? kNavy.withValues(alpha: 0.04) : null,
           border:
-              last ? null : const Border(bottom: BorderSide(color: kBorder)),
+              last ? null : Border(bottom: BorderSide(color: kBorder)),
         ),
         child: Row(children: [
           if (!readOnly)
@@ -448,7 +448,7 @@ class _StudentRow extends StatelessWidget {
                 child: Text(s.fullName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w700,
                         color: kTextPrimary)),
@@ -460,12 +460,12 @@ class _StudentRow extends StatelessWidget {
             child: Text(s.matricule.isEmpty ? '—' : s.matricule,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
+                style: TextStyle(fontSize: 12.5, color: kTextMuted)),
           ),
           Expanded(
             flex: 2,
             child: Text('$sexe${age != null ? '  ·  $age ans' : ''}',
-                style: const TextStyle(fontSize: 12.5, color: kTextPrimary)),
+                style: TextStyle(fontSize: 12.5, color: kTextPrimary)),
           ),
           Expanded(
             flex: 3,
@@ -476,14 +476,14 @@ class _StudentRow extends StatelessWidget {
           Expanded(
             flex: 3,
             child: tags.isEmpty
-                ? const Text('—',
+                ? Text('—',
                     style: TextStyle(fontSize: 12.5, color: kTextMuted))
                 : Text(tags.join(' · '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                    style: TextStyle(fontSize: 12, color: kTextMuted)),
           ),
-          const SizedBox(
+          SizedBox(
             width: 36,
             child: Icon(Icons.chevron_right_rounded, color: kTextMuted),
           ),
@@ -507,7 +507,7 @@ class _Check extends StatelessWidget {
           activeColor: kNavy,
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           visualDensity: VisualDensity.compact,
-          side: const BorderSide(color: kTextMuted, width: 1.5),
+          side: BorderSide(color: kTextMuted, width: 1.5),
         ),
       );
 }
@@ -585,7 +585,7 @@ class _StudentCard extends StatelessWidget {
               Text(s.fullName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
                       color: kTextPrimary)),
@@ -594,7 +594,7 @@ class _StudentCard extends StatelessWidget {
                   '${s.matricule.isNotEmpty ? ' · ${s.matricule}' : ''}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                  style: TextStyle(fontSize: 12, color: kTextMuted)),
             ]),
           ),
           if (!readOnly) _Check(value: selected, onChanged: onSelect),
@@ -605,7 +605,7 @@ class _StudentCard extends StatelessWidget {
           const Spacer(),
           if ((s.levelCode ?? '').isNotEmpty)
             Text(s.levelCode!,
-                style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                style: TextStyle(fontSize: 12, color: kTextMuted)),
         ]),
         if (s.isBoarder || s.hasScholarship || s.hasSocialAid || s.isAffecte) ...[
           const SizedBox(height: 10),
@@ -633,7 +633,7 @@ class _Tag extends StatelessWidget {
           border: Border.all(color: kBorder),
         ),
         child: Text(label,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 11, color: kTextMuted, fontWeight: FontWeight.w600)),
       );
 }
@@ -719,10 +719,10 @@ class _ClassChooserDialogState extends ConsumerState<_ClassChooserDialog> {
             padding: EdgeInsets.all(20),
             child: Center(child: CircularProgressIndicator())),
         error: (e, _) =>
-            Text('Erreur : $e', style: const TextStyle(color: kRed)),
+            Text('Erreur : $e', style: TextStyle(color: kRed)),
         data: (classes) {
           if (classes.isEmpty) {
-            return const Text('Aucune classe disponible.',
+            return Text('Aucune classe disponible.',
                 style: TextStyle(color: kTextMuted, fontSize: 13));
           }
           return CycleLevelClassPicker(

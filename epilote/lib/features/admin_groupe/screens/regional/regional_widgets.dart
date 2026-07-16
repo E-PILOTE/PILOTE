@@ -42,7 +42,7 @@ class _DetailKpi extends StatelessWidget {
                     fontSize: 15, fontWeight: FontWeight.w800, color: color),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
             Text(label,
-                style: const TextStyle(fontSize: 9, color: kTextMuted),
+                style: TextStyle(fontSize: 9, color: kTextMuted),
                 textAlign: TextAlign.center),
           ]),
         ),
@@ -67,7 +67,7 @@ class _TypeMix extends StatelessWidget {
     ];
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text("TYPES D'ÉTABLISSEMENT",
+      Text("TYPES D'ÉTABLISSEMENT",
           style: TextStyle(
               fontSize: 9, fontWeight: FontWeight.w700,
               color: kTextMuted, letterSpacing: 0.8)),
@@ -92,7 +92,7 @@ class _TypeMix extends StatelessWidget {
                     color: _typeColor(t), shape: BoxShape.circle)),
             const SizedBox(width: 5),
             Text('${_typeLabel(t)} · ${counts[t]}',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 10, color: kTextPrimary)),
           ]),
       ]),
@@ -121,7 +121,7 @@ class _AnalyticKpi extends StatelessWidget {
                     fontSize: 16,
                     fontWeight: FontWeight.w900, color: color)),
             Text(label,
-                style: const TextStyle(fontSize: 9, color: kTextMuted),
+                style: TextStyle(fontSize: 9, color: kTextMuted),
                 textAlign: TextAlign.center),
           ]),
         ),

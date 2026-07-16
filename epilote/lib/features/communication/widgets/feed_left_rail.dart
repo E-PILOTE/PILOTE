@@ -138,7 +138,7 @@ class _IdentityCard extends StatelessWidget {
                 Text(name.isEmpty ? 'Mon profil' : name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
                         color: kTextPrimary,
@@ -225,14 +225,14 @@ class _NavCard extends StatelessWidget {
 }
 
 class _NavTile extends StatelessWidget {
-  const _NavTile({
+  _NavTile({
     required this.icon,
     required this.label,
     required this.active,
     required this.onTap,
     this.badge = 0,
-    this.color = kNavy,
-  });
+    Color? color,
+  }) : color = color ?? kNavy;
   final IconData icon;
   final String   label;
   final bool     active;
@@ -309,9 +309,9 @@ class _CommunityCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            const Icon(Icons.groups_2_rounded, size: 16, color: kNavy),
+            Icon(Icons.groups_2_rounded, size: 16, color: kNavy),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Text('Communauté',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -328,7 +328,7 @@ class _CommunityCard extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text('${people.length}',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                         color: kNavy)),
@@ -340,11 +340,11 @@ class _CommunityCard extends ConsumerWidget {
               Container(
                 width: 7, height: 7,
                 decoration:
-                    const BoxDecoration(color: kGreen, shape: BoxShape.circle),
+                    BoxDecoration(color: kGreen, shape: BoxShape.circle),
               ),
               const SizedBox(width: 6),
               Text('$online en ligne',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,
                       color: kGreen)),
@@ -382,7 +382,7 @@ class _EmptyMini extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(text,
-                style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                style: TextStyle(fontSize: 12, color: kTextMuted)),
           ),
         ]),
       );
@@ -442,14 +442,14 @@ class _PersonRow extends StatelessWidget {
               Text(person.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
                       color: kTextPrimary)),
               Text(sub,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                  style: TextStyle(fontSize: 11, color: kTextMuted)),
             ],
           ),
         ),

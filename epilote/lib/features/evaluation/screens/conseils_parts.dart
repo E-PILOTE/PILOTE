@@ -37,10 +37,10 @@ class _CouncilBody extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          const Icon(Icons.groups_rounded, size: 18, color: kNavy),
+          Icon(Icons.groups_rounded, size: 18, color: kNavy),
           const SizedBox(width: 8),
           Text(className ?? 'Classe',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 15, fontWeight: FontWeight.w800, color: kNavy)),
           const Spacer(),
         ]),
@@ -205,9 +205,9 @@ class _Distribution extends StatelessWidget {
         border: Border.all(color: kBorder),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+        Row(children: [
           Icon(Icons.donut_small_rounded, size: 16, color: kTextMuted),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Text('Répartition des distinctions',
               style: TextStyle(
                   fontSize: 13,
@@ -242,7 +242,7 @@ class _Distribution extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text('$label · $n',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
                         color: kTextPrimary)),

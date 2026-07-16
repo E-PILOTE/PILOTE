@@ -38,7 +38,7 @@ class _DistributionBar extends StatelessWidget {
                     BoxDecoration(color: s.color, shape: BoxShape.circle)),
             const SizedBox(width: 5),
             Text('${s.label} · ${s.total}',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 11.5, fontWeight: FontWeight.w600, color: kTextMuted)),
           ]),
       ]),
@@ -65,18 +65,18 @@ class _SearchField extends StatelessWidget {
       decoration: InputDecoration(
         isDense: true,
         hintText: 'Rechercher un agent parmi $count…',
-        hintStyle: const TextStyle(fontSize: 13, color: kTextMuted),
+        hintStyle: TextStyle(fontSize: 13, color: kTextMuted),
         prefixIcon:
-            const Icon(Icons.search_rounded, size: 19, color: kTextMuted),
+            Icon(Icons.search_rounded, size: 19, color: kTextMuted),
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: kBorder),
+          borderSide: BorderSide(color: kBorder),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: kBorder),
+          borderSide: BorderSide(color: kBorder),
         ),
       ),
     );
@@ -142,14 +142,14 @@ class _PersonnelCards extends StatelessWidget {
           padding: const EdgeInsets.only(top: 6, bottom: 8),
           child: Row(children: [
             Text(staffCategoryLabel(c).toUpperCase(),
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w800,
                     color: kTextMuted,
                     letterSpacing: 0.4)),
             const SizedBox(width: 8),
             Text('${groups[c]!.length}',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 11.5, fontWeight: FontWeight.w700, color: kNavy)),
           ]),
         ),
@@ -217,7 +217,7 @@ class _AgentCard extends StatelessWidget {
                         child: Text(staffRoleLabel(a.role),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 11.5, color: kTextMuted)),
                       ),
                       if (!a.isActive) ...[
@@ -232,7 +232,7 @@ class _AgentCard extends StatelessWidget {
                     ]),
                   ]),
             ),
-            const Icon(Icons.chevron_right_rounded, color: kTextMuted),
+            Icon(Icons.chevron_right_rounded, color: kTextMuted),
           ]),
         ),
       ),
@@ -268,9 +268,9 @@ class _PersonnelTable extends StatelessWidget {
         // En-tête
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: kSurface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
           ),
           child: const Row(children: [
             Expanded(flex: 5, child: _Th('Agent')),
@@ -293,7 +293,7 @@ class _Th extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Text(text.toUpperCase(),
-      style: const TextStyle(
+      style: TextStyle(
           fontSize: 10.5,
           fontWeight: FontWeight.w800,
           color: kTextMuted,
@@ -315,7 +315,7 @@ class _Tr extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
           color: even ? Colors.white : kSurface.withValues(alpha: 0.4),
-          border: const Border(
+          border: Border(
               top: BorderSide(color: kBorder, width: 0.6)),
         ),
         child: Row(children: [
@@ -342,7 +342,7 @@ class _Tr extends StatelessWidget {
               child: Text(staffRoleLabel(a.role),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12.5, color: kTextMuted))),
+                  style: TextStyle(fontSize: 12.5, color: kTextMuted))),
           Expanded(
               flex: 3,
               child: Text(
@@ -351,7 +351,7 @@ class _Tr extends StatelessWidget {
                       : employmentStatusLabel(a.employmentStatus),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12.5, color: kTextMuted))),
+                  style: TextStyle(fontSize: 12.5, color: kTextMuted))),
           Expanded(
               flex: 2,
               child: Text(
@@ -360,14 +360,14 @@ class _Tr extends StatelessWidget {
                       : scopeCycleName(a.teachingCycle),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: kTextMuted))),
+                  style: TextStyle(fontSize: 12, color: kTextMuted))),
           Expanded(
               flex: 3,
               child: Text(a.employeeNumber ?? '—',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12.5, color: kTextMuted))),
-          const SizedBox(
+                  style: TextStyle(fontSize: 12.5, color: kTextMuted))),
+          SizedBox(
               width: 28,
               child: Icon(Icons.chevron_right_rounded,
                   size: 18, color: kTextMuted)),

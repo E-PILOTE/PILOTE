@@ -180,7 +180,7 @@ class _CalendarProjection extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (entityTitle != null) ...[
         Text(entityTitle!,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 15, fontWeight: FontWeight.w800, color: kNavy)),
         const SizedBox(height: 14),
       ],
@@ -277,10 +277,10 @@ class _ProjectionSummary extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.calendar_month_rounded, size: 16, color: kNavy),
+          Icon(Icons.calendar_month_rounded, size: 16, color: kNavy),
           const SizedBox(width: 8),
           Text('Projection · $periodLabel',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 13.5, fontWeight: FontWeight.w800, color: kTextPrimary)),
         ]),
         const SizedBox(height: 12),
@@ -312,7 +312,7 @@ class _ProjectionSummary extends StatelessWidget {
                           Text(l,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 10.5, color: kTextMuted)),
                         ]),
                   ),
@@ -343,11 +343,11 @@ class _SubjectVolumeTable extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.stacked_bar_chart_rounded, size: 16, color: kNavy),
+          Icon(Icons.stacked_bar_chart_rounded, size: 16, color: kNavy),
           const SizedBox(width: 8),
           Expanded(
             child: Text('Volume horaire projeté par matière · $label',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w800, color: kTextPrimary)),
           ),
         ]),
@@ -378,7 +378,7 @@ class _SubjectVolumeTable extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text('${h.toStringAsFixed(h % 1 == 0 ? 0 : 1)} h',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12, fontWeight: FontWeight.w800, color: kNavy)),
             ]),
           ),

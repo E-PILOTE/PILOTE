@@ -30,7 +30,7 @@ class _ParentWelcomeCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(isParent ? 'Espace Parent' : 'Espace Élève',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
                           color: kTextPrimary)),
@@ -41,7 +41,7 @@ class _ParentWelcomeCard extends StatelessWidget {
                             'paiements) et les annonces de l\'école.'
                         : 'Retrouvez vos informations scolaires et les annonces '
                             'de votre établissement.',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12.5, color: kTextMuted, height: 1.5),
                   ),
                 ]),
@@ -86,7 +86,7 @@ class _PendingInscriptionsCard extends ConsumerWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text('À traiter — ${pending.length} inscription(s) en attente',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                       color: kTextPrimary)),
@@ -94,13 +94,13 @@ class _PendingInscriptionsCard extends ConsumerWidget {
             TextButton(
               onPressed: () => context.push(Routes.inscriptions),
               child: Text(canValidate ? 'Valider' : 'Voir',
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: kNavy, fontWeight: FontWeight.w700)),
             ),
           ]),
           const SizedBox(height: 6),
           for (final e in shown) ...[
-            const Divider(height: 1, color: kBorder),
+            Divider(height: 1, color: kBorder),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 9),
               child: Row(children: [
@@ -111,7 +111,7 @@ class _PendingInscriptionsCard extends ConsumerWidget {
                     (e.studentFirstName?.isNotEmpty == true)
                         ? e.studentFirstName![0].toUpperCase()
                         : '?',
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: kNavy,
                         fontWeight: FontWeight.bold,
                         fontSize: 12),
@@ -156,10 +156,10 @@ class _RecentAnnouncementsCard extends ConsumerWidget {
               decoration: BoxDecoration(
                   color: kGreen.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(9)),
-              child: const Icon(Icons.campaign_rounded, size: 18, color: kGreen),
+              child: Icon(Icons.campaign_rounded, size: 18, color: kGreen),
             ),
             const SizedBox(width: 10),
-            const Expanded(
+            Expanded(
               child: Text('Annonces récentes',
                   style: TextStyle(
                       fontSize: 14,
@@ -168,19 +168,19 @@ class _RecentAnnouncementsCard extends ConsumerWidget {
             ),
             TextButton(
               onPressed: () => context.go(Routes.annonces),
-              child: const Text('Tout voir',
+              child: Text('Tout voir',
                   style: TextStyle(color: kNavy, fontWeight: FontWeight.w700)),
             ),
           ]),
           const SizedBox(height: 6),
           for (final a in shown) ...[
-            const Divider(height: 1, color: kBorder),
+            Divider(height: 1, color: kBorder),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 9),
               child: Row(children: [
                 if (a.isPinned)
-                  const Padding(
-                    padding: EdgeInsets.only(right: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
                     child: Icon(Icons.push_pin_rounded, size: 14, color: kAccent),
                   ),
                 Expanded(
@@ -193,7 +193,7 @@ class _RecentAnnouncementsCard extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Text(
                   a.publishedAt != null ? fmt.format(a.publishedAt!) : '',
-                  style: const TextStyle(fontSize: 11, color: kTextMuted),
+                  style: TextStyle(fontSize: 11, color: kTextMuted),
                 ),
               ]),
             ),

@@ -26,11 +26,11 @@ class PlatformPartnersScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.error_outline_rounded, color: kRed, size: 40),
+            Icon(Icons.error_outline_rounded, color: kRed, size: 40),
             const SizedBox(height: 12),
             Text('Erreur : $e',
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: kTextMuted)),
+                style: TextStyle(color: kTextMuted)),
             const SizedBox(height: 12),
             FilledButton(
                 onPressed: () => ref.invalidate(partnersAdminProvider),
@@ -60,7 +60,7 @@ class _Body extends ConsumerWidget {
               Row(children: [
                 Expanded(
                   child: Text('${partners.length} partenaire${partners.length > 1 ? 's' : ''}',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                           color: kTextMuted)),
@@ -139,7 +139,7 @@ class _Explainer extends StatelessWidget {
             color: kNavy.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(12)),
         child: Row(children: [
-          const Icon(Icons.shield_outlined, size: 18, color: kNavy),
+          Icon(Icons.shield_outlined, size: 18, color: kNavy),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -180,9 +180,9 @@ class _PartnerCard extends StatelessWidget {
               ? CachedNetworkImage(
                   imageUrl: partner.logoUrl!,
                   fit: BoxFit.contain,
-                  errorWidget: (_, _, _) => const Icon(
+                  errorWidget: (_, _, _) => Icon(
                       Icons.handshake_rounded, color: kTextMuted))
-              : const Icon(Icons.handshake_rounded, color: kTextMuted),
+              : Icon(Icons.handshake_rounded, color: kTextMuted),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -190,7 +190,7 @@ class _PartnerCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(partner.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
                       color: kTextPrimary)),
@@ -204,14 +204,14 @@ class _PartnerCard extends StatelessWidget {
                     color: kNavy, icon: Icons.category_outlined),
                 const SizedBox(width: 8),
                 Text('Ordre ${partner.sortOrder}',
-                    style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                    style: TextStyle(fontSize: 11.5, color: kTextMuted)),
               ]),
               if (partner.startsAt != null || partner.endsAt != null) ...[
                 const SizedBox(height: 4),
                 Text(
                     'Du ${partner.startsAt != null ? _fmt.format(partner.startsAt!) : '…'} '
                     'au ${partner.endsAt != null ? _fmt.format(partner.endsAt!) : '…'}',
-                    style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                    style: TextStyle(fontSize: 11.5, color: kTextMuted)),
               ],
             ],
           ),
@@ -227,11 +227,11 @@ class _PartnerCard extends StatelessWidget {
             onPressed: onToggle),
         IconButton(
             tooltip: 'Modifier',
-            icon: const Icon(Icons.edit_outlined, color: kNavy, size: 20),
+            icon: Icon(Icons.edit_outlined, color: kNavy, size: 20),
             onPressed: onEdit),
         IconButton(
             tooltip: 'Supprimer',
-            icon: const Icon(Icons.delete_outline_rounded, color: kRed, size: 20),
+            icon: Icon(Icons.delete_outline_rounded, color: kRed, size: 20),
             onPressed: onDelete),
       ]),
     );

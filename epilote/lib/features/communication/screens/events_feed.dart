@@ -89,7 +89,7 @@ class _EventsAgendaBodyState extends ConsumerState<EventsAgendaBody> {
       skipLoadingOnReload: true,
       loading: () => const FeedSkeleton(cards: 4, maxWidth: double.infinity),
       error: (e, _) => Center(
-        child: Text('Erreur : $e', style: const TextStyle(color: kTextMuted)),
+        child: Text('Erreur : $e', style: TextStyle(color: kTextMuted)),
       ),
       data: (events) => _buildBody(context, events),
     );

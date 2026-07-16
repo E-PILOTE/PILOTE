@@ -31,7 +31,7 @@ class _BulkBar extends StatelessWidget {
                   color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w800)),
         ),
         const SizedBox(width: 10),
-        const Text('sélectionné(s)',
+        Text('sélectionné(s)',
             style: TextStyle(
                 fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary)),
         const Spacer(),
@@ -146,7 +146,7 @@ class _InscritsTable extends StatelessWidget {
               onSelectAll: (v) => onSelectAll(v ?? false),
               headingRowColor:
                   WidgetStatePropertyAll(kNavy.withValues(alpha: 0.04)),
-              headingTextStyle: const TextStyle(
+              headingTextStyle: TextStyle(
                   fontWeight: FontWeight.w800, fontSize: 12, color: kNavy),
               dividerThickness: 0.6,
               columnSpacing: 26,
@@ -184,13 +184,13 @@ class _InscritsTable extends StatelessWidget {
                                 Text(r.lastFirst,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontWeight: FontWeight.w600,
                                         color: kTextPrimary)),
                                 Text(r.matricule,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 11,
                                         color: kTextMuted,
                                         fontFamily: 'monospace')),
@@ -215,7 +215,7 @@ class _InscritsTable extends StatelessWidget {
                       DataCell(Text(
                           r.enrollmentDate?.toIso8601String().substring(0, 10) ??
                               '—',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 11.5, color: kTextMuted))),
                       DataCell(_RowActions(
                         row: r,
@@ -333,7 +333,7 @@ class _InscritsCards extends StatelessWidget {
                         Text(r.lastFirst,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 13.5,
                                 color: kTextPrimary)),
@@ -341,7 +341,7 @@ class _InscritsCards extends StatelessWidget {
                         Text(r.matricule,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 11,
                                 color: kTextMuted,
                                 fontFamily: 'monospace')),
@@ -365,7 +365,7 @@ class _InscritsCards extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style:
-                            const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                            TextStyle(fontSize: 11.5, color: kTextMuted)),
                   ),
                 ]),
                 const SizedBox(height: 8),
@@ -375,7 +375,7 @@ class _InscritsCards extends StatelessWidget {
                   Flexible(child: _TypeBadge(type: r.inscriptionType)),
                   if (r.isRepeating) ...[
                     const SizedBox(width: 6),
-                    const AdminBadge('Redoublant',
+                    AdminBadge('Redoublant',
                         color: kRed, icon: Icons.replay_rounded),
                   ],
                 ]),

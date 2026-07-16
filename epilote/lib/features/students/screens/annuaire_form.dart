@@ -116,7 +116,7 @@ class _TutorFormState extends ConsumerState<_TutorForm> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: kBorder))),
             child: Row(children: [
               Icon(_isEdit ? Icons.edit_rounded : Icons.person_add_alt_1_rounded,
@@ -124,7 +124,7 @@ class _TutorFormState extends ConsumerState<_TutorForm> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(_isEdit ? 'Modifier le contact' : 'Nouveau contact',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 15.5,
                         fontWeight: FontWeight.w800,
                         color: kTextPrimary)),
@@ -218,7 +218,7 @@ class _Lbl extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 7),
         child: Text(text,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
                 color: kTextPrimary)),
@@ -260,8 +260,8 @@ class _RelDropdown extends StatelessWidget {
     return DropdownButtonFormField<String>(
       initialValue: value,
       isExpanded: true,
-      style: const TextStyle(fontSize: 13.5, color: kTextPrimary),
-      icon: const Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
+      style: TextStyle(fontSize: 13.5, color: kTextPrimary),
+      icon: Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
       decoration: adminFilledInput('Lien', icon: Icons.family_restroom_rounded),
       items: [
         for (final e in items) DropdownMenuItem(value: e.$1, child: Text(e.$2)),
@@ -300,13 +300,13 @@ class _CheckTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(label,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: kTextPrimary)),
                     Text(sub,
                         style:
-                            const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                            TextStyle(fontSize: 11.5, color: kTextMuted)),
                   ]),
             ),
           ]),

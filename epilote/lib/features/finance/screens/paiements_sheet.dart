@@ -73,12 +73,12 @@ class _StudentPaymentsSheet extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(row.studentName,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
                       Text('Total réglé : ${fmtXaf(row.paid)}',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w700,
                               color: kGreen)),
@@ -170,13 +170,13 @@ class _StudentPaymentsSheet extends ConsumerWidget {
                                     '${p.receipt != null ? ' · ${p.receipt}' : ''}',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 11.5, color: kTextMuted)),
                               ]),
                         ),
                         if (canEdit)
                           IconButton(
-                            icon: const Icon(Icons.delete_outline_rounded,
+                            icon: Icon(Icons.delete_outline_rounded,
                                 size: 18, color: kTextMuted),
                             onPressed: () => _delete(context, ref, p),
                           ),
@@ -222,8 +222,8 @@ class _PaymentFormState extends ConsumerState<_PaymentForm> {
   Future<void> _save() async {
     final amount = int.tryParse(_amount.text.trim().replaceAll(' ', ''));
     if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Montant (> 0) requis'), backgroundColor: kRed));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Montant (> 0) requis'), backgroundColor: kRed));
       return;
     }
     final p = ref.read(authNotifierProvider).valueOrNull;

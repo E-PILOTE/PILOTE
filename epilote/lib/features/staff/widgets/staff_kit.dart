@@ -253,8 +253,8 @@ class _SegCard extends StatelessWidget {
                             fontWeight: FontWeight.w800,
                             color: seg.color)),
                     const SizedBox(width: 4),
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 3),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 3),
                       child: Text('agents',
                           style: TextStyle(fontSize: 10.5, color: kTextMuted)),
                     ),
@@ -279,13 +279,13 @@ class _SegCard extends StatelessWidget {
 
 /// Bouton d'action groupée (style discret, icône + libellé).
 class StaffBulkButton extends StatelessWidget {
-  const StaffBulkButton({
+  StaffBulkButton({
     super.key,
     required this.icon,
     required this.label,
     required this.onTap,
-    this.color = kNavy,
-  });
+    Color? color,
+  }) : color = color ?? kNavy;
   final IconData icon;
   final String label;
   final VoidCallback? onTap;

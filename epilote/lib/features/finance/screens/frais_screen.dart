@@ -167,7 +167,7 @@ class _FeeCard extends StatelessWidget {
           decoration: BoxDecoration(
               color: kNavy.withValues(alpha: 0.07),
               borderRadius: BorderRadius.circular(10)),
-          child: const Icon(Icons.request_quote_rounded, size: 20, color: kNavy),
+          child: Icon(Icons.request_quote_rounded, size: 20, color: kNavy),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -191,7 +191,7 @@ class _FeeCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(feeTypeLabel(f.feeType),
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w700,
                             color: kNavy)),
@@ -201,15 +201,15 @@ class _FeeCard extends StatelessWidget {
                 Text(
                     '${f.levelName ?? 'Toute l\'école'}'
                     '${f.dueDay != null ? ' · échéance le ${f.dueDay}' : ''}',
-                    style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                    style: TextStyle(fontSize: 12, color: kTextMuted)),
               ]),
         ),
         Text(fmtXaf(f.amount),
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 15, fontWeight: FontWeight.w800, color: kGreen)),
         if (canEdit || canDelete)
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
+            icon: Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
             onSelected: (v) => v == 'edit' ? onEdit() : onDelete(),
             itemBuilder: (ctx) => [
               if (canEdit)
@@ -221,11 +221,11 @@ class _FeeCard extends StatelessWidget {
                       Text('Modifier'),
                     ])),
               if (canDelete)
-                const PopupMenuItem(
+                PopupMenuItem(
                     value: 'delete',
                     child: Row(children: [
                       Icon(Icons.delete_outline_rounded, size: 16, color: kRed),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text('Supprimer', style: TextStyle(color: kRed)),
                     ])),
             ],
@@ -249,7 +249,7 @@ class _AddBtn extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                   colors: [kNavyDark, kNavy],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight),

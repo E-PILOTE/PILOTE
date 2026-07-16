@@ -185,7 +185,7 @@ class _AuditCardState extends State<_AuditCard> {
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text('${e.actionLabel} · ${e.entityLabel}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 13.5,
                                     fontWeight: FontWeight.w700,
                                     color: kTextPrimary)),
@@ -193,14 +193,14 @@ class _AuditCardState extends State<_AuditCard> {
                         ),
                         const SizedBox(height: 3),
                         Text('${e.actorName} (${e.roleLabelStr})',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 12, color: kTextMuted)),
                         if (hasDetail) ...[
                           const SizedBox(height: 4),
                           Text(
                             '${fields.length} champ${fields.length > 1 ? 's' : ''} '
                             'concerné${fields.length > 1 ? 's' : ''}',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 11, color: kTextMuted),
                           ),
                         ],
@@ -212,7 +212,7 @@ class _AuditCardState extends State<_AuditCard> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(dateStr,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 11, color: kTextMuted)),
                       if (hasDetail)
                         Icon(_open
@@ -259,7 +259,7 @@ class _Diff extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(k,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: kTextPrimary)),
@@ -269,13 +269,13 @@ class _Diff extends StatelessWidget {
                       if (entry.action == 'UPDATE') ...[
                         Flexible(
                           child: Text(_fmt(oldV[k]),
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 11.5,
                                   color: kRed,
                                   decoration: TextDecoration.lineThrough)),
                         ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 6),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
                           child: Icon(Icons.arrow_forward_rounded,
                               size: 12, color: kTextMuted),
                         ),
@@ -315,14 +315,14 @@ class _Empty extends StatelessWidget {
             Icon(icon, size: 44, color: kTextMuted.withValues(alpha: 0.6)),
             const SizedBox(height: 12),
             Text(title,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: kTextPrimary)),
             const SizedBox(height: 6),
             Text(message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
+                style: TextStyle(fontSize: 12.5, color: kTextMuted)),
           ],
         ),
       );

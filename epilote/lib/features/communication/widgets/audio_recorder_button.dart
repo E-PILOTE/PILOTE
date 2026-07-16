@@ -216,7 +216,7 @@ class AudioRecordingBanner extends StatelessWidget {
           const _PulsingDot(),
           const SizedBox(width: 10),
           Text(_fmt,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: kTextPrimary)),
@@ -255,7 +255,7 @@ class _PulsingDotState extends State<_PulsingDot>
         child: Container(
           width: 11,
           height: 11,
-          decoration: const BoxDecoration(color: kRed, shape: BoxShape.circle),
+          decoration: BoxDecoration(color: kRed, shape: BoxShape.circle),
         ),
       );
 }

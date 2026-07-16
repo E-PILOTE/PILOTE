@@ -91,7 +91,7 @@ class FeedVideoThumb extends StatelessWidget {
                           blurRadius: 16),
                     ],
                   ),
-                  child: const Icon(Icons.play_arrow_rounded,
+                  child: Icon(Icons.play_arrow_rounded,
                       size: 36, color: kNavy),
                 ),
                 // Badge « Vidéo »

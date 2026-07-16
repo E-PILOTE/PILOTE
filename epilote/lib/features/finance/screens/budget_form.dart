@@ -40,8 +40,8 @@ class _BudgetFormState extends ConsumerState<_BudgetForm> {
   Future<void> _save() async {
     final budgeted = int.tryParse(_budgeted.text.trim().replaceAll(' ', ''));
     if (budgeted == null || budgeted <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Montant prévu (> 0) requis'), backgroundColor: kRed));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Montant prévu (> 0) requis'), backgroundColor: kRed));
       return;
     }
     final p = ref.read(authNotifierProvider).valueOrNull;
@@ -106,10 +106,10 @@ class _BudgetFormState extends ConsumerState<_BudgetForm> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: kBorder),
                   ),
-                  child: const Row(children: [
+                  child: Row(children: [
                     Icon(Icons.info_outline_rounded,
                         size: 16, color: kTextMuted),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                           'Le réalisé est calculé automatiquement à partir des '

@@ -100,10 +100,10 @@ class _RenewSubscriptionDialogState
               color: kNavy.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(11),
             ),
-            child: const Icon(Icons.autorenew_rounded, color: kNavy, size: 22),
+            child: Icon(Icons.autorenew_rounded, color: kNavy, size: 22),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Text('Renouveler mon abonnement',
                 style: TextStyle(
                     fontSize: 17,
@@ -123,7 +123,7 @@ class _RenewSubscriptionDialogState
             border: Border.all(color: kBorder),
           ),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Icon(Icons.info_outline_rounded, size: 16, color: kTextMuted),
+            Icon(Icons.info_outline_rounded, size: 16, color: kTextMuted),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -132,7 +132,7 @@ class _RenewSubscriptionDialogState
                     : 'Une facture de renouvellement sera générée. Réglez-la '
                         'auprès de la plateforme — votre abonnement sera '
                         'réactivé dès confirmation du paiement.',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12.5, color: kTextMuted, height: 1.45),
               ),
             ),
@@ -149,7 +149,7 @@ class _RenewSubscriptionDialogState
               onPressed: _saving ? null : () => Navigator.pop(context),
               style: OutlinedButton.styleFrom(
                 foregroundColor: kTextMuted,
-                side: const BorderSide(color: kBorder),
+                side: BorderSide(color: kBorder),
                 padding: const EdgeInsets.symmetric(vertical: 13),
               ),
               child: const Text('Annuler'),
@@ -216,7 +216,7 @@ class _RenewSubscriptionDialogState
           const SizedBox(width: 12),
           Expanded(
             child: Text(title,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
                     color: kTextPrimary)),
@@ -229,7 +229,7 @@ class _RenewSubscriptionDialogState
           const SizedBox(height: 12),
         ],
         Text(body,
-            style: const TextStyle(fontSize: 13, color: kTextMuted, height: 1.5)),
+            style: TextStyle(fontSize: 13, color: kTextMuted, height: 1.5)),
         const SizedBox(height: 20),
         SizedBox(
           width: double.infinity,
@@ -253,11 +253,11 @@ class _RenewSubscriptionDialogState
           SizedBox(
             width: 96,
             child: Text(label,
-                style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
+                style: TextStyle(fontSize: 12.5, color: kTextMuted)),
           ),
           Expanded(
             child: Text(value,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
                     color: kTextPrimary)),

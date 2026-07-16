@@ -158,10 +158,10 @@ class _LeaveFormState extends ConsumerState<_LeaveForm> {
                       border: Border.all(color: kBorder),
                     ),
                     child: Row(children: [
-                      const Icon(Icons.today_rounded, size: 16, color: kNavy),
+                      Icon(Icons.today_rounded, size: 16, color: kNavy),
                       const SizedBox(width: 8),
                       Text('$_days jour${_days > 1 ? 's' : ''} de congé',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: kNavy)),

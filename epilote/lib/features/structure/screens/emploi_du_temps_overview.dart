@@ -145,7 +145,7 @@ class _PublicationBar extends StatelessWidget {
                     published
                         ? 'Visible des enseignants, élèves et parents'
                         : 'En construction — invisible des enseignants/élèves',
-                    style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                    style: TextStyle(fontSize: 11.5, color: kTextMuted)),
               ]),
         ),
         if (canManage && version != null) ...[
@@ -153,7 +153,7 @@ class _PublicationBar extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: 10),
               child: Text('$conflicts conflit${conflicts > 1 ? 's' : ''}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 11.5, fontWeight: FontWeight.w700, color: kRed)),
             ),
           if (published)
@@ -217,12 +217,12 @@ class _EdtFilterBar extends StatelessWidget {
               onChanged: onSearch,
               decoration: InputDecoration(
                 hintText: 'Rechercher (matière, enseignant, classe, salle)…',
-                hintStyle: const TextStyle(color: kTextMuted, fontSize: 13),
-                prefixIcon: const Icon(Icons.search_rounded,
+                hintStyle: TextStyle(color: kTextMuted, fontSize: 13),
+                prefixIcon: Icon(Icons.search_rounded,
                     color: kTextMuted, size: 20),
                 suffixIcon: searchCtrl.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.close_rounded,
+                        icon: Icon(Icons.close_rounded,
                             size: 18, color: kTextMuted),
                         onPressed: () {
                           searchCtrl.clear();
@@ -277,9 +277,9 @@ class _EdtFilterBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: kAccent.withValues(alpha: 0.30)),
               ),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
                 Icon(Icons.lock_clock_rounded, size: 14, color: kAccent),
-                SizedBox(width: 6),
+                const SizedBox(width: 6),
                 Text('Année verrouillée',
                     style: TextStyle(
                         color: kAccent,
@@ -405,7 +405,7 @@ class _AddCreneauButton extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 colors: [kNavyDark, kNavy],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -451,17 +451,17 @@ class _ScopeChip extends StatelessWidget {
             border: Border.all(color: kNavy.withValues(alpha: 0.25)),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.filter_alt_rounded, size: 14, color: kNavy),
+            Icon(Icons.filter_alt_rounded, size: 14, color: kNavy),
             const SizedBox(width: 6),
             Text(label,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12.5, fontWeight: FontWeight.w700, color: kNavy)),
             const SizedBox(width: 2),
             InkWell(
               onTap: onClear,
               borderRadius: BorderRadius.circular(20),
-              child: const Padding(
-                padding: EdgeInsets.all(3),
+              child: Padding(
+                padding: const EdgeInsets.all(3),
                 child: Icon(Icons.close_rounded, size: 15, color: kNavy),
               ),
             ),

@@ -183,7 +183,7 @@ class _BodyState extends ConsumerState<_Body> {
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('Erreur : $e', style: const TextStyle(color: kRed)),
+          child: Text('Erreur : $e', style: TextStyle(color: kRed)),
         ),
       ),
       data: (all) {

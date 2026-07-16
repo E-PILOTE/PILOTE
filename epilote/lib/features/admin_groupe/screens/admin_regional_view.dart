@@ -158,24 +158,24 @@ class _MapLayout extends ConsumerWidget {
                             padding: EdgeInsets.zero,
                             children: [
                               _GlobalStats(data: view),
-                              const Divider(height: 1, color: kBorder),
+                              Divider(height: 1, color: kBorder),
                               const _PipelinePanel(),
-                              const Divider(height: 1, color: kBorder),
+                              Divider(height: 1, color: kBorder),
                               _CoveragePanel(data: view),
-                              const Divider(height: 1, color: kBorder),
+                              Divider(height: 1, color: kBorder),
                               const _FilterBar(),
-                              const Divider(height: 1, color: kBorder),
+                              Divider(height: 1, color: kBorder),
                               const _LayerToggleBar(),
                             ],
                           ),
                         ),
-                        const Divider(height: 1, color: kBorder),
+                        Divider(height: 1, color: kBorder),
                         _RegionalExportBar(data: data),
                       ],
                     ),
                   ),
                 ),
-                const VerticalDivider(width: 1, color: kBorder),
+                VerticalDivider(width: 1, color: kBorder),
               ],
               Expanded(
                 child: Stack(
@@ -278,7 +278,7 @@ class _MapLayout extends ConsumerWidget {
                 ),
               ),
               if (showRight) ...[
-                const VerticalDivider(width: 1, color: kBorder),
+                VerticalDivider(width: 1, color: kBorder),
                 SizedBox(
                   width: 300,
                   child: () {

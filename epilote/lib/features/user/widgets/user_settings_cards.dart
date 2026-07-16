@@ -69,7 +69,7 @@ class SettingsTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: kTextPrimary),
@@ -77,7 +77,7 @@ class SettingsTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(subtitle,
-                      style: const TextStyle(fontSize: 12, color: kTextMuted),
+                      style: TextStyle(fontSize: 12, color: kTextMuted),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis),
                 ],
@@ -116,14 +116,14 @@ class StaffSecurityCard extends StatelessWidget {
             label: const Text('Changer le mot de passe'),
             style: OutlinedButton.styleFrom(
               foregroundColor: kNavy,
-              side: const BorderSide(color: kBorder),
+              side: BorderSide(color: kBorder),
               padding: const EdgeInsets.symmetric(vertical: 13),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Le changement de mot de passe nécessite une connexion internet.',
             style: TextStyle(fontSize: 11.5, color: kTextMuted),
           ),
@@ -266,7 +266,7 @@ class StaffSyncCard extends ConsumerWidget {
                     'sont envoyées automatiquement.'
                 : 'Vous travaillez hors ligne. Vos modifications seront '
                     'envoyées dès le retour de la connexion.',
-            style: const TextStyle(fontSize: 12, color: kTextMuted, height: 1.5),
+            style: TextStyle(fontSize: 12, color: kTextMuted, height: 1.5),
           ),
         ],
       ),

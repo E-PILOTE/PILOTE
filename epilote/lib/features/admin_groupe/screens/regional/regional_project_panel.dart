@@ -90,13 +90,13 @@ class _ProjectDetailPanel extends ConsumerWidget {
               children: [
                 if (project.description != null &&
                     project.description!.isNotEmpty) ...[
-                  const Text('DESCRIPTION',
+                  Text('DESCRIPTION',
                       style: TextStyle(
                           fontSize: 9, fontWeight: FontWeight.w700,
                           color: kTextMuted, letterSpacing: 0.8)),
                   const SizedBox(height: 6),
                   Text(project.description!,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 11.5, color: kTextPrimary, height: 1.4)),
                   const SizedBox(height: 14),
                 ],
@@ -111,21 +111,21 @@ class _ProjectDetailPanel extends ConsumerWidget {
                 if (project.department != null || project.city != null) ...[
                   const SizedBox(height: 8),
                   Row(children: [
-                    const Icon(Icons.place_rounded, size: 13, color: kTextMuted),
+                    Icon(Icons.place_rounded, size: 13, color: kTextMuted),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                           [project.city, project.department]
                               .whereType<String>()
                               .join(' · '),
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 11, color: kTextPrimary)),
                     ),
                   ]),
                 ],
                 // ── Vue satellite du site (terrain avant/pendant chantier) ──
                 const SizedBox(height: 14),
-                const Text('VUE SATELLITE DU SITE',
+                Text('VUE SATELLITE DU SITE',
                     style: TextStyle(
                         fontSize: 9, fontWeight: FontWeight.w700,
                         color: kTextMuted, letterSpacing: 0.8)),
@@ -133,7 +133,7 @@ class _ProjectDetailPanel extends ConsumerWidget {
                 SchoolSatelliteView(center: project.coords, title: project.name),
                 if (project.budgetXaf != null) ...[
                   const SizedBox(height: 14),
-                  const Text('BUDGET',
+                  Text('BUDGET',
                       style: TextStyle(
                           fontSize: 9, fontWeight: FontWeight.w700,
                           color: kTextMuted, letterSpacing: 0.8)),
@@ -147,11 +147,11 @@ class _ProjectDetailPanel extends ConsumerWidget {
                       border: Border.all(color: kAccent.withValues(alpha: 0.25)),
                     ),
                     child: Row(children: [
-                      const Icon(Icons.account_balance_rounded,
+                      Icon(Icons.account_balance_rounded,
                           size: 14, color: kAccent),
                       const SizedBox(width: 8),
                       Text('${fmt.format(project.budgetXaf)} FCFA',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 13, fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
                     ]),
@@ -160,7 +160,7 @@ class _ProjectDetailPanel extends ConsumerWidget {
                 if (project.comments != null &&
                     project.comments!.isNotEmpty) ...[
                   const SizedBox(height: 14),
-                  const Text('COMMENTAIRES',
+                  Text('COMMENTAIRES',
                       style: TextStyle(
                           fontSize: 9, fontWeight: FontWeight.w700,
                           color: kTextMuted, letterSpacing: 0.8)),
@@ -172,14 +172,14 @@ class _ProjectDetailPanel extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(project.comments!,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 11, color: kTextPrimary, height: 1.4)),
                   ),
                 ],
                 if (project.createdAt != null) ...[
                   const SizedBox(height: 12),
                   Text('Créé le ${_fmtDate(project.createdAt)}',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 9, color: kTextMuted)),
                 ],
               ]),

@@ -95,7 +95,7 @@ class _InscriptionDetailModal extends ConsumerWidget {
               error: (e, _) => Padding(
                   padding: const EdgeInsets.all(24),
                   child:
-                      Text('Erreur : $e', style: const TextStyle(color: kRed))),
+                      Text('Erreur : $e', style: TextStyle(color: kRed))),
               data: (d) => _DossierBody(row: row, d: d),
             ),
           ),
@@ -176,7 +176,7 @@ class _DossierBody extends ConsumerWidget {
                 Text(row.fullName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: kTextPrimary)),
@@ -185,7 +185,7 @@ class _DossierBody extends ConsumerWidget {
                   _statusBadge(row.status),
                   _typeBadge(row.inscriptionType),
                   if (row.isRepeating)
-                    const AdminBadge('Redoublant', color: kRed),
+                    AdminBadge('Redoublant', color: kRed),
                 ]),
               ],
             ),
@@ -304,12 +304,12 @@ class _DetailActionBar extends StatelessWidget {
     if (readOnly) {
       return Container(
         padding: const EdgeInsets.all(16),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
             color: Colors.white,
             border: Border(top: BorderSide(color: kBorder))),
-        child: const Row(children: [
+        child: Row(children: [
           Icon(Icons.lock_outline_rounded, size: 16, color: kTextMuted),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Expanded(
             child: Text('Année archivée — consultation seule.',
                 style: TextStyle(fontSize: 12.5, color: kTextMuted)),
@@ -319,7 +319,7 @@ class _DetailActionBar extends StatelessWidget {
     }
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
           color: Colors.white,
           border: Border(top: BorderSide(color: kBorder))),
       child: Row(children: [
@@ -402,7 +402,7 @@ class _MoreMenu extends StatelessWidget {
           ),
         if (onDelete != null) ...[
           const PopupMenuDivider(),
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'delete',
             child: _MenuRow(
                 icon: Icons.delete_outline_rounded,
@@ -418,7 +418,7 @@ class _MoreMenu extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: kBorder),
         ),
-        child: const Icon(Icons.more_horiz_rounded, color: kTextMuted),
+        child: Icon(Icons.more_horiz_rounded, color: kTextMuted),
       ),
     );
   }
@@ -742,7 +742,7 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
             height: 240,
             child: Center(
                 child:
-                    Text('Erreur : $e', style: const TextStyle(color: kRed)))),
+                    Text('Erreur : $e', style: TextStyle(color: kRed)))),
         data: (d) {
           if (!_primed) _prime(d);
           final em = ref.watch(enrollmentDetailProvider(widget.row.id)).valueOrNull;
@@ -909,10 +909,10 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
         classesAsync.when(
           loading: () => const LinearProgressIndicator(),
           error: (e, _) =>
-              Text('Erreur : $e', style: const TextStyle(color: kRed)),
+              Text('Erreur : $e', style: TextStyle(color: kRed)),
           data: (classes) {
             if (classes.isEmpty) {
-              return const Text('Aucune classe disponible.',
+              return Text('Aucune classe disponible.',
                   style: TextStyle(color: kTextMuted, fontSize: 13));
             }
             return CycleLevelClassPicker(
@@ -1009,12 +1009,12 @@ class _TutorEditorCard extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Text(draft.isPrimary ? 'Tuteur principal' : 'Contact ${index + 1}',
-              style: const TextStyle(
+              style: TextStyle(
                   fontWeight: FontWeight.w800, fontSize: 14, color: kNavy)),
           const Spacer(),
           IconButton(
             icon:
-                const Icon(Icons.delete_outline_rounded, color: kRed, size: 18),
+                Icon(Icons.delete_outline_rounded, color: kRed, size: 18),
             tooltip: 'Supprimer ce tuteur',
             onPressed: onRemove,
           ),
@@ -1153,7 +1153,7 @@ class _PhotoPicker extends StatelessWidget {
         radius: 46,
         backgroundColor: kNavy.withValues(alpha: 0.10),
         child: Text(initials,
-            style: const TextStyle(
+            style: TextStyle(
                 color: kNavy, fontSize: 28, fontWeight: FontWeight.w800)),
       );
     }

@@ -53,9 +53,9 @@ class StaffDossierSheet extends ConsumerWidget {
       minChildSize: 0.5,
       maxChildSize: 0.96,
       builder: (ctx, scroll) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: kSurface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: async.when(
           loading: () => const Center(child: CircularProgressIndicator()),
@@ -100,7 +100,7 @@ class _DossierBody extends ConsumerWidget {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(d.fullName,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
                       color: kTextPrimary)),
@@ -208,7 +208,7 @@ class _InfoRow extends StatelessWidget {
           Icon(icon, size: 17, color: kTextMuted),
           const SizedBox(width: 12),
           Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12.5, color: kTextMuted, fontWeight: FontWeight.w600)),
           const Spacer(),
           Flexible(
@@ -296,23 +296,23 @@ class _CareerCard extends StatelessWidget {
                 style: const TextStyle(
                     fontSize: 14, fontWeight: FontWeight.w800)),
           ),
-          if (c.isCurrent) const _Tag('Actuel', kGreen),
+          if (c.isCurrent) _Tag('Actuel', kGreen),
         ]),
         if ((c.organization ?? '').isNotEmpty) ...[
           const SizedBox(height: 2),
           Text(c.organization!,
-              style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
+              style: TextStyle(fontSize: 12.5, color: kTextMuted)),
         ],
         if (period.isNotEmpty) ...[
           const SizedBox(height: 3),
           Text(period,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11.5, fontWeight: FontWeight.w600, color: kNavy)),
         ],
         if ((c.notes ?? '').trim().isNotEmpty) ...[
           const SizedBox(height: 4),
           Text(c.notes!.trim(),
-              style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+              style: TextStyle(fontSize: 11.5, color: kTextMuted)),
         ],
       ]),
     );
@@ -394,7 +394,7 @@ class _DiplomaCard extends StatelessWidget {
         ]),
         if (sub.isNotEmpty) ...[
           const SizedBox(height: 3),
-          Text(sub, style: const TextStyle(fontSize: 12, color: kTextMuted)),
+          Text(sub, style: TextStyle(fontSize: 12, color: kTextMuted)),
         ],
       ]),
     );

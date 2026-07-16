@@ -49,10 +49,10 @@ class PartnerOptInTile extends ConsumerWidget {
             decoration: BoxDecoration(
                 color: kNavy.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.handshake_rounded, color: kNavy, size: 20),
+            child: Icon(Icons.handshake_rounded, color: kNavy, size: 20),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -61,7 +61,7 @@ class PartnerOptInTile extends ConsumerWidget {
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: kTextPrimary)),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
                   'Autorise l’affichage d’encarts partenaires institutionnels, '
                   'discrets et étiquetés, sur la vitrine de vos postes. '

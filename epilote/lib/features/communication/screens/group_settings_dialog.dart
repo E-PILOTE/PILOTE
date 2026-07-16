@@ -244,9 +244,9 @@ class _GroupSettingsDialogState extends ConsumerState<GroupSettingsDialog> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           // En-tête : fermer
           Row(children: [
-            const Icon(Icons.groups_rounded, size: 19, color: kNavy),
+            Icon(Icons.groups_rounded, size: 19, color: kNavy),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Text('Infos du groupe',
                   style: TextStyle(
                       fontSize: 15,
@@ -256,7 +256,7 @@ class _GroupSettingsDialogState extends ConsumerState<GroupSettingsDialog> {
             IconButton(
               visualDensity: VisualDensity.compact,
               onPressed: _busy ? null : () => Navigator.pop(context),
-              icon: const Icon(Icons.close_rounded, color: kTextMuted),
+              icon: Icon(Icons.close_rounded, color: kTextMuted),
             ),
           ]),
           const SizedBox(height: 6),
@@ -272,7 +272,7 @@ class _GroupSettingsDialogState extends ConsumerState<GroupSettingsDialog> {
             onRename: _rename,
           ),
           const SizedBox(height: 14),
-          const Divider(height: 1, color: kBorder),
+          Divider(height: 1, color: kBorder),
           // Liste membres / ajout
           Expanded(
             child: _adding
@@ -293,7 +293,7 @@ class _GroupSettingsDialogState extends ConsumerState<GroupSettingsDialog> {
                     onRemove: _removeMember,
                   ),
           ),
-          const Divider(height: 1, color: kBorder),
+          Divider(height: 1, color: kBorder),
           const SizedBox(height: 10),
           // Actions bas de page
           if (_adding)
@@ -331,7 +331,7 @@ class _GroupSettingsDialogState extends ConsumerState<GroupSettingsDialog> {
                   label: const Text('Ajouter des membres'),
                   style: OutlinedButton.styleFrom(
                       foregroundColor: kNavy,
-                      side: const BorderSide(color: kBorder),
+                      side: BorderSide(color: kBorder),
                       padding: const EdgeInsets.symmetric(vertical: 12)),
                 ),
               ),
@@ -348,7 +348,7 @@ class _GroupSettingsDialogState extends ConsumerState<GroupSettingsDialog> {
                     color: kRed),
                 label: Text(
                     _isAdmin ? 'Supprimer le groupe' : 'Quitter le groupe',
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: kRed, fontWeight: FontWeight.w700)),
               ),
             ),
@@ -405,7 +405,7 @@ class _GroupHero extends StatelessWidget {
       if (isAdmin && onRemoveAvatar != null)
         TextButton(
           onPressed: busy ? null : onRemoveAvatar,
-          child: const Text('Retirer la photo',
+          child: Text('Retirer la photo',
               style: TextStyle(fontSize: 11.5, color: kTextMuted)),
         ),
       const SizedBox(height: 8),
@@ -415,7 +415,7 @@ class _GroupHero extends StatelessWidget {
               maxLines: 2,
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
                   color: kTextPrimary)),
@@ -425,8 +425,8 @@ class _GroupHero extends StatelessWidget {
           InkWell(
             onTap: busy ? null : onRename,
             borderRadius: BorderRadius.circular(20),
-            child: const Padding(
-              padding: EdgeInsets.all(4),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
               child: Icon(Icons.edit_outlined, size: 16, color: kNavy),
             ),
           ),
@@ -434,7 +434,7 @@ class _GroupHero extends StatelessWidget {
       ]),
       const SizedBox(height: 2),
       Text('$memberCount membre${memberCount > 1 ? 's' : ''}',
-          style: const TextStyle(fontSize: 12, color: kTextMuted)),
+          style: TextStyle(fontSize: 12, color: kTextMuted)),
     ]);
   }
 }
@@ -488,14 +488,14 @@ class _MembersList extends StatelessWidget {
                   Text(isMe ? '${m.name ?? 'Moi'} (vous)' : (m.name ?? '—'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: kTextPrimary)),
                   if (m.role != null)
                     Text(roleLabelFr(m.role),
                         style:
-                            const TextStyle(fontSize: 11, color: kTextMuted)),
+                            TextStyle(fontSize: 11, color: kTextMuted)),
                 ],
               ),
             ),
@@ -506,7 +506,7 @@ class _MembersList extends StatelessWidget {
                 decoration: BoxDecoration(
                     color: kNavy.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(6)),
-                child: const Text('Admin',
+                child: Text('Admin',
                     style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
@@ -517,7 +517,7 @@ class _MembersList extends StatelessWidget {
                 tooltip: 'Retirer',
                 visualDensity: VisualDensity.compact,
                 onPressed: () => onRemove(m),
-                icon: const Icon(Icons.remove_circle_outline_rounded,
+                icon: Icon(Icons.remove_circle_outline_rounded,
                     size: 19, color: kRed),
               ),
           ]),
@@ -559,7 +559,7 @@ class _AddMembersPanel extends ConsumerWidget {
               const Center(child: CircularProgressIndicator(strokeWidth: 2)),
           error: (e, _) => Center(
               child: Text('Erreur : $e',
-                  style: const TextStyle(color: kTextMuted, fontSize: 12))),
+                  style: TextStyle(color: kTextMuted, fontSize: 12))),
           data: (all) {
             final list = all
                 .where((o) => !existing.contains(o.value))
@@ -569,7 +569,7 @@ class _AddMembersPanel extends ConsumerWidget {
                     (o.subtitle ?? '').toLowerCase().contains(query))
                 .toList();
             if (list.isEmpty) {
-              return const Center(
+              return Center(
                   child: Text('Aucun collègue à ajouter.',
                       style: TextStyle(color: kTextMuted, fontSize: 12.5)));
             }
@@ -620,14 +620,14 @@ class _AddTile extends StatelessWidget {
                 Text(option.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
                         color: kTextPrimary)),
                 if (option.subtitle != null)
                   Text(roleLabelFr(option.subtitle),
                       style:
-                          const TextStyle(fontSize: 10.5, color: kTextMuted)),
+                          TextStyle(fontSize: 10.5, color: kTextMuted)),
               ],
             ),
           ),
@@ -669,7 +669,7 @@ class GroupAvatarImage extends StatelessWidget {
   Widget _fallback() => Container(
         width: radius * 2,
         height: radius * 2,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: LinearGradient(
             begin: Alignment.topLeft,

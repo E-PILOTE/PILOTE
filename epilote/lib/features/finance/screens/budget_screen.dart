@@ -175,7 +175,7 @@ class _BudgetCard extends StatelessWidget {
           if (canEdit || canDelete)
             PopupMenuButton<String>(
               icon:
-                  const Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
+                  Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
               onSelected: (v) => v == 'edit' ? onEdit() : onDelete(),
               itemBuilder: (ctx) => [
                 if (canEdit)
@@ -187,11 +187,11 @@ class _BudgetCard extends StatelessWidget {
                         Text('Modifier'),
                       ])),
                 if (canDelete)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                       value: 'delete',
                       child: Row(children: [
                         Icon(Icons.delete_outline_rounded, size: 16, color: kRed),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Text('Supprimer', style: TextStyle(color: kRed)),
                       ])),
               ],
@@ -221,7 +221,7 @@ class _BudgetCard extends StatelessWidget {
           Text(l.notes!.trim(),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+              style: TextStyle(fontSize: 11.5, color: kTextMuted)),
         ],
       ]),
     );
@@ -240,7 +240,7 @@ class _AddBtn extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                   colors: [kNavyDark, kNavy],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight),

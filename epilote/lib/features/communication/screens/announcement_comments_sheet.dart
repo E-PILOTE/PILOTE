@@ -90,13 +90,13 @@ class _StaffCommentsSheetState extends ConsumerState<StaffCommentsSheet> {
             // ── En-tête ──────────────────────────────────────────────────────
             Container(
               padding: const EdgeInsets.fromLTRB(20, 18, 12, 14),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: kBorder)),
               ),
               child: Row(children: [
-                const Icon(Icons.chat_bubble_outline_rounded, size: 20, color: kNavy),
+                Icon(Icons.chat_bubble_outline_rounded, size: 20, color: kNavy),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Commentaires',
                     style: TextStyle(
@@ -111,7 +111,7 @@ class _StaffCommentsSheetState extends ConsumerState<StaffCommentsSheet> {
                 const SizedBox(width: 6),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded, size: 20, color: kTextMuted),
+                  icon: Icon(Icons.close_rounded, size: 20, color: kTextMuted),
                   tooltip: 'Fermer',
                 ),
               ]),
@@ -123,19 +123,19 @@ class _StaffCommentsSheetState extends ConsumerState<StaffCommentsSheet> {
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Center(
                   child: Text('Erreur : $e',
-                      style: const TextStyle(color: kTextMuted))),
+                      style: TextStyle(color: kTextMuted))),
                 data: (comments) {
                   if (comments.isEmpty) {
-                    return const Center(
+                    return Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.chat_bubble_outline_rounded,
                               size: 40, color: kTextMuted),
-                          SizedBox(height: 12),
+                          const SizedBox(height: 12),
                           Text('Aucun commentaire pour l\'instant',
                               style: TextStyle(color: kTextMuted, fontSize: 13)),
-                          SizedBox(height: 4),
+                          const SizedBox(height: 4),
                           Text('Soyez le premier à réagir !',
                               style: TextStyle(color: kTextMuted, fontSize: 12)),
                         ],
@@ -154,7 +154,7 @@ class _StaffCommentsSheetState extends ConsumerState<StaffCommentsSheet> {
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     itemCount: roots.length,
                     separatorBuilder: (_, _) =>
-                        const Divider(height: 1, indent: 64, color: kBorder),
+                        Divider(height: 1, indent: 64, color: kBorder),
                     itemBuilder: (ctx, i) {
                       final c    = roots[i];
                       final reps = replies[c.id] ?? [];
@@ -191,7 +191,7 @@ class _StaffCommentsSheetState extends ConsumerState<StaffCommentsSheet> {
 
             // ── Zone de saisie ────────────────────────────────────────────────
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: Colors.white,
                 border: Border(top: BorderSide(color: kBorder)),
               ),
@@ -205,14 +205,14 @@ class _StaffCommentsSheetState extends ConsumerState<StaffCommentsSheet> {
                       child: Row(children: [
                         Container(width: 3, height: 14,
                             color: kAccent, margin: const EdgeInsets.only(right: 8)),
-                        const Text('Modification du commentaire',
+                        Text('Modification du commentaire',
                             style: TextStyle(
                                 fontSize: 11.5, color: kTextPrimary,
                                 fontWeight: FontWeight.w600)),
                         const Spacer(),
                         GestureDetector(
                           onTap: _cancelEdit,
-                          child: const Icon(Icons.close_rounded,
+                          child: Icon(Icons.close_rounded,
                               size: 16, color: kTextMuted),
                         ),
                       ]),
@@ -224,14 +224,14 @@ class _StaffCommentsSheetState extends ConsumerState<StaffCommentsSheet> {
                         Container(width: 3, height: 14,
                             color: kNavy, margin: const EdgeInsets.only(right: 8)),
                         Text('Répondre à $_replyingToName',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 11.5, color: kNavy,
                                 fontWeight: FontWeight.w600)),
                         const Spacer(),
                         GestureDetector(
                           onTap: () =>
                               setState(() { _replyingTo = null; _replyingToName = null; }),
-                          child: const Icon(Icons.close_rounded,
+                          child: Icon(Icons.close_rounded,
                               size: 16, color: kTextMuted),
                         ),
                       ]),
@@ -252,20 +252,20 @@ class _StaffCommentsSheetState extends ConsumerState<StaffCommentsSheet> {
                                 ? 'Répondre à $_replyingToName…'
                                 : 'Écrire un commentaire…',
                             hintStyle:
-                                const TextStyle(color: kTextMuted, fontSize: 13),
+                                TextStyle(color: kTextMuted, fontSize: 13),
                             filled: true,
                             fillColor: kSurface,
                             contentPadding:
                                 const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                             border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: kBorder)),
+                                borderSide: BorderSide(color: kBorder)),
                             enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: kBorder)),
+                                borderSide: BorderSide(color: kBorder)),
                             focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: kNavy, width: 1.5)),
+                                borderSide: BorderSide(color: kNavy, width: 1.5)),
                           ),
                         ),
                       ),
@@ -355,7 +355,7 @@ class _CommentTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(name,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
@@ -366,7 +366,7 @@ class _CommentTile extends StatelessWidget {
                       ],
                       const SizedBox(height: 6),
                       SelectableText(comment.content,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 13.5, color: kTextPrimary, height: 1.5)),
                     ],
                   ),
@@ -376,13 +376,13 @@ class _CommentTile extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 4, left: 4),
                   child: Row(children: [
                     Text(fmtRelativeFr(comment.createdAt),
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 11, color: kTextMuted)),
                     if (onReply != null) ...[
                       const SizedBox(width: 12),
                       GestureDetector(
                         onTap: onReply,
-                        child: const Text('Répondre',
+                        child: Text('Répondre',
                             style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
@@ -393,7 +393,7 @@ class _CommentTile extends StatelessWidget {
                       const SizedBox(width: 12),
                       GestureDetector(
                         onTap: onEdit,
-                        child: const Text('Modifier',
+                        child: Text('Modifier',
                             style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -404,7 +404,7 @@ class _CommentTile extends StatelessWidget {
                       const SizedBox(width: 12),
                       GestureDetector(
                         onTap: onDelete,
-                        child: const Text('Supprimer',
+                        child: Text('Supprimer',
                             style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -435,7 +435,7 @@ class _CountChip extends StatelessWidget {
               color: kNavy.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20)),
           child: Text('$count',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11.5, fontWeight: FontWeight.w800, color: kNavy)));
 }
 

@@ -51,12 +51,12 @@ class AdminYearCalendarDialog extends ConsumerWidget {
         const Spacer(),
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Fermer', style: TextStyle(color: kTextMuted)),
+          child: Text('Fermer', style: TextStyle(color: kTextMuted)),
         ),
       ]),
       body: async.when(
-        loading: () => const Padding(
-            padding: EdgeInsets.all(40),
+        loading: () => Padding(
+            padding: const EdgeInsets.all(40),
             child: Center(child: CircularProgressIndicator(color: kNavy))),
         error: (e, _) => Padding(
             padding: const EdgeInsets.all(20),
@@ -74,16 +74,16 @@ class AdminYearCalendarDialog extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: kBorder),
                       ),
-                      child: const Column(children: [
+                      child: Column(children: [
                         Icon(Icons.event_busy_rounded,
                             size: 38, color: kTextMuted),
-                        SizedBox(height: 10),
+                        const SizedBox(height: 10),
                         Text('Aucun trimestre défini',
                             style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
                                 color: kTextPrimary)),
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
                         Text(
                           "Ajoutez un trimestre pour structurer l'année\n"
                           '(les écoles l\'hériteront par synchro).',
@@ -141,7 +141,7 @@ class AdminYearCalendarDialog extends ConsumerWidget {
             label: const Text('Ajouter un trimestre'),
             style: OutlinedButton.styleFrom(
               foregroundColor: kNavy,
-              side: const BorderSide(color: kBorder),
+              side: BorderSide(color: kBorder),
               padding: const EdgeInsets.symmetric(vertical: 13),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),
@@ -183,12 +183,12 @@ class _CalendarSummary extends StatelessWidget {
             const SizedBox(width: 9),
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(value,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
                       color: kTextPrimary)),
               Text(label,
-                  style: const TextStyle(fontSize: 10.5, color: kTextMuted)),
+                  style: TextStyle(fontSize: 10.5, color: kTextMuted)),
             ]),
           ]),
         );
@@ -247,7 +247,7 @@ class _TrimCard extends StatelessWidget {
                   color: kNavy.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8)),
               child: Text('T${trim.number}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w800, color: kNavy)),
             ),
             const SizedBox(width: 12),
@@ -255,14 +255,14 @@ class _TrimCard extends StatelessWidget {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
                   Text(trim.label,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
                   const SizedBox(width: 8),
-                  if (trim.isCurrent) const AdminBadge('Courant', color: kGreen),
+                  if (trim.isCurrent) AdminBadge('Courant', color: kGreen),
                 ]),
                 const SizedBox(height: 2),
                 Text('${_fmt.format(trim.startDate)} → ${_fmt.format(trim.endDate)}',
-                    style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                    style: TextStyle(fontSize: 11, color: kTextMuted)),
               ]),
             ),
             if (!trim.isCurrent)
@@ -272,27 +272,27 @@ class _TrimCard extends StatelessWidget {
                       style: TextStyle(fontSize: 12))),
             IconButton(
               tooltip: 'Ajouter une séquence',
-              icon: const Icon(Icons.add_rounded, size: 18, color: kNavy),
+              icon: Icon(Icons.add_rounded, size: 18, color: kNavy),
               onPressed: onAddSequence,
             ),
           ]),
         ),
         if (trim.sequences.isNotEmpty) ...[
-          const Divider(height: 1, color: kBorder),
+          Divider(height: 1, color: kBorder),
           ...trim.sequences.map((s) => Padding(
                 padding: const EdgeInsets.fromLTRB(18, 8, 14, 8),
                 child: Row(children: [
-                  const Icon(Icons.fiber_manual_record, size: 8, color: kTextMuted),
+                  Icon(Icons.fiber_manual_record, size: 8, color: kTextMuted),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text('Séq. ${s.number} · ${s.label}',
-                        style: const TextStyle(fontSize: 12.5, color: kTextPrimary)),
+                        style: TextStyle(fontSize: 12.5, color: kTextPrimary)),
                   ),
                   Text('${_fmt.format(s.startDate)} → ${_fmt.format(s.endDate)}',
-                      style: const TextStyle(fontSize: 10.5, color: kTextMuted)),
+                      style: TextStyle(fontSize: 10.5, color: kTextMuted)),
                   if (s.isCurrent) ...[
                     const SizedBox(width: 8),
-                    const AdminBadge('Courante', color: kGreen),
+                    AdminBadge('Courante', color: kGreen),
                   ] else
                     TextButton(
                       onPressed: () => onSetCurrentSeq(s.id),
@@ -421,7 +421,7 @@ class _DateField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 12, fontWeight: FontWeight.w600, color: kNavy)),
       const SizedBox(height: 6),
       InkWell(
@@ -444,7 +444,7 @@ class _DateField extends StatelessWidget {
             border: Border.all(color: kBorder),
           ),
           child: Row(children: [
-            const Icon(Icons.calendar_today_rounded, size: 15, color: kTextMuted),
+            Icon(Icons.calendar_today_rounded, size: 15, color: kTextMuted),
             const SizedBox(width: 8),
             Text(value != null ? _fmt.format(value!) : 'Choisir…',
                 style: TextStyle(

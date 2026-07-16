@@ -377,7 +377,7 @@ class _ReactionChips extends StatelessWidget {
                 if (e.value.length > 1) ...[
                   const SizedBox(width: 3),
                   Text('${e.value.length}',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: kTextMuted)),
@@ -503,14 +503,14 @@ class _ComposeContextBar extends StatelessWidget {
                 Text(preview.trim(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                    style: TextStyle(fontSize: 12, color: kTextMuted)),
             ],
           ),
         ),
         IconButton(
           visualDensity: VisualDensity.compact,
           onPressed: onCancel,
-          icon: const Icon(Icons.close_rounded, size: 18, color: kTextMuted),
+          icon: Icon(Icons.close_rounded, size: 18, color: kTextMuted),
         ),
       ]),
     );

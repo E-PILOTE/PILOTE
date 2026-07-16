@@ -47,8 +47,8 @@ class _ExpenseFormState extends ConsumerState<_ExpenseForm> {
   Future<void> _save() async {
     final amount = int.tryParse(_amount.text.trim().replaceAll(' ', ''));
     if (_title.text.trim().isEmpty || amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Intitulé et montant (> 0) requis'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Intitulé et montant (> 0) requis'),
           backgroundColor: kRed));
       return;
     }

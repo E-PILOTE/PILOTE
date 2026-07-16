@@ -66,12 +66,12 @@ class _EdtHistoryView extends ConsumerWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Container(
             padding: const EdgeInsets.fromLTRB(20, 20, 12, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: kBorder))),
             child: Row(children: [
-              const Icon(Icons.history_rounded, size: 19, color: kNavy),
+              Icon(Icons.history_rounded, size: 19, color: kNavy),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text('Historique des modifications',
                     style: TextStyle(
                         fontSize: 16,
@@ -132,7 +132,7 @@ class _EdtHistoryView extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(e.summary,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w700,
                                         color: kTextPrimary)),
@@ -142,13 +142,13 @@ class _EdtHistoryView extends ConsumerWidget {
                                     '${e.actorName ?? 'Agent'}',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 11.5, color: kTextMuted)),
                               ]),
                         ),
                         const SizedBox(width: 8),
                         Text(_when(e.at),
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 11, color: kTextMuted)),
                       ]),
                     );

@@ -147,9 +147,9 @@ class _ResetChip extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: kRed.withValues(alpha: 0.25)),
             ),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.filter_alt_off_rounded, size: 14, color: kRed),
-              SizedBox(width: 5),
+              const SizedBox(width: 5),
               Text('Réinitialiser',
                   style: TextStyle(
                       color: kRed, fontSize: 12, fontWeight: FontWeight.w600)),
@@ -175,17 +175,17 @@ class _ActiveFilterChip extends StatelessWidget {
             border: Border.all(color: kNavy.withValues(alpha: 0.25)),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.filter_alt_rounded, size: 14, color: kNavy),
+            Icon(Icons.filter_alt_rounded, size: 14, color: kNavy),
             const SizedBox(width: 6),
             Text(label,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12.5, fontWeight: FontWeight.w700, color: kNavy)),
             const SizedBox(width: 2),
             InkWell(
               onTap: onClear,
               borderRadius: BorderRadius.circular(20),
-              child: const Padding(
-                padding: EdgeInsets.all(3),
+              child: Padding(
+                padding: const EdgeInsets.all(3),
                 child: Icon(Icons.close_rounded, size: 15, color: kNavy),
               ),
             ),
@@ -205,10 +205,10 @@ class _ResultHeader extends StatelessWidget {
     final noun = total <= 1 ? 'famille' : 'familles';
     final txt = count == total ? '$total $noun' : '$count / $total $noun';
     return Row(children: [
-      const Icon(Icons.groups_2_outlined, size: 16, color: kTextMuted),
+      Icon(Icons.groups_2_outlined, size: 16, color: kTextMuted),
       const SizedBox(width: 8),
       Text(txt,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
       const Spacer(),
       if (onExportPdf != null) AdminPdfButton(onTap: onExportPdf!),
@@ -230,9 +230,9 @@ class _FamilyTable extends StatelessWidget {
       child: Column(children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: kSurface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
           ),
           child: const Row(children: [
             _Th('ÉLÈVE', flex: 4),
@@ -263,7 +263,7 @@ class _Th extends StatelessWidget {
         flex: flex,
         child: Text(label,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.4,
@@ -290,7 +290,7 @@ class _FamilyRowTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          border: last ? null : const Border(bottom: BorderSide(color: kBorder)),
+          border: last ? null : Border(bottom: BorderSide(color: kBorder)),
         ),
         child: Row(children: [
           Expanded(
@@ -303,7 +303,7 @@ class _FamilyRowTile extends StatelessWidget {
                   f.student.firstName.isNotEmpty
                       ? f.student.firstName[0].toUpperCase()
                       : '?',
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: kNavy, fontWeight: FontWeight.w700, fontSize: 13),
                 ),
               ),
@@ -315,12 +315,12 @@ class _FamilyRowTile extends StatelessWidget {
                       Text(f.student.lastFirst,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 13.5,
                               fontWeight: FontWeight.w700,
                               color: kTextPrimary)),
                       Text(f.student.matricule,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 11.5, color: kTextMuted)),
                     ]),
               ),
@@ -332,7 +332,7 @@ class _FamilyRowTile extends StatelessWidget {
                 ? Align(
                     alignment: Alignment.centerLeft,
                     child: AdminBadge(f.student.className!, color: kNavy))
-                : const Text('—', style: TextStyle(color: kTextMuted)),
+                : Text('—', style: TextStyle(color: kTextMuted)),
           ),
           Expanded(
             flex: 4,
@@ -344,7 +344,7 @@ class _FamilyRowTile extends StatelessWidget {
                       Text(p.fullName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w600,
                               color: kTextPrimary)),
@@ -361,10 +361,10 @@ class _FamilyRowTile extends StatelessWidget {
           Expanded(
             flex: 3,
             child: phone == null
-                ? const Text('—', style: TextStyle(color: kTextMuted))
+                ? Text('—', style: TextStyle(color: kTextMuted))
                 : _PhoneChip(phone: phone, onCall: () => onCall(phone)),
           ),
-          const SizedBox(
+          SizedBox(
             width: 40,
             child: Icon(Icons.chevron_right_rounded,
                 size: 18, color: kTextMuted),
@@ -439,7 +439,7 @@ class _FamilyCard extends StatelessWidget {
                   Text(f.student.lastFirst,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.w800,
                           color: kTextPrimary)),
@@ -449,15 +449,15 @@ class _FamilyCard extends StatelessWidget {
                         child: Text(f.student.className!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 11.5, color: kTextMuted)),
                       ),
-                      const Text(' · ',
+                      Text(' · ',
                           style: TextStyle(fontSize: 11.5, color: kTextMuted)),
                     ],
                     Text(f.student.matricule,
                         style:
-                            const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                            TextStyle(fontSize: 11.5, color: kTextMuted)),
                   ]),
                 ]),
           ),
@@ -468,7 +468,7 @@ class _FamilyCard extends StatelessWidget {
         ]),
         const SizedBox(height: 12),
         if (p == null)
-          const Text('Aucun tuteur enregistré',
+          Text('Aucun tuteur enregistré',
               style: TextStyle(fontSize: 12.5, color: kRed))
         else ...[
           Row(children: [
@@ -479,7 +479,7 @@ class _FamilyCard extends StatelessWidget {
               child: Text('${p.fullName} · ${p.relationshipLabel}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12.5, color: kTextPrimary)),
+                  style: TextStyle(fontSize: 12.5, color: kTextPrimary)),
             ),
           ]),
           const SizedBox(height: 8),
@@ -510,13 +510,13 @@ class _PhoneChip extends StatelessWidget {
               borderRadius: BorderRadius.circular(7),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.call_rounded, size: 13, color: kGreen),
+              Icon(Icons.call_rounded, size: 13, color: kGreen),
               const SizedBox(width: 6),
               Flexible(
                 child: Text(phone,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
                         color: kGreen)),
@@ -535,7 +535,7 @@ class _NoContactTag extends StatelessWidget {
         decoration: BoxDecoration(
             color: kRed.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(6)),
-        child: const Text('Sans contact',
+        child: Text('Sans contact',
             style: TextStyle(
                 fontSize: 11, fontWeight: FontWeight.w700, color: kRed)),
       );

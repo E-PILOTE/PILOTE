@@ -99,7 +99,7 @@ class _EvalCard extends StatelessWidget {
                         child: Text(e.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 14.5,
                                 fontWeight: FontWeight.w800,
                                 color: kTextPrimary)),
@@ -117,7 +117,7 @@ class _EvalCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style:
-                            const TextStyle(fontSize: 12, color: kTextMuted)),
+                            TextStyle(fontSize: 12, color: kTextMuted)),
                     const SizedBox(height: 8),
                     Row(children: [
                       Expanded(
@@ -134,7 +134,7 @@ class _EvalCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       Text('${e.gradedCount}/${e.studentCount} notes',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 11, color: kTextMuted)),
                     ]),
                   ]),
@@ -198,7 +198,7 @@ class _CardMenu extends StatelessWidget {
       _ => null,
     };
     return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
+      icon: Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
       onSelected: (v) {
         switch (v) {
           case 'edit':
@@ -237,11 +237,11 @@ class _CardMenu extends StatelessWidget {
                 Text('Modifier'),
               ])),
         if (canDelete)
-          const PopupMenuItem(
+          PopupMenuItem(
               value: 'delete',
               child: Row(children: [
                 Icon(Icons.delete_outline_rounded, size: 16, color: kRed),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Text('Supprimer', style: TextStyle(color: kRed)),
               ])),
       ],

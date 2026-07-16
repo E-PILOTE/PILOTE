@@ -39,13 +39,13 @@ class _PeriodFormState extends ConsumerState<_PeriodForm> {
 
   Future<void> _save() async {
     if (_label.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Le libellé est requis'), backgroundColor: kAccent));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Le libellé est requis'), backgroundColor: kAccent));
       return;
     }
     if (_hhmmToMin(_end) <= _hhmmToMin(_start)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('L\'heure de fin doit suivre l\'heure de début'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('L\'heure de fin doit suivre l\'heure de début'),
           backgroundColor: kAccent));
       return;
     }

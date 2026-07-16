@@ -158,7 +158,7 @@ class _PartnerFormDialogState extends ConsumerState<PartnerFormDialog> {
                       : has
                           ? CachedNetworkImage(
                               imageUrl: _logoUrl!, fit: BoxFit.contain)
-                          : const Icon(Icons.image_outlined,
+                          : Icon(Icons.image_outlined,
                               color: kTextMuted),
                 ),
                 const SizedBox(width: 12),
@@ -227,7 +227,7 @@ class _PartnerFormDialogState extends ConsumerState<PartnerFormDialog> {
               if (_error != null) ...[
                 const SizedBox(height: 10),
                 Text(_error!,
-                    style: const TextStyle(color: kRed, fontSize: 12.5)),
+                    style: TextStyle(color: kRed, fontSize: 12.5)),
               ],
             ],
           ),

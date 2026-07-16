@@ -99,13 +99,13 @@ class _SchoolSatelliteViewState extends ConsumerState<SchoolSatelliteView> {
       if (releases.isNotEmpty) ...[
         const SizedBox(height: 8),
         Row(children: [
-          const Icon(Icons.history_rounded, size: 14, color: kTextMuted),
+          Icon(Icons.history_rounded, size: 14, color: kTextMuted),
           const SizedBox(width: 6),
           Text(
             useWayback
                 ? 'Imagerie du ${DateFormat('MMM yyyy', 'fr').format(releases[_releaseIndex].date)}'
                 : 'Imagerie la plus récente',
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 11, fontWeight: FontWeight.w600, color: kTextPrimary),
           ),
         ]),
@@ -121,8 +121,8 @@ class _SchoolSatelliteViewState extends ConsumerState<SchoolSatelliteView> {
           onChanged: (v) => setState(() => _releaseIndex = v.round() - 1),
         ),
       ] else
-        const Padding(
-          padding: EdgeInsets.only(top: 6),
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
           child: Text('Frise datée indisponible (hors-ligne).',
               style: TextStyle(fontSize: 10, color: kTextMuted)),
         ),

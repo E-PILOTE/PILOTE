@@ -98,7 +98,7 @@ class _SignedNetworkImageState extends State<SignedNetworkImage> {
           width: widget.width,
           height: widget.height,
           color: kSurface,
-          child: const Icon(Icons.broken_image_outlined, color: kTextMuted),
+          child: Icon(Icons.broken_image_outlined, color: kTextMuted),
         );
     // Priorité au fichier local en attente : c'est la seule source disponible
     // hors réseau, et elle est plus fraîche que n'importe quelle URL.

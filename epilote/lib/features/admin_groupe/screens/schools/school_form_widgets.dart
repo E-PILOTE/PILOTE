@@ -20,7 +20,7 @@ class _SchoolLogoUploadBox extends StatelessWidget {
   final VoidCallback onPick;
   final VoidCallback onRemove;
 
-  static const _colors = [kNavy, kGreen, _kPurple, _kOrange, _kBlue];
+  static List<Color> get _colors => [kNavy, kGreen, _kPurple, _kOrange, _kBlue];
 
   String get _initials {
     final parts = name.trim().split(RegExp(r'\s+'));
@@ -97,7 +97,7 @@ class _SchoolLogoUploadBox extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 uploading ? 'Upload…' : (_hasImage ? 'Changer' : 'Logo'),
-                style: const TextStyle(
+                style: TextStyle(
                     color: kNavy, fontSize: 11, fontWeight: FontWeight.w700),
               ),
             ]),
@@ -109,7 +109,7 @@ class _SchoolLogoUploadBox extends StatelessWidget {
 
   Widget _buildContent() {
     if (uploading) {
-      return const Center(
+      return Center(
         child: SizedBox(
           width: 24, height: 24,
           child: CircularProgressIndicator(strokeWidth: 2, color: kNavy),
@@ -123,7 +123,7 @@ class _SchoolLogoUploadBox extends StatelessWidget {
       return CachedNetworkImage(
         imageUrl: logoUrl!,
         fit: BoxFit.cover,
-        placeholder: (_, _) => const Center(
+        placeholder: (_, _) => Center(
           child: SizedBox(
             width: 20, height: 20,
             child: CircularProgressIndicator(strokeWidth: 2, color: kNavy),
@@ -159,7 +159,7 @@ class _SchFormLabel extends StatelessWidget {
         decoration: BoxDecoration(color: kNavy, borderRadius: BorderRadius.circular(2)),
       ),
       const SizedBox(width: 8),
-      Text(text, style: const TextStyle(
+      Text(text, style: TextStyle(
         color: kNavy, fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 1.1,
       )),
     ]),
@@ -170,8 +170,8 @@ class _SchFormDivider extends StatelessWidget {
   const _SchFormDivider();
 
   @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(vertical: 18),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 18),
     child: Divider(color: kBorder, height: 1),
   );
 }
@@ -208,8 +208,8 @@ class _SchSaveBtn extends StatelessWidget {
           height: 40,
           padding: const EdgeInsets.symmetric(horizontal: 20),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-                colors: [Color(0xFF1A2F5A), kNavy],
+            gradient: LinearGradient(
+                colors: [const Color(0xFF1A2F5A), kNavy],
                 begin: Alignment.topLeft, end: Alignment.bottomRight),
             borderRadius: BorderRadius.circular(12),
             boxShadow: btnHov
@@ -241,18 +241,18 @@ class _SchSaveBtn extends StatelessWidget {
 /// Décoration commune des champs du formulaire école.
 InputDecoration schoolInputDec(String hint) => InputDecoration(
   hintText: hint,
-  hintStyle: const TextStyle(color: kTextMuted, fontSize: 13),
+  hintStyle: TextStyle(color: kTextMuted, fontSize: 13),
   filled: true,
   fillColor: kSurface,
   border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorder)),
+      borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
   enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorder)),
+      borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
   focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(8),
-      borderSide: const BorderSide(color: kNavy, width: 1.5)),
+      borderSide: BorderSide(color: kNavy, width: 1.5)),
   errorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kRed)),
+      borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kRed)),
   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
 );
 
@@ -269,18 +269,18 @@ String schoolLogoMimeForExt(String ext) => switch (ext) {
 // ─── Briques visuelles de la section « Offre éducative » ────────────────────
 
 Widget eduSubHeader(String title, {required VoidCallback onAdd}) => Row(children: [
-      Text(title.toUpperCase(), style: const TextStyle(
+      Text(title.toUpperCase(), style: TextStyle(
           fontSize: 10, fontWeight: FontWeight.w800,
           color: kTextMuted, letterSpacing: 0.8)),
       const Spacer(),
       InkWell(
         onTap: onAdd,
         borderRadius: BorderRadius.circular(6),
-        child: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.add_rounded, size: 14, color: kNavy),
-            SizedBox(width: 3),
+            const SizedBox(width: 3),
             Text('Ajouter', style: TextStyle(
                 fontSize: 11, color: kNavy, fontWeight: FontWeight.w700)),
           ]),
@@ -355,9 +355,9 @@ Widget eduError(String msg) => Container(
         border: Border.all(color: kRed.withValues(alpha: 0.3)),
       ),
       child: Row(children: [
-        const Icon(Icons.error_outline_rounded, size: 16, color: kRed),
+        Icon(Icons.error_outline_rounded, size: 16, color: kRed),
         const SizedBox(width: 8),
         Expanded(child: Text(msg,
-            style: const TextStyle(fontSize: 12, color: kRed))),
+            style: TextStyle(fontSize: 12, color: kRed))),
       ]),
     );

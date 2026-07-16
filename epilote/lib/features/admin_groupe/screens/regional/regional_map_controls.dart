@@ -93,11 +93,11 @@ class _CoordReadout extends ConsumerWidget {
           border: Border.all(color: kBorder),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.my_location_rounded, size: 12, color: kNavy),
+          Icon(Icons.my_location_rounded, size: 12, color: kNavy),
           const SizedBox(width: 6),
           Text(
             '${p.latitude.toStringAsFixed(5)}, ${p.longitude.toStringAsFixed(5)}',
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: kTextPrimary,
@@ -223,10 +223,10 @@ class _WaybackFrieze extends StatelessWidget {
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Row(children: [
-          const Icon(Icons.history_rounded, size: 14, color: kNavy),
+          Icon(Icons.history_rounded, size: 14, color: kNavy),
           const SizedBox(width: 6),
           Text('Imagerie satellite datée · $dateLabel',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
                   color: kTextPrimary)),

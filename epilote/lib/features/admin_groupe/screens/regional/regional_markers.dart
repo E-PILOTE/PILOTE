@@ -276,7 +276,7 @@ class _GeoInfoBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const c = kRed;
+    final c = kRed;
     return Align(
       alignment: Alignment.topCenter,
       child: Padding(
@@ -296,7 +296,7 @@ class _GeoInfoBanner extends StatelessWidget {
             Icon(icon, size: 14, color: c),
             const SizedBox(width: 7),
             Text(text,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 11, fontWeight: FontWeight.w600, color: c)),
           ]),
         ),
@@ -341,7 +341,7 @@ class _MapLegend extends ConsumerWidget {
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             leading,
             const SizedBox(width: 7),
-            Text(label, style: const TextStyle(fontSize: 9, color: kTextPrimary)),
+            Text(label, style: TextStyle(fontSize: 9, color: kTextPrimary)),
           ]),
         );
     return Container(
@@ -360,13 +360,13 @@ class _MapLegend extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('LÉGENDE',
+            Text('LÉGENDE',
                 style: TextStyle(
                     fontSize: 8.5, fontWeight: FontWeight.w800,
                     color: kTextMuted, letterSpacing: 1.0)),
             // Choroplèthe
             const SizedBox(height: 3),
-            const Text('CHOROPLÈTHE',
+            Text('CHOROPLÈTHE',
                 style: TextStyle(fontSize: 7, fontWeight: FontWeight.w700,
                     color: kTextMuted, letterSpacing: 0.8)),
             row(colorBox(kGreen,   0.16), '≥ 75 % actives'),
@@ -375,7 +375,7 @@ class _MapLegend extends ConsumerWidget {
             row(colorBox(kRed,     0.12), '0 % active'),
             // Écoles
             const SizedBox(height: 3),
-            const Text('ÉCOLES & PROJETS',
+            Text('ÉCOLES & PROJETS',
                 style: TextStyle(fontSize: 7, fontWeight: FontWeight.w700,
                     color: kTextMuted, letterSpacing: 0.8)),
             if (pinMode == _PinColorMode.type) ...[
@@ -421,7 +421,7 @@ class _MapLegend extends ConsumerWidget {
             row(sq(kGreen, 10), 'Projet achevé'),
             // Localités
             const SizedBox(height: 3),
-            const Text('LOCALITÉS',
+            Text('LOCALITÉS',
                 style: TextStyle(fontSize: 7, fontWeight: FontWeight.w700,
                     color: kTextMuted, letterSpacing: 0.8)),
             row(circle(const Color(0xFF0EA5E9), 10), 'Ville (toujours visible)'),
@@ -458,7 +458,7 @@ class _MapDataStatus extends StatelessWidget {
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           if (loading)
-            const SizedBox(
+            SizedBox(
               width: 13, height: 13,
               child: CircularProgressIndicator(strokeWidth: 2, color: kNavy),
             )
@@ -498,9 +498,9 @@ class _StreetViewFab extends ConsumerWidget {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: kBorder),
           ),
-          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.streetview_rounded, size: 16, color: kNavy),
-            SizedBox(width: 6),
+            const SizedBox(width: 6),
             Text('Vue rue',
                 style: TextStyle(
                     fontSize: 12, fontWeight: FontWeight.w700, color: kNavy)),

@@ -27,11 +27,11 @@ class PlatformServiceMessagesScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline_rounded, color: kRed, size: 40),
+              Icon(Icons.error_outline_rounded, color: kRed, size: 40),
               const SizedBox(height: 12),
               Text('Erreur : $e',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: kTextMuted)),
+                  style: TextStyle(color: kTextMuted)),
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: () => ref.invalidate(serviceMessagesAdminProvider),
@@ -131,7 +131,7 @@ class _Header extends StatelessWidget {
         children: [
           Expanded(
             child: Text('$count message${count > 1 ? 's' : ''}',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: kTextMuted)),
@@ -156,7 +156,7 @@ class _Explainer extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(children: [
-          const Icon(Icons.info_outline_rounded, size: 18, color: kNavy),
+          Icon(Icons.info_outline_rounded, size: 18, color: kNavy),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -201,7 +201,7 @@ class _MessageCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(message.body,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 14,
                         color: kTextPrimary,
                         height: 1.35)),
@@ -215,7 +215,7 @@ class _MessageCard extends StatelessWidget {
                   if (window != null) ...[
                     const SizedBox(width: 8),
                     Text(window,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 11.5, color: kTextMuted)),
                   ],
                 ]),
@@ -233,11 +233,11 @@ class _MessageCard extends StatelessWidget {
               onPressed: onToggle),
           IconButton(
               tooltip: 'Modifier',
-              icon: const Icon(Icons.edit_outlined, color: kNavy, size: 20),
+              icon: Icon(Icons.edit_outlined, color: kNavy, size: 20),
               onPressed: onEdit),
           IconButton(
               tooltip: 'Supprimer',
-              icon: const Icon(Icons.delete_outline_rounded,
+              icon: Icon(Icons.delete_outline_rounded,
                   color: kRed, size: 20),
               onPressed: onDelete),
         ],
@@ -380,7 +380,7 @@ class _MessageFormDialogState extends ConsumerState<_MessageFormDialog> {
             ]),
             if (_error != null) ...[
               const SizedBox(height: 10),
-              Text(_error!, style: const TextStyle(color: kRed, fontSize: 12.5)),
+              Text(_error!, style: TextStyle(color: kRed, fontSize: 12.5)),
             ],
           ],
         ),

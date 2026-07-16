@@ -28,9 +28,9 @@ class AdminUsersScreen extends ConsumerWidget {
         loading: () => const _ShimmerSkeleton(),
         error: (e, _) => Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.cloud_off_rounded, size: 48, color: kTextMuted),
+            Icon(Icons.cloud_off_rounded, size: 48, color: kTextMuted),
             const SizedBox(height: 12),
-            Text('Erreur : $e', style: const TextStyle(color: kTextMuted)),
+            Text('Erreur : $e', style: TextStyle(color: kTextMuted)),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () => ref.invalidate(adminUsersProvider),
@@ -98,9 +98,9 @@ class _UsersBodyState extends ConsumerState<_UsersBody> {
     if (!ensureSubscriptionWritable(ref, context)) return;
     final data = widget.data;
     if (data.schools.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         backgroundColor: kRed,
-        content: Text("Vous devez d'abord créer au moins une école."),
+        content: const Text("Vous devez d'abord créer au moins une école."),
       ));
       return;
     }
@@ -134,9 +134,9 @@ class _UsersBodyState extends ConsumerState<_UsersBody> {
     try {
       await ref.read(adminUsersServiceProvider).resetAgentPin(u.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             backgroundColor: kGreen,
-            content: Text('Code du poste réinitialisé')));
+            content: const Text('Code du poste réinitialisé')));
       }
     } catch (e) {
       if (mounted) {
@@ -438,7 +438,7 @@ class _KpiCardState extends State<_KpiCard> with SingleTickerProviderStateMixin 
                           fontWeight: FontWeight.w900, letterSpacing: -0.5,
                         )),
                         const SizedBox(height: 2),
-                        Text(d.label, style: const TextStyle(
+                        Text(d.label, style: TextStyle(
                           color: kTextMuted, fontSize: 11.5, fontWeight: FontWeight.w600,
                         ), overflow: TextOverflow.ellipsis),
                         if (d.sub != null)
@@ -588,11 +588,11 @@ class _FilterBar extends StatelessWidget {
               onChanged: onSearchChange,
               decoration: InputDecoration(
                 hintText: 'Rechercher (nom, email, matricule)…',
-                hintStyle: const TextStyle(color: kTextMuted, fontSize: 13),
-                prefixIcon: const Icon(Icons.search_rounded, color: kTextMuted, size: 20),
+                hintStyle: TextStyle(color: kTextMuted, fontSize: 13),
+                prefixIcon: Icon(Icons.search_rounded, color: kTextMuted, size: 20),
                 suffixIcon: searchCtrl.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 18, color: kTextMuted),
+                        icon: Icon(Icons.close_rounded, size: 18, color: kTextMuted),
                         onPressed: () { searchCtrl.clear(); onSearchChange(''); })
                     : null,
                 filled: true,
@@ -622,7 +622,7 @@ class _FilterBar extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: kBorder),
                   ),
-                  child: const Icon(Icons.refresh_rounded, size: 20, color: kTextMuted),
+                  child: Icon(Icons.refresh_rounded, size: 20, color: kTextMuted),
                 ),
               ),
             ),
@@ -697,9 +697,9 @@ class _FilterBar extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: kRed.withValues(alpha: 0.25)),
                   ),
-                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
                     Icon(Icons.filter_alt_off_rounded, size: 13, color: kRed),
-                    SizedBox(width: 4),
+                    const SizedBox(width: 4),
                     Text('Réinitialiser', style: TextStyle(
                       color: kRed, fontSize: 11.5, fontWeight: FontWeight.w600)),
                   ]),
@@ -827,10 +827,10 @@ class _ResultHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(children: [
     Text('$filtered résultat${filtered > 1 ? 's' : ''}',
-        style: const TextStyle(color: kTextPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
+        style: TextStyle(color: kTextPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
     if (filtered < total) ...[
       const SizedBox(width: 8),
-      Text('sur $total', style: const TextStyle(color: kTextMuted, fontSize: 13)),
+      Text('sur $total', style: TextStyle(color: kTextMuted, fontSize: 13)),
     ],
   ]);
 }
@@ -904,7 +904,7 @@ class _TableHeader extends StatelessWidget {
         child: Row(children: [
           Flexible(child: Text(label,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: kTextMuted, fontSize: 11, fontWeight: FontWeight.w700))),
+              style: TextStyle(color: kTextMuted, fontSize: 11, fontWeight: FontWeight.w700))),
           const SizedBox(width: 3),
           Icon(
             sortField == field
@@ -930,7 +930,7 @@ class _TableHeader extends StatelessWidget {
       _col('ÉCOLE',             'school', flex: 2),
       _col('STATUT',            'status'),
       _col('DERNIÈRE CONNEXION','login',  flex: 2),
-      const SizedBox(width: 150,
+      SizedBox(width: 150,
           child: Text('ACTIONS', textAlign: TextAlign.end,
               style: TextStyle(color: kTextMuted, fontSize: 11, fontWeight: FontWeight.w700))),
     ]),
@@ -991,10 +991,10 @@ class _TableRowState extends State<_TableRow> {
           // Nom + email
           Expanded(flex: 3, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(u.fullName,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary),
                 overflow: TextOverflow.ellipsis),
             Text(u.email,
-                style: const TextStyle(fontSize: 11, color: kTextMuted),
+                style: TextStyle(fontSize: 11, color: kTextMuted),
                 overflow: TextOverflow.ellipsis),
           ])),
           // Rôle + profil
@@ -1008,7 +1008,7 @@ class _TableRowState extends State<_TableRow> {
           // École
           Expanded(flex: 2, child: u.schoolName != null
               ? _SmallBadge(label: u.schoolName!, color: _kBlue, icon: Icons.account_balance_outlined)
-              : const Text('—', style: TextStyle(color: kTextMuted, fontSize: 12))),
+              : Text('—', style: TextStyle(color: kTextMuted, fontSize: 12))),
           // Statut
           Expanded(child: Row(children: [
             Icon(
@@ -1024,7 +1024,7 @@ class _TableRowState extends State<_TableRow> {
           ])),
           // Dernière connexion
           Expanded(flex: 2, child: Text(u.lastLoginLabel,
-              style: const TextStyle(fontSize: 11.5, color: kTextMuted),
+              style: TextStyle(fontSize: 11.5, color: kTextMuted),
               overflow: TextOverflow.ellipsis)),
           // Actions
           SizedBox(width: 150, child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
@@ -1211,12 +1211,12 @@ class _UserCardState extends State<_UserCard> {
             const SizedBox(width: 10),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(u.fullName, maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: kTextPrimary)),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: kTextPrimary)),
               Text(u.email, maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                  style: TextStyle(fontSize: 11, color: kTextMuted)),
             ])),
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert_rounded, color: kTextMuted, size: 20),
+              icon: Icon(Icons.more_vert_rounded, color: kTextMuted, size: 20),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               onSelected: (v) {
                 if (v == 'view')     widget.onView();
@@ -1229,15 +1229,15 @@ class _UserCardState extends State<_UserCard> {
                 const PopupMenuItem(value: 'view', child: Row(children: [
                   Icon(Icons.visibility_outlined, size: 18, color: _kBlue), SizedBox(width: 10), Text('Voir les détails'),
                 ])),
-                const PopupMenuItem(value: 'edit', child: Row(children: [
-                  Icon(Icons.edit_outlined, size: 18, color: kNavy), SizedBox(width: 10), Text('Modifier'),
+                PopupMenuItem(value: 'edit', child: Row(children: [
+                  Icon(Icons.edit_outlined, size: 18, color: kNavy), const SizedBox(width: 10), const Text('Modifier'),
                 ])),
-                const PopupMenuItem(value: 'password', child: Row(children: [
-                  Icon(Icons.key_rounded, size: 18, color: kAccent), SizedBox(width: 10), Text('Réinit. mot de passe'),
+                PopupMenuItem(value: 'password', child: Row(children: [
+                  Icon(Icons.key_rounded, size: 18, color: kAccent), const SizedBox(width: 10), const Text('Réinit. mot de passe'),
                 ])),
                 if (agentLockApplies(u.role))
-                  const PopupMenuItem(value: 'reset_pin', child: Row(children: [
-                    Icon(Icons.pin_rounded, size: 18, color: kNavy), SizedBox(width: 10), Text('Réinit. code du poste'),
+                  PopupMenuItem(value: 'reset_pin', child: Row(children: [
+                    Icon(Icons.pin_rounded, size: 18, color: kNavy), const SizedBox(width: 10), const Text('Réinit. code du poste'),
                   ])),
                 PopupMenuItem(value: 'toggle', child: Row(children: [
                   Icon(u.isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
@@ -1262,7 +1262,7 @@ class _UserCardState extends State<_UserCard> {
           if (u.lastLogin != null) ...[
             const SizedBox(height: 8),
             Text(u.lastLoginLabel,
-                style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                style: TextStyle(fontSize: 11, color: kTextMuted)),
           ],
         ]),
       ),
@@ -1361,9 +1361,9 @@ class _UserDetailModalState extends State<_UserDetailModal>
           // ─ Header ──────────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 14, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               border: Border(bottom: BorderSide(color: kBorder)),
             ),
             child: Row(children: [
@@ -1382,7 +1382,7 @@ class _UserDetailModalState extends State<_UserDetailModal>
               Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(u.fullName, style: const TextStyle(
+                  Text(u.fullName, style: TextStyle(
                       color: kTextPrimary, fontSize: 17, fontWeight: FontWeight.w800),
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 6),
@@ -1400,16 +1400,16 @@ class _UserDetailModalState extends State<_UserDetailModal>
                   ]),
                   const SizedBox(height: 6),
                   Row(children: [
-                    const Icon(Icons.email_outlined, size: 12, color: kTextMuted),
+                    Icon(Icons.email_outlined, size: 12, color: kTextMuted),
                     const SizedBox(width: 4),
                     Flexible(child: Text(u.email,
-                        style: const TextStyle(color: kTextMuted, fontSize: 11.5),
+                        style: TextStyle(color: kTextMuted, fontSize: 11.5),
                         overflow: TextOverflow.ellipsis)),
                     if (u.phone != null && u.phone!.isNotEmpty) ...[
                       const SizedBox(width: 10),
-                      const Icon(Icons.phone_outlined, size: 12, color: kTextMuted),
+                      Icon(Icons.phone_outlined, size: 12, color: kTextMuted),
                       const SizedBox(width: 3),
-                      Text(u.phone!, style: const TextStyle(color: kTextMuted, fontSize: 11.5)),
+                      Text(u.phone!, style: TextStyle(color: kTextMuted, fontSize: 11.5)),
                     ],
                   ]),
                 ],
@@ -1457,7 +1457,7 @@ class _UserDetailModalState extends State<_UserDetailModal>
           // ─ Footer ───────────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(top: BorderSide(color: kBorder)),
             ),
             child: Row(children: [
@@ -1598,7 +1598,7 @@ class _UserAccessTab extends StatelessWidget {
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(u.roleLbl, style: TextStyle(
                   color: color, fontSize: 16, fontWeight: FontWeight.w800)),
-              const Text('Accès limité à son établissement',
+              Text('Accès limité à son établissement',
                   style: TextStyle(color: kTextMuted, fontSize: 12.5,
                       fontWeight: FontWeight.w600)),
             ])),
@@ -1654,14 +1654,14 @@ class _UserActivityTab extends StatelessWidget {
             subtitle: _fmtDateTime(u.lastLogin),
           )
         else
-          const _UserTimelineItem(
+          _UserTimelineItem(
             icon: Icons.login_rounded,
             color: kTextMuted,
             title: 'Aucune connexion enregistrée',
             subtitle: "L'utilisateur ne s'est jamais connecté",
           ),
         if (!u.isActive)
-          const _UserTimelineItem(
+          _UserTimelineItem(
             icon: Icons.block_rounded,
             color: kRed,
             title: 'Compte actuellement désactivé',
@@ -1669,7 +1669,7 @@ class _UserActivityTab extends StatelessWidget {
             last: true,
           )
         else
-          const _UserTimelineItem(
+          _UserTimelineItem(
             icon: Icons.verified_rounded,
             color: kGreen,
             title: 'Compte opérationnel',
@@ -1711,10 +1711,10 @@ class _UserTimelineItem extends StatelessWidget {
       Expanded(child: Padding(
         padding: EdgeInsets.only(bottom: last ? 0 : 18, top: 6),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: const TextStyle(
+          Text(title, style: TextStyle(
               fontSize: 13.5, fontWeight: FontWeight.w700, color: kTextPrimary)),
           const SizedBox(height: 2),
-          Text(subtitle, style: const TextStyle(fontSize: 12, color: kTextMuted)),
+          Text(subtitle, style: TextStyle(fontSize: 12, color: kTextMuted)),
         ]),
       )),
     ]),
@@ -1930,7 +1930,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
 
   Widget _sectionTitle(String title) => Padding(
     padding: const EdgeInsets.only(top: 20, bottom: 12),
-    child: Text(title, style: const TextStyle(
+    child: Text(title, style: TextStyle(
       fontSize: 11, fontWeight: FontWeight.w700,
       color: kTextMuted, letterSpacing: 0.5,
     )),
@@ -1945,13 +1945,13 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: kBorder),
+          borderSide: BorderSide(color: kBorder),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: readOnly
-              ? const BorderSide(color: kBorder)
-              : const BorderSide(color: kNavy, width: 1.5),
+              ? BorderSide(color: kBorder)
+              : BorderSide(color: kNavy, width: 1.5),
         ),
         contentPadding: const EdgeInsets.all(12),
       );
@@ -1983,7 +1983,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
   Widget _passwordField() => TextFormField(
     controller: _password,
     obscureText: _obscure,
-    style: const TextStyle(fontSize: 13, color: kTextPrimary),
+    style: TextStyle(fontSize: 13, color: kTextPrimary),
     validator: (v) {
       if (v == null || v.isEmpty) return 'Mot de passe requis';
       if (v.length < 6) return 'Au moins 6 caractères';
@@ -2015,7 +2015,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
     _dob, 'Date de naissance (JJ/MM/AAAA)', Icons.cake_outlined,
     keyboard: TextInputType.datetime,
     suffix: IconButton(
-      icon: const Icon(Icons.calendar_today_rounded, size: 18, color: kTextMuted),
+      icon: Icon(Icons.calendar_today_rounded, size: 18, color: kTextMuted),
       onPressed: _pickDate,
     ),
     validator: (v) {
@@ -2061,7 +2061,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
     _hireDate, 'Prise de service', Icons.event_available_outlined,
     keyboard: TextInputType.datetime,
     suffix: IconButton(
-      icon: const Icon(Icons.calendar_today_rounded, size: 18, color: kTextMuted),
+      icon: Icon(Icons.calendar_today_rounded, size: 18, color: kTextMuted),
       onPressed: _pickHireDate,
     ),
     validator: (v) {
@@ -2127,17 +2127,17 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
               // ── En-tête blanc avec boîte icône navy ──────────────────────
               Container(
                 padding: const EdgeInsets.fromLTRB(20, 16, 14, 16),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                   border: Border(bottom: BorderSide(color: kBorder)),
                 ),
                 child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
                   Container(
                     width: 38, height: 38,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF1A2F5A), kNavy],
+                      gradient: LinearGradient(
+                        colors: [const Color(0xFF1A2F5A), kNavy],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -2155,13 +2155,13 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
                     children: [
                       Text(
                         _isEdit ? "Modifier l'utilisateur" : 'Nouvel utilisateur',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: kTextPrimary, fontSize: 15, fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         _isEdit ? widget.user!.email : 'Compte du personnel scolaire',
-                        style: const TextStyle(color: kTextMuted, fontSize: 11),
+                        style: TextStyle(color: kTextMuted, fontSize: 11),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -2179,7 +2179,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: kBorder),
                         ),
-                        child: const Icon(Icons.close_rounded, size: 15, color: kTextMuted),
+                        child: Icon(Icons.close_rounded, size: 15, color: kTextMuted),
                       ),
                     ),
                   ),
@@ -2275,9 +2275,9 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
               // ── Pied de page ─────────────────────────────────────────────
               Container(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: kSurface,
-                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
                   border: Border(top: BorderSide(color: kBorder)),
                 ),
                 child: Row(children: [
@@ -2292,7 +2292,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
                           border: Border.all(color: kBorder),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Text('Annuler', style: TextStyle(
+                        child: Text('Annuler', style: TextStyle(
                           color: kTextMuted, fontSize: 13, fontWeight: FontWeight.w600)),
                       ),
                     ),
@@ -2379,9 +2379,9 @@ class _ResetPasswordDialogState extends ConsumerState<ResetPasswordDialog> {
       await ref.read(adminUsersServiceProvider).resetPassword(widget.user.id, _pwd.text);
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           backgroundColor: kGreen,
-          content: Text('Mot de passe réinitialisé'),
+          content: const Text('Mot de passe réinitialisé'),
         ));
       }
     } catch (e) {

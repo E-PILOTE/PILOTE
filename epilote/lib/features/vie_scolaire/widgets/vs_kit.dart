@@ -105,13 +105,13 @@ class VsHeader extends StatelessWidget {
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(title,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                     color: kTextPrimary)),
             const SizedBox(height: 2),
             Text(subtitle,
-                style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
+                style: TextStyle(fontSize: 12.5, color: kTextMuted)),
           ]),
         ),
         if (trailing != null) ...[const SizedBox(width: 16), trailing!],
@@ -181,7 +181,7 @@ class VsPickerBox extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(child: child),
         if (onTap != null)
-          const Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
+          Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
       ]),
     );
     return SizedBox(
@@ -301,7 +301,7 @@ class _CoverageCard extends StatelessWidget {
                           Text(r.className,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w800,
                                   color: kTextPrimary)),
@@ -310,7 +310,7 @@ class _CoverageCard extends StatelessWidget {
                               '${r.total} élèves',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 11.5, color: kTextMuted)),
                         ]),
                   ),
@@ -323,7 +323,7 @@ class _CoverageCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(7),
                       ),
                       child: Text(r.note!,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
                               color: kNavy)),
@@ -351,11 +351,11 @@ class _CoverageCard extends StatelessWidget {
                   const Spacer(),
                   Row(children: [
                     Text(openLabel,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w700,
                             color: kNavy)),
-                    const Icon(Icons.chevron_right_rounded,
+                    Icon(Icons.chevron_right_rounded,
                         size: 16, color: kNavy),
                   ]),
                 ]),
@@ -382,17 +382,17 @@ class VsScopeChip extends StatelessWidget {
             border: Border.all(color: kNavy.withValues(alpha: 0.25)),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.filter_alt_rounded, size: 14, color: kNavy),
+            Icon(Icons.filter_alt_rounded, size: 14, color: kNavy),
             const SizedBox(width: 6),
             Text(label,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12.5, fontWeight: FontWeight.w700, color: kNavy)),
             const SizedBox(width: 2),
             InkWell(
               onTap: onClear,
               borderRadius: BorderRadius.circular(20),
-              child: const Padding(
-                padding: EdgeInsets.all(3),
+              child: Padding(
+                padding: const EdgeInsets.all(3),
                 child: Icon(Icons.close_rounded, size: 15, color: kNavy),
               ),
             ),
@@ -410,7 +410,7 @@ class VsSectionLabel extends StatelessWidget {
         Icon(icon, size: 16, color: kNavy),
         const SizedBox(width: 8),
         Text(text,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 13.5, fontWeight: FontWeight.w800, color: kNavy)),
       ]);
 }

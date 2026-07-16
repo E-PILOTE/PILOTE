@@ -123,7 +123,7 @@ class _SpanBar extends StatelessWidget {
           Expanded(
             child: Center(
               child: Text(monthLabel,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w800,
                       color: kTextPrimary)),

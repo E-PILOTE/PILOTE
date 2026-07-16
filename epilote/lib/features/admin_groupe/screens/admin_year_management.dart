@@ -64,7 +64,7 @@ class _ManagementSection extends ConsumerWidget {
                   filter == 'archived'
                       ? 'Aucune année archivée.'
                       : 'Aucune année dans ce filtre.',
-                  style: const TextStyle(fontSize: 13, color: kTextMuted),
+                  style: TextStyle(fontSize: 13, color: kTextMuted),
                 ),
               ),
             ),
@@ -172,7 +172,7 @@ class _YearCard extends ConsumerWidget {
               Icon(st.icon, size: 18, color: st.color),
               const SizedBox(width: 8),
               Text(year.label,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
                       color: kTextPrimary)),
@@ -181,7 +181,7 @@ class _YearCard extends ConsumerWidget {
               const Spacer(),
               Text('${_fmtShort.format(year.startDate)} → '
                   '${_fmtShort.format(year.endDate)}',
-                  style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                  style: TextStyle(fontSize: 12, color: kTextMuted)),
             ],
           ),
           const SizedBox(height: 14),
@@ -203,13 +203,13 @@ class _YearCard extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.account_balance_rounded,
+                        Icon(Icons.account_balance_rounded,
                             size: 14, color: kTextMuted),
                         const SizedBox(width: 6),
                         Text(
                           '${year.schoolsAdopted}/${year.schoolsTotal} '
                           'écoles préparées',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: kTextMuted),
@@ -233,7 +233,7 @@ class _YearCard extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 14),
-          const Divider(height: 1, color: kBorder),
+          Divider(height: 1, color: kBorder),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -303,12 +303,12 @@ class _Metric extends StatelessWidget {
           Icon(icon, size: 16, color: kNavy),
           const SizedBox(width: 6),
           Text(value,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                   color: kTextPrimary)),
           const SizedBox(width: 4),
-          Text(label, style: const TextStyle(fontSize: 12, color: kTextMuted)),
+          Text(label, style: TextStyle(fontSize: 12, color: kTextMuted)),
         ],
       );
 }

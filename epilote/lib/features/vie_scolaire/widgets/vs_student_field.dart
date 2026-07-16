@@ -53,7 +53,7 @@ class VsStudentField extends StatelessWidget {
                     fontWeight: sel == null ? FontWeight.w400 : FontWeight.w700,
                     color: sel == null ? kTextMuted : kTextPrimary)),
           ),
-          const Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
+          Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
         ]),
       ),
     );
@@ -126,7 +126,7 @@ class _StudentPickerSheetState extends State<_StudentPickerSheet> {
           const Divider(height: 1),
           Expanded(
             child: list.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text('Aucun élève',
                         style: TextStyle(color: kTextMuted)))
                 : ListView.builder(

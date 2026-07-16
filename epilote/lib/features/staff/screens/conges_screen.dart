@@ -208,7 +208,7 @@ class _BodyState extends ConsumerState<_Body> {
             ]),
             const SizedBox(height: 18),
             Row(children: [
-              const Text('Répartir par',
+              Text('Répartir par',
                   style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
@@ -310,7 +310,7 @@ class _FilterBar extends StatelessWidget {
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
-              side: const BorderSide(color: kBorder)),
+              side: BorderSide(color: kBorder)),
         ),
       );
 }
@@ -366,14 +366,14 @@ class _LeaveCard extends StatelessWidget {
           ),
           if (canDelete || (canReview && r.status != 'pending'))
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert_rounded,
+              icon: Icon(Icons.more_vert_rounded,
                   size: 18, color: kTextMuted),
               onSelected: (v) => v == 'edit' ? onEdit() : onDelete(),
               itemBuilder: (_) => [
                 if (canReview && r.isPending)
                   const PopupMenuItem(value: 'edit', child: Text('Modifier')),
                 if (canDelete)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                       value: 'delete',
                       child: Text('Supprimer', style: TextStyle(color: kRed))),
               ],
@@ -385,19 +385,19 @@ class _LeaveCard extends StatelessWidget {
         Text(
             '${leaveTypeLabel(r.leaveType)} · ${r.daysCount} jour'
             '${r.daysCount > 1 ? 's' : ''}${period.isNotEmpty ? ' · $period' : ''}',
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12.5, fontWeight: FontWeight.w600, color: kNavy)),
         if ((r.reason ?? '').trim().isNotEmpty) ...[
           const SizedBox(height: 3),
           Text(r.reason!.trim(),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, color: kTextMuted)),
+              style: TextStyle(fontSize: 12, color: kTextMuted)),
         ],
         if (r.status == 'rejected' && (r.rejectionReason ?? '').trim().isNotEmpty) ...[
           const SizedBox(height: 3),
           Text('Refus : ${r.rejectionReason!.trim()}',
-              style: const TextStyle(fontSize: 11.5, color: kRed)),
+              style: TextStyle(fontSize: 11.5, color: kRed)),
         ],
         if (canReview && r.isPending) ...[
           const SizedBox(height: 10),
@@ -407,7 +407,7 @@ class _LeaveCard extends StatelessWidget {
                 onPressed: onReject,
                 style: OutlinedButton.styleFrom(
                     foregroundColor: kRed,
-                    side: const BorderSide(color: kRed),
+                    side: BorderSide(color: kRed),
                     padding: const EdgeInsets.symmetric(vertical: 8)),
                 icon: const Icon(Icons.close_rounded, size: 16),
                 label: const Text('Refuser'),
@@ -443,7 +443,7 @@ class _AddBtn extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                   colors: [kNavyDark, kNavy],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight),

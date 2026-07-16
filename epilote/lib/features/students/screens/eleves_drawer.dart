@@ -33,7 +33,7 @@ class _StudentDrawer extends ConsumerWidget {
                 error: (e, _) => Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text('Erreur : $e',
-                      style: const TextStyle(color: kRed)),
+                      style: TextStyle(color: kRed)),
                 ),
                 data: (d) => SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
@@ -56,14 +56,14 @@ class _DwHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 14, 12, 16),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: kBorder)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Align(
           alignment: Alignment.centerRight,
           child: IconButton(
-            icon: const Icon(Icons.close_rounded, color: kTextMuted),
+            icon: Icon(Icons.close_rounded, color: kTextMuted),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
@@ -75,13 +75,13 @@ class _DwHeader extends StatelessWidget {
               Text(row.fullName,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
                       color: kTextPrimary)),
               const SizedBox(height: 6),
               Wrap(spacing: 6, runSpacing: 6, children: [
-                const AdminBadge('Inscrit', color: kGreen),
+                AdminBadge('Inscrit', color: kGreen),
                 if (row.className != null)
                   AdminBadge(row.className!, color: _cycColor(row.cycleCode)),
                 if (row.matricule.isNotEmpty)
@@ -333,7 +333,7 @@ class _DwActionBar extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration:
-          const BoxDecoration(border: Border(top: BorderSide(color: kBorder))),
+          BoxDecoration(border: Border(top: BorderSide(color: kBorder))),
       child: Row(children: [
         if (canUpdate)
           Expanded(
@@ -397,7 +397,7 @@ class _DwActionBar extends ConsumerWidget {
                       icon: Icons.logout_rounded, label: 'Radier / abandon')),
             if (canDelete) ...[
               const PopupMenuDivider(),
-              const PopupMenuItem(
+              PopupMenuItem(
                   value: 'deactivate',
                   child: _MenuRow(
                       icon: Icons.person_off_outlined,
@@ -412,9 +412,9 @@ class _DwActionBar extends ConsumerWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: kBorder),
             ),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.more_horiz_rounded, color: kTextMuted, size: 20),
-              SizedBox(width: 6),
+              const SizedBox(width: 6),
               Text('Actions',
                   style: TextStyle(
                       color: kTextMuted,
@@ -500,13 +500,13 @@ class _ExitDialogState extends ConsumerState<_ExitDialog> {
                     'registre.'
                 : 'L\'élève quitte l\'effectif (abandon / exclusion). '
                     'L\'historique est conservé.',
-            style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
+            style: TextStyle(fontSize: 12.5, color: kTextMuted)),
         const SizedBox(height: 14),
         if (t) ...[
           TransferDestinationPicker(onChanged: (d) => _dest = d),
           const SizedBox(height: 14),
         ],
-        const Text('Motif',
+        Text('Motif',
             style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,

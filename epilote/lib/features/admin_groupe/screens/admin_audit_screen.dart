@@ -174,7 +174,7 @@ class _AdminAuditScreenState extends ConsumerState<AdminAuditScreen>
             ),
 
             const SizedBox(height: 2),
-            const Divider(height: 1, color: kBorder),
+            Divider(height: 1, color: kBorder),
 
             // ── Contenu des onglets ──────────────────────────────────────────
             Expanded(
@@ -331,12 +331,12 @@ class _CriticalAlertBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.warning_rounded, color: kRed, size: 18),
+          Icon(Icons.warning_rounded, color: kRed, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               alerts.first.title,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 13, fontWeight: FontWeight.w700, color: kRed),
             ),
           ),
@@ -379,8 +379,8 @@ class _ActivityTab extends ConsumerWidget {
         pageAsync.when(
           skipLoadingOnReload: true,
           skipLoadingOnRefresh: true,
-          loading: () => const Padding(
-            padding: EdgeInsets.only(top: 80),
+          loading: () => Padding(
+            padding: const EdgeInsets.only(top: 80),
             child: Center(child: CircularProgressIndicator(color: kNavy)),
           ),
           error: (e, _) => Padding(
@@ -738,7 +738,7 @@ class _AuditList extends ConsumerWidget {
                       _showDetail(context, ref, page.entries[i]),
                 ),
                 if (i != page.entries.length - 1)
-                  const Divider(height: 1, color: kBorder),
+                  Divider(height: 1, color: kBorder),
               ],
             ],
           ),
@@ -799,7 +799,7 @@ class _Pager extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text('$from–$to sur $total événements',
-            style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
+            style: TextStyle(fontSize: 12.5, color: kTextMuted)),
         Row(
           children: [
             IconButton(
@@ -811,7 +811,7 @@ class _Pager extends StatelessWidget {
             ),
             Text(
                 '${pageIndex + 1} / ${totalPages == 0 ? 1 : totalPages}',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
                     color: kTextPrimary)),
@@ -894,7 +894,7 @@ class _AuditRow extends StatelessWidget {
                     Flexible(
                       child: Text('· ${e.entityLabel}',
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 13.5,
                               fontWeight: FontWeight.w700,
                               color: kTextPrimary)),
@@ -908,7 +908,7 @@ class _AuditRow extends StatelessWidget {
                           color: kRed.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text('SENSIBLE',
+                        child: Text('SENSIBLE',
                             style: TextStyle(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w800,
@@ -919,35 +919,35 @@ class _AuditRow extends StatelessWidget {
                   ]),
                   const SizedBox(height: 3),
                   Row(children: [
-                    const Icon(Icons.person_outline_rounded,
+                    Icon(Icons.person_outline_rounded,
                         size: 13, color: kTextMuted),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text('${e.userName} · ${e.roleLbl}',
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12, color: kTextMuted)),
                     ),
                     if (e.schoolName != null) ...[
                       const SizedBox(width: 10),
-                      const Icon(Icons.school_outlined,
+                      Icon(Icons.school_outlined,
                           size: 13, color: kTextMuted),
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(e.schoolName!,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 12, color: kTextMuted)),
                       ),
                     ],
                     if (e.ipAddress != null &&
                         e.ipAddress!.isNotEmpty) ...[
                       const SizedBox(width: 10),
-                      const Icon(Icons.lan_outlined,
+                      Icon(Icons.lan_outlined,
                           size: 12, color: kTextMuted),
                       const SizedBox(width: 3),
                       Text(e.ipAddress!,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 11,
                               color: kTextMuted,
                               fontFamily: 'monospace')),
@@ -968,7 +968,7 @@ class _AuditRow extends StatelessWidget {
                               border: Border.all(color: kBorder),
                             ),
                             child: Text(field,
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 10.5, color: kTextMuted)),
                           )).toList(),
                     ),
@@ -984,7 +984,7 @@ class _AuditRow extends StatelessWidget {
                     style:
                         TextStyle(fontSize: 11, color: Colors.grey.shade400)),
                 const SizedBox(height: 6),
-                const Icon(Icons.chevron_right_rounded,
+                Icon(Icons.chevron_right_rounded,
                     size: 16, color: kTextMuted),
               ],
             ),
@@ -1017,9 +1017,9 @@ class _ChartsTab extends ConsumerWidget {
     return timelineAsync.when(
       skipLoadingOnReload: true,
       skipLoadingOnRefresh: true,
-      loading: () => const Center(
+      loading: () => Center(
         child: Padding(
-          padding: EdgeInsets.only(top: 80),
+          padding: const EdgeInsets.only(top: 80),
           child: CircularProgressIndicator(color: kNavy),
         ),
       ),
@@ -1159,13 +1159,13 @@ class _ChartCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
                   color: kTextPrimary)),
           const SizedBox(height: 2),
           Text(subtitle,
-              style: const TextStyle(fontSize: 12, color: kTextMuted)),
+              style: TextStyle(fontSize: 12, color: kTextMuted)),
           const SizedBox(height: 12),
           child,
         ],
@@ -1190,7 +1190,7 @@ class _TimelineChart extends StatelessWidget {
       primaryXAxis: CategoryAxis(
         majorGridLines: const MajorGridLines(width: 0),
         axisLine: const AxisLine(width: 0),
-        labelStyle: const TextStyle(fontSize: 10, color: kTextMuted),
+        labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
         labelPlacement: LabelPlacement.onTicks,
         axisLabelFormatter: (details) {
           final idx = details.value.toInt();
@@ -1202,14 +1202,14 @@ class _TimelineChart extends StatelessWidget {
           return ChartAxisLabel(buckets[idx].dayLabel, null);
         },
       ),
-      primaryYAxis: const NumericAxis(
+      primaryYAxis: NumericAxis(
         majorGridLines: MajorGridLines(
-            width: 0.5, color: kBorder, dashArray: [4, 4]),
-        axisLine: AxisLine(width: 0),
+            width: 0.5, color: kBorder, dashArray: const [4, 4]),
+        axisLine: const AxisLine(width: 0),
         labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
         minimum: 0,
       ),
-      legend: const Legend(
+      legend: Legend(
         isVisible: true,
         position: LegendPosition.bottom,
         textStyle: TextStyle(fontSize: 11, color: kTextMuted),
@@ -1264,7 +1264,7 @@ class _DonutActionChart extends StatelessWidget {
     final deletes = buckets.fold(0, (s, b) => s + b.deletes);
 
     if (total == 0) {
-      return const Center(
+      return Center(
           child: Text('Aucune donnée', style: TextStyle(color: kTextMuted)));
     }
 
@@ -1276,7 +1276,7 @@ class _DonutActionChart extends StatelessWidget {
 
     return SfCircularChart(
       margin: EdgeInsets.zero,
-      legend: const Legend(
+      legend: Legend(
         isVisible: true,
         position: LegendPosition.bottom,
         textStyle: TextStyle(fontSize: 11, color: kTextMuted),
@@ -1315,21 +1315,21 @@ class _TopEntitiesChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (entities.isEmpty) {
-      return const Center(
+      return Center(
           child: Text('Aucune donnée', style: TextStyle(color: kTextMuted)));
     }
     return SfCartesianChart(
       margin: const EdgeInsets.all(0),
       plotAreaBorderWidth: 0,
-      primaryXAxis: const CategoryAxis(
-        majorGridLines: MajorGridLines(width: 0),
-        axisLine: AxisLine(width: 0),
+      primaryXAxis: CategoryAxis(
+        majorGridLines: const MajorGridLines(width: 0),
+        axisLine: const AxisLine(width: 0),
         labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
       ),
-      primaryYAxis: const NumericAxis(
+      primaryYAxis: NumericAxis(
         majorGridLines: MajorGridLines(
-            width: 0.5, color: kBorder, dashArray: [4, 4]),
-        axisLine: AxisLine(width: 0),
+            width: 0.5, color: kBorder, dashArray: const [4, 4]),
+        axisLine: const AxisLine(width: 0),
         labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
         minimum: 0,
       ),
@@ -1384,7 +1384,7 @@ class _RankingCard extends StatelessWidget {
             Icon(icon, size: 16, color: kNavy),
             const SizedBox(width: 8),
             Text(title,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
                     color: kTextPrimary)),
@@ -1393,7 +1393,7 @@ class _RankingCard extends StatelessWidget {
           if (items.isEmpty)
             Text(emptyMessage,
                 style:
-                    const TextStyle(fontSize: 12.5, color: kTextMuted))
+                    TextStyle(fontSize: 12.5, color: kTextMuted))
           else
             for (int i = 0; i < items.length; i++) ...[
               _RankingRow(
@@ -1435,7 +1435,7 @@ class _RankingRow extends StatelessWidget {
           SizedBox(
             width: 20,
             child: Text('$rank.',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: kTextMuted)),
@@ -1443,12 +1443,12 @@ class _RankingRow extends StatelessWidget {
           Expanded(
             child: Text(label,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12.5, color: kTextPrimary)),
           ),
           const SizedBox(width: 8),
           Text('$count',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
                   color: kTextPrimary)),
@@ -1477,7 +1477,7 @@ class _AlertsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return const Center(
+      return Center(
           child: CircularProgressIndicator(color: kNavy));
     }
     if (alerts.isEmpty) {
@@ -1583,7 +1583,7 @@ class _AlertCard extends StatelessWidget {
                 ]),
                 const SizedBox(height: 6),
                 Text(alert.description,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13, color: kTextPrimary, height: 1.4)),
               ],
             ),
@@ -1661,12 +1661,12 @@ class _AuditDetailDialog extends StatelessWidget {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.copy_rounded,
+                                  Icon(Icons.copy_rounded,
                                       size: 12, color: kTextMuted),
                                   const SizedBox(width: 5),
                                   Text(
                                     _truncateId(e.recordId!),
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 11,
                                         color: kTextMuted,
                                         fontFamily: 'monospace'),
@@ -1712,10 +1712,10 @@ class _AuditDetailDialog extends StatelessWidget {
                       const AdminModalSectionTitle('Détail des changements'),
                       const SizedBox(width: 8),
                       if (isInsert)
-                        const AdminBadge('Création',
+                        AdminBadge('Création',
                             color: kGreen, icon: Icons.add_rounded)
                       else if (isDelete)
-                        const AdminBadge('Suppression',
+                        AdminBadge('Suppression',
                             color: kRed,
                             icon: Icons.delete_outline_rounded)
                       else
@@ -1742,7 +1742,7 @@ class _AuditDetailDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(14),
               decoration:
-                  const BoxDecoration(border: Border(top: BorderSide(color: kBorder))),
+                  BoxDecoration(border: Border(top: BorderSide(color: kBorder))),
               child: Row(
                 children: [
                   if (onFilterSchool != null)
@@ -1752,7 +1752,7 @@ class _AuditDetailDialog extends StatelessWidget {
                       label: const Text('Filtrer cette école'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: kNavy,
-                        side: const BorderSide(color: kBorder),
+                        side: BorderSide(color: kBorder),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 11),
                         shape: RoundedRectangleBorder(
@@ -1790,7 +1790,7 @@ class _AuditDetailDialog extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: kBorder),
         ),
-        child: const Text(
+        child: Text(
           'Aucune donnée détaillée enregistrée pour cet événement.',
           style: TextStyle(fontSize: 12.5, color: kTextMuted),
         ),
@@ -1879,7 +1879,7 @@ class _DiffTable extends StatelessWidget {
           for (int i = 0; i < sorted.length; i++) ...[
             _DiffRow(
                 d: sorted[i], showBefore: showBefore, showAfter: showAfter),
-            if (i != sorted.length - 1) const Divider(height: 1, color: kBorder),
+            if (i != sorted.length - 1) Divider(height: 1, color: kBorder),
           ],
         ],
       ),
@@ -1912,12 +1912,12 @@ class _DiffRow extends StatelessWidget {
                 width: 6,
                 height: 6,
                 decoration:
-                    const BoxDecoration(color: kAccent, shape: BoxShape.circle),
+                    BoxDecoration(color: kAccent, shape: BoxShape.circle),
               ),
             Expanded(
               child: Text(
                 _fieldLabel(d.field),
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w800,
                     color: kTextPrimary),
@@ -1939,8 +1939,8 @@ class _DiffRow extends StatelessWidget {
                   ),
                 ),
                 if (showAfter)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 6),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
                     child: Icon(Icons.arrow_forward_rounded,
                         size: 14, color: kTextMuted),
                   ),
@@ -2014,7 +2014,7 @@ class _ValueChip extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label.toUpperCase(),
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.w800,
                   color: kTextMuted,
@@ -2077,7 +2077,7 @@ class _DateRangeSelector extends StatelessWidget {
                 size: 15, color: hasRange ? kNavy : kTextMuted),
             const SizedBox(width: 8),
             if (!hasRange)
-              const Text('Période personnalisée',
+              Text('Période personnalisée',
                   style: TextStyle(fontSize: 13, color: kTextMuted))
             else ...[
               _DateChip(label: 'DU', date: dateFrom!),
@@ -2135,7 +2135,7 @@ class _DateChip extends StatelessWidget {
           '${date.day.toString().padLeft(2, '0')}/'
           '${date.month.toString().padLeft(2, '0')}/'
           '${date.year}',
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 12.5, fontWeight: FontWeight.w700, color: kNavy),
         ),
       ],
@@ -2168,20 +2168,20 @@ class _ExportButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.upload_file_rounded, size: 15, color: kNavy),
+            Icon(Icons.upload_file_rounded, size: 15, color: kNavy),
             const SizedBox(width: 8),
             Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Exporter',
+                Text('Exporter',
                     style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                         color: kNavy)),
                 if (totalCount > 0)
                   Text('$totalCount événements',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 10, color: kTextMuted)),
               ],
             ),
@@ -2359,9 +2359,9 @@ class _ExportDialogState extends ConsumerState<_ExportDialog> {
         // ── En-tête style SchoolFormDialog ──────────────────────────────────
         Container(
           padding: const EdgeInsets.fromLTRB(22, 18, 16, 18),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
             border: Border(bottom: BorderSide(color: kBorder)),
           ),
           child: Row(children: [
@@ -2369,8 +2369,8 @@ class _ExportDialogState extends ConsumerState<_ExportDialog> {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1A2F5A), kNavy],
+                gradient: LinearGradient(
+                  colors: [const Color(0xFF1A2F5A), kNavy],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -2387,7 +2387,7 @@ class _ExportDialogState extends ConsumerState<_ExportDialog> {
                   color: Colors.white, size: 19),
             ),
             const SizedBox(width: 14),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2396,7 +2396,7 @@ class _ExportDialogState extends ConsumerState<_ExportDialog> {
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
                           color: kTextPrimary)),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text('Format CSV · encodage UTF-8',
                       style: TextStyle(fontSize: 11.5, color: kTextMuted)),
                 ],
@@ -2414,7 +2414,7 @@ class _ExportDialogState extends ConsumerState<_ExportDialog> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: kBorder),
                   ),
-                  child: const Icon(Icons.close_rounded,
+                  child: Icon(Icons.close_rounded,
                       size: 16, color: kTextMuted),
                 ),
               ),
@@ -2430,7 +2430,7 @@ class _ExportDialogState extends ConsumerState<_ExportDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Périmètre
-                const Text('Périmètre d\'export',
+                Text('Périmètre d\'export',
                     style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
@@ -2461,7 +2461,7 @@ class _ExportDialogState extends ConsumerState<_ExportDialog> {
                 const SizedBox(height: 18),
 
                 // Colonnes
-                const Text('Colonnes à inclure',
+                Text('Colonnes à inclure',
                     style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
@@ -2530,9 +2530,9 @@ class _ExportDialogState extends ConsumerState<_ExportDialog> {
         // ── Pied ─────────────────────────────────────────────────────────────
         Container(
           padding: const EdgeInsets.fromLTRB(22, 14, 22, 18),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             border: Border(top: BorderSide(color: kBorder)),
-            borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(18)),
           ),
           child: Row(
             children: [
@@ -2542,11 +2542,11 @@ class _ExportDialogState extends ConsumerState<_ExportDialog> {
                       _loading ? null : () => Navigator.of(context).pop(),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 13),
-                    side: const BorderSide(color: kBorder),
+                    side: BorderSide(color: kBorder),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text('Annuler',
+                  child: Text('Annuler',
                       style: TextStyle(color: kTextMuted)),
                 ),
               ),
@@ -2592,9 +2592,9 @@ class _ExportDialogState extends ConsumerState<_ExportDialog> {
         // Header
         Container(
           padding: const EdgeInsets.fromLTRB(22, 18, 16, 18),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
             border: Border(bottom: BorderSide(color: kBorder)),
           ),
           child: Row(children: [
@@ -2605,7 +2605,7 @@ class _ExportDialogState extends ConsumerState<_ExportDialog> {
                 color: kGreen.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.check_circle_rounded,
+              child: Icon(Icons.check_circle_rounded,
                   color: kGreen, size: 22),
             ),
             const SizedBox(width: 14),
@@ -2613,14 +2613,14 @@ class _ExportDialogState extends ConsumerState<_ExportDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Export réussi',
+                  Text('Export réussi',
                       style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
                           color: kTextPrimary)),
                   const SizedBox(height: 2),
                   Text('$_exportedCount événement(s) exporté(s)',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 11.5, color: kTextMuted)),
                 ],
               ),
@@ -2644,10 +2644,10 @@ class _ExportDialogState extends ConsumerState<_ExportDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(children: [
+                    Row(children: [
                       Icon(Icons.insert_drive_file_rounded,
                           size: 14, color: kTextMuted),
-                      SizedBox(width: 6),
+                      const SizedBox(width: 6),
                       Text('Fichier généré',
                           style: TextStyle(
                               fontSize: 11,
@@ -2658,7 +2658,7 @@ class _ExportDialogState extends ConsumerState<_ExportDialog> {
                     const SizedBox(height: 8),
                     SelectableText(
                       _filePath ?? '',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 12.5,
                           fontFamily: 'monospace',
                           color: kTextPrimary),
@@ -2686,7 +2686,7 @@ class _ExportDialogState extends ConsumerState<_ExportDialog> {
                       label: const Text('Copier le chemin'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: kNavy,
-                        side: const BorderSide(color: kBorder),
+                        side: BorderSide(color: kBorder),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8)),
@@ -2796,7 +2796,7 @@ class _ScopeCard extends StatelessWidget {
                       ],
                     ]),
                     Text(subtitle,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 11.5, color: kTextMuted)),
                   ],
                 ),
@@ -2891,10 +2891,10 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
             // ── Header ─────────────────────────────────────────────────────
             Container(
               padding: const EdgeInsets.fromLTRB(22, 18, 16, 18),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius:
-                    BorderRadius.vertical(top: Radius.circular(18)),
+                    const BorderRadius.vertical(top: Radius.circular(18)),
                 border: Border(bottom: BorderSide(color: kBorder)),
               ),
               child: Row(children: [
@@ -2902,8 +2902,8 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF1A2F5A), kNavy],
+                    gradient: LinearGradient(
+                      colors: [const Color(0xFF1A2F5A), kNavy],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -2920,7 +2920,7 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
                       color: Colors.white, size: 19),
                 ),
                 const SizedBox(width: 14),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -2929,7 +2929,7 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
                           'Cliquez sur une date de début, puis une date de fin',
                           style:
@@ -2949,7 +2949,7 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: kBorder),
                       ),
-                      child: const Icon(Icons.close_rounded,
+                      child: Icon(Icons.close_rounded,
                           size: 16, color: kTextMuted),
                     ),
                   ),
@@ -2961,14 +2961,14 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
             Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: kSurface,
                 border: Border(
                     top: BorderSide(color: kBorder),
                     bottom: BorderSide(color: kBorder)),
               ),
               child: Row(children: [
-                const Text('Raccourcis :',
+                Text('Raccourcis :',
                     style: TextStyle(
                         fontSize: 12,
                         color: kTextMuted,
@@ -2996,7 +2996,7 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
                             border: Border.all(color: kBorder),
                           ),
                           child: Text(p.$2,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                   color: kNavy)),
@@ -3041,10 +3041,10 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
             // ── Footer ──────────────────────────────────────────────────────
             Container(
               padding: const EdgeInsets.fromLTRB(22, 14, 22, 18),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(top: BorderSide(color: kBorder)),
                 borderRadius:
-                    BorderRadius.vertical(bottom: Radius.circular(18)),
+                    const BorderRadius.vertical(bottom: Radius.circular(18)),
               ),
               child: Row(children: [
                 // Aperçu
@@ -3088,7 +3088,7 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
                             ),
                           ]),
                         )
-                      : const Text('Sélectionnez les deux dates',
+                      : Text('Sélectionnez les deux dates',
                           style:
                               TextStyle(fontSize: 12, color: kTextMuted)),
                 ),
@@ -3097,20 +3097,20 @@ class _DateRangePickerDialogState extends State<_DateRangePickerDialog> {
                   TextButton(
                     onPressed: () =>
                         setState(() { _from = null; _to = null; }),
-                    child: const Text('Effacer',
+                    child: Text('Effacer',
                         style: TextStyle(color: kTextMuted)),
                   ),
                 const SizedBox(width: 4),
                 OutlinedButton(
                   onPressed: () => Navigator.of(context).pop(),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: kBorder),
+                    side: BorderSide(color: kBorder),
                     padding: const EdgeInsets.symmetric(
                         horizontal: 18, vertical: 11),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text('Annuler',
+                  child: Text('Annuler',
                       style: TextStyle(color: kTextMuted)),
                 ),
                 const SizedBox(width: 8),
@@ -3242,16 +3242,16 @@ InputDecoration adminInputDecoration(String label,
         const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
     border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: kBorder)),
+        borderSide: BorderSide(color: kBorder)),
     enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: kBorder)),
+        borderSide: BorderSide(color: kBorder)),
     focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: kNavy, width: 1.5)),
+        borderSide: BorderSide(color: kNavy, width: 1.5)),
     filled: true,
     fillColor: kCardBg,
-    labelStyle: const TextStyle(fontSize: 12.5, color: kTextMuted),
-    hintStyle: const TextStyle(fontSize: 12.5, color: kTextMuted),
+    labelStyle: TextStyle(fontSize: 12.5, color: kTextMuted),
+    hintStyle: TextStyle(fontSize: 12.5, color: kTextMuted),
   );
 }

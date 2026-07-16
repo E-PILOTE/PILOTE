@@ -17,7 +17,7 @@ class _ChartEmpty extends StatelessWidget {
             const SizedBox(height: 8),
             Text(message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
+                style: TextStyle(fontSize: 12.5, color: kTextMuted)),
           ],
         ),
       );
@@ -68,16 +68,16 @@ class _EvolutionCardState extends State<_EvolutionCard> {
                     plotAreaBorderWidth: 0,
                     margin: EdgeInsets.zero,
                     tooltipBehavior: _tt,
-                    legend: const Legend(
+                    legend: Legend(
                       isVisible: true,
                       position: LegendPosition.top,
                       overflowMode: LegendItemOverflowMode.wrap,
                       textStyle: TextStyle(fontSize: 11, color: kTextMuted),
                     ),
-                    primaryXAxis: const CategoryAxis(
-                      majorGridLines: MajorGridLines(width: 0),
-                      axisLine: AxisLine(width: 0),
-                      majorTickLines: MajorTickLines(size: 0),
+                    primaryXAxis: CategoryAxis(
+                      majorGridLines: const MajorGridLines(width: 0),
+                      axisLine: const AxisLine(width: 0),
+                      majorTickLines: const MajorTickLines(size: 0),
                       labelStyle: TextStyle(fontSize: 11, color: kTextMuted),
                     ),
                     primaryYAxis: NumericAxis(
@@ -90,16 +90,16 @@ class _EvolutionCardState extends State<_EvolutionCard> {
                         dashArray: const <double>[4, 4],
                       ),
                       labelStyle:
-                          const TextStyle(fontSize: 11, color: kTextMuted),
+                          TextStyle(fontSize: 11, color: kTextMuted),
                     ),
-                    axes: const <ChartAxis>[
+                    axes: <ChartAxis>[
                       NumericAxis(
                         name: 'yClasses',
                         opposedPosition: true,
                         minimum: 0,
-                        axisLine: AxisLine(width: 0),
-                        majorTickLines: MajorTickLines(size: 0),
-                        majorGridLines: MajorGridLines(width: 0),
+                        axisLine: const AxisLine(width: 0),
+                        majorTickLines: const MajorTickLines(size: 0),
+                        majorGridLines: const MajorGridLines(width: 0),
                         labelStyle: TextStyle(fontSize: 11, color: kTextMuted),
                       ),
                     ],
@@ -121,7 +121,7 @@ class _EvolutionCardState extends State<_EvolutionCard> {
                             kGreen.withValues(alpha: 0.02),
                           ],
                         ),
-                        markerSettings: const MarkerSettings(
+                        markerSettings: MarkerSettings(
                             isVisible: true,
                             height: 6,
                             width: 6,
@@ -204,7 +204,7 @@ class _DepartmentChart extends StatelessWidget {
           SizedBox(
             height: 270,
             child: loading
-                ? const Center(child: CircularProgressIndicator(color: kNavy))
+                ? Center(child: CircularProgressIndicator(color: kNavy))
                 : !hasData
                     ? const _ChartEmpty(
                         message: 'Aucun élève inscrit sur cette année.')
@@ -214,10 +214,10 @@ class _DepartmentChart extends StatelessWidget {
                         margin: EdgeInsets.zero,
                         tooltipBehavior: TooltipBehavior(
                             enable: true, format: 'point.x : point.y élèves'),
-                        primaryXAxis: const CategoryAxis(
-                          majorGridLines: MajorGridLines(width: 0),
-                          axisLine: AxisLine(width: 0),
-                          majorTickLines: MajorTickLines(size: 0),
+                        primaryXAxis: CategoryAxis(
+                          majorGridLines: const MajorGridLines(width: 0),
+                          axisLine: const AxisLine(width: 0),
+                          majorTickLines: const MajorTickLines(size: 0),
                           labelStyle:
                               TextStyle(fontSize: 11, color: kTextPrimary),
                         ),
@@ -231,7 +231,7 @@ class _DepartmentChart extends StatelessWidget {
                             dashArray: const <double>[4, 4],
                           ),
                           labelStyle:
-                              const TextStyle(fontSize: 11, color: kTextMuted),
+                              TextStyle(fontSize: 11, color: kTextMuted),
                         ),
                         series: <CartesianSeries<YearDeptStat, String>>[
                           BarSeries<YearDeptStat, String>(
@@ -243,7 +243,7 @@ class _DepartmentChart extends StatelessWidget {
                             spacing: 0.2,
                             animationDuration: 900,
                             borderRadius: BorderRadius.circular(5),
-                            dataLabelSettings: const DataLabelSettings(
+                            dataLabelSettings: DataLabelSettings(
                               isVisible: true,
                               textStyle: TextStyle(
                                   fontSize: 10,
@@ -283,7 +283,7 @@ class _TypeDonut extends StatelessWidget {
           SizedBox(
             height: 230,
             child: loading
-                ? const Center(child: CircularProgressIndicator(color: kNavy))
+                ? Center(child: CircularProgressIndicator(color: kNavy))
                 : total == 0
                     ? const _ChartEmpty(message: 'Aucune donnée.')
                     : SfCircularChart(
@@ -295,11 +295,11 @@ class _TypeDonut extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text('$total',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 22,
                                         fontWeight: FontWeight.w800,
                                         color: kTextPrimary)),
-                                const Text('élèves',
+                                Text('élèves',
                                     style: TextStyle(
                                         fontSize: 11, color: kTextMuted)),
                               ],
@@ -333,14 +333,14 @@ class _TypeDonut extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(_typeLabel(t.type),
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w600,
                               color: kTextPrimary)),
                     ),
                     Text('${t.ecoles} écoles · ${t.classes} cl.',
                         style:
-                            const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                            TextStyle(fontSize: 11.5, color: kTextMuted)),
                   ],
                 ),
               )),
@@ -376,8 +376,8 @@ class _SchoolAdoptionCard extends ConsumerWidget {
                           : kAccent)),
           const SizedBox(height: 12),
           if (async.isLoading)
-            const Padding(
-              padding: EdgeInsets.all(24),
+            Padding(
+              padding: const EdgeInsets.all(24),
               child: Center(child: CircularProgressIndicator(color: kNavy)),
             )
           else if (a == null || a.bySchool.isEmpty)
@@ -387,7 +387,7 @@ class _SchoolAdoptionCard extends ConsumerWidget {
             )
           else ...[
             const _AdoptionHeaderRow(),
-            const Divider(height: 14, color: kBorder),
+            Divider(height: 14, color: kBorder),
             ...a.bySchool.map((s) => _AdoptionRow(school: s)),
           ],
         ],
@@ -400,9 +400,9 @@ class _AdoptionHeaderRow extends StatelessWidget {
   const _AdoptionHeaderRow();
   @override
   Widget build(BuildContext context) {
-    const st = TextStyle(
+    final st = TextStyle(
         fontSize: 11, fontWeight: FontWeight.w700, color: kTextMuted);
-    return const Row(
+    return Row(
       children: [
         Expanded(flex: 4, child: Text('Établissement', style: st)),
         Expanded(flex: 3, child: Text('Département', style: st)),
@@ -447,7 +447,7 @@ class _AdoptionRow extends StatelessWidget {
                   child: Text(school.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: kTextPrimary)),
@@ -460,13 +460,13 @@ class _AdoptionRow extends StatelessWidget {
             child: Text(school.department,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                style: TextStyle(fontSize: 12, color: kTextMuted)),
           ),
           Expanded(
             flex: 2,
             child: Text('${school.classes}',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: kTextPrimary)),
@@ -475,7 +475,7 @@ class _AdoptionRow extends StatelessWidget {
             flex: 2,
             child: Text('${school.eleves}',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: kTextPrimary)),

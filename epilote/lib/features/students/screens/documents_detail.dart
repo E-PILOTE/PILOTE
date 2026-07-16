@@ -138,7 +138,7 @@ class _DossierDetailState extends ConsumerState<_DossierDetail> {
             padding: const EdgeInsets.fromLTRB(20, 18, 16, 18),
             decoration: BoxDecoration(
               color: kNavy.withValues(alpha: 0.04),
-              border: const Border(bottom: BorderSide(color: kBorder)),
+              border: Border(bottom: BorderSide(color: kBorder)),
             ),
             child: Row(children: [
               CircleAvatar(
@@ -161,7 +161,7 @@ class _DossierDetailState extends ConsumerState<_DossierDetail> {
                       Text(s.lastFirst,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 16.5,
                               fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
@@ -172,7 +172,7 @@ class _DossierDetailState extends ConsumerState<_DossierDetail> {
                             s.matricule
                           ].join(' · '),
                           style:
-                              const TextStyle(fontSize: 12.5, color: kTextMuted)),
+                              TextStyle(fontSize: 12.5, color: kTextMuted)),
                     ]),
               ),
               AdminBadge(
@@ -244,7 +244,7 @@ class _Section extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 10, top: 2),
         child: Text(label.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.5,
@@ -303,7 +303,7 @@ class _DocTypeTile extends StatelessWidget {
               child: Text(label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: kTextPrimary)),
@@ -316,7 +316,7 @@ class _DocTypeTile extends StatelessWidget {
                 decoration: BoxDecoration(
                     color: kRed.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(5)),
-                child: const Text('exigée',
+                child: Text('exigée',
                     style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
@@ -417,12 +417,12 @@ class _PieceRow extends StatelessWidget {
 }
 
 class _IconAction extends StatelessWidget {
-  const _IconAction({
+  _IconAction({
     required this.icon,
     required this.tip,
     required this.onTap,
-    this.color = kTextMuted,
-  });
+    Color? color,
+  }) : color = color ?? kTextMuted;
   final IconData icon;
   final String tip;
   final VoidCallback onTap;

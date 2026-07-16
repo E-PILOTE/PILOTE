@@ -50,7 +50,7 @@ class _MapillaryPanelState extends ConsumerState<MapillaryPanel>
               // En-tête intégré (barre pleine largeur, pas de chrome de dialogue).
               Container(
                 padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [kNavyDark, kNavy],
                     begin: Alignment.topLeft,
@@ -189,28 +189,28 @@ class _Viewer extends StatelessWidget {
         // Pied : date, distance, position
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: Colors.white,
             border: Border(top: BorderSide(color: kBorder)),
-            borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
           ),
           child: Row(children: [
-            const Icon(Icons.photo_camera_back_rounded,
+            Icon(Icons.photo_camera_back_rounded,
                 size: 15, color: kTextMuted),
             const SizedBox(width: 6),
             Text('Prise le $date',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: kTextPrimary)),
             const SizedBox(width: 12),
-            const Icon(Icons.straighten_rounded, size: 15, color: kTextMuted),
+            Icon(Icons.straighten_rounded, size: 15, color: kTextMuted),
             const SizedBox(width: 4),
             Text('à $meters m',
-                style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                style: TextStyle(fontSize: 12, color: kTextMuted)),
             const Spacer(),
             Text('${index + 1} / ${images.length}',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: kNavy)),

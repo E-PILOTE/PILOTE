@@ -32,7 +32,7 @@ class _ItemCard extends StatelessWidget {
           decoration: BoxDecoration(
               color: kNavy.withValues(alpha: 0.07),
               borderRadius: BorderRadius.circular(9)),
-          child: const Icon(Icons.menu_book_rounded, size: 19, color: kNavy),
+          child: Icon(Icons.menu_book_rounded, size: 19, color: kNavy),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -48,7 +48,7 @@ class _ItemCard extends StatelessWidget {
                   Text(it.author!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                      style: TextStyle(fontSize: 12, color: kTextMuted)),
                 const SizedBox(height: 8),
                 Row(children: [
                   Container(
@@ -66,14 +66,14 @@ class _ItemCard extends StatelessWidget {
                   if ((it.category ?? '').isNotEmpty) ...[
                     const SizedBox(width: 8),
                     Text(it.category!,
-                        style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                        style: TextStyle(fontSize: 11, color: kTextMuted)),
                   ],
                 ]),
               ]),
         ),
         if (canEdit || canDelete)
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert_rounded, size: 18, color: kTextMuted),
+            icon: Icon(Icons.more_vert_rounded, size: 18, color: kTextMuted),
             onSelected: (v) => v == 'edit' ? onEdit() : onDelete(),
             itemBuilder: (ctx) => [
               if (canEdit)
@@ -85,11 +85,11 @@ class _ItemCard extends StatelessWidget {
                       Text('Modifier'),
                     ])),
               if (canDelete)
-                const PopupMenuItem(
+                PopupMenuItem(
                     value: 'delete',
                     child: Row(children: [
                       Icon(Icons.delete_outline_rounded, size: 16, color: kRed),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text('Retirer', style: TextStyle(color: kRed)),
                     ])),
             ],
@@ -152,7 +152,7 @@ class _LoanCard extends StatelessWidget {
                     '${(l.borrowerName ?? '').isEmpty ? 'Emprunteur' : l.borrowerName} · '
                     'à rendre le ${l.dueDate ?? '—'}'
                     '${l.returned ? ' · rendu le ${l.returnDate}' : ''}',
-                    style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                    style: TextStyle(fontSize: 12, color: kTextMuted)),
               ]),
         ),
         if (l.overdue && !l.returned)
@@ -162,7 +162,7 @@ class _LoanCard extends StatelessWidget {
             decoration: BoxDecoration(
                 color: kRed.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(6)),
-            child: const Text('En retard',
+            child: Text('En retard',
                 style: TextStyle(
                     fontSize: 11, fontWeight: FontWeight.w700, color: kRed)),
           ),
@@ -176,7 +176,7 @@ class _LoanCard extends StatelessWidget {
             label: const Text('Retour'),
           )
         else if (l.returned)
-          const Icon(Icons.check_circle_rounded, color: kGreen, size: 22),
+          Icon(Icons.check_circle_rounded, color: kGreen, size: 22),
       ]),
     );
   }

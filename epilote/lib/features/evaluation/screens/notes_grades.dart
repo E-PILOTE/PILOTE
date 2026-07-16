@@ -163,7 +163,7 @@ class _GradeSheetState extends ConsumerState<_GradeSheet> {
                 Text(e.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: kTextPrimary)),
@@ -175,7 +175,7 @@ class _GradeSheetState extends ConsumerState<_GradeSheet> {
                     '${avg != null ? ' · moy. ${avg.toStringAsFixed(2)}/20' : ''}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                    style: TextStyle(fontSize: 12, color: kTextMuted)),
               ]),
         ),
         if (!widget.canEdit)
@@ -185,9 +185,9 @@ class _GradeSheetState extends ConsumerState<_GradeSheet> {
               color: kTextMuted.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(7),
             ),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.lock_outline_rounded, size: 13, color: kTextMuted),
-              SizedBox(width: 5),
+              const SizedBox(width: 5),
               Text('Lecture seule',
                   style: TextStyle(
                       fontSize: 11,
@@ -218,7 +218,7 @@ class _GradeSheetState extends ConsumerState<_GradeSheet> {
         SizedBox(
           width: 24,
           child: Text('$index',
-              style: const TextStyle(fontSize: 11, color: kTextMuted)),
+              style: TextStyle(fontSize: 11, color: kTextMuted)),
         ),
         Expanded(
           child: Column(
@@ -232,7 +232,7 @@ class _GradeSheetState extends ConsumerState<_GradeSheet> {
                 if ((r.matricule ?? '').isNotEmpty)
                   Text(r.matricule!,
                       style:
-                          const TextStyle(fontSize: 10.5, color: kTextMuted)),
+                          TextStyle(fontSize: 10.5, color: kTextMuted)),
               ]),
         ),
         if (norm != null) ...[
@@ -267,7 +267,7 @@ class _GradeSheetState extends ConsumerState<_GradeSheet> {
               filled: true,
               fillColor: kSurface,
               suffixText: '/${e.maxScore.toStringAsFixed(0)}',
-              suffixStyle: const TextStyle(fontSize: 10, color: kTextMuted),
+              suffixStyle: TextStyle(fontSize: 10, color: kTextMuted),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide.none,

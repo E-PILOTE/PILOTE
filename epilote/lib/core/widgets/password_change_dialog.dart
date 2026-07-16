@@ -51,8 +51,8 @@ class _PasswordChangeDialogState extends ConsumerState<PasswordChangeDialog> {
           .updateUser(UserAttributes(password: _pwd.text));
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            backgroundColor: kGreen, content: Text('Mot de passe modifié.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            backgroundColor: kGreen, content: const Text('Mot de passe modifié.')));
       }
     } on AuthRetryableFetchException {
       _onOffline(); // serveur injoignable → hors ligne
@@ -68,8 +68,8 @@ class _PasswordChangeDialogState extends ConsumerState<PasswordChangeDialog> {
   void _onOffline() {
     if (!mounted) return;
     setState(() => _error = '$_offlineMessage.');
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        backgroundColor: kRed, content: Text(_offlineMessage)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: kRed, content: const Text(_offlineMessage)));
   }
 
   InputDecoration _pwdDecoration(String label, bool obscure, VoidCallback onEye) =>
@@ -105,7 +105,7 @@ class _PasswordChangeDialogState extends ConsumerState<PasswordChangeDialog> {
               () => setState(() => _obscurePwd = !_obscurePwd)),
         ),
         const SizedBox(height: 6),
-        const Align(
+        Align(
           alignment: Alignment.centerLeft,
           child: Text('8 caractères minimum',
               style: TextStyle(fontSize: 11.5, color: kTextMuted)),

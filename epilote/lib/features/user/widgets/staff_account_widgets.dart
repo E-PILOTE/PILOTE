@@ -101,14 +101,14 @@ class StaffIdentityCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(profile.fullName.isEmpty ? '—' : profile.fullName,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
                       color: kTextPrimary)),
               if (email != null && email!.isNotEmpty) ...[
                 const SizedBox(height: 3),
                 Text(email!,
-                    style: const TextStyle(fontSize: 12.5, color: kTextMuted),
+                    style: TextStyle(fontSize: 12.5, color: kTextMuted),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
               ],
@@ -185,8 +185,8 @@ class LogoutConfirmDialog extends StatelessWidget {
             subtitle: 'Confirmer la sortie de votre espace',
             icon: Icons.logout_rounded,
           ),
-          const Padding(
-            padding: EdgeInsets.all(18),
+          Padding(
+            padding: const EdgeInsets.all(18),
             child: Text(
               'Voulez-vous vraiment vous déconnecter ?\n'
               'Vous devrez saisir à nouveau vos identifiants pour accéder '

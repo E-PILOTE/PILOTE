@@ -209,12 +209,12 @@ class _StaffAnnouncementFormDialogState
               onChanged: (v) => setState(() => _groupId = v),
               items: [
                 // Diffusion plateforme : tout le monde, toutes les écoles.
-                const DropdownMenuItem(
+                DropdownMenuItem(
                   value: kAllGroupsSentinel,
                   child: Row(children: [
                     Icon(Icons.public_rounded, size: 15, color: kGreen),
-                    SizedBox(width: 8),
-                    Text('Toutes les écoles (tout le monde)',
+                    const SizedBox(width: 8),
+                    const Text('Toutes les écoles (tout le monde)',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -327,7 +327,7 @@ class _StaffAnnouncementFormDialogState
                       : 'Ajouter d\'autres fichiers'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: kNavy,
-                side: const BorderSide(color: kBorder),
+                side: BorderSide(color: kBorder),
                 padding: const EdgeInsets.symmetric(vertical: 13),
                 textStyle:
                     const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
@@ -338,7 +338,7 @@ class _StaffAnnouncementFormDialogState
           ),
           const SizedBox(height: 8),
           Row(children: [
-            const Icon(Icons.lightbulb_outline_rounded,
+            Icon(Icons.lightbulb_outline_rounded,
                 size: 13, color: kTextMuted),
             const SizedBox(width: 6),
             Expanded(
@@ -347,7 +347,7 @@ class _StaffAnnouncementFormDialogState
                       ? 'Ajoutez du texte et plusieurs fichiers — rien n\'est '
                           'publié tant que vous n\'appuyez pas sur « Publier ».'
                       : '${_attachments.length} fichier${_attachments.length > 1 ? 's' : ''} prêt${_attachments.length > 1 ? 's' : ''} — vous pouvez encore écrire ou en ajouter.',
-                  style: const TextStyle(fontSize: 10.5, color: kTextMuted)),
+                  style: TextStyle(fontSize: 10.5, color: kTextMuted)),
             ),
           ]),
           CommAttachmentEditList(
@@ -485,7 +485,7 @@ class _AnnouncementPreview extends StatelessWidget {
                             child: Text(authorName,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 13.5,
                                     fontWeight: FontWeight.w800,
                                     color: kTextPrimary)),
@@ -495,14 +495,14 @@ class _AnnouncementPreview extends StatelessWidget {
                         ]),
                         const SizedBox(height: 3),
                         Row(children: [
-                          const Icon(Icons.send_rounded,
+                          Icon(Icons.send_rounded,
                               size: 11, color: kTextMuted),
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(destination,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 11, color: kTextMuted)),
                           ),
                         ]),
