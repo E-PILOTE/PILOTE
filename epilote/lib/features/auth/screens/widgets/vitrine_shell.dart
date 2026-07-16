@@ -214,7 +214,7 @@ class _SchoolChipState extends State<_SchoolChip>
   void initState() {
     super.initState();
     _sheen = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 4200));
+        vsync: this, duration: const Duration(milliseconds: 3400));
     _sync();
   }
 
@@ -262,9 +262,9 @@ class _SchoolChipState extends State<_SchoolChip>
                         end: Alignment.centerRight,
                         colors: const [_kCrestText, Colors.white, _kCrestText],
                         stops: [
-                          (c - 0.16).clamp(0.0, 1.0),
+                          (c - 0.22).clamp(0.0, 1.0),
                           c.clamp(0.0, 1.0),
-                          (c + 0.16).clamp(0.0, 1.0),
+                          (c + 0.22).clamp(0.0, 1.0),
                         ],
                       ).createShader(bounds);
                     },
