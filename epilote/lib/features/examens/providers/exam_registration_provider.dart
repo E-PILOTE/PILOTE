@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/active_agent_provider.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../models/exam_dossier_piece.dart';
 
 const _uuid = Uuid();
 
@@ -201,9 +202,15 @@ Future<int> registerCandidates(
 
   final session = await db.getAll(
     'SELECT required_documents FROM exam_sessions WHERE id = ?', [sessionId]);
-  final docs = session.isEmpty
-      ? '[]'
-      : (session.first['required_documents'] as String?) ?? '[]';
+  final required = ExamDossierPiece.parseList(
+      session.isEmpty ? null : session.first['required_documents']);
+
+  // Le dossier naît avec les pièces INCONDITIONNELLES pour dues. Les pièces
+  // conditionnelles (certificat médical d'inaptitude EPS…) en sont exclues :
+  // les inclure rendrait TOUT dossier de bac éternellement incomplet, puisque
+  // rien ne nous dit qui est inapte. L'école les ajoute au cas par cas.
+  final docs =
+      ExamDossierPiece.encodeList(required.where((p) => !p.isConditional));
 
   final now = DateTime.now().toIso8601String();
   var count = 0;

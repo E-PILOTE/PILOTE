@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../../navigation/providers/permissions_provider.dart';
 import '../providers/exam_candidates_provider.dart';
+import '../providers/exam_registration_provider.dart';
+import 'exam_dossier_dialog.dart';
 import 'examens_widgets.dart' show formatDate;
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -115,20 +118,23 @@ class ExamCandidateList extends ConsumerWidget {
         border: Border.all(color: kBorder),
       ),
       child: Column(children: [
-        for (final (i, c) in rows.indexed) _Row(row: c, index: i + 1),
+        for (final (i, c) in rows.indexed)
+          _Row(row: c, index: i + 1, sessionId: sessionId),
       ]),
     );
   }
 }
 
-class _Row extends StatelessWidget {
-  const _Row({required this.row, required this.index});
+class _Row extends ConsumerWidget {
+  const _Row({required this.row, required this.index, required this.sessionId});
   final ExamCandidateRow row;
   final int index;
+  final String sessionId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = row;
+    final canEdit = ref.watch(canProvider((slug: 'examens', action: 'update')));
     final (Color tone, String label) = switch (c.dossierStatus) {
       'valide' => (kGreen, 'Validé'),
       'depose' => (kGreen, 'Déposé'),
@@ -193,8 +199,85 @@ class _Row extends StatelessWidget {
               : Text('en attente',
                   style: TextStyle(fontSize: 11, color: kTextMuted)),
         ),
+        _Actions(row: c, canEdit: canEdit, sessionId: sessionId),
       ]),
     );
+  }
+}
+
+// ── Actions de ligne ────────────────────────────────────────────────────────
+//  Un dossier DÉPOSÉ ne se retire plus : la DEC l'a reçu, il est opposable.
+//  Retirer la ligne chez nous ferait diverger notre liste de la sienne — et
+//  c'est justement l'écart que tout le module cherche à empêcher.
+class _Actions extends ConsumerWidget {
+  const _Actions({
+    required this.row,
+    required this.canEdit,
+    required this.sessionId,
+  });
+
+  final ExamCandidateRow row;
+  final bool canEdit;
+  final String sessionId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!canEdit) return const SizedBox(width: 8);
+
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      IconButton(
+        onPressed: () =>
+            showExamDossierDialog(context, candidateId: row.id),
+        icon: const Icon(Icons.fact_check_outlined, size: 18),
+        color: row.missingCount > 0 ? kRed : kTextMuted,
+        tooltip: row.missingCount > 0
+            ? '${row.missingCount} pièce(s) manquante(s)'
+            : 'Dossier',
+        visualDensity: VisualDensity.compact,
+      ),
+      IconButton(
+        onPressed: row.isSubmitted ? null : () => _confirmRemove(context, ref),
+        icon: const Icon(Icons.person_remove_outlined, size: 18),
+        color: row.isSubmitted ? kTextMuted.withValues(alpha: 0.4) : kTextMuted,
+        tooltip: row.isSubmitted
+            ? 'Dossier déposé — retrait impossible'
+            : 'Retirer la candidature',
+        visualDensity: VisualDensity.compact,
+      ),
+    ]);
+  }
+
+  Future<void> _confirmRemove(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kCardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Text('Retirer ${row.fullName} ?',
+            style: TextStyle(
+                fontSize: 16, fontWeight: FontWeight.w800, color: kTextPrimary)),
+        content: Text(
+          'La candidature est supprimée. L\'élève, lui, n\'est pas touché : '
+          'il reste inscrit dans sa classe et pourra être réinscrit à cette '
+          'session.',
+          style: TextStyle(fontSize: 12.5, color: kTextMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Annuler', style: TextStyle(color: kTextMuted)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: kRed),
+            child: const Text('Retirer'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await unregisterCandidate(row.id);
+    ref.invalidate(sessionCandidatesProvider(sessionId));
   }
 }
 
