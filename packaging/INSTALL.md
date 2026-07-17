@@ -76,39 +76,8 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ./epilote_3.0.1_amd64.deb
 Sur certaines configurations **HiDPI + pilote GL Nouveau/Mesa**, l'application
 Flutter plantait au démarrage (`Timed out waiting for OpenGL frame`) à cause
 d'un décalage de taille de frame OpenGL. Le lanceur installé (`/usr/bin/epilote`)
-force `GDK_SCALE=1`, ce qui rend le démarrage fiable. C'est transparent pour
-l'utilisateur.
-
-## Cartes NVIDIA sous pilote libre Nouveau — rendu logiciel automatique
-
-Sur les GPU NVIDIA pilotés par **Nouveau** (pilote libre), le pilote fait fauter
-l'unité de texture. Le noyau le journalise (`dmesg`) sans ambiguïté :
-
-```
-nouveau: fifo: fault 00 [READ] ... reason 02 [PTE] on channel 4 [epilote]
-nouveau: gr: TRAP ch 4 ...  →  errored - disabling channel
-```
-
-Le noyau tue alors le canal GPU de l'application ; son contexte OpenGL meurt et
-le thread de rastérisation de Flutter s'arrête en `SIGSEGV`. **L'application se
-ferme brutalement, sans message.** C'est une panne du pilote, pas de l'app : sur
-la même machine, Chrome tombe avec la même signature.
-
-Le lanceur détecte les cartes réellement pilotées par `nouveau`
-(`/sys/class/drm/card*/device/driver`) et bascule ces machines — **et elles
-seules** — sur le rendu logiciel Mesa (`LIBGL_ALWAYS_SOFTWARE=1`, llvmpipe).
-Ailleurs, l'accélération matérielle est conservée.
-
-Coût mesuré : **0 % CPU au repos**, surcoût uniquement pendant les animations —
-acceptable pour une application de gestion. Le remède durable sur ces postes est
-le pilote propriétaire NVIDIA ; le rendu logiciel est le filet de sécurité.
-
-Pour outrepasser (diagnostic) :
-
-```bash
-EPILOTE_FORCE_GPU=1 epilote      # force le GPU malgré nouveau
-LIBGL_ALWAYS_SOFTWARE=1 epilote  # force le rendu logiciel partout
-```
+force `GDK_SCALE=1`, ce qui rend le démarrage fiable **en conservant
+l'accélération matérielle**. C'est transparent pour l'utilisateur.
 
 ## Ce que le paquet installe
 
