@@ -1,175 +1,257 @@
 # Positionnement E-PILOTE face au MEPSA et au METP — présentation du 25 août 2026
 
-**Date** : 2026-07-17 · **Statut** : note stratégique (aucun code)
-**Objet** : ce que les ministères ont déjà, ce que nous avons vraiment, et comment le dire.
+**Date** : 2026-07-17 · **Révisé** : 2026-07-17 (v2) · **Statut** : note stratégique (aucun code)
+**Objet** : ce que les ministères ont réellement, ce que nous avons vraiment, et comment le dire.
+
+> **⚠️ Cette note a été réécrite.** La v1 affirmait « le METP est encore sur papier, aucun
+> incumbent » et bâtissait la présentation sur la **demande manuscrite pré-remplie**. Les deux
+> étaient faux. Ils venaient d'une méthode fautive : **déduire l'état du terrain depuis des
+> pages web**. Ce qui suit distingue systématiquement ce qui est **établi par un témoin
+> interne** de ce qui n'est que **trouvé en ligne**.
 
 ---
 
-## 1. La phrase qu'il ne faut pas prononcer le 25 août
+## 1. La règle de méthode (apprise à mes dépens)
 
-> « Nous venons de créer ce gros système de gestion scolaire qui n'a jamais existé. »
+La source de vérité sur les systèmes ministériels est **l'utilisateur : il est fonctionnaire à
+la DSIC du METP**. Il travaille dedans.
 
-**C'est faux, et le ministre du MEPSA le sait.** Un système de gestion scolaire congolais, en collaboration avec son ministère, existe déjà. Prononcer cette phrase devant lui détruirait la crédibilité de tout le reste de la présentation, y compris de ce qui est réellement inédit — et il y a du réellement inédit.
+En une seule journée, j'ai affirmé successivement, avec assurance, deux choses opposées et
+également fausses :
+
+1. « Le METP est encore au papier, aucun incumbent » → faux.
+2. « La DSIC a un ERP complet à 5 modules qui nous concurrence » → faux aussi.
+
+**Même cause** : `dsic-metp.net` affiche une « Gestion Scolaire » à 5 modules (Monitoring,
+Examens, Finances, Scolarité, RH) avec guide d'utilisation complet. **Ce sont des vitrines.**
+Elles n'existent que sur le web.
+
+**Règle** : tout constat sur un système ministériel non confirmé par l'utilisateur est une
+hypothèse, et doit être écrit comme telle.
 
 ---
 
-## 2. Ce que le MEPSA (MEPPSA) a déjà — et c'est beaucoup
+## 2. Ce qui existe RÉELLEMENT au METP
 
-Le ministère a une **Direction des Systèmes d'Information et de la Communication (DSIC)** et une pile numérique en production :
+**✅ Établi par l'utilisateur (DSIC) :**
 
-| Brique | Ce qu'elle fait |
+| Fait | Conséquence |
 |---|---|
-| **e-MEPPSA** (`e-meppsa.net`) | Portail : inscriptions, résultats, espace pédagogique, suivi scolaire |
-| **`inscription.e-meppsa.net`** | Inscription aux examens d'État en ligne |
-| **ExaTrust** (`resultat.e-meppsa.net`) | Publication et **vérification** officielle des résultats |
-| **Cartographie des centres** | Géolocalisation des centres d'examen (remplace les fiches papier) |
+| **Une seule application réelle : l'inscription aux examens d'État** | Une seule frontière à traiter |
+| Les **établissements se connectent eux-mêmes** | L'école est déjà un utilisateur en ligne |
+| **Tout est tapé à la main** — aucun import | ⭐ **Notre valeur n°1** (§4) |
+| Les candidats sont groupés en **lots** — un lot est **dans une classe**, ~50 | `niveau ▸ classe (= filière) ▸ lot` — **notre axe actuel est le bon** |
+| Le **dossier physique part quand même à la DEC** | L'école a **deux sorties** : une saisie + une expédition (§5) |
+| Vérification des pièces : **école avant dépôt ET DEC au comptoir** | Notre pré-contrôle n'est pas redondant |
+| Les autres modules (Scolarité, Finances, RH) | **N'existent pas.** Vitrine. |
 
-**ExaTrust a une composante institutionnelle** : elle est utilisée par **Campus France** pour recouper les relevés de notes des étudiants avec la base officielle des examens.
+**✅ Établi par la note officielle METP 2025-2026** (l'utilisateur a tranché : *« crois la note
+officielle »*) :
 
-**C'est le fait le plus important de cette note.** Il prouve trois choses :
-1. le ministère **sait** ouvrir un accès institutionnel à un tiers ;
-2. il l'a **déjà fait**, pour un organisme étranger ;
-3. donc demander un accès pour E-PILOTE n'est ni naïf ni sans précédent — c'est **la même chose, pour un acteur national**.
+- Dépôt : **directions départementales** (candidats libres) · **établissements** (candidats officiels).
+- Campagne **8 déc. 2025 → clôture 14 févr. 2026 à 14 h 00**.
+- Pièces par examen : voir `2026-07-17-dossiers-examens-metp.md` (âges 24 / 20 / 21 — conformes
+  à `exam_age_at_session()`).
+- **L'attestation de fin de stage est une pièce du dossier du baccalauréat.**
 
-C'est l'argument le plus fort de la présentation, et il n'est pas technique : *« vous l'avez ouvert à Campus France ; ouvrez-le aux écoles congolaises. »*
-
----
-
-## 3. L'incumbent : CongoEduSoft
-
-**Entreprise technologique congolaise**, travaillant « en étroite collaboration avec le Ministère de l'Enseignement Primaire, Secondaire et de l'Alphabétisation ».
-
-Ce qu'elle fait :
-- pilote **chaque année une opération d'envergure nationale** : la campagne de **pré-inscription en ligne** aux examens d'État ;
-- offre aux établissements une **application complète de gestion scolaire en ligne** ;
-- **les mêmes comptes** servent à l'inscription aux examens et à la gestion de l'établissement (leur argument de synergie) ;
-- produit les **listes de candidats**, les **badges d'identification**, et les **fiches d'anonymat** pour la correction.
-
-**Conséquences directes pour nous :**
-- « la gestion scolaire n'existe pas » est faux ;
-- « produire des listes de candidats » n'est pas un différenciateur : **c'est leur métier depuis des années** ;
-- ils ont la **relation ministérielle**, l'antériorité et l'usage national.
-
-**Mais** — et c'est décisif — leur offre est **en ligne**, et centrée sur l'examen. Les **fiches d'anonymat** et les **badges** trahissent leur véritable centre de gravité : ils sont l'outil de la **DEC**, pas l'outil du **quotidien de l'école**.
-
-**Autre acteur** : **Zaame** (9 500 établissements, 49 pays) — SaaS générique de gestion scolaire, présent au Congo. Concurrent générique, non spécifique, en ligne. Moins dangereux : aucun ancrage congolais ni relation DEC.
+**❌ Abandonné** : la **demande manuscrite**. Absente des deux notes officielles, le PDF qui
+l'appuyait renvoie 404. L'utilisateur a tranché : *« laisse la demande manuscrite »*. Elle
+n'aurait de toute façon pas survécu à son propre nom — une demande imprimée n'est pas manuscrite.
 
 ---
 
-## 4. L'asymétrie qui vaut de l'or : le METP est encore sur PAPIER
+## 3. Ce que le MEPSA a — ⚠️ NON VÉRIFIÉ
 
-Recherche approfondie du côté du METP : **aucune plateforme d'inscription numérique**. Le processus réel, session 2025-2026 :
+**Tout ce qui suit vient du web. `e-meppsa.net`, `resultat.e-meppsa.net` et `meppsa.cg` sont
+injoignables depuis ce poste.** Après m'être trompé deux fois sur le METP en lisant des
+vitrines, **je refuse de traiter celle du MEPSA comme un fait**. À confirmer avant d'en faire
+un argument en séance.
 
-> « Les candidats doivent adresser une **demande manuscrite** au Directeur des examens et concours techniques et professionnels, précisant la spécialité ou l'option. L'inscription se fait à la **direction départementale** de l'enseignement technique et/ou professionnel pour les candidats libres, ou dans leurs **établissements respectifs** pour les candidats officiels. »
->
-> Registres d'inscription ouverts le 8 décembre 2025, **clos définitivement le 14 février 2026 à 14 h 00**.
+| Brique (supposée) | Ce qu'elle ferait |
+|---|---|
+| e-MEPPSA | Portail : inscriptions, résultats, suivi |
+| ExaTrust | Publication et vérification officielle des résultats |
+| Cartographie des centres | Géolocalisation des centres d'examen |
 
-**Demande manuscrite. Registres. Clôture à 14 h.** Voilà l'état de l'art côté METP.
+**Le point qui vaudrait de l'or, s'il est vrai** : ExaTrust serait utilisé par **Campus France**
+pour recouper les relevés de notes. Si c'est exact, le ministère **sait** ouvrir un accès
+institutionnel à un tiers, et l'a **déjà fait pour un organisme étranger**. L'argument devient :
+*« vous l'avez ouvert à Campus France ; ouvrez-le aux écoles congolaises. »*
 
-Et rappel de notre base : le **METP est notre plus gros tenant** — **14 écoles sur 24**. Le MEPSA n'en a que 2.
+**À vérifier absolument** : c'est l'argument le plus puissant de la présentation — et le plus
+embarrassant s'il est faux.
 
-**C'est là qu'est la porte d'entrée.** Pas contre la DSIC du MEPSA et son incumbent — mais là où il n'y a **rien**, où le besoin est criant, et où nous sommes déjà installés.
-
----
-
-## 5. Ce que nous avons vraiment d'inédit
-
-Trois choses, et il faut ne parler que de celles-là.
-
-### 5.1 Le hors-ligne — le seul vrai fossé
-
-CongoEduSoft, Zaame, e-MEPPSA : **tous en ligne**. Or une école de la Likouala, de la Sangha ou du Congo-Oubangui n'a pas de connexion fiable. Aujourd'hui, ces écoles sont **exclues** du numérique éducatif.
-
-E-PILOTE est **offline-first** (PowerSync) : l'école travaille sans réseau, tout se synchronise au retour. C'est architectural, pas cosmétique — un concurrent en ligne ne peut pas l'ajouter sans se réécrire.
-
-**C'est notre unique argument défendable, et il est massif** : c'est la différence entre « le numérique pour Brazzaville et Pointe-Noire » et « le numérique pour la République ».
-
-### 5.2 L'étendue : nous ne faisons pas le même métier
-
-Eux : inscription aux examens, listes, badges, anonymat.
-Nous : **30 modules** — scolarité, emplois du temps, notes, bulletins, conseils de classe, **finance**, **paie**, **RH**, cantine, infirmerie, bibliothèque, discipline, communication, examens, stages.
-
-Ils outillent **l'examen**. Nous outillons **l'école toute l'année**. L'examen n'est chez nous qu'un module sur trente.
-
-### 5.3 Le poste partagé
-
-Identité d'appareil + agents locaux à code PIN, verrouillage automatique, travail hors ligne préservé. Conçu pour la réalité d'un établissement congolais : **un ordinateur, plusieurs agents**. C'est du terrain, pas du produit importé.
+**CongoEduSoft** : éditeur congolais, publie des résultats METP en ligne. Part de marché réelle
+**inconnue**. Ni surestimer (ce n'est pas forcément l'incumbent que je décrivais), ni ignorer.
 
 ---
 
-## 6. Le positionnement que je recommande
+## 4. Notre valeur réelle : la ressaisie et l'intégrité du nom
 
-> **E-PILOTE n'est pas un système d'examen. C'est le système d'exploitation de l'école — hors ligne — et il alimente les systèmes de l'État.**
+C'est le cœur de la présentation, et ça ne vient pas d'un argumentaire — ça vient du terrain.
 
-| | Le rôle de l'État | Le rôle d'E-PILOTE |
+**La situation d'aujourd'hui :**
+
+```
+L'école détient l'élève           Un agent de CETTE MÊME école
+(nom, date de naissance,   ───▶   ouvre l'appli DEC et RETAPE
+matricule, classe, filière)       TOUT À LA MAIN, candidat par candidat
+issus de l'acte de naissance
+```
+
+**Le BET seul : 6 867 candidats retapés à la main dans le pays.**
+
+**Et voici ce qui compte vraiment** — ce n'est pas une perte de temps, **c'est là que le nom se
+casse**. L'application de la DEC est le système de référence : ce qui y est tapé **devient le
+diplôme**. Une lettre de travers, une date inversée à 23 h 50 le 13 février, et l'élève reçoit
+un BET qui ne correspond pas à son acte de naissance. Au Congo, cet écart le poursuit à chaque
+démarche administrative, **à vie**.
+
+**Nous détenons l'orthographe juste** — saisie une fois, depuis l'acte de naissance, contrôlée.
+
+> **L'argument à porter devant le ministre, et il n'est pas pour nous :**
+> *« Sans interface, la qualité de votre base nationale dépend de 6 867 frappes manuelles faites
+> la veille de la clôture, et le diplôme porte le nom que quelqu'un a tapé à 23 h 50. Avec
+> interface, la donnée vient de l'acte de naissance, saisie une fois. Vous y gagnez l'intégrité
+> de l'état civil scolaire et la visibilité avant le 14 février. »*
+
+---
+
+## 5. L'école est un relais à deux sorties
+
+Fait établi : **le dossier physique part à la DEC**, *en plus* de la saisie en ligne.
+
+```
+                    ┌──▶ SAISIE en ligne dans l'appli DEC (à la main)
+ÉLÈVE ──dossier──▶ ÉCOLE
+                    └──▶ EXPÉDITION physique des dossiers à la DEC
+```
+
+**Les deux flux doivent dire la même chose.** S'ils divergent, la DEC le constate au comptoir et
+renvoie l'école — après la clôture, c'est une année perdue pour l'élève.
+
+D'où l'objet **`transmissions`** (déjà décidé dans `architecture-transmission-dec.md`) : **une
+seule liste**, figée, qui sert **à la fois** de feuille de frappe et de bordereau d'expédition.
+L'école prouve ce qu'elle a déclaré et ce qu'elle a envoyé, et les deux coïncident par
+construction.
+
+---
+
+## 6. Notre unique fossé défendable : le hors-ligne
+
+L'application d'inscription de la DEC est **en ligne**. Toutes les offres concurrentes trouvées
+le sont aussi.
+
+Or une école de la Likouala, de la Sangha ou du Congo-Oubangui n'a ni courant stable ni réseau
+fiable. E-PILOTE est **offline-first** (PowerSync) : l'école travaille sans réseau, tout remonte
+au retour.
+
+**Ce n'est pas rattrapable par une mise à jour** — c'est une décision d'architecture. C'est la
+différence entre *« le numérique pour Brazzaville et Pointe-Noire »* et *« le numérique pour la
+République »*.
+
+**Et le périmètre est vide** : aucun système ministériel **réel** ne couvre la scolarité, les
+emplois du temps, les notes, les bulletins, la finance, la paie, la RH, la vie scolaire. La
+vision « E-PILOTE gère tout » **ne se heurte à rien**.
+
+> ⚠️ **Formulation à bannir : « système amont ».** Elle décrivait la **frontière** avec la DEC ;
+> elle a été lue comme un **périmètre produit**. E-PILOTE est le système de référence de l'école
+> sur toute sa vie. Il ne l'est **que** sur un seul acte : l'inscription à l'examen et la
+> certification. Là, la DEC décide.
+
+---
+
+## 7. Le positionnement
+
+> **E-PILOTE n'est pas un système d'examen. C'est le système d'exploitation de l'école — hors
+> ligne — et il alimente les systèmes de l'État.**
+
+| | Rôle de l'État | Rôle d'E-PILOTE |
 |---|---|---|
-| Inscrire aux examens | **DEC / e-MEPPSA / CongoEduSoft** | ❌ jamais |
-| Attribuer numéros et centres | **DEC** | ❌ jamais |
-| Publier les résultats | **ExaTrust** | ❌ jamais |
-| Faire tourner l'école toute l'année | ❌ | ✅ **nous, hors ligne** |
-| Préparer un dossier propre et complet | ❌ | ✅ **nous** |
-| Transmettre la liste à la DEC | — | ✅ **nous** |
+| Inscrire aux examens, attribuer numéros et centres | **DEC** | ❌ jamais |
+| Publier les résultats officiels | **DEC** | ❌ jamais |
+| Faire tourner l'école toute l'année, hors ligne | ❌ rien | ✅ **nous** |
+| Préparer un dossier complet et pré-vérifié | ❌ | ✅ **nous** |
+| Fournir la donnée juste à la DEC | — | ✅ **nous** |
 | Récupérer résultats et les exploiter | — | ✅ **nous** |
 
-**La phrase à dire aux ministres :**
-> « Vos systèmes gèrent l'examen. Aucun ne fait tourner l'école entre deux examens — et aucun ne fonctionne à Impfondo quand le réseau tombe. C'est là que nous intervenons. Nous ne remplaçons rien : nous alimentons. »
-
-C'est vrai, c'est vérifiable, et c'est non menaçant. Un ministre qui a investi dans la DSIC et travaille avec CongoEduSoft n'achètera jamais un discours qui invalide ses choix.
-
-### Deux discours distincts, pas un
-
-- **Au METP** (14 écoles chez nous, zéro numérique, demande manuscrite) : *« Nous digitalisons votre chaîne, de l'école au dépôt. Vous êtes le seul ministère encore au registre papier. »* → **c'est le pilote.**
-- **Au MEPSA** (DSIC mature, incumbent, ExaTrust) : *« Nous ne touchons pas à votre chaîne d'examen. Nous apportons le hors-ligne et le quotidien, et nous alimentons e-MEPPSA. Ouvrez-nous l'accès institutionnel que vous avez ouvert à Campus France. »*
+**Phrase pour la salle :**
+> *« Vos systèmes gèrent l'examen. Aucun ne fait tourner l'école entre deux examens — et aucun ne
+> fonctionne à Impfondo quand le réseau tombe. Nous ne remplaçons rien : nous alimentons. »*
 
 ---
 
-## 7. La structure qui en découle
+## 8. La demande réelle du 25 août : **une API**
 
-Le recadrage confirme l'architecture décidée le 2026-07-17 (`architecture-transmission-dec.md`), et il en **renforce** trois points :
+**La réunion n'est pas une démonstration de produit. C'est une négociation d'interface.**
+L'utilisateur le dit : il veut une API pour **écrire** (candidats) et **lire** (examens,
+résultats, calendrier) dans la base de la DEC.
 
-1. **Ne jamais devenir le système d'inscription.** `candidate_number`, `center_id`, `result` = **champs entrants**. Confirmé par les faits : c'est le métier d'ExaTrust et de la DEC.
-2. **La transmission est l'objet central** (instantané immuable, référence, statut). C'est notre frontière et notre preuve de dépôt.
-3. **Ports & adapters** : le canal est un détail. Aujourd'hui **PDF/CSV** — parce que le METP est au papier et que le MEPSA passe par CongoEduSoft. Demain **API ExaTrust**, si l'accès institutionnel est accordé. Une interface, une classe.
+L'architecture l'attend déjà : `DecGateway.submit()` / `DecResultsSource.fetch()`, deux
+adaptateurs — manuel aujourd'hui, API demain. **Rien à redessiner : on branche.**
 
-**Un ajout que ces découvertes imposent** : un adaptateur **« format CongoEduSoft »**. Si la pré-inscription nationale MEPSA passe par eux, la vraie interopérabilité à court terme n'est pas une API ministérielle — c'est **produire un fichier qu'ils savent importer**. Moins glorieux, infiniment plus réaliste.
+### La condition qui protège l'utilisateur
 
----
+Il est **fonctionnaire à la DSIC** et porte un produit privé. Si l'API n'accepte qu'E-PILOTE,
+c'est du favoritisme, et devant deux ministres **ça l'expose personnellement**.
 
-## 8. Ce qu'il faut obtenir AVANT le 25 août
+> **Si elle accepte un format ouvert que n'importe quel éditeur peut produire — CongoEduSoft
+> compris — c'est une norme nationale.** E-PILOTE en devient la première implémentation.
 
-Par ordre de valeur. Aucun de ces points ne se code — ils se demandent.
+C'est plus défendable en séance, plus fort stratégiquement, et c'est simplement la bonne façon
+de le faire.
 
-1. **Une liste de candidats réellement déposée** (l'an dernier, n'importe quelle école, MEPSA ou METP). C'est la **spécification du format**, et c'est le risque n°1 du module. Une photo suffit.
-2. **Savoir si le MEPSA impose CongoEduSoft** aux écoles publiques, ou si c'est un prestataire parmi d'autres. Cela change tout : concurrent frontal ou partenaire d'interopérabilité.
-3. **Le fichier de retour des résultats** : sous quelle forme la DEC rend-elle les résultats à l'école ? Papier affiché ? Fichier ? Rien (l'école consulte ExaTrust) ?
-4. **Un contact DSIC** au MEPSA. C'est la direction qui décide d'un accès institutionnel — pas le cabinet.
-5. **Les stages** : le METP exige une attestation au dossier de bac. Y a-t-il un dépôt de liste de stagiaires, ou est-ce interne à l'école ? Cela décide de la priorité du module Stages.
+### Ce qu'un ministre peut accorder le jour même
 
----
-
-## 9. Mon avis franc
-
-**Le danger n'est pas technique, il est narratif.** Le produit est solide et le hors-ligne est un vrai fossé. Mais se présenter comme « le système qui n'existait pas » devant un ministre qui finance une DSIC et travaille avec un éditeur national, c'est perdre la salle en une phrase.
-
-**Le récit qui gagne** : *« Vous avez numérisé l'examen. Personne n'a numérisé l'école — et personne ne l'a fait fonctionner sans réseau. Voilà les 30 modules, voilà les 14 écoles du METP déjà dedans, voilà la liste de candidats prête à déposer. Nous alimentons vos systèmes ; nous ne les remplaçons pas. »*
-
-**Et l'ouverture qui ne coûte rien à un ministre** — donc la seule qu'il puisse accorder le jour même :
-> « Donnez-nous l'accès institutionnel ExaTrust que vous avez donné à Campus France. »
+Un ministre à qui on demande « une API » répond *« voyez avec mes services »*. Un ministre à qui
+on présente **deux pages précises** — ce qu'on écrit, ce qu'on lit, dans quel format, ouvert à
+tous — peut arbitrer sur-le-champ. → `2026-07-17-spec-api-dec.md` (à rédiger).
 
 ---
 
-## 10. Limites de cette note
+## 9. À obtenir avant le 25 août
 
-- `e-meppsa.net`, `resultat.e-meppsa.net` et `meppsa.cg` **n'ont pas pu être consultés directement** (DNS injoignable depuis ce poste, HTTP 402). Les constats proviennent de résultats de recherche et de la presse — **à confirmer en ouvrant les sites**.
-- **Piège écarté** : plusieurs sources parlent d'« Examen d'État » et de « 26 provinces » — c'est la **RDC (Kinshasa)**, pas le Congo-Brazzaville (15 départements). Rien de ce qui précède n'en provient.
-- La part de marché réelle de CongoEduSoft et de Zaame au Congo est **inconnue**.
-- Aucune information trouvée sur une **API publique** de la DEC ou d'ExaTrust : l'accès de Campus France est attesté, ses modalités ne le sont pas.
+Par ordre de valeur. **Aucun ne se code — ils se demandent.**
+
+1. **Une capture du formulaire de saisie de la DEC.** Notre liste doit épouser ses champs, dans
+   son ordre. C'est ce qui fait passer l'export de « raisonnable » à « exact ».
+2. **Vérifier la pile du MEPSA** (§3), en particulier l'accès Campus France à ExaTrust.
+3. **Le retour des résultats** : sous quelle forme la DEC les rend-elle à l'école ?
+4. **La liste des pièces confirmée** par la DEC elle-même (nous avons la note ; l'utilisateur est
+   dedans).
+5. **Photos et badges** : téléversés dans l'appli, ou seulement au dossier papier ? ⚠️ S'ils
+   transitent, ce sont des **fichiers** → `upload_outbox` obligatoire (PowerSync met en file le
+   SQL, pas les fichiers).
+
+---
+
+## 10. Mon avis franc
+
+**Le danger n'est pas technique, il est narratif.** Le produit est solide et le hors-ligne est un
+vrai fossé.
+
+**Le récit qui gagne :**
+> *« Vous avez numérisé l'inscription à l'examen. Personne n'a numérisé l'école — et personne ne
+> l'a fait fonctionner sans réseau. Voilà les 30 modules, voilà les 14 écoles du METP déjà
+> dedans. Et voilà ce que je viens vous demander : une interface, ouverte à tous les éditeurs,
+> pour que le nom sur le diplôme soit celui de l'acte de naissance. »*
+
+---
+
+## 11. Limites de cette note
+
+- **La pile du MEPSA (§3) n'est pas vérifiée.** Sites injoignables. C'est le plus gros trou.
+- **Piège écarté** : les sources parlant d'« Examen d'État » et de « 26 provinces » relèvent de la
+  **RDC (Kinshasa)**, pas du Congo-Brazzaville (15 départements). Rien ici n'en provient.
+- Parts de marché de CongoEduSoft et Zaame : **inconnues**.
+- Aucune API publique DEC/ExaTrust attestée.
+- **`dsic-metp.net` est une vitrine** — ne jamais s'en servir comme preuve d'un produit déployé.
 
 ## Sources
 
-- [e-MEPPSA — portail officiel](https://www.e-meppsa.net/) · [Inscription aux examens d'État](https://inscription.e-meppsa.net/) · [ExaTrust — résultats](https://resultat.e-meppsa.net/) · [MEPPSA](https://www.meppsa.cg/)
-- [Le MEPPSA met en place deux innovations pour la gestion des examens d'État (ACI)](https://www.aci.cg/congo-education-le-meppsa-met-en-place-de-deux-innovations-pour-la-gestion-des-examens-detat/)
-- [Examens d'État 2026 : Exatrust et la géolocalisation des centres](https://www.panoramik-actu.com/congo-examens-detat-2026-exatrust-et-la-geolocalisation-des-centres-revolutionnent-lorganisation/)
-- [CongoEduSoft — éditeur de logiciels scolaires](https://www.congoedusoft.cg/) · [Zaame — gestion scolaire](https://zaame.com/en/)
-- [METP — Ministère de l'Enseignement Technique et Professionnel](https://enseignement-technique.gouv.cg/) · [Note d'information inscriptions METP 2025-2026](https://ecolesaucongo.com/article-64-note-d-information-inscription-aux-examens-d-etat-2025-2026-metp.html)
-- [Dates des examens d'État 2026 — MEPPSA](https://ecolesaucongo.com/article-97-dates-des-examens-d-etat-2026-meppsa.html)
+- Terrain : **l'utilisateur, fonctionnaire à la DSIC du METP** (source prioritaire).
+- [Note d'information — Inscription aux examens d'État 2025-2026 METP](https://ecolesaucongo.com/article-64-note-d-information-inscription-aux-examens-d-etat-2025-2026-metp.html)
+- [Dossiers, période d'inscription et lieux de dépôt METP 2024-2025](https://ecolesaucongo.com/article-3-dossiers-periode-d-inscription-et-lieux-de-depots-de-dossiers-aux-examens-metp-2024-2025.html)
+- [Examens techniques et professionnels 2026 : BET, BEP, BTF — Matin Libre](https://www.matinlibre.cg/examens-techniques-et-professionnels-2026-les-candidats-au-bet-bep-et-btf-a-lepreuve/)
+- [METP — site officiel](https://enseignement-technique.gouv.cg/) · [DSIC-METP — ⚠️ vitrine](https://www.dsic-metp.net/)
+- ⚠️ Non consultés (injoignables) : [e-MEPPSA](https://www.e-meppsa.net/) · [ExaTrust](https://resultat.e-meppsa.net/) · [MEPPSA](https://www.meppsa.cg/)
