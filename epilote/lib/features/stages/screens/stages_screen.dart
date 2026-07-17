@@ -6,8 +6,11 @@ import '../../../core/widgets/admin_ui.dart';
 // réutiliser ses briques d'affichage est cohérent, pas un raccourci.
 import '../../examens/widgets/examens_widgets.dart'
     show ExamErrorCard, ExamSectionLabel, formatDate;
+import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
 import '../providers/stages_provider.dart';
+import '../widgets/stage_attestation_dialog.dart';
+import '../widgets/stage_form_dialog.dart';
 
 const _kSlug = 'stages';
 
@@ -20,11 +23,23 @@ class StagesScreen extends ConsumerWidget {
   const StagesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => const ModuleScaffold(
-        slug: _kSlug,
-        title: 'Stages',
-        child: _Body(),
-      );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final canCreate = ref.watch(canProvider((slug: _kSlug, action: 'create')));
+    return ModuleScaffold(
+      slug: _kSlug,
+      title: 'Stages',
+      actions: [
+        if (canCreate)
+          FilledButton.icon(
+            onPressed: () => showStageFormDialog(context),
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('Nouveau stage'),
+            style: FilledButton.styleFrom(backgroundColor: kNavy),
+          ),
+      ],
+      child: const _Body(),
+    );
+  }
 }
 
 class _Body extends ConsumerWidget {
@@ -37,34 +52,41 @@ class _Body extends ConsumerWidget {
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => ExamErrorCard(message: '$e'),
-      data: (o) => ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-        children: [
-          if (o.blocked.isNotEmpty) ...[
-            _BlockedCard(rows: o.blocked),
-            const SizedBox(height: 20),
-          ],
-          _Kpis(overview: o),
-          const SizedBox(height: 24),
-          if (o.internships.isEmpty)
-            const _EmptyStages()
-          else ...[
-            ExamSectionLabel('Stages',
-                trailing: '${o.internships.length} stage(s)'),
-            const SizedBox(height: 12),
-            Container(
-              decoration: BoxDecoration(
-                color: kCardBg,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: kBorder),
+      data: (o) {
+        final canEdit =
+            ref.watch(canProvider((slug: _kSlug, action: 'create')));
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          children: [
+            if (o.blocked.isNotEmpty) ...[
+              _BlockedCard(rows: o.blocked),
+              const SizedBox(height: 20),
+            ],
+            _Kpis(overview: o),
+            const SizedBox(height: 24),
+            if (o.internships.isEmpty)
+              _EmptyStages(canEdit: canEdit)
+            else ...[
+              ExamSectionLabel('Stages',
+                  trailing: '${o.internships.length} stage(s)'),
+              const SizedBox(height: 12),
+              Container(
+                decoration: BoxDecoration(
+                  color: kCardBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: kBorder),
+                ),
+                child: Column(
+                  children: [
+                    for (final r in o.internships)
+                      _StageRow(row: r, canEdit: canEdit),
+                  ],
+                ),
               ),
-              child: Column(
-                children: [for (final r in o.internships) _StageRow(row: r)],
-              ),
-            ),
+            ],
           ],
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -200,8 +222,9 @@ class _BlockedCard extends StatelessWidget {
 }
 
 class _StageRow extends StatelessWidget {
-  const _StageRow({required this.row});
+  const _StageRow({required this.row, required this.canEdit});
   final InternshipRow row;
+  final bool canEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -257,25 +280,62 @@ class _StageRow extends StatelessWidget {
                   fontSize: 11, fontWeight: FontWeight.w700, color: tone)),
         ),
         const SizedBox(width: 8),
-        if (r.hasAttestation)
-          Tooltip(
-            message: 'Attestation délivrée',
-            child: Icon(Icons.verified_rounded, size: 17, color: kGreen),
-          )
-        else if (r.attestationOverdue)
-          Tooltip(
-            message: 'Stage terminé mais attestation non délivrée',
-            child: Icon(Icons.error_outline_rounded, size: 17, color: kRed),
-          )
+        // L'attestation n'est plus un simple voyant : c'est le bouton qui la
+        // délivre. Le module signalait un blocage sans offrir de le lever.
+        if (!canEdit)
+          _AttestationBadge(row: r)
         else
-          const SizedBox(width: 17),
+          IconButton(
+            onPressed: () => showAttestationDialog(context, row: r),
+            icon: Icon(
+              r.hasAttestation
+                  ? Icons.verified_rounded
+                  : (r.attestationOverdue
+                      ? Icons.error_outline_rounded
+                      : Icons.workspace_premium_outlined),
+              size: 18,
+            ),
+            color: r.hasAttestation
+                ? kGreen
+                : (r.attestationOverdue ? kRed : kTextMuted),
+            tooltip: r.hasAttestation
+                ? 'Attestation délivrée'
+                : (r.attestationOverdue
+                    ? 'Stage terminé — attestation à délivrer'
+                    : 'Délivrer l\'attestation'),
+            visualDensity: VisualDensity.compact,
+          ),
       ]),
     );
   }
 }
 
+/// Voyant seul, pour qui n'a pas le droit d'écrire.
+class _AttestationBadge extends StatelessWidget {
+  const _AttestationBadge({required this.row});
+  final InternshipRow row;
+
+  @override
+  Widget build(BuildContext context) {
+    if (row.hasAttestation) {
+      return Tooltip(
+        message: 'Attestation délivrée',
+        child: Icon(Icons.verified_rounded, size: 17, color: kGreen),
+      );
+    }
+    if (row.attestationOverdue) {
+      return Tooltip(
+        message: 'Stage terminé mais attestation non délivrée',
+        child: Icon(Icons.error_outline_rounded, size: 17, color: kRed),
+      );
+    }
+    return const SizedBox(width: 17);
+  }
+}
+
 class _EmptyStages extends StatelessWidget {
-  const _EmptyStages();
+  const _EmptyStages({required this.canEdit});
+  final bool canEdit;
 
   @override
   Widget build(BuildContext context) => Center(
@@ -296,6 +356,16 @@ class _EmptyStages extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12.5, color: kTextMuted, height: 1.5),
             ),
+            // Un écran vide qui n'offre pas le geste attendu est un cul-de-sac.
+            if (canEdit) ...[
+              const SizedBox(height: 18),
+              FilledButton.icon(
+                onPressed: () => showStageFormDialog(context),
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Enregistrer un stage'),
+                style: FilledButton.styleFrom(backgroundColor: kNavy),
+              ),
+            ],
           ]),
         ),
       );
