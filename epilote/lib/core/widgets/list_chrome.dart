@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
-import '../../../core/widgets/admin_ui.dart';
+import 'admin_ui.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  CHROME DES LISTES SUPER_ADMIN — KPI · filtres · bascule tableau/cartes.

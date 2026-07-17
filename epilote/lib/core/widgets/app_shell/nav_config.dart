@@ -176,6 +176,12 @@ List<NavSection> _adminGroupeSections(WidgetRef ref) {
       ),
     ]),
     NavSection(title: 'PILOTAGE', entries: [
+      // Cœur du METP : la couverture des examens nationaux sur tout le réseau.
+      const NavEntry.item(
+        icon: Icons.workspace_premium_rounded,
+        label: 'Examens nationaux',
+        route: Routes.adminExamens,
+      ),
       const NavEntry.item(
         icon: Icons.bar_chart_rounded,
         label: 'Rapports',

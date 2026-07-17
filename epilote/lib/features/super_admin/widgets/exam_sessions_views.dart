@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../providers/exam_sessions_admin_provider.dart';
-import 'list_chrome.dart' show kListPurple;
+import '../../../core/widgets/list_chrome.dart' show kListPurple;
 
 final _fmt = DateFormat('dd/MM', 'fr_FR');
 final _fmtFull = DateFormat('dd/MM/yyyy', 'fr_FR');
