@@ -24,13 +24,39 @@ import '../models/exam_dossier_piece.dart';
 // ════════════════════════════════════════════════════════════════════════════
 
 class DossierPieceState {
-  const DossierPieceState({required this.piece, required this.provided});
+  const DossierPieceState(
+      {required this.piece, required this.provided, this.linkedStage});
 
   final ExamDossierPiece piece;
 
   /// Déclarée fournie par l'école. Pour une pièce conditionnelle, l'information
   /// est purement indicative : elle ne compte pas dans la complétude.
   final bool provided;
+
+  /// Renseigné UNIQUEMENT sur la pièce `attestation_stage` quand une attestation
+  /// a été émise dans le module Stages. La pièce est alors satisfaite PAR LE
+  /// MODULE (source de vérité), pas par une déclaration manuelle.
+  final StageAttestation? linkedStage;
+
+  bool get isStageLinked => linkedStage != null;
+}
+
+/// L'attestation de stage vue depuis le dossier d'examen — le pont Examens↔Stages
+/// pour les bacs professionnels (BAC_P, BAC_T), dont le dossier exige la pièce
+/// `attestation_stage`. Le module Stages la produit ; on ne redemande pas à
+/// l'agent de cocher ce que le système sait déjà.
+class StageAttestation {
+  const StageAttestation({
+    required this.issuedAt,
+    required this.companyName,
+    required this.title,
+    required this.grade,
+  });
+
+  final DateTime? issuedAt;
+  final String? companyName;
+  final String? title;
+  final double? grade;
 }
 
 class CandidateDossier {
@@ -65,12 +91,15 @@ class CandidateDossier {
   bool get isSubmitted => status == 'depose' || status == 'valide';
 }
 
+/// Code de la pièce « attestation de stage » — le point de jonction avec Stages.
+const kStagePieceCode = 'attestation_stage';
+
 final candidateDossierProvider =
     FutureProvider.autoDispose.family<CandidateDossier?, String>(
   (ref, candidateId) async {
     final rows = await db.getAll(
       '''
-      SELECT c.id, c.dossier_status, c.missing_documents,
+      SELECT c.id, c.student_id, c.dossier_status, c.missing_documents,
              s.required_documents,
              st.first_name, st.last_name,
              e.short_name AS exam_short_name
@@ -90,6 +119,35 @@ final candidateDossierProvider =
         .map((p) => p.code)
         .toSet();
 
+    // Pont Examens↔Stages : uniquement si le dossier exige une attestation de
+    // stage (bacs pro), on va lire dans le module Stages si elle a été émise.
+    // On ne fait la requête que quand la pièce existe — inutile pour un BEPC.
+    StageAttestation? stage;
+    if (required.any((p) => p.code == kStagePieceCode)) {
+      final st = await db.getAll(
+        '''
+        SELECT i.attestation_issued_at, i.title, i.evaluation_grade,
+               co.name AS company
+          FROM internships i
+          LEFT JOIN internship_companies co ON co.id = i.company_id
+         WHERE i.student_id = ? AND i.attestation_issued_at IS NOT NULL
+         ORDER BY i.attestation_issued_at DESC
+         LIMIT 1
+        ''',
+        [r['student_id'] as String],
+      );
+      if (st.isNotEmpty) {
+        stage = StageAttestation(
+          issuedAt: st.first['attestation_issued_at'] == null
+              ? null
+              : DateTime.tryParse(st.first['attestation_issued_at'] as String),
+          companyName: st.first['company'] as String?,
+          title: st.first['title'] as String?,
+          grade: (st.first['evaluation_grade'] as num?)?.toDouble(),
+        );
+      }
+    }
+
     return CandidateDossier(
       candidateId: r['id'] as String,
       fullName:
@@ -100,10 +158,17 @@ final candidateDossierProvider =
         for (final p in required)
           DossierPieceState(
             piece: p,
-            // Une pièce conditionnelle n'entre JAMAIS dans `missing` : la
-            // déduire « fournie » de son absence serait un mensonge par
-            // construction. Elle n'a pas d'état — c'est un rappel, pas une case.
-            provided: p.isConditional ? false : !missingCodes.contains(p.code),
+            // La pièce attestation_stage est satisfaite PAR LE MODULE Stages
+            // dès qu'une attestation est émise : le système le sait, on ne
+            // redemande pas à l'agent de le déclarer.
+            provided: p.code == kStagePieceCode && stage != null
+                ? true
+                : p.isConditional
+                    ? false
+                    // Une pièce conditionnelle n'entre JAMAIS dans `missing` :
+                    // la déduire « fournie » de son absence serait un mensonge.
+                    : !missingCodes.contains(p.code),
+            linkedStage: p.code == kStagePieceCode ? stage : null,
           ),
       ],
     );

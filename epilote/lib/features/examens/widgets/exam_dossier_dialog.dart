@@ -151,11 +151,23 @@ class _Body extends StatelessWidget {
           _Banner(missing: missing, submitted: d.isSubmitted),
           const SizedBox(height: 16),
           for (final p in d.mandatory)
-            _PieceTile(
-              piece: p.piece,
-              checked: provided.contains(p.piece.code),
-              onChanged: (v) => onToggle(p.piece.code, v ?? false),
-            ),
+            if (p.isStageLinked)
+              // Satisfaite par le module Stages — la source de vérité de
+              // l'attestation. Pas une case à cocher : le système le sait.
+              _StageLinkedTile(stage: p.linkedStage!)
+            else if (p.piece.code == kStagePieceCode)
+              // Pièce de stage exigée mais aucune attestation émise dans Stages.
+              _StageMissingTile(
+                piece: p.piece,
+                checked: provided.contains(p.piece.code),
+                onChanged: (v) => onToggle(p.piece.code, v ?? false),
+              )
+            else
+              _PieceTile(
+                piece: p.piece,
+                checked: provided.contains(p.piece.code),
+                onChanged: (v) => onToggle(p.piece.code, v ?? false),
+              ),
           if (d.conditional.isNotEmpty) ...[
             const SizedBox(height: 16),
             Text('LE CAS ÉCHÉANT',
@@ -252,6 +264,92 @@ class _PieceTile extends StatelessWidget {
     );
   }
 }
+
+/// La pièce `attestation_stage` satisfaite par le module Stages : on montre la
+/// preuve (date d'émission, entreprise), on ne redemande rien.
+class _StageLinkedTile extends StatelessWidget {
+  const _StageLinkedTile({required this.stage});
+  final StageAttestation stage;
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = <String>[
+      if (stage.issuedAt != null)
+        'émise le ${stage.issuedAt!.day.toString().padLeft(2, '0')}/'
+            '${stage.issuedAt!.month.toString().padLeft(2, '0')}/${stage.issuedAt!.year}',
+      if (stage.companyName != null) stage.companyName!,
+    ];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: kGreen.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: kGreen.withValues(alpha: 0.30)),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(Icons.verified_rounded, size: 18, color: kGreen),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Attestation de stage',
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: kTextPrimary)),
+              const SizedBox(height: 2),
+              Text(
+                parts.isEmpty
+                    ? 'fournie par le module Stages'
+                    : '${parts.join(' · ')} — via le module Stages',
+                style: TextStyle(fontSize: 11, color: kTextMuted),
+              ),
+            ],
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+/// Pièce de stage exigée, mais aucune attestation émise dans Stages. On laisse
+/// la déclaration manuelle possible (preuve papier hors module) tout en pointant
+/// vers là où la pièce se produit vraiment.
+class _StageMissingTile extends StatelessWidget {
+  const _StageMissingTile({
+    required this.piece,
+    required this.checked,
+    required this.onChanged,
+  });
+  final ExamDossierPiece piece;
+  final bool checked;
+  final ValueChanged<bool?> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _PieceTile(piece: piece, checked: checked, onChanged: onChanged),
+          const Padding(
+            padding: EdgeInsets.only(left: 32, bottom: 8),
+            child: Row(children: [
+              Icon(Icons.link_off_rounded, size: 13, color: kListAmber),
+              SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Aucune attestation émise dans le module Stages pour cet élève.',
+                  style: TextStyle(fontSize: 11, color: kListAmber),
+                ),
+              ),
+            ]),
+          ),
+        ],
+      );
+}
+
+const kListAmber = Color(0xFFB45309);
 
 class _ConditionalNote extends StatelessWidget {
   const _ConditionalNote({required this.piece});
