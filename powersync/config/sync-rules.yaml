@@ -166,6 +166,10 @@ bucket_definitions:
       # Candidatures aux examens d'État — nominatif, donc filtré par école.
       # (Le référentiel examens/sessions/centres descend par global_catalog.)
       - SELECT * FROM exam_candidates WHERE school_id = bucket.sid
+      # Transmissions à la DEC (migration 0054) — dépôt opposable, écrit hors
+      # ligne. Filtré par école ; descend vers les autres postes de l'école.
+      - SELECT * FROM transmissions WHERE school_id = bucket.sid
+      - SELECT * FROM transmission_items WHERE school_id = bucket.sid
       # Stages (migration 0048) — nominatif : filtré par école.
       - SELECT * FROM internships WHERE school_id = bucket.sid
       - SELECT * FROM students WHERE school_id = bucket.sid AND is_active = true

@@ -1337,6 +1337,45 @@ const schema = Schema([
     Column.text('updated_at'),
   ]),
 
+  // ── TRANSMISSIONS (migration 0054) — dépôt OPPOSABLE à la DEC ──────────────
+  // Ce que l'école a DÉCLARÉ, et quand. Écrit hors ligne, figé à la soumission.
+  // `snapshot`/`payload` = jsonb -> texte JSON. `reference` est un libellé
+  // humain (PAS une clé d'unicité serveur : cf. migration 0054).
+  Table('transmissions', [
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('kind'),
+    Column.text('recipient'),
+    Column.text('session_id'),
+    Column.text('reference'),
+    Column.text('status'),
+    Column.text('channel'),
+    Column.text('snapshot'),        // jsonb -> texte : la liste TELLE QUE DÉPOSÉE
+    Column.integer('item_count'),
+    Column.text('transmitted_at'),
+    Column.text('transmitted_by'),
+    Column.text('acknowledged_at'),
+    Column.text('acknowledgment_ref'),
+    Column.text('corrects_id'),
+    Column.text('notes'),
+    Column.text('created_by'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  Table('transmission_items', [
+    Column.text('transmission_id'),
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('candidate_id'),
+    Column.text('student_id'),
+    Column.text('local_ref'),
+    Column.integer('lot_number'),   // le lot (~50) est À L'INTÉRIEUR d'une classe
+    Column.integer('position'),
+    Column.text('payload'),         // jsonb -> texte : nom, matricule, classe…
+    Column.text('created_at'),
+  ]),
+
   // ════════════════════════════════════════════════════════════════════════
   // STAGES (migration 0048) — dépendance DURE du bac professionnel :
   // l'attestation de stage est une pièce obligatoire du dossier d'examen.

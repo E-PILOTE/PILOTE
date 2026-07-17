@@ -12,6 +12,7 @@ import '../services/exam_export_service.dart';
 import '../widgets/examens_widgets.dart' show ExamErrorCard, ExamSectionLabel;
 import '../widgets/exam_candidate_list.dart';
 import '../widgets/exam_register_dialog.dart';
+import '../widgets/transmissions_panel.dart';
 
 const _kSlug = 'examens';
 
@@ -100,6 +101,9 @@ class _State extends ConsumerState<ExamSessionScreen> {
         ref.watch(canProvider((slug: _kSlug, action: 'export')));
     final canRegister =
         ref.watch(canProvider((slug: _kSlug, action: 'create')));
+    // Le dépôt à la DEC engage l'établissement : acte du chef d'établissement.
+    final canSubmit =
+        ref.watch(canProvider((slug: _kSlug, action: 'validate')));
 
     return ModuleScaffold(
       slug: _kSlug,
@@ -162,6 +166,18 @@ class _State extends ConsumerState<ExamSessionScreen> {
                   rows: rows,
                   sessionId: widget.sessionId,
                   examCode: s.examCode),
+              const SizedBox(height: 28),
+
+              // Le geste ENGAGEANT : figer la liste affichée en un dépôt
+              // opposable à la DEC. On soumet ce qu'on voit (rows), comme l'export.
+              TransmissionsPanel(
+                sessionId: widget.sessionId,
+                tutelle: s.tutelle,
+                yearLabel: s.yearLabel,
+                candidates: rows,
+                canValidate: canSubmit,
+                scopeLabel: _scope.active ? _scope.label : null,
+              ),
             ],
           );
         },
