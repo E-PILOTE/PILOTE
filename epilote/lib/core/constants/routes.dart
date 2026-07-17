@@ -75,6 +75,7 @@ class Routes {
   static const String programmes      = '/user/programmes';
   static const String examens        = '/user/examens';
   static const String stages         = '/user/stages';
+  static const String examenSession  = '/user/examens/session/:id';
   static const String notes           = '/user/notes';
   static const String bulletins       = '/user/bulletins';
   static const String conseils        = '/user/conseils';

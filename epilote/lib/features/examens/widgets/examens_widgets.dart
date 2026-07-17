@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../../navigation/providers/permissions_provider.dart';
 import '../providers/examens_provider.dart';
+import 'exam_register_dialog.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  Briques de la page Examens. Aucune couleur en dur : jetons de thème
@@ -20,8 +23,9 @@ String formatDate(DateTime? d) =>
 /// Rappelle l'échéance d'inscription. C'est l'information PÉRISSABLE : une
 /// clôture manquée est irrattrapable (l'élève perd une année).
 class ExamSessionBanner extends StatelessWidget {
-  const ExamSessionBanner({super.key, required this.session});
+  const ExamSessionBanner({super.key, required this.session, this.onTap});
   final ExamSessionRow session;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -38,10 +42,15 @@ class ExamSessionBanner extends StatelessWidget {
       _ => (kGreen, '$days jours restants'),
     };
 
-    return Container(
+    return Material(
+      color: kCardBg,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: tone.withValues(alpha: 0.45)),
       ),
@@ -97,7 +106,11 @@ class ExamSessionBanner extends StatelessWidget {
             ],
           ),
         ),
+        if (onTap != null)
+          Icon(Icons.chevron_right_rounded, color: kTextMuted, size: 20),
       ]),
+        ),
+      ),
     );
   }
 }
@@ -170,13 +183,16 @@ class ExamGroupCard extends StatelessWidget {
   }
 }
 
-class _ClassRow extends StatelessWidget {
+class _ClassRow extends ConsumerWidget {
   const _ClassRow({required this.row});
   final ExamClassRow row;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final r = row;
+    // Verrou 3 : seul qui peut créer une candidature voit le bouton.
+    final canRegister =
+        ref.watch(canProvider((slug: 'examens', action: 'create')));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -227,6 +243,30 @@ class _ClassRow extends StatelessWidget {
           )
         else if (r.effectif > 0)
           _CountPill(value: '✓', tone: kGreen, label: 'complet'),
+        const SizedBox(width: 8),
+        if (canRegister)
+          Tooltip(
+            message: r.missing > 0
+                ? 'Inscrire les élèves à ${r.examShortName}'
+                : 'Gérer les candidatures',
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: r.missing > 0 ? kNavy : kTextMuted,
+                side: BorderSide(color: r.missing > 0 ? kNavy : kBorder),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                minimumSize: const Size(0, 32),
+                visualDensity: VisualDensity.compact,
+              ),
+              onPressed: () => showExamRegisterDialog(
+                context,
+                classId: r.id,
+                className: r.name,
+              ),
+              icon: const Icon(Icons.how_to_reg_rounded, size: 15),
+              label: Text(r.missing > 0 ? 'Inscrire' : 'Voir',
+                  style: const TextStyle(fontSize: 12)),
+            ),
+          ),
       ]),
     );
   }

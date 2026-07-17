@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/constants/routes.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../../navigation/widgets/module_scaffold.dart';
@@ -53,7 +56,13 @@ class _Body extends ConsumerWidget {
           children: [
             // ── Sessions : l'information périssable d'abord ────────────────
             for (final s in o.relevantSessions) ...[
-              ExamSessionBanner(session: s),
+              ExamSessionBanner(
+                session: s,
+                // Le bandeau mène à la page qui PRODUIT : candidats, couverture
+                // par cycle/niveau/classe, liste officielle en PDF, export CSV.
+                onTap: () => context.go(
+                    Routes.examenSession.replaceFirst(':id', s.id)),
+              ),
               const SizedBox(height: 12),
             ],
 

@@ -83,6 +83,7 @@ import '../../features/user/screens/user_settings_screen.dart';
 import '../../features/classes/screens/classes_screen.dart';
 import '../../features/classes/screens/classe_detail_screen.dart';
 import '../../features/examens/screens/examens_screen.dart';
+import '../../features/examens/screens/exam_session_screen.dart';
 import '../../features/stages/screens/stages_screen.dart';
 
 // ─── Couleurs Design System ───────────────────────────────────────────────────
@@ -516,6 +517,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.stages,
         builder: (_, _) => const StagesScreen(),
+      ),
+      GoRoute(
+        path: Routes.examenSession,
+        builder: (_, st) =>
+            ExamSessionScreen(sessionId: st.pathParameters['id']!),
       ),
       GoRoute(
         path: Routes.presences,
