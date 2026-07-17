@@ -134,7 +134,10 @@ class _State extends ConsumerState<ExamSessionScreen> {
                 trailing: '${rows.length} candidat(s)',
               ),
               const SizedBox(height: 12),
-              ExamCandidateList(rows: rows, sessionId: widget.sessionId),
+              ExamCandidateList(
+                  rows: rows,
+                  sessionId: widget.sessionId,
+                  examCode: s.examCode),
             ],
           );
         },

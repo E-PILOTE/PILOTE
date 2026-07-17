@@ -1315,8 +1315,9 @@ const schema = Schema([
     Column.text('group_id'),
     Column.text('school_id'),
     Column.text('class_id'),
-    Column.text('candidate_number'),
-    Column.text('center_id'),
+    // ── Champs ENTRANTS : la DEC les décide, nous ne faisons que les recevoir.
+    Column.text('candidate_number'),   // attribué par la DEC — ne jamais générer
+    Column.text('center_id'),          // affecté par la DEC — ne jamais décider
     Column.text('dossier_status'),     // incomplet | complet | depose | valide | rejete
     Column.text('missing_documents'),  // jsonb -> texte JSON
     Column.integer('is_repeater'),
@@ -1325,7 +1326,11 @@ const schema = Schema([
     Column.text('result'),             // admis | ajourne | absent | fraude | en_attente
     Column.real('average'),
     Column.text('mention'),
-    Column.text('decided_at'),
+    // Deux horloges à ne pas confondre (migration 0053) :
+    Column.text('decided_at'),          // PROCLAMATION par la DEC (leur horloge)
+    Column.text('result_received_at'),  // RÉCEPTION chez nous (notre horloge)
+    Column.text('result_source'),       // saisie_manuelle | import_csv | api_dec
+    Column.text('result_recorded_by'),
     Column.text('notes'),
     Column.text('created_by'),
     Column.text('created_at'),

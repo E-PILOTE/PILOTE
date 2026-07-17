@@ -6,7 +6,9 @@ import '../../navigation/providers/permissions_provider.dart';
 import '../providers/exam_candidates_provider.dart';
 import '../providers/exam_registration_provider.dart';
 import 'exam_dossier_dialog.dart';
+import 'exam_result_dialog.dart';
 import 'examens_widgets.dart' show formatDate;
+import 'student_history_dialog.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  Liste des candidats + KPI de session.
@@ -79,9 +81,13 @@ class ExamCandidateList extends ConsumerWidget {
     super.key,
     required this.rows,
     required this.sessionId,
+    required this.examCode,
   });
   final List<ExamCandidateRow> rows;
   final String sessionId;
+
+  /// Sert au contrôle de prérequis dans le parcours (BAC_T exige BEPC/BET/BEP).
+  final String examCode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -119,17 +125,23 @@ class ExamCandidateList extends ConsumerWidget {
       ),
       child: Column(children: [
         for (final (i, c) in rows.indexed)
-          _Row(row: c, index: i + 1, sessionId: sessionId),
+          _Row(row: c, index: i + 1, sessionId: sessionId, examCode: examCode),
       ]),
     );
   }
 }
 
 class _Row extends ConsumerWidget {
-  const _Row({required this.row, required this.index, required this.sessionId});
+  const _Row({
+    required this.row,
+    required this.index,
+    required this.sessionId,
+    required this.examCode,
+  });
   final ExamCandidateRow row;
   final int index;
   final String sessionId;
+  final String examCode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -199,7 +211,12 @@ class _Row extends ConsumerWidget {
               : Text('en attente',
                   style: TextStyle(fontSize: 11, color: kTextMuted)),
         ),
-        _Actions(row: c, canEdit: canEdit, sessionId: sessionId),
+        _Actions(
+          row: c,
+          canEdit: canEdit,
+          sessionId: sessionId,
+          examCode: examCode,
+        ),
       ]),
     );
   }
@@ -214,17 +231,35 @@ class _Actions extends ConsumerWidget {
     required this.row,
     required this.canEdit,
     required this.sessionId,
+    required this.examCode,
   });
 
   final ExamCandidateRow row;
   final bool canEdit;
   final String sessionId;
+  final String examCode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!canEdit) return const SizedBox(width: 8);
+    // Le parcours reste consultable SANS droit d'écriture : lire l'historique
+    // d'un élève n'est pas le modifier.
+    final history = IconButton(
+      onPressed: () => showStudentHistoryDialog(
+        context,
+        studentId: row.studentId,
+        fullName: row.fullName,
+        forExamCode: examCode,
+      ),
+      icon: const Icon(Icons.history_rounded, size: 18),
+      color: kTextMuted,
+      tooltip: 'Parcours — examens et stages',
+      visualDensity: VisualDensity.compact,
+    );
+
+    if (!canEdit) return history;
 
     return Row(mainAxisSize: MainAxisSize.min, children: [
+      history,
       IconButton(
         onPressed: () =>
             showExamDossierDialog(context, candidateId: row.id),
@@ -233,6 +268,14 @@ class _Actions extends ConsumerWidget {
         tooltip: row.missingCount > 0
             ? '${row.missingCount} pièce(s) manquante(s)'
             : 'Dossier',
+        visualDensity: VisualDensity.compact,
+      ),
+      IconButton(
+        onPressed: () =>
+            showExamResultDialog(context, row: row, sessionId: sessionId),
+        icon: const Icon(Icons.emoji_events_outlined, size: 18),
+        color: row.hasResult ? kGreen : kTextMuted,
+        tooltip: row.hasResult ? 'Modifier le résultat' : 'Saisir le résultat',
         visualDensity: VisualDensity.compact,
       ),
       IconButton(

@@ -268,18 +268,52 @@ Future<void> submitDossier(String candidateId) async {
   );
 }
 
-/// Saisie du résultat officiel. `average`/`mention` restent facultatifs :
-/// un « absent » ou une « fraude » n'a pas de moyenne.
+/// Enregistre un résultat REÇU de la DEC. `average`/`mention` restent
+/// facultatifs : un « absent » ou une « fraude » n'a pas de moyenne.
+///
+/// ── DEUX HORLOGES, NE JAMAIS LES CONFONDRE (migration 0053) ────────────────
+/// `decidedAt`  = date de PROCLAMATION par la DEC. NULL si l'école l'ignore.
+/// `receivedAt` = date de RÉCEPTION chez nous — posée ici, automatiquement.
+///
+/// La version précédente écrivait `decided_at = now()` : elle datait la
+/// proclamation officielle du jour de la frappe. Une date fausse, opposable à
+/// la DEC un jour. Un résultat n'est pas produit par nous, il nous arrive.
 Future<void> setResult(
   String candidateId, {
   required String result,
   double? average,
   String? mention,
+  DateTime? decidedAt,
+  String source = 'saisie_manuelle',
+  String? recordedBy,
 }) async {
   final now = DateTime.now().toIso8601String();
   await db.execute(
     'UPDATE exam_candidates SET result = ?, average = ?, mention = ?, '
-    ' decided_at = ?, updated_at = ? WHERE id = ?',
-    [result, average, mention, now, now, candidateId],
+    ' decided_at = ?, result_received_at = ?, result_source = ?, '
+    ' result_recorded_by = ?, updated_at = ? WHERE id = ?',
+    [
+      result,
+      average,
+      mention,
+      decidedAt?.toIso8601String(),
+      now,
+      source,
+      recordedBy,
+      now,
+      candidateId,
+    ],
+  );
+}
+
+/// Efface un résultat saisi par erreur — et TOUTE sa provenance avec lui.
+/// Laisser une source ou une date de réception derrière un résultat effacé
+/// laisserait croire que la DEC a dit quelque chose. Elle n'a rien dit.
+Future<void> clearResult(String candidateId) async {
+  await db.execute(
+    'UPDATE exam_candidates SET result = ?, average = NULL, mention = NULL, '
+    ' decided_at = NULL, result_received_at = NULL, result_source = NULL, '
+    ' result_recorded_by = NULL, updated_at = ? WHERE id = ?',
+    ['en_attente', DateTime.now().toIso8601String(), candidateId],
   );
 }
