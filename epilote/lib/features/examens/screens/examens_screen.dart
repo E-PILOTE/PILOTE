@@ -7,6 +7,7 @@ import '../../../core/constants/routes.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/list_chrome.dart';
+import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
 import '../providers/examens_provider.dart';
 import '../widgets/examens_widgets.dart';
@@ -70,7 +71,16 @@ class _Body extends ConsumerWidget {
             ],
 
             const SizedBox(height: 4),
-            _Kpis(overview: o),
+            _Kpis(
+              overview: o,
+              // KPI selon le profil d'accès : le socle (classes/élèves/candidats)
+              // pour tout lecteur ; le KPI d'ACTION « restent à inscrire » n'a de
+              // sens que pour qui peut inscrire.
+              canRegister: () {
+                final p = ref.watch(modulePermissionProvider(_kSlug));
+                return (p?.canCreate ?? false) || (p?.canUpdate ?? false);
+              }(),
+            ),
             const SizedBox(height: 20),
             if (o.examClasses.isNotEmpty) ...[
               _CoverageChart(rows: o.examClasses),
@@ -106,8 +116,11 @@ class _Body extends ConsumerWidget {
 }
 
 class _Kpis extends StatelessWidget {
-  const _Kpis({required this.overview});
+  const _Kpis({required this.overview, required this.canRegister});
   final ExamOverview overview;
+
+  /// Le profil peut-il inscrire ? Décide de faire ressortir le KPI d'action.
+  final bool canRegister;
 
   @override
   Widget build(BuildContext context) {
@@ -115,6 +128,7 @@ class _Kpis extends StatelessWidget {
     final coverage =
         o.studentsTotal == 0 ? 0.0 : o.candidatesTotal / o.studentsTotal;
     return KpiGrid(items: [
+      // ── Socle : visible par tout profil qui accède au module ──────────────
       KpiData(
         label: 'Classes d\'examen',
         value: '${o.examClasses.length}',
@@ -148,20 +162,34 @@ class _Kpis extends StatelessWidget {
         trend: '${(coverage * 100).round()}% couverts',
         trendUp: coverage >= 0.5,
       ),
-      KpiData(
-        label: 'Restent à inscrire',
-        value: '${o.missingTotal}',
-        sub: o.missingTotal == 0
-            ? 'tout le monde est inscrit'
-            : 'élève(s) sans candidature',
-        icon: Icons.pending_actions_rounded,
-        color: o.missingTotal == 0 ? kGreen : kRed,
-        progressValue: o.studentsTotal == 0
-            ? 1
-            : 1 - (o.missingTotal / o.studentsTotal),
-        trend: o.missingTotal == 0 ? '✅ complet' : 'à inscrire',
-        trendUp: o.missingTotal == 0,
-      ),
+      // ── Action : réservé à qui peut inscrire (create/update) ──────────────
+      if (canRegister)
+        KpiData(
+          label: 'Restent à inscrire',
+          value: '${o.missingTotal}',
+          sub: o.missingTotal == 0
+              ? 'tout le monde est inscrit'
+              : 'élève(s) sans candidature',
+          icon: Icons.pending_actions_rounded,
+          color: o.missingTotal == 0 ? kGreen : kRed,
+          progressValue: o.studentsTotal == 0
+              ? 1
+              : 1 - (o.missingTotal / o.studentsTotal),
+          trend: o.missingTotal == 0 ? '✅ complet' : 'à inscrire',
+          trendUp: o.missingTotal == 0,
+        )
+      else
+        // Lecteur seul : une lecture NEUTRE de la couverture, pas une consigne.
+        KpiData(
+          label: 'Couverture',
+          value: '${(coverage * 100).round()} %',
+          sub: '${o.candidatesTotal}/${o.studentsTotal} inscrits',
+          icon: Icons.donut_large_rounded,
+          color: coverage >= 0.8 ? kGreen : (coverage >= 0.5 ? kAccent : kRed),
+          progressValue: coverage,
+          trend: coverage >= 0.8 ? 'bonne' : 'partielle',
+          trendUp: coverage >= 0.5,
+        ),
     ]);
   }
 }

@@ -15,8 +15,12 @@ import 'exam_candidate_views.dart';
 // ════════════════════════════════════════════════════════════════════════════
 
 class ExamKpiRow extends StatelessWidget {
-  const ExamKpiRow({super.key, required this.session});
+  const ExamKpiRow({super.key, required this.session, this.canWrite = false});
   final ExamSessionCandidates session;
+
+  /// KPI selon le profil : la métrique d'écriture « Déposés » (dépôt des
+  /// dossiers) ne ressort que pour qui peut agir sur les dossiers.
+  final bool canWrite;
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +28,7 @@ class ExamKpiRow extends StatelessWidget {
     final n = s.candidates.length;
     final rate = s.successRate;
     return KpiGrid(items: [
+      // ── Socle : tout profil qui accède à la session ───────────────────────
       KpiData(
         label: 'Candidats',
         value: '$n',
@@ -43,15 +48,6 @@ class ExamKpiRow extends StatelessWidget {
         trendUp: n > 0 && s.complete == n,
       ),
       KpiData(
-        label: 'Déposés',
-        value: '${s.submitted}',
-        sub: 'au centre d\'examen',
-        icon: Icons.upload_file_rounded,
-        color: s.submitted == 0 ? kTextMuted : kGreen,
-        progressValue: n > 0 ? s.submitted / n : 0,
-        trend: n > 0 ? '${(s.submitted * 100 / n).round()}%' : '—',
-      ),
-      KpiData(
         label: 'Taux de réussite',
         // Sur les résultats CONNUS : diviser par l'effectif afficherait 0 %
         // tant que rien n'est saisi — un chiffre faux et démoralisant.
@@ -65,6 +61,17 @@ class ExamKpiRow extends StatelessWidget {
         trend: rate == null ? '—' : (rate >= 50 ? 'bon' : 'à suivre'),
         trendUp: rate != null && rate >= 50,
       ),
+      // ── Action : dépôt des dossiers, réservé à qui peut écrire ────────────
+      if (canWrite)
+        KpiData(
+          label: 'Déposés',
+          value: '${s.submitted}',
+          sub: 'au centre d\'examen',
+          icon: Icons.upload_file_rounded,
+          color: s.submitted == 0 ? kTextMuted : kGreen,
+          progressValue: n > 0 ? s.submitted / n : 0,
+          trend: n > 0 ? '${(s.submitted * 100 / n).round()}%' : '—',
+        ),
     ]);
   }
 }

@@ -122,7 +122,7 @@ class _State extends ConsumerState<ExamSessionScreen> {
               _Head(session: s, canExport: canExport,
                   onPdf: () => _exportPdf(s), onCsv: () => _exportCsv(s)),
               const SizedBox(height: 20),
-              ExamKpiRow(session: s),
+              ExamKpiRow(session: s, canWrite: canRegister || canSubmit),
               const SizedBox(height: 24),
 
               // Le panneau partagé du projet : un examen traverse la structure.

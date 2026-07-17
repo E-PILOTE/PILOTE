@@ -190,6 +190,33 @@ class _State extends ConsumerState<AdminExamsScreen> {
             ? '${(d.totalSubmitted * 100 / d.totalCandidates).round()}%'
             : '—',
       ),
+      // ── Module STAGES : le ministère pilote les deux modules ─────────────
+      KpiData(
+        label: 'Stages du réseau',
+        value: '${d.internshipsTotal}',
+        sub: '${d.attestationsTotal} attestation(s) délivrée(s)',
+        icon: Icons.engineering_rounded,
+        color: kGreen,
+        progressValue: d.internshipsTotal == 0
+            ? 0
+            : d.attestationsTotal / d.internshipsTotal,
+        trend: d.internshipsTotal > 0
+            ? '${(d.attestationsTotal * 100 / d.internshipsTotal).round()}% attestées'
+            : '—',
+      ),
+      KpiData(
+        label: 'Bacs bloqués',
+        // Candidats de bac technique/pro sans attestation : dossier irrecevable.
+        value: '${d.bacBlocked}',
+        sub: d.bacBlocked == 0
+            ? '✅ tous les bacs pro couverts'
+            : 'stage manquant — dossier irrecevable',
+        icon: Icons.gpp_maybe_rounded,
+        color: d.bacBlocked == 0 ? kGreen : kRed,
+        progressValue: d.bacBlocked == 0 ? 1 : 0,
+        trend: d.bacBlocked == 0 ? 'OK' : '⚠ à traiter',
+        trendUp: d.bacBlocked == 0,
+      ),
     ];
   }
 }

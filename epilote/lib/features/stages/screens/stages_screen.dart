@@ -71,6 +71,10 @@ class _BodyState extends ConsumerState<_Body> {
   Widget build(BuildContext context) {
     final async = ref.watch(stagesOverviewProvider);
     final canEdit = ref.watch(canProvider((slug: _kSlug, action: 'create')));
+    // KPI selon le profil d'accès (capacité brute, indépendante de l'abonnement) :
+    // les KPI d'ACTION ne ressortent que pour qui peut agir sur les stages.
+    final perm = ref.watch(modulePermissionProvider(_kSlug));
+    final canWrite = (perm?.canCreate ?? false) || (perm?.canUpdate ?? false);
 
     return async.when(
       skipLoadingOnReload: true,
@@ -89,7 +93,7 @@ class _BodyState extends ConsumerState<_Body> {
                 _BlockedCard(rows: o.blocked),
                 const SizedBox(height: 20),
               ],
-              KpiGrid(items: _kpis(o, convSigned)),
+              KpiGrid(items: _kpis(o, convSigned, canWrite)),
               const SizedBox(height: 20),
               StagesStatusChart(internships: o.internships),
               const SizedBox(height: 20),
@@ -169,9 +173,10 @@ class _BodyState extends ConsumerState<_Body> {
     );
   }
 
-  List<KpiData> _kpis(StagesOverview o, int convSigned) {
+  List<KpiData> _kpis(StagesOverview o, int convSigned, bool canWrite) {
     final n = o.internships.length;
     return [
+      // ── Socle : tout profil qui accède au module ─────────────────────────
       KpiData(
         label: 'Stages',
         value: '$n',
@@ -199,30 +204,10 @@ class _BodyState extends ConsumerState<_Body> {
         progressValue: n > 0 ? o.attestations / n : 0,
         trend: n > 0 ? '${(o.attestations * 100 / n).round()}%' : '—',
       ),
-      KpiData(
-        label: 'Attestations dues',
-        value: '${o.overdue}',
-        sub: o.overdue == 0 ? '✅ rien en retard' : 'stage fini, pièce manquante',
-        icon: Icons.report_problem_rounded,
-        color: o.overdue == 0 ? kGreen : kRed,
-        progressValue: n > 0 ? 1 - (o.overdue / n) : 1,
-        trend: o.overdue == 0 ? 'à jour' : '⚠ à délivrer',
-        trendUp: o.overdue == 0,
-      ),
-      KpiData(
-        label: 'Conventions',
-        value: '$convSigned',
-        sub: '${n - convSigned} sans convention',
-        icon: Icons.description_rounded,
-        color: convSigned == n ? kGreen : kListOrange,
-        progressValue: n > 0 ? convSigned / n : 0,
-        trend: n > 0 ? '${(convSigned * 100 / n).round()}% signées' : '—',
-        trendUp: convSigned == n,
-      ),
+      // Alerte CRITIQUE (bac irrecevable) : visible par TOUS, y compris lecteurs.
       KpiData(
         label: 'Dossiers bloqués',
         value: '${o.blocked.length}',
-        // Élèves de bac technique/pro sans attestation : dossier irrecevable.
         sub: o.blocked.isEmpty ? '✅ aucun blocage' : 'bac sans attestation',
         icon: Icons.gpp_maybe_rounded,
         color: o.blocked.isEmpty ? kGreen : kRed,
@@ -230,6 +215,31 @@ class _BodyState extends ConsumerState<_Body> {
         trend: o.blocked.isEmpty ? 'OK' : '⚠ irrecevable',
         trendUp: o.blocked.isEmpty,
       ),
+      // ── Action : ce qu'il reste à FAIRE, pour qui peut le faire ───────────
+      if (canWrite) ...[
+        KpiData(
+          label: 'Attestations dues',
+          value: '${o.overdue}',
+          sub: o.overdue == 0
+              ? '✅ rien en retard'
+              : 'stage fini, pièce manquante',
+          icon: Icons.report_problem_rounded,
+          color: o.overdue == 0 ? kGreen : kRed,
+          progressValue: n > 0 ? 1 - (o.overdue / n) : 1,
+          trend: o.overdue == 0 ? 'à jour' : '⚠ à délivrer',
+          trendUp: o.overdue == 0,
+        ),
+        KpiData(
+          label: 'Conventions',
+          value: '$convSigned',
+          sub: '${n - convSigned} sans convention',
+          icon: Icons.description_rounded,
+          color: convSigned == n ? kGreen : kListOrange,
+          progressValue: n > 0 ? convSigned / n : 0,
+          trend: n > 0 ? '${(convSigned * 100 / n).round()}% signées' : '—',
+          trendUp: convSigned == n,
+        ),
+      ],
     ];
   }
 

@@ -57,6 +57,9 @@ class MinistryExamBar {
   final int candidates;
 }
 
+/// Examens dont le dossier exige une attestation de stage (note METP).
+const _kBacProInternship = {'BAC_T', 'BAC_P'};
+
 class MinistryExamsData {
   const MinistryExamsData({
     required this.schools,
@@ -70,6 +73,9 @@ class MinistryExamsData {
     required this.schoolsWithCandidates,
     required this.transmissionCount,
     required this.transmissionsAcknowledged,
+    required this.internshipsTotal,
+    required this.attestationsTotal,
+    required this.bacBlocked,
     required this.yearLabel,
   });
 
@@ -84,6 +90,14 @@ class MinistryExamsData {
   final int schoolsWithCandidates;
   final int transmissionCount;
   final int transmissionsAcknowledged;
+
+  /// Module Stages, agrégé sur le réseau — le ministère pilote les 2 modules.
+  final int internshipsTotal;
+  final int attestationsTotal;
+
+  /// Candidats de bac technique/pro SANS attestation de stage : dossier
+  /// irrecevable. L'alerte réseau la plus coûteuse (une année perdue).
+  final int bacBlocked;
   final String? yearLabel;
 
   /// Écoles à risque : des candidats, rien de transmis.
@@ -105,6 +119,9 @@ class MinistryExamsData {
     schoolsWithCandidates: 0,
     transmissionCount: 0,
     transmissionsAcknowledged: 0,
+    internshipsTotal: 0,
+    attestationsTotal: 0,
+    bacBlocked: 0,
     yearLabel: null,
   );
 }
@@ -122,10 +139,10 @@ final adminExamsProvider =
   // Candidatures du réseau, jointes à l'examen et à l'école.
   final rows = await client
       .from('exam_candidates')
-      .select('school_id, dossier_status, result, '
+      .select('school_id, student_id, dossier_status, result, '
           'schools!inner(name), '
           'exam_sessions!inner(id, year_label, '
-          'national_exams!inner(short_name, tutelle))')
+          'national_exams!inner(code, short_name, tutelle))')
       .eq('group_id', groupId);
 
   // Transmissions du réseau (dépôts opposables à la DEC).
@@ -134,9 +151,26 @@ final adminExamsProvider =
       .select('school_id, status, transmitted_at')
       .eq('group_id', groupId);
 
+  // Module STAGES agrégé : le ministère pilote les deux modules.
+  final internRows = await client
+      .from('internships')
+      .select('student_id, attestation_issued_at')
+      .eq('group_id', groupId);
+  final internshipsTotal = (internRows as List).length;
+  var attestationsTotal = 0;
+  final studentsWithAttestation = <String>{};
+  for (final i in internRows) {
+    if (i['attestation_issued_at'] != null) {
+      attestationsTotal++;
+      final sid = i['student_id'] as String?;
+      if (sid != null) studentsWithAttestation.add(sid);
+    }
+  }
+
   final bySchool = <String, _SchoolAcc>{};
   final byExam = <String, _ExamAcc>{};
   final sessionIds = <String>{};
+  var bacBlocked = 0;
   String? year;
 
   for (final r in (rows as List)) {
@@ -145,9 +179,17 @@ final adminExamsProvider =
     final session = r['exam_sessions'] as Map<String, dynamic>?;
     final exam = session?['national_exams'] as Map<String, dynamic>?;
     final examName = (exam?['short_name'] as String?) ?? '—';
+    final examCode = exam?['code'] as String?;
     final tutelle = exam?['tutelle'] as String?;
     year ??= session?['year_label'] as String?;
     if (session?['id'] != null) sessionIds.add(session!['id'] as String);
+
+    // Bac technique/pro sans attestation de stage = dossier irrecevable.
+    final studentId = r['student_id'] as String?;
+    if (_kBacProInternship.contains(examCode) &&
+        (studentId == null || !studentsWithAttestation.contains(studentId))) {
+      bacBlocked++;
+    }
 
     final dossier = r['dossier_status'] as String?;
     final result = r['result'] as String?;
@@ -217,6 +259,9 @@ final adminExamsProvider =
     schoolsWithCandidates: schools.where((s) => s.candidates > 0).length,
     transmissionCount: (trRows).length,
     transmissionsAcknowledged: acknowledged,
+    internshipsTotal: internshipsTotal,
+    attestationsTotal: attestationsTotal,
+    bacBlocked: bacBlocked,
     yearLabel: year,
   );
 });
