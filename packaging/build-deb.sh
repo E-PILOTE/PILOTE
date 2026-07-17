@@ -57,8 +57,26 @@ cp -a "$BUNDLE"/. "$STAGE/opt/epilote/"
 # Linux plante sur un décalage de taille de frame OpenGL (« Timed out waiting
 # for OpenGL frame ») quand GDK applique un facteur d'échelle >1. Forcer 1 rend
 # le démarrage fiable, GL matériel conservé. cf packaging/INSTALL.md.
+#
+# Rendu logiciel sous Nouveau : le pilote libre NVIDIA fait fauter l'unité de
+# texture (« fifo: fault [READ] … reason 02 [PTE] » puis « gr: TRAP »), le noyau
+# tue le canal GPU et le thread raster de Flutter meurt en SIGSEGV. Panne du
+# pilote, pas de l'app : Chrome tombe pareil sur la même machine. llvmpipe évite
+# le GPU (0 % CPU au repos ; coût seulement en animation). Ciblé sur les seules
+# machines réellement pilotées par nouveau — ailleurs, GL matériel conservé.
+# EPILOTE_FORCE_GPU=1 pour outrepasser. cf packaging/INSTALL.md.
 cat > "$STAGE/usr/bin/epilote" <<'EOF'
 #!/bin/sh
+if [ -z "$EPILOTE_FORCE_GPU" ] && [ -z "$LIBGL_ALWAYS_SOFTWARE" ]; then
+  for drv in /sys/class/drm/card*/device/driver; do
+    [ -e "$drv" ] || continue
+    if [ "$(basename "$(readlink -f "$drv")")" = nouveau ]; then
+      LIBGL_ALWAYS_SOFTWARE=1
+      export LIBGL_ALWAYS_SOFTWARE
+      break
+    fi
+  done
+fi
 exec env GDK_SCALE=1 /opt/epilote/epilote "$@"
 EOF
 chmod 755 "$STAGE/usr/bin/epilote"
