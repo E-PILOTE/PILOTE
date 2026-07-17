@@ -293,6 +293,12 @@ const schema = Schema([
     Column.integer('level_order'),   // ordre pédagogique du niveau (0011)
     Column.text('filiere_code'),     // filière dénormalisée (0012) → KPI par filière
     Column.text('filiere_label'),    // libellé filière (lycée/FP), NULL si aucune
+    // Classe d'examen (0044/0045) — DÉRIVÉ côté serveur par trigger : le client
+    // LIT, il n'écrit jamais exam_id/exam_status (aucune règle dupliquée en Dart).
+    Column.text('exam_id'),          // examen d'État résolu (NULL = aucun)
+    Column.text('exam_status'),      // examen | passage | a_qualifier
+    Column.text('exam_override_id'), // surcharge explicite (saisissable)
+    Column.integer('exam_excluded'), // exclusion explicite (saisissable)
     Column.text('school_id'),
     Column.text('group_id'),
     Column.text('academic_year_id'),
@@ -1236,6 +1242,105 @@ const schema = Schema([
   // Ici : les octets sont écrits sur le disque, le chemin Storage est calculé
   // en local (UUID, aucun réseau) et le message référence ce chemin tout de
   // suite. Le fichier est téléversé au retour du réseau, à ce chemin exact.
+  // ════════════════════════════════════════════════════════════════════════
+  // EXAMENS D'ÉTAT (migrations 0044→0046)
+  // ════════════════════════════════════════════════════════════════════════
+  // Référentiel NATIONAL (national_exams / rules / sessions / centers) : diffusé
+  // à TOUS les appareils — il ne contient aucune donnée d'élève, il est petit et
+  // il doit rester lisible hors ligne (une école doit savoir quel examen prépare
+  // sa classe même sans réseau).
+  // exam_candidates, lui, est filtré par école : c'est de la donnée nominative.
+
+  Table('national_exams', [
+    Column.text('code'),          // CEPE | BEPC | BET | BAC_G | ...
+    Column.text('name'),
+    Column.text('short_name'),
+    Column.text('tutelle'),       // mepsa | metp
+    Column.text('cycle_code'),
+    Column.text('kind'),          // diplome | concours
+    Column.real('min_average'),
+    Column.integer('order_index'),
+    Column.integer('is_active'),
+  ]),
+
+  // Règles « quelle classe prépare quel examen ». Synchronisées pour AFFICHAGE
+  // et traçabilité (« pourquoi cet examen ? ») — la résolution reste serveur.
+  Table('exam_eligibility_rules', [
+    Column.text('exam_id'),
+    Column.text('cycle_code'),
+    Column.text('level_code'),
+    Column.text('program_code'),
+    Column.text('tutelle'),
+    Column.text('valid_from'),
+    Column.text('valid_to'),
+    Column.text('group_id'),
+    Column.text('note'),
+    Column.integer('is_active'),
+  ]),
+
+  Table('exam_sessions', [
+    Column.text('exam_id'),
+    Column.text('year_label'),
+    Column.text('registration_opens_at'),
+    Column.text('registration_closes_at'),
+    Column.text('written_from'),
+    Column.text('written_to'),
+    Column.text('practical_from'),
+    Column.text('practical_to'),
+    Column.text('results_published_at'),
+    Column.integer('max_age'),
+    Column.text('age_reference_date'),
+    Column.real('fee_amount'),
+    Column.text('required_documents'), // jsonb -> texte JSON côté SQLite
+    Column.text('status'),
+    Column.text('notes'),
+  ]),
+
+  Table('exam_centers', [
+    Column.text('code'),
+    Column.text('name'),
+    Column.text('department_id'),
+    Column.text('school_id'),
+    Column.text('tutelle'),
+    Column.integer('capacity'),
+    Column.real('latitude'),
+    Column.real('longitude'),
+    Column.integer('is_active'),
+  ]),
+
+  // Candidatures — écrites hors ligne par l'école, remontées à la reconnexion.
+  Table('exam_candidates', [
+    Column.text('session_id'),
+    Column.text('student_id'),
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('class_id'),
+    Column.text('candidate_number'),
+    Column.text('center_id'),
+    Column.text('dossier_status'),     // incomplet | complet | depose | valide | rejete
+    Column.text('missing_documents'),  // jsonb -> texte JSON
+    Column.integer('is_repeater'),
+    Column.text('registered_at'),
+    Column.text('submitted_at'),
+    Column.text('result'),             // admis | ajourne | absent | fraude | en_attente
+    Column.real('average'),
+    Column.text('mention'),
+    Column.text('decided_at'),
+    Column.text('notes'),
+    Column.text('created_by'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  // Référentiel territorial (0043) — 15 départements, national.
+  Table('departments', [
+    Column.text('code'),
+    Column.text('name'),
+    Column.text('chef_lieu'),
+    Column.integer('order_index'),
+    Column.integer('is_active'),
+  ]),
+
   Table.localOnly('upload_outbox', [
     Column.text('bucket'),      // bucket Storage cible
     Column.text('storage_path'),// chemin définitif ({groupId}/{uuid}_{nom})

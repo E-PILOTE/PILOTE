@@ -37,6 +37,16 @@ bucket_definitions:
       # Les variantes propres au groupe sont synchronisées via by_group.
       - SELECT * FROM education_levels WHERE is_active = true AND group_id IS NULL
       - SELECT * FROM education_programs WHERE is_active = true AND group_id IS NULL
+      # ── EXAMENS D'ÉTAT — référentiel NATIONAL (migrations 0043→0046) ──────
+      # Global et non filtré : aucune donnée nominative, volume minuscule (11
+      # examens, ~17 règles, 15 départements), et une école DOIT pouvoir savoir
+      # hors ligne quel examen prépare sa classe.
+      - SELECT * FROM national_exams WHERE is_active = true
+      - SELECT * FROM exam_eligibility_rules WHERE is_active = true
+      - SELECT * FROM exam_sessions
+      - SELECT * FROM exam_centers WHERE is_active = true
+      - SELECT id, code, name, chef_lieu, order_index, is_active
+          FROM departments WHERE is_active = true
       # Messages de service affichés sur la vitrine des postes (migration 0034).
       - SELECT id, body, is_active, starts_at, ends_at
           FROM platform_service_messages WHERE is_active = true
@@ -150,6 +160,9 @@ bucket_definitions:
       # Cycles RÉELS configurés pour l'école (affichage dynamique des niveaux)
       - SELECT * FROM school_cycles WHERE school_id = bucket.sid
       - SELECT * FROM class_enrollments WHERE school_id = bucket.sid
+      # Candidatures aux examens d'État — nominatif, donc filtré par école.
+      # (Le référentiel examens/sessions/centres descend par global_catalog.)
+      - SELECT * FROM exam_candidates WHERE school_id = bucket.sid
       - SELECT * FROM students WHERE school_id = bucket.sid AND is_active = true
       - SELECT * FROM teacher_subjects WHERE school_id = bucket.sid
       - SELECT * FROM subjects WHERE school_id = bucket.sid AND is_active = true
