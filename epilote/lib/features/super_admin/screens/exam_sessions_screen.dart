@@ -1,271 +1,283 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/exam_sessions_admin_provider.dart';
+import '../widgets/exam_sessions_views.dart';
+import '../widgets/list_chrome.dart';
 import 'exam_session_form_dialog.dart';
-
-final _fmt = DateFormat('dd/MM/yyyy', 'fr_FR');
 
 // ════════════════════════════════════════════════════════════════════════════
 //  CALENDRIER NATIONAL DES EXAMENS — administration super_admin.
 //
-//  Les sessions 2025-2026 avaient été semées par une MIGRATION : à l'ouverture
-//  de 2026-2027, personne n'aurait pu en créer une sans écrire du SQL. Cet
-//  écran comble ce trou.
+//  ── LE TROU QUE CET ÉCRAN COMBLE ───────────────────────────────────────────
+//  Les sessions 2025-2026 avaient été semées par une MIGRATION (0050) : à
+//  l'ouverture de 2026-2027, personne n'aurait pu en créer une sans écrire du
+//  SQL. Et sans session ouverte, AUCUNE école du pays n'inscrit de candidat.
 //
-//  Ce qu'on saisit ici est une COPIE DE RÉFÉRENCE de l'arrêté ministériel — pas
-//  la vérité. La DEC reste la source ; le jour où l'interface d'échange existe,
-//  ce calendrier se tirera de chez eux.
+//  ── POURQUOI SUPER_ADMIN ───────────────────────────────────────────────────
+//  Le calendrier vient d'un ARRÊTÉ MINISTÉRIEL : une école n'invente pas la
+//  date du BET. La RLS le disait déjà (`exam_sessions_write = is_super_admin()`).
+//  Ce qu'on saisit ici est une COPIE DE RÉFÉRENCE — la DEC reste la source.
+//
+//  ── FORME ──────────────────────────────────────────────────────────────────
+//  Même grammaire que la page Administrateurs, la référence du projet :
+//  KPI animés → graphique → barre de filtres (qui porte le bouton « + ») →
+//  en-tête de résultats → tableau OU cartes. Le chrome est partagé
+//  (`widgets/list_chrome.dart`) et non recopié.
 // ════════════════════════════════════════════════════════════════════════════
 class ExamSessionsScreen extends ConsumerWidget {
   const ExamSessionsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(examSessionsAdminProvider);
-
-    return AppShell(
-      title: 'Sessions d\'examen',
-      actions: [
-        FilledButton.icon(
-          onPressed: () => showExamSessionForm(context),
-          icon: const Icon(Icons.add_rounded, size: 18),
-          label: const Text('Nouvelle session'),
-          style: FilledButton.styleFrom(backgroundColor: kNavy),
-        ),
-      ],
-      child: async.when(
-        skipLoadingOnReload: true,
-        skipLoadingOnRefresh: true,
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.error_outline_rounded, color: kRed, size: 40),
-            const SizedBox(height: 12),
-            Text('Erreur : $e',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: kTextMuted)),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: () => ref.invalidate(examSessionsAdminProvider),
-              child: const Text('Réessayer'),
-            ),
-          ]),
-        ),
-        data: (rows) => rows.isEmpty ? const _Empty() : _Body(rows: rows),
-      ),
-    );
-  }
+  Widget build(BuildContext context, WidgetRef ref) =>
+      const AppShell(title: 'Sessions d\'examen', child: _Body());
 }
 
-class _Body extends StatelessWidget {
-  const _Body({required this.rows});
-  final List<ExamSessionAdminRow> rows;
+class _Body extends ConsumerStatefulWidget {
+  const _Body();
+
+  @override
+  ConsumerState<_Body> createState() => _BodyState();
+}
+
+class _BodyState extends ConsumerState<_Body> {
+  final _search = TextEditingController();
+  String _tutelle = 'toutes';
+  String _status = 'tous';
+  String _year = 'toutes';
+  bool _isTable = true;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  List<ExamSessionAdminRow> _filter(List<ExamSessionAdminRow> rows) {
+    final q = _search.text.trim().toLowerCase();
+    return rows.where((r) {
+      if (_tutelle != 'toutes' && r.tutelle != _tutelle) return false;
+      if (_status != 'tous' && r.status != _status) return false;
+      if (_year != 'toutes' && r.yearLabel != _year) return false;
+      if (q.isEmpty) return true;
+      return r.examShortName.toLowerCase().contains(q) ||
+          r.examCode.toLowerCase().contains(q) ||
+          (r.yearLabel ?? '').toLowerCase().contains(q) ||
+          (r.notes ?? '').toLowerCase().contains(q);
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Groupées par année : c'est l'unité de travail réelle (un arrêté par an).
-    final byYear = <String, List<ExamSessionAdminRow>>{};
-    for (final r in rows) {
-      byYear.putIfAbsent(r.yearLabel ?? '—', () => []).add(r);
-    }
-    final incomplete = rows.where((r) => r.missingDates).length;
+    final async = ref.watch(examSessionsAdminProvider);
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-      children: [
-        _Intro(total: rows.length, incomplete: incomplete),
-        const SizedBox(height: 24),
-        for (final entry in byYear.entries) ...[
-          Row(children: [
-            Text(entry.key,
-                style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: kTextPrimary)),
-            const SizedBox(width: 8),
-            Text('${entry.value.length} session(s)',
-                style: TextStyle(fontSize: 12, color: kTextMuted)),
-          ]),
-          const SizedBox(height: 10),
-          Container(
-            decoration: BoxDecoration(
-              color: kCardBg,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: kBorder),
-            ),
-            child: Column(children: [
-              for (final (i, r) in entry.value.indexed)
-                _SessionRow(row: r, first: i == 0),
-            ]),
-          ),
-          const SizedBox(height: 20),
-        ],
-      ],
-    );
-  }
-}
-
-class _Intro extends StatelessWidget {
-  const _Intro({required this.total, required this.incomplete});
-  final int total;
-  final int incomplete;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: kNavy.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: kNavy.withValues(alpha: 0.22)),
-        ),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(Icons.gavel_rounded, size: 18, color: kNavy),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Copie de référence de l\'arrêté ministériel',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: kTextPrimary),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '$total session(s) publiées vers toutes les écoles. '
-                  'La DEC reste la source : en cas d\'écart, l\'arrêté fait foi.'
-                  '${incomplete > 0 ? ' — $incomplete session(s) sans date d\'épreuve, à compléter.' : ''}',
-                  style:
-                      TextStyle(fontSize: 11.5, color: kTextMuted, height: 1.4),
-                ),
-              ],
-            ),
+    return async.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
+      loading: () => const ListShimmer(),
+      error: (e, _) => Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.error_outline_rounded, color: kRed, size: 40),
+          const SizedBox(height: 12),
+          Text('Erreur : $e',
+              textAlign: TextAlign.center, style: TextStyle(color: kTextMuted)),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () => ref.invalidate(examSessionsAdminProvider),
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Réessayer'),
           ),
         ]),
-      );
-}
-
-class _SessionRow extends ConsumerWidget {
-  const _SessionRow({required this.row, required this.first});
-  final ExamSessionAdminRow row;
-  final bool first;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final r = row;
-    final (Color tone, String label) = switch (r.status) {
-      'open' => (kGreen, 'Ouverte'),
-      'closed' => (kRed, 'Clôturée'),
-      'running' => (kAccent, 'En cours'),
-      'published' => (kNavy, 'Résultats publiés'),
-      'cancelled' => (kTextMuted, 'Annulée'),
-      _ => (kTextMuted, 'Brouillon'),
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        border: first
-            ? null
-            : Border(top: BorderSide(color: kBorder.withValues(alpha: 0.5))),
       ),
-      child: Row(children: [
-        Expanded(
-          flex: 3,
+      data: (rows) {
+        final filtered = _filter(rows);
+        final years = {
+          for (final r in rows)
+            if (r.yearLabel != null) r.yearLabel!
+        }.toList()
+          ..sort((a, b) => b.compareTo(a));
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(children: [
-                Text(r.examShortName,
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: kTextPrimary)),
-                if (r.tutelle != null) ...[
-                  const SizedBox(width: 6),
-                  Text(r.tutelle!.toUpperCase(),
-                      style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w800,
-                          color: kTextMuted)),
+              KpiGrid(items: _kpis(rows)),
+              const SizedBox(height: 20),
+              _CandidatesChart(rows: rows),
+              const SizedBox(height: 20),
+              ListFilterBar(
+                searchCtrl: _search,
+                searchHint: 'Rechercher un examen, une année, un arrêté…',
+                isTableView: _isTable,
+                addLabel: 'Nouvelle session',
+                addIcon: Icons.event_available_rounded,
+                onSearchChange: (_) => setState(() {}),
+                onToggleView: () => setState(() => _isTable = !_isTable),
+                onAdd: () => showExamSessionForm(context),
+                onReset: () => setState(() {
+                  _search.clear();
+                  _tutelle = 'toutes';
+                  _status = 'tous';
+                  _year = 'toutes';
+                }),
+                filters: [
+                  ListFilterDropdown(
+                    icon: Icons.account_balance_rounded,
+                    label: 'Tutelle',
+                    value: _tutelle,
+                    items: const {
+                      'toutes': 'Toutes',
+                      'metp': 'METP',
+                      'mepsa': 'MEPSA',
+                    },
+                    onChanged: (v) => setState(() => _tutelle = v),
+                  ),
+                  ListFilterDropdown(
+                    icon: Icons.flag_rounded,
+                    label: 'Statut',
+                    value: _status,
+                    items: const {
+                      'tous': 'Tous',
+                      'draft': 'Brouillon',
+                      'open': 'Inscriptions ouvertes',
+                      'closed': 'Clôturée',
+                      'running': 'Épreuves en cours',
+                      'published': 'Résultats publiés',
+                      'cancelled': 'Annulée',
+                    },
+                    onChanged: (v) => setState(() => _status = v),
+                  ),
+                  ListFilterDropdown(
+                    icon: Icons.calendar_month_rounded,
+                    label: 'Année',
+                    value: _year,
+                    items: {
+                      'toutes': 'Toutes',
+                      for (final y in years) y: y,
+                    },
+                    onChanged: (v) => setState(() => _year = v),
+                  ),
                 ],
-              ]),
-              Text(
-                r.registrationOpensAt == null
-                    ? 'inscriptions non datées'
-                    : 'inscriptions ${_fmt.format(r.registrationOpensAt!)}'
-                        '${r.registrationClosesAt != null ? ' → ${_fmt.format(r.registrationClosesAt!)}' : ''}',
-                style: TextStyle(fontSize: 11, color: kTextMuted),
               ),
+              const SizedBox(height: 16),
+              ListResultHeader(
+                  total: rows.length,
+                  filtered: filtered.length,
+                  noun: 'session'),
+              const SizedBox(height: 12),
+              if (_isTable)
+                SessionsTableView(
+                    rows: filtered, onEdit: _edit, onDelete: _delete)
+              else
+                SessionsCardGrid(
+                    rows: filtered, onEdit: _edit, onDelete: _delete),
             ],
           ),
-        ),
-        Expanded(
-          flex: 2,
-          child: Text(
-            r.writtenFrom == null
-                ? '—'
-                : 'écrits ${_fmt.format(r.writtenFrom!)}'
-                    '${r.writtenTo != null ? ' → ${_fmt.format(r.writtenTo!)}' : ''}',
-            style: TextStyle(
-                fontSize: 11,
-                color: r.missingDates ? kRed : kTextMuted,
-                fontWeight: r.missingDates ? FontWeight.w600 : FontWeight.w400),
-          ),
-        ),
-        SizedBox(
-          width: 72,
-          child: Text(
-            r.candidateCount == 0 ? '—' : '${r.candidateCount} cand.',
-            style: TextStyle(fontSize: 11.5, color: kTextMuted),
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-          decoration: BoxDecoration(
-            color: tone.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(label,
-              style: TextStyle(
-                  fontSize: 10.5, fontWeight: FontWeight.w700, color: tone)),
-        ),
-        IconButton(
-          onPressed: () => showExamSessionForm(context, existing: r),
-          icon: const Icon(Icons.edit_outlined, size: 17),
-          color: kTextMuted,
-          tooltip: 'Modifier',
-          visualDensity: VisualDensity.compact,
-        ),
-        IconButton(
-          // Supprimer une session emporterait ses candidatures — donc le
-          // travail des écoles. Interdit dès qu'il y en a une.
-          onPressed: r.isDeletable ? () => _confirmDelete(context, ref) : null,
-          icon: const Icon(Icons.delete_outline_rounded, size: 17),
-          color: r.isDeletable ? kTextMuted : kTextMuted.withValues(alpha: 0.35),
-          tooltip: r.isDeletable
-              ? 'Supprimer'
-              : '${r.candidateCount} candidature(s) — suppression impossible',
-          visualDensity: VisualDensity.compact,
-        ),
-      ]),
+        );
+      },
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+  List<KpiData> _kpis(List<ExamSessionAdminRow> rows) {
+    final n = rows.length;
+    final open = rows.where((r) => r.isOpen).length;
+    final candidates =
+        rows.fold<int>(0, (s, r) => s + r.candidateCount);
+    final incomplete = rows.where((r) => r.missingDates).length;
+    final metp = rows.where((r) => r.tutelle == 'metp').length;
+
+    // L'échéance la plus proche parmi les sessions ouvertes : c'est la seule
+    // information irrattrapable du module (clôture = année perdue pour un
+    // candidat oublié). Elle mérite sa propre carte.
+    final upcoming = rows
+        .where((r) => r.isOpen)
+        .map(daysToClose)
+        .whereType<int>()
+        .where((d) => d >= 0)
+        .fold<int?>(null, (min, d) => min == null || d < min ? d : min);
+
+    return [
+      KpiData(
+        label: 'Sessions',
+        value: '$n',
+        sub: '$open ouverte(s) · ${n - open} autre(s)',
+        icon: Icons.event_note_rounded,
+        color: kNavy,
+        progressValue: n > 0 ? open / n : 0,
+        trend: n > 0 ? '${(open * 100 / n).round()}% ouvertes' : '—',
+      ),
+      KpiData(
+        label: 'Inscriptions ouvertes',
+        value: '$open',
+        sub: open > 0 ? 'les écoles peuvent inscrire' : 'aucune école ne peut inscrire',
+        icon: Icons.how_to_reg_rounded,
+        color: open > 0 ? kGreen : kRed,
+        progressValue: n > 0 ? open / n : 0,
+        trend: open > 0 ? '✅ Opérationnel' : '⚠ Bloqué',
+        trendUp: open > 0,
+      ),
+      KpiData(
+        label: 'Prochaine clôture',
+        value: upcoming == null ? '—' : (upcoming == 0 ? "Aujourd'hui" : '$upcoming j'),
+        sub: upcoming == null
+            ? 'aucune échéance en cours'
+            : 'après, plus aucun ajout possible',
+        icon: Icons.hourglass_bottom_rounded,
+        color: upcoming == null
+            ? kTextMuted
+            : (upcoming <= 15 ? kRed : (upcoming <= 30 ? kListOrange : kGreen)),
+        trend: upcoming == null ? '—' : (upcoming <= 15 ? '⚠ Urgent' : 'Sous contrôle'),
+        trendUp: upcoming == null || upcoming > 15,
+        progressValue: upcoming == null ? null : (1 - (upcoming / 90)).clamp(0.0, 1.0),
+      ),
+      KpiData(
+        label: 'Candidats déclarés',
+        value: '$candidates',
+        sub: 'toutes écoles confondues',
+        icon: Icons.groups_rounded,
+        color: kListPurple,
+        trend: candidates > 0 ? 'en préparation' : 'aucun',
+        trendUp: candidates > 0,
+        progressValue: candidates > 0 ? 1 : 0,
+      ),
+      KpiData(
+        label: 'Dates à compléter',
+        value: '$incomplete',
+        // Pas une erreur : l'arrêté ouvre souvent les inscriptions AVANT de
+        // publier le calendrier des épreuves (cas réel de CAP et CQP).
+        sub: incomplete > 0 ? 'épreuves non publiées' : '✅ calendrier complet',
+        icon: Icons.event_busy_rounded,
+        color: incomplete > 0 ? kListOrange : kGreen,
+        progressValue: n > 0 ? (n - incomplete) / n : 1,
+        trend: incomplete > 0 ? 'à compléter' : '✅ OK',
+        trendUp: incomplete == 0,
+      ),
+      KpiData(
+        label: 'Répartition',
+        value: '$metp',
+        sub: 'METP · ${n - metp} MEPSA',
+        icon: Icons.account_balance_rounded,
+        color: kAccent,
+        progressValue: n > 0 ? metp / n : 0,
+        trend: n > 0 ? '${(metp * 100 / n).round()}% technique' : '—',
+      ),
+    ];
+  }
+
+  void _edit(ExamSessionAdminRow r) => showExamSessionForm(context, existing: r);
+
+  Future<void> _delete(ExamSessionAdminRow r) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: kCardBg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text('Supprimer la session ${row.examShortName} ?',
+        title: Text('Supprimer la session ${r.examShortName} ?',
             style: TextStyle(
                 fontSize: 16, fontWeight: FontWeight.w800, color: kTextPrimary)),
         content: Text(
@@ -287,10 +299,10 @@ class _SessionRow extends ConsumerWidget {
     );
     if (ok != true) return;
     try {
-      await deleteExamSession(ref.read(supabaseClientProvider), row.id);
+      await deleteExamSession(ref.read(supabaseClientProvider), r.id);
       ref.invalidate(examSessionsAdminProvider);
     } catch (e) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('$e')));
       }
@@ -298,29 +310,98 @@ class _SessionRow extends ConsumerWidget {
   }
 }
 
-class _Empty extends StatelessWidget {
-  const _Empty();
+/// Candidats par examen. ⚠️ Piège Syncfusion du projet : `CategoryAxis` en X
+/// (String) et `NumericAxis` en Y (num). Inverser plante à l'exécution
+/// (« String is not a subtype of num »).
+class _CandidatesChart extends StatelessWidget {
+  const _CandidatesChart({required this.rows});
+  final List<ExamSessionAdminRow> rows;
 
   @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(40),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.event_busy_rounded, size: 44, color: kTextMuted),
-            const SizedBox(height: 14),
-            Text('Aucune session',
-                style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: kTextPrimary)),
-            const SizedBox(height: 8),
-            Text(
-              'Saisissez le calendrier de l\'arrêté ministériel : sans session '
-              'ouverte, aucune école ne peut inscrire de candidat.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12.5, color: kTextMuted, height: 1.5),
-            ),
-          ]),
+  Widget build(BuildContext context) {
+    // Une seule année à la fois : empiler 2025-2026 et 2024-2025 sur le même
+    // libellé d'examen produirait deux colonnes muettes côte à côte.
+    final years = rows.map((r) => r.yearLabel).whereType<String>().toList()
+      ..sort();
+    final latest = years.isEmpty ? null : years.last;
+    final data = rows
+        .where((r) => r.yearLabel == latest && r.candidateCount > 0)
+        .toList()
+      ..sort((a, b) => b.candidateCount.compareTo(a.candidateCount));
+
+    if (data.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 18),
+        decoration: BoxDecoration(
+          color: kCardBg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: kBorder),
         ),
+        child: Row(children: [
+          Icon(Icons.bar_chart_rounded, size: 20, color: kTextMuted),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Aucun candidat déclaré${latest != null ? ' pour $latest' : ''} — '
+              'le graphique se remplira à mesure que les écoles inscrivent.',
+              style: TextStyle(fontSize: 12.5, color: kTextMuted),
+            ),
+          ),
+        ]),
       );
+    }
+
+    return Container(
+      height: 260,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+      decoration: BoxDecoration(
+        color: kCardBg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: kBorder),
+      ),
+      child: SfCartesianChart(
+        title: ChartTitle(
+          text: 'Candidats par examen${latest != null ? ' · $latest' : ''}',
+          alignment: ChartAlignment.near,
+          textStyle: TextStyle(
+              fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary),
+        ),
+        plotAreaBorderWidth: 0,
+        primaryXAxis: CategoryAxis(
+          majorGridLines: const MajorGridLines(width: 0),
+          labelStyle: TextStyle(fontSize: 10.5, color: kTextMuted),
+          axisLine: AxisLine(color: kBorder),
+        ),
+        primaryYAxis: NumericAxis(
+          majorGridLines: MajorGridLines(width: 0.5, color: kBorder),
+          axisLine: const AxisLine(width: 0),
+          labelStyle: TextStyle(fontSize: 10.5, color: kTextMuted),
+        ),
+        tooltipBehavior: TooltipBehavior(enable: true),
+        series: <CartesianSeries<ExamSessionAdminRow, String>>[
+          ColumnSeries<ExamSessionAdminRow, String>(
+            name: 'Candidats',
+            dataSource: data,
+            xValueMapper: (r, _) => r.examShortName,
+            yValueMapper: (r, _) => r.candidateCount,
+            pointColorMapper: (r, _) => sessionTone(r.status).$1,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+            // `width` est une FRACTION du créneau de catégorie : avec une seule
+            // barre, 0.55 lui donne 55 % du graphique entier — un pavé. On la
+            // rétrécit quand les points sont rares, sinon les colonnes filent.
+            width: switch (data.length) {
+              1 => 0.12,
+              2 => 0.22,
+              <= 4 => 0.38,
+              _ => 0.55,
+            },
+            dataLabelSettings: DataLabelSettings(
+              isVisible: true,
+              textStyle: TextStyle(fontSize: 10, color: kTextMuted),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

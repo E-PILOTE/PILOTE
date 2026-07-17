@@ -31,14 +31,20 @@ class ExamRef {
   const ExamRef({
     required this.id,
     required this.code,
+    required this.name,
     required this.shortName,
     required this.tutelle,
+    required this.kind,
   });
 
   final String id;
   final String code;
+  final String name;
   final String shortName;
   final String? tutelle;
+
+  /// `diplome` | `concours` — sert au libellé du sélecteur.
+  final String? kind;
 }
 
 class ExamSessionAdminRow {
@@ -99,12 +105,17 @@ class ExamSessionAdminRow {
 DateTime? _d(Object? v) => v == null ? null : DateTime.tryParse(v as String);
 
 /// Le catalogue des examens nationaux, pour le sélecteur du formulaire.
+///
+/// Trié par `order_index` (ordre PÉDAGOGIQUE : CEPE → BEPC → BET → … → Bac),
+/// pas par `code` (qui donnait un ordre alphabétique dénué de sens et faisait
+/// croire que « des examens manquaient »).
 final examRefsProvider = FutureProvider.autoDispose<List<ExamRef>>((ref) async {
   final rows = await ref
       .watch(supabaseClientProvider)
       .from('national_exams')
-      .select('id, code, short_name, tutelle')
+      .select('id, code, name, short_name, tutelle, kind, order_index')
       .eq('is_active', true)
+      .order('order_index', ascending: true, nullsFirst: false)
       .order('code');
 
   return [
@@ -112,8 +123,10 @@ final examRefsProvider = FutureProvider.autoDispose<List<ExamRef>>((ref) async {
       ExamRef(
         id: r['id'] as String,
         code: r['code'] as String,
+        name: (r['name'] as String?) ?? r['code'] as String,
         shortName: (r['short_name'] as String?) ?? r['code'] as String,
         tutelle: r['tutelle'] as String?,
+        kind: r['kind'] as String?,
       ),
   ];
 });
@@ -204,6 +217,48 @@ Future<void> upsertExamSession(
   } else {
     await client.from('exam_sessions').update(payload).eq('id', id);
   }
+}
+
+/// Crée un examen national depuis l'écran (au lieu d'une migration SQL).
+///
+/// ── LE TROU QUE ÇA COMBLE ────────────────────────────────────────────────
+/// Les 12 examens ont été semés par une migration. Une réforme qui crée un
+/// nouveau diplôme (le METP en publie régulièrement) n'aurait pu être saisie
+/// sans qu'un développeur écrive du SQL — exactement la bombe des sessions.
+///
+/// `order_index` est calculé (max + 1) : l'examen se range à la fin de la liste
+/// pédagogique sans qu'on ait à l'inventer. La RLS `is_super_admin()` gouverne
+/// déjà l'écriture ; ce n'est que le geste que la base autorisait.
+Future<void> createNationalExam(
+  SupabaseClient client, {
+  required String code,
+  required String name,
+  String? shortName,
+  required String tutelle,
+  required String kind,
+  String? cycleCode,
+  num? minAverage,
+}) async {
+  final maxRow = await client
+      .from('national_exams')
+      .select('order_index')
+      .order('order_index', ascending: false, nullsFirst: false)
+      .limit(1);
+  final nextIndex = maxRow.isEmpty
+      ? 1
+      : ((maxRow.first['order_index'] as num?)?.toInt() ?? 0) + 1;
+
+  await client.from('national_exams').insert({
+    'code': code.trim().toUpperCase(),
+    'name': name.trim(),
+    'short_name': (shortName?.trim().isEmpty ?? true) ? null : shortName!.trim(),
+    'tutelle': tutelle,
+    'kind': kind,
+    'cycle_code': (cycleCode?.trim().isEmpty ?? true) ? null : cycleCode!.trim(),
+    'min_average': minAverage,
+    'order_index': nextIndex,
+    'is_active': true,
+  });
 }
 
 /// Ne jamais supprimer une session qui porte des candidatures : ce serait

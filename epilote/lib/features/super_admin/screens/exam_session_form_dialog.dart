@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/exam_sessions_admin_provider.dart';
+import 'national_exam_form_dialog.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  SAISIR UNE SESSION depuis l'arrêté ministériel.
@@ -102,24 +103,47 @@ class _State extends ConsumerState<_ExamSessionForm> {
               exams.when(
                 loading: () => const LinearProgressIndicator(),
                 error: (e, _) => Text('$e', style: TextStyle(color: kRed)),
-                data: (list) => DropdownButtonFormField<String>(
-                  initialValue: _examId,
-                  isExpanded: true,
-                  decoration: _dec('Examen *'),
-                  style: TextStyle(fontSize: 13, color: kTextPrimary),
-                  items: [
-                    for (final e in list)
-                      DropdownMenuItem(
-                        value: e.id,
-                        child: Text(
-                          '${e.shortName}'
-                          '${e.tutelle != null ? ' · ${e.tutelle!.toUpperCase()}' : ''}',
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                data: (list) => Row(children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue:
+                          list.any((e) => e.id == _examId) ? _examId : null,
+                      isExpanded: true,
+                      // Borne la hauteur du menu : les 12 examens défilent
+                      // proprement au lieu de déborder ou de se faire rogner.
+                      menuMaxHeight: 380,
+                      decoration: _dec('Examen *'),
+                      style: TextStyle(fontSize: 13, color: kTextPrimary),
+                      items: [
+                        for (final e in list)
+                          DropdownMenuItem(
+                            value: e.id,
+                            child: Text(
+                              '${e.shortName} — ${e.name}'
+                              '${e.tutelle != null ? ' · ${e.tutelle!.toUpperCase()}' : ''}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: (v) => setState(() => _examId = v),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // « Saisie à la main » : ajouter un examen absent du catalogue
+                  // (réforme) sans passer par une migration SQL.
+                  Tooltip(
+                    message: 'Ajouter un examen absent de la liste',
+                    child: OutlinedButton(
+                      onPressed: _saving ? null : _addExam,
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: kNavy.withValues(alpha: 0.4)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 14),
                       ),
-                  ],
-                  onChanged: (v) => setState(() => _examId = v),
-                ),
+                      child: Icon(Icons.add_rounded, size: 20, color: kNavy),
+                    ),
+                  ),
+                ]),
               ),
               const SizedBox(height: 14),
               Row(children: [
@@ -233,6 +257,14 @@ class _State extends ConsumerState<_ExamSessionForm> {
         border: const OutlineInputBorder(),
         isDense: true,
       );
+
+  /// Ouvre la création d'un examen national et présélectionne le résultat.
+  Future<void> _addExam() async {
+    final createdId = await showNationalExamForm(context);
+    if (createdId != null && mounted) {
+      setState(() => _examId = createdId);
+    }
+  }
 
   String? _checkOrder() {
     final pairs = <(DateTime?, DateTime?, String)>[
