@@ -152,7 +152,7 @@ class _Body extends ConsumerWidget {
               icon: Icons.flag_rounded,
               color: kNavy,
               title: 'E-PILOTE CONGO',
-              subtitle: 'Version 3.0.0',
+              subtitle: 'Version 3.0.2',
             ),
             Divider(height: 1, color: kBorder),
             SettingsTile(
