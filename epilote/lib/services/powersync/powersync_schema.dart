@@ -1332,6 +1332,55 @@ const schema = Schema([
     Column.text('updated_at'),
   ]),
 
+  // ════════════════════════════════════════════════════════════════════════
+  // STAGES (migration 0048) — dépendance DURE du bac professionnel :
+  // l'attestation de stage est une pièce obligatoire du dossier d'examen.
+  // ════════════════════════════════════════════════════════════════════════
+
+  Table('internship_companies', [
+    Column.text('group_id'),
+    Column.text('school_id'),      // NULL = entreprise partagée au groupe
+    Column.text('name'),
+    Column.text('sector'),
+    Column.text('address'),
+    Column.text('city'),
+    Column.text('department_id'),
+    Column.text('contact_name'),
+    Column.text('contact_phone'),
+    Column.text('contact_email'),
+    Column.text('notes'),
+    Column.integer('is_active'),
+    Column.text('created_by'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  Table('internships', [
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('student_id'),
+    Column.text('class_id'),
+    Column.text('academic_year_id'),
+    Column.text('company_id'),
+    Column.text('title'),
+    Column.text('start_date'),
+    Column.text('end_date'),
+    Column.text('school_tutor_id'),
+    Column.text('company_tutor_name'),
+    Column.text('company_tutor_phone'),
+    Column.text('convention_signed_at'),
+    Column.text('convention_url'),
+    Column.text('status'),          // prevu | en_cours | termine | interrompu | valide
+    Column.text('attestation_issued_at'),
+    Column.text('attestation_url'),
+    Column.real('evaluation_grade'),
+    Column.text('evaluation_comment'),
+    Column.text('notes'),
+    Column.text('created_by'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
   // Référentiel territorial (0043) — 15 départements, national.
   Table('departments', [
     Column.text('code'),

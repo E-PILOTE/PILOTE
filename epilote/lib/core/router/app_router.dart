@@ -83,6 +83,7 @@ import '../../features/user/screens/user_settings_screen.dart';
 import '../../features/classes/screens/classes_screen.dart';
 import '../../features/classes/screens/classe_detail_screen.dart';
 import '../../features/examens/screens/examens_screen.dart';
+import '../../features/stages/screens/stages_screen.dart';
 
 // ─── Couleurs Design System ───────────────────────────────────────────────────
 Color get _kNavy => kNavy;
@@ -511,6 +512,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.examens,
         builder: (_, _) => const ExamensScreen(),
+      ),
+      GoRoute(
+        path: Routes.stages,
+        builder: (_, _) => const StagesScreen(),
       ),
       GoRoute(
         path: Routes.presences,

@@ -1930,7 +1930,7 @@ final _kPresets = <_Preset>[
     color: const Color(0xFF4F46E5),
     description: 'Chef d\'établissement (lycée). Autorité complète sur l\'ensemble des modules de l\'école.',
     categories: {
-      for (final c in const ['scolarite','enseignement','evaluation','examens','vie-scolaire','finance','rh'])
+      for (final c in const ['scolarite','enseignement','evaluation','examens','formation-pro','vie-scolaire','finance','rh'])
         c: _Grant.full(),
     },
   ),
@@ -1940,7 +1940,7 @@ final _kPresets = <_Preset>[
     color: const Color(0xFF1D4ED8),
     description: 'Chef d\'établissement (collège / école professionnelle). Gestion complète de l\'école.',
     categories: {
-      for (final c in const ['scolarite','enseignement','evaluation','examens','vie-scolaire','finance','rh'])
+      for (final c in const ['scolarite','enseignement','evaluation','examens','formation-pro','vie-scolaire','finance','rh'])
         c: _Grant.full(),
     },
   ),
@@ -1965,6 +1965,7 @@ final _kPresets = <_Preset>[
     categories: {
       'scolarite': _Grant.readExport(),
       'examens': _Grant.readExport(),
+      'formation-pro': _Grant.full(),
       'enseignement': _Grant.teach(scope: 'own_school'),
       'evaluation': _Grant.teach(scope: 'own_school'),
       'rh': _Grant.readOnly(),
@@ -1983,6 +1984,7 @@ final _kPresets = <_Preset>[
     categories: {
       'scolarite': _Grant.manageData(),
       'examens': _Grant.manageData(),
+      'formation-pro': _Grant.manageData(),
       'enseignement': _Grant.readExport(),
       'evaluation': _Grant.readExport(),
       'vie-scolaire': _Grant.readOnly(),
@@ -2031,7 +2033,7 @@ final _kPresets = <_Preset>[
     color: const Color(0xFF475569),
     description: 'Observateur / analyste : lecture et export de tous les modules, sans modification.',
     categories: {
-      for (final c in const ['scolarite','enseignement','evaluation','examens','vie-scolaire','finance','rh'])
+      for (final c in const ['scolarite','enseignement','evaluation','examens','formation-pro','vie-scolaire','finance','rh'])
         c: _Grant.readExport(),
     },
   ),

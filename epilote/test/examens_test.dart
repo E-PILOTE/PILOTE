@@ -106,7 +106,7 @@ void main() {
     });
 
     test('ne retient que les sessions des examens réellement préparés', () {
-      final bepc = ExamSessionRow(
+      const bepc = ExamSessionRow(
         id: 's2',
         examCode: 'BEPC',
         examShortName: 'BEPC',
