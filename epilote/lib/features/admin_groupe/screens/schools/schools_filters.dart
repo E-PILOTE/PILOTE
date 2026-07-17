@@ -104,14 +104,14 @@ class _FilterBar extends StatelessWidget {
                     gradient: LinearGradient(
                       colors: quotaReached
                           ? [kTextMuted, kTextMuted]
-                          : const [Color(0xFF1A2F5A), Color(0xFF1E3A5F)],
+                          : [const Color(0xFF1A2F5A), kNavy],
                       begin: Alignment.topLeft, end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: quotaReached
                         ? []
                         : [BoxShadow(
-                            color: const Color(0xFF1E3A5F).withValues(alpha: 0.25),
+                            color: kNavy.withValues(alpha: 0.25),
                             blurRadius: 8, offset: const Offset(0, 3),
                           )],
                   ),

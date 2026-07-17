@@ -11,7 +11,8 @@ import '../../../core/widgets/admin_ui.dart';
 // ════════════════════════════════════════════════════════════════════════════
 
 const _kIconGradStart = Color(0xFF1A2F5A);
-const _kPanelBg = Color(0xFFF8FAFC);
+// Bande du stepper : un FOND, il doit suivre le thème (sinon blanc en sombre).
+Color get _kPanelBg => kSurface;
 
 // ─── Cadre du modal (carte blanche centrée, ombre, radius 18) ─────────────────
 class InscriptionModalFrame extends StatelessWidget {
@@ -120,7 +121,7 @@ class InscriptionHeader extends StatelessWidget {
             width: 30,
             height: 30,
             decoration: BoxDecoration(
-              color: const Color(0xFFF0F4F8),
+              color: kSurface,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: kBorder),
             ),
@@ -149,7 +150,7 @@ class InscriptionStepIndicator extends StatelessWidget {
           final active = i == current;
           final done = i < current;
           final accent = done || active ? kGreen : kBorder;
-          final dotColor = active ? kNavy : (done ? kGreen : Colors.white);
+          final dotColor = active ? kNavy : (done ? kGreen : kCardBg);
           final txtColor = active ? kNavy : (done ? kGreen : kTextMuted);
           return Expanded(
             child: Row(children: [

@@ -139,8 +139,8 @@ class HeaderChip extends StatelessWidget {
 // ─── Skeletons shimmer (états de chargement) ────────────────────────────────────
 // Mêmes couleurs que le skeleton admin_groupe (admin_schools_screen).
 
-const Color _kSkelBase      = Color(0xFFE8ECF0);
-const Color _kSkelHighlight = Color(0xFFF5F7FA);
+Color get _kSkelBase      => kBorder;
+Color get _kSkelHighlight => kSurface;
 
 /// Enveloppe shimmer standard : `ShimmerPanel(child: …)` autour de
 /// n'importe quelle composition de [SkeletonBox].

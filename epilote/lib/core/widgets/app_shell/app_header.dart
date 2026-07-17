@@ -228,8 +228,11 @@ class _ModuleLauncherState extends ConsumerState<_ModuleLauncher> {
       controller: _menu,
       alignmentOffset: const Offset(0, 8),
       style: MenuStyle(
-        backgroundColor: const WidgetStatePropertyAll(Colors.white),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+        // Fond du popover : suit le thème. `WidgetStatePropertyAll` masquait ce
+        // blanc au tri par constructeur englobant du codemod — d'où un lanceur
+        // resté blanc en Sombre/Melack.
+        backgroundColor: WidgetStatePropertyAll(kCardBg),
+        surfaceTintColor: WidgetStatePropertyAll(kCardBg),
         padding: const WidgetStatePropertyAll(EdgeInsets.zero),
         elevation: const WidgetStatePropertyAll(12),
         shape: WidgetStatePropertyAll(

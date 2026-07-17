@@ -218,8 +218,8 @@ class _Bubble extends StatelessWidget {
                           _highlightedBody(msg.body, highlight),
                         const SizedBox(width: 8),
                         if (msg.isEdited)
-                          const Padding(
-                            padding: EdgeInsets.only(right: 4),
+                          Padding(
+                            padding: const EdgeInsets.only(right: 4),
                             child: Text('modifié',
                                 style: TextStyle(
                                     fontSize: 10,
@@ -257,7 +257,7 @@ class _Bubble extends StatelessWidget {
   }
 
   Widget _highlightedBody(String text, String query) {
-    const base = TextStyle(fontSize: 14.2, height: 1.32, color: _waText);
+    final base = TextStyle(fontSize: 14.2, height: 1.32, color: _waText);
     final q = query.trim();
     if (q.isEmpty) return Text(text, style: base);
     final lower = text.toLowerCase();
@@ -336,7 +336,7 @@ class _QuotedPreview extends StatelessWidget {
           Text(preview,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, color: _waTime)),
+              style: TextStyle(fontSize: 12, color: _waTime)),
         ],
       ),
     );
@@ -416,11 +416,11 @@ class _MetaStamp extends StatelessWidget {
       final by    = groupReadBy ?? 0;
       final allRead = total > 0 && by >= total;
       return Row(mainAxisSize: MainAxisSize.min, children: [
-        Text(clock, style: const TextStyle(fontSize: 11, color: _waTime)),
+        Text(clock, style: TextStyle(fontSize: 11, color: _waTime)),
         if (total > 0 && by > 0 && !allRead) ...[
           const SizedBox(width: 4),
           Text('$by/$total',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 10, fontWeight: FontWeight.w700, color: _waTime)),
         ],
         const SizedBox(width: 3),
@@ -438,7 +438,7 @@ class _MetaStamp extends StatelessWidget {
     }
     // ── Cas 1-à-1 ──────────────────────────────────────────────────────────────
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      Text(clock, style: const TextStyle(fontSize: 11, color: _waTime)),
+      Text(clock, style: TextStyle(fontSize: 11, color: _waTime)),
       if (mine) ...[
         const SizedBox(width: 3),
         Tooltip(

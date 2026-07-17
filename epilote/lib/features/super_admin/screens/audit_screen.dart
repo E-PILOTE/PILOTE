@@ -18,7 +18,7 @@ const _kPurple  = Color(0xFF7C3AED);
 const _kBlue    = Color(0xFF0EA5E9);
 const _kRed     = Color(0xFFEF4444);
 Color get _kSurface => kSurface;
-const _kBg      = Color(0xFFFFFFFF);
+Color get _kBg => kCardBg;
 Color get _kBorder => kBorder;
 Color get _kText => kTextPrimary;
 Color get _kMuted => kTextMuted;
@@ -620,7 +620,7 @@ class _FilterDropdown extends StatelessWidget {
     child: DropdownButtonHideUnderline(
       child: DropdownButton<String>(
         value: value,
-        dropdownColor: Colors.white,
+        dropdownColor: kCardBg,
         icon: Icon(Icons.arrow_drop_down, size: 18, color: active ? Colors.white : _kMuted),
         style: TextStyle(color: active ? Colors.white : _kMuted,
             fontSize: 12.5, fontWeight: FontWeight.w600),

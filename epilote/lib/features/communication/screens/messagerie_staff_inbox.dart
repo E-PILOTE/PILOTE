@@ -100,7 +100,7 @@ class _ConvTile extends StatelessWidget {
       child: Container(
         color: checked
             ? kNavy.withValues(alpha: 0.06)
-            : (selected ? kSurface : Colors.white),
+            : (selected ? kSurface : kCardBg),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(children: [
           InkWell(

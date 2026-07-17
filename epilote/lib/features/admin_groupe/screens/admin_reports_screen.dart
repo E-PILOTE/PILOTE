@@ -1960,7 +1960,7 @@ class _CategoryDonutState extends State<_CategoryDonut> {
                         animationDuration: 1000,
                         innerRadius: '64%',
                         radius: '92%',
-                        strokeColor: Colors.white,
+                        strokeColor: kCardBg,
                         strokeWidth: 2.5,
                         dataLabelSettings:
                             const DataLabelSettings(isVisible: false),

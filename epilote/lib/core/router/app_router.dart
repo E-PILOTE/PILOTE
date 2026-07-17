@@ -149,10 +149,10 @@ class _PlaceholderScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF0F172A),
+                color: kTextPrimary,
               ),
             ),
             const SizedBox(height: 8),

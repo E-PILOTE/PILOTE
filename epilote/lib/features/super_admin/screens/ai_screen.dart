@@ -432,7 +432,7 @@ class _KpiCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     decoration: BoxDecoration(
       color: _kCard, borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: const Color(0xFFE2E8F0)),
+      border: Border.all(color: kBorder),
       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))],
     ),
     child: ClipRRect(
@@ -719,9 +719,9 @@ class _RiskTable extends StatelessWidget {
           5: FlexColumnWidth(2),
         },
         children: [
-          const TableRow(
-            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0)))),
-            children: [
+          TableRow(
+            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kBorder))),
+            children: const [
               _Th('Groupe'), _Th('Score IA'), _Th('Écoles'), _Th('Factures'), _Th('Facteurs de risque'), _Th('Statut'),
             ],
           ),
@@ -915,7 +915,7 @@ class _AiAssistantState extends ConsumerState<_AiAssistant> {
             decoration: BoxDecoration(
               color: const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(color: kBorder),
             ),
             child: ListView.builder(
               controller: _scrollCtrl,
@@ -937,9 +937,9 @@ class _AiAssistantState extends ConsumerState<_AiAssistant> {
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      borderSide: BorderSide(color: kBorder)),
                   enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      borderSide: BorderSide(color: kBorder)),
                   focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
                       borderSide: const BorderSide(color: _kPurple, width: 1.5)),
                   filled: true, fillColor: kCardBg,

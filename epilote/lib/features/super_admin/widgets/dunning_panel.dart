@@ -29,7 +29,7 @@ class DunningPanel extends ConsumerWidget {
       decoration: BoxDecoration(
         color: kCardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: kBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,7 +83,7 @@ class DunningPanel extends ConsumerWidget {
           const SizedBox(width: 10),
           Expanded(child: Text(r.groupName, style: const TextStyle(fontWeight: FontWeight.w600))),
           Text('${r.planName} · $when$due',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+              style: TextStyle(fontSize: 12, color: kTextMuted)),
         ]),
       ),
     );

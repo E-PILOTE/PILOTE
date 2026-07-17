@@ -1077,7 +1077,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
                       innerRadius: '62%',
                       radius: '88%',
                       animationDuration: 700,
-                      strokeColor: Colors.white,
+                      strokeColor: kCardBg,
                       strokeWidth: 2,
                       dataLabelSettings:
                           const DataLabelSettings(isVisible: false),

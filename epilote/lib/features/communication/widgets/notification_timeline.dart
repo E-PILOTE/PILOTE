@@ -85,10 +85,10 @@ class _DayHeader extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(label,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kCommNavy)),
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kCommNavy)),
         ),
         const SizedBox(width: 10),
-        const Expanded(child: Divider(color: kCommBorder)),
+        Expanded(child: Divider(color: kCommBorder)),
       ]),
     );
   }
@@ -165,18 +165,18 @@ class NotifCard extends ConsumerWidget {
                       ),
                       if (notif.groupName != null) ...[
                         const SizedBox(width: 6),
-                        const Icon(Icons.school_outlined, size: 10, color: kCommSub),
+                        Icon(Icons.school_outlined, size: 10, color: kCommSub),
                         const SizedBox(width: 3),
                         Flexible(
                           child: Text(notif.groupName!,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 10, color: kCommSub)),
+                              style: TextStyle(fontSize: 10, color: kCommSub)),
                         ),
                       ] else
                         const Spacer(),
                       const SizedBox(width: 6),
-                      Text(dateStr, style: const TextStyle(fontSize: 10, color: kCommSub)),
+                      Text(dateStr, style: TextStyle(fontSize: 10, color: kCommSub)),
                     ]),
                     const SizedBox(height: 5),
                     Text(notif.title,
@@ -188,7 +188,7 @@ class NotifCard extends ConsumerWidget {
                     if (notif.body.isNotEmpty) ...[
                       const SizedBox(height: 3),
                       Text(notif.body,
-                          style: const TextStyle(fontSize: 12, color: kCommSub, height: 1.4),
+                          style: TextStyle(fontSize: 12, color: kCommSub, height: 1.4),
                           maxLines: 2, overflow: TextOverflow.ellipsis),
                     ],
                     // Affordance : indique clairement que la notif ouvre une page.
@@ -212,10 +212,10 @@ class NotifCard extends ConsumerWidget {
                   InkWell(
                     onTap: onDelete,
                     borderRadius: BorderRadius.circular(14),
-                    child: const Tooltip(
+                    child: Tooltip(
                       message: 'Supprimer',
                       child: Padding(
-                        padding: EdgeInsets.all(2),
+                        padding: const EdgeInsets.all(2),
                         child: Icon(Icons.close_rounded, size: 16, color: kCommSub),
                       ),
                     ),
@@ -248,9 +248,9 @@ class NotifEmptyState extends StatelessWidget {
           size: 56, color: Colors.grey.shade300),
       const SizedBox(height: 12),
       Text(hasFilter ? 'Aucun résultat pour ce filtre' : 'Aucune notification',
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kCommSub)),
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kCommSub)),
       const SizedBox(height: 4),
-      const Text('Les notifications apparaîtront ici',
+      Text('Les notifications apparaîtront ici',
           style: TextStyle(fontSize: 12, color: kCommSub)),
     ]),
   );

@@ -2010,7 +2010,7 @@ final _kPresets = <_Preset>[
   _Preset(
     roleType: 'surveillant', label: 'Surveillant',
     name: 'Surveillant', icon: Icons.security_rounded,
-    color: const Color(0xFFDC2626),
+    color: kRed,
     description: 'Présences, discipline, infirmerie, cantine et vie scolaire au quotidien.',
     categories: {
       'vie-scolaire': _Grant.manageData(),
@@ -2030,10 +2030,10 @@ final _kPresets = <_Preset>[
         c: _Grant.readExport(),
     },
   ),
-  const _Preset(
+  _Preset(
     roleType: 'autre', label: 'Autre',
     name: '', icon: Icons.tune_rounded,
-    color: Color(0xFF64748B),
+    color: kTextMuted,
     description: 'Profil personnalisé : partez d\'une page vierge et choisissez chaque droit manuellement.',
   ),
 ];

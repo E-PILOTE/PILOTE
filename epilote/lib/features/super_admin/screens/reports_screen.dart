@@ -624,11 +624,11 @@ class _TopGroupsTable extends StatelessWidget {
                 5: FlexColumnWidth(1.5),
               },
               children: [
-                const TableRow(
+                TableRow(
                   decoration: BoxDecoration(
-                    border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+                    border: Border(bottom: BorderSide(color: kBorder)),
                   ),
-                  children: [
+                  children: const [
                     _Th('Groupe'), _Th('Département'), _Th('Écoles'),
                     _Th('Type'), _Th('Revenus'), _Th('Statut'),
                   ],
@@ -867,11 +867,11 @@ class _FinancialSummaryTable extends StatelessWidget {
           3: FlexColumnWidth(2),
         },
         children: [
-          const TableRow(
+          TableRow(
             decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+              border: Border(bottom: BorderSide(color: kBorder)),
             ),
-            children: [
+            children: const [
               _Th('Catégorie'), _Th('Nb factures'), _Th('Montant'), _Th('% du total'),
             ],
           ),

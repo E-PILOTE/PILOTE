@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
 
@@ -101,9 +103,9 @@ SubscriptionAccess computeSubscriptionAccess({
 bool ensureSubscriptionWritable(WidgetRef ref, BuildContext context) {
   final access = ref.read(subscriptionAccessProvider).valueOrNull;
   if (access != null && !access.canWrite) {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      backgroundColor: Color(0xFFDC2626),
-      content: Text('Abonnement expiré — création suspendue. '
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      backgroundColor: kRed,
+      content: const Text('Abonnement expiré — création suspendue. '
           'Renouvelez pour ajouter de nouvelles écoles ou utilisateurs.'),
     ));
     return false;

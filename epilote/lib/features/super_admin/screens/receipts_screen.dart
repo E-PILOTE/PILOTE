@@ -206,8 +206,8 @@ class _FilterBar extends ConsumerWidget {
                 prefixIcon: Icon(Icons.search_rounded, size: 18, color: _kSub),
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
                 filled: true, fillColor: kCardBg,
               ),
             ),
@@ -258,7 +258,7 @@ class _FilterBar extends ConsumerWidget {
         Container(
           decoration: BoxDecoration(
             color: kCardBg,
-            border: Border.all(color: const Color(0xFFE2E8F0)),
+            border: Border.all(color: kBorder),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -290,8 +290,8 @@ class _DropFilter extends StatelessWidget {
         child: Text(e.value, style: const TextStyle(fontSize: 12)))).toList(),
     decoration: InputDecoration(
       isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
       filled: true, fillColor: kCardBg,
     ),
   );
@@ -351,8 +351,8 @@ class _TableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-    decoration: const BoxDecoration(
-      border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+    decoration: BoxDecoration(
+      border: Border(bottom: BorderSide(color: kBorder)),
     ),
     child: const Row(children: [
       Expanded(flex: 2, child: _Th('N° Reçu')),
@@ -470,7 +470,7 @@ class _ReceiptCard extends StatelessWidget {
         color: _kCard,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2))],
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: kBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -585,7 +585,7 @@ class _ReceiptDetail extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: kCardBg,
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  border: Border.all(color: kBorder),
                   boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 16, offset: const Offset(0, 4))],
                 ),
                 child: Column(
@@ -594,12 +594,12 @@ class _ReceiptDetail extends StatelessWidget {
                     // ── Header E-PILOTE ──────────────────────────────────────
                     Container(
                       padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Color(0xFF1E3A5F), Color(0xFF2A4F7A)],
+                          colors: [kNavy, const Color(0xFF2A4F7A)],
                           begin: Alignment.topLeft, end: Alignment.bottomRight,
                         ),
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -611,12 +611,12 @@ class _ReceiptDetail extends StatelessWidget {
                               color: kCardBg,
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Center(
+                            child: Center(
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.school_rounded, color: Color(0xFF1E3A5F), size: 22),
-                                  Text('EP', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF1E3A5F))),
+                                  Icon(Icons.school_rounded, color: kNavy, size: 22),
+                                  Text('EP', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: kNavy)),
                                 ],
                               ),
                             ),
@@ -634,7 +634,7 @@ class _ReceiptDetail extends StatelessWidget {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF009A44),
+                                    color: kGreen,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Text('REÇU DE PAIEMENT OFFICIEL',
@@ -653,7 +653,7 @@ class _ReceiptDetail extends StatelessWidget {
                               Text('Émis le $now',
                                   style: const TextStyle(color: Colors.white60, fontSize: 10)),
                               Text('Payé le $paidDate',
-                                  style: const TextStyle(color: Color(0xFFFBBC04), fontSize: 10, fontWeight: FontWeight.w600)),
+                                  style: TextStyle(color: kAccent, fontSize: 10, fontWeight: FontWeight.w600)),
                             ],
                           ),
                         ],
@@ -663,7 +663,7 @@ class _ReceiptDetail extends StatelessWidget {
                     // ── Bandeau groupe ───────────────────────────────────────
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      color: const Color(0xFFF0F4F8),
+                      color: kSurface,
                       child: Row(
                         children: [
                           Container(
@@ -733,11 +733,11 @@ class _ReceiptDetail extends StatelessWidget {
                           // Table de détails
                           _DocRow(label: 'N° Reçu',           value: receipt.receiptNumber, bold: true),
                           _DocRow(label: 'N° Facture',         value: receipt.invoiceNumber),
-                          const Divider(height: 20, color: Color(0xFFE2E8F0)),
+                          Divider(height: 20, color: kBorder),
                           _DocRow(label: 'Groupe scolaire',   value: receipt.groupName),
                           _DocRow(label: 'Plan d\'abonnement', value: receipt.planName),
                           _DocRow(label: 'Période couverte',  value: '$startDate → $endDate'),
-                          const Divider(height: 20, color: Color(0xFFE2E8F0)),
+                          Divider(height: 20, color: kBorder),
                           _DocRow(label: 'Date de paiement',  value: paidDate, color: _kGreen),
                           _DocRow(label: 'Mode de règlement', value: _methodLabel(receipt.paymentMethod)),
                           if (receipt.paymentReference.isNotEmpty)
@@ -749,10 +749,10 @@ class _ReceiptDetail extends StatelessWidget {
                     // ── Pied de page légal ───────────────────────────────────
                     Container(
                       padding: const EdgeInsets.all(16),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF8FAFC),
-                        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-                        borderRadius: BorderRadius.vertical(bottom: Radius.circular(4)),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        border: Border(top: BorderSide(color: kBorder)),
+                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(4)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
@@ -939,7 +939,7 @@ class _NewReceiptDialogState extends ConsumerState<_NewReceiptDialog> {
                         decoration: BoxDecoration(
                           color: const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                          border: Border.all(color: kBorder),
                         ),
                         child: Text('Aucune facture en attente de paiement.',
                             style: TextStyle(fontSize: 12, color: _kSub)),
@@ -956,8 +956,8 @@ class _NewReceiptDialogState extends ConsumerState<_NewReceiptDialog> {
                       )).toList(),
                       decoration: InputDecoration(
                         isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
                         filled: true, fillColor: const Color(0xFFF8FAFC),
                       ),
                     );
@@ -973,8 +973,8 @@ class _NewReceiptDialogState extends ConsumerState<_NewReceiptDialog> {
                 decoration: InputDecoration(
                   hintText: 'Ex : TXN-MTN-20250315-001',
                   hintStyle: TextStyle(fontSize: 12, color: _kSub),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
                   focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _kNavy)),
                   filled: true, fillColor: const Color(0xFFF8FAFC),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -994,8 +994,8 @@ class _NewReceiptDialogState extends ConsumerState<_NewReceiptDialog> {
                 ],
                 decoration: InputDecoration(
                   isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
                   filled: true, fillColor: const Color(0xFFF8FAFC),
                 ),
               ),

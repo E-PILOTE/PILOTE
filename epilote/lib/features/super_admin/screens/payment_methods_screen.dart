@@ -189,7 +189,7 @@ class _ProviderTile extends StatelessWidget {
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
       color: count > 0 ? def.color.withValues(alpha: 0.06) : Colors.grey.shade50,
-      border: Border.all(color: count > 0 ? def.color.withValues(alpha: 0.25) : const Color(0xFFE2E8F0)),
+      border: Border.all(color: count > 0 ? def.color.withValues(alpha: 0.25) : kBorder),
       borderRadius: BorderRadius.circular(10),
     ),
     child: Column(
@@ -250,8 +250,8 @@ class _FilterBar extends ConsumerWidget {
               hintStyle: TextStyle(fontSize: 12, color: _kSub),
               prefixIcon: Icon(Icons.search_rounded, size: 18, color: _kSub),
               isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
               filled: true, fillColor: kCardBg,
             ),
           ),
@@ -274,8 +274,8 @@ class _FilterBar extends ConsumerWidget {
           ],
           decoration: InputDecoration(
             isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
             filled: true, fillColor: kCardBg,
           ),
         ),
@@ -407,7 +407,7 @@ class _ConfigCardState extends ConsumerState<_ConfigCard> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
         border: Border.all(
-          color: isActive ? provColor.withValues(alpha: 0.3) : const Color(0xFFE2E8F0),
+          color: isActive ? provColor.withValues(alpha: 0.3) : kBorder,
         ),
       ),
       child: Column(
@@ -476,7 +476,7 @@ class _ConfigCardState extends ConsumerState<_ConfigCard> {
             ],
           ),
           const SizedBox(height: 10),
-          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+          Divider(height: 1, color: kBorder),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -618,8 +618,8 @@ class _PaymentConfigDialogState extends ConsumerState<_PaymentConfigDialog> {
     labelStyle: TextStyle(fontSize: 12, color: _kSub),
     isDense: true,
     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-    border:        OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+    border:        OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _kNavy)),
   );
 

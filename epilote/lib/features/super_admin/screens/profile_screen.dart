@@ -347,7 +347,7 @@ class _ProfileBody extends StatelessWidget {
               ],
             ),
           ),
-          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+          Divider(height: 1, color: kBorder),
 
           // ── Two column layout ─────────────────────────────────────────
           Padding(
@@ -474,14 +474,14 @@ class _ProfileBody extends StatelessWidget {
                             value: lastLogin != null ? _fmt(lastLogin) : 'Jamais',
                             color: _kGreen,
                           ),
-                          const Divider(height: 20, color: Color(0xFFE2E8F0)),
+                          Divider(height: 20, color: kBorder),
                           _ActivityRow(
                             icon: Icons.verified_user_rounded,
                             label: 'Compte créé le',
                             value: createdAt != null ? _fmt(createdAt) : '—',
                             color: _kNavy,
                           ),
-                          const Divider(height: 20, color: Color(0xFFE2E8F0)),
+                          Divider(height: 20, color: kBorder),
                           _ActivityRow(
                             icon: Icons.admin_panel_settings_rounded,
                             label: 'Niveau d\'accès',
@@ -595,7 +595,7 @@ class _Card extends StatelessWidget {
           Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _kText)),
         ]),
         const SizedBox(height: 16),
-        const Divider(height: 1, color: Color(0xFFE2E8F0)),
+        Divider(height: 1, color: kBorder),
         const SizedBox(height: 16),
         child,
       ],
@@ -623,8 +623,8 @@ class _Field extends StatelessWidget {
           hintStyle: TextStyle(fontSize: 12, color: _kSub),
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          border:        OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+          border:        OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _kNavy)),
           filled: true, fillColor: _kBg,
         ),
@@ -649,7 +649,7 @@ class _ReadonlyField extends StatelessWidget {
         decoration: BoxDecoration(
           color: _kBg,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          border: Border.all(color: kBorder),
         ),
         child: Row(children: [
           Icon(icon, size: 14, color: _kSub),
@@ -678,8 +678,8 @@ class _PasswordField extends StatelessWidget {
         decoration: InputDecoration(
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          border:        OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+          border:        OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _kNavy)),
           filled: true, fillColor: _kBg,
           suffixIcon: IconButton(

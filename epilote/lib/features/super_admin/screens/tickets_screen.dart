@@ -93,8 +93,8 @@ class _TopBar extends ConsumerWidget {
                   prefixIcon: Icon(Icons.search_rounded, size: 18, color: _kSub),
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
                   filled: true, fillColor: _kBg,
                 ),
               ),
@@ -146,7 +146,7 @@ class _SortMenu extends ConsumerWidget {
         decoration: BoxDecoration(
           color: _kBg,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          border: Border.all(color: kBorder),
         ),
         child: Row(children: [
           Icon(Icons.swap_vert_rounded, size: 16, color: _kSub),
@@ -244,7 +244,7 @@ class _KpiBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0)))),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kBorder))),
       child: Row(
         children: [
           _KpiChip(label: 'Total',       value: '${data.total}',      color: _kNavy),
@@ -291,7 +291,7 @@ class _FilterBar extends ConsumerWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0)))),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kBorder))),
       child: Column(
         children: [
           Row(children: [
@@ -497,7 +497,7 @@ class _TicketDetailState extends ConsumerState<_TicketDetail> {
               ],
             ),
           ),
-          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+          Divider(height: 1, color: kBorder),
 
           // ── Conversation temps réel ───────────────────────────────────
           Expanded(
@@ -574,7 +574,7 @@ class _StatusChips extends ConsumerWidget {
                 ref.read(supabaseClientProvider), ticket.id, val);
           },
           side: BorderSide(
-              color: ticket.status == val ? clr : const Color(0xFFE2E8F0)),
+              color: ticket.status == val ? clr : kBorder),
           showCheckmark: false,
         ),
     ]);

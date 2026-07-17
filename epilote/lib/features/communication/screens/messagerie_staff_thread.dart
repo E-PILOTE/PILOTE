@@ -1,13 +1,23 @@
 part of 'messagerie_staff.dart';
 
 // ─── Palette WhatsApp (zone conversation uniquement) ───────────────────────────
-const _waBg        = Color(0xFFECE5DD); // fond beige « papier peint »
-const _waOutgoing  = Color(0xFFD9FDD3); // bulle envoyée (vert clair)
-const _waIncoming  = Colors.white;      // bulle reçue
-const _waText      = Color(0xFF111B21); // texte des bulles (sombre)
-const _waTime      = Color(0xFF667781); // horodatage / méta
-const _waTickRead  = Color(0xFF53BDEB); // double coche « lu » (bleu)
-const _waInputBg   = Color(0xFFF0F2F5); // barre de saisie
+//
+// La zone de conversation garde son identité « messagerie » propre plutôt que
+// les jetons de la plateforme : c'est un choix de design assumé. Mais elle doit
+// suivre le thème, sinon elle reste un îlot blanc éclatant en Sombre/Melack.
+//
+// D'où deux jeux de valeurs plutôt qu'un mappage sur les jetons : le clair est
+// conservé au hex près (non-régression), le sombre reprend les vraies couleurs
+// sombres de WhatsApp — pas un gris dérivé qui trahirait l'identité.
+bool get _waDark => activePalette.brightness == Brightness.dark;
+
+Color get _waBg       => _waDark ? const Color(0xFF0B141A) : const Color(0xFFECE5DD);
+Color get _waOutgoing => _waDark ? const Color(0xFF005C4B) : const Color(0xFFD9FDD3);
+Color get _waIncoming => _waDark ? const Color(0xFF202C33) : Colors.white;
+Color get _waText     => _waDark ? const Color(0xFFE9EDEF) : const Color(0xFF111B21);
+Color get _waTime     => _waDark ? const Color(0xFF8696A0) : const Color(0xFF667781);
+Color get _waInputBg  => _waDark ? const Color(0xFF1F2C34) : const Color(0xFFF0F2F5);
+const _waTickRead  = Color(0xFF53BDEB); // double coche « lu » (bleu) — inchangé
 
 /// Fond « papier peint » WhatsApp : beige + motif de points très discret.
 class _ChatWallpaper extends StatelessWidget {
@@ -429,7 +439,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
     }
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: kCardBg,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (_) => SafeArea(
@@ -1042,7 +1052,7 @@ class _DaySeparator extends StatelessWidget {
             ],
           ),
           child: Text(_label.toUpperCase(),
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.3,

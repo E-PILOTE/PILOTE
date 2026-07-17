@@ -20,7 +20,7 @@ Color get _kGreen => kGreen;
 Color get _kGold => kAccent;
 Color get _kRed => kRed;
 Color get _kCard => kCardBg;
-const _kBg     = Color(0xFFF4F6FA);
+Color get _kBg => kSurface;
 Color get _kText => kTextPrimary;
 Color get _kMuted => kTextMuted;
 const _kBlue   = Color(0xFF3B82F6);
@@ -129,7 +129,7 @@ class _TabChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? _kNavy : _kBg,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: selected ? _kNavy : const Color(0xFFE2E8F0)),
+          border: Border.all(color: selected ? _kNavy : kBorder),
           boxShadow: selected ? [BoxShadow(
               color: _kNavy.withValues(alpha: 0.25),
               blurRadius: 10, offset: const Offset(0, 4))] : [],
@@ -1112,7 +1112,7 @@ class _PlanDonut extends StatelessWidget {
                   pointColorMapper: (d, _) => d.color,
                   animationDuration: 1200,
                   innerRadius: '62%', radius: '92%',
-                  strokeColor: Colors.white, strokeWidth: 2.5,
+                  strokeColor: kCardBg, strokeWidth: 2.5,
                   dataLabelSettings: const DataLabelSettings(isVisible: false),
                 ),
               ],
@@ -1350,7 +1350,7 @@ class _DeptDetail extends StatelessWidget {
                   child: Icon(Icons.close_rounded, size: 15, color: _kMuted))),
           ]),
         ),
-        const Divider(height: 1, color: Color(0xFFE2E8F0)),
+        Divider(height: 1, color: kBorder),
         ...groups.map((g) => _GRow(g: g)),
       ]),
     );
@@ -1695,7 +1695,7 @@ class _LoadingState extends StatelessWidget {
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
         child: Shimmer.fromColors(
-          baseColor: const Color(0xFFE2E8F0),
+          baseColor: kBorder,
           highlightColor: const Color(0xFFF8FAFC),
           child: const Column(
             crossAxisAlignment: CrossAxisAlignment.start,

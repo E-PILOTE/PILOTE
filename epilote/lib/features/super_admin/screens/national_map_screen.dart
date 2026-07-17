@@ -73,7 +73,7 @@ class _MapLayout extends ConsumerWidget {
             child: Column(
               children: [
                 _GlobalStats(data: data),
-                const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                Divider(height: 1, color: kBorder),
                 Expanded(child: _DeptList(data: data)),
               ],
             ),
@@ -623,7 +623,7 @@ class _NationalAnalytics extends StatelessWidget {
                 ]),
 
                 const SizedBox(height: 16),
-                const Divider(color: Color(0xFFE2E8F0)),
+                Divider(color: kBorder),
                 const SizedBox(height: 12),
 
                 // Classement départements
@@ -685,7 +685,7 @@ class _NationalAnalytics extends StatelessWidget {
 
                 if (alertDepts.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  const Divider(color: Color(0xFFE2E8F0)),
+                  Divider(color: kBorder),
                   const SizedBox(height: 12),
                   const Text('ALERTES', style: TextStyle(
                       fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFFEF4444), letterSpacing: 1.0)),
@@ -717,7 +717,7 @@ class _NationalAnalytics extends StatelessWidget {
                 ],
 
                 const SizedBox(height: 12),
-                const Divider(color: Color(0xFFE2E8F0)),
+                Divider(color: kBorder),
                 const SizedBox(height: 10),
                 Container(
                   padding: const EdgeInsets.all(10),

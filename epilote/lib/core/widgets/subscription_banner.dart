@@ -10,12 +10,12 @@ import '../constants/routes.dart';
 import '../../features/admin_groupe/providers/subscription_access_provider.dart';
 
 // Ambre (alerte douce : grâce / fin proche)
-const _kWarnBg = Color(0xFFFFFBEB);
-const _kWarnBorder = Color(0xFFFDE68A);
+Color get _kWarnBg => kAccent.withValues(alpha: 0.12);
+Color get _kWarnBorder => kAccent.withValues(alpha: 0.45);
 const _kWarnFg = Color(0xFF92400E);
 const _kWarnIcon = Color(0xFFD97706);
 // Rouge (lecture seule : échu au-delà de la grâce / suspendu / résilié)
-const _kStopBg = Color(0xFFFEF2F2);
+Color get _kStopBg => kRed.withValues(alpha: 0.12);
 const _kStopBorder = Color(0xFFFECACA);
 const _kStopFg = Color(0xFF991B1B);
 Color get _kStopIcon => kRed;

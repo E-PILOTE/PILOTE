@@ -12,15 +12,15 @@ import 'comm_attachments.dart';
 //  (fond coloré). Publie une story éphémère 24h via [createStoryScoped].
 // ════════════════════════════════════════════════════════════════════════════
 
-const _bgPalette = [
-  Color(0xFF1E3A5F), // navy
-  Color(0xFF7C3AED), // violet
-  Color(0xFF009A44), // vert
-  Color(0xFFE11D48), // rose
-  Color(0xFFF59E0B), // ambre
-  Color(0xFF0EA5E9), // bleu ciel
-  Color(0xFF0F172A), // noir
-  Color(0xFF059669), // émeraude
+List<Color> get _bgPalette => [
+  kNavy, // navy
+  const Color(0xFF7C3AED), // violet
+  kGreen, // vert
+  const Color(0xFFE11D48), // rose
+  const Color(0xFFF59E0B), // ambre
+  const Color(0xFF0EA5E9), // bleu ciel
+  kTextPrimary, // noir
+  const Color(0xFF059669), // émeraude
 ];
 
 class StoryComposerDialog extends ConsumerStatefulWidget {

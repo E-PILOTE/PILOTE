@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/providers/active_agent_provider.dart';
@@ -62,8 +64,8 @@ Future<bool?> _confirmDeviceLogout(BuildContext context, PendingLocalWork p) {
     context: context,
     barrierDismissible: false,
     builder: (ctx) => AlertDialog(
-      icon: const Icon(Icons.link_off_rounded,
-          color: Color(0xFFDC2626), size: 32),
+      icon: Icon(Icons.link_off_rounded,
+          color: kRed, size: 32),
       title: const Text('Déconnecter ce poste ?'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -120,7 +122,7 @@ Future<bool?> _confirmDeviceLogout(BuildContext context, PendingLocalWork p) {
         ),
         FilledButton(
           style:
-              FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+              FilledButton.styleFrom(backgroundColor: kRed),
           onPressed: () => Navigator.of(ctx).pop(true),
           child: const Text('Déconnecter le poste'),
         ),
@@ -138,7 +140,7 @@ class _Bullet extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 6),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(icon, size: 15, color: const Color(0xFF64748B)),
+          Icon(icon, size: 15, color: kTextMuted),
           const SizedBox(width: 8),
           Expanded(
             child: Text(text,

@@ -226,11 +226,11 @@ class _PageHeader extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [kNavyDeep, kNavyDark, kNavy],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        // Aplat MONO (pas de dégradé) — identique à la bannière de l'espace
+        // école. `kNavyDeep` et non `kNavy` : `kNavy` s'éclaircit en thème
+        // sombre (jeton de premier plan) et virerait au bleu clair sous le
+        // texte blanc. `kNavyDeep` reste un fond sombre dans les 3 thèmes.
+        color: kNavyDeep,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -1212,7 +1212,7 @@ class _TypeDonutState extends State<_TypeDonut> {
                         animationDuration: 1100,
                         innerRadius: '64%',
                         radius: '92%',
-                        strokeColor: Colors.white,
+                        strokeColor: kCardBg,
                         strokeWidth: 2.5,
                         dataLabelSettings:
                             const DataLabelSettings(isVisible: false),

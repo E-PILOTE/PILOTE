@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/powersync/sync_failures_provider.dart';
 
 Color get _kAlertRed => kRed;
-const _kAlertBg = Color(0xFFFEF2F2);
+Color get _kAlertBg => kRed.withValues(alpha: 0.12);
 const _kAlertText = Color(0xFF991B1B);
 const _kBorder = Color(0xFFFECACA);
 
