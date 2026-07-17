@@ -27,6 +27,7 @@ class Routes {
   static const String superPartenaires  = '/super/messagerie/partenaires';
   static const String superNotifications= '/super/notifications';
   static const String superIa           = '/super/ia';
+  static const String superSessions     = '/super/sessions-examen';
   static const String superAudit        = '/super/audit';
   static const String superRapports     = '/super/rapports';
   static const String superParametres   = '/super/parametres';

@@ -17,6 +17,7 @@ import '../../features/super_admin/screens/modules_screen.dart';
 import '../../features/super_admin/screens/plans_screen.dart';
 import '../../features/super_admin/screens/subscriptions_screen.dart';
 import '../../features/super_admin/screens/audit_screen.dart';
+import '../../features/super_admin/screens/exam_sessions_screen.dart';
 import '../../features/super_admin/screens/invoices_screen.dart';
 import '../../features/super_admin/screens/receipts_screen.dart';
 import '../../features/super_admin/screens/payment_methods_screen.dart';
@@ -356,6 +357,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const PlatformPartnersScreen(),
       ),
       GoRoute(path: Routes.superIa, builder: (_, _) => const AiScreen()),
+      GoRoute(
+          path: Routes.superSessions,
+          builder: (_, _) => const ExamSessionsScreen()),
       GoRoute(path: Routes.superAudit, builder: (_, _) => const AuditScreen()),
       GoRoute(
         path: Routes.superRapports,

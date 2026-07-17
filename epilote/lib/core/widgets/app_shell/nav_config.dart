@@ -112,6 +112,13 @@ List<NavSection> _superAdminSections() => const [
         ),
       ]),
       NavSection(title: 'RAPPORTS & SYSTÈME', pinned: true, entries: [
+        // Le calendrier national : sans session ouverte, aucune école du pays
+        // ne peut inscrire un candidat. Il se saisit depuis l'arrêté.
+        NavEntry.item(
+          icon: Icons.event_note_rounded,
+          label: "Sessions d'examen",
+          route: Routes.superSessions,
+        ),
         NavEntry.item(
           icon: Icons.list_alt_rounded,
           label: "Journal d'audit",

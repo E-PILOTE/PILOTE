@@ -11,6 +11,7 @@ import '../providers/exam_candidates_provider.dart';
 import '../services/exam_export_service.dart';
 import '../widgets/examens_widgets.dart' show ExamErrorCard, ExamSectionLabel;
 import '../widgets/exam_candidate_list.dart';
+import '../widgets/exam_register_dialog.dart';
 
 const _kSlug = 'examens';
 
@@ -97,6 +98,8 @@ class _State extends ConsumerState<ExamSessionScreen> {
     final async = ref.watch(sessionCandidatesProvider(widget.sessionId));
     final canExport =
         ref.watch(canProvider((slug: _kSlug, action: 'export')));
+    final canRegister =
+        ref.watch(canProvider((slug: _kSlug, action: 'create')));
 
     return ModuleScaffold(
       slug: _kSlug,
@@ -129,10 +132,31 @@ class _State extends ConsumerState<ExamSessionScreen> {
               ),
               const SizedBox(height: 24),
 
-              ExamSectionLabel(
-                _scope.active ? 'Candidats · ${_scope.label}' : 'Candidats',
-                trailing: '${rows.length} candidat(s)',
-              ),
+              Row(children: [
+                Expanded(
+                  child: ExamSectionLabel(
+                    _scope.active ? 'Candidats · ${_scope.label}' : 'Candidats',
+                    trailing: '${rows.length} candidat(s)',
+                  ),
+                ),
+                // L'inscription se fait PAR CLASSE (un lot est dans une classe).
+                // Le bouton n'apparaît donc que si une classe est choisie —
+                // proposer « Inscrire » sur tout un cycle n'aurait aucun sens.
+                if (_scope.classId != null && canRegister)
+                  FilledButton.icon(
+                    onPressed: () => showExamRegisterDialog(
+                      context,
+                      classId: _scope.classId!,
+                      className: _scope.label,
+                    ),
+                    icon: const Icon(Icons.how_to_reg_rounded, size: 16),
+                    label: const Text('Inscrire des élèves'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: kNavy,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+              ]),
               const SizedBox(height: 12),
               ExamCandidateList(
                   rows: rows,
