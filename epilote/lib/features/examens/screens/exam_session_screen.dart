@@ -9,7 +9,7 @@ import '../../students/widgets/scope_drilldown_panel.dart';
 import '../../structure/providers/academic_year_provider.dart' show currentSchoolProvider;
 import '../providers/exam_candidates_provider.dart';
 import '../services/exam_export_service.dart';
-import '../widgets/examens_widgets.dart' show ExamErrorCard, ExamSectionLabel;
+import '../widgets/examens_widgets.dart' show ExamErrorCard;
 import '../widgets/exam_candidate_list.dart';
 import '../widgets/exam_register_dialog.dart';
 import '../widgets/transmissions_panel.dart';
@@ -136,36 +136,24 @@ class _State extends ConsumerState<ExamSessionScreen> {
               ),
               const SizedBox(height: 24),
 
-              Row(children: [
-                Expanded(
-                  child: ExamSectionLabel(
-                    _scope.active ? 'Candidats · ${_scope.label}' : 'Candidats',
-                    trailing: '${rows.length} candidat(s)',
-                  ),
-                ),
-                // L'inscription se fait PAR CLASSE (un lot est dans une classe).
-                // Le bouton n'apparaît donc que si une classe est choisie —
-                // proposer « Inscrire » sur tout un cycle n'aurait aucun sens.
-                if (_scope.classId != null && canRegister)
-                  FilledButton.icon(
-                    onPressed: () => showExamRegisterDialog(
-                      context,
-                      classId: _scope.classId!,
-                      className: _scope.label,
-                    ),
-                    icon: const Icon(Icons.how_to_reg_rounded, size: 16),
-                    label: const Text('Inscrire des élèves'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: kNavy,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-              ]),
-              const SizedBox(height: 12),
-              ExamCandidateList(
-                  rows: rows,
-                  sessionId: widget.sessionId,
-                  examCode: s.examCode),
+              // Le panneau candidats possède sa barre de filtres, son en-tête de
+              // résultats, la bascule tableau/cartes et les actions groupées.
+              // Le bouton « Inscrire » y vit (via onRegister) : l'inscription se
+              // fait PAR CLASSE (un lot est dans une classe), d'où le gate sur
+              // _scope.classId. Rien n'est dupliqué ici.
+              ExamCandidatePanel(
+                rows: rows,
+                sessionId: widget.sessionId,
+                examCode: s.examCode,
+                scopeLabel: _scope.active ? _scope.label : null,
+                onRegister: (_scope.classId != null && canRegister)
+                    ? () => showExamRegisterDialog(
+                          context,
+                          classId: _scope.classId!,
+                          className: _scope.label,
+                        )
+                    : null,
+              ),
               const SizedBox(height: 28),
 
               // Le geste ENGAGEANT : figer la liste affichée en un dépôt
