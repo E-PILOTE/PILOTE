@@ -2,144 +2,313 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/list_chrome.dart';
 // Stages dépend d'Examens par nature (l'attestation est une pièce du dossier) :
 // réutiliser ses briques d'affichage est cohérent, pas un raccourci.
-import '../../examens/widgets/examens_widgets.dart'
-    show ExamErrorCard, ExamSectionLabel, formatDate;
+import '../../examens/widgets/examens_widgets.dart' show ExamErrorCard;
 import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
+import '../providers/stage_actions.dart' show issueAttestation;
 import '../providers/stages_provider.dart';
 import '../widgets/stage_attestation_dialog.dart';
 import '../widgets/stage_form_dialog.dart';
+import '../widgets/stages_views.dart';
 
 const _kSlug = 'stages';
 
 // ════════════════════════════════════════════════════════════════════════════
-//  STAGES — espace école, offline-first.
-//  L'alerte « dossiers bloqués » passe AVANT la liste : c'est la seule chose
-//  qui a une échéance irrattrapable (clôture des inscriptions au bac).
+//  STAGES — espace école, offline-first. Style page Administrateurs :
+//  alerte (échéance irrattrapable) → KPI → graphique → filtres (avec « + ») →
+//  tableau OU cartes. Le chrome est partagé (`core/widgets/list_chrome.dart`).
+//
+//  L'alerte « dossiers bloqués » reste AVANT tout : c'est la seule chose qui a
+//  une échéance irrattrapable (clôture des inscriptions au bac).
 // ════════════════════════════════════════════════════════════════════════════
 class StagesScreen extends ConsumerWidget {
   const StagesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final canCreate = ref.watch(canProvider((slug: _kSlug, action: 'create')));
-    return ModuleScaffold(
-      slug: _kSlug,
-      title: 'Stages',
-      actions: [
-        if (canCreate)
-          FilledButton.icon(
-            onPressed: () => showStageFormDialog(context),
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('Nouveau stage'),
-            style: FilledButton.styleFrom(backgroundColor: kNavy),
-          ),
-      ],
-      child: const _Body(),
-    );
-  }
+  Widget build(BuildContext context, WidgetRef ref) => const ModuleScaffold(
+        slug: _kSlug,
+        title: 'Stages',
+        child: _Body(),
+      );
 }
 
-class _Body extends ConsumerWidget {
+class _Body extends ConsumerStatefulWidget {
   const _Body();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_Body> createState() => _BodyState();
+}
+
+class _BodyState extends ConsumerState<_Body> {
+  final _search = TextEditingController();
+  String _status = 'tous';
+  String _attest = 'toutes';
+  bool _isTable = true;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  List<InternshipRow> _filter(List<InternshipRow> rows) {
+    final q = _search.text.trim().toLowerCase();
+    return rows.where((r) {
+      if (_status != 'tous' && r.status.name != _status) return false;
+      if (_attest == 'delivrees' && !r.hasAttestation) return false;
+      if (_attest == 'dues' && !r.attestationOverdue) return false;
+      if (q.isEmpty) return true;
+      return r.studentName.toLowerCase().contains(q) ||
+          (r.companyName ?? '').toLowerCase().contains(q) ||
+          (r.className ?? '').toLowerCase().contains(q);
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(stagesOverviewProvider);
+    final canEdit = ref.watch(canProvider((slug: _kSlug, action: 'create')));
 
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      skipLoadingOnReload: true,
+      loading: () => const ListShimmer(kpiCount: 4, rowCount: 5),
       error: (e, _) => ExamErrorCard(message: '$e'),
       data: (o) {
-        final canEdit =
-            ref.watch(canProvider((slug: _kSlug, action: 'create')));
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-          children: [
-            if (o.blocked.isNotEmpty) ...[
-              _BlockedCard(rows: o.blocked),
+        final filtered = _filter(o.internships);
+        final convSigned = o.internships.where((i) => i.conventionSigned).length;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (o.blocked.isNotEmpty) ...[
+                _BlockedCard(rows: o.blocked),
+                const SizedBox(height: 20),
+              ],
+              KpiGrid(items: _kpis(o, convSigned)),
               const SizedBox(height: 20),
-            ],
-            _Kpis(overview: o),
-            const SizedBox(height: 24),
-            if (o.internships.isEmpty)
-              _EmptyStages(canEdit: canEdit)
-            else ...[
-              ExamSectionLabel('Stages',
-                  trailing: '${o.internships.length} stage(s)'),
-              const SizedBox(height: 12),
-              Container(
-                decoration: BoxDecoration(
-                  color: kCardBg,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: kBorder),
-                ),
-                child: Column(
-                  children: [
-                    for (final r in o.internships)
-                      _StageRow(row: r, canEdit: canEdit),
+              StagesStatusChart(internships: o.internships),
+              const SizedBox(height: 20),
+              if (o.internships.isEmpty)
+                _EmptyStages(canEdit: canEdit)
+              else ...[
+                ListFilterBar(
+                  searchCtrl: _search,
+                  searchHint: 'Rechercher un élève, une entreprise…',
+                  isTableView: _isTable,
+                  addLabel: 'Nouveau stage',
+                  addIcon: Icons.add_rounded,
+                  onAdd: canEdit ? () => showStageFormDialog(context) : null,
+                  onSearchChange: (_) => setState(() {}),
+                  onToggleView: () => setState(() => _isTable = !_isTable),
+                  onReset: () => setState(() {
+                    _search.clear();
+                    _status = 'tous';
+                    _attest = 'toutes';
+                  }),
+                  filters: [
+                    ListFilterDropdown(
+                      icon: Icons.flag_rounded,
+                      label: 'Statut',
+                      value: _status,
+                      items: const {
+                        'tous': 'Tous',
+                        'prevu': 'Prévu',
+                        'enCours': 'En cours',
+                        'termine': 'Terminé',
+                        'valide': 'Validé',
+                        'interrompu': 'Interrompu',
+                      },
+                      onChanged: (v) => setState(() => _status = v),
+                    ),
+                    ListFilterDropdown(
+                      icon: Icons.verified_rounded,
+                      label: 'Attestation',
+                      value: _attest,
+                      items: const {
+                        'toutes': 'Toutes',
+                        'delivrees': 'Délivrées',
+                        'dues': 'Dues (en retard)',
+                      },
+                      onChanged: (v) => setState(() => _attest = v),
+                    ),
                   ],
                 ),
-              ),
+                // Action GROUPÉE : lever d'un coup toutes les attestations dues.
+                if (canEdit && o.overdue > 0) ...[
+                  const SizedBox(height: 10),
+                  _BulkAction(count: o.overdue, onTap: () => _bulkIssue(o)),
+                ],
+                const SizedBox(height: 16),
+                ListResultHeader(
+                    total: o.internships.length,
+                    filtered: filtered.length,
+                    noun: 'stage'),
+                const SizedBox(height: 12),
+                if (filtered.isEmpty)
+                  _NoMatch()
+                else if (_isTable)
+                  StagesTable(
+                      rows: filtered,
+                      canEdit: canEdit,
+                      onAttestation: (r) => showAttestationDialog(context, row: r))
+                else
+                  StagesCards(
+                      rows: filtered,
+                      canEdit: canEdit,
+                      onAttestation: (r) => showAttestationDialog(context, row: r)),
+              ],
             ],
-          ],
+          ),
         );
       },
     );
   }
-}
 
-class _Kpis extends StatelessWidget {
-  const _Kpis({required this.overview});
-  final StagesOverview overview;
-
-  @override
-  Widget build(BuildContext context) {
-    final o = overview;
-    final cards = <(IconData, String, String, Color, String?)>[
-      (Icons.engineering_rounded, 'Stages', '${o.internships.length}', kNavy,
-          'toutes années'),
-      (Icons.play_circle_outline_rounded, 'En cours', '${o.ongoing}', kGreen,
-          'stagiaires en entreprise'),
-      (
-        Icons.verified_rounded,
-        'Attestations',
-        '${o.attestations}',
-        kGreen,
-        'délivrées'
+  List<KpiData> _kpis(StagesOverview o, int convSigned) {
+    final n = o.internships.length;
+    return [
+      KpiData(
+        label: 'Stages',
+        value: '$n',
+        sub: 'toutes années',
+        icon: Icons.engineering_rounded,
+        color: kNavy,
+        progressValue: n > 0 ? 1 : 0,
+        trend: '$convSigned convention(s)',
       ),
-      (
-        Icons.report_problem_rounded,
-        'Attestations dues',
-        '${o.overdue}',
-        o.overdue == 0 ? kTextMuted : kRed,
-        o.overdue == 0 ? 'rien en retard' : 'stage fini, pièce manquante',
+      KpiData(
+        label: 'En cours',
+        value: '${o.ongoing}',
+        sub: 'stagiaires en entreprise',
+        icon: Icons.play_circle_outline_rounded,
+        color: kGreen,
+        progressValue: n > 0 ? o.ongoing / n : 0,
+        trend: n > 0 ? '${(o.ongoing * 100 / n).round()}%' : '—',
+      ),
+      KpiData(
+        label: 'Attestations',
+        value: '${o.attestations}',
+        sub: 'délivrées',
+        icon: Icons.verified_rounded,
+        color: kGreen,
+        progressValue: n > 0 ? o.attestations / n : 0,
+        trend: n > 0 ? '${(o.attestations * 100 / n).round()}%' : '—',
+      ),
+      KpiData(
+        label: 'Attestations dues',
+        value: '${o.overdue}',
+        sub: o.overdue == 0 ? '✅ rien en retard' : 'stage fini, pièce manquante',
+        icon: Icons.report_problem_rounded,
+        color: o.overdue == 0 ? kGreen : kRed,
+        progressValue: n > 0 ? 1 - (o.overdue / n) : 1,
+        trend: o.overdue == 0 ? 'à jour' : '⚠ à délivrer',
+        trendUp: o.overdue == 0,
+      ),
+      KpiData(
+        label: 'Conventions',
+        value: '$convSigned',
+        sub: '${n - convSigned} sans convention',
+        icon: Icons.description_rounded,
+        color: convSigned == n ? kGreen : kListOrange,
+        progressValue: n > 0 ? convSigned / n : 0,
+        trend: n > 0 ? '${(convSigned * 100 / n).round()}% signées' : '—',
+        trendUp: convSigned == n,
+      ),
+      KpiData(
+        label: 'Dossiers bloqués',
+        value: '${o.blocked.length}',
+        // Élèves de bac technique/pro sans attestation : dossier irrecevable.
+        sub: o.blocked.isEmpty ? '✅ aucun blocage' : 'bac sans attestation',
+        icon: Icons.gpp_maybe_rounded,
+        color: o.blocked.isEmpty ? kGreen : kRed,
+        progressValue: o.blocked.isEmpty ? 1 : 0,
+        trend: o.blocked.isEmpty ? 'OK' : '⚠ irrecevable',
+        trendUp: o.blocked.isEmpty,
       ),
     ];
-
-    return LayoutBuilder(builder: (ctx, cns) {
-      final w = cns.maxWidth;
-      final cols = w >= 920 ? 4 : (w >= 620 ? 2 : 1);
-      return GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: cols,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          mainAxisExtent: 176,
-        ),
-        itemCount: cards.length,
-        itemBuilder: (_, i) {
-          final (icon, label, value, color, sub) = cards[i];
-          return AdminStatCard(
-              label: label, value: value, icon: icon, color: color, subtitle: sub);
-        },
-      );
-    });
   }
+
+  Future<void> _bulkIssue(StagesOverview o) async {
+    final due = o.internships.where((i) => i.attestationOverdue).toList();
+    if (due.isEmpty) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kCardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Text('Délivrer ${due.length} attestation(s)',
+            style: TextStyle(
+                fontSize: 16, fontWeight: FontWeight.w800, color: kTextPrimary)),
+        content: Text(
+          'Les ${due.length} stages terminés sans attestation en recevront une, '
+          'datée d\'aujourd\'hui. Vous pourrez ensuite ajuster chacune au besoin.',
+          style: TextStyle(fontSize: 12.5, color: kTextMuted, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Annuler', style: TextStyle(color: kTextMuted)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: kNavy),
+            child: const Text('Délivrer tout'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final now = DateTime.now();
+    for (final r in due) {
+      await issueAttestation(r.id, issuedAt: now);
+    }
+    ref.invalidate(stagesOverviewProvider);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: kGreen,
+        content: Text('${due.length} attestation(s) délivrée(s).'),
+      ));
+    }
+  }
+}
+
+// ─── Action groupée ───────────────────────────────────────────────────────────
+class _BulkAction extends StatelessWidget {
+  const _BulkAction({required this.count, required this.onTap});
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: kRed.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: kRed.withValues(alpha: 0.3)),
+        ),
+        child: Row(children: [
+          Icon(Icons.error_outline_rounded, size: 18, color: kRed),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '$count attestation(s) due(s) : stage terminé, pièce manquante.',
+              style: TextStyle(fontSize: 12.5, color: kTextPrimary),
+            ),
+          ),
+          FilledButton.icon(
+            onPressed: onTap,
+            icon: const Icon(Icons.done_all_rounded, size: 16),
+            label: const Text('Délivrer toutes'),
+            style: FilledButton.styleFrom(
+                backgroundColor: kRed, visualDensity: VisualDensity.compact),
+          ),
+        ]),
+      );
 }
 
 /// L'alerte qui justifie le module : un dossier de bac technique/pro sans
@@ -203,8 +372,6 @@ class _BlockedCard extends StatelessWidget {
                             color: kTextPrimary),
                       ),
                       const SizedBox(width: 6),
-                      // Distinguer « stage fait, attestation oubliée » de
-                      // « aucun stage » : ce n'est pas la même action.
                       Text(
                         r.hasInternship ? 'attestation à délivrer' : 'aucun stage',
                         style: TextStyle(
@@ -221,116 +388,21 @@ class _BlockedCard extends StatelessWidget {
       );
 }
 
-class _StageRow extends StatelessWidget {
-  const _StageRow({required this.row, required this.canEdit});
-  final InternshipRow row;
-  final bool canEdit;
-
+class _NoMatch extends StatelessWidget {
   @override
-  Widget build(BuildContext context) {
-    final r = row;
-    final tone = switch (r.status) {
-      InternshipStatus.enCours => kGreen,
-      InternshipStatus.valide => kGreen,
-      InternshipStatus.interrompu => kRed,
-      InternshipStatus.termine => kNavy,
-      InternshipStatus.prevu => kTextMuted,
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: kBorder.withValues(alpha: 0.5))),
-      ),
-      child: Row(children: [
-        Expanded(
-          flex: 3,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(r.studentName,
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: kTextPrimary)),
-              Text(
-                '${r.className ?? '—'} · ${r.companyName ?? 'entreprise non renseignée'}',
-                style: TextStyle(fontSize: 11.5, color: kTextMuted),
-              ),
-            ],
-          ),
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: kCardBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: kBorder),
         ),
-        Expanded(
-          flex: 2,
-          child: Text(
-            r.startDate == null
-                ? '—'
-                : '${formatDate(r.startDate)} → ${formatDate(r.endDate)}',
-            style: TextStyle(fontSize: 11.5, color: kTextMuted),
-          ),
+        child: Center(
+          child: Text('Aucun stage ne correspond au filtre.',
+              style: TextStyle(fontSize: 13, color: kTextMuted)),
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: tone.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(r.status.label,
-              style: TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w700, color: tone)),
-        ),
-        const SizedBox(width: 8),
-        // L'attestation n'est plus un simple voyant : c'est le bouton qui la
-        // délivre. Le module signalait un blocage sans offrir de le lever.
-        if (!canEdit)
-          _AttestationBadge(row: r)
-        else
-          IconButton(
-            onPressed: () => showAttestationDialog(context, row: r),
-            icon: Icon(
-              r.hasAttestation
-                  ? Icons.verified_rounded
-                  : (r.attestationOverdue
-                      ? Icons.error_outline_rounded
-                      : Icons.workspace_premium_outlined),
-              size: 18,
-            ),
-            color: r.hasAttestation
-                ? kGreen
-                : (r.attestationOverdue ? kRed : kTextMuted),
-            tooltip: r.hasAttestation
-                ? 'Attestation délivrée'
-                : (r.attestationOverdue
-                    ? 'Stage terminé — attestation à délivrer'
-                    : 'Délivrer l\'attestation'),
-            visualDensity: VisualDensity.compact,
-          ),
-      ]),
-    );
-  }
-}
-
-/// Voyant seul, pour qui n'a pas le droit d'écrire.
-class _AttestationBadge extends StatelessWidget {
-  const _AttestationBadge({required this.row});
-  final InternshipRow row;
-
-  @override
-  Widget build(BuildContext context) {
-    if (row.hasAttestation) {
-      return Tooltip(
-        message: 'Attestation délivrée',
-        child: Icon(Icons.verified_rounded, size: 17, color: kGreen),
       );
-    }
-    if (row.attestationOverdue) {
-      return Tooltip(
-        message: 'Stage terminé mais attestation non délivrée',
-        child: Icon(Icons.error_outline_rounded, size: 17, color: kRed),
-      );
-    }
-    return const SizedBox(width: 17);
-  }
 }
 
 class _EmptyStages extends StatelessWidget {
@@ -356,7 +428,6 @@ class _EmptyStages extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12.5, color: kTextMuted, height: 1.5),
             ),
-            // Un écran vide qui n'offre pas le geste attendu est un cul-de-sac.
             if (canEdit) ...[
               const SizedBox(height: 18),
               FilledButton.icon(
