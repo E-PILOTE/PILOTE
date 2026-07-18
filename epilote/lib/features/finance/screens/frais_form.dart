@@ -42,6 +42,28 @@ class _FeeFormState extends ConsumerState<_FeeForm> {
     super.dispose();
   }
 
+
+  /// Refuse d'écrire quand un identifiant obligatoire manque.
+  ///
+  /// Sans ce garde-fou, `?? ''` envoyait une chaîne vide dans une colonne
+  /// `uuid` NOT NULL : accepté en local, REFUSÉ par le serveur — ce qui
+  /// abandonne le lot PowerSync entier et emporte le travail des autres
+  /// modules, sans message. Mieux vaut refuser franchement, et dire pourquoi.
+  bool _guard(String? groupId, String? schoolId, String? actorId, String? yearId) {
+    final missing = [
+      ...missingWriteIds(
+          groupId: groupId, schoolId: schoolId, actorId: actorId),
+      if (!isUsableId(yearId)) 'année scolaire',
+    ];
+    if (missing.isEmpty) return true;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(writeIdentityMessage(missing)),
+      backgroundColor: kRed,
+      duration: const Duration(seconds: 6),
+    ));
+    return false;
+  }
+
   Future<void> _save() async {
     final amount = int.tryParse(_amount.text.trim().replaceAll(' ', ''));
     if (_name.text.trim().isEmpty || amount == null || amount <= 0) {
@@ -51,7 +73,7 @@ class _FeeFormState extends ConsumerState<_FeeForm> {
     }
     final p = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
-    if (yearId == null) return;
+    if (!_guard(p?.groupId, p?.schoolId, p?.id, yearId)) return;
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
@@ -59,7 +81,7 @@ class _FeeFormState extends ConsumerState<_FeeForm> {
         id: widget.fee?.id,
         groupId: p?.groupId ?? '',
         schoolId: p?.schoolId ?? '',
-        academicYearId: yearId,
+        academicYearId: yearId!,
         name: _name.text.trim(),
         feeType: _type,
         amount: amount,

@@ -227,12 +227,30 @@ class _PaymentFormState extends ConsumerState<_PaymentForm> {
       return;
     }
     final p = ref.read(authNotifierProvider).valueOrNull;
+
+    // `enrollment_id` est NOT NULL en base. L'écrire vide ferait REFUSER la
+    // ligne par le serveur, ce qui abandonne le lot PowerSync entier et
+    // emporte le travail des autres modules — sans le moindre message.
+    final missing = [
+      ...missingWriteIds(
+          groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id),
+      if (!isUsableId(widget.row.enrollmentId)) 'inscription de l\'élève',
+    ];
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(writeIdentityMessage(missing)),
+        backgroundColor: kRed,
+        duration: const Duration(seconds: 6),
+      ));
+      return;
+    }
+
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
       () => savePayment(
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         studentId: widget.row.studentId,
         enrollmentId: widget.row.enrollmentId,
         feeStructureId: _feeId,
@@ -240,7 +258,7 @@ class _PaymentFormState extends ConsumerState<_PaymentForm> {
         date: _date.toIso8601String().substring(0, 10),
         method: _method,
         status: _status,
-        recordedBy: p?.id ?? '',
+        recordedBy: p.id,
       ),
       success: 'Paiement enregistré',
     );
