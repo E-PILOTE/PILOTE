@@ -1121,6 +1121,9 @@ const schema = Schema([
     // NULL = pièce de l'élève (réutilisable à chaque candidature) ; renseigné =
     // pièce propre à CETTE candidature d'examen. Cf. migration 0056.
     Column.text('exam_candidate_id'),
+    // Idem pour un stage : convention signée, fiche d'évaluation du tuteur.
+    // Cf. migration 0057.
+    Column.text('internship_id'),
     Column.integer('is_verified'),
     Column.text('verified_by'),
     Column.text('verified_at'),

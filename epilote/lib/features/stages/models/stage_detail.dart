@@ -4,6 +4,9 @@
 class StageDetail {
   const StageDetail({
     required this.id,
+    required this.studentId,
+    required this.groupId,
+    required this.schoolId,
     required this.studentName,
     required this.matricule,
     required this.dateOfBirth,
@@ -29,6 +32,12 @@ class StageDetail {
   });
 
   final String id;
+
+  /// Nécessaires pour attacher une pièce au stage (INSERT `student_documents`).
+  final String studentId;
+  final String groupId;
+  final String schoolId;
+
   final String studentName;
   final String? matricule;
   final DateTime? dateOfBirth;

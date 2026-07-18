@@ -1,12 +1,10 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../services/powersync/powersync_service.dart';
-import '../../../services/powersync/upload_outbox.dart';
+import '../../../services/powersync/student_document_upload.dart';
 import '../models/dossier_piece_state.dart';
 import '../models/exam_dossier_piece.dart';
 
@@ -30,20 +28,9 @@ import '../models/exam_dossier_piece.dart';
 //  normalement — la pièce se remplit d'elle-même au retour du réseau.
 // ════════════════════════════════════════════════════════════════════════════
 
-const _uuid = Uuid();
-const _kBucket = 'student-documents';
-
 /// Statuts après lesquels le dossier est FIGÉ : il a été transmis, il ne doit
 /// plus bouger en douce. Rouvrir est un acte explicite ([reopenDossier]).
 const _kFrozen = {'depose', 'valide'};
-
-String _mime(String ext) => switch (ext.toLowerCase()) {
-      'jpg' || 'jpeg' => 'image/jpeg',
-      'png' => 'image/png',
-      'webp' => 'image/webp',
-      'pdf' => 'application/pdf',
-      _ => 'application/octet-stream',
-    };
 
 /// Levée quand on tente d'écrire dans un dossier déjà déposé.
 class DossierFrozenException implements Exception {
@@ -90,50 +77,22 @@ Future<void> attachDossierPiece({
 }) async {
   await _assertWritable(candidateId);
 
-  final ext = fileName.contains('.') ? fileName.split('.').last : 'bin';
-  final safe = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-  final storagePath =
-      '$schoolId/$studentId/${piece.code}_${_uuid.v4().substring(0, 8)}_$safe';
-
-  // Les octets d'abord : si la mise en file échoue, aucune ligne ne promet un
-  // fichier qui n'arrivera jamais.
-  await enqueueUpload(
-    bucket: _kBucket,
-    storagePath: storagePath,
+  await attachStudentDocumentOffline(
+    groupId: groupId,
+    schoolId: schoolId,
+    studentId: studentId,
+    documentType: piece.code,
+    documentName: piece.label,
+    fileName: fileName,
     bytes: bytes,
-    mime: _mime(ext),
-    fileName: safe,
-  );
-
-  final now = DateTime.now().toIso8601String();
-  await db.execute(
-    '''
-    INSERT INTO student_documents
-      (id, group_id, school_id, student_id, document_type, document_name,
-       file_url, exam_candidate_id, is_verified, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
-    ''',
-    [
-      _uuid.v4(),
-      groupId,
-      schoolId,
-      studentId,
-      piece.code,
-      piece.label,
-      storagePath,
-      piece.source == PieceSource.candidature ? candidateId : null,
-      now,
-      now,
-    ],
+    // Toute la portée tient dans cette ligne : une pièce de l'élève n'est
+    // rattachée à aucune candidature, donc ressert à la suivante.
+    examCandidateId:
+        piece.source == PieceSource.candidature ? candidateId : null,
+    client: client,
   );
 
   await recomputeDossier(candidateId);
-
-  // Tentative d'envoi immédiat si le réseau est là. Sans réseau, la file part
-  // au prochain retour — l'utilisateur n'a rien à faire.
-  if (client != null) {
-    unawaited(flushUploadOutbox(client));
-  }
 }
 
 // ─── Retirer / vérifier ─────────────────────────────────────────────────────
@@ -169,14 +128,8 @@ Future<void> setDossierPieceVerified({
 
 /// URL signée (1 h) pour consulter une pièce — le bucket est privé.
 /// `null` hors réseau : on le dit, on ne fait pas semblant.
-Future<String?> signedPieceUrl(SupabaseClient client, String storagePath) async {
-  if (storagePath.isEmpty) return null;
-  try {
-    return await client.storage.from(_kBucket).createSignedUrl(storagePath, 3600);
-  } catch (_) {
-    return null;
-  }
-}
+Future<String?> signedPieceUrl(SupabaseClient client, String storagePath) =>
+    signedStudentDocumentUrl(client, storagePath);
 
 // ─── Déclarations & recomposition ───────────────────────────────────────────
 

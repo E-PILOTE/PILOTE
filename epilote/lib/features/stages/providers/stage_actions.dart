@@ -279,7 +279,8 @@ String statusFromDates(DateTime? start, DateTime? end) {
 /// pour générer les documents officiels. Lecture offline pure (db.getAll).
 Future<StageDetail?> fetchStageDetail(String internshipId) async {
   final rows = await db.getAll(
-    'SELECT i.id, i.title, i.start_date, i.end_date, i.status, '
+    'SELECT i.id, i.student_id, i.group_id, i.school_id, '
+    '       i.title, i.start_date, i.end_date, i.status, '
     '       i.company_tutor_name, i.company_tutor_phone, '
     '       i.convention_signed_at, i.attestation_issued_at, '
     '       i.evaluation_grade, i.evaluation_comment, '
@@ -308,6 +309,9 @@ Future<StageDetail?> fetchStageDetail(String internshipId) async {
 
   return StageDetail(
     id: r['id'] as String,
+    studentId: r['student_id'] as String? ?? '',
+    groupId: r['group_id'] as String? ?? '',
+    schoolId: r['school_id'] as String? ?? '',
     studentName: '${r['first_name'] ?? ''} ${r['last_name'] ?? ''}'.trim(),
     matricule: nz(r['matricule']),
     dateOfBirth: _date(r['date_of_birth']),
@@ -332,3 +336,10 @@ Future<StageDetail?> fetchStageDetail(String internshipId) async {
     evaluationComment: nz(r['evaluation_comment']),
   );
 }
+
+/// Le détail complet d'un stage — pour la fiche et les documents officiels.
+/// `autoDispose` : ce n'est chargé qu'à l'ouverture d'une fiche, jamais en liste.
+final stageDetailProvider =
+    FutureProvider.autoDispose.family<StageDetail?, String>(
+  (ref, internshipId) => fetchStageDetail(internshipId),
+);

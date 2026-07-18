@@ -21,6 +21,7 @@ List<Widget> internshipSlivers({
   required bool showFiliere,
   required void Function(String? classId) onToggleGroup,
   required void Function(InternshipRow) onAttestation,
+  required void Function(InternshipRow) onOpen,
 }) {
   final groups = groupByClass<InternshipRow>(
     rows,
@@ -53,6 +54,7 @@ List<Widget> internshipSlivers({
               row: row,
               canEdit: canEdit,
               onAttestation: onAttestation,
+              onOpen: onOpen,
             );
           },
         ),
@@ -89,6 +91,7 @@ List<Widget> internshipSlivers({
             row: g.items[i],
             canEdit: canEdit,
             onAttestation: onAttestation,
+            onOpen: onOpen,
           ),
         ),
       ));
@@ -249,10 +252,12 @@ class StageRowTile extends StatelessWidget {
     required this.row,
     required this.canEdit,
     required this.onAttestation,
+    required this.onOpen,
   });
   final InternshipRow row;
   final bool canEdit;
   final void Function(InternshipRow) onAttestation;
+  final void Function(InternshipRow) onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -324,7 +329,16 @@ class StageRowTile extends StatelessWidget {
           flex: 1,
           child: Align(
             alignment: Alignment.centerLeft,
-            child: canEdit
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              // La fiche est une LECTURE : offerte même sans droit d'écriture.
+              IconButton(
+                onPressed: () => onOpen(r),
+                icon: const Icon(Icons.badge_outlined, size: 18),
+                color: kNavy,
+                tooltip: 'Fiche du stage',
+                visualDensity: VisualDensity.compact,
+              ),
+              canEdit
                 ? IconButton(
                     onPressed: () => onAttestation(r),
                     icon: Icon(
@@ -355,6 +369,7 @@ class StageRowTile extends StatelessWidget {
                         ? kGreen
                         : (r.attestationOverdue ? kRed : kTextMuted),
                   ),
+            ]),
           ),
         ),
       ]),
@@ -369,10 +384,12 @@ class StageGridCard extends StatelessWidget {
     required this.row,
     required this.canEdit,
     required this.onAttestation,
+    required this.onOpen,
   });
   final InternshipRow row;
   final bool canEdit;
   final void Function(InternshipRow) onAttestation;
+  final void Function(InternshipRow) onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -434,6 +451,13 @@ class StageGridCard extends StatelessWidget {
             const SizedBox(width: 4),
             Text('Convention', style: TextStyle(fontSize: 11, color: kTextMuted)),
             const Spacer(),
+            IconButton(
+              onPressed: () => onOpen(r),
+              icon: const Icon(Icons.badge_outlined, size: 16),
+              color: kNavy,
+              tooltip: 'Fiche du stage',
+              visualDensity: VisualDensity.compact,
+            ),
             if (canEdit)
               TextButton.icon(
                 onPressed: () => onAttestation(r),

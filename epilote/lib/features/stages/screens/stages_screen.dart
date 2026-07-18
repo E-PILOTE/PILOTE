@@ -15,6 +15,7 @@ import '../providers/stage_actions.dart' show issueAttestation;
 import '../providers/stages_provider.dart';
 import '../services/stage_export_service.dart';
 import '../widgets/stage_attestation_dialog.dart';
+import '../widgets/stage_file_dialog.dart';
 import '../widgets/stage_form_dialog.dart';
 import '../widgets/stages_grouped.dart';
 import '../widgets/stages_views.dart';
@@ -204,6 +205,8 @@ class _BodyState extends ConsumerState<_Body> {
               canEdit: canEdit,
               isTable: _isTable,
               showFiliere: showFiliere,
+              onOpen: (r) =>
+                  showStageFileDialog(context, internshipId: r.id),
               onToggleGroup: (classId) => setState(() {
                 if (_collapsed.contains(classId)) {
                   _collapsed.remove(classId);
