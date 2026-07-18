@@ -45,6 +45,9 @@ class InternshipRow {
     required this.id,
     required this.studentName,
     required this.className,
+    required this.classId,
+    required this.filiereLabel,
+    required this.levelOrder,
     required this.companyName,
     required this.title,
     required this.startDate,
@@ -57,6 +60,9 @@ class InternshipRow {
   final String id;
   final String studentName;
   final String? className;
+  final String? classId;
+  final String? filiereLabel;
+  final int levelOrder;
   final String? companyName;
   final String? title;
   final DateTime? startDate;
@@ -113,7 +119,9 @@ final stagesOverviewProvider =
   final rows = await db.getAll(
     'SELECT i.id, i.title, i.start_date, i.end_date, i.status, '
     '       i.attestation_issued_at, i.convention_signed_at, '
-    '       s.first_name, s.last_name, c.name AS class_name, co.name AS company_name '
+    '       s.first_name, s.last_name, c.name AS class_name, '
+    '       c.id AS class_id, c.filiere_label, c.level_order, '
+    '       co.name AS company_name '
     '  FROM internships i '
     '  LEFT JOIN students s ON s.id = i.student_id '
     '  LEFT JOIN classes c ON c.id = i.class_id '
@@ -148,6 +156,9 @@ final stagesOverviewProvider =
           studentName:
               '${r['first_name'] ?? ''} ${r['last_name'] ?? ''}'.trim(),
           className: r['class_name'] as String?,
+          classId: r['class_id'] as String?,
+          filiereLabel: r['filiere_label'] as String?,
+          levelOrder: (r['level_order'] as int?) ?? 999,
           companyName: r['company_name'] as String?,
           title: r['title'] as String?,
           startDate: _date(r['start_date']),
