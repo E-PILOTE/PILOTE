@@ -25,6 +25,7 @@ class ExamCandidateRow {
     required this.dateOfBirth,
     required this.gender,
     required this.className,
+    required this.filiereLabel,
     required this.cycleCode,
     required this.levelCode,
     required this.levelOrder,
@@ -45,6 +46,7 @@ class ExamCandidateRow {
   final DateTime? dateOfBirth;
   final String? gender;
   final String? className;
+  final String? filiereLabel;
   final String? cycleCode;
   final String? levelCode;
   final int levelOrder;
@@ -131,7 +133,8 @@ final sessionCandidatesProvider = FutureProvider.autoDispose
     'SELECT ec.id, ec.student_id, ec.candidate_number, ec.dossier_status, '
     '       ec.missing_documents, ec.submitted_at, ec.result, ec.average, ec.mention, '
     '       st.first_name, st.last_name, st.matricule, st.date_of_birth, st.gender, '
-    '       c.id AS class_id, c.name AS class_name, c.cycle_code, c.level_code, c.level_order '
+    '       c.id AS class_id, c.name AS class_name, c.filiere_label, '
+    '       c.cycle_code, c.level_code, c.level_order '
     '  FROM exam_candidates ec '
     '  JOIN students st ON st.id = ec.student_id '
     '  LEFT JOIN classes c ON c.id = ec.class_id '
@@ -158,6 +161,7 @@ final sessionCandidatesProvider = FutureProvider.autoDispose
           dateOfBirth: _date(r['date_of_birth']),
           gender: r['gender'] as String?,
           className: r['class_name'] as String?,
+          filiereLabel: r['filiere_label'] as String?,
           cycleCode: r['cycle_code'] as String?,
           levelCode: r['level_code'] as String?,
           levelOrder: (r['level_order'] as int?) ?? 999,
