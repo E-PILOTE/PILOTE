@@ -74,8 +74,8 @@ class _BudgetFormState extends ConsumerState<_BudgetForm> {
       context,
       () => saveBudgetLine(
         id: widget.line?.id,
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         academicYearId: yearId!,
         category: _category,
         budgeted: budgeted,

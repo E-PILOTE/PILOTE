@@ -82,15 +82,15 @@ class _ExpenseFormState extends ConsumerState<_ExpenseForm> {
       context,
       () => saveExpense(
         id: widget.expense?.id,
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         academicYearId: yearId!,
         title: _title.text.trim(),
         description: _desc.text.trim().isEmpty ? null : _desc.text.trim(),
         amount: amount,
         date: _date.toIso8601String().substring(0, 10),
         category: _category,
-        createdBy: p?.id ?? '',
+        createdBy: p.id,
       ),
       success: _isEdit ? 'Dépense modifiée' : 'Dépense enregistrée',
     );

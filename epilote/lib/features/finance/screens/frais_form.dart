@@ -79,8 +79,8 @@ class _FeeFormState extends ConsumerState<_FeeForm> {
       context,
       () => saveFeeStructure(
         id: widget.fee?.id,
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         academicYearId: yearId!,
         name: _name.text.trim(),
         feeType: _type,
