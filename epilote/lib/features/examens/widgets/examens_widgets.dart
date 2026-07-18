@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../navigation/providers/permissions_provider.dart';
 import '../providers/examens_provider.dart';
+import 'class_candidates_dialog.dart';
 import 'exam_register_dialog.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -257,11 +258,21 @@ class _ClassRow extends ConsumerWidget {
                 minimumSize: const Size(0, 32),
                 visualDensity: VisualDensity.compact,
               ),
-              onPressed: () => showExamRegisterDialog(
-                context,
-                classId: r.id,
-                className: r.name,
-              ),
+              // Deux intentions, deux écrans : on INSCRIT ceux qui manquent,
+              // on CONSULTE ceux qui sont déjà là. Le même modal pour les deux
+              // rendait la consultation illisible passé quelques dizaines
+              // d'inscrits.
+              onPressed: () => r.missing > 0
+                  ? showExamRegisterDialog(
+                      context,
+                      classId: r.id,
+                      className: r.name,
+                    )
+                  : showClassCandidatesDialog(
+                      context,
+                      classId: r.id,
+                      className: r.name,
+                    ),
               icon: const Icon(Icons.how_to_reg_rounded, size: 15),
               label: Text(r.missing > 0 ? 'Inscrire' : 'Voir',
                   style: const TextStyle(fontSize: 12)),
