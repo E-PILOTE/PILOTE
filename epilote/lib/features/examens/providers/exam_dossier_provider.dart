@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../services/powersync/powersync_service.dart';
+import '../models/dossier_piece_state.dart';
 import '../models/exam_dossier_piece.dart';
+
+export '../models/dossier_piece_state.dart' show kStagePieceCode;
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LE DOSSIER D'UN CANDIDAT — pièce par pièce.
@@ -91,8 +94,8 @@ class CandidateDossier {
   bool get isSubmitted => status == 'depose' || status == 'valide';
 }
 
-/// Code de la pièce « attestation de stage » — le point de jonction avec Stages.
-const kStagePieceCode = 'attestation_stage';
+/// `kStagePieceCode` vit désormais avec le modèle d'état des pièces ; il reste
+/// visible ici pour les écrans qui l'importaient déjà depuis ce provider.
 
 final candidateDossierProvider =
     FutureProvider.autoDispose.family<CandidateDossier?, String>(
