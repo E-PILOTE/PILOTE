@@ -17,6 +17,7 @@ import '../widgets/examens_widgets.dart' show ExamErrorCard;
 import '../widgets/exam_candidate_grouped.dart';
 import '../widgets/exam_candidate_list.dart';
 import '../widgets/exam_fees_panel.dart';
+import '../widgets/exam_stats_panel.dart';
 import '../widgets/exam_register_dialog.dart';
 import '../widgets/transmissions_panel.dart';
 
@@ -418,6 +419,12 @@ class _State extends ConsumerState<ExamSessionScreen> {
     }
 
     // Le geste ENGAGEANT : figer la liste du périmètre en un dépôt opposable.
+    // Statistiques : après la liste, avec les transmissions — c'est le bilan,
+    // pas le pilotage quotidien.
+    slivers.add(_gap(28));
+    // `scoped` et non `filtered` : la recherche texte ne doit pas changer le
+    // taux de réussite affiché. Le périmètre (cycle/classe), lui, compte.
+    slivers.add(_pad(ExamStatsPanel(rows: scoped)));
     slivers.add(_gap(28));
     slivers.add(_pad(TransmissionsPanel(
       sessionId: widget.sessionId,
