@@ -3,13 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/list_chrome.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
 // Stages dépend d'Examens par nature (l'attestation est une pièce du dossier) :
 // réutiliser ses briques d'affichage est cohérent, pas un raccourci.
 import '../../examens/widgets/examens_widgets.dart' show ExamErrorCard;
 import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
+import '../../structure/providers/academic_year_provider.dart'
+    show currentSchoolProvider;
 import '../providers/stage_actions.dart' show issueAttestation;
 import '../providers/stages_provider.dart';
+import '../services/stage_export_service.dart';
 import '../widgets/stage_attestation_dialog.dart';
 import '../widgets/stage_form_dialog.dart';
 import '../widgets/stages_grouped.dart';
@@ -174,6 +178,12 @@ class _BodyState extends ConsumerState<_Body> {
                 ),
             ],
           )));
+          // Exports : liste PDF officielle + CSV, sur ce qui est affiché.
+          slivers.add(_gap(10));
+          slivers.add(_pad(_ExportBar(
+            onPdf: () => _exportListPdf(filtered),
+            onCsv: () => _exportCsv(filtered),
+          )));
           // Action GROUPÉE : lever d'un coup toutes les attestations dues.
           if (canEdit && o.overdue > 0) {
             slivers.add(_gap(10));
@@ -324,6 +334,30 @@ class _BodyState extends ConsumerState<_Body> {
     }
   }
 
+  void _exportListPdf(List<InternshipRow> rows) {
+    final school =
+        ref.read(currentSchoolProvider).valueOrNull?['name'] as String?;
+    showPdfPreviewDialog(
+      context,
+      title: 'Liste des stages',
+      subtitle: '${rows.length} stage(s)',
+      pdfFileName: 'Stages.pdf',
+      build: (_) =>
+          StageExportService.buildStageListPdf(rows: rows, schoolName: school),
+      onDownload: () =>
+          StageExportService.downloadStageList(rows: rows, schoolName: school),
+    );
+  }
+
+  Future<void> _exportCsv(List<InternshipRow> rows) async {
+    final path = await StageExportService.downloadCsv(rows: rows);
+    if (!mounted || path == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('Exporté : $path'),
+      backgroundColor: kGreen,
+    ));
+  }
+
   // Enveloppes slivers : padding horizontal homogène + intervalles verticaux.
   Widget _pad(Widget child) => SliverToBoxAdapter(
         child: Padding(
@@ -333,6 +367,32 @@ class _BodyState extends ConsumerState<_Body> {
       );
 
   Widget _gap(double h) => SliverToBoxAdapter(child: SizedBox(height: h));
+}
+
+// ─── Barre d'export (liste PDF + CSV) ─────────────────────────────────────────
+class _ExportBar extends StatelessWidget {
+  const _ExportBar({required this.onPdf, required this.onCsv});
+  final VoidCallback onPdf, onCsv;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          OutlinedButton.icon(
+            onPressed: onCsv,
+            icon: const Icon(Icons.table_view_rounded, size: 16),
+            label: const Text('CSV'),
+            style: OutlinedButton.styleFrom(foregroundColor: kNavy),
+          ),
+          const SizedBox(width: 8),
+          FilledButton.icon(
+            onPressed: onPdf,
+            icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+            label: const Text('Liste des stages'),
+            style: FilledButton.styleFrom(backgroundColor: kNavy),
+          ),
+        ],
+      );
 }
 
 // ─── Action groupée ───────────────────────────────────────────────────────────

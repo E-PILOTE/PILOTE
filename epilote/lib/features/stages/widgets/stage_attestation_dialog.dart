@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
+import '../../structure/providers/academic_year_provider.dart'
+    show currentSchoolProvider;
 import '../providers/stage_actions.dart';
 import '../providers/stages_provider.dart';
+import '../services/stage_export_service.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  ATTESTATION DE FIN DE STAGE — la pièce du dossier de baccalauréat.
@@ -122,6 +126,34 @@ class _State extends ConsumerState<_AttestationDialog> {
                   ),
                 ),
               ],
+              const SizedBox(height: 16),
+              Divider(height: 1, color: kBorder),
+              const SizedBox(height: 12),
+              Text('Documents',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: kTextMuted)),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _preview(convention: false),
+                    icon: const Icon(Icons.workspace_premium_rounded, size: 16),
+                    label: const Text('Attestation'),
+                    style: OutlinedButton.styleFrom(foregroundColor: kNavy),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _preview(convention: true),
+                    icon: const Icon(Icons.description_rounded, size: 16),
+                    label: const Text('Convention'),
+                    style: OutlinedButton.styleFrom(foregroundColor: kNavy),
+                  ),
+                ),
+              ]),
               if (_error != null) ...[
                 const SizedBox(height: 12),
                 Text(_error!,
@@ -157,6 +189,34 @@ class _State extends ConsumerState<_AttestationDialog> {
     final raw = _grade.text.trim().replaceAll(',', '.');
     if (raw.isEmpty) return null;
     return double.tryParse(raw);
+  }
+
+  /// Aperçu + impression d'un document du stage (attestation ou convention).
+  /// On charge le détail complet (entreprise, tuteurs, évaluation) à la volée.
+  Future<void> _preview({required bool convention}) async {
+    final detail = await fetchStageDetail(widget.row.id);
+    if (!mounted) return;
+    if (detail == null) {
+      setState(() => _error = 'Stage introuvable.');
+      return;
+    }
+    final school =
+        ref.read(currentSchoolProvider).valueOrNull?['name'] as String?;
+    final label = convention ? 'Convention' : 'Attestation';
+    showPdfPreviewDialog(
+      context,
+      title: convention ? 'Convention de stage' : 'Attestation de fin de stage',
+      subtitle: widget.row.studentName,
+      pdfFileName: '${label}_${widget.row.studentName}.pdf',
+      build: (_) => convention
+          ? StageExportService.buildConventionPdf(s: detail, schoolName: school)
+          : StageExportService.buildAttestationPdf(
+              s: detail, schoolName: school),
+      onDownload: () => convention
+          ? StageExportService.downloadConvention(s: detail, schoolName: school)
+          : StageExportService.downloadAttestation(
+              s: detail, schoolName: school),
+    );
   }
 
   Future<void> _issue() async {
