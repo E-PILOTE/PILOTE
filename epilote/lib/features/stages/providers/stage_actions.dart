@@ -4,8 +4,11 @@ import 'package:uuid/uuid.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/active_agent_provider.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../models/stage_detail.dart';
 
 const _uuid = Uuid();
+
+DateTime? _date(Object? v) => v == null ? null : DateTime.tryParse(v as String);
 
 // ════════════════════════════════════════════════════════════════════════════
 //  STAGES — les écritures. Le module était en LECTURE SEULE.
@@ -270,4 +273,62 @@ String statusFromDates(DateTime? start, DateTime? end) {
   if (start.isAfter(d)) return 'prevu';
   if (end != null && end.isBefore(d)) return 'termine';
   return 'en_cours';
+}
+
+/// Charge le détail COMPLET d'un stage (élève, entreprise, tuteurs, évaluation)
+/// pour générer les documents officiels. Lecture offline pure (db.getAll).
+Future<StageDetail?> fetchStageDetail(String internshipId) async {
+  final rows = await db.getAll(
+    'SELECT i.id, i.title, i.start_date, i.end_date, i.status, '
+    '       i.company_tutor_name, i.company_tutor_phone, '
+    '       i.convention_signed_at, i.attestation_issued_at, '
+    '       i.evaluation_grade, i.evaluation_comment, '
+    '       s.first_name, s.last_name, s.matricule, s.date_of_birth, s.gender, '
+    '       c.name AS class_name, c.filiere_label, '
+    '       co.name AS company_name, co.sector, co.address, co.city, '
+    '       co.contact_name AS company_contact, '
+    '       tut.first_name AS tutor_first, tut.last_name AS tutor_last '
+    '  FROM internships i '
+    '  LEFT JOIN students s ON s.id = i.student_id '
+    '  LEFT JOIN classes c ON c.id = i.class_id '
+    '  LEFT JOIN internship_companies co ON co.id = i.company_id '
+    '  LEFT JOIN profiles tut ON tut.id = i.school_tutor_id '
+    ' WHERE i.id = ? LIMIT 1',
+    [internshipId],
+  );
+  if (rows.isEmpty) return null;
+  final r = rows.first;
+
+  String? nz(Object? v) {
+    final s = (v as String?)?.trim();
+    return (s == null || s.isEmpty) ? null : s;
+  }
+
+  final tutor = '${r['tutor_first'] ?? ''} ${r['tutor_last'] ?? ''}'.trim();
+
+  return StageDetail(
+    id: r['id'] as String,
+    studentName: '${r['first_name'] ?? ''} ${r['last_name'] ?? ''}'.trim(),
+    matricule: nz(r['matricule']),
+    dateOfBirth: _date(r['date_of_birth']),
+    gender: nz(r['gender']),
+    className: nz(r['class_name']),
+    filiereLabel: nz(r['filiere_label']),
+    companyName: nz(r['company_name']),
+    companySector: nz(r['sector']),
+    companyAddress: nz(r['address']),
+    companyCity: nz(r['city']),
+    companyContact: nz(r['company_contact']),
+    companyTutorName: nz(r['company_tutor_name']),
+    companyTutorPhone: nz(r['company_tutor_phone']),
+    schoolTutorName: tutor.isEmpty ? null : tutor,
+    title: nz(r['title']),
+    startDate: _date(r['start_date']),
+    endDate: _date(r['end_date']),
+    status: r['status'] as String? ?? 'prevu',
+    conventionSignedAt: _date(r['convention_signed_at']),
+    attestationIssuedAt: _date(r['attestation_issued_at']),
+    evaluationGrade: (r['evaluation_grade'] as num?)?.toDouble(),
+    evaluationComment: nz(r['evaluation_comment']),
+  );
 }
