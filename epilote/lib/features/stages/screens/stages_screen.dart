@@ -12,6 +12,7 @@ import '../providers/stage_actions.dart' show issueAttestation;
 import '../providers/stages_provider.dart';
 import '../widgets/stage_attestation_dialog.dart';
 import '../widgets/stage_form_dialog.dart';
+import '../widgets/stages_grouped.dart';
 import '../widgets/stages_views.dart';
 
 const _kSlug = 'stages';
@@ -46,7 +47,10 @@ class _BodyState extends ConsumerState<_Body> {
   final _search = TextEditingController();
   String _status = 'tous';
   String _attest = 'toutes';
+  String _filiere = 'toutes';
   bool _isTable = true;
+  Set<String?> _collapsed = <String?>{};
+  String _groupKey = '';
 
   @override
   void dispose() {
@@ -60,11 +64,21 @@ class _BodyState extends ConsumerState<_Body> {
       if (_status != 'tous' && r.status.name != _status) return false;
       if (_attest == 'delivrees' && !r.hasAttestation) return false;
       if (_attest == 'dues' && !r.attestationOverdue) return false;
+      if (_filiere != 'toutes' && r.filiereLabel != _filiere) return false;
       if (q.isEmpty) return true;
       return r.studentName.toLowerCase().contains(q) ||
           (r.companyName ?? '').toLowerCase().contains(q) ||
           (r.className ?? '').toLowerCase().contains(q);
     }).toList();
+  }
+
+  /// Défaut de pliage : ≤ 3 classes = tout déplié ; au-delà = tout replié.
+  /// Recalculé quand l'ensemble des classes change, pas au pliage manuel.
+  void _syncCollapse(Set<String?> classIds) {
+    final key = (classIds.map((e) => e ?? '·').toList()..sort()).join('|');
+    if (key == _groupKey) return;
+    _groupKey = key;
+    _collapsed = classIds.length > 3 ? {...classIds} : <String?>{};
   }
 
   @override
@@ -83,92 +97,116 @@ class _BodyState extends ConsumerState<_Body> {
       data: (o) {
         final filtered = _filter(o.internships);
         final convSigned = o.internships.where((i) => i.conventionSigned).length;
+        final filieres = {
+          for (final r in o.internships)
+            if (r.filiereLabel != null) r.filiereLabel!
+        };
+        final showFiliere = filieres.isNotEmpty;
+        final classIds = {for (final r in filtered) r.classId};
+        _syncCollapse(classIds);
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (o.blocked.isNotEmpty) ...[
-                _BlockedCard(rows: o.blocked),
-                const SizedBox(height: 20),
-              ],
-              KpiGrid(items: _kpis(o, convSigned, canWrite)),
-              const SizedBox(height: 20),
-              StagesStatusChart(internships: o.internships),
-              const SizedBox(height: 20),
-              if (o.internships.isEmpty)
-                _EmptyStages(canEdit: canEdit)
-              else ...[
-                ListFilterBar(
-                  searchCtrl: _search,
-                  searchHint: 'Rechercher un élève, une entreprise…',
-                  isTableView: _isTable,
-                  addLabel: 'Nouveau stage',
-                  addIcon: Icons.add_rounded,
-                  onAdd: canEdit ? () => showStageFormDialog(context) : null,
-                  onSearchChange: (_) => setState(() {}),
-                  onToggleView: () => setState(() => _isTable = !_isTable),
-                  onReset: () => setState(() {
-                    _search.clear();
-                    _status = 'tous';
-                    _attest = 'toutes';
-                  }),
-                  filters: [
-                    ListFilterDropdown(
-                      icon: Icons.flag_rounded,
-                      label: 'Statut',
-                      value: _status,
-                      items: const {
-                        'tous': 'Tous',
-                        'prevu': 'Prévu',
-                        'enCours': 'En cours',
-                        'termine': 'Terminé',
-                        'valide': 'Validé',
-                        'interrompu': 'Interrompu',
-                      },
-                      onChanged: (v) => setState(() => _status = v),
-                    ),
-                    ListFilterDropdown(
-                      icon: Icons.verified_rounded,
-                      label: 'Attestation',
-                      value: _attest,
-                      items: const {
-                        'toutes': 'Toutes',
-                        'delivrees': 'Délivrées',
-                        'dues': 'Dues (en retard)',
-                      },
-                      onChanged: (v) => setState(() => _attest = v),
-                    ),
-                  ],
+        final slivers = <Widget>[
+          _gap(20),
+          if (o.blocked.isNotEmpty) ...[
+            _pad(_BlockedCard(rows: o.blocked)),
+            _gap(20),
+          ],
+          _pad(KpiGrid(items: _kpis(o, convSigned, canWrite))),
+          _gap(20),
+          _pad(StagesStatusChart(internships: o.internships)),
+          _gap(20),
+        ];
+
+        if (o.internships.isEmpty) {
+          slivers.add(_pad(_EmptyStages(canEdit: canEdit)));
+        } else {
+          slivers.add(_pad(ListFilterBar(
+            searchCtrl: _search,
+            searchHint: 'Rechercher un élève, une entreprise…',
+            isTableView: _isTable,
+            addLabel: 'Nouveau stage',
+            addIcon: Icons.add_rounded,
+            onAdd: canEdit ? () => showStageFormDialog(context) : null,
+            onSearchChange: (_) => setState(() {}),
+            onToggleView: () => setState(() => _isTable = !_isTable),
+            onReset: () => setState(() {
+              _search.clear();
+              _status = 'tous';
+              _attest = 'toutes';
+              _filiere = 'toutes';
+            }),
+            filters: [
+              ListFilterDropdown(
+                icon: Icons.flag_rounded,
+                label: 'Statut',
+                value: _status,
+                items: const {
+                  'tous': 'Tous',
+                  'prevu': 'Prévu',
+                  'enCours': 'En cours',
+                  'termine': 'Terminé',
+                  'valide': 'Validé',
+                  'interrompu': 'Interrompu',
+                },
+                onChanged: (v) => setState(() => _status = v),
+              ),
+              ListFilterDropdown(
+                icon: Icons.verified_rounded,
+                label: 'Attestation',
+                value: _attest,
+                items: const {
+                  'toutes': 'Toutes',
+                  'delivrees': 'Délivrées',
+                  'dues': 'Dues (en retard)',
+                },
+                onChanged: (v) => setState(() => _attest = v),
+              ),
+              if (showFiliere)
+                ListFilterDropdown(
+                  icon: Icons.account_tree_rounded,
+                  label: 'Filière',
+                  value: _filiere,
+                  items: {
+                    'toutes': 'Toutes filières',
+                    for (final f in filieres) f: f,
+                  },
+                  onChanged: (v) => setState(() => _filiere = v),
                 ),
-                // Action GROUPÉE : lever d'un coup toutes les attestations dues.
-                if (canEdit && o.overdue > 0) ...[
-                  const SizedBox(height: 10),
-                  _BulkAction(count: o.overdue, onTap: () => _bulkIssue(o)),
-                ],
-                const SizedBox(height: 16),
-                ListResultHeader(
-                    total: o.internships.length,
-                    filtered: filtered.length,
-                    noun: 'stage'),
-                const SizedBox(height: 12),
-                if (filtered.isEmpty)
-                  _NoMatch()
-                else if (_isTable)
-                  StagesTable(
-                      rows: filtered,
-                      canEdit: canEdit,
-                      onAttestation: (r) => showAttestationDialog(context, row: r))
-                else
-                  StagesCards(
-                      rows: filtered,
-                      canEdit: canEdit,
-                      onAttestation: (r) => showAttestationDialog(context, row: r)),
-              ],
             ],
-          ),
-        );
+          )));
+          // Action GROUPÉE : lever d'un coup toutes les attestations dues.
+          if (canEdit && o.overdue > 0) {
+            slivers.add(_gap(10));
+            slivers.add(_pad(_BulkAction(count: o.overdue, onTap: () => _bulkIssue(o))));
+          }
+          slivers.add(_gap(16));
+          slivers.add(_pad(ListResultHeader(
+              total: o.internships.length,
+              filtered: filtered.length,
+              noun: 'stage')));
+          slivers.add(_gap(12));
+          if (filtered.isEmpty) {
+            slivers.add(_pad(_NoMatch()));
+          } else {
+            slivers.addAll(internshipSlivers(
+              rows: filtered,
+              collapsed: _collapsed,
+              canEdit: canEdit,
+              isTable: _isTable,
+              showFiliere: showFiliere,
+              onToggleGroup: (classId) => setState(() {
+                if (_collapsed.contains(classId)) {
+                  _collapsed.remove(classId);
+                } else {
+                  _collapsed.add(classId);
+                }
+              }),
+              onAttestation: (r) => showAttestationDialog(context, row: r),
+            ));
+          }
+        }
+        slivers.add(_gap(32));
+        return CustomScrollView(slivers: slivers);
       },
     );
   }
@@ -285,6 +323,16 @@ class _BodyState extends ConsumerState<_Body> {
       ));
     }
   }
+
+  // Enveloppes slivers : padding horizontal homogène + intervalles verticaux.
+  Widget _pad(Widget child) => SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: child,
+        ),
+      );
+
+  Widget _gap(double h) => SliverToBoxAdapter(child: SizedBox(height: h));
 }
 
 // ─── Action groupée ───────────────────────────────────────────────────────────
