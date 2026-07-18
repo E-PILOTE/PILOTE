@@ -317,3 +317,73 @@ Future<void> clearResult(String candidateId) async {
     ['en_attente', DateTime.now().toIso8601String(), candidateId],
   );
 }
+
+// ─── Attribution en masse (numéros de candidat, centre) ──────────────────────
+
+/// Affecte un centre d'examen à plusieurs candidats d'un coup.
+/// À 300 candidats, le faire un par un n'est pas une option.
+Future<void> assignCenter({
+  required List<String> candidateIds,
+  required String? centerId,
+}) async {
+  if (candidateIds.isEmpty) return;
+  final now = DateTime.now().toIso8601String();
+  await db.writeTransaction((tx) async {
+    for (final id in candidateIds) {
+      await tx.execute(
+        'UPDATE exam_candidates SET center_id = ?, updated_at = ? WHERE id = ?',
+        [centerId, now, id],
+      );
+    }
+  });
+}
+
+/// Attribue les numéros de candidat communiqués par la DEC.
+///
+/// La correspondance est POSITIONNELLE : le n-ième numéro va au n-ième
+/// candidat de la liste affichée. C'est ainsi que la DEC transmet ses listes
+/// (un tableur dans l'ordre alphabétique) ; toute autre règle obligerait à
+/// ressaisir. Les numéros vides sont ignorés — ils n'effacent pas un numéro
+/// déjà attribué, car une ligne blanche dans un collage est une distraction,
+/// pas une décision.
+Future<int> assignCandidateNumbers(Map<String, String> numbersByCandidateId) async {
+  final entries = numbersByCandidateId.entries
+      .where((e) => e.value.trim().isNotEmpty)
+      .toList();
+  if (entries.isEmpty) return 0;
+
+  final now = DateTime.now().toIso8601String();
+  await db.writeTransaction((tx) async {
+    for (final e in entries) {
+      await tx.execute(
+        'UPDATE exam_candidates SET candidate_number = ?, updated_at = ? '
+        'WHERE id = ?',
+        [e.value.trim(), now, e.key],
+      );
+    }
+  });
+  return entries.length;
+}
+
+/// Centres d'examen disponibles (référentiel synchronisé).
+final examCentersProvider = StreamProvider.autoDispose<List<ExamCenterRow>>((ref) {
+  return db
+      .watch(
+        'SELECT id, name, code FROM exam_centers WHERE is_active = 1 '
+        'ORDER BY name',
+      )
+      .map((rows) => [
+            for (final r in rows)
+              ExamCenterRow(
+                id: r['id'] as String,
+                name: r['name'] as String? ?? '',
+                code: r['code'] as String?,
+              ),
+          ]);
+});
+
+class ExamCenterRow {
+  const ExamCenterRow({required this.id, required this.name, this.code});
+  final String id, name;
+  final String? code;
+}

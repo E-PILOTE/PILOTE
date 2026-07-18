@@ -12,9 +12,11 @@ import '../../students/widgets/scope_drilldown_panel.dart';
 import '../../structure/providers/academic_year_provider.dart' show currentSchoolProvider;
 import '../providers/exam_candidates_provider.dart';
 import '../providers/exam_registration_provider.dart';
+import '../services/convocation_service.dart';
 import '../services/exam_export_service.dart';
 import '../widgets/examens_widgets.dart' show ExamErrorCard;
 import '../widgets/exam_candidate_grouped.dart';
+import '../widgets/bulk_assign_dialog.dart';
 import '../widgets/exam_candidate_list.dart';
 import '../widgets/exam_fees_panel.dart';
 import '../widgets/exam_stats_panel.dart';
@@ -119,6 +121,39 @@ class _State extends ConsumerState<ExamSessionScreen> {
         schoolName: _schoolName,
         tutelle: s.tutelle,
         writtenFrom: s.writtenFrom,
+      ),
+    );
+  }
+
+  /// Convocations du périmètre courant — une par page, un seul PDF.
+  /// Une école en distribue 300 d'un coup ; les imprimer une par une n'est pas
+  /// une option réaliste.
+  void _exportConvocations(ExamSessionCandidates s) {
+    final rows = _scoped(s);
+    showPdfPreviewDialog(
+      context,
+      title: 'Convocations — ${s.examShortName}',
+      subtitle: '${rows.length} convocation(s)'
+          '${_scope.active ? ' · ${_scope.label}' : ''}',
+      pdfFileName: 'Convocations_${s.examShortName}.pdf',
+      build: (_) => ConvocationService.buildConvocationsPdf(
+        candidates: rows,
+        examName: s.examName,
+        examShortName: s.examShortName,
+        yearLabel: s.yearLabel,
+        schoolName: _schoolName,
+        tutelle: s.tutelle,
+        writtenFrom: s.writtenFrom,
+      ),
+      onDownload: () => ConvocationService.downloadConvocations(
+        candidates: rows,
+        examName: s.examName,
+        examShortName: s.examShortName,
+        yearLabel: s.yearLabel,
+        schoolName: _schoolName,
+        tutelle: s.tutelle,
+        writtenFrom: s.writtenFrom,
+        fileLabel: _scope.active ? _scope.label : null,
       ),
     );
   }
@@ -293,6 +328,7 @@ class _State extends ConsumerState<ExamSessionScreen> {
         canExport: canExport,
         onPdf: () => _exportPdf(s),
         onCsv: () => _exportCsv(s),
+        onConvocations: () => _exportConvocations(s),
       )),
       _gap(20),
       _pad(ExamKpiRow(session: s, canWrite: canRegister || canSubmit)),
@@ -368,6 +404,11 @@ class _State extends ConsumerState<ExamSessionScreen> {
       if (canEdit && selectedRows.isNotEmpty) ...[
         _gap(10),
         _pad(ExamBulkBar(
+          onAssign: () => showBulkAssignDialog(
+            context,
+            candidates: selectedRows,
+            sessionId: widget.sessionId,
+          ),
           selected: selectedRows,
           onDeposit: () => _bulkDeposit(selectedRows),
           onRemove: () => _bulkRemove(selectedRows),
@@ -454,11 +495,13 @@ class _Head extends StatelessWidget {
   const _Head({
     required this.session,
     required this.canExport,
+    required this.onConvocations,
     required this.onPdf,
     required this.onCsv,
   });
   final ExamSessionCandidates session;
   final bool canExport;
+  final VoidCallback onConvocations;
   final VoidCallback onPdf, onCsv;
 
   @override
@@ -500,6 +543,16 @@ class _Head extends StatelessWidget {
               onPressed: onCsv,
               icon: const Icon(Icons.table_view_rounded, size: 16),
               label: const Text('CSV'),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white30),
+              ),
+              onPressed: onConvocations,
+              icon: const Icon(Icons.mail_outline_rounded, size: 16),
+              label: const Text('Convocations'),
             ),
             const SizedBox(width: 8),
             FilledButton.icon(

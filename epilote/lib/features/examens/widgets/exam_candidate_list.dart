@@ -81,10 +81,11 @@ class ExamBulkBar extends StatelessWidget {
     required this.onDeposit,
     required this.onRemove,
     required this.onClear,
+    required this.onAssign,
   });
 
   final List<ExamCandidateRow> selected;
-  final VoidCallback onDeposit, onRemove, onClear;
+  final VoidCallback onDeposit, onRemove, onClear, onAssign;
 
   @override
   Widget build(BuildContext context) {
@@ -104,6 +105,12 @@ class ExamBulkBar extends StatelessWidget {
             style: TextStyle(
                 fontSize: 12.5, fontWeight: FontWeight.w700, color: kTextPrimary)),
         const Spacer(),
+        TextButton.icon(
+          onPressed: onAssign,
+          icon: const Icon(Icons.confirmation_number_outlined, size: 16),
+          label: const Text('Centre et n° candidat'),
+          style: TextButton.styleFrom(foregroundColor: kNavy),
+        ),
         TextButton.icon(
           onPressed: depositable > 0 ? onDeposit : null,
           icon: const Icon(Icons.upload_file_rounded, size: 16),
