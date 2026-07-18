@@ -29,12 +29,14 @@ class ModuleScaffold extends ConsumerWidget {
     required this.title,
     required this.child,
     this.actions,
+    this.onBack,
   });
 
   final String slug;
   final String title;
   final Widget child;
   final List<Widget>? actions;
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -42,6 +44,7 @@ class ModuleScaffold extends ConsumerWidget {
     return AppShell(
       title: title,
       actions: actions,
+      onBack: onBack,
       child: permsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => _Denied(

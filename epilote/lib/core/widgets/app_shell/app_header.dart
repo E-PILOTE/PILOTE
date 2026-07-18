@@ -34,6 +34,7 @@ class AppHeader extends ConsumerWidget {
     required this.sidebarExpanded,
     required this.onToggleSidebar,
     this.actions,
+    this.onBack,
   });
 
   final String title;
@@ -42,6 +43,10 @@ class AppHeader extends ConsumerWidget {
   final bool sidebarExpanded;
   final VoidCallback onToggleSidebar;
   final List<Widget>? actions;
+
+  /// Retour explicite. Optionnel : la plupart des modules sont des destinations
+  /// de la barre latérale et n'ont nulle part où revenir.
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -78,6 +83,14 @@ class AppHeader extends ConsumerWidget {
                 sidebarExpanded ? 'Réduire la navigation' : 'Ouvrir la navigation',
           ),
           const SizedBox(width: 8),
+          if (onBack != null) ...[
+            IconButton(
+              icon: Icon(Icons.arrow_back_rounded, color: kNavy, size: 20),
+              onPressed: onBack,
+              tooltip: 'Retour',
+            ),
+            const SizedBox(width: 4),
+          ],
           Text(
             title,
             style: TextStyle(

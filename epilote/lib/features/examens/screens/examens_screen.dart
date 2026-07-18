@@ -27,10 +27,15 @@ class ExamensScreen extends ConsumerWidget {
   const ExamensScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => const ModuleScaffold(
+  Widget build(BuildContext context, WidgetRef ref) => ModuleScaffold(
         slug: _kSlug,
         title: 'Examens',
-        child: _Body(),
+        // On revient là d'où l'on vient s'il y a une pile (fiche, session…),
+        // sinon au tableau de bord : un module atteint par la barre latérale
+        // n'a pas d'antécédent, et un retour sans destination est un cul-de-sac.
+        onBack: () =>
+            context.canPop() ? context.pop() : context.go(Routes.userDashboard),
+        child: const _Body(),
       );
 }
 

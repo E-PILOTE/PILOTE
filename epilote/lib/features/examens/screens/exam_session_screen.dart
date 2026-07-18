@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/routes.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
@@ -238,6 +240,8 @@ class _State extends ConsumerState<ExamSessionScreen> {
     return ModuleScaffold(
       slug: _kSlug,
       title: 'Session d\'examen',
+      onBack: () =>
+          context.canPop() ? context.pop() : context.go(Routes.examens),
       child: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => ExamErrorCard(message: '$e'),

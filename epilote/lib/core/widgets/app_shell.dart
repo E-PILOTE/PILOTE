@@ -46,10 +46,12 @@ class AppShell extends ConsumerStatefulWidget {
     required this.child,
     required this.title,
     this.actions,
+    this.onBack,
   });
   final Widget child;
   final String title;
   final List<Widget>? actions;
+  final VoidCallback? onBack;
 
   @override
   ConsumerState<AppShell> createState() => _AppShellState();
@@ -158,6 +160,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                   isStaff: isStaff,
                   sidebarExpanded: expanded,
                   actions: widget.actions,
+                  onBack: widget.onBack,
                   onToggleSidebar: _toggleSidebar,
                 ),
                 if (isStaff) const ReadOnlyYearBanner(),
