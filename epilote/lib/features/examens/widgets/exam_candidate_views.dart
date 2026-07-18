@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../providers/exam_candidates_provider.dart';
 import '../providers/exam_registration_provider.dart';
+import 'candidate_file_dialog.dart';
 import 'exam_dossier_dialog.dart';
 import 'exam_result_dialog.dart';
 import 'student_history_dialog.dart';
@@ -41,6 +42,17 @@ class ExamCandidateActions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // La fiche est une LECTURE : elle reste offerte à un agent sans droit
+    // d'écriture, qui doit pouvoir relire une candidature et l'imprimer.
+    final fiche = IconButton(
+      onPressed: () =>
+          showCandidateFileDialog(context, candidateId: row.id),
+      icon: const Icon(Icons.badge_outlined, size: 18),
+      color: kNavy,
+      tooltip: 'Fiche d\'inscription complète',
+      visualDensity: VisualDensity.compact,
+    );
+
     final history = IconButton(
       onPressed: () => showStudentHistoryDialog(
         context,
@@ -53,9 +65,12 @@ class ExamCandidateActions extends ConsumerWidget {
       tooltip: 'Parcours — examens et stages',
       visualDensity: VisualDensity.compact,
     );
-    if (!canEdit) return history;
+    if (!canEdit) {
+      return Row(mainAxisSize: MainAxisSize.min, children: [fiche, history]);
+    }
 
     return Row(mainAxisSize: MainAxisSize.min, children: [
+      fiche,
       history,
       IconButton(
         onPressed: () => showExamDossierDialog(context, candidateId: row.id),

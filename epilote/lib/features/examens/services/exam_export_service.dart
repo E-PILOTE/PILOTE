@@ -7,6 +7,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/services/official_pdf_kit.dart';
+import '../providers/candidate_file_provider.dart';
 import '../providers/exam_candidates_provider.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -119,6 +120,140 @@ class ExamExportService {
       ],
     ));
     return doc.save();
+  }
+
+  // ── FICHE D'INSCRIPTION D'UN CANDIDAT ──────────────────────────────────────
+  //  Le document qu'on pose sur le comptoir de la DEC, et celui qu'on ressort
+  //  quand un parent conteste. Il récapitule ce qui engage l'école : l'identité
+  //  exacte portée sur la liste officielle, et l'état pièce par pièce du dossier.
+  static Future<Uint8List> buildCandidateFilePdf({
+    required CandidateFile c,
+    required String? schoolName,
+    List<({String label, String state})> pieces = const [],
+  }) async {
+    final f = await OfficialPdfKit.loadFonts();
+    final logo = await OfficialPdfKit.loadLogo();
+    final now = DateFormat('dd/MM/yyyy • HH:mm', 'fr').format(DateTime.now());
+    final ref = DateFormat('yyyyMMdd-HHmm').format(DateTime.now());
+
+    final doc = pw.Document(
+      title: 'Fiche d\'inscription — ${c.fullName}',
+      author: 'E-PILOTE CONGO',
+      creator: 'E-PILOTE CONGO',
+      subject: 'Fiche d\'inscription à ${c.examName ?? ''}',
+    );
+
+    doc.addPage(pw.MultiPage(
+      pageFormat: PdfPageFormat.a4,
+      margin: pw.EdgeInsets.zero,
+      header: (ctx) =>
+          OfficialPdfKit.header(logo, f, badge: 'FICHE\nD\'INSCRIPTION'),
+      footer: (ctx) => OfficialPdfKit.footer(ctx, f, now, ref),
+      build: (ctx) => [
+        pw.SizedBox(height: 14),
+        OfficialPdfKit.titleBlock(f,
+            kicker: '${c.tutelle?.toUpperCase() ?? ''} · '
+                '${c.examShortName ?? ''}'
+                '${c.yearLabel != null ? ' · SESSION ${c.yearLabel}' : ''}',
+            title: c.fullName,
+            line1: '${c.examName ?? ''}'
+                '${c.candidateNumber != null ? ' · N° candidat ${c.candidateNumber}' : ''}',
+            line2: (schoolName?.trim().isNotEmpty ?? false)
+                ? schoolName!.trim()
+                : ''),
+        pw.SizedBox(height: 12),
+        OfficialPdfKit.kpiGrid(f, [
+          PdfKpi('Dossier', _dossierLabel(c.dossierStatus),
+              c.dossierStatus == 'incomplet' ? kPdfRed : kPdfGreen),
+          PdfKpi('Classe', c.className ?? '—', kPdfNavy),
+          PdfKpi('N° candidat', c.candidateNumber ?? '—', kPdfNavy),
+        ]),
+        pw.SizedBox(height: 12),
+        OfficialPdfKit.frame(
+          title: 'IDENTITÉ DU CANDIDAT',
+          color: kPdfNavy,
+          fonts: f,
+          child: OfficialPdfKit.table(
+            headers: const ['Rubrique', 'Information'],
+            rows: [
+              ['Nom et prénom', c.fullName],
+              ['Matricule', c.matricule ?? '—'],
+              ['Né(e) le', _fmtDate(c.dateOfBirth)],
+              ['Lieu de naissance', c.placeOfBirth ?? '—'],
+              ['Sexe', c.gender ?? '—'],
+              ['Nationalité', c.nationality ?? '—'],
+            ],
+            fonts: f,
+            flex: const [5, 11],
+            leftAlignCols: const {0, 1},
+          ),
+        ),
+        pw.SizedBox(height: 10),
+        OfficialPdfKit.frame(
+          title: 'SCOLARITÉ ET CANDIDATURE',
+          color: kPdfNavy,
+          fonts: f,
+          child: OfficialPdfKit.table(
+            headers: const ['Rubrique', 'Information'],
+            rows: [
+              ['Classe', c.className ?? '—'],
+              ['Filière', c.filiereLabel ?? '—'],
+              ['Niveau', c.levelName ?? '—'],
+              ['Redoublant', c.isRepeater ? 'Oui' : 'Non'],
+              ['Examen', c.examName ?? '—'],
+              ['Session', c.yearLabel ?? '—'],
+              ['Centre d\'examen', c.centerName ?? '—'],
+              ['Début des épreuves', _fmtDate(c.writtenFrom)],
+              ['Inscrit le', _fmtDate(c.registeredAt)],
+              ['Dossier déposé le', _fmtDate(c.submittedAt)],
+            ],
+            fonts: f,
+            flex: const [5, 11],
+            leftAlignCols: const {0, 1},
+          ),
+        ),
+        if (pieces.isNotEmpty) ...[
+          pw.SizedBox(height: 10),
+          OfficialPdfKit.frame(
+            title: 'PIÈCES DU DOSSIER',
+            color: c.dossierStatus == 'incomplet' ? kPdfRed : kPdfGreen,
+            fonts: f,
+            child: OfficialPdfKit.table(
+              headers: const ['Pièce exigée', 'État'],
+              rows: [
+                for (final p in pieces) [p.label, p.state],
+              ],
+              fonts: f,
+              flex: const [11, 5],
+              leftAlignCols: const {0},
+            ),
+          ),
+        ],
+        pw.SizedBox(height: 8),
+      ],
+    ));
+    return doc.save();
+  }
+
+  static Future<String?> downloadCandidateFile({
+    required CandidateFile c,
+    required String? schoolName,
+    List<({String label, String state})> pieces = const [],
+  }) async {
+    final bytes = await buildCandidateFilePdf(
+        c: c, schoolName: schoolName, pieces: pieces);
+    final path = await FilePicker.platform.saveFile(
+      dialogTitle: 'Enregistrer la fiche d\'inscription',
+      fileName: 'Fiche_${c.fullName}_${c.examShortName ?? ''}.pdf'
+          .replaceAll(' ', '_'),
+      bytes: bytes,
+    );
+    if (path == null) return null;
+    final file = File(path);
+    if (!await file.exists() || await file.length() == 0) {
+      await file.writeAsBytes(bytes);
+    }
+    return path;
   }
 
   static String _dossierLabel(String? s) => switch (s) {
