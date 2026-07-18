@@ -89,6 +89,28 @@ PieceFileState pieceStateFor({
   return declared ? PieceFileState.declaree : PieceFileState.absente;
 }
 
+/// Retrouve les pièces DÉCLARÉES fournies à partir de l'état stocké.
+///
+/// `missing_documents` dit ce qui n'est PAS couvert ; on en déduit ce qui l'est :
+///
+///     déclaré = exigé − manquant − attaché
+///
+/// C'est l'inverse exact de [deriveMissing], ce qui garantit qu'une
+/// recomposition ne perd jamais une déclaration faite avant l'arrivée des
+/// fichiers. Aucune colonne supplémentaire, aucune seconde vérité à tenir.
+Set<String> recoverDeclared({
+  required List<ExamDossierPiece> required,
+  required Set<String> previousMissing,
+  required Set<String> attachedCodes,
+}) =>
+    {
+      for (final p in required)
+        if (!p.isConditional &&
+            !previousMissing.contains(p.code) &&
+            !attachedCodes.contains(p.code))
+          p.code,
+    };
+
 /// Les pièces encore manquantes — celles qui feront renvoyer l'école au comptoir.
 ///
 /// Une pièce est couverte si elle est ATTACHÉE (preuve forte) ou DÉCLARÉE

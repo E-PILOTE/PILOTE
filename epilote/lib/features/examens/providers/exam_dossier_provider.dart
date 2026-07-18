@@ -27,10 +27,26 @@ export '../models/dossier_piece_state.dart' show kStagePieceCode;
 // ════════════════════════════════════════════════════════════════════════════
 
 class DossierPieceState {
-  const DossierPieceState(
-      {required this.piece, required this.provided, this.linkedStage});
+  const DossierPieceState({
+    required this.piece,
+    required this.provided,
+    this.linkedStage,
+    this.attached,
+    this.declared = false,
+  });
 
   final ExamDossierPiece piece;
+
+  /// Le fichier réellement attaché à cette pièce — `null` si aucun.
+  final AttachedPiece? attached;
+
+  /// Déclarée fournie par un agent, sans fichier. Pour une pièce physique ou
+  /// financière c'est l'état normal ; pour un fichier, une preuve faible.
+  final bool declared;
+
+  /// L'état affichable, fichier et déclaration confondus.
+  PieceFileState get fileState =>
+      pieceStateFor(attached: attached, declared: declared);
 
   /// Déclarée fournie par l'école. Pour une pièce conditionnelle, l'information
   /// est purement indicative : elle ne compte pas dans la complétude.
@@ -65,6 +81,9 @@ class StageAttestation {
 class CandidateDossier {
   const CandidateDossier({
     required this.candidateId,
+    required this.studentId,
+    required this.groupId,
+    required this.schoolId,
     required this.fullName,
     required this.examShortName,
     required this.status,
@@ -72,6 +91,12 @@ class CandidateDossier {
   });
 
   final String candidateId;
+
+  /// Nécessaires pour attacher une pièce (INSERT `student_documents`).
+  final String studentId;
+  final String groupId;
+  final String schoolId;
+
   final String fullName;
   final String examShortName;
   final String? status;
@@ -102,7 +127,8 @@ final candidateDossierProvider =
   (ref, candidateId) async {
     final rows = await db.getAll(
       '''
-      SELECT c.id, c.student_id, c.dossier_status, c.missing_documents,
+      SELECT c.id, c.student_id, c.group_id, c.school_id,
+             c.dossier_status, c.missing_documents,
              s.required_documents,
              st.first_name, st.last_name,
              e.short_name AS exam_short_name
@@ -151,8 +177,53 @@ final candidateDossierProvider =
       }
     }
 
+    // Les fichiers réellement attachés : pièces de l'ÉLÈVE (portée globale,
+    // réutilisées d'une candidature à l'autre) + pièces de CETTE candidature.
+    final studentId = r['student_id'] as String;
+    final docRows = await db.getAll(
+      '''
+      SELECT id, document_type, document_name, file_url, exam_candidate_id,
+             is_verified, verified_at
+        FROM student_documents
+       WHERE student_id = ?
+         AND file_url IS NOT NULL AND file_url <> ''
+         AND (exam_candidate_id IS NULL OR exam_candidate_id = ?)
+       ORDER BY created_at DESC
+      ''',
+      [studentId, candidateId],
+    );
+
+    // La plus récente gagne pour un code donné (ORDER BY created_at DESC).
+    final attached = <String, AttachedPiece>{};
+    for (final d in docRows) {
+      final code = d['document_type'] as String? ?? '';
+      if (code.isEmpty || attached.containsKey(code)) continue;
+      attached[code] = AttachedPiece(
+        documentId: d['id'] as String,
+        code: code,
+        fileUrl: d['file_url'] as String? ?? '',
+        fileName: d['document_name'] as String? ?? code,
+        isVerified: d['is_verified'] == 1 || d['is_verified'] == true,
+        verifiedAt: d['verified_at'] == null
+            ? null
+            : DateTime.tryParse(d['verified_at'] as String),
+        examCandidateId: d['exam_candidate_id'] as String?,
+      );
+    }
+
+    // Ce que l'agent avait coché avant l'arrivée des fichiers, retrouvé par
+    // l'inverse de la règle d'écriture (cf. `recoverDeclared`).
+    final declared = recoverDeclared(
+      required: required,
+      previousMissing: missingCodes,
+      attachedCodes: attached.keys.toSet(),
+    );
+
     return CandidateDossier(
       candidateId: r['id'] as String,
+      studentId: studentId,
+      groupId: r['group_id'] as String? ?? '',
+      schoolId: r['school_id'] as String? ?? '',
       fullName:
           '${r['first_name'] ?? ''} ${r['last_name'] ?? ''}'.trim(),
       examShortName: (r['exam_short_name'] as String?) ?? '—',
@@ -161,16 +232,18 @@ final candidateDossierProvider =
         for (final p in required)
           DossierPieceState(
             piece: p,
+            attached: attached[p.code],
+            declared: declared.contains(p.code),
             // La pièce attestation_stage est satisfaite PAR LE MODULE Stages
             // dès qu'une attestation est émise : le système le sait, on ne
             // redemande pas à l'agent de le déclarer.
             provided: p.code == kStagePieceCode && stage != null
                 ? true
                 : p.isConditional
-                    ? false
                     // Une pièce conditionnelle n'entre JAMAIS dans `missing` :
                     // la déduire « fournie » de son absence serait un mensonge.
-                    : !missingCodes.contains(p.code),
+                    ? attached.containsKey(p.code)
+                    : attached.containsKey(p.code) || declared.contains(p.code),
             linkedStage: p.code == kStagePieceCode ? stage : null,
           ),
       ],

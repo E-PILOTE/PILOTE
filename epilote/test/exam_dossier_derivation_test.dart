@@ -154,6 +154,88 @@ void main() {
     });
   });
 
+  // Le vrai danger d'une recomposition : perdre en silence une case cochée
+  // avant l'arrivée des fichiers. Ces tests verrouillent l'aller-retour.
+  group('recoverDeclared ↔ deriveMissing (aller-retour)', () {
+    test('une déclaration antérieure survit à une recomposition', () {
+      final required = [_piece('acte_naissance'), _piece('diplome')];
+      // État stocké : seul `diplome` manque → `acte_naissance` avait été coché.
+      final declared = recoverDeclared(
+        required: required,
+        previousMissing: {'diplome'},
+        attachedCodes: const {},
+      );
+      expect(declared, {'acte_naissance'});
+
+      final missing = deriveMissing(
+        required: required,
+        attachedCodes: const {},
+        declaredCodes: declared,
+        stageIssued: false,
+      );
+      expect(_missingCodes(missing), {'diplome'},
+          reason: 'la recomposition doit reproduire l\'état stocké');
+    });
+
+    test('recomposer plusieurs fois de suite est stable', () {
+      final required = [
+        _piece('acte_naissance'),
+        _piece('diplome'),
+        _piece('enveloppe', nature: PieceNature.physique),
+      ];
+      var missing = {'diplome'};
+
+      for (var i = 0; i < 3; i++) {
+        final declared = recoverDeclared(
+          required: required,
+          previousMissing: missing,
+          attachedCodes: const {},
+        );
+        missing = _missingCodes(deriveMissing(
+          required: required,
+          attachedCodes: const {},
+          declaredCodes: declared,
+          stageIssued: false,
+        ));
+      }
+      expect(missing, {'diplome'});
+    });
+
+    test('joindre un fichier ne fait pas perdre les autres déclarations', () {
+      final required = [_piece('acte_naissance'), _piece('diplome')];
+      // Avant : les deux étaient cochées (rien ne manque).
+      final declared = recoverDeclared(
+        required: required,
+        previousMissing: const {},
+        attachedCodes: {'acte_naissance'}, // on vient d'attacher celle-ci
+      );
+      // `diplome` reste déclarée ; `acte_naissance` est passée au fichier.
+      expect(declared, {'diplome'});
+
+      expect(
+        deriveMissing(
+          required: required,
+          attachedCodes: {'acte_naissance'},
+          declaredCodes: declared,
+          stageIssued: false,
+        ),
+        isEmpty,
+        reason: 'un dossier complet ne doit pas redevenir incomplet',
+      );
+    });
+
+    test('une pièce conditionnelle n\'est jamais réputée déclarée', () {
+      expect(
+        recoverDeclared(
+          required: [_piece('inaptitude', condition: 'si_inapte_eps')],
+          previousMissing: const {},
+          attachedCodes: const {},
+        ),
+        isEmpty,
+      );
+    });
+  });
+
   group('PieceFileState', () {
     test('un fichier vérifié est vérifié, non vérifié est fourni', () {
       const attached = AttachedPiece(
