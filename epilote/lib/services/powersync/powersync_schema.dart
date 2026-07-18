@@ -1118,6 +1118,9 @@ const schema = Schema([
     Column.text('document_type'),
     Column.text('document_name'),
     Column.text('file_url'),
+    // NULL = pièce de l'élève (réutilisable à chaque candidature) ; renseigné =
+    // pièce propre à CETTE candidature d'examen. Cf. migration 0056.
+    Column.text('exam_candidate_id'),
     Column.integer('is_verified'),
     Column.text('verified_by'),
     Column.text('verified_at'),
