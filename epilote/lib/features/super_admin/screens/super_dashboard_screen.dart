@@ -13,6 +13,7 @@ import '../../../features/auth/providers/auth_provider.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../providers/super_dashboard_provider.dart';
 import 'national_map_screen.dart';
+import 'super_exams_section.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 Color get _kNavy => kNavy;
@@ -186,6 +187,9 @@ class _OverviewTab extends ConsumerWidget {
                 _RevenueSection(stats: stats),
                 const SizedBox(height: 22),
                 _ChartsRow(stats: stats),
+                // Adoption du module Examens d'État à l'échelle plateforme
+                // (s'efface si aucun groupe ne l'utilise).
+                const SuperExamsSection(),
                 const SizedBox(height: 22),
                 _BottomRow(stats: stats),
               ],

@@ -21,11 +21,14 @@ import '../../../features/navigation/providers/permissions_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../providers/dashboard_provider.dart';
+import '../../examens/providers/examens_provider.dart';
+import '../../stages/providers/stages_provider.dart';
 
 part 'dashboard_year_parts.dart';
 part 'dashboard_kpi_parts.dart';
 part 'dashboard_chart_parts.dart';
 part 'dashboard_block_parts.dart';
+part 'dashboard_examens_parts.dart';
 part 'dashboard_cards_parts.dart';
 part 'dashboard_modules_parts.dart';
 part 'dashboard_skeleton_parts.dart';
@@ -58,11 +61,12 @@ List<Color> get _kPalette => [
 //  quand on lui retire ces modules, ça redescend. Le rôle ne sert qu'à départager
 //  à charge égale. Un bloc non autorisé ne s'affiche jamais.
 // ════════════════════════════════════════════════════════════════════════════
-enum _Section { scolarite, personnel, finance, medical, discipline }
+enum _Section { scolarite, examens, personnel, finance, medical, discipline }
 
 /// Modules représentatifs de chaque domaine (alignés sur les `show*` du build).
 const Map<_Section, List<String>> _sectionSlugs = {
   _Section.scolarite: ['classes', 'eleves', 'inscriptions'],
+  _Section.examens: ['examens', 'stages'],
   _Section.personnel: ['personnel'],
   _Section.finance: ['paiements-eleves', 'frais-scolarite', 'depenses', 'budget'],
   _Section.medical: ['infirmerie'],
@@ -88,6 +92,7 @@ int _sectionWeight(_Section s, Map<String, ModulePermission> perms) {
 List<_Section> _roleTiebreak(String role) {
   const overview = [
     _Section.scolarite,
+    _Section.examens,
     _Section.personnel,
     _Section.finance,
     _Section.discipline,
@@ -97,6 +102,7 @@ List<_Section> _roleTiebreak(String role) {
     'comptable' => const [
         _Section.finance,
         _Section.scolarite,
+        _Section.examens,
         _Section.personnel,
         _Section.discipline,
         _Section.medical,
@@ -104,6 +110,7 @@ List<_Section> _roleTiebreak(String role) {
     'infirmier' => const [
         _Section.medical,
         _Section.scolarite,
+        _Section.examens,
         _Section.personnel,
         _Section.finance,
         _Section.discipline,
@@ -111,6 +118,7 @@ List<_Section> _roleTiebreak(String role) {
     'cpe' || 'surveillant' => const [
         _Section.discipline,
         _Section.scolarite,
+        _Section.examens,
         _Section.personnel,
         _Section.finance,
         _Section.medical,
@@ -222,6 +230,9 @@ class _DashboardBody extends ConsumerWidget {
 
     // Blocs métier composés selon les PERMISSIONS (→ adaptatif au rôle).
     final showScolarite = showClasses || showEleves;
+    final showExamensMod = perms['examens']?.canRead ?? false;
+    final showStagesMod = perms['stages']?.canRead ?? false;
+    final showExamens = showExamensMod || showStagesMod;
     final showPersonnel = perms['personnel']?.canRead ?? false;
     final showFinance = (perms['paiements-eleves']?.canRead ?? false) ||
         (perms['frais-scolarite']?.canRead ?? false) ||
@@ -230,6 +241,7 @@ class _DashboardBody extends ConsumerWidget {
     final showMedical = perms['infirmerie']?.canRead ?? false;
     final showDiscipline = perms['discipline']?.canRead ?? false;
     final anyBlock = showScolarite ||
+        showExamens ||
         showPersonnel ||
         showFinance ||
         showMedical ||
@@ -246,6 +258,11 @@ class _DashboardBody extends ConsumerWidget {
           showClasses: showClasses,
           showEleves: showEleves,
           showInscriptions: showInscriptions,
+        ),
+      if (showExamens)
+        _Section.examens: _ExamensBlock(
+          showExamens: showExamensMod,
+          showStages: showStagesMod,
         ),
       if (showPersonnel) _Section.personnel: const _PersonnelBlock(),
       if (showFinance) _Section.finance: const _FinanceBlock(),

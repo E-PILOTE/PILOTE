@@ -11,6 +11,7 @@ import '../../../core/widgets/app_shell.dart';
 import '../providers/admin_dashboard_provider.dart';
 import '../providers/admin_geo_provider.dart';
 import '../../../core/widgets/admin_ui.dart';
+import 'admin_exams_dashboard_section.dart';
 import 'admin_regional_view.dart';
 
 // ─── Accents locaux (complètent la palette admin_ui) ────────────────────────
@@ -202,6 +203,9 @@ class _Overview extends StatelessWidget {
         const SizedBox(height: 24),
         _ChartsRow(data: data),
         const SizedBox(height: 24),
+        // Examens nationaux & Stages : le pouls du réseau (s'efface si le
+        // groupe n'exploite pas le module). Cockpit complet sur /admin/examens.
+        const AdminExamsDashboardSection(),
         _RhSection(data: data),
         const SizedBox(height: 24),
         _DeptSection(data: data),
