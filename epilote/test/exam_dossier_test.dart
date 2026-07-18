@@ -29,6 +29,9 @@ const _bacT = '''[
 CandidateDossier _dossier(List<ExamDossierPiece> required, Set<String> missing) =>
     CandidateDossier(
       candidateId: 'c1',
+      studentId: 's1',
+      groupId: 'g1',
+      schoolId: 'e1',
       fullName: 'Élève Test',
       examShortName: 'Bac T',
       status: 'incomplet',
@@ -140,12 +143,14 @@ void main() {
     test('un dossier déposé est reconnu comme tel (retrait interdit)', () {
       for (final s in ['depose', 'valide']) {
         final d = CandidateDossier(
-            candidateId: 'c', fullName: 'X', examShortName: 'Bac T',
+            candidateId: 'c', studentId: 's', groupId: 'g', schoolId: 'e',
+            fullName: 'X', examShortName: 'Bac T',
             status: s, pieces: const []);
         expect(d.isSubmitted, isTrue, reason: s);
       }
       final d = const CandidateDossier(
-          candidateId: 'c', fullName: 'X', examShortName: 'Bac T',
+          candidateId: 'c', studentId: 's', groupId: 'g', schoolId: 'e',
+          fullName: 'X', examShortName: 'Bac T',
           status: 'complet', pieces: []);
       expect(d.isSubmitted, isFalse);
     });
