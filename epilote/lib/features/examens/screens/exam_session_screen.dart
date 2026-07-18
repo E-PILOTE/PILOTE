@@ -16,6 +16,7 @@ import '../services/exam_export_service.dart';
 import '../widgets/examens_widgets.dart' show ExamErrorCard;
 import '../widgets/exam_candidate_grouped.dart';
 import '../widgets/exam_candidate_list.dart';
+import '../widgets/exam_fees_panel.dart';
 import '../widgets/exam_register_dialog.dart';
 import '../widgets/transmissions_panel.dart';
 
@@ -294,6 +295,13 @@ class _State extends ConsumerState<ExamSessionScreen> {
       )),
       _gap(20),
       _pad(ExamKpiRow(session: s, canWrite: canRegister || canSubmit)),
+      _gap(20),
+      // Les frais d'examen sont un revenu de l'école, donc du groupe.
+      _pad(ExamFeesPanel(
+        sessionId: s.sessionId,
+        examShortName: s.examShortName,
+        yearLabel: s.yearLabel,
+      )),
       _gap(24),
       _pad(ScopeDrilldownPanel(
         units: s.scopeUnits,

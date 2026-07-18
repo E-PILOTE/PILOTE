@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../models/exam_fee.dart';
 import '../providers/exam_candidates_provider.dart';
+import '../providers/exam_fees_provider.dart';
 import '../providers/exam_registration_provider.dart';
 import 'candidate_file_dialog.dart';
 import 'exam_dossier_dialog.dart';
+import 'exam_payment_dialog.dart';
 import 'exam_result_dialog.dart';
 import 'student_history_dialog.dart';
 
@@ -69,9 +72,33 @@ class ExamCandidateActions extends ConsumerWidget {
       return Row(mainAxisSize: MainAxisSize.min, children: [fiche, history]);
     }
 
+    // Frais : la couleur dit l'état (impayé / partiel / soldé) sans un clic.
+    final fees = ref.watch(examFeesProvider(sessionId)).valueOrNull;
+    final feeState = fees?.stateFor(row.studentId);
+    final paiement = IconButton(
+      onPressed: () => showExamPaymentDialog(
+        context,
+        sessionId: sessionId,
+        studentId: row.studentId,
+        studentName: row.fullName,
+      ),
+      icon: const Icon(Icons.payments_outlined, size: 18),
+      color: switch (feeState) {
+        FeePaymentState.solde => kGreen,
+        FeePaymentState.partiel => kAccent,
+        FeePaymentState.impaye => kRed,
+        null => kTextMuted,
+      },
+      tooltip: feeState == null
+          ? 'Frais d\'examen'
+          : 'Frais — ${feeStateLabel(feeState)}',
+      visualDensity: VisualDensity.compact,
+    );
+
     return Row(mainAxisSize: MainAxisSize.min, children: [
       fiche,
       history,
+      paiement,
       IconButton(
         onPressed: () => showExamDossierDialog(context, candidateId: row.id),
         icon: const Icon(Icons.fact_check_outlined, size: 18),

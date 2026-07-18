@@ -758,6 +758,8 @@ const schema = Schema([
     Column.integer('is_active'),
     Column.text('created_at'),
     Column.text('updated_at'),
+      // Barème des frais d'une session d'examen. Cf. migration 0058.
+    Column.text('exam_session_id'),
   ]),
 
   // api_key et api_secret exclus intentionnellement (données sensibles)
