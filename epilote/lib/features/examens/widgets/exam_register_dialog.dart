@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../models/exam_dossier_piece.dart';
 import '../providers/exam_registration_provider.dart';
 import '../providers/examens_provider.dart';
 import 'examens_widgets.dart' show formatDate;
@@ -129,6 +130,7 @@ class _State extends ConsumerState<_ExamRegisterDialog> {
           _noSession()
         else ...[
           if (reg.overAge.isNotEmpty) _ageWarning(reg),
+          if (reg.requiredDocuments.isNotEmpty) _piecesPreview(reg),
           Flexible(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -190,6 +192,59 @@ class _State extends ConsumerState<_ExamRegisterDialog> {
           ),
         ]),
       );
+
+  /// Les pièces que l'école devra réunir, annoncées AVANT d'inscrire.
+  ///
+  /// Inscrire prend dix secondes ; réunir les pièces prend des semaines. Les
+  /// découvrir seulement en ouvrant le dossier, c'est les découvrir trop tard.
+  /// On les annonce ici — le téléversement, lui, se fait dans le dossier.
+  Widget _piecesPreview(ClassRegistration reg) {
+    final pieces = ExamDossierPiece.parseList(reg.requiredDocuments);
+    final due = pieces.where((p) => !p.isConditional).toList();
+    if (due.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: kNavy.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: kNavy.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.fact_check_outlined, size: 16, color: kNavy),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '${due.length} pièce(s) à réunir par candidat pour '
+                '${reg.examShortName}',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: kTextPrimary),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 6),
+          Text(
+            due.map((p) => p.label).join(' · '),
+            style: TextStyle(fontSize: 11, color: kTextMuted, height: 1.4),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Les scans se déposent ensuite dans le dossier de chaque candidat.',
+            style: TextStyle(
+                fontSize: 10.5,
+                color: kTextMuted,
+                fontStyle: FontStyle.italic),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _studentTile(ExamStudentRow s, ClassRegistration reg, bool overAge) {
     final age = s.ageAt(reg.ageReference);
