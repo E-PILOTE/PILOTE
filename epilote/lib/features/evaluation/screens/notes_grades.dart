@@ -49,14 +49,33 @@ class _GradeSheetState extends ConsumerState<_GradeSheet> {
 
   Future<void> _save(GradeRow r, {double? score, bool? absent, String? appr}) async {
     final p = ref.read(authNotifierProvider).valueOrNull;
+
+    // La saisie s'enregistre note par note, sans bouton « Valider » : une
+    // écriture refusée à la synchro emporterait tout le lot PowerSync — donc
+    // toute la feuille — sans le moindre message. On refuse ici, en le disant.
+    final missing = missingWriteIds(
+      groupId: p?.groupId,
+      schoolId: p?.schoolId,
+      actorId: p?.id,
+    );
+    if (missing.isNotEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(writeIdentityMessage(missing)),
+        backgroundColor: kRed,
+        duration: const Duration(seconds: 6),
+      ));
+      return;
+    }
+
     final isAbsent = absent ?? r.isAbsent;
     await upsertGrade(
-      groupId: p?.groupId ?? '',
-      schoolId: p?.schoolId ?? '',
+      groupId: p!.groupId!,
+      schoolId: p.schoolId!,
       evaluationId: widget.evaluation.id,
       studentId: r.studentId,
       enrollmentId: r.enrollmentId,
-      createdBy: p?.id ?? '',
+      createdBy: p.id,
       score: isAbsent ? null : score,
       isAbsent: isAbsent,
       appreciation: appr ?? r.appreciation,

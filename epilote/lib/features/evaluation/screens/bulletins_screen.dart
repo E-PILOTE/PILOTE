@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -66,12 +67,29 @@ class _BodyState extends ConsumerState<_Body> {
     final p = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
     if (yearId == null || _trimesterId == null) return;
+
+    // Un bulletin généré sans rattachement serait refusé à la remontée et
+    // emporterait le lot PowerSync entier — toute une classe de bulletins
+    // perdue sans message.
+    final missing = missingWriteIds(
+      groupId: p?.groupId,
+      schoolId: p?.schoolId,
+      actorId: p?.id,
+    );
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(writeIdentityMessage(missing)),
+        backgroundColor: kRed,
+        duration: const Duration(seconds: 6),
+      ));
+      return;
+    }
     setState(() => _busy = true);
     await runModuleWrite(
       context,
       () => generateBulletins(
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         academicYearId: yearId,
         trimesterId: _trimesterId!,
         comp: comp,

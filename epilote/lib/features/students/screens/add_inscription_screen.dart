@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../data/models/class_model.dart';
 import '../../../features/auth/providers/auth_provider.dart';
@@ -208,11 +209,28 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
       return;
     }
 
+    // Rattachement de l'agent : sans école ni groupe, l'élève, ses tuteurs ET
+    // son inscription partiraient avec des identifiants vides — le serveur
+    // rejetterait le lot PowerSync ENTIER, silencieusement. On refuse ici, en
+    // le disant.
+    final missingIds = missingWriteIds(
+      groupId:  profile.groupId,
+      schoolId: profile.schoolId,
+      actorId:  profile.id,
+    );
+    if (missingIds.isNotEmpty) {
+      setState(() {
+        _submitting = false;
+        _error      = writeIdentityMessage(missingIds);
+      });
+      return;
+    }
+
     try {
       // Vérifier quota avant création offline
       final quotaError = await checkStudentQuota(
-        schoolId: profile.schoolId ?? '',
-        groupId:  profile.groupId  ?? '',
+        schoolId: profile.schoolId!,
+        groupId:  profile.groupId!,
       );
       if (quotaError != null) {
         setState(() { _submitting = false; _error = quotaError; });
@@ -222,8 +240,8 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
       // Créer l'élève (id généré en amont = chemin du dossier documentaire)
       final studentId = await createStudent(
         id:                 _state.studentId,
-        schoolId:           profile.schoolId ?? '',
-        groupId:            profile.groupId  ?? '',
+        schoolId:           profile.schoolId!,
+        groupId:            profile.groupId!,
         firstName:          _state.firstName,
         lastName:           _state.lastName,
         dateOfBirth:        _state.dateOfBirth != null
@@ -254,7 +272,7 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
         }
         await addTutor(
           studentId:         studentId,
-          groupId:           profile.groupId ?? '',
+          groupId:           profile.groupId!,
           firstName:         t.firstName,
           lastName:          t.lastName,
           relationship:      t.relationship,
@@ -271,8 +289,8 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
       // Créer l'inscription (pending_validation)
       if (_state.classId != null && _state.academicYearId != null) {
         await enrollStudent(
-          schoolId:           profile.schoolId ?? '',
-          groupId:            profile.groupId  ?? '',
+          schoolId:           profile.schoolId!,
+          groupId:            profile.groupId!,
           studentId:          studentId,
           classId:            _state.classId!,
           academicYearId:     _state.academicYearId!,
@@ -290,8 +308,8 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
       // Persister les pièces du dossier déjà téléversées (offline-first).
       for (final d in _state.uploadedDocs.values) {
         await insertStudentDocumentRow(
-          groupId:      profile.groupId ?? '',
-          schoolId:     profile.schoolId ?? '',
+          groupId:      profile.groupId!,
+          schoolId:     profile.schoolId!,
           studentId:    studentId,
           documentType: d.typeSlug,
           documentName: d.label,
