@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
@@ -62,17 +63,29 @@ class _BodyState extends ConsumerState<_Body> {
     if (d != null) setState(() => _date = d);
   }
 
+  /// Refuse un pointage si le compte n'est pas rattaché : un `group_id`,
+  /// `school_id` ou `recorded_by` vide ferait rejeter tout le lot PowerSync.
+  bool _identityMissing(dynamic p) {
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isEmpty) return false;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+    return true;
+  }
+
   Future<void> _mark(String staffId, String status) async {
     final p = ref.read(authNotifierProvider).valueOrNull;
+    if (_identityMissing(p)) return;
     await runModuleWrite(
       context,
       () => setStaffAttendance(
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         staffId: staffId,
         dateKey: _key,
         status: status,
-        recordedBy: p?.id ?? '',
+        recordedBy: p.id,
       ),
       success: null,
     );
@@ -85,15 +98,16 @@ class _BodyState extends ConsumerState<_Body> {
     final ids = [for (final a in agents) a.id];
     if (ids.isEmpty) return;
     final p = ref.read(authNotifierProvider).valueOrNull;
+    if (_identityMissing(p)) return;
     await runModuleWrite(
       context,
       () => setStaffAttendanceBulk(
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         staffIds: ids,
         dateKey: _key,
         status: status,
-        recordedBy: p?.id ?? '',
+        recordedBy: p.id,
         overwrite: overwrite,
       ),
       success: 'Pointage appliqué à ${ids.length} agent'

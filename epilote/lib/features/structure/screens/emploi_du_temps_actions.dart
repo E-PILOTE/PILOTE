@@ -234,19 +234,33 @@ extension _EdtActions on _EdtPageState {
     if (target == null || !mounted) return;
     final profile = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
+    final missing = missingWriteIds(
+        groupId: profile?.groupId,
+        schoolId: profile?.schoolId,
+        actorId: profile?.id);
+    if (missing.isNotEmpty) {
+      _snack(writeIdentityMessage(missing), kRed);
+      return;
+    }
+    if (!isUsableId(yearId)) {
+      _snack('Aucune année scolaire active.', kRed);
+      return;
+    }
+    final gid = profile!.groupId!, sid = profile.schoolId!, aid = yearId!;
+    final actor = profile.id;
     await runModuleWrite(
       context,
       () async {
         final versionId = await ensureActiveVersionId(
-          groupId: profile?.groupId ?? '',
-          schoolId: profile?.schoolId ?? '',
-          academicYearId: yearId ?? '',
-          createdBy: profile?.id,
+          groupId: gid,
+          schoolId: sid,
+          academicYearId: aid,
+          createdBy: actor,
         );
         final n = await duplicateClassTimetable(
-          groupId: profile?.groupId ?? '',
-          schoolId: profile?.schoolId ?? '',
-          academicYearId: yearId ?? '',
+          groupId: gid,
+          schoolId: sid,
+          academicYearId: aid,
           fromClassId: from.id,
           toClassId: target.id,
           versionId: versionId,
@@ -282,11 +296,24 @@ extension _EdtActions on _EdtPageState {
     if (ok != true || !mounted) return;
     final profile = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
+    final missing = missingWriteIds(
+        groupId: profile?.groupId,
+        schoolId: profile?.schoolId,
+        actorId: profile?.id);
+    if (missing.isNotEmpty) {
+      _snack(writeIdentityMessage(missing), kRed);
+      return;
+    }
+    if (!isUsableId(yearId)) {
+      _snack('Aucune année scolaire active.', kRed);
+      return;
+    }
+    final sid = profile!.schoolId!, aid = yearId!;
     await runModuleWrite(
       context,
       () => clearClassTimetable(
-        schoolId: profile?.schoolId ?? '',
-        academicYearId: yearId ?? '',
+        schoolId: sid,
+        academicYearId: aid,
         classId: klass.id,
       ),
       success: 'Emploi du temps vidé',

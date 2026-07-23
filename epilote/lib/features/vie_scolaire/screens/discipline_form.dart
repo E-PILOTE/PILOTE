@@ -73,13 +73,20 @@ class _IncidentFormState extends ConsumerState<_IncidentForm> {
     final p = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
     if (yearId == null) return;
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+      return;
+    }
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
       () => saveIncident(
         id: widget.incident?.id,
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         academicYearId: yearId,
         studentId: _studentId!,
         date: _key(_date),
@@ -90,7 +97,7 @@ class _IncidentFormState extends ConsumerState<_IncidentForm> {
             _sanction == 'aucune' || _sanctionDate == null ? null : _key(_sanctionDate!),
         parentNotified: _parentNotified,
         followUp: _follow.text.trim().isEmpty ? null : _follow.text.trim(),
-        reportedBy: p?.id ?? '',
+        reportedBy: p.id,
       ),
       success: _isEdit ? 'Incident modifié' : 'Incident enregistré',
     );

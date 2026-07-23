@@ -55,13 +55,20 @@ class _ItemFormState extends ConsumerState<_ItemForm> {
       return;
     }
     final p = ref.read(authNotifierProvider).valueOrNull;
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+      return;
+    }
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
       () => saveItem(
         id: widget.item?.id,
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         title: _title.text.trim(),
         author: _author.text.trim().isEmpty ? null : _author.text.trim(),
         isbn: _isbn.text.trim().isEmpty ? null : _isbn.text.trim(),
@@ -178,14 +185,21 @@ class _LoanFormState extends ConsumerState<_LoanForm> {
       return;
     }
     final p = ref.read(authNotifierProvider).valueOrNull;
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+      return;
+    }
     setState(() => _saving = true);
     String? error;
     final ok = await runModuleWrite(
       context,
       () async {
         error = await createLoan(
-          groupId: p?.groupId ?? '',
-          schoolId: p?.schoolId ?? '',
+          groupId: p!.groupId!,
+          schoolId: p.schoolId!,
           itemId: _itemId!,
           borrowerId: _borrowerId!,
           borrowDate: _key(_borrow),

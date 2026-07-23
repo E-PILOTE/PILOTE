@@ -50,6 +50,18 @@ class _PeriodFormState extends ConsumerState<_PeriodForm> {
       return;
     }
     final profile = ref.read(authNotifierProvider).valueOrNull;
+    if (!_isEdit) {
+      final missing = missingWriteIds(
+          groupId: profile?.groupId,
+          schoolId: profile?.schoolId,
+          actorId: profile?.id);
+      if (missing.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(writeIdentityMessage(missing)),
+            backgroundColor: kRed));
+        return;
+      }
+    }
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
@@ -64,8 +76,8 @@ class _PeriodFormState extends ConsumerState<_PeriodForm> {
           );
         } else {
           await createSchoolPeriod(
-            groupId: profile?.groupId ?? '',
-            schoolId: profile?.schoolId ?? '',
+            groupId: profile!.groupId!,
+            schoolId: profile.schoolId!,
             cycleCode: widget.cycleCode,
             label: _label.text,
             periodIndex: widget.nextIndex,

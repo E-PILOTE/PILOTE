@@ -40,8 +40,14 @@ class _PrepClassesDialogState extends ConsumerState<_PrepClassesDialog> {
 
   Future<void> _submit() async {
     final p = ref.read(authNotifierProvider).valueOrNull;
-    if (_sourceId == null || p?.schoolId == null) {
-      _calToast(context, 'Choisissez une année source');
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (_sourceId == null || missing.isNotEmpty) {
+      _calToast(
+          context,
+          _sourceId == null
+              ? 'Choisissez une année source'
+              : writeIdentityMessage(missing));
       return;
     }
     setState(() => _saving = true);
@@ -53,7 +59,7 @@ class _PrepClassesDialogState extends ConsumerState<_PrepClassesDialog> {
           sourceYearId: _sourceId!,
           targetYearId: widget.targetYear.id,
           schoolId: p!.schoolId!,
-          groupId: p.groupId ?? '',
+          groupId: p.groupId!,
         );
       },
       success: 'Classes préparées',

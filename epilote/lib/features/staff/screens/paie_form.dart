@@ -65,13 +65,19 @@ class _PayrollFormState extends ConsumerState<_PayrollForm> {
       return;
     }
     final p = ref.read(authNotifierProvider).valueOrNull;
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isNotEmpty) {
+      _snack(writeIdentityMessage(missing));
+      return;
+    }
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
       () => savePayroll(
         id: widget.line?.id,
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         staffId: _staffId!,
         month: widget.month,
         year: widget.year,
@@ -82,7 +88,7 @@ class _PayrollFormState extends ConsumerState<_PayrollForm> {
         method: _method,
         status: _status,
         reference: _reference.text.trim().isEmpty ? null : _reference.text.trim(),
-        createdBy: p?.id ?? '',
+        createdBy: p.id,
       ),
       success: _isEdit ? 'Bulletin modifié' : 'Bulletin créé',
     );

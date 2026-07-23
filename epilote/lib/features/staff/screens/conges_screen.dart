@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
@@ -54,13 +55,23 @@ class _BodyState extends ConsumerState<_Body> {
         builder: (_) => _LeaveForm(request: req),
       );
 
+  /// Refuse une décision de congé si l'agent à l'écran n'a pas d'identifiant :
+  /// un `reviewed_by` vide ferait rejeter tout le lot PowerSync sans message.
+  bool _actorMissing(String? actorId) {
+    if (isUsableId(actorId)) return false;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(writeIdentityMessage(['agent'])), backgroundColor: kRed));
+    return true;
+  }
+
   Future<void> _approveAll(List<LeaveRequest> reqs) async {
     final ids = [for (final r in reqs) if (r.isPending) r.id];
     if (ids.isEmpty) return;
     final p = ref.read(authNotifierProvider).valueOrNull;
+    if (_actorMissing(p?.id)) return;
     await runModuleWrite(
       context,
-      () => approveLeaveBulk(ids, p?.id ?? ''),
+      () => approveLeaveBulk(ids, p!.id),
       success: '${ids.length} demande${ids.length > 1 ? 's' : ''} approuvée'
           '${ids.length > 1 ? 's' : ''}',
     );
@@ -68,10 +79,11 @@ class _BodyState extends ConsumerState<_Body> {
 
   Future<void> _approve(LeaveRequest r) async {
     final p = ref.read(authNotifierProvider).valueOrNull;
+    if (_actorMissing(p?.id)) return;
     await runModuleWrite(
       context,
       () => reviewLeaveRequest(
-          id: r.id, status: 'approved', reviewedBy: p?.id ?? ''),
+          id: r.id, status: 'approved', reviewedBy: p!.id),
       success: 'Congé approuvé',
     );
   }
@@ -81,12 +93,13 @@ class _BodyState extends ConsumerState<_Body> {
     if (reason == null) return;
     final p = ref.read(authNotifierProvider).valueOrNull;
     if (!mounted) return;
+    if (_actorMissing(p?.id)) return;
     await runModuleWrite(
       context,
       () => reviewLeaveRequest(
           id: r.id,
           status: 'rejected',
-          reviewedBy: p?.id ?? '',
+          reviewedBy: p!.id,
           rejectionReason: reason.isEmpty ? null : reason),
       success: 'Demande refusée',
     );

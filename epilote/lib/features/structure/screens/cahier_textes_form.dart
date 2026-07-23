@@ -85,6 +85,23 @@ class _LessonFormState extends ConsumerState<_LessonForm> {
     setState(() => _saving = true);
     final profile = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
+    // Garde-fou anti-perte silencieuse (création seulement) : refuser si le
+    // compte n'est pas rattaché ou sans année active, sinon le lot PowerSync
+    // entier est rejeté sans message.
+    if (!_isEdit) {
+      final missing = missingWriteIds(
+          groupId: profile?.groupId,
+          schoolId: profile?.schoolId,
+          actorId: profile?.id);
+      if (missing.isNotEmpty) {
+        setState(() => _saving = false);
+        return _snack(writeIdentityMessage(missing), kRed);
+      }
+      if (!isUsableId(yearId)) {
+        setState(() => _saving = false);
+        return _snack('Aucune année scolaire active.', kRed);
+      }
+    }
     final ok = await runModuleWrite(
       context,
       () async {
@@ -103,9 +120,9 @@ class _LessonFormState extends ConsumerState<_LessonForm> {
           );
         } else {
           await createLessonEntry(
-            groupId: profile?.groupId ?? '',
-            schoolId: profile?.schoolId ?? '',
-            academicYearId: yearId ?? '',
+            groupId: profile!.groupId!,
+            schoolId: profile.schoolId!,
+            academicYearId: yearId!,
             classId: _classId!,
             subjectId: _subjectId!,
             staffId: _staffId!,

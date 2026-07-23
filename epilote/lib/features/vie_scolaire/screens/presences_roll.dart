@@ -39,14 +39,27 @@ class _RollSheetState extends ConsumerState<_RollSheet> {
     final p = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
     if (yearId == null) return null;
+    // Point de passage unique de tout pointage : refuser ici (identité d'écriture
+    // incomplète) protège setAttendance / markAllPresent en aval, dont les
+    // appelants bailent tous sur un `rid` nul.
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isNotEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(writeIdentityMessage(missing)),
+            backgroundColor: kRed));
+      }
+      return null;
+    }
     _recordId = await ensureAttendanceRecord(
-      groupId: p?.groupId ?? '',
-      schoolId: p?.schoolId ?? '',
+      groupId: p!.groupId!,
+      schoolId: p.schoolId!,
       academicYearId: yearId,
       classId: widget.args.classId,
       date: widget.args.date,
       period: widget.args.period,
-      recordedBy: p?.id ?? '',
+      recordedBy: p.id,
     );
     return _recordId;
   }
@@ -61,8 +74,8 @@ class _RollSheetState extends ConsumerState<_RollSheet> {
         : null;
     await setAttendance(
       recordId: rid,
-      groupId: p?.groupId ?? '',
-      schoolId: p?.schoolId ?? '',
+      groupId: p!.groupId!,
+      schoolId: p.schoolId!,
       studentId: r.studentId,
       status: status,
       arrivalTime: arrival,
@@ -109,8 +122,8 @@ class _RollSheetState extends ConsumerState<_RollSheet> {
     if (rid == null) return;
     await setAttendance(
       recordId: rid,
-      groupId: p?.groupId ?? '',
-      schoolId: p?.schoolId ?? '',
+      groupId: p!.groupId!,
+      schoolId: p.schoolId!,
       studentId: r.studentId,
       status: r.status!,
       arrivalTime: r.arrivalTime,
@@ -129,8 +142,8 @@ class _RollSheetState extends ConsumerState<_RollSheet> {
         context,
         () => markAllPresent(
           recordId: rid,
-          groupId: p?.groupId ?? '',
-          schoolId: p?.schoolId ?? '',
+          groupId: p!.groupId!,
+          schoolId: p.schoolId!,
           rows: rows,
         ),
         success: 'Élèves restants marqués présents',

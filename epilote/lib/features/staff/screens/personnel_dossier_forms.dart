@@ -82,13 +82,20 @@ class _CareerFormState extends ConsumerState<_CareerForm> {
       return;
     }
     final p = ref.read(authNotifierProvider).valueOrNull;
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+      return;
+    }
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
       () => saveCareerEntry(
         id: widget.entry?.id,
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         profileId: widget.profileId,
         position: _position.text.trim(),
         organization: _org.text.trim().isEmpty ? null : _org.text.trim(),
@@ -213,13 +220,20 @@ class _DiplomaFormState extends ConsumerState<_DiplomaForm> {
       return;
     }
     final p = ref.read(authNotifierProvider).valueOrNull;
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+      return;
+    }
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
       () => saveDiploma(
         id: widget.diploma?.id,
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         profileId: widget.profileId,
         title: _title.text.trim(),
         level: _level,

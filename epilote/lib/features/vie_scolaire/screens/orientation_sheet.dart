@@ -40,13 +40,20 @@ class _OrientationSheetState extends ConsumerState<_OrientationSheet> {
     final p = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
     if (yearId == null) return;
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+      return;
+    }
     setState(() => _busy = true);
     final ok = await runModuleWrite(
       context,
       () => saveOrientation(
         id: widget.row.recordId,
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         academicYearId: yearId,
         studentId: widget.row.studentId,
         trimesterId: widget.trimesterId,
@@ -54,7 +61,7 @@ class _OrientationSheetState extends ConsumerState<_OrientationSheet> {
         targetLevel: _level.text.trim().isEmpty ? null : _level.text.trim(),
         targetFiliere: _filiere.text.trim().isEmpty ? null : _filiere.text.trim(),
         parentConsulted: _consulted,
-        counselorId: p?.id ?? '',
+        counselorId: p.id,
       ),
       success: 'Orientation enregistrée',
     );

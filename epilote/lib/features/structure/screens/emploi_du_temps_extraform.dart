@@ -53,12 +53,20 @@ class _ExtraSessionFormState extends ConsumerState<_ExtraSessionForm> {
     final p = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
     if (yearId == null) return;
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+      return;
+    }
+    final gid = p!.groupId!, sid = p.schoolId!, actor = p.id;
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
       () => createException(
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: gid,
+        schoolId: sid,
         academicYearId: yearId,
         date: widget.date,
         kind: 'extra',
@@ -69,7 +77,7 @@ class _ExtraSessionFormState extends ConsumerState<_ExtraSessionForm> {
         newStartTime: _start,
         newEndTime: _end,
         reason: _reason.text,
-        createdBy: p?.id,
+        createdBy: actor,
       ),
       success: 'Séance exceptionnelle ajoutée',
     );

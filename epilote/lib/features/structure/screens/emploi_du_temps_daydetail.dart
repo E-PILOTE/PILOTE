@@ -46,16 +46,24 @@ class _DayExceptionsSheet extends ConsumerWidget {
     final p = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
     if (yearId == null) return;
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+      return;
+    }
+    final gid = p!.groupId!, sid = p.schoolId!, actor = p.id;
     await runModuleWrite(
       context,
       () => createException(
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: gid,
+        schoolId: sid,
         academicYearId: yearId,
         slotId: s.id,
         date: date,
         kind: 'cancelled',
-        createdBy: p?.id,
+        createdBy: actor,
       ),
       success: 'Séance annulée ce jour',
     );

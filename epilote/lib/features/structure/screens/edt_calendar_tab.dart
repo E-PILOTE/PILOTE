@@ -21,10 +21,19 @@ class _CalendarTab extends ConsumerWidget {
     final year = ref.read(activeYearProvider);
     final yearId = ref.read(activeYearIdProvider);
     if (year == null || yearId == null) return;
+    final missing = missingWriteIds(
+        groupId: profile?.groupId,
+        schoolId: profile?.schoolId,
+        actorId: profile?.id);
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+      return;
+    }
     try {
       final added = await seedCongoHolidays(
-        groupId: profile?.groupId ?? '',
-        schoolId: profile?.schoolId ?? '',
+        groupId: profile!.groupId!,
+        schoolId: profile.schoolId!,
         academicYearId: yearId,
         yearStart: year.startDate,
         yearEnd: year.endDate,
@@ -334,12 +343,21 @@ class _HolidayFormState extends ConsumerState<_HolidayForm> {
     final profile = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
     if (yearId == null) return;
+    final missing = missingWriteIds(
+        groupId: profile?.groupId,
+        schoolId: profile?.schoolId,
+        actorId: profile?.id);
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+      return;
+    }
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
       () => createHoliday(
-        groupId: profile?.groupId ?? '',
-        schoolId: profile?.schoolId ?? '',
+        groupId: profile!.groupId!,
+        schoolId: profile.schoolId!,
         academicYearId: yearId,
         label: _label.text,
         kind: _kind,

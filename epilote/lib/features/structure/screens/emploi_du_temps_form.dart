@@ -126,6 +126,20 @@ class _SlotFormState extends ConsumerState<_SlotForm> {
     }
     final profile = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
+    // Garde-fou anti-perte silencieuse (création seulement) : un id d'identité
+    // ou d'année vide ferait rejeter tout le lot PowerSync sans message.
+    if (!_isEdit) {
+      final missing = missingWriteIds(
+          groupId: profile?.groupId,
+          schoolId: profile?.schoolId,
+          actorId: profile?.id);
+      if (missing.isNotEmpty) return _snack(writeIdentityMessage(missing), kRed);
+      if (!isUsableId(yearId)) {
+        return _snack('Aucune année scolaire active.', kRed);
+      }
+    }
+    final gid = profile?.groupId, sid = profile?.schoolId, aid = yearId;
+    final actor = profile?.id;
     final rooms = ref.read(roomsProvider).valueOrNull ?? const <Room>[];
     final roomName = _roomId != null
         ? rooms.where((r) => r.id == _roomId).map((r) => r.name).firstOrNull
@@ -149,16 +163,16 @@ class _SlotFormState extends ConsumerState<_SlotForm> {
         } else {
           // Garantit une version active (brouillon créé si nécessaire).
           final versionId = await ensureActiveVersionId(
-            groupId: profile?.groupId ?? '',
-            schoolId: profile?.schoolId ?? '',
-            academicYearId: yearId ?? '',
-            createdBy: profile?.id,
+            groupId: gid!,
+            schoolId: sid!,
+            academicYearId: aid!,
+            createdBy: actor,
           );
           for (final d in creatableDays) {
             await createTimetableSlot(
-              groupId: profile?.groupId ?? '',
-              schoolId: profile?.schoolId ?? '',
-              academicYearId: yearId ?? '',
+              groupId: gid,
+              schoolId: sid,
+              academicYearId: aid,
               classId: widget.classId,
               subjectId: _subjectId!,
               staffId: _staffId!,

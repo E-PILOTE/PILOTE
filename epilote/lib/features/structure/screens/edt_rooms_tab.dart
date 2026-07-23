@@ -290,6 +290,18 @@ class _RoomFormState extends ConsumerState<_RoomForm> {
       return;
     }
     final profile = ref.read(authNotifierProvider).valueOrNull;
+    if (!_isEdit) {
+      final missing = missingWriteIds(
+          groupId: profile?.groupId,
+          schoolId: profile?.schoolId,
+          actorId: profile?.id);
+      if (missing.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(writeIdentityMessage(missing)),
+            backgroundColor: kRed));
+        return;
+      }
+    }
     final cap = int.tryParse(_capacity.text.trim());
     setState(() => _saving = true);
     final ok = await runModuleWrite(
@@ -306,8 +318,8 @@ class _RoomFormState extends ConsumerState<_RoomForm> {
           );
         } else {
           await createRoom(
-            groupId: profile?.groupId ?? '',
-            schoolId: profile?.schoolId ?? '',
+            groupId: profile!.groupId!,
+            schoolId: profile.schoolId!,
             code: _code.text,
             name: _name.text,
             roomType: _type,

@@ -209,12 +209,21 @@ class _AvailabilityFormState extends ConsumerState<_AvailabilityForm> {
     if (!_wholeDay && _hhmmToMin(_end) <= _hhmmToMin(_start)) return;
     final profile = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
+    final missing = missingWriteIds(
+        groupId: profile?.groupId,
+        schoolId: profile?.schoolId,
+        actorId: profile?.id);
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+      return;
+    }
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
       () => createTeacherAvailability(
-        groupId: profile?.groupId ?? '',
-        schoolId: profile?.schoolId ?? '',
+        groupId: profile!.groupId!,
+        schoolId: profile.schoolId!,
         staffId: _staffId!,
         academicYearId: yearId,
         dayOfWeek: _day,

@@ -62,11 +62,20 @@ class _PeriodsTabState extends ConsumerState<_PeriodsTab> {
 
   Future<void> _seed(BuildContext context, String? cycleCode) async {
     final profile = ref.read(authNotifierProvider).valueOrNull;
+    final missing = missingWriteIds(
+        groupId: profile?.groupId,
+        schoolId: profile?.schoolId,
+        actorId: profile?.id);
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+      return;
+    }
     await runModuleWrite(
       context,
       () => seedStandardPeriods(
-        groupId: profile?.groupId ?? '',
-        schoolId: profile?.schoolId ?? '',
+        groupId: profile!.groupId!,
+        schoolId: profile.schoolId!,
         cycleCode: cycleCode,
       ),
       success: 'Trame standard installée',

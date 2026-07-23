@@ -823,6 +823,27 @@ class _ClassFormModalState extends ConsumerState<_ClassFormModal> {
     setState(() => _saving = true);
     final profile = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
+    // Garde-fou anti-perte silencieuse : à la création, refuser franchement si
+    // le compte n'est pas rattaché ou sans année active — sinon Postgres rejette
+    // la ligne et abandonne tout le lot PowerSync sans message.
+    if (!_isEdit) {
+      final missing = missingWriteIds(
+        groupId: profile?.groupId,
+        schoolId: profile?.schoolId,
+        actorId: profile?.id,
+      );
+      if (missing.isNotEmpty) {
+        _snack(writeIdentityMessage(missing), kRed);
+        setState(() => _saving = false);
+        return;
+      }
+      if (!isUsableId(yearId)) {
+        _snack('Aucune année scolaire active : impossible de créer une classe.',
+            kRed);
+        setState(() => _saving = false);
+        return;
+      }
+    }
     try {
       if (_isEdit) {
         await updateClassInfo(
@@ -837,9 +858,9 @@ class _ClassFormModalState extends ConsumerState<_ClassFormModal> {
         );
       } else {
         await createStructuredClass(
-          schoolId: profile?.schoolId ?? '',
-          groupId: profile?.groupId ?? '',
-          academicYearId: yearId ?? '',
+          schoolId: profile!.schoolId!,
+          groupId: profile.groupId!,
+          academicYearId: yearId!,
           name: name,
           levelId: widget.level.id,
           cycleCode: widget.cycle.code,

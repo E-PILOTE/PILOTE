@@ -32,12 +32,24 @@ class _MealSheetState extends ConsumerState<_MealSheet> {
     super.dispose();
   }
 
+  /// Refuse un pointage cantine si le compte n'est pas rattaché : un `group_id`
+  /// ou `school_id` vide ferait rejeter tout le lot PowerSync sans message.
+  bool _identityMissing(dynamic p) {
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isEmpty) return false;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+    return true;
+  }
+
   Future<void> _set(MealRow r, bool present) async {
     if (!widget.canEdit) return;
     final p = ref.read(authNotifierProvider).valueOrNull;
+    if (_identityMissing(p)) return;
     await setMeal(
-      groupId: p?.groupId ?? '',
-      schoolId: p?.schoolId ?? '',
+      groupId: p!.groupId!,
+      schoolId: p.schoolId!,
       studentId: r.studentId,
       date: widget.args.date,
       meal: widget.args.meal,
@@ -50,12 +62,13 @@ class _MealSheetState extends ConsumerState<_MealSheet> {
 
   Future<void> _allServed(List<MealRow> rows) async {
     final p = ref.read(authNotifierProvider).valueOrNull;
+    if (_identityMissing(p)) return;
     setState(() => _busy = true);
     await runModuleWrite(
       context,
       () => markAllServed(
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         date: widget.args.date,
         meal: widget.args.meal,
         rows: rows,

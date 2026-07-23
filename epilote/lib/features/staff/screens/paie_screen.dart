@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -69,16 +70,23 @@ class _BodyState extends ConsumerState<_Body> {
 
   Future<void> _carryOver() async {
     final p = ref.read(authNotifierProvider).valueOrNull;
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+      return;
+    }
     final prev = _prevKey.split('-');
     final fm = int.parse(prev.last), fy = int.parse(prev.first);
     final n = await carryOverPayroll(
-      groupId: p?.groupId ?? '',
-      schoolId: p?.schoolId ?? '',
+      groupId: p!.groupId!,
+      schoolId: p.schoolId!,
       fromMonth: fm,
       fromYear: fy,
       toMonth: _month,
       toYear: _year,
-      createdBy: p?.id ?? '',
+      createdBy: p.id,
     );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
