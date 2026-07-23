@@ -60,7 +60,7 @@ class _TypeMix extends StatelessWidget {
     for (final s in schools) {
       counts[s.type] = (counts[s.type] ?? 0) + 1;
     }
-    const order = ['public', 'prive', 'mixte'];
+    const order = ['public', 'prive'];
     final present = [
       ...order.where((t) => (counts[t] ?? 0) > 0),
       ...counts.keys.where((k) => !order.contains(k)),
@@ -132,21 +132,18 @@ class _AnalyticKpi extends StatelessWidget {
 String _typeLabel(String t) => switch (t) {
       'public' => 'Public',
       'prive'  => 'Privé',
-      'mixte'  => 'Mixte',
       _        => t,
     };
 
 Color _typeColor(String t) => switch (t) {
       'public' => _kBlue,
       'prive'  => kGreen,
-      'mixte'  => _kPurple,
       _        => kTextMuted,
     };
 
 Color _typeColorForPin(String t) => switch (t) {
       'public' => _kBlue,
       'prive'  => kGreen,
-      'mixte'  => _kPurple,
       _        => kNavy,
     };
 

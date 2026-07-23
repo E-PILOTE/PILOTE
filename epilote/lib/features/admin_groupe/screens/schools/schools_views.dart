@@ -262,7 +262,6 @@ class _TypeBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final (label, color) = switch (type) {
       'public' => ('Public', _kBlue),
-      'mixte'  => ('Mixte',  _kOrange),
       _        => ('Privé',  _kGold),
     };
     return Container(

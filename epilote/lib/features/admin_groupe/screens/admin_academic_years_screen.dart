@@ -37,14 +37,12 @@ final _fmtShort = DateFormat('dd/MM/yy', 'fr_FR');
 String _typeLabel(String t) => switch (t) {
       'public' => 'Public',
       'prive' => 'Privé',
-      'mixte' => 'Mixte',
       _ => t.isEmpty ? 'Autre' : '${t[0].toUpperCase()}${t.substring(1)}',
     };
 
 Color _typeColor(String t) => switch (t) {
       'public' => kNavy,
       'prive' => kGreen,
-      'mixte' => kAccent,
       _ => kTextMuted,
     };
 

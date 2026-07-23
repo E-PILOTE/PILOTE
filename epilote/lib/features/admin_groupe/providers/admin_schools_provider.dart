@@ -74,6 +74,7 @@ class AdminSchoolsData {
     required this.maxStudents,
     required this.planName,
     required this.totalStudents,
+    required this.groupType,
   });
   final List<SchoolDetail> schools;
   final int maxSchools;
@@ -81,10 +82,15 @@ class AdminSchoolsData {
   final int totalStudents;
   final String planName;
 
+  /// Secteur du groupe (`public` | `prive`). Une école en hérite : son secteur
+  /// n'est jamais saisi, il suit celui du groupe (verrou en base, migration 0060).
+  final String groupType;
+
   bool get quotaReached => maxSchools > 0 && schools.length >= maxSchools;
 
   static const empty = AdminSchoolsData(
-    schools: [], maxSchools: 0, maxStudents: 0, planName: '—', totalStudents: 0);
+    schools: [], maxSchools: 0, maxStudents: 0, planName: '—', totalStudents: 0,
+    groupType: 'prive');
 }
 
 // ─── Provider liste ─────────────────────────────────────────────────────────
@@ -121,12 +127,14 @@ final adminSchoolsProvider =
   // Plan / quotas
   int maxSchools = 0, maxStudents = 0;
   String planName = '—';
+  String groupType = 'prive';
   try {
     final g = await client
         .from('school_groups')
-        .select('subscription_plans!plan_id(name, max_schools, max_students)')
+        .select('group_type, subscription_plans!plan_id(name, max_schools, max_students)')
         .eq('id', groupId)
         .maybeSingle();
+    groupType = g?['group_type'] as String? ?? 'prive';
     final plan = g?['subscription_plans'] as Map<String, dynamic>?;
     planName    = plan?['name'] as String? ?? '—';
     maxSchools  = (plan?['max_schools']  as int?) ?? 0;
@@ -209,6 +217,7 @@ final adminSchoolsProvider =
     maxStudents: maxStudents,
     totalStudents: totalStudents,
     planName: planName,
+    groupType: groupType,
   );
 });
 

@@ -381,7 +381,6 @@ class _MapLegend extends ConsumerWidget {
             if (pinMode == _PinColorMode.type) ...[
               row(circle(_kBlue, 11), 'École GPS (publique)'),
               row(circle(kGreen, 11), 'École GPS (privée)'),
-              row(circle(_kPurple, 11), 'École GPS (mixte)'),
             ] else if (pinMode == _PinColorMode.load) ...[
               row(circle(kGreen, 11), 'Effectifs maîtrisés (<40/cl.)'),
               row(circle(const Color(0xFFF59E0B), 11), 'Classes chargées (40–49)'),

@@ -221,7 +221,7 @@ class _PinColorSwitch extends ConsumerWidget {
       ),
       child: Row(children: [
         btn('Type', Icons.category_outlined, _PinColorMode.type,
-            'Colore les écoles selon leur type : publique, privée ou mixte.',
+            'Colore les écoles selon leur type : publique ou privée.',
             first: true),
         sep(),
         btn('Charge', Icons.groups_2_outlined, _PinColorMode.load,

@@ -934,12 +934,11 @@ class _SyntheseSection extends StatelessWidget {
           );
           final donut = _CategoryDonut(
             title: 'Types d\'établissement',
-            subtitle: 'Public · Privé · Mixte',
+            subtitle: 'Public · Privé',
             icon: Icons.pie_chart_rounded,
             slices: [
               _Slice('Public', d.publicCount, _kBlue),
               _Slice('Privé', d.priveCount, kGreen),
-              _Slice('Mixte', d.mixteCount, _kPurple),
             ],
             centerValue: fmtInt(d.schoolsTotal),
             centerLabel: 'écoles',
@@ -2199,14 +2198,12 @@ Color _rateColor(double v) => v >= 70 ? kGreen : v >= 40 ? kAccent : kRed;
 Color _typeColor(String type) => switch (type) {
       'public' => _kBlue,
       'prive' => kGreen,
-      'mixte' => _kPurple,
       _ => kNavy,
     };
 
 String _typeLabel(String type) => switch (type) {
       'public' => 'Public',
       'prive' => 'Privé',
-      'mixte' => 'Mixte',
       _ => type,
     };
 

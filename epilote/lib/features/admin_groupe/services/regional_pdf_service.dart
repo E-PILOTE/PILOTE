@@ -682,7 +682,6 @@ String _norm(String s) {
 String _typeLabel(String t) => switch (t) {
       'public' => 'Public',
       'prive'  => 'Privé',
-      'mixte'  => 'Mixte',
       _        => t,
     };
 

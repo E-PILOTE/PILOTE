@@ -68,7 +68,6 @@ class AdminDashboardData {
     required this.recentActivity,
     required this.publicCount,
     required this.priveCount,
-    required this.mixteCount,
     required this.studentsM,
     required this.studentsF,
     required this.enseignantsTotal,
@@ -98,7 +97,7 @@ class AdminDashboardData {
   final List<AdminActivity> recentActivity;
 
   // ── Indicateurs stratégiques ──
-  final int publicCount, priveCount, mixteCount;
+  final int publicCount, priveCount;
   final int studentsM, studentsF;
   final int enseignantsTotal, adminsTotal;
   final Map<String, int> schoolsByDept;
@@ -163,7 +162,7 @@ class AdminDashboardData {
     personnelTotal: 0, classesTotal: 0,
     revenusMois: 0, paiementsMoisCount: 0, elevesAJour: 0,
     schools: [], recentActivity: [],
-    publicCount: 0, priveCount: 0, mixteCount: 0,
+    publicCount: 0, priveCount: 0,
     studentsM: 0, studentsF: 0,
     enseignantsTotal: 0, adminsTotal: 0,
     schoolsByDept: {}, studentsByDept: {},
@@ -243,7 +242,7 @@ final adminDashboardProvider =
   final List<Map<String, dynamic>> schoolRows = [];
   final Map<String, String> schoolDept = {};
   final Map<String, int> schoolsByDept = {};
-  int publicCount = 0, priveCount = 0, mixteCount = 0;
+  int publicCount = 0, priveCount = 0;
   try {
     final rows = await client
         .from('schools')
@@ -260,7 +259,6 @@ final adminDashboardProvider =
       switch (s['school_type'] as String?) {
         case 'public': publicCount++; break;
         case 'prive':  priveCount++;  break;
-        case 'mixte':  mixteCount++;  break;
       }
     }
   } catch (_) {}
@@ -444,7 +442,6 @@ final adminDashboardProvider =
     recentActivity:     activity,
     publicCount:        publicCount,
     priveCount:         priveCount,
-    mixteCount:         mixteCount,
     studentsM:          studentsM,
     studentsF:          studentsF,
     enseignantsTotal:   enseignantsTotal,

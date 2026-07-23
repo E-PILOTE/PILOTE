@@ -104,9 +104,6 @@ class _FilterBar extends ConsumerWidget {
             label: 'Privé', active: f.type == 'prive',
             color: kGreen, onTap: () => setType('prive')),
         _FilterChip(
-            label: 'Mixte', active: f.type == 'mixte',
-            color: _kPurple, onTap: () => setType('mixte')),
-        _FilterChip(
             label: 'Actives',
             icon: Icons.check_circle_rounded,
             active: f.activeOnly,

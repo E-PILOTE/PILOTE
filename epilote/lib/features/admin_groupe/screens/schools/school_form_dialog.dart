@@ -149,6 +149,10 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    // Le secteur d'une école suit TOUJOURS celui de son groupe (public XOR
+    // privé) — il n'est pas saisi. La base le verrouille (migration 0060) ;
+    // on envoie la valeur héritée pour rester cohérent côté client.
+    _type = ref.read(adminSchoolsProvider).valueOrNull?.groupType ?? _type;
     setState(() { _saving = true; _error = null; });
     try {
       final svc    = ref.read(adminSchoolsServiceProvider);
@@ -350,16 +354,22 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
                       ),
                       const SizedBox(height: 12),
                       Row(children: [
-                        Expanded(child: DropdownButtonFormField<String>(
-                          initialValue: _type,
-                          decoration: _inputDec('Type'),
-                          items: const [
-                            DropdownMenuItem(value: 'prive',  child: Text('Privé')),
-                            DropdownMenuItem(value: 'public', child: Text('Public')),
-                            DropdownMenuItem(value: 'mixte',  child: Text('Mixte')),
-                          ],
-                          onChanged: (v) => setState(() => _type = v ?? 'prive'),
-                        )),
+                        // Secteur = celui du groupe (public XOR privé). Hérité,
+                        // non modifiable : une école ne peut pas être d'un autre
+                        // secteur que son propriétaire (verrou base, mig 0060).
+                        Expanded(child: Builder(builder: (_) {
+                          final sector = ref
+                                  .watch(adminSchoolsProvider)
+                                  .valueOrNull
+                                  ?.groupType ??
+                              _type;
+                          return TextFormField(
+                            enabled: false,
+                            initialValue:
+                                sector == 'public' ? 'Public' : 'Privé',
+                            decoration: _inputDec('Type (hérité du groupe)'),
+                          );
+                        })),
                         const SizedBox(width: 12),
                         Expanded(child: TextFormField(
                           controller: _code,

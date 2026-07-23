@@ -203,11 +203,6 @@ class _Toolbar extends ConsumerWidget {
                 color: schoolTypeColor('prive'),
                 active: q.type == 'prive',
                 onTap: () => notifier.update((s) => s.copyWith(type: 'prive'))),
-            _Chip(
-                label: 'Mixte',
-                color: schoolTypeColor('mixte'),
-                active: q.type == 'mixte',
-                onTap: () => notifier.update((s) => s.copyWith(type: 'mixte'))),
             const _Sep(),
             _Chip(
                 label: 'Actives',

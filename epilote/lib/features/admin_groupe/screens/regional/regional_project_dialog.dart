@@ -372,8 +372,6 @@ class _ProjectFormDialogState extends ConsumerState<_ProjectFormDialog> {
                               value: 'public', child: Text('Public')),
                           DropdownMenuItem(
                               value: 'prive', child: Text('Privé')),
-                          DropdownMenuItem(
-                              value: 'mixte', child: Text('Mixte')),
                         ],
                         onChanged: (v) => setState(() => _schoolType = v),
                       ),

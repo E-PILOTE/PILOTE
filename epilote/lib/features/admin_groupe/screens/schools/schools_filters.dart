@@ -136,7 +136,6 @@ class _FilterBar extends StatelessWidget {
               'tous': 'Tous les types',
               'public': 'Public',
               'prive': 'Privé',
-              'mixte': 'Mixte',
             },
             value: filterType, onChanged: onType, active: filterType != 'tous',
           ),

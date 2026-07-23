@@ -361,7 +361,6 @@ class AcademicYearPdfService {
     String label(String t) => switch (t) {
           'public' => 'Public',
           'prive' => 'Privé',
-          'mixte' => 'Mixte',
           _ => t.isEmpty ? 'Autre' : t,
         };
     return _frame(

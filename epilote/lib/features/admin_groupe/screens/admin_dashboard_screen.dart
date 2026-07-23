@@ -1178,7 +1178,6 @@ class _TypeDonutState extends State<_TypeDonut> {
     final all = <_Pt>[
       _Pt('Public', d.publicCount, _kBlue),
       _Pt('Privé', d.priveCount, kGreen),
-      _Pt('Mixte', d.mixteCount, _kPurple),
     ];
     final pts = all.where((p) => p.y > 0).toList();
     return AdminCard(
@@ -2911,13 +2910,11 @@ String _deptKeyOf(SchoolSummary s) {
 String _typeLabel(String t) => switch (t) {
       'public' => 'Public',
       'prive' => 'Privé',
-      'mixte' => 'Mixte',
       _ => t,
     };
 
 Color _typeColor(String t) => switch (t) {
       'public' => _kBlue,
       'prive' => kGreen,
-      'mixte' => _kPurple,
       _ => kTextMuted,
     };

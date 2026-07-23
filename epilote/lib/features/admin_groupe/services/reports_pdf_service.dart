@@ -304,8 +304,6 @@ class ReportsPdfService {
             fontMedium, fontRegular),
         _statLine('Établissements privés', '${data.priveCount}', _navy,
             fontMedium, fontRegular),
-        _statLine('Établissements mixtes', '${data.mixteCount}', _navy,
-            fontMedium, fontRegular),
         pw.Divider(color: _border, thickness: 0.5),
         _statLine('Élèves — garçons', '${_money(data.studentsM)}  ($pctG %)', _blue,
             fontMedium, fontRegular),
@@ -609,7 +607,6 @@ String _slug(String s) => s.replaceAll(RegExp(r'[^\w]+'), '_');
 String _typeLabel(String t) => switch (t) {
       'public' => 'Public',
       'prive'  => 'Privé',
-      'mixte'  => 'Mixte',
       _        => t,
     };
 

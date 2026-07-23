@@ -6,18 +6,16 @@ part of '../admin_schools_screen.dart';
 
 String _schoolTypeLabel(String t) => switch (t) {
   'public' => 'Public',
-  'mixte'  => 'Mixte',
   _        => 'Privé',
 };
 
 Color _schoolTypeColor(String t) => switch (t) {
   'public' => _kBlue,
-  'mixte'  => _kOrange,
   _        => _kGold,
 };
 
 // ─── API publique réutilisable (Vue régionale → tableau analytique) ──────────
-/// Libellé du type d'établissement (Public / Privé / Mixte).
+/// Libellé du type d'établissement (Public / Privé).
 String schoolTypeLabel(String t) => _schoolTypeLabel(t);
 
 /// Couleur associée au type d'établissement.
