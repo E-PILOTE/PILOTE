@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -37,6 +38,8 @@ void main() {
     await tester.tap(find.text('Ouvrir une session'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
+    // Lecture async des profils enrôlés (aucun ici → annuaire complet).
+    await tester.pump(const Duration(milliseconds: 50));
     expect(find.text('Qui utilise ce poste ?'), findsOneWidget);
     expect(find.text('Marie Koumba'), findsWidgets);
 
@@ -76,6 +79,7 @@ void main() {
     await tester.tap(find.text('Ouvrir une session'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 50)); // profils enrôlés
     await tester.tap(find.text('Marie Koumba').first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
@@ -107,12 +111,14 @@ void main() {
     await tester.tap(find.text('Ouvrir une session'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 50)); // profils enrôlés
     await tester.tap(find.text('Marie Koumba').first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    // Saisir un chiffre puis basculer l'affichage.
-    await tester.tap(find.text('7'));
+    // Saisir un chiffre AU CLAVIER (plus de pavé à l'écran sur desktop) puis
+    // basculer l'affichage.
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit7, character: '7');
     await tester.pump();
     await tester.tap(find.text('Afficher'));
     // Pomper AU MILIEU de l'animation des points (là où l'assertion tombait).

@@ -9,9 +9,11 @@ import 'auth_colors.dart';
 
 const _kAccent = kAuthAccent;
 
-/// Modal de sélection d'agent (feuille bleu nuit). Recherche, rangée
-/// « Récemment utilisés », grille défilable **à l'intérieur du modal** (la page
-/// mère ne défile jamais) et apparition en cascade des cartes.
+/// Sélecteur d'agent de l'écran-verrou (feuille bleu nuit). Par défaut, ne
+/// montre que les profils **enrôlés sur ce poste** (déjà connus de la machine,
+/// comme la mire Linux Mint / macOS) — court, privé, rapide. Un bouton « Autre
+/// profil » ouvre l'annuaire complet, recherchable, pour une première connexion.
+/// Grille défilable **à l'intérieur du modal** (la page mère ne défile jamais).
 class AgentGrid extends ConsumerStatefulWidget {
   const AgentGrid({super.key, required this.agents, required this.onPick});
   final List<AgentOption> agents;
@@ -27,7 +29,8 @@ class _AgentGridState extends ConsumerState<AgentGrid>
   final ScrollController _scrollCtrl = ScrollController();
   late final AnimationController _intro;
   String _q = '';
-  List<String> _recentIds = const [];
+  Set<String>? _enrolled; // null = pas encore lu du disque
+  bool _showDirectory = false; // annuaire complet (première connexion)
 
   @override
   void initState() {
@@ -35,12 +38,18 @@ class _AgentGridState extends ConsumerState<AgentGrid>
     _intro = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 620))
       ..forward();
-    _loadRecents();
+    _loadEnrolled();
   }
 
-  Future<void> _loadRecents() async {
-    final ids = await ref.read(agentPinServiceProvider).recentIds();
-    if (mounted) setState(() => _recentIds = ids);
+  Future<void> _loadEnrolled() async {
+    final ids = await ref.read(agentPinServiceProvider).enrolledIds();
+    if (!mounted) return;
+    setState(() {
+      _enrolled = ids;
+      // Poste neuf (aucun profil enrôlé) → ouvrir directement l'annuaire pour
+      // que le premier agent puisse s'enrôler.
+      if (!widget.agents.any((a) => ids.contains(a.id))) _showDirectory = true;
+    });
   }
 
   @override
@@ -51,50 +60,54 @@ class _AgentGridState extends ConsumerState<AgentGrid>
     super.dispose();
   }
 
-  List<AgentOption> get _recents {
-    final byId = {for (final a in widget.agents) a.id: a};
-    return [
-      for (final id in _recentIds)
-        if (byId[id] != null) byId[id]!
-    ].take(4).toList();
+  List<AgentOption> get _enrolledAgents {
+    final ids = _enrolled ?? const <String>{};
+    return [for (final a in widget.agents) if (ids.contains(a.id)) a]
+      ..sort((a, b) =>
+          a.lastName.toLowerCase().compareTo(b.lastName.toLowerCase()));
   }
 
   @override
   Widget build(BuildContext context) {
+    final loading = _enrolled == null;
+    final enrolled = _enrolledAgents;
+    // Mode annuaire : bascule explicite, ou aucun profil connu de ce poste.
+    final directory = _showDirectory || (!loading && enrolled.isEmpty);
+
     final q = _q.trim().toLowerCase();
-    final searching = q.isNotEmpty;
-    final list = widget.agents.where((a) {
-      if (!searching) return true;
+    final source = directory ? widget.agents : enrolled;
+    final list = source.where((a) {
+      if (!directory || q.isEmpty) return true;
       return a.fullName.toLowerCase().contains(q) ||
           roleLabel(a.role).toLowerCase().contains(q);
     }).toList()
       ..sort((a, b) =>
           a.lastName.toLowerCase().compareTo(b.lastName.toLowerCase()));
 
-    final recents = searching ? const <AgentOption>[] : _recents;
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _Title(count: widget.agents.length),
+        _Title(count: directory ? widget.agents.length : enrolled.length),
         const SizedBox(height: 4),
-        Text('Sélectionnez votre profil — vos saisies seront enregistrées à '
-            'votre nom.',
-            style:
-                TextStyle(fontSize: 12.5, color: Colors.white.withValues(alpha: 0.6))),
+        Text(
+            directory
+                ? 'Sélectionnez votre profil — vos saisies seront enregistrées à '
+                    'votre nom.'
+                : 'Profils déjà utilisés sur ce poste.',
+            style: TextStyle(
+                fontSize: 12.5, color: Colors.white.withValues(alpha: 0.6))),
         const SizedBox(height: 14),
-        _SearchField(controller: _ctrl, query: _q, onChanged: (v) => setState(() => _q = v)),
-        const SizedBox(height: 14),
-        if (recents.isNotEmpty) ...[
-          const _SectionLabel('⏱  Récemment utilisés'),
-          const SizedBox(height: 8),
-          _RecentsRow(agents: recents, onPick: widget.onPick),
+        if (directory) ...[
+          _SearchField(
+              controller: _ctrl,
+              query: _q,
+              onChanged: (v) => setState(() => _q = v)),
           const SizedBox(height: 14),
-          const _SectionLabel('Tout le personnel'),
-          const SizedBox(height: 8),
         ],
-        if (list.isEmpty)
+        if (loading)
+          const _LoadingRow()
+        else if (list.isEmpty)
           const _Empty()
         else
           // Prend la place disponible dans la feuille (bornée à la hauteur
@@ -109,15 +122,12 @@ class _AgentGridState extends ConsumerState<AgentGrid>
                 controller: _scrollCtrl,
                 shrinkWrap: true,
                 padding: const EdgeInsets.only(right: 8, bottom: 4),
-                // Responsive : `maxCrossAxisExtent` arrondit le nb de colonnes
-                // à la HAUSSE → 340 donne 2 colonnes larges (~298 px, nom
-                // complet) sur la feuille de 640, et 1 colonne en fenêtre
-                // étroite. (280 donnait 3 colonnes trop étroites.)
-                gridDelegate:
-                    const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 340,
+                // Une seule colonne : la feuille est étroite (ancrée en bas à
+                // gauche façon Mint) et la liste enrôlée est courte.
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 460,
                   mainAxisExtent: 66,
-                  mainAxisSpacing: 12,
+                  mainAxisSpacing: 10,
                   crossAxisSpacing: 12,
                 ),
                 itemCount: list.length,
@@ -130,6 +140,25 @@ class _AgentGridState extends ConsumerState<AgentGrid>
               ),
             ),
           ),
+        if (!loading) ...[
+          const SizedBox(height: 10),
+          if (!directory)
+            _LinkButton(
+              icon: Icons.person_add_alt_1_rounded,
+              label: 'Autre profil — première connexion',
+              onTap: () => setState(() => _showDirectory = true),
+            )
+          else if (enrolled.isNotEmpty)
+            _LinkButton(
+              icon: Icons.arrow_back_rounded,
+              label: 'Profils de ce poste',
+              onTap: () => setState(() {
+                _showDirectory = false;
+                _q = '';
+                _ctrl.clear();
+              }),
+            ),
+        ],
       ],
     );
   }
@@ -148,23 +177,49 @@ class _Title extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                     color: Colors.white)),
           ),
-          Text('$count agent${count > 1 ? 's' : ''}',
+          Text('$count profil${count > 1 ? 's' : ''}',
               style: TextStyle(
                   fontSize: 12, color: Colors.white.withValues(alpha: 0.55))),
         ],
       );
 }
 
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.text);
-  final String text;
+/// Lien discret (bascule annuaire ↔ profils du poste).
+class _LinkButton extends StatelessWidget {
+  const _LinkButton(
+      {required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => Text(text.toUpperCase(),
-      style: TextStyle(
-          fontSize: 10.5,
-          letterSpacing: 0.5,
-          fontWeight: FontWeight.w700,
-          color: Colors.white.withValues(alpha: 0.5)));
+  Widget build(BuildContext context) => Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: onTap,
+          icon: Icon(icon, size: 17, color: _kAccent),
+          label: Text(label,
+              style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white)),
+        ),
+      );
+}
+
+/// Placeholder le temps de lire les profils enrôlés (évite un flash annuaire).
+class _LoadingRow extends StatelessWidget {
+  const _LoadingRow();
+  @override
+  Widget build(BuildContext context) => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 34),
+        child: Center(
+          child: SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2.4, color: _kAccent)),
+        ),
+      );
 }
 
 class _SearchField extends StatelessWidget {
@@ -211,51 +266,6 @@ class _SearchField extends StatelessWidget {
       ),
     );
   }
-}
-
-class _RecentsRow extends StatelessWidget {
-  const _RecentsRow({required this.agents, required this.onPick});
-  final List<AgentOption> agents;
-  final ValueChanged<AgentOption> onPick;
-
-  @override
-  Widget build(BuildContext context) => Row(
-        children: [
-          for (final a in agents)
-            Expanded(
-              child: InkWell(
-                onTap: () => onPick(a),
-                mouseCursor: SystemMouseCursors.click,
-                borderRadius: BorderRadius.circular(kAuthRadius),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Column(
-                    children: [
-                      _AgentAvatar(agent: a, size: 48, ring: true),
-                      const SizedBox(height: 6),
-                      Text(a.fullName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white)),
-                      Text(roleLabel(a.role),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              fontSize: 9.5,
-                              color: Colors.white.withValues(alpha: 0.5))),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          for (var i = agents.length; i < 4; i++) const Expanded(child: SizedBox()),
-        ],
-      );
 }
 
 class _Empty extends StatelessWidget {
@@ -353,11 +363,9 @@ class _AgentTile extends StatelessWidget {
 }
 
 class _AgentAvatar extends StatelessWidget {
-  const _AgentAvatar(
-      {required this.agent, required this.size, this.ring = false});
+  const _AgentAvatar({required this.agent, required this.size});
   final AgentOption agent;
   final double size;
-  final bool ring;
 
   @override
   Widget build(BuildContext context) {
@@ -373,9 +381,8 @@ class _AgentAvatar extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [Color(0xFF3D74B8), Color(0xFF23568C)],
         ),
-        border: ring
-            ? Border.all(color: const Color(0xFFFCDD09), width: 2)
-            : Border.all(color: Colors.white.withValues(alpha: 0.18), width: 1),
+        border:
+            Border.all(color: Colors.white.withValues(alpha: 0.18), width: 1),
       ),
       child: has
           ? CachedNetworkImage(

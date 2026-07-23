@@ -84,6 +84,7 @@ void main() {
     await tester.tap(find.text('Ouvrir une session'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350)); // révélation
+    await tester.pump(const Duration(milliseconds: 50));  // profils enrôlés
     await tester.pump(const Duration(milliseconds: 700)); // cascade terminée
     await expectLater(find.byType(AgentLockScreen),
         matchesGoldenFile('goldens/lock_profils.png'));
@@ -94,6 +95,7 @@ void main() {
     await tester.tap(find.text('Ouvrir une session'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350)); // révélation
+    await tester.pump(const Duration(milliseconds: 50));  // profils enrôlés
     await tester.pump(const Duration(milliseconds: 700)); // cascade terminée
     await tester.tap(find.text('Marie Koumba').first);
     await tester.pump();

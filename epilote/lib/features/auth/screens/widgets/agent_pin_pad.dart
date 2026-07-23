@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/active_agent_provider.dart';
-import 'agent_keypad.dart';
 import 'auth_colors.dart';
 
 const _kAccent = kAuthAccent;
@@ -213,9 +212,22 @@ class _AgentPinPadState extends ConsumerState<AgentPinPad>
           else
             _RevealToggle(
                 on: _reveal, onTap: () => setState(() => _reveal = !_reveal)),
-          const SizedBox(height: 16),
-          AgentKeypad(
-              onDigit: _onDigit, onBackspace: _onBackspace, enabled: !_locked && !_busy),
+          const SizedBox(height: 18),
+          // Poste desktop (Windows/Mac) : la saisie se fait au clavier — pas de
+          // pavé à l'écran. Indice discret pour la découvrabilité.
+          if (!_locked)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.keyboard_rounded,
+                    size: 15, color: Colors.white.withValues(alpha: 0.5)),
+                const SizedBox(width: 6),
+                Text('Tapez votre code sur le clavier',
+                    style: TextStyle(
+                        fontSize: 11.5,
+                        color: Colors.white.withValues(alpha: 0.5))),
+              ],
+            ),
           const SizedBox(height: 12),
           Text(
             widget.isCreate

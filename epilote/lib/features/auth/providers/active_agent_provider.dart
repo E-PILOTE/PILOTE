@@ -229,6 +229,21 @@ class AgentPinService {
     await prefs.remove(_untilKey(profileId));
   }
 
+  /// Identifiants des agents **enrôlés sur CE poste** = ceux qui y ont déjà posé
+  /// un code PIN local. C'est la liste « connue de la machine » (comme la
+  /// mire de connexion de Linux Mint / macOS) : la vitrine ne montre qu'eux par
+  /// défaut, au lieu de tout l'annuaire de l'école. Attention au préfixe :
+  /// `agent_pin_set_at_…` partage le début de `agent_pin_…`, on l'exclut.
+  Future<Set<String>> enrolledIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    const pin = 'agent_pin_';
+    const setAt = 'agent_pin_set_at_';
+    return {
+      for (final k in prefs.getKeys())
+        if (k.startsWith(pin) && !k.startsWith(setAt)) k.substring(pin.length),
+    };
+  }
+
   // ── Récemment utilisés (bascule rapide sur poste partagé) ──
   Future<List<String>> recentIds() async {
     final prefs = await SharedPreferences.getInstance();

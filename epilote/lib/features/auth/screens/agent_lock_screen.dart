@@ -194,16 +194,23 @@ class _RevealSheet extends StatelessWidget {
     return SafeArea(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          return Center(
+          final w = constraints.maxWidth;
+          return Align(
+            // Ancrée en bas à gauche, façon mire de connexion desktop (Linux
+            // Mint / macOS) : la vitrine (horloge, école) reste le décor, la
+            // session s'ouvre dans un panneau d'angle discret — pas un modal
+            // qui prend tout l'écran.
+            alignment: Alignment.bottomLeft,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              padding: const EdgeInsets.fromLTRB(28, 16, 20, 28),
               child: ConstrainedBox(
-                // Large pour afficher les noms complets ; bornée à la hauteur
-                // visible → la feuille ELLE-MÊME ne défile jamais, seul son
-                // contenu (la grille) défile en interne.
+                // Panneau étroit (colonne unique) ; borné à la hauteur visible
+                // → la feuille ELLE-MÊME ne défile jamais, seul son contenu
+                // (la liste de profils) défile en interne.
                 constraints: BoxConstraints(
-                  maxWidth: 640,
-                  maxHeight: constraints.maxHeight - 32,
+                  minWidth: w < 420 ? 0 : 380,
+                  maxWidth: w < 480 ? w - 40 : 460,
+                  maxHeight: constraints.maxHeight - 44,
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(24),
