@@ -1,7 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/utils/mention.dart';
 import '../../../services/powersync/powersync_service.dart';
+
+// Le barème des mentions vit dans `core/utils/mention.dart` — une seule copie,
+// tenue identique à la fonction SQL `get_mention()`. Il en existait ici une
+// version décalée de deux points : 8/20 ressortait « Passable » sur les
+// bulletins. On le ré-exporte pour ne pas casser les écrans qui l'importent
+// depuis ce provider.
+export '../../../core/utils/mention.dart' show mentionFor;
 
 const _uuid = Uuid();
 
@@ -14,16 +22,6 @@ const _uuid = Uuid();
 //  draft → submitted → validated → published). 100% offline.
 // ════════════════════════════════════════════════════════════════════════════
 
-/// Mention selon la moyenne /20 (aligné sur la fonction SQL `get_mention`).
-String mentionFor(double? avg) {
-  if (avg == null) return '—';
-  if (avg >= 16) return 'Excellent';
-  if (avg >= 14) return 'Très Bien';
-  if (avg >= 12) return 'Bien';
-  if (avg >= 10) return 'Assez Bien';
-  if (avg >= 8) return 'Passable';
-  return 'Insuffisant';
-}
 
 class SubjectLine {
   const SubjectLine({

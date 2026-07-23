@@ -95,7 +95,7 @@ Navigation : ajouter un écran = créer screen + provider, déclarer la route da
 
 - Project ID `wqpdamlnrwgozfvzjjpo`, region `eu-central-2`, PG 17.
 - Helpers RLS en base : `is_super_admin()`, `auth_group_id()`, `auth_school_id()`, `check_quota()`, `is_admin_groupe()`.
-- Mentions (alignées sur `get_mention()` en base) : Excellent ≥18, Très bien ≥16, Bien ≥14, Assez bien ≥12, Passable ≥10. Devise XAF (FCFA).
+- **Mentions — source unique : `lib/core/utils/mention.dart`** (`mentionFor`), tenue identique à `get_mention()` en base (migration 0059). Excellent ≥18, Très Bien ≥16, Bien ≥14, Assez Bien ≥12, Passable ≥10, Insuffisant <10 ; barre de réussite 10/20. ⚠️ Ce barème avait dérivé de 2 points côté bulletins (8/20 ressortait « Passable ») — ne jamais en recopier une variante locale : toute modification touche le Dart **et** le SQL. Devise XAF (FCFA).
 
 ## État d'avancement
 

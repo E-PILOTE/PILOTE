@@ -1,3 +1,5 @@
+import '../../core/utils/mention.dart';
+
 /// Modèle correspondant à la table `grades`
 class GradeModel {
 
@@ -72,17 +74,12 @@ class GradeModel {
   final String? studentName;
   final String? subjectName;
 
-  /// Mention selon barème congolais
-  String get mention {
-    if (value >= 18) return 'Excellent';
-    if (value >= 16) return 'Très Bien';
-    if (value >= 14) return 'Bien';
-    if (value >= 12) return 'Assez Bien';
-    if (value >= 10) return 'Passable';
-    return 'Insuffisant';
-  }
+  /// Mention selon le barème officiel — voir `core/utils/mention.dart`.
+  /// Ce getter portait sa propre copie du barème ; elle divergeait de celle
+  /// des bulletins.
+  String get mention => mentionFor(value);
 
-  bool get isPassing => value >= 10;
+  bool get isPassing => value >= kPassingMark;
 
   String get displayValue => value % 1 == 0
       ? value.toInt().toString()
