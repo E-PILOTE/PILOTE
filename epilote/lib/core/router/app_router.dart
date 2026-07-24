@@ -39,7 +39,7 @@ import '../../features/admin_groupe/screens/admin_access_screen.dart';
 import '../../features/admin_groupe/screens/admin_reports_screen.dart';
 import '../../features/admin_groupe/screens/admin_exams_screen.dart';
 import '../../features/admin_groupe/screens/admin_subscription_screen.dart';
-import '../../features/admin_groupe/screens/admin_audit_screen.dart';
+import '../../features/audit/screens/audit_screen.dart' as shared_audit;
 import '../../features/admin_groupe/screens/admin_settings_screen.dart';
 import '../../features/communication/screens/support_requester_screen.dart';
 import '../../features/admin_groupe/screens/admin_profile_screen.dart';
@@ -77,7 +77,6 @@ import '../../features/navigation/module_routes.dart';
 import '../../features/navigation/providers/permissions_provider.dart';
 import '../../licensing/presentation/license_providers.dart';
 import '../../features/navigation/widgets/module_coming_soon.dart';
-import '../../features/user/screens/staff_audit_screen.dart';
 import '../../features/user/screens/renewal_wall_screen.dart';
 import '../../features/user/screens/user_dashboard_screen.dart';
 import '../../features/user/screens/user_profile_screen.dart';
@@ -414,7 +413,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.adminAudit,
-        builder: (_, _) => const AdminAuditScreen(),
+        builder: (_, _) => const shared_audit.AuditScreen(),
       ),
       GoRoute(
         path: Routes.adminSupport,
@@ -633,7 +632,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.userAudit,
-        builder: (_, _) => const StaffAuditScreen(),
+        builder: (_, _) => const shared_audit.AuditScreen(),
       ),
       GoRoute(
         path: Routes.userSupport,
