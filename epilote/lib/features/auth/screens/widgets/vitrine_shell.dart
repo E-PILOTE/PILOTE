@@ -24,10 +24,17 @@ class VitrineShell extends StatefulWidget {
     this.serviceMessages = const [],
     this.showPartner = false,
     this.partners = const [],
+    this.revealProgress = 0,
   });
 
   final String schoolName;
   final String? schoolLogoUrl;
+
+  /// Avancement (0→1) de l'ouverture du panneau de session par-dessus la
+  /// vitrine. À 1, on efface l'appel à l'action redondant (« Ouvrir une
+  /// session ») et le bandeau de service pour ne garder que le décor calme
+  /// (horloge, co-branding) — mire de connexion desktop façon Mint/macOS.
+  final double revealProgress;
 
   /// Nom du groupe scolaire (réseau) — co-branding en haut à gauche, à côté du
   /// drapeau. Repli sur « MEPSA · METP » si absent (offline non encore synchro).
@@ -114,13 +121,24 @@ class _VitrineShellState extends State<VitrineShell> {
               const SizedBox(height: 14),
               const VitrineClock(),
               const SizedBox(height: 26),
-              if (widget.serviceMessages.isNotEmpty) ...[
-                _ServiceBanner(messages: widget.serviceMessages),
-                const SizedBox(height: 22),
-              ],
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 340),
-                child: _OpenButton(onTap: widget.onOpen, animate: _animate),
+              // Bandeau de service + CTA s'effacent à mesure que le panneau de
+              // session monte (redondants une fois la session ouverte).
+              Opacity(
+                opacity: (1 - widget.revealProgress).clamp(0.0, 1.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (widget.serviceMessages.isNotEmpty) ...[
+                      _ServiceBanner(messages: widget.serviceMessages),
+                      const SizedBox(height: 22),
+                    ],
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 340),
+                      child:
+                          _OpenButton(onTap: widget.onOpen, animate: _animate),
+                    ),
+                  ],
+                ),
               ),
               const Spacer(),
               if (widget.showPartner && widget.partners.isNotEmpty) ...[

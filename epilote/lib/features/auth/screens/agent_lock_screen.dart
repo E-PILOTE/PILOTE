@@ -109,11 +109,14 @@ class _AgentLockScreenState extends ConsumerState<AgentLockScreen>
               return Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Vitrine : s'estompe et se désactive quand la feuille monte.
+                  // Vitrine : reste le DÉCOR (horloge, co-branding) sous le
+                  // panneau — on ne l'assombrit que légèrement (façon mire
+                  // desktop Mint/macOS), et c'est elle qui efface son propre CTA
+                  // via `revealProgress`. Désactivée au clic dès mi-parcours.
                   IgnorePointer(
                     ignoring: t > 0.5,
                     child: Opacity(
-                      opacity: 1 - 0.85 * t,
+                      opacity: 1 - 0.35 * t,
                       child: VitrineShell(
                         schoolName:
                             school?['name'] as String? ?? 'E-PILOTE CONGO',
@@ -121,6 +124,7 @@ class _AgentLockScreenState extends ConsumerState<AgentLockScreen>
                         groupName: group?['name'] as String?,
                         onOpen: _open,
                         serviceMessages: serviceMessages,
+                        revealProgress: t,
                         showPartner:
                             showPartnerStrip(partnerOptIn, partners.isNotEmpty),
                         partners: [
@@ -299,38 +303,26 @@ class _RevealSheet extends StatelessWidget {
   }
 }
 
+/// En-tête du panneau : simple bouton « fermer » aligné à droite (panneau
+/// d'angle desktop — pas de poignée de bottom-sheet mobile). En saisie du PIN,
+/// la flèche « retour » d'AgentPinPad tient lieu d'en-tête → rien ici.
 class _Handle extends StatelessWidget {
   const _Handle({required this.onClose, required this.showClose});
   final VoidCallback onClose;
   final bool showClose;
 
   @override
-  Widget build(BuildContext context) => Row(
-        children: [
-          const SizedBox(width: 36),
-          Expanded(
-            child: Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 36,
-            child: showClose
-                ? IconButton(
-                    icon: Icon(Icons.keyboard_arrow_down_rounded,
-                        color: Colors.white.withValues(alpha: 0.6)),
-                    tooltip: 'Fermer',
-                    onPressed: onClose,
-                  )
-                : null,
-          ),
-        ],
-      );
+  Widget build(BuildContext context) {
+    if (!showClose) return const SizedBox(height: 2);
+    return Align(
+      alignment: Alignment.centerRight,
+      child: IconButton(
+        visualDensity: VisualDensity.compact,
+        icon: Icon(Icons.close_rounded,
+            size: 20, color: Colors.white.withValues(alpha: 0.6)),
+        tooltip: 'Fermer',
+        onPressed: onClose,
+      ),
+    );
+  }
 }

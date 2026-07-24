@@ -1,19 +1,24 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../admin_groupe/providers/admin_users_provider.dart'
+    show roleLabel;
 import '../../providers/active_agent_provider.dart';
 import 'auth_colors.dart';
 
 const _kAccent = kAuthAccent;
 const _kPinLen = 4;
 
-/// Pavé PIN de l'écran-verrou (feuille bleu nuit). PIN à 4 chiffres :
-/// auto-validation, clavier physique (poste desktop), secousse à l'erreur,
-/// bouton « Afficher », et pause anti-force-brute progressive et persistante.
+/// Saisie du PIN de l'écran-verrou (feuille bleu nuit). Carte d'identité de
+/// l'agent (photo + nom + rôle) puis une **zone de saisie unique** (vrai
+/// `TextField`, hauteur normale, œil de visibilité à droite) : capte le clavier
+/// physique nativement, auto-validation à 4 chiffres, secousse à l'erreur,
+/// pause anti-force-brute progressive.
 class AgentPinPad extends ConsumerStatefulWidget {
   const AgentPinPad({
     super.key,
@@ -33,8 +38,10 @@ class AgentPinPad extends ConsumerStatefulWidget {
 
 class _AgentPinPadState extends ConsumerState<AgentPinPad>
     with SingleTickerProviderStateMixin {
-  String _pin = '';
-  String? _firstEntry; // mode création : 1ʳᵉ saisie mémorisée
+  final TextEditingController _ctrl = TextEditingController();
+  final FocusNode _focus = FocusNode();
+  String _firstEntry = ''; // mode création : 1ʳᵉ saisie mémorisée
+  bool _hasFirst = false;
   String? _error;
   bool _busy = false;
   bool _reveal = false;
@@ -42,9 +49,9 @@ class _AgentPinPadState extends ConsumerState<AgentPinPad>
   DateTime? _lockedUntil; // pause anti-force-brute active
   Timer? _ticker;
   late final AnimationController _shake;
-  final FocusNode _focus = FocusNode();
 
-  bool get _confirming => widget.isCreate && _firstEntry != null;
+  String get _pin => _ctrl.text;
+  bool get _confirming => widget.isCreate && _hasFirst;
   bool get _locked =>
       _lockedUntil != null && _lockedUntil!.isAfter(DateTime.now());
 
@@ -57,7 +64,8 @@ class _AgentPinPadState extends ConsumerState<AgentPinPad>
   }
 
   Future<void> _loadLock() async {
-    final until = await ref.read(agentPinServiceProvider).lockedUntil(widget.agent.id);
+    final until =
+        await ref.read(agentPinServiceProvider).lockedUntil(widget.agent.id);
     if (!mounted || until == null) return;
     setState(() => _lockedUntil = until);
     _startTicker();
@@ -80,41 +88,37 @@ class _AgentPinPadState extends ConsumerState<AgentPinPad>
   void dispose() {
     _ticker?.cancel();
     _shake.dispose();
+    _ctrl.dispose();
     _focus.dispose();
     super.dispose();
   }
 
   String get _title {
     if (!widget.isCreate) return 'Saisissez votre code à 4 chiffres';
-    return _confirming ? 'Confirmez votre code' : 'Choisissez un code à 4 chiffres';
+    return _confirming
+        ? 'Confirmez votre code'
+        : 'Choisissez un code à 4 chiffres';
+  }
+
+  void _clearField() {
+    _ctrl.clear();
+    _focus.requestFocus();
   }
 
   void _fail(String message) {
     _shake.forward(from: 0);
-    setState(() {
-      _error = message;
-      _pin = '';
-    });
+    _clearField();
+    setState(() => _error = message);
   }
 
-  void _onDigit(String d) {
-    if (_busy || _locked || _pin.length >= _kPinLen) return;
-    setState(() {
-      _pin += d;
-      _error = null;
-    });
-    if (_pin.length == _kPinLen) {
-      // Laisse le 4ᵉ point s'afficher avant l'auto-validation.
-      Future.delayed(const Duration(milliseconds: 140), _validate);
+  void _onChanged(String v) {
+    if (_error != null) setState(() => _error = null);
+    if (v.length == _kPinLen) {
+      // Laisse le 4ᵉ caractère s'afficher avant l'auto-validation.
+      Future.delayed(const Duration(milliseconds: 130), () {
+        if (mounted && _ctrl.text.length == _kPinLen) _validate();
+      });
     }
-  }
-
-  void _onBackspace() {
-    if (_busy || _locked || _pin.isEmpty) return;
-    setState(() {
-      _pin = _pin.substring(0, _pin.length - 1);
-      _error = null;
-    });
   }
 
   Future<void> _validate() async {
@@ -125,12 +129,13 @@ class _AgentPinPadState extends ConsumerState<AgentPinPad>
       if (!_confirming) {
         setState(() {
           _firstEntry = _pin;
-          _pin = '';
+          _hasFirst = true;
         });
+        _clearField();
         return;
       }
       if (_pin != _firstEntry) {
-        setState(() => _firstEntry = null);
+        setState(() => _hasFirst = false);
         _fail('Les deux codes ne correspondent pas.');
         return;
       }
@@ -156,186 +161,226 @@ class _AgentPinPadState extends ConsumerState<AgentPinPad>
       _lockedUntil = until;
     });
     if (until != null) _startTicker();
-    _fail(until != null
-        ? 'Trop de tentatives.'
-        : 'Code incorrect. Réessayez.');
-  }
-
-  KeyEventResult _onKey(FocusNode _, KeyEvent e) {
-    if (e is! KeyDownEvent) return KeyEventResult.ignored;
-    final ch = e.character;
-    if (ch != null && ch.length == 1 && '0123456789'.contains(ch)) {
-      _onDigit(ch);
-      return KeyEventResult.handled;
-    }
-    if (e.logicalKey == LogicalKeyboardKey.backspace) {
-      _onBackspace();
-      return KeyEventResult.handled;
-    }
-    if (e.logicalKey == LogicalKeyboardKey.escape) {
-      widget.onBack();
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
+    _fail(until != null ? 'Trop de tentatives.' : 'Code incorrect. Réessayez.');
   }
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      focusNode: _focus,
-      autofocus: true,
-      onKeyEvent: _onKey,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _Header(agent: widget.agent, onBack: _busy ? null : widget.onBack),
-          const SizedBox(height: 6),
-          Text(_title,
-              style: TextStyle(
-                  fontSize: 12.5, color: Colors.white.withValues(alpha: 0.65))),
-          const SizedBox(height: 18),
-          AnimatedBuilder(
-            animation: _shake,
-            builder: (_, child) {
-              final t = _shake.value;
-              final dx = math.sin(t * math.pi * 4) * 10 * (1 - t);
-              return Transform.translate(offset: Offset(dx, 0), child: child);
-            },
-            child: _Dots(pin: _pin, max: _kPinLen, reveal: _reveal, error: _error != null),
-          ),
-          const SizedBox(height: 10),
-          if (_locked)
-            _CooldownNote(until: _lockedUntil!)
-          else if (_error != null)
-            Text(_error!,
-                style: const TextStyle(color: kAuthDanger, fontSize: 12.5))
-          else
-            _RevealToggle(
-                on: _reveal, onTap: () => setState(() => _reveal = !_reveal)),
-          const SizedBox(height: 18),
-          // Poste desktop (Windows/Mac) : la saisie se fait au clavier — pas de
-          // pavé à l'écran. Indice discret pour la découvrabilité.
-          if (!_locked)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.keyboard_rounded,
-                    size: 15, color: Colors.white.withValues(alpha: 0.5)),
-                const SizedBox(width: 6),
-                Text('Tapez votre code sur le clavier',
-                    style: TextStyle(
-                        fontSize: 11.5,
-                        color: Colors.white.withValues(alpha: 0.5))),
-              ],
-            ),
-          const SizedBox(height: 12),
-          Text(
-            widget.isCreate
-                ? '🔒 Ce code protège vos saisies sur ce poste partagé.'
-                : 'Code oublié ? La direction peut le réinitialiser.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-                fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.agent, required this.onBack});
-  final AgentOption agent;
-  final VoidCallback? onBack;
-
-  @override
-  Widget build(BuildContext context) => Row(
-        children: [
-          IconButton(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Retour à la grille des profils.
+        Align(
+          alignment: Alignment.centerLeft,
+          child: IconButton(
+            visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.arrow_back_rounded, size: 20),
             color: Colors.white.withValues(alpha: 0.8),
             tooltip: 'Retour',
-            onPressed: onBack,
+            onPressed: _busy ? null : widget.onBack,
           ),
-          Expanded(
-            child: Text(agent.fullName,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white)),
+        ),
+        // Carte d'identité : photo de profil, nom, rôle.
+        _Identity(agent: widget.agent),
+        const SizedBox(height: 16),
+        Text(_title,
+            style: TextStyle(
+                fontSize: 12.5, color: Colors.white.withValues(alpha: 0.65))),
+        const SizedBox(height: 12),
+        AnimatedBuilder(
+          animation: _shake,
+          builder: (_, child) {
+            final t = _shake.value;
+            final dx = math.sin(t * math.pi * 4) * 10 * (1 - t);
+            return Transform.translate(offset: Offset(dx, 0), child: child);
+          },
+          child: _PinField(
+            controller: _ctrl,
+            focusNode: _focus,
+            obscure: !_reveal,
+            enabled: !_locked && !_busy,
+            error: _error != null,
+            onChanged: _onChanged,
+            onSubmitted: (_) => _validate(),
+            onToggleReveal: () => setState(() => _reveal = !_reveal),
           ),
-          const SizedBox(width: 40),
-        ],
-      );
-}
-
-class _Dots extends StatelessWidget {
-  const _Dots(
-      {required this.pin,
-      required this.max,
-      required this.reveal,
-      required this.error});
-  final String pin;
-  final int max;
-  final bool reveal;
-  final bool error;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = error ? kAuthDanger : _kAccent;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        for (var i = 0; i < max; i++)
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            margin: const EdgeInsets.symmetric(horizontal: 9),
-            width: reveal ? 24 : 15,
-            height: reveal ? 30 : 15,
-            alignment: Alignment.center,
-            // On garde une forme rectangulaire et on n'anime QUE le rayon :
-            // à 15×15 un rayon ≥ 7,5 rend un cercle. Animer `shape` entre cercle
-            // et rectangle est interdit (BoxDecoration.lerp → cercle + rayon →
-            // assertion) — c'était le crash du bouton « Afficher ».
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(reveal ? 6 : 8),
-              color: i < pin.length && !reveal ? color : Colors.transparent,
-              border: Border.all(
-                  color: i < pin.length
-                      ? color
-                      : Colors.white.withValues(alpha: 0.35),
-                  width: 1.6),
-            ),
-            child: reveal && i < pin.length
-                ? Text(pin[i],
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16))
-                : null,
-          ),
+        ),
+        const SizedBox(height: 10),
+        // Ligne d'état (hauteur réservée pour un rythme vertical stable).
+        SizedBox(
+          height: 18,
+          child: _locked
+              ? _CooldownNote(until: _lockedUntil!)
+              : (_error != null
+                  ? Text(_error!,
+                      style: const TextStyle(
+                          color: kAuthDanger, fontSize: 12.5))
+                  : null),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          widget.isCreate
+              ? '🔒 Ce code protège vos saisies sur ce poste partagé.'
+              : 'Code oublié ? La direction peut le réinitialiser.',
+          textAlign: TextAlign.center,
+          style:
+              TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
+        ),
       ],
     );
   }
 }
 
-class _RevealToggle extends StatelessWidget {
-  const _RevealToggle({required this.on, required this.onTap});
-  final bool on;
-  final VoidCallback onTap;
+/// Carte d'identité de l'agent : photo de profil (ou initiales), nom, rôle.
+class _Identity extends StatelessWidget {
+  const _Identity({required this.agent});
+  final AgentOption agent;
 
   @override
-  Widget build(BuildContext context) => TextButton.icon(
-        onPressed: onTap,
-        icon: Icon(on ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-            size: 15, color: Colors.white.withValues(alpha: 0.6)),
-        label: Text(on ? 'Masquer' : 'Afficher',
+  Widget build(BuildContext context) {
+    final role = roleLabel(agent.role);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _Avatar(agent: agent, size: 60),
+        const SizedBox(height: 10),
+        Text(agent.fullName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+                fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
+        if (role.trim().isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(role,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: 12, color: Colors.white.withValues(alpha: 0.6))),
+        ],
+      ],
+    );
+  }
+}
+
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.agent, required this.size});
+  final AgentOption agent;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final has = agent.avatarUrl != null && agent.avatarUrl!.isNotEmpty;
+    return Container(
+      width: size,
+      height: size,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF3D74B8), Color(0xFF23568C)],
+        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 2),
+      ),
+      child: has
+          ? CachedNetworkImage(
+              imageUrl: agent.avatarUrl!,
+              fit: BoxFit.cover,
+              errorWidget: (_, _, _) => _initials(),
+            )
+          : _initials(),
+    );
+  }
+
+  Widget _initials() => Center(
+        child: Text(agent.initials,
             style: TextStyle(
-                fontSize: 12, color: Colors.white.withValues(alpha: 0.6))),
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: size * 0.36)),
       );
+}
+
+/// Zone de saisie du PIN : champ unique de hauteur normale, chiffres masqués
+/// par des ●, avec l'œil de visibilité à droite (pattern mot de passe).
+class _PinField extends StatelessWidget {
+  const _PinField({
+    required this.controller,
+    required this.focusNode,
+    required this.obscure,
+    required this.enabled,
+    required this.error,
+    required this.onChanged,
+    required this.onSubmitted,
+    required this.onToggleReveal,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool obscure;
+  final bool enabled;
+  final bool error;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
+  final VoidCallback onToggleReveal;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = error ? kAuthDanger : _kAccent;
+    OutlineInputBorder border(Color c, double w) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: c, width: w),
+        );
+    return SizedBox(
+      width: 240,
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        autofocus: true,
+        enabled: enabled,
+        obscureText: obscure,
+        obscuringCharacter: '●',
+        keyboardType: TextInputType.number,
+        textAlign: TextAlign.center,
+        maxLength: _kPinLen,
+        cursorColor: _kAccent,
+        onChanged: onChanged,
+        onSubmitted: onSubmitted,
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+          LengthLimitingTextInputFormatter(_kPinLen),
+        ],
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 6,
+        ),
+        decoration: InputDecoration(
+          counterText: '',
+          isDense: true,
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: 0.06),
+          contentPadding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
+          suffixIcon: IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: Icon(
+                obscure
+                    ? Icons.visibility_rounded
+                    : Icons.visibility_off_rounded,
+                size: 19,
+                color: Colors.white.withValues(alpha: 0.6)),
+            tooltip: obscure ? 'Afficher' : 'Masquer',
+            onPressed: onToggleReveal,
+          ),
+          enabledBorder: border(Colors.white.withValues(alpha: 0.18), 1.2),
+          focusedBorder: border(accent, 1.8),
+          disabledBorder: border(Colors.white.withValues(alpha: 0.10), 1.2),
+        ),
+      ),
+    );
+  }
 }
 
 class _CooldownNote extends StatelessWidget {
