@@ -26,6 +26,7 @@ class ExamStatInput {
     this.filiereLabel,
     this.gender,
     this.mention,
+    this.department,
   });
 
   final String result;
@@ -34,8 +35,42 @@ class ExamStatInput {
   final String? gender;
   final String? mention;
 
+  /// Département de l'établissement — dimension du pilotage MINISTÉRIEL
+  /// (inutilisée côté école : une école = un département). Voir
+  /// [groupExamLines] pour la ventilation nationale.
+  final String? department;
+
   bool get isKnown => _kKnownResults.contains(result);
   bool get isAdmitted => result == 'admis';
+}
+
+/// `true` si le résultat compte comme CONNU (proclamé). Exposé pour que le
+/// cockpit ministériel partage la MÊME règle que l'école — ne jamais recopier
+/// la liste `_kKnownResults` ailleurs (source unique, cf. barème mentions).
+bool isKnownExamResult(String result) => _kKnownResults.contains(result);
+
+/// Ventile une population de candidats selon une clé arbitraire (filière,
+/// département…) en lignes de réussite [ExamStatLine], en appliquant la règle
+/// « taux sur résultats connus » (`rate` = `null` tant que rien n'est proclamé).
+/// Réutilisé par le cockpit ministériel pour les axes que [computeExamStats]
+/// ne porte pas (ex. département). Trié par effectif décroissant.
+List<ExamStatLine> groupExamLines(
+  Iterable<ExamStatInput> rows,
+  String? Function(ExamStatInput) keyOf, {
+  String unsetLabel = _kUnset,
+}) {
+  final m = <String, _Acc>{};
+  for (final r in rows) {
+    final k = keyOf(r);
+    final key = k?.trim().isNotEmpty == true ? k!.trim() : unsetLabel;
+    final a = m.putIfAbsent(key, _Acc.new);
+    a.total++;
+    if (r.isKnown) {
+      a.known++;
+      if (r.isAdmitted) a.admitted++;
+    }
+  }
+  return _lines(m);
 }
 
 class ExamStatLine {

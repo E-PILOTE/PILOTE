@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../examens/models/exam_stats.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  COCKPIT EXAMENS DU MINISTÈRE — vue NATIONALE, online (admin_groupe).
@@ -64,6 +65,8 @@ class MinistryExamsData {
   const MinistryExamsData({
     required this.schools,
     required this.byExam,
+    required this.byFiliere,
+    required this.byDepartment,
     required this.totalCandidates,
     required this.totalComplete,
     required this.totalSubmitted,
@@ -81,6 +84,12 @@ class MinistryExamsData {
 
   final List<MinistrySchoolExam> schools;
   final List<MinistryExamBar> byExam;
+
+  /// Réussite ventilée par FILIÈRE technique et par DÉPARTEMENT — les deux
+  /// axes de pilotage propres au ministère. Taux `null` tant que non proclamé.
+  final List<ExamStatLine> byFiliere;
+  final List<ExamStatLine> byDepartment;
+
   final int totalCandidates;
   final int totalComplete;
   final int totalSubmitted;
@@ -110,6 +119,8 @@ class MinistryExamsData {
   static const empty = MinistryExamsData(
     schools: [],
     byExam: [],
+    byFiliere: [],
+    byDepartment: [],
     totalCandidates: 0,
     totalComplete: 0,
     totalSubmitted: 0,
@@ -136,11 +147,13 @@ final adminExamsProvider =
   final groupId = profile?.groupId;
   if (groupId == null) return MinistryExamsData.empty;
 
-  // Candidatures du réseau, jointes à l'examen et à l'école.
+  // Candidatures du réseau, jointes à l'examen, à l'école (+ département) et à
+  // la classe (+ filière) : ce sont les deux axes que le ministère pilote.
   final rows = await client
       .from('exam_candidates')
       .select('school_id, student_id, dossier_status, result, '
-          'schools!inner(name), '
+          'schools!inner(name, department), '
+          'classes(filiere_label), '
           'exam_sessions!inner(id, year_label, '
           'national_exams!inner(code, short_name, tutelle))')
       .eq('group_id', groupId);
@@ -169,6 +182,7 @@ final adminExamsProvider =
 
   final bySchool = <String, _SchoolAcc>{};
   final byExam = <String, _ExamAcc>{};
+  final statInputs = <ExamStatInput>[];   // pour la ventilation filière/département
   final sessionIds = <String>{};
   var bacBlocked = 0;
   String? year;
@@ -207,6 +221,12 @@ final adminExamsProvider =
 
     final e = byExam.putIfAbsent(examName, () => _ExamAcc(examName, tutelle));
     e.candidates++;
+
+    statInputs.add(ExamStatInput(
+      result: result ?? 'en_attente',
+      filiereLabel: r['classes']?['filiere_label'] as String?,
+      department: r['schools']?['department'] as String?,
+    ));
   }
 
   var acknowledged = 0;
@@ -250,6 +270,8 @@ final adminExamsProvider =
   return MinistryExamsData(
     schools: schools,
     byExam: bars,
+    byFiliere: groupExamLines(statInputs, (r) => r.filiereLabel),
+    byDepartment: groupExamLines(statInputs, (r) => r.department),
     totalCandidates: schools.fold(0, (s, e) => s + e.candidates),
     totalComplete: schools.fold(0, (s, e) => s + e.complete),
     totalSubmitted: schools.fold(0, (s, e) => s + e.submitted),

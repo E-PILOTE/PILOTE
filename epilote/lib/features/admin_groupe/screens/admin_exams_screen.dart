@@ -6,6 +6,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../providers/admin_exams_provider.dart';
+import '../widgets/admin_exams_breakdown.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  EXAMENS NATIONAUX — cockpit du MINISTÈRE (espace admin_groupe, online).
@@ -66,6 +67,11 @@ class _State extends ConsumerState<AdminExamsScreen> {
                 const SizedBox(height: 20),
                 _ExamChart(bars: d.byExam, yearLabel: d.yearLabel),
                 const SizedBox(height: 20),
+                if (d.byFiliere.isNotEmpty || d.byDepartment.isNotEmpty) ...[
+                  ExamBreakdownRow(
+                      filiere: d.byFiliere, departement: d.byDepartment),
+                  const SizedBox(height: 20),
+                ],
                 ListFilterBar(
                   searchCtrl: _search,
                   searchHint: 'Rechercher une école…',
