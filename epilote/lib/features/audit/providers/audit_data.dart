@@ -17,6 +17,19 @@ final auditFiltersProvider =
     StateProvider.autoDispose<AuditFilters>((ref) => const AuditFilters());
 
 // ─── Helpers requête ──────────────────────────────────────────────────────────
+/// Plancher de visibilité : exclut les actions dont l'acteur est d'un niveau
+/// au-dessus du spectateur ([AuditScope.hiddenActorRoles]). Les lignes sans
+/// `user_role` (rare : rôle acteur non résolu) restent visibles — on ne masque
+/// jamais du travail légitime, on ne retire QUE les niveaux supérieurs nommés.
+dynamic _applyScopeFloor(dynamic q, AuditScope scope) {
+  q = q.eq(scope.column, scope.id);
+  if (scope.hiddenActorRoles.isNotEmpty) {
+    final list = scope.hiddenActorRoles.join(',');
+    q = q.or('user_role.is.null,user_role.not.in.($list)');
+  }
+  return q;
+}
+
 dynamic _applyAuditFilters(dynamic q, AuditFilters f) {
   if (f.action != 'all') q = q.eq('action', f.action);
   if (f.table != 'all') q = q.eq('table_name', f.table);
@@ -84,11 +97,10 @@ final auditFacetsProvider =
   final roles = <String>{};
   final schoolIds = <String>{};
   try {
-    final r = await client
-        .from('audit_logs')
-        .select('table_name, user_role, school_id')
-        .eq(scope.column, scope.id)
-        .limit(2000) as List;
+    final base = _applyScopeFloor(
+        client.from('audit_logs').select('table_name, user_role, school_id'),
+        scope);
+    final r = await base.limit(2000) as List;
     for (final row in r) {
       final t = row['table_name'] as String?;
       final ro = row['user_role'] as String?;
@@ -122,10 +134,8 @@ final auditFacetsProvider =
 
   Future<int> countFor(String? action) async {
     try {
-      var q = client
-          .from('audit_logs')
-          .count(CountOption.exact)
-          .eq(scope.column, scope.id);
+      var q = _applyScopeFloor(
+          client.from('audit_logs').count(CountOption.exact), scope);
       q = _applyAuditFilters(
           q, action == null ? filters : filters.copyWith(action: action));
       return await q;
@@ -142,10 +152,8 @@ final auditFacetsProvider =
   int activeUsers = 0;
   DateTime? lastEventAt;
   try {
-    var q = client
-        .from('audit_logs')
-        .select('user_id, created_at')
-        .eq(scope.column, scope.id);
+    var q = _applyScopeFloor(
+        client.from('audit_logs').select('user_id, created_at'), scope);
     q = _applyAuditFilters(q, filters);
     final r = await q.order('created_at', ascending: false).limit(2000) as List;
     final seen = <String>{};
@@ -187,10 +195,11 @@ final auditTimelineProvider =
       .toUtc();
 
   try {
-    final res = await client
-        .from('audit_logs')
-        .select('action, created_at, user_id, user_role, table_name, school_id')
-        .eq(scope.column, scope.id)
+    final base = _applyScopeFloor(
+        client.from('audit_logs').select(
+            'action, created_at, user_id, user_role, table_name, school_id'),
+        scope);
+    final res = await base
         .gte('created_at', cutoff.toIso8601String())
         .order('created_at', ascending: true)
         .limit(5000) as List;
@@ -337,12 +346,11 @@ final auditPageProvider =
   final List<Map<String, dynamic>> rows = [];
   int total = 0;
   try {
-    var sel = client
-        .from('audit_logs')
-        .select(
+    var sel = _applyScopeFloor(
+        client.from('audit_logs').select(
             'id, action, table_name, record_id, user_id, user_role, '
-            'school_id, old_values, new_values, ip_address, user_agent, created_at')
-        .eq(scope.column, scope.id);
+            'school_id, old_values, new_values, ip_address, user_agent, created_at'),
+        scope);
     sel = _applyAuditFilters(sel, filters);
     if (q.isNotEmpty) {
       sel = sel.ilike('table_name', '%$q%');
@@ -436,12 +444,11 @@ Future<List<AuditEntry>> fetchAllAuditForExport({
   final q = filters.query.trim();
   final List<Map<String, dynamic>> rows = [];
   try {
-    var sel = client
-        .from('audit_logs')
-        .select(
+    var sel = _applyScopeFloor(
+        client.from('audit_logs').select(
             'id, action, table_name, record_id, user_id, user_role, '
-            'school_id, old_values, new_values, ip_address, user_agent, created_at')
-        .eq(scope.column, scope.id);
+            'school_id, old_values, new_values, ip_address, user_agent, created_at'),
+        scope);
     sel = _applyAuditFilters(sel, filters);
     if (q.isNotEmpty) sel = sel.ilike('table_name', '%$q%');
     final res = await sel

@@ -48,4 +48,42 @@ void main() {
     expect(const AuditScope.group('x'), isNot(const AuditScope.school('x')));
     expect(const AuditScope.group('x'), isNot(const AuditScope.group('y')));
   });
+
+  group('Plancher de visibilité — hiddenActorRolesForViewer', () {
+    test('super_admin voit TOUT (aucun masquage)', () {
+      expect(hiddenActorRolesForViewer('super_admin'), isEmpty);
+    });
+
+    test('admin_groupe masque super_admin, voit tout le reste', () {
+      final hidden = hiddenActorRolesForViewer('admin_groupe');
+      expect(hidden, contains('super_admin'));
+      expect(hidden, isNot(contains('admin_groupe')));
+      expect(hidden.length, 1);
+    });
+
+    test('personnel école masque super_admin ET admin_groupe', () {
+      for (final role in ['proviseur', 'directeur', 'secretaire', 'enseignant']) {
+        final hidden = hiddenActorRolesForViewer(role);
+        expect(hidden, containsAll(['super_admin', 'admin_groupe']),
+            reason: 'rôle école $role doit masquer les deux niveaux au-dessus');
+      }
+    });
+
+    test('aucun rôle école ne masque un autre rôle école (vue partagée)', () {
+      // Tout le staff voit toutes les actions de son école : le plancher ne
+      // contient QUE des rôles hors-école (plateforme/groupe).
+      final hidden = hiddenActorRolesForViewer('secretaire');
+      expect(hidden, isNot(contains('proviseur')));
+      expect(hidden, isNot(contains('directeur')));
+      expect(hidden, isNot(contains('enseignant')));
+    });
+
+    test('la portée embarque le plancher (école ⇒ 2 rôles masqués)', () {
+      const scope = AuditScope.school('s-1',
+          hiddenActorRoles: {'super_admin', 'admin_groupe'});
+      expect(scope.hiddenActorRoles, hasLength(2));
+      // Défaut = vide (rétro-compatible avec les portées historiques).
+      expect(const AuditScope.group('g-1').hiddenActorRoles, isEmpty);
+    });
+  });
 }
