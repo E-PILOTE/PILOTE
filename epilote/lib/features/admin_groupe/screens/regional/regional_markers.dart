@@ -312,6 +312,7 @@ class _MapLegend extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final pinMode = ref.watch(_pinColorModeProv);
+    final deptFill = ref.watch(_deptFillProv);
     Widget circle(Color c, double s) => Container(
           width: s, height: s,
           decoration: BoxDecoration(
@@ -364,15 +365,26 @@ class _MapLegend extends ConsumerWidget {
                 style: TextStyle(
                     fontSize: 8.5, fontWeight: FontWeight.w800,
                     color: kTextMuted, letterSpacing: 1.0)),
-            // Choroplèthe
+            // Choroplèthe — la légende SUIT l'indicateur peint sur les
+            // départements : une échelle qui ne correspond pas aux couleurs
+            // affichées induit en erreur celui qui lit la carte.
             const SizedBox(height: 3),
-            Text('CHOROPLÈTHE',
+            Text(deptFill == _DeptFill.reussite
+                    ? 'RÉUSSITE AUX EXAMENS'
+                    : 'CHOROPLÈTHE · ACTIVITÉ',
                 style: TextStyle(fontSize: 7, fontWeight: FontWeight.w700,
                     color: kTextMuted, letterSpacing: 0.8)),
-            row(colorBox(kGreen,   0.16), '≥ 75 % actives'),
-            row(colorBox(kNavy,    0.12), '40–74 %'),
-            row(colorBox(_kOrange, 0.16), '< 40 %'),
-            row(colorBox(kRed,     0.12), '0 % active'),
+            if (deptFill == _DeptFill.reussite) ...[
+              row(colorBox(kGreen,   0.20), '≥ 70 % d’admis'),
+              row(colorBox(_kOrange, 0.20), '50–69 %'),
+              row(colorBox(kRed,     0.20), '< 50 %'),
+              row(colorBox(kTextMuted, 0.10), 'non proclamé'),
+            ] else ...[
+              row(colorBox(kGreen,   0.16), '≥ 75 % actives'),
+              row(colorBox(kNavy,    0.12), '40–74 %'),
+              row(colorBox(_kOrange, 0.16), '< 40 %'),
+              row(colorBox(kRed,     0.12), '0 % active'),
+            ],
             // Écoles
             const SizedBox(height: 3),
             Text('ÉCOLES & PROJETS',

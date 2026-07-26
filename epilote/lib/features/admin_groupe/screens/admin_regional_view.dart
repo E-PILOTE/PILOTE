@@ -16,10 +16,12 @@ import 'package:url_launcher/url_launcher.dart';
 import '../providers/wayback_provider.dart';
 
 import '../providers/admin_dashboard_provider.dart';
+import '../providers/admin_exams_provider.dart';
 import '../providers/admin_geo_provider.dart';
 import '../providers/admin_regional_provider.dart';
 import '../providers/admin_schools_provider.dart';
 import '../providers/regional_table_provider.dart';
+import '../../examens/models/exam_stats.dart' show ExamStatLine;
 import '../services/regional_pdf_service.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../widgets/esri_tile_provider.dart';

@@ -163,6 +163,17 @@ class _LayerToggleBar extends ConsumerWidget {
           ]),
           const SizedBox(height: 6),
           const _PinColorSwitch(),
+          const SizedBox(height: 10),
+          Divider(height: 1, color: kBorder),
+          const SizedBox(height: 8),
+          // ── Indicateur peint sur les départements (choroplèthe) ────────────
+          Row(children: [
+            Icon(Icons.layers_outlined, size: 13, color: kTextMuted),
+            const SizedBox(width: 6),
+            Text('COULEUR DES DÉPARTEMENTS', style: sectionLabel),
+          ]),
+          const SizedBox(height: 6),
+          const _DeptFillSwitch(),
         ],
       ),
     );
@@ -170,6 +181,69 @@ class _LayerToggleBar extends ConsumerWidget {
 }
 
 // Segmenté : colorer les pins/grappes par type ou par charge (élèves/classe).
+/// Choix de l'indicateur peint sur les départements (choroplèthe).
+class _DeptFillSwitch extends ConsumerWidget {
+  const _DeptFillSwitch();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(_deptFillProv);
+    Widget btn(String label, IconData icon, _DeptFill m, String tip,
+        {bool first = false, bool last = false}) {
+      final active = mode == m;
+      final radius = BorderRadius.horizontal(
+          left: first ? const Radius.circular(6) : Radius.zero,
+          right: last ? const Radius.circular(6) : Radius.zero);
+      return Expanded(
+        child: Tooltip(
+          message: tip,
+          waitDuration: const Duration(milliseconds: 400),
+          preferBelow: false,
+          child: InkWell(
+            onTap: () => ref.read(_deptFillProv.notifier).state = m,
+            borderRadius: radius,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: active ? kNavy : Colors.transparent,
+                borderRadius: radius,
+              ),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(icon, size: 13, color: active ? Colors.white : kTextMuted),
+                const SizedBox(width: 5),
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        color: active ? Colors.white : kTextMuted)),
+              ]),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: kBorder),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Row(children: [
+        btn('Activité', Icons.toggle_on_outlined, _DeptFill.activite,
+            'Colore les départements selon la part d’écoles actives '
+            '(adoption de la plateforme).',
+            first: true),
+        Container(width: 1, height: 26, color: kBorder),
+        btn('Réussite', Icons.workspace_premium_outlined, _DeptFill.reussite,
+            'Colore les départements selon le taux d’admission aux examens '
+            'd’État. Calculé sur les résultats proclamés ; un département sans '
+            'proclamation reste neutre.',
+            last: true),
+      ]),
+    );
+  }
+}
+
 class _PinColorSwitch extends ConsumerWidget {
   const _PinColorSwitch();
 

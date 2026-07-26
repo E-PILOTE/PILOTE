@@ -526,6 +526,7 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
     final showVillages     = ref.watch(_showVillagesLayerProv);
     final showRoads        = ref.watch(_showRoadsLayerProv);
     final pinColorMode     = ref.watch(_pinColorModeProv);
+    final deptFill         = ref.watch(_deptFillProv);
     final measureMode      = ref.watch(_measureModeProv);
     final measurePoints    = ref.watch(_measurePointsProv);
     final onSatellite      = tileStyle != _TileStyle.standard;
@@ -717,10 +718,22 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
                 // choroplèthes retombent tous transparents et les départements ne
                 // paraissent plus « découpés ». (Même correctif que KPI/PDF.)
                 final ratios = <String, double>{};
-                for (final d in widget.data.allDepts) {
-                  ratios[_normDept(d.dept)] = d.schoolCount > 0
-                      ? d.activeCount / d.schoolCount
-                      : 0.0;
+                if (deptFill == _DeptFill.reussite) {
+                  // Taux d'admission aux examens d'État, par département.
+                  // `rate` est NULL tant que rien n'est proclamé → on n'inscrit
+                  // rien : le département reste transparent (neutre) au lieu de
+                  // virer au rouge, ce qui accuserait à tort un territoire.
+                  final exams = ref.watch(adminExamsProvider).valueOrNull;
+                  for (final l in exams?.byDepartment ?? const <ExamStatLine>[]) {
+                    final r = l.rate;
+                    if (r != null) ratios[_normDept(l.label)] = r;
+                  }
+                } else {
+                  for (final d in widget.data.allDepts) {
+                    ratios[_normDept(d.dept)] = d.schoolCount > 0
+                        ? d.activeCount / d.schoolCount
+                        : 0.0;
+                  }
                 }
                 return PolygonLayer(
                   // Frontières inter-départementales bien lisibles (trait plus
@@ -728,15 +741,28 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
                   // sont visiblement découpés, avec ou sans données.
                   polygons: osmDepts.map((d) {
                     final ratio = ratios[_normDept(d.name)] ?? -1.0;
-                    final fillColor = ratio < 0
-                        ? Colors.transparent
-                        : ratio >= 0.75
-                            ? kGreen.withValues(alpha: 0.16)
-                            : ratio >= 0.4
-                                ? kNavy.withValues(alpha: 0.12)
-                                : ratio > 0
-                                    ? _kOrange.withValues(alpha: 0.16)
-                                    : kRed.withValues(alpha: 0.12);
+                    // Seuils propres à l'indicateur. En « Réussite », ils sont
+                    // ALIGNÉS sur les cartes de ventilation du cockpit (vert
+                    // ≥70 %, ambre ≥50 %, rouge en dessous) : un même taux ne
+                    // doit pas changer de couleur d'un écran à l'autre.
+                    final Color fillColor;
+                    if (ratio < 0) {
+                      fillColor = Colors.transparent;
+                    } else if (deptFill == _DeptFill.reussite) {
+                      fillColor = ratio >= 0.70
+                          ? kGreen.withValues(alpha: 0.20)
+                          : ratio >= 0.50
+                              ? _kOrange.withValues(alpha: 0.20)
+                              : kRed.withValues(alpha: 0.20);
+                    } else {
+                      fillColor = ratio >= 0.75
+                          ? kGreen.withValues(alpha: 0.16)
+                          : ratio >= 0.4
+                              ? kNavy.withValues(alpha: 0.12)
+                              : ratio > 0
+                                  ? _kOrange.withValues(alpha: 0.16)
+                                  : kRed.withValues(alpha: 0.12);
+                    }
                     return Polygon(
                       points: d.outline,
                       color: fillColor,

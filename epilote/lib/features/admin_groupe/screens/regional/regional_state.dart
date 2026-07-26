@@ -92,6 +92,16 @@ final _showVillagesLayerProv = StateProvider.autoDispose<bool>((ref) => true);
 // Réseau routier OSM (trunk/primary/secondary/tertiary) — OFF par défaut (chargement ~15 s)
 final _showRoadsLayerProv    = StateProvider.autoDispose<bool>((ref) => false);
 
+// Indicateur peint sur les POLYGONES départementaux (choroplèthe).
+//  • activite  : part d'écoles actives — l'adoption de la plateforme ;
+//  • reussite  : taux d'admission aux examens d'État — le KPI politique dont le
+//    ministère est comptable. Un département en rouge = où porter l'effort.
+// Le taux suit la règle nationale : calculé sur les résultats CONNUS, et un
+// département sans proclamation reste NEUTRE (jamais peint en rouge à tort).
+enum _DeptFill { activite, reussite }
+final _deptFillProv =
+    StateProvider.autoDispose<_DeptFill>((ref) => _DeptFill.activite);
+
 // Dimension de coloration des pins écoles : par type d'établissement (défaut)
 // ou par charge pédagogique (élèves/classe). Tier 4.
 enum _PinColorMode { type, load, occupancy }

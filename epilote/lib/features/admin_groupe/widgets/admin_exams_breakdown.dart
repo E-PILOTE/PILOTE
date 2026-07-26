@@ -109,14 +109,16 @@ class _RateRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 11),
       child: Row(children: [
-        // Libellé de l'axe (filière / département)
+        // Libellé de l'axe (filière / département). Largeur généreuse et police
+        // légèrement resserrée : « Bâtiment et Génie civil » doit se lire ENTIER
+        // — un nom de filière tronqué devant un ministère ne se rattrape pas.
         SizedBox(
-          width: 132,
+          width: 158,
           child: Text(line.label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.w600,
                   color: kTextPrimary)),
         ),
