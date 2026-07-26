@@ -174,6 +174,13 @@ List<NavSection> _adminGroupeSections(WidgetRef ref) {
         label: 'Utilisateurs',
         route: Routes.adminUtilisateurs,
       ),
+      // Retrouver UN élève dans tout le réseau : la question qu'un cabinet
+      // reçoit sans arrêt, et à laquelle rien ne répondait au niveau groupe.
+      NavEntry.item(
+        icon: Icons.school_rounded,
+        label: 'Élèves du réseau',
+        route: Routes.adminEleves,
+      ),
     ]),
     NavSection(title: 'PILOTAGE', entries: [
       // Cœur du METP : la couverture des examens nationaux sur tout le réseau.
@@ -181,6 +188,13 @@ List<NavSection> _adminGroupeSections(WidgetRef ref) {
         icon: Icons.workspace_premium_rounded,
         label: 'Examens nationaux',
         route: Routes.adminExamens,
+      ),
+      // Les meilleurs lauréats du réseau : la matière première d'une commission
+      // de bourses. Adossé aux examens, donc juste après eux.
+      const NavEntry.item(
+        icon: Icons.emoji_events_rounded,
+        label: 'Palmarès national',
+        route: Routes.adminPalmares,
       ),
       const NavEntry.item(
         icon: Icons.bar_chart_rounded,

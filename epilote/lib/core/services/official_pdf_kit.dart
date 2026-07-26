@@ -305,9 +305,16 @@ class OfficialPdfKit {
         {PdfColor color = kPdfText}) {
       return pw.Expanded(
         flex: f,
-        child: pw.Text(t,
-            textAlign: alignOf(i, n),
-            style: pw.TextStyle(font: font, fontSize: 8.5, color: color)),
+        child: pw.Padding(
+          // Gouttière entre colonnes : sans elle, une valeur qui remplit sa
+          // colonne vient coller à la suivante et les deux se lisent comme un
+          // seul mot (« Comptabilité et GestionPool »). Pas de marge après la
+          // dernière colonne, qui longe déjà le bord du cadre.
+          padding: pw.EdgeInsets.only(right: i == n - 1 ? 0 : 6),
+          child: pw.Text(t,
+              textAlign: alignOf(i, n),
+              style: pw.TextStyle(font: font, fontSize: 8.5, color: color)),
+        ),
       );
     }
 
