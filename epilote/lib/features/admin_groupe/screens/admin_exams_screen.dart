@@ -7,6 +7,7 @@ import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../providers/admin_exams_provider.dart';
 import '../widgets/admin_exams_breakdown.dart';
+import '../widgets/exam_archives_section.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  EXAMENS NATIONAUX — cockpit du MINISTÈRE (espace admin_groupe, online).
@@ -72,6 +73,10 @@ class _State extends ConsumerState<AdminExamsScreen> {
                       filiere: d.byFiliere, departement: d.byDepartment),
                   const SizedBox(height: 20),
                 ],
+                // Second temps du cycle : ce que la DEC a publié en retour.
+                // Le premier temps (dossiers, transmission) est au-dessus.
+                const ExamArchivesSection(),
+                const SizedBox(height: 20),
                 ListFilterBar(
                   searchCtrl: _search,
                   searchHint: 'Rechercher une école…',
