@@ -1,7 +1,7 @@
 name: epilote
 description: "E-PILOTE CONGO v3.0 — Plateforme de gestion scolaire multi-tenant"
 publish_to: 'none'
-version: 3.0.7+8
+version: 3.0.8+9
 
 environment:
   sdk: ^3.12.0
