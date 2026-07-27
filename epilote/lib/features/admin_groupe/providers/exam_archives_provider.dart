@@ -512,3 +512,145 @@ extension _Chars on String {
     }
   }
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+//  HISTORIQUE — ce que les chiffres officiels racontent une fois empilés.
+//
+//  Rien n'est calculé ici au sens où la DEC calcule : on RANGE des chiffres
+//  publiés. La seule opération est l'écart d'une année à l'autre, exprimé en
+//  POINTS — jamais en pourcentage de pourcentage, qui ne veut rien dire.
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Un point de la série : une session, un taux, son évolution.
+class HistoryPoint {
+  const HistoryPoint({
+    required this.yearLabel,
+    required this.rate,
+    required this.present,
+    required this.admitted,
+    this.deltaPoints,
+  });
+
+  final String yearLabel;
+  final double rate;
+  final int present;
+  final int admitted;
+
+  /// Écart en points avec la session précédente. `null` sur la première :
+  /// afficher « +0,0 » y ferait croire à une stagnation mesurée.
+  final double? deltaPoints;
+}
+
+/// Série nationale d'un examen, du plus ancien au plus récent.
+class ExamHistory {
+  const ExamHistory({required this.examShortName, required this.points});
+  final String examShortName;
+  final List<HistoryPoint> points;
+
+  HistoryPoint? get latest => points.isEmpty ? null : points.last;
+
+  /// Progression totale sur la période couverte — l'argument d'un ministre.
+  double? get totalGain => points.length < 2
+      ? null
+      : points.last.rate - points.first.rate;
+}
+
+/// Empile les chiffres NATIONAUX par examen. Les départements sont ignorés
+/// ici : mélanger les deux échelles produirait des séries dont chaque point
+/// mesurerait autre chose.
+List<ExamHistory> buildNationalHistory(List<OfficialFigure> figures) {
+  final byExam = <String, List<OfficialFigure>>{};
+  for (final f in figures) {
+    if (f.scope != PubScope.national) continue;
+    if (f.passRate == null || f.yearLabel == null) continue;
+    byExam.putIfAbsent(f.examShortName ?? '—', () => []).add(f);
+  }
+
+  final out = <ExamHistory>[];
+  for (final entry in byExam.entries) {
+    // Chronologique : une courbe qui remonte le temps se lit à l'envers.
+    final rows = entry.value..sort((a, b) => a.yearLabel!.compareTo(b.yearLabel!));
+    final points = <HistoryPoint>[];
+    double? previous;
+    for (final f in rows) {
+      final rate = f.passRate!;
+      points.add(HistoryPoint(
+        yearLabel: f.yearLabel!,
+        rate: rate,
+        present: f.present ?? 0,
+        admitted: f.admitted ?? 0,
+        deltaPoints: previous == null ? null : rate - previous,
+      ));
+      previous = rate;
+    }
+    out.add(ExamHistory(examShortName: entry.key, points: points));
+  }
+  out.sort((a, b) => a.examShortName.compareTo(b.examShortName));
+  return out;
+}
+
+/// Ligne du classement départemental — le format même dont le ministère se
+/// sert pour publier ses résultats.
+class DepartmentStanding {
+  const DepartmentStanding({
+    required this.rank,
+    required this.department,
+    required this.rate,
+    this.present,
+    this.admitted,
+    this.deltaPoints,
+  });
+
+  final int rank;
+  final String department;
+  final double rate;
+  final int? present;
+  final int? admitted;
+  final double? deltaPoints;
+}
+
+/// Classe les départements d'une session, et situe chacun par rapport à la
+/// session précédente du même examen.
+List<DepartmentStanding> departmentStandings(
+  List<OfficialFigure> figures, {
+  required String examShortName,
+  required String yearLabel,
+  String? previousYearLabel,
+}) {
+  double? rateOf(String dep, String year) {
+    for (final f in figures) {
+      if (f.scope != PubScope.departement) continue;
+      if (f.examShortName != examShortName || f.yearLabel != year) continue;
+      if (f.department != dep) continue;
+      return f.passRate;
+    }
+    return null;
+  }
+
+  final current = [
+    for (final f in figures)
+      if (f.scope == PubScope.departement &&
+          f.examShortName == examShortName &&
+          f.yearLabel == yearLabel &&
+          f.passRate != null &&
+          f.department != null)
+        f,
+  ]..sort((a, b) => b.passRate!.compareTo(a.passRate!));
+
+  return [
+    for (var i = 0; i < current.length; i++)
+      DepartmentStanding(
+        rank: i + 1,
+        department: current[i].department!,
+        rate: current[i].passRate!,
+        present: current[i].present,
+        admitted: current[i].admitted,
+        deltaPoints: previousYearLabel == null
+            ? null
+            : switch (rateOf(current[i].department!, previousYearLabel)) {
+                final double p => current[i].passRate! - p,
+                _ => null,
+              },
+      ),
+  ];
+}

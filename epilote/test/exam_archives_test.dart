@@ -140,4 +140,87 @@ void main() {
       expect(PubScope.from(null), PubScope.national);
     });
   });
+
+  _history();
+}
+
+/// Historique — empiler des chiffres publiés, sans jamais en fabriquer.
+void _history() {
+  OfficialFigure nat(String year, int present, int admitted) => OfficialFigure(
+        id: year, sessionId: year, scope: PubScope.national,
+        examShortName: 'Bac T', yearLabel: year,
+        present: present, admitted: admitted,
+      );
+  OfficialFigure dep(String year, String d, int present, int admitted) =>
+      OfficialFigure(
+        id: '$year$d', sessionId: year, scope: PubScope.departement,
+        examShortName: 'Bac T', yearLabel: year, department: d,
+        present: present, admitted: admitted,
+      );
+
+  group('Trajectoire nationale', () {
+    test('la série se lit du plus ancien au plus récent', () {
+      final h = buildNationalHistory([
+        nat('2024-2025', 12898, 6254),
+        nat('2021-2022', 11800, 4010),
+        nat('2023-2024', 12532, 5469),
+      ]);
+      expect(h.single.points.map((p) => p.yearLabel),
+          ['2021-2022', '2023-2024', '2024-2025']);
+    });
+
+    test('l\'évolution s\'exprime en POINTS, pas en pourcentage de hausse', () {
+      // 43,64 % → 48,49 % = +4,85 POINTS. Dire « +11 % » serait exact
+      // arithmétiquement et trompeur pour tout lecteur.
+      final h = buildNationalHistory(
+          [nat('2023-2024', 12532, 5469), nat('2024-2025', 12898, 6254)]);
+      expect(h.single.points.last.deltaPoints!.toStringAsFixed(2), '4.85');
+    });
+
+    test('la première session n\'a pas d\'évolution — jamais « +0,00 »', () {
+      final h = buildNationalHistory([nat('2021-2022', 100, 40)]);
+      expect(h.single.points.single.deltaPoints, isNull);
+      expect(h.single.totalGain, isNull, reason: 'un point ne fait pas une pente');
+    });
+
+    test('les départements ne polluent pas la série nationale', () {
+      final h = buildNationalHistory([
+        nat('2024-2025', 1000, 500),
+        dep('2024-2025', 'Bouenza', 100, 99),
+      ]);
+      expect(h.single.points.single.rate, 50);
+    });
+  });
+
+  group('Classement départemental', () {
+    final figures = [
+      dep('2023-2024', 'Bouenza', 900, 560), // 62,22 %
+      dep('2023-2024', 'Brazzaville', 3500, 1290), // 36,86 %
+      dep('2024-2025', 'Bouenza', 903, 610), // 67,55 %
+      dep('2024-2025', 'Brazzaville', 3611, 1420), // 39,32 %
+    ];
+
+    test('classe par taux décroissant et situe vs la session précédente', () {
+      final s = departmentStandings(figures,
+          examShortName: 'Bac T',
+          yearLabel: '2024-2025',
+          previousYearLabel: '2023-2024');
+      expect(s.first.department, 'Bouenza');
+      expect(s.first.rank, 1);
+      expect(s.first.deltaPoints!.toStringAsFixed(2), '5.33');
+      expect(s.last.department, 'Brazzaville');
+    });
+
+    test('sans session précédente, aucune évolution n\'est inventée', () {
+      final s = departmentStandings(figures,
+          examShortName: 'Bac T', yearLabel: '2023-2024');
+      expect(s.every((r) => r.deltaPoints == null), isTrue);
+    });
+
+    test('un autre examen ne contamine pas le classement', () {
+      final s = departmentStandings(figures,
+          examShortName: 'BET', yearLabel: '2024-2025');
+      expect(s, isEmpty);
+    });
+  });
 }
