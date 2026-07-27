@@ -19,9 +19,27 @@ import '../providers/exam_archives_provider.dart';
 //  résultat sur le dossier d'un élève, et un document scanné ne rend aucun
 //  texte. Le périmètre est donc DÉCLARÉ par le déposant — il l'a sous les yeux.
 // ════════════════════════════════════════════════════════════════════════════
-Future<void> showExamPublicationDialog(BuildContext context) => showDialog<void>(
+/// PANNEAU LATÉRAL, pas boîte modale.
+///
+/// Le dépôt est le geste quotidien de la DSIC : périmètre, document, date,
+/// puis les chiffres relevés dessus. Une dizaine de champs à l'étroit dans une
+/// boîte centrée obligeait à faire défiler un formulaire dont on ne voyait
+/// jamais ni le début ni la fin. Un panneau pleine hauteur les tient tous,
+/// laisse la page visible derrière — on garde sous les yeux ce qui est déjà
+/// archivé — et se ferme d'un geste latéral.
+Future<void> showExamPublicationDialog(BuildContext context) =>
+    showGeneralDialog<void>(
       context: context,
-      builder: (_) => const _PublicationDialog(),
+      barrierDismissible: true,
+      barrierLabel: 'Fermer',
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (_, _, _) => const _PublicationDialog(),
+      transitionBuilder: (_, anim, _, child) => SlideTransition(
+        position: Tween(begin: const Offset(1, 0), end: Offset.zero).animate(
+            CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+        child: child,
+      ),
     );
 
 class _PublicationDialog extends ConsumerStatefulWidget {
@@ -200,22 +218,34 @@ class _State extends ConsumerState<_PublicationDialog> {
     final schools =
         ref.watch(adminSchoolsProvider).valueOrNull?.schools ?? const [];
 
-    return AlertDialog(
-      backgroundColor: kCardBg,
-      contentPadding: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      content: SizedBox(
-        width: 640,
-        child: Column(
-          // Dialogue-formulaire : jamais pleine hauteur.
-          mainAxisSize: MainAxisSize.min,
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Material(
+        color: kCardBg,
+        child: SizedBox(
+          // Largeur bornée : au-delà, les champs s'étirent et le formulaire
+          // devient plus dur à parcourir qu'une colonne étroite.
+          width: 560,
+          height: double.infinity,
+          child: Column(
           children: [
-            const AdminDialogHeader(
-              title: 'Déposer une publication de la DEC',
-              icon: Icons.inventory_2_rounded,
-              subtitle: 'La pièce est archivée telle quelle ; ses chiffres sont '
-                  'relevés à la main, jamais extraits',
-            ),
+            Stack(children: [
+              const AdminDialogHeader(
+                title: 'Déposer une publication de la DEC',
+                icon: Icons.inventory_2_rounded,
+                subtitle: 'La pièce est archivée telle quelle ; ses chiffres '
+                    'sont relevés à la main, jamais extraits',
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  tooltip: 'Fermer',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: Icon(Icons.close_rounded, size: 20, color: kTextMuted),
+                ),
+              ),
+            ]),
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
@@ -339,7 +369,7 @@ class _State extends ConsumerState<_PublicationDialog> {
           ],
         ),
       ),
-    );
+    ));
   }
 
   List<String> _departments(List<dynamic> schools) {
