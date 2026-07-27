@@ -102,8 +102,9 @@ void main() {
         rank: 1,
         average: 18.6,
         mention: 'Excellent',
-        scope: 'BET · filière Électrotechnique',
-        sessionLabel: '2025-2026',
+        scope: 'classes de passage · 2e trimestre · niveau 5e',
+        basis: 'Contrôle continu, calculé par l\'établissement',
+        classAverage: 12.59,
       ),
     );
     expect(bytes.length, greaterThan(0),

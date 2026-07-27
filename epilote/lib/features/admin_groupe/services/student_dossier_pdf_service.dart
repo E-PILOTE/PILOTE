@@ -264,10 +264,11 @@ class StudentDossierPdfService {
         ),
       );
 
-  /// Bandeau de distinction — imprimé seulement si le dossier a été ouvert
-  /// depuis le palmarès. Le rang y est INDISSOCIABLE de son périmètre : sur une
-  /// pièce qui circule, « 1ᵉʳ » sans mention du périmètre se lirait « premier
-  /// du pays » et fonderait une décision fausse.
+  /// Bandeau de rang — imprimé seulement si le dossier a été ouvert depuis le
+  /// classement. Le rang y est INDISSOCIABLE de son périmètre ET de sa base :
+  /// sur une pièce qui circule, « 1ᵉʳ » sans périmètre se lirait « premier du
+  /// pays », et sans base il se lirait « premier à l'examen » — deux décisions
+  /// fausses pour un rang qui n'est que du contrôle continu.
   static pw.Widget _distinction(PdfFonts f, DossierDistinction d) {
     final rank = '${d.rank}${d.rank == 1 ? 'er' : 'e'}'
         '${d.exAequo ? ' ex æquo' : ''}';
@@ -287,16 +288,12 @@ class StudentDossierPdfService {
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text('$rank du palmarès — ${d.scope}',
+                  pw.Text('$rank du classement — ${d.scope}',
                       style: pw.TextStyle(
                           font: f.bold, fontSize: 10, color: kPdfText)),
                   pw.SizedBox(height: 2),
                   pw.Text(
-                    [
-                      'Examen d\'État',
-                      if (d.sessionLabel != null) 'session ${d.sessionLabel}',
-                      if (d.candidateNumber != null) 'n° ${d.candidateNumber}',
-                    ].join('  -  '),
+                    d.details.join('  -  '),
                     style: pw.TextStyle(
                         font: f.regular, fontSize: 8, color: kPdfMuted),
                   ),

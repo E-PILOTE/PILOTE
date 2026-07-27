@@ -338,9 +338,10 @@ class _PrivacyFooter extends StatelessWidget {
       );
 }
 
-/// Bandeau de distinction — visible seulement quand on ouvre le dossier depuis
-/// le palmarès. Il porte le rang ET son périmètre sur la même ligne : les deux
-/// ne doivent jamais pouvoir être lus séparément.
+/// Bandeau de rang — visible seulement quand on ouvre le dossier depuis le
+/// classement. Il porte le rang ET son périmètre sur la même ligne, la base du
+/// calcul juste en dessous : les trois ne doivent jamais pouvoir être lus
+/// séparément.
 class _DistinctionBand extends StatelessWidget {
   const _DistinctionBand({required this.d});
   final DossierDistinction d;
@@ -383,7 +384,7 @@ class _DistinctionBand extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$_rankLabel du palmarès — ${d.scope}',
+                  '$_rankLabel du classement — ${d.scope}',
                   maxLines: 2,
                   style: TextStyle(
                       color: kTextPrimary,
@@ -392,12 +393,7 @@ class _DistinctionBand extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  [
-                    'Examen d\'État',
-                    if (d.sessionLabel != null) 'session ${d.sessionLabel}',
-                    if (d.candidateNumber != null)
-                      'n° ${d.candidateNumber}',
-                  ].join('  ·  '),
+                  d.details.join('  ·  '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: kTextMuted, fontSize: 11),

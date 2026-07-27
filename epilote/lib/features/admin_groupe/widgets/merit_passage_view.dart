@@ -6,6 +6,7 @@ import '../../../core/widgets/list_chrome.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../providers/admin_dashboard_provider.dart';
 import '../providers/passage_merit_provider.dart';
+import '../providers/student_dossier_provider.dart' show DossierDistinction;
 import '../services/passage_merit_pdf_service.dart';
 import 'merit_error_view.dart';
 import 'merit_passage_table.dart';
@@ -43,10 +44,11 @@ class MeritPassageView extends ConsumerWidget {
       ),
       data: (d) {
         final rows = rankPassage(d.entries, filter.topN);
+        final scope = _scopeLabel(filter, trimesters);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Intro(scope: _scopeLabel(filter, trimesters)),
+            _Intro(scope: scope),
             const SizedBox(height: 18),
             KpiGrid(items: _kpis(rows, d)),
             const SizedBox(height: 20),
@@ -69,7 +71,8 @@ class MeritPassageView extends ConsumerWidget {
                 onTap: (p) => _open(
                     context,
                     rows.firstWhere((r) =>
-                        r.rank == p.rank && r.entry.fullName == p.fullName)),
+                        r.rank == p.rank && r.entry.fullName == p.fullName),
+                    scope),
               ),
               const SizedBox(height: 20),
             ],
@@ -90,7 +93,7 @@ class MeritPassageView extends ConsumerWidget {
                   child: Text(
                       '${rows.length} élève${rows.length > 1 ? 's' : ''} classé'
                       '${rows.length > 1 ? 's' : ''} sur ${d.entries.length} '
-                      'évalué${d.entries.length > 1 ? 's' : ''}',
+                      'évalué${d.entries.length > 1 ? 's' : ''} — $scope',
                       style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -98,13 +101,13 @@ class MeritPassageView extends ConsumerWidget {
                 ),
                 AdminPdfButton(
                   label: 'Classement officiel',
-                  onTap: () => _openPdf(context, ref, rows, d,
-                      _scopeLabel(filter, trimesters), filter.levelCode),
+                  onTap: () =>
+                      _openPdf(context, ref, rows, d, scope, filter.levelCode),
                 ),
               ]),
               const SizedBox(height: 12),
               MeritPassageTable(
-                  rows: rows, onTap: (r) => _open(context, r)),
+                  rows: rows, onTap: (r) => _open(context, r, scope)),
             ],
             const SizedBox(height: 24),
             const _ScopeNote(),
@@ -156,11 +159,26 @@ class MeritPassageView extends ConsumerWidget {
     );
   }
 
-  void _open(BuildContext context, RankedPassage r) {
-    // Pas de bandeau de distinction ici : ce rang repose sur le contrôle
-    // continu, qui n'est pas comparable entre établissements. L'afficher comme
-    // une distinction nationale serait le sur-vendre.
-    showStudentDossierDialog(context, r.entry.studentId);
+  /// Ouvre le dossier de l'élève en lui attachant SON rang.
+  ///
+  /// Le bandeau porte trois choses indissociables : le rang, le périmètre qui
+  /// lui donne un sens, et la base du calcul. Ce rang repose sur le contrôle
+  /// continu — le dire évite qu'un dossier imprimé ne se lise, plus tard et
+  /// ailleurs, comme une distinction d'examen d'État.
+  void _open(BuildContext context, RankedPassage r, String scope) {
+    showStudentDossierDialog(
+      context,
+      r.entry.studentId,
+      distinction: DossierDistinction(
+        rank: r.rank,
+        average: r.entry.average,
+        mention: r.entry.mention,
+        scope: 'classes de passage · $scope',
+        basis: 'Contrôle continu, calculé par l\'établissement',
+        exAequo: r.exAequo,
+        classAverage: r.entry.classAverage,
+      ),
+    );
   }
 
   List<KpiData> _kpis(List<RankedPassage> rows, PassageData d) {
@@ -359,10 +377,18 @@ class _ScopeNote extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'Les classes d\'examen (CM2, 3e, Terminale) ne figurent pas ici : '
-            'leur passage se joue à l\'examen d\'État, dont la plateforme '
-            'transmet la liste des candidats à la DEC sans en calculer les '
-            'résultats. Ces lauréats-là relèvent de l\'autre onglet.',
+            'Les classes d\'examen (CM2, 3e, Terminale) ne figurent pas ici, et '
+            'ne peuvent pas y figurer : leur passage se joue à l\'examen '
+            'd\'État. La plateforme transmet la liste des candidats à la DEC, '
+            'qui proclame en retour une liste d\'ADMIS — sans notes. « Admis » '
+            'ne se classe pas : on ne départage pas soixante admis entre eux.',
+            style: TextStyle(fontSize: 12.5, color: kTextMuted, height: 1.5),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Le suivi des examens d\'État — taux de réussite, admis, '
+            'transmission des dossiers, par filière et par département — se lit '
+            'sur la page « Examens nationaux », qui ne demande que l\'admission.',
             style: TextStyle(fontSize: 12.5, color: kTextMuted, height: 1.5),
           ),
         ]),

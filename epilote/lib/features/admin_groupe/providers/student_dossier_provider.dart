@@ -18,30 +18,45 @@ import '../../auth/providers/auth_provider.dart';
 //    On transmet les faits, pas le carnet de travail de celui qui les suit.
 // ════════════════════════════════════════════════════════════════════════════
 
-/// Distinction obtenue à un examen d'État, telle qu'on la présente en tête de
-/// dossier quand on arrive depuis le palmarès.
+/// Rang au classement des classes de passage, tel qu'on le présente en tête de
+/// dossier quand on arrive depuis le classement.
 ///
-/// [scope] est OBLIGATOIRE et jamais décoratif : un rang n'existe que dans un
-/// périmètre. « 1ᵉʳ » filtré sur une filière n'est pas « 1ᵉʳ du pays », et un
-/// dossier qui l'afficherait sans le dire ferait décider de travers.
+/// ── DEUX MENTIONS OBLIGATOIRES, JAMAIS DÉCORATIVES ──────────────────────────
+/// [scope] : un rang n'existe que dans un périmètre. « 1ᵉʳ » sur un trimestre
+/// et un niveau n'est pas « 1ᵉʳ du pays », et un dossier qui l'afficherait sans
+/// le dire ferait décider de travers.
+///
+/// [basis] : ce rang repose sur le CONTRÔLE CONTINU, calculé par
+/// l'établissement — pas sur une épreuve nationale. La plateforme ne calcule
+/// aucun résultat d'examen d'État : elle transmet la liste des candidats à la
+/// DEC, qui proclame les admis. Sans cette ligne, une pièce qui circule se
+/// lirait comme une distinction d'examen. [classAverage] est là pour la même
+/// raison : 16/20 dans une classe à 15 n'est pas 16/20 dans une classe à 9.
 class DossierDistinction {
   const DossierDistinction({
     required this.rank,
     required this.average,
     required this.mention,
     required this.scope,
+    required this.basis,
     this.exAequo = false,
-    this.sessionLabel,
-    this.candidateNumber,
+    this.classAverage,
   });
 
   final int rank;
   final double average;
   final String mention;
   final String scope;
+  final String basis;
   final bool exAequo;
-  final String? sessionLabel;
-  final String? candidateNumber;
+  final double? classAverage;
+
+  /// Ligne de provenance : la base d'abord, la moyenne de classe ensuite.
+  List<String> get details => [
+        basis,
+        if (classAverage != null)
+          'moyenne de la classe : ${classAverage!.toStringAsFixed(2)}',
+      ];
 }
 
 class DossierTutor {
