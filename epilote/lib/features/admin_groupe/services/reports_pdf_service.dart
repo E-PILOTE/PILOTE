@@ -51,7 +51,7 @@ class ReportsPdfService {
     final ref_     = DateFormat('yyyyMMdd-HHmm').format(DateTime.now());
 
     final periodRange =
-        '${fmtDateL.format(data.periodStart)} → ${fmtDateL.format(data.periodEnd)}';
+        '${fmtDateL.format(data.periodStart)} au ${fmtDateL.format(data.periodEnd)}';
 
     final doc = pw.Document(
       title: 'Rapport — ${data.groupName}',

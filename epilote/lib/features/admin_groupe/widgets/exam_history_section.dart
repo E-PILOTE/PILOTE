@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
+import '../providers/admin_dashboard_provider.dart';
 import '../providers/exam_archives_provider.dart';
+import '../services/exam_statistics_pdf_service.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  HISTORIQUE DES RÉSULTATS — chiffres OFFICIELS de la DEC, empilés.
@@ -50,12 +53,20 @@ class ExamHistorySection extends ConsumerWidget {
 
     return AdminCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const AdminSectionTitle(
-          'Historique des résultats',
-          icon: Icons.timeline_rounded,
-          subtitle: 'Chiffres officiels publiés par la DEC — taux calculés sur '
-              'les présents',
-        ),
+        Row(children: [
+          const Expanded(
+            child: AdminSectionTitle(
+              'Historique des résultats',
+              icon: Icons.timeline_rounded,
+              subtitle: 'Chiffres officiels publiés par la DEC — taux calculés '
+                  'sur les présents',
+            ),
+          ),
+          AdminPdfButton(
+            label: 'Statistiques officielles',
+            onTap: () => _openPdf(context, ref, history, standings),
+          ),
+        ]),
         const SizedBox(height: 14),
         Wrap(
           spacing: 8,
@@ -82,8 +93,179 @@ class ExamHistorySection extends ConsumerWidget {
                   fontWeight: FontWeight.w800,
                   color: kTextPrimary)),
           const SizedBox(height: 10),
-          _Standings(rows: standings),
+          _Standings(
+            rows: standings,
+            onTap: (r) => _openDepartment(context, figures, history, r),
+          ),
         ],
+      ]),
+    );
+  }
+
+  void _openPdf(BuildContext context, WidgetRef ref, ExamHistory history,
+      List<DepartmentStanding> standings) {
+    final groupName = ref.read(adminDashboardProvider).valueOrNull?.groupName ??
+        'Groupe scolaire';
+    showPdfPreviewDialog(
+      context,
+      title: 'Statistiques ${history.examShortName}',
+      subtitle: 'Session ${history.latest?.yearLabel ?? '—'}',
+      pdfFileName: 'statistiques_examen.pdf',
+      build: (_) => ExamStatisticsPdfService.buildPdf(
+          groupName: groupName, history: history, standings: standings),
+      onDownload: () => ExamStatisticsPdfService.download(
+          groupName: groupName, history: history, standings: standings),
+    );
+  }
+
+  /// Détail d'un département : sa trajectoire propre sur le même examen.
+  /// Un rang seul ne dit pas si le département progresse ou décroche.
+  void _openDepartment(BuildContext context, List<OfficialFigure> figures,
+      ExamHistory history, DepartmentStanding row) {
+    final series = [
+      for (final f in figures)
+        if (f.scope == PubScope.departement &&
+            f.examShortName == history.examShortName &&
+            f.department == row.department &&
+            f.passRate != null &&
+            f.yearLabel != null)
+          f,
+    ]..sort((a, b) => a.yearLabel!.compareTo(b.yearLabel!));
+
+    showDialog<void>(
+      context: context,
+      builder: (_) => _DepartmentDialog(
+          row: row, exam: history.examShortName, series: series,
+          national: history),
+    );
+  }
+}
+
+// ─── Détail départemental ───────────────────────────────────────────────────
+class _DepartmentDialog extends StatelessWidget {
+  const _DepartmentDialog(
+      {required this.row,
+      required this.exam,
+      required this.series,
+      required this.national});
+
+  final DepartmentStanding row;
+  final String exam;
+  final List<OfficialFigure> series;
+  final ExamHistory national;
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        backgroundColor: kCardBg,
+        contentPadding: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        content: SizedBox(
+          width: 560,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            AdminDialogHeader(
+              title: row.department,
+              icon: Icons.map_rounded,
+              subtitle: '$exam · rang ${row.rank} sur la dernière session',
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Trajectoire du département',
+                          style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                              color: kTextPrimary)),
+                      const SizedBox(height: 10),
+                      for (var i = 0; i < series.length; i++)
+                        _Year(
+                          figure: series[i],
+                          previous: i == 0 ? null : series[i - 1],
+                          // L'écart au national est la seule mesure qui situe
+                          // un département : 62 % ne se juge pas dans l'absolu.
+                          national: _nationalRate(series[i].yearLabel!),
+                        ),
+                    ]),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Fermer')),
+              ]),
+            ),
+          ]),
+        ),
+      );
+
+  double? _nationalRate(String year) {
+    for (final p in national.points) {
+      if (p.yearLabel == year) return p.rate;
+    }
+    return null;
+  }
+}
+
+class _Year extends StatelessWidget {
+  const _Year({required this.figure, this.previous, this.national});
+  final OfficialFigure figure;
+  final OfficialFigure? previous;
+  final double? national;
+
+  @override
+  Widget build(BuildContext context) {
+    final rate = figure.passRate!;
+    final delta = previous?.passRate == null ? null : rate - previous!.passRate!;
+    final gap = national == null ? null : rate - national!;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: kBorder),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(figure.yearLabel ?? '—',
+                style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: kTextPrimary)),
+            Text('${figure.admitted ?? '—'} admis sur ${figure.present ?? '—'} présents',
+                style: TextStyle(fontSize: 11, color: kTextMuted)),
+            if (gap != null)
+              Text(
+                gap >= 0
+                    ? '+${gap.toStringAsFixed(2)} pt au-dessus du national'
+                    : '${gap.toStringAsFixed(2)} pt sous le national',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: gap >= 0 ? kGreen : kRed),
+              ),
+          ]),
+        ),
+        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Text('${rate.toStringAsFixed(2)} %',
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w900, color: kNavy)),
+          Text(
+              delta == null
+                  ? 'référence'
+                  : '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(2)} pt',
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: delta == null
+                      ? kTextMuted
+                      : (delta >= 0 ? kGreen : kRed))),
+        ]),
       ]),
     );
   }
@@ -186,8 +368,9 @@ class _Bar extends StatelessWidget {
 
 // ─── Classement départemental ───────────────────────────────────────────────
 class _Standings extends StatelessWidget {
-  const _Standings({required this.rows});
+  const _Standings({required this.rows, required this.onTap});
   final List<DepartmentStanding> rows;
+  final ValueChanged<DepartmentStanding> onTap;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -212,7 +395,9 @@ class _Standings extends StatelessWidget {
             ]),
           ),
           for (final r in rows)
-            Container(
+            InkWell(
+              onTap: () => onTap(r),
+              child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
               decoration: BoxDecoration(
                 border: Border(top: BorderSide(color: kBorder)),
@@ -242,8 +427,9 @@ class _Standings extends StatelessWidget {
                     color: r.deltaPoints == null
                         ? null
                         : (r.deltaPoints! >= 0 ? kGreen : kRed)),
+                Icon(Icons.chevron_right_rounded, size: 16, color: kTextMuted),
               ]),
-            ),
+            )),
         ]),
       );
 

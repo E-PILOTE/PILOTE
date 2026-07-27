@@ -1,5 +1,7 @@
 import 'package:epilote/features/admin_groupe/providers/exam_archives_provider.dart';
+import 'package:epilote/features/admin_groupe/services/exam_statistics_pdf_service.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 /// ARCHIVES DES PUBLICATIONS DE LA DEC.
 ///
@@ -8,6 +10,8 @@ import 'package:flutter_test/flutter_test.dart';
 ///  • OFFICIEL   — relevé sur la publication de la DEC, fait autorité.
 ///  • PLATEFORME — dérivé des saisies des écoles, inséparable de sa couverture.
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() => initializeDateFormatting('fr'));
   group('Taux officiel — il porte sur les PRÉSENTS', () {
     test('reproduit le taux réellement publié (BAC T&P 2025)', () {
       // 7 681 admis sur 15 843 présents, pour 16 070 inscrits → 48,48 %.
@@ -142,6 +146,7 @@ void main() {
   });
 
   _history();
+  _statisticsPdf();
 }
 
 /// Historique — empiler des chiffres publiés, sans jamais en fabriquer.
@@ -221,6 +226,58 @@ void _history() {
       final s = departmentStandings(figures,
           examShortName: 'BET', yearLabel: '2024-2025');
       expect(s, isEmpty);
+    });
+  });
+}
+
+/// Le document officiel doit sortir quelles que soient les données — un
+/// classement vide ou 15 départements ne doivent jamais bloquer l'impression.
+void _statisticsPdf() {
+  group('Statistiques officielles — document', () {
+    ExamHistory hist(int n) => ExamHistory(
+          examShortName: 'Bac T',
+          points: [
+            for (var i = 0; i < n; i++)
+              HistoryPoint(
+                yearLabel: '${2021 + i}-${2022 + i}',
+                rate: 34 + i * 4.83,
+                present: 11800 + i * 366,
+                admitted: 4010 + i * 700,
+                deltaPoints: i == 0 ? null : 4.83,
+              ),
+          ],
+        );
+
+    test('une seule session, sans classement, produit un document', () async {
+      final b = await ExamStatisticsPdfService.buildPdf(
+          groupName: 'METP', history: hist(1), standings: const []);
+      expect(b.length, greaterThan(0));
+    });
+
+    test('15 départements et 4 sessions se génèrent sans exception', () async {
+      const deps = [
+        'Brazzaville', 'Pointe-Noire', 'Bouenza', 'Niari', 'Pool',
+        'Kouilou', 'Cuvette', 'Plateaux', 'Lékoumou', 'Sangha',
+        'Likouala', 'Cuvette-Ouest', 'Congo-Oubangui', 'Djoué-Léfini',
+        'Nkéni-Alima',
+      ];
+      final b = await ExamStatisticsPdfService.buildPdf(
+        groupName: 'Ministère de l\'Enseignement Technique et Professionnel',
+        history: hist(4),
+        standings: [
+          for (var i = 0; i < deps.length; i++)
+            DepartmentStanding(
+              rank: i + 1,
+              department: deps[i],
+              rate: 99.5 - i * 4.1,
+              present: 3611 - i * 120,
+              admitted: 1420 - i * 60,
+              deltaPoints: i.isEven ? 2.4 : -1.7,
+            ),
+        ],
+      );
+      expect(b.length, greaterThan(0),
+          reason: 'un cadre trop haut bloquerait tout le document');
     });
   });
 }

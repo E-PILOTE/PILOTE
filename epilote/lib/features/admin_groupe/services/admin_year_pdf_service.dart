@@ -48,7 +48,7 @@ class AcademicYearPdfService {
     final now = DateFormat('dd/MM/yyyy • HH:mm', 'fr').format(DateTime.now());
     final ref_ = DateFormat('yyyyMMdd-HHmm').format(DateTime.now());
     final range =
-        '${fmtDateL.format(year.startDate)} → ${fmtDateL.format(year.endDate)}';
+        '${fmtDateL.format(year.startDate)} au ${fmtDateL.format(year.endDate)}';
 
     final doc = pw.Document(
       title: 'Bilan ${year.label}',
