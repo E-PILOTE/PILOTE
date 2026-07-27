@@ -1,18 +1,25 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/list_chrome.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
+import '../providers/admin_dashboard_provider.dart';
 import '../providers/admin_schools_provider.dart';
 import '../providers/admin_students_provider.dart';
+import '../services/group_students_pdf_service.dart';
+import '../widgets/group_student_filters.dart';
+import '../widgets/group_student_kpis.dart';
 import '../widgets/group_student_table.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  ÉLÈVES DU RÉSEAU — écran ministère (admin_groupe, online, lecture seule).
 //
 //  Le seul endroit d'où l'on peut retrouver UN élève dans TOUT le réseau :
-//  par son nom, son matricule, ou en parcourant un établissement. C'est la
+//  par son nom, son matricule, ou en parcourant un territoire. C'est la
 //  question qu'un cabinet reçoit sans arrêt — « où est scolarisé cet enfant,
 //  dans quelle filière ? » — et à laquelle rien ne répondait jusqu'ici au
 //  niveau du groupe.
@@ -21,6 +28,14 @@ import '../widgets/group_student_table.dart';
 //  intégrale n'a pas de sens (cf. admin_students_provider.dart). On part d'un
 //  critère.
 // ════════════════════════════════════════════════════════════════════════════
+
+/// Délai d'inactivité avant de lancer la requête. Sans lui, « Mabiala » fait
+/// partir SEPT requêtes serveur — chacune ramenant jusqu'à 200 élèves et leurs
+/// inscriptions — dont six sont périmées avant d'arriver. Sur une liaison
+/// congolaise, c'est la différence entre un écran qui répond et un écran qui
+/// clignote.
+const _kDebounce = Duration(milliseconds: 350);
+
 class AdminStudentsScreen extends ConsumerStatefulWidget {
   const AdminStudentsScreen({super.key});
 
@@ -30,23 +45,94 @@ class AdminStudentsScreen extends ConsumerStatefulWidget {
 
 class _State extends ConsumerState<AdminStudentsScreen> {
   final _search = TextEditingController();
+  Timer? _debounce;
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _search.dispose();
     super.dispose();
   }
 
-  void _update(StudentQuery q) =>
+  /// Seule la saisie au clavier est temporisée : un menu déroulant est un choix
+  /// déjà arrêté, le faire attendre 350 ms le ferait paraître poussif.
+  void _update(StudentQuery q) {
+    final typing = q.search != ref.read(studentQueryProvider).search;
+    _debounce?.cancel();
+    if (!typing) {
       ref.read(studentQueryProvider.notifier).state = q;
+      return;
+    }
+    _debounce = Timer(_kDebounce, () {
+      if (mounted) ref.read(studentQueryProvider.notifier).state = q;
+    });
+  }
+
+  void _reset() {
+    _debounce?.cancel();
+    _search.clear();
+    ref.read(studentQueryProvider.notifier).state = const StudentQuery();
+  }
+
+  /// Ce que couvre la sélection courante — accolé aux KPI pour qu'un
+  /// pourcentage ne soit jamais lu comme celui du réseau entier.
+  String _scopeLabel(StudentQuery q, List<SchoolDetail> schools) {
+    final school = _schoolName(q, schools);
+    if (school != null) return school;
+    if (q.department != null) return 'département ${q.department}';
+    if (q.filiere != null) return 'filière ${q.filiere}';
+    return q.safeSearch.isEmpty
+        ? 'sur le réseau'
+        : 'résultats de « ${q.safeSearch} »';
+  }
+
+  String? _schoolName(StudentQuery q, List<SchoolDetail> schools) {
+    if (q.schoolId == null) return null;
+    for (final s in schools) {
+      if (s.id == q.schoolId) return s.name;
+    }
+    return 'établissement sélectionné';
+  }
+
+  void _openPdf(StudentSearchResult r, List<GroupStudent> rows) {
+    final query = ref.read(studentQueryProvider);
+    final schools =
+        ref.read(adminSchoolsProvider).valueOrNull?.schools ?? const [];
+    final groupName = ref.read(adminDashboardProvider).valueOrNull?.groupName ??
+        'Groupe scolaire';
+    final schoolLabel = _schoolName(query, schools);
+
+    showPdfPreviewDialog(
+      context,
+      title: 'Élèves du réseau',
+      subtitle: _scopeLabel(query, schools),
+      pdfFileName: 'eleves_reseau.pdf',
+      build: (_) => GroupStudentsPdfService.buildPdf(
+        groupName: groupName,
+        rows: rows,
+        query: query,
+        truncated: r.truncated,
+        schoolLabel: schoolLabel,
+      ),
+      onDownload: () => GroupStudentsPdfService.download(
+        groupName: groupName,
+        rows: rows,
+        query: query,
+        truncated: r.truncated,
+        schoolLabel: schoolLabel,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final query = ref.watch(studentQueryProvider);
     final result = ref.watch(studentSearchProvider);
+    final sort = ref.watch(studentSortProvider);
     final total = ref.watch(groupStudentCountProvider).valueOrNull;
     final schools =
         ref.watch(adminSchoolsProvider).valueOrNull?.schools ?? const [];
+    final filieres = ref.watch(groupFilieresProvider).valueOrNull ?? const [];
 
     return AppShell(
       title: 'Élèves du réseau',
@@ -55,16 +141,14 @@ class _State extends ConsumerState<AdminStudentsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _SearchPanel(
+            GroupStudentFilters(
               controller: _search,
               query: query,
               schools: schools,
+              filieres: filieres,
               total: total,
               onChanged: _update,
-              onReset: () {
-                _search.clear();
-                _update(const StudentQuery());
-              },
+              onReset: _reset,
             ),
             const SizedBox(height: 20),
             if (!query.isRunnable)
@@ -77,136 +161,18 @@ class _State extends ConsumerState<AdminStudentsScreen> {
                   message: '$e',
                   onRetry: () => ref.invalidate(studentSearchProvider),
                 ),
-                data: (r) => _Results(result: r),
+                data: (r) => _Results(
+                  result: r,
+                  sort: sort,
+                  scopeLabel: _scopeLabel(query, schools),
+                  onSort: (k) => ref.read(studentSortProvider.notifier).state =
+                      sort.toggled(k),
+                  onExport: (rows) => _openPdf(r, rows),
+                ),
               ),
           ],
         ),
       ),
-    );
-  }
-}
-
-// ─── Panneau de recherche ───────────────────────────────────────────────────
-class _SearchPanel extends StatelessWidget {
-  const _SearchPanel({
-    required this.controller,
-    required this.query,
-    required this.schools,
-    required this.total,
-    required this.onChanged,
-    required this.onReset,
-  });
-
-  final TextEditingController controller;
-  final StudentQuery query;
-  final List<SchoolDetail> schools;
-  final int? total;
-  final ValueChanged<StudentQuery> onChanged;
-  final VoidCallback onReset;
-
-  static const _kAll = '__all__';
-
-  @override
-  Widget build(BuildContext context) {
-    final sorted = [...schools]..sort((a, b) => a.name.compareTo(b.name));
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: kCardBg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: kBorder),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Icon(Icons.person_search_rounded, size: 18, color: kNavy),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              total == null
-                  ? 'Rechercher un élève dans le réseau'
-                  : 'Rechercher parmi ${total.toString()} élèves du réseau',
-              style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w700,
-                  color: kTextPrimary),
-            ),
-          ),
-          TextButton.icon(
-            onPressed: onReset,
-            icon: Icon(Icons.filter_alt_off_rounded, size: 14, color: kTextMuted),
-            label: Text('Effacer',
-                style: TextStyle(fontSize: 11.5, color: kTextMuted)),
-          ),
-        ]),
-        const SizedBox(height: 12),
-        TextField(
-          controller: controller,
-          onChanged: (v) => onChanged(query.copyWith(search: v)),
-          style: TextStyle(fontSize: 13, color: kTextPrimary),
-          decoration: InputDecoration(
-            hintText: 'Nom, prénom ou matricule (2 caractères minimum)…',
-            hintStyle: TextStyle(color: kTextMuted, fontSize: 13),
-            prefixIcon: Icon(Icons.search_rounded, color: kTextMuted, size: 20),
-            filled: true,
-            fillColor: kSurface,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding: const EdgeInsets.symmetric(vertical: 12),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Wrap(spacing: 10, runSpacing: 10, children: [
-          SizedBox(
-            width: 300,
-            height: 40,
-            child: ListFilterDropdown(
-              icon: Icons.account_balance_rounded,
-              label: 'Établissement',
-              value: query.schoolId ?? _kAll,
-              items: {
-                _kAll: 'Tous les établissements',
-                for (final s in sorted) s.id: s.name,
-              },
-              onChanged: (v) =>
-                  onChanged(query.copyWith(schoolId: v == _kAll ? null : v)),
-            ),
-          ),
-          SizedBox(
-            width: 200,
-            height: 40,
-            child: ListFilterDropdown(
-              icon: Icons.wc_rounded,
-              label: 'Sexe',
-              value: query.gender ?? _kAll,
-              items: const {
-                _kAll: 'Filles et garçons',
-                'F': 'Filles',
-                'M': 'Garçons',
-              },
-              onChanged: (v) =>
-                  onChanged(query.copyWith(gender: v == _kAll ? null : v)),
-            ),
-          ),
-          SizedBox(
-            width: 200,
-            height: 40,
-            child: ListFilterDropdown(
-              icon: Icons.toggle_on_rounded,
-              label: 'Statut',
-              value: query.activeOnly ? 'actifs' : 'tous',
-              items: const {
-                'actifs': 'Élèves actifs',
-                'tous': 'Actifs et inactifs',
-              },
-              onChanged: (v) =>
-                  onChanged(query.copyWith(activeOnly: v == 'actifs')),
-            ),
-          ),
-        ]),
-      ]),
     );
   }
 }
@@ -221,23 +187,33 @@ class _Prompt extends StatelessWidget {
         icon: Icons.person_search_rounded,
         title: 'Par où commencer ?',
         message: total == null
-            ? 'Saisissez un nom ou un matricule, ou choisissez un '
-                'établissement pour en parcourir les élèves.'
+            ? 'Saisissez un nom ou un matricule, ou choisissez un département, '
+                'un établissement ou une filière à parcourir.'
             : 'Le réseau compte $total élèves actifs. Saisissez un nom ou un '
-                'matricule, ou choisissez un établissement pour en parcourir '
-                'les élèves.',
+                'matricule, ou choisissez un département, un établissement ou '
+                'une filière à parcourir.',
       );
 }
 
 // ─── Résultats ──────────────────────────────────────────────────────────────
 class _Results extends StatelessWidget {
-  const _Results({required this.result});
+  const _Results({
+    required this.result,
+    required this.sort,
+    required this.scopeLabel,
+    required this.onSort,
+    required this.onExport,
+  });
+
   final StudentSearchResult result;
+  final StudentSortState sort;
+  final String scopeLabel;
+  final ValueChanged<StudentSort> onSort;
+  final ValueChanged<List<GroupStudent>> onExport;
 
   @override
   Widget build(BuildContext context) {
-    final rows = result.students;
-    if (rows.isEmpty) {
+    if (result.students.isEmpty) {
       return const AdminEmptyState(
         icon: Icons.search_off_rounded,
         title: 'Aucun élève trouvé',
@@ -246,9 +222,14 @@ class _Results extends StatelessWidget {
       );
     }
 
+    // Le tri s'applique à ce qui est affiché : c'est aussi l'ordre exporté,
+    // pour que le PDF soit la copie fidèle de l'écran qui l'a demandé.
+    final rows = sortStudents(result.students, sort);
     final unplaced = rows.where((s) => s.isUnplaced).length;
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      GroupStudentKpis(students: rows, scopeLabel: scopeLabel),
+      const SizedBox(height: 20),
       Row(children: [
         Text('${rows.length} élève${rows.length > 1 ? 's' : ''}',
             style: TextStyle(
@@ -259,13 +240,18 @@ class _Results extends StatelessWidget {
         if (unplaced > 0)
           AdminBadge('$unplaced sans classe',
               color: kRed, icon: Icons.help_outline_rounded),
+        const Spacer(),
+        AdminPdfButton(
+          label: 'Exporter la liste',
+          onTap: () => onExport(rows),
+        ),
       ]),
       const SizedBox(height: 12),
       if (result.truncated) ...[
-        _TruncatedNotice(),
+        const _TruncatedNotice(),
         const SizedBox(height: 12),
       ],
-      GroupStudentTable(students: rows),
+      GroupStudentTable(students: rows, sort: sort, onSort: onSort),
     ]);
   }
 }
@@ -273,6 +259,8 @@ class _Results extends StatelessWidget {
 /// Le plafond atteint doit être DIT : une liste coupée en silence ferait
 /// prendre 200 élèves pour l'effectif réel.
 class _TruncatedNotice extends StatelessWidget {
+  const _TruncatedNotice();
+
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
@@ -287,8 +275,9 @@ class _TruncatedNotice extends StatelessWidget {
           Expanded(
             child: Text(
               'Plus de $kStudentSearchLimit élèves correspondent. Seuls les '
-              '$kStudentSearchLimit premiers sont affichés — affinez la '
-              'recherche pour voir les autres.',
+              '$kStudentSearchLimit premiers (ordre alphabétique) sont '
+              'affichés — affinez par département ou par filière pour voir '
+              'les autres.',
               style: TextStyle(fontSize: 12, color: kTextPrimary),
             ),
           ),

@@ -30,6 +30,14 @@ void main() {
       expect(const StudentQuery(gender: 'F').isRunnable, isTrue);
     });
 
+    test('part sur un département seul — le réflexe d\'un ministère', () {
+      expect(const StudentQuery(department: 'Niari').isRunnable, isTrue);
+    });
+
+    test('part sur une filière seule — la lentille du METP', () {
+      expect(const StudentQuery(filiere: 'Électrotechnique').isRunnable, isTrue);
+    });
+
     test('les espaces ne comptent pas comme des caractères', () {
       expect(const StudentQuery(search: '  a  ').isRunnable, isFalse);
       expect(const StudentQuery(search: '  ok  ').isRunnable, isTrue);
@@ -77,6 +85,102 @@ void main() {
 
     test('activeOnly est vrai par défaut', () {
       expect(const StudentQuery().activeOnly, isTrue);
+    });
+
+    test('département et filière se remettent à null indépendamment', () {
+      const q = StudentQuery(department: 'Niari', filiere: 'Série C');
+      expect(q.copyWith(department: null).filiere, 'Série C');
+      expect(q.copyWith(filiere: null).department, 'Niari');
+    });
+
+    test('deux requêtes ne diffèrant que par la filière ne sont pas égales', () {
+      expect(const StudentQuery(filiere: 'A'),
+          isNot(const StudentQuery(filiere: 'B')));
+    });
+  });
+
+  group('StudentQuery — périmètre affiché et exporté', () {
+    test('aucun filtre = aucun critère à annoncer', () {
+      expect(const StudentQuery().activeFilters, isEmpty);
+    });
+
+    test('chaque critère actif est libellé pour le PDF', () {
+      const q = StudentQuery(
+        search: 'Ekani',
+        department: 'Niari',
+        filiere: 'Électrotechnique',
+        gender: 'F',
+        activeOnly: false,
+      );
+      final labels = q.activeFilters.map((e) => e.$1).toList();
+      expect(labels,
+          containsAll(['Recherche', 'Département', 'Filière', 'Sexe', 'Statut']));
+      expect(q.activeFilters.firstWhere((e) => e.$1 == 'Sexe').$2, 'Filles');
+    });
+
+    test('le statut par défaut ne pollue pas le périmètre', () {
+      expect(const StudentQuery(department: 'Niari').activeFilters.length, 1);
+    });
+  });
+
+  group('Tri de la liste', () {
+    GroupStudent s(String name,
+            {String school = 'École', String? klass, int? age}) =>
+        GroupStudent(
+          id: name,
+          fullName: name,
+          schoolName: school,
+          isActive: true,
+          className: klass,
+          dateOfBirth:
+              age == null ? null : DateTime(DateTime.now().year - age, 1, 1),
+        );
+
+    test('le tri par défaut est alphabétique croissant', () {
+      final r = sortStudents(
+          [s('Ngoma'), s('Ekani')], const StudentSortState());
+      expect(r.first.fullName, 'Ekani');
+    });
+
+    test('recliquer la même colonne inverse le sens', () {
+      const st = StudentSortState();
+      final flipped = st.toggled(StudentSort.name);
+      expect(flipped.ascending, isFalse);
+      expect(flipped.key, StudentSort.name);
+    });
+
+    test('changer de colonne repart en croissant', () {
+      const st = StudentSortState(key: StudentSort.name, ascending: false);
+      expect(st.toggled(StudentSort.school).ascending, isTrue);
+    });
+
+    test('une valeur absente reste en fin de liste dans les DEUX sens', () {
+      final rows = [s('A', klass: null), s('B', klass: '3ème A')];
+      for (final asc in [true, false]) {
+        final r = sortStudents(
+            rows, StudentSortState(key: StudentSort.className, ascending: asc));
+        expect(r.last.className, isNull,
+            reason: 'un « — » en tête passerait pour une donnée');
+      }
+    });
+
+    test('un âge manquant ne se trie pas comme un âge de zéro', () {
+      final r = sortStudents([s('A'), s('B', age: 14)],
+          const StudentSortState(key: StudentSort.age));
+      expect(r.first.age, 14);
+    });
+
+    test('à égalité, l\'ordre reste stable — départage par nom', () {
+      final rows = [s('Ngoma', school: 'X'), s('Ekani', school: 'X')];
+      final r =
+          sortStudents(rows, const StudentSortState(key: StudentSort.school));
+      expect(r.map((e) => e.fullName), ['Ekani', 'Ngoma']);
+    });
+
+    test('le tri ne modifie pas la liste d\'origine', () {
+      final rows = [s('Ngoma'), s('Ekani')];
+      sortStudents(rows, const StudentSortState());
+      expect(rows.first.fullName, 'Ngoma');
     });
   });
 

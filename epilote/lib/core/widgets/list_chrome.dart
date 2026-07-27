@@ -472,6 +472,9 @@ class ListFilterDropdown extends StatelessWidget {
                   fontSize: 11.5,
                   color: kTextMuted,
                   fontWeight: FontWeight.w600)),
+          // Sans cet écart, le libellé et la valeur se collent (« Statut :Actifs »)
+          // et se lisent comme un seul mot.
+          const SizedBox(width: 5),
           Expanded(
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(

@@ -5,6 +5,8 @@ import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
 
+export '../../../core/utils/discipline_vocab.dart';
+
 const _uuid = Uuid();
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -14,34 +16,9 @@ const _uuid = Uuid();
 //  l'inscription active de l'élève. 100% offline.
 // ════════════════════════════════════════════════════════════════════════════
 
-const kIncidentTypes = <(String, String)>[
-  ('retard_repete', 'Retards répétés'),
-  ('absence_injustifiee', 'Absence injustifiée'),
-  ('indiscipline', 'Indiscipline en classe'),
-  ('violence', 'Violence / bagarre'),
-  ('triche', 'Tricherie'),
-  ('degradation', 'Dégradation de matériel'),
-  ('manque_respect', 'Manque de respect'),
-  ('autre', 'Autre'),
-];
-
-const kSanctions = <(String, String)>[
-  ('avertissement', 'Avertissement'),
-  ('travail_supplementaire', 'Travail supplémentaire'),
-  ('retenue', 'Retenue'),
-  ('exclusion_cours', 'Exclusion de cours'),
-  ('exclusion_temporaire', 'Exclusion temporaire'),
-  ('convocation_parents', 'Convocation des parents'),
-  ('conseil_discipline', 'Conseil de discipline'),
-  ('aucune', 'Aucune'),
-];
-
-String incidentTypeLabel(String? t) => kIncidentTypes
-    .firstWhere((e) => e.$1 == t, orElse: () => ('autre', 'Autre'))
-    .$2;
-String sanctionLabel(String? s) => s == null || s.isEmpty
-    ? '—'
-    : kSanctions.firstWhere((e) => e.$1 == s, orElse: () => (s, s)).$2;
+// Types d'incidents et sanctions : déplacés dans `core/utils/discipline_vocab`
+// pour que le ministère (online) puisse relire les mêmes libellés sans importer
+// PowerSync. Ré-exportés ici — les écrans Vie scolaire les voient inchangés.
 
 class DisciplineIncident {
   const DisciplineIncident({

@@ -45,7 +45,9 @@ class MeritPdfService {
     doc.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
       margin: pw.EdgeInsets.zero,
-      header: (_) => OfficialPdfKit.header(logo, f, badge: 'PALMARÈS\nNATIONAL'),
+      header: (ctx) => OfficialPdfKit.headerFor(ctx, logo, f,
+          badge: 'PALMARÈS\nNATIONAL',
+          title: 'Palmarès des lauréats — $groupName'),
       footer: (ctx) => OfficialPdfKit.footer(ctx, f, now, ref),
       build: (_) => [
         OfficialPdfKit.titleBlock(
@@ -68,40 +70,60 @@ class MeritPdfService {
               share == null ? '—' : '${share.toStringAsFixed(0)} %', kPdfGold),
         ], width: 118),
         pw.SizedBox(height: 16),
-        OfficialPdfKit.frame(
-          title: 'CLASSEMENT',
-          color: kPdfNavy,
-          fonts: f,
-          child: rows.isEmpty
-              ? _note('Aucun lauréat ne correspond à ce périmètre.', f)
-              : OfficialPdfKit.table(
-                  headers: const [
-                    'Rang',
-                    'Lauréat',
-                    'Établissement',
-                    'Filière',
-                    'Dépt.',
-                    'Moy.',
-                    'Mention',
-                  ],
-                  flex: const [7, 22, 24, 20, 13, 8, 14],
-                  leftAlignCols: const {1, 2, 3, 4},
-                  fonts: f,
-                  rows: [
-                    for (final r in rows)
-                      [
-                        r.exAequo ? '${r.rank} ex æquo' : '${r.rank}',
-                        r.entry.fullName,
-                        r.entry.schoolName,
-                        r.entry.filiere ?? '—',
-                        r.entry.department ?? '—',
-                        r.entry.average.toStringAsFixed(2),
-                        r.entry.mention,
-                      ],
-                  ],
-                ),
-        ),
-        pw.SizedBox(height: 14),
+        if (rows.isEmpty)
+          OfficialPdfKit.frame(
+            title: 'CLASSEMENT',
+            color: kPdfNavy,
+            fonts: f,
+            child: _note('Aucun lauréat ne correspond à ce périmètre.', f),
+          )
+        else
+          // Un « Top 50 » dépasse la page : sans découpage, `MultiPage` boucle
+          // et le palmarès ne s'imprime pas du tout (cf. OfficialPdfKit.paginate).
+          for (final chunk
+              in OfficialPdfKit.paginate(rows, first: 10, next: 26)) ...[
+            // Cf. group_students_pdf_service : sans saut explicite, l'intertitre
+            // « (suite) » reste orphelin en bas de la page précédente.
+            if (!identical(chunk.first, rows.first)) pw.NewPage(),
+            OfficialPdfKit.frame(
+              title: identical(chunk.first, rows.first)
+                  ? 'CLASSEMENT'
+                  : 'CLASSEMENT (suite)',
+              color: kPdfNavy,
+              fonts: f,
+              child: OfficialPdfKit.table(
+                headers: const [
+                  'Rang',
+                  'Lauréat',
+                  'Établissement',
+                  'Filière',
+                  'Dépt.',
+                  'Moy.',
+                  'Mention',
+                ],
+                flex: const [7, 22, 24, 20, 13, 8, 14],
+                leftAlignCols: const {1, 2, 3, 4},
+                fonts: f,
+                rows: [
+                  for (final r in chunk)
+                    [
+                      r.exAequo ? '${r.rank} ex æquo' : '${r.rank}',
+                      // Écrêtage : une cellule qui passe sur deux lignes fait
+                      // déborder le cadre, et un cadre qui déborde bloque tout
+                      // le document (cf. OfficialPdfKit.paginate).
+                      _fit(r.entry.fullName, 21),
+                      _fit(r.entry.schoolName, 23),
+                      _fit(r.entry.filiere, 19),
+                      _fit(r.entry.department, 12),
+                      r.entry.average.toStringAsFixed(2),
+                      r.entry.mention,
+                    ],
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 10),
+          ],
+        pw.SizedBox(height: 4),
         OfficialPdfKit.frame(
           title: 'PORTÉE DU DOCUMENT',
           color: kPdfGold,
@@ -146,6 +168,14 @@ class MeritPdfService {
     ));
 
     return doc.save();
+  }
+
+  /// Écrête une cellule pour qu'elle tienne sur UNE ligne — la hauteur d'un
+  /// bloc doit rester prévisible.
+  static String _fit(String? s, int max) {
+    final v = (s ?? '').trim();
+    if (v.isEmpty) return '—';
+    return v.length <= max ? v : '${v.substring(0, max - 1)}…';
   }
 
   static pw.Widget _line(String text, PdfFonts f, {PdfColor color = kPdfText}) =>
