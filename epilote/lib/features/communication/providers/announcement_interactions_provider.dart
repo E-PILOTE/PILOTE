@@ -113,7 +113,7 @@ Stream<List<AnnComment>> _watchCommentsOnline(
         .select(
             '*, profiles!author_id(first_name,last_name,avatar_url,role)')
         .eq('announcement_id', annId)
-        .order('created_at') as List;
+        .order('created_at', ascending: false) as List;
     return rows
         .map((r) => AnnComment.fromMap(Map<String, dynamic>.from(r as Map)))
         .toList();

@@ -149,7 +149,7 @@ final eventsProvider = FutureProvider.autoDispose<EventsData>((ref) async {
         ? [EventGroupOption(id: ctx.groupId!, name: events.first.groupName)]
         : [EventGroupOption(id: ctx.groupId!, name: 'Mon groupe')];
   } else {
-    final grows = await client.from('school_groups').select('id, name').order('name');
+    final grows = await client.from('school_groups').select('id, name').order('name', ascending: true);
     groups = (grows as List)
         .map((r) => r as Map)
         .map((m) => EventGroupOption(id: m['id'] as String, name: m['name'] as String? ?? '—'))

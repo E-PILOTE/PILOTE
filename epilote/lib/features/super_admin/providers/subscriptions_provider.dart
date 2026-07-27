@@ -215,7 +215,7 @@ final subscriptionsProvider =
         .from('subscription_plans')
         .select('id, name, price_xaf')
         .eq('is_active', true)
-        .order('price_xaf') as List;
+        .order('price_xaf', ascending: true) as List;
     plans = rows.map((r) {
       final m = Map<String, dynamic>.from(r as Map);
       return PlanOption(

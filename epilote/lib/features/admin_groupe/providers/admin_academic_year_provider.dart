@@ -155,14 +155,14 @@ final adminYearCalendarProvider = FutureProvider.autoDispose
       .from('trimesters')
       .select('id, label, trimester_number, start_date, end_date, is_current')
       .eq('academic_year_id', yearId)
-      .order('trimester_number') as List;
+      .order('trimester_number', ascending: true) as List;
   final out = <AdminTrimester>[];
   for (final t in trims) {
     final seqs = await client
         .from('sequences')
         .select('id, label, sequence_number, start_date, end_date, is_current')
         .eq('trimester_id', t['id'])
-        .order('sequence_number') as List;
+        .order('sequence_number', ascending: true) as List;
     out.add(AdminTrimester(
       id: t['id'] as String,
       label: t['label'] as String,
@@ -348,7 +348,7 @@ class AdminCalendarService {
         .from('trimesters')
         .select('id, label, trimester_number, start_date, end_date')
         .eq('academic_year_id', sourceYearId)
-        .order('trimester_number') as List;
+        .order('trimester_number', ascending: true) as List;
     for (final t in trims) {
       final newTrimId = _uuid.v4();
       await client.from('trimesters').insert({
@@ -367,7 +367,7 @@ class AdminCalendarService {
           .from('sequences')
           .select('label, sequence_number, start_date, end_date')
           .eq('trimester_id', t['id'])
-          .order('sequence_number') as List;
+          .order('sequence_number', ascending: true) as List;
       for (final s in seqs) {
         await client.from('sequences').insert({
           'trimester_id': newTrimId,

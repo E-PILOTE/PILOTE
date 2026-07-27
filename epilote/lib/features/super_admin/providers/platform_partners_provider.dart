@@ -65,7 +65,7 @@ final partnersAdminProvider =
       .from('platform_partners')
       .select(
           'id, name, logo_url, website_url, category, is_active, sort_order, starts_at, ends_at')
-      .order('sort_order');
+      .order('sort_order', ascending: true);
   return (rows as List).map((r) => PartnerModel.fromRow(r as Map)).toList();
 });
 

@@ -242,11 +242,11 @@ final adminModulesCatalogProvider =
   try {
     final catRows = await client.from('module_categories')
         .select('id, name, slug, display_order')
-        .order('display_order') as List;
+        .order('display_order', ascending: true) as List;
     final modRows = await client.from('modules')
         .select('id, name, slug, icon, description, category_id, display_order')
         .eq('is_active', true)
-        .order('display_order') as List;
+        .order('display_order', ascending: true) as List;
     for (final c in catRows) {
       final cid = c['id'] as String;
       final mods = modRows

@@ -81,27 +81,40 @@ class StudentResults {
 }
 
 /// Clé de la requête : les résultats n'existent que pour un élève DANS une
-/// classe SUR une année. Les trois sont nécessaires, aucun n'est déductible.
+/// classe SUR une année, et à l'intérieur d'un TRIMESTRE. Les trois premiers
+/// sont nécessaires ; le quatrième à `null` signifie « année entière », ce qui
+/// est un choix — pas une absence de filtre.
 class ResultsKey {
   const ResultsKey({
     required this.studentId,
     required this.classId,
     required this.academicYearId,
+    this.trimesterId,
   });
 
   final String studentId;
   final String classId;
   final String academicYearId;
+  final String? trimesterId;
+
+  ResultsKey withTrimester(String? id) => ResultsKey(
+        studentId: studentId,
+        classId: classId,
+        academicYearId: academicYearId,
+        trimesterId: id,
+      );
 
   @override
   bool operator ==(Object other) =>
       other is ResultsKey &&
       other.studentId == studentId &&
       other.classId == classId &&
-      other.academicYearId == academicYearId;
+      other.academicYearId == academicYearId &&
+      other.trimesterId == trimesterId;
 
   @override
-  int get hashCode => Object.hash(studentId, classId, academicYearId);
+  int get hashCode =>
+      Object.hash(studentId, classId, academicYearId, trimesterId);
 }
 
 final studentResultsProvider =
@@ -115,7 +128,8 @@ final studentResultsProvider =
   // de l'élève et celle de la classe. Une évaluation non publiée n'est pas un
   // résultat — un brouillon de l'enseignant n'a rien à faire dans un dossier
   // consulté par le ministère.
-  final rows = await client
+  // `dynamic` : chaque filtre PostgREST renvoie un builder d'un type différent.
+  dynamic q = client
       .from('evaluations')
       .select('subject_id, coefficient, max_score, '
           'subjects!inner(name, coefficient), '
@@ -124,6 +138,12 @@ final studentResultsProvider =
       .eq('class_id', k.classId)
       .eq('academic_year_id', k.academicYearId)
       .eq('status', 'published');
+
+  // Une moyenne n'existe pas hors d'une période : un trimestre choisi restreint
+  // le calcul, l'année entière l'étend — mais l'écran doit dire lequel.
+  if (k.trimesterId != null) q = q.eq('trimester_id', k.trimesterId!);
+
+  final rows = await q;
 
   return computeResults(rows as List, k.studentId);
 });

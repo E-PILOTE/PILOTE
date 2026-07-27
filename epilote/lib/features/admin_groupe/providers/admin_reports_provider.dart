@@ -409,7 +409,7 @@ final reportsSnapshotProvider =
         .from('schools')
         .select('id, name, school_type, city, department, is_active')
         .eq('group_id', groupId)
-        .order('name') as List;
+        .order('name', ascending: true) as List;
     for (final s in rows) {
       final dept = (s['department'] as String?)?.trim();
       schools.add(SchoolRaw(

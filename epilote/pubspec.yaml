@@ -1,7 +1,7 @@
 name: epilote
 description: "E-PILOTE CONGO v3.0 — Plateforme de gestion scolaire multi-tenant"
 publish_to: 'none'
-version: 3.0.6+7
+version: 3.0.7+8
 
 environment:
   sdk: ^3.12.0
@@ -104,3 +104,10 @@ flutter:
     - assets/icons/
     - assets/icons/logo.svg
     - assets/geo/
+    # Polices des documents officiels — EMBARQUÉES, jamais téléchargées.
+    # `PdfGoogleFonts` va les chercher sur fonts.gstatic.com : sans réseau et
+    # sans cache, le moteur PDF retombe sur Helvetica, qui ne gère PAS
+    # l'Unicode. Tous les accents des documents officiels sautaient alors —
+    # sur un produit offline-first destiné aux écoles congolaises, c'est
+    # inacceptable. Voir OfficialPdfKit.loadFonts().
+    - assets/fonts/

@@ -206,7 +206,7 @@ final schoolGroupsProvider =
         .from('subscription_plans')
         .select('id, name, price_xaf, max_schools, max_students')
         .eq('is_active', true)
-        .order('price_xaf') as List;
+        .order('price_xaf', ascending: true) as List;
     plans = rows.map((r) => PlanInfo(
       id:          r['id']           as String,
       name:        r['name']         as String,

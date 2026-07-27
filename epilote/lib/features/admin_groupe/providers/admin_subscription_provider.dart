@@ -325,7 +325,7 @@ final adminSubscriptionProvider =
     final rows = await client.from('subscription_plans')
         .select('id, name, slug, price_xaf, max_schools, max_students, max_staff, module_count, description, is_active')
         .eq('is_active', true)
-        .order('price_xaf') as List;
+        .order('price_xaf', ascending: true) as List;
     for (final r in rows) {
       final id = r['id'] as String;
       final cats = (catsByPlan[id]?.values.toList() ?? <PlanCategory>[])

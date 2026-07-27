@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/widgets/admin_ui.dart';
-import '../providers/admin_merit_provider.dart';
+// Volontairement SANS dépendance à un provider : le podium sert les deux bases
+// du palmarès (examens d'État et classes de passage), qui n'ont pas le même
+// modèle. Il ne connaît qu'un rang, un nom, un lieu et une note.
 
 // ════════════════════════════════════════════════════════════════════════════
 //  PODIUM — les trois premiers lauréats du périmètre courant.
@@ -13,14 +15,45 @@ import '../providers/admin_merit_provider.dart';
 //  Les ex æquo sont affichés comme tels : deux lauréats à 17,70 occupent la
 //  même marche, on ne les départage pas pour faire joli.
 // ════════════════════════════════════════════════════════════════════════════
-class MeritPodium extends StatelessWidget {
-  const MeritPodium({super.key, required this.rows, required this.onTap});
+/// Ce dont le podium a besoin — rien de plus.
+class PodiumItem {
+  const PodiumItem({
+    required this.rank,
+    required this.fullName,
+    required this.schoolName,
+    required this.average,
+    required this.caption,
+    this.subtitle,
+    this.exAequo = false,
+  });
 
-  final List<RankedMerit> rows;
+  final int rank;
+  final String fullName;
+  final String schoolName;
+  final double average;
+
+  /// Mention, ou « ex æquo » — ce qui se lit à droite de la moyenne.
+  final String caption;
+
+  /// Filière, classe… selon la base affichée.
+  final String? subtitle;
+  final bool exAequo;
+}
+
+class MeritPodium extends StatelessWidget {
+  const MeritPodium({
+    super.key,
+    required this.rows,
+    required this.onTap,
+    this.subtitle = 'Cliquez un lauréat pour ouvrir son dossier',
+  });
+
+  final List<PodiumItem> rows;
+  final String subtitle;
 
   /// Ouvre le dossier du lauréat. Le podium n'est pas une vignette : c'est la
   /// porte d'entrée vers l'élève.
-  final ValueChanged<RankedMerit> onTap;
+  final ValueChanged<PodiumItem> onTap;
 
   static const _gold = Color(0xFFD4AF37);
   static const _silver = Color(0xFF9AA5B1);
@@ -41,10 +74,10 @@ class MeritPodium extends StatelessWidget {
 
     return AdminCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const AdminSectionTitle(
+        AdminSectionTitle(
           'Podium',
           icon: Icons.emoji_events_rounded,
-          subtitle: 'Cliquez un lauréat pour ouvrir son dossier',
+          subtitle: subtitle,
         ),
         const SizedBox(height: 16),
         LayoutBuilder(builder: (context, c) {
@@ -86,12 +119,12 @@ class MeritPodium extends StatelessWidget {
 class _Step extends StatelessWidget {
   const _Step({required this.row, required this.onTap});
 
-  final RankedMerit row;
+  final PodiumItem row;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final e = row.entry;
+    final e = row;
     final color = MeritPodium.medalColor(row.rank);
 
     return Material(
@@ -149,7 +182,7 @@ class _Step extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(color: kTextMuted, fontSize: 11)),
-                        Text(e.filiere ?? 'Enseignement général',
+                        Text(e.subtitle ?? '—',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style:
@@ -168,7 +201,7 @@ class _Step extends StatelessWidget {
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
-                          row.exAequo ? 'ex æquo' : e.mention,
+                          row.caption,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(

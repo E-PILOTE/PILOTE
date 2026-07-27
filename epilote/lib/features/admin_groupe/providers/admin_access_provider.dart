@@ -188,11 +188,11 @@ final adminAccessProvider =
   try {
     final cats = await client.from('module_categories')
         .select('id, name, slug, display_order')
-        .order('display_order') as List;
+        .order('display_order', ascending: true) as List;
     final mods = await client.from('modules')
         .select('id, name, slug, icon, category_id, display_order')
         .eq('is_active', true)
-        .order('display_order') as List;
+        .order('display_order', ascending: true) as List;
     for (final c in cats) {
       final cid = c['id'] as String;
       final catMods = mods.where((m) => m['category_id'] == cid).map((m) {
@@ -222,7 +222,7 @@ final adminAccessProvider =
     final rows = await client.from('access_profiles')
         .select('id, name, description, is_active, role_type')
         .eq('group_id', groupId)
-        .order('name') as List;
+        .order('name', ascending: true) as List;
     apRows.addAll(rows.cast<Map<String, dynamic>>());
   } catch (_) {}
 

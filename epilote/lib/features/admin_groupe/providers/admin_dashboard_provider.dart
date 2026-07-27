@@ -248,7 +248,7 @@ final adminDashboardProvider =
         .from('schools')
         .select('id, name, school_type, city, department, is_active')
         .eq('group_id', groupId)
-        .order('name') as List;
+        .order('name', ascending: true) as List;
     schoolRows.addAll(rows.cast<Map<String, dynamic>>());
     for (final s in schoolRows) {
       final id   = s['id'] as String;

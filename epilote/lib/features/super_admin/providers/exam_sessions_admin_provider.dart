@@ -116,7 +116,7 @@ final examRefsProvider = FutureProvider.autoDispose<List<ExamRef>>((ref) async {
       .select('id, code, name, short_name, tutelle, kind, order_index')
       .eq('is_active', true)
       .order('order_index', ascending: true, nullsFirst: false)
-      .order('code');
+      .order('code', ascending: true);
 
   return [
     for (final r in rows)

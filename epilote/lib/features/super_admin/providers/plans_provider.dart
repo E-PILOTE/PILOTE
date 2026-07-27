@@ -199,7 +199,7 @@ final plansProvider = FutureProvider.autoDispose<PlansData>((ref) async {
         .select('id, name, slug, price_xaf, max_schools, max_students, '
             'max_staff, module_count, description, is_public_plan, '
             'is_active, created_at, updated_at')
-        .order('price_xaf') as List;
+        .order('price_xaf', ascending: true) as List;
     plans = rows.map((r) {
       final m = Map<String, dynamic>.from(r as Map);
       final id = m['id'] as String;
@@ -219,7 +219,7 @@ final plansProvider = FutureProvider.autoDispose<PlansData>((ref) async {
         .from('modules')
         .select('id, name, icon, category:module_categories(name)')
         .eq('is_active', true)
-        .order('display_order') as List;
+        .order('display_order', ascending: true) as List;
     modules = rows.map((r) {
       final m = Map<String, dynamic>.from(r as Map);
       final cat = m['category'];

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/mention.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/list_chrome.dart';
+import '../providers/passage_merit_provider.dart' show Trimester, trimestersProvider;
 import '../providers/student_dossier_provider.dart';
 import '../providers/student_results_provider.dart';
 import 'student_dossier_sections.dart';
@@ -18,10 +20,31 @@ import 'student_dossier_sections.dart';
 //  dense par construction, et la moyenne de la classe est collée à celle de
 //  l'élève pour que chaque ligne se lise sans calcul mental.
 // ════════════════════════════════════════════════════════════════════════════
+/// Trimestre affiché dans le dossier. `null` = année entière.
+///
+/// Volontairement HORS de la clé du dossier : on change de période sans
+/// recharger l'identité, la famille ni l'établissement.
+final dossierTrimesterProvider =
+    StateProvider.autoDispose<String?>((ref) => _unset);
+
+/// Sentinelle : tant que l'utilisateur n'a rien choisi, on affiche le trimestre
+/// EN COURS. Un `null` initial signifierait « année entière » et masquerait la
+/// période que l'établissement est en train de vivre.
+const _unset = '__unset__';
+
 class StudentResultsSection extends ConsumerWidget {
   const StudentResultsSection({super.key, required this.dossier});
 
   final StudentDossier dossier;
+
+  /// Trimestre effectif : le choix de l'utilisateur, sinon celui en cours.
+  String? _effective(String? chosen, List<Trimester> trimesters) {
+    if (chosen != _unset) return chosen;
+    for (final t in trimesters) {
+      if (t.isCurrent) return t.id;
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -40,15 +63,26 @@ class StudentResultsSection extends ConsumerWidget {
       );
     }
 
+    final trimesters = ref.watch(trimestersProvider).valueOrNull ?? const [];
+    final chosen = ref.watch(dossierTrimesterProvider);
+    final trimesterId = _effective(chosen, trimesters);
+
     final async = ref.watch(studentResultsProvider(ResultsKey(
       studentId: dossier.id,
       classId: classId,
       academicYearId: yearId,
+      trimesterId: trimesterId,
     )));
 
     return DossierSection(
       title: 'Résultats par matière',
       icon: Icons.assessment_outlined,
+      trailing: _TrimesterPicker(
+        value: trimesterId,
+        trimesters: trimesters,
+        onChanged: (v) =>
+            ref.read(dossierTrimesterProvider.notifier).state = v,
+      ),
       child: async.when(
         loading: () => const Padding(
           padding: EdgeInsets.symmetric(vertical: 22),
@@ -63,17 +97,69 @@ class StudentResultsSection extends ConsumerWidget {
             ? const DossierEmpty(
                 'Aucune évaluation publiée pour cette classe. Les moyennes '
                 'apparaîtront dès que l\'établissement aura publié ses notes.')
-            : _Table(results: r, teachers: dossier.teachers),
+            : _Table(
+                results: r,
+                teachers: dossier.teachers,
+                periodLabel: _periodLabel(trimesterId, trimesters),
+              ),
+      ),
+    );
+  }
+}
+
+String _periodLabel(String? id, List<Trimester> trimesters) {
+  if (id == null) return 'année entière';
+  for (final t in trimesters) {
+    if (t.id == id) return t.label.toLowerCase();
+  }
+  return 'période sélectionnée';
+}
+
+/// Sélecteur de période, posé dans l'en-tête de la section.
+class _TrimesterPicker extends StatelessWidget {
+  const _TrimesterPicker({
+    required this.value,
+    required this.trimesters,
+    required this.onChanged,
+  });
+
+  final String? value;
+  final List<Trimester> trimesters;
+  final ValueChanged<String?> onChanged;
+
+  static const _kYear = '__annee__';
+
+  @override
+  Widget build(BuildContext context) {
+    if (trimesters.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      width: 210,
+      height: 34,
+      child: ListFilterDropdown(
+        icon: Icons.event_note_rounded,
+        label: 'Période',
+        value: value ?? _kYear,
+        items: {
+          for (final t in trimesters)
+            t.id: t.isCurrent ? '${t.label} (en cours)' : t.label,
+          _kYear: 'Année entière',
+        },
+        onChanged: (v) => onChanged(v == _kYear ? null : v),
       ),
     );
   }
 }
 
 class _Table extends StatelessWidget {
-  const _Table({required this.results, required this.teachers});
+  const _Table({
+    required this.results,
+    required this.teachers,
+    required this.periodLabel,
+  });
 
   final StudentResults results;
   final List<DossierTeacher> teachers;
+  final String periodLabel;
 
   /// Enseignant de la matière, s'il est connu. La correspondance se fait par
   /// nom de matière : c'est la seule clé commune aux deux jeux de données.
@@ -110,7 +196,7 @@ class _Table extends StatelessWidget {
       // La portée de ces chiffres est écrite SOUS le tableau : sans elle, un
       // lecteur pressé comparerait deux élèves de deux écoles différentes.
       Text(
-        'Contrôle continu de l\'établissement, année en cours — '
+        'Contrôle continu de l\'établissement — $periodLabel — '
         '${results.evaluatedCount} matière'
         '${results.evaluatedCount > 1 ? 's' : ''} évaluée'
         '${results.evaluatedCount > 1 ? 's' : ''}. Ces moyennes situent l\'élève '

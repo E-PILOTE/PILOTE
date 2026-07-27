@@ -191,7 +191,7 @@ final modulesProvider = FutureProvider.autoDispose<ModulesData>((ref) async {
         .select('id, category_id, name, slug, description, icon, '
             'display_order, is_active, created_at, updated_at, '
             'category:module_categories(name, icon)')
-        .order('display_order') as List;
+        .order('display_order', ascending: true) as List;
     moduleRows = rows.map((r) => Map<String, dynamic>.from(r as Map)).toList();
   } catch (_) {}
 
@@ -225,7 +225,7 @@ final modulesProvider = FutureProvider.autoDispose<ModulesData>((ref) async {
     final rows = await client
         .from('module_categories')
         .select('id, name, slug, icon, display_order, created_at, updated_at')
-        .order('display_order') as List;
+        .order('display_order', ascending: true) as List;
     categories = rows.map((r) {
       final m = Map<String, dynamic>.from(r as Map);
       final id = m['id'] as String;
@@ -244,7 +244,7 @@ final modulesProvider = FutureProvider.autoDispose<ModulesData>((ref) async {
         .from('subscription_plans')
         .select('id, name, price_xaf, is_active')
         .eq('is_active', true)
-        .order('price_xaf') as List;
+        .order('price_xaf', ascending: true) as List;
     // comptage des modules par plan
     final Map<String, int> modCountByPlan = {};
     try {

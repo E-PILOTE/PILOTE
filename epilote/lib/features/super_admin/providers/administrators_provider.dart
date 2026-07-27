@@ -151,7 +151,7 @@ final administratorsProvider =
         .from('school_groups')
         .select('id, name, logo_url')
         .eq('is_active', true)
-        .order('name') as List;
+        .order('name', ascending: true) as List;
     groups = rows.map((r) => GroupInfo(
       id:      r['id']       as String,
       name:    r['name']     as String,

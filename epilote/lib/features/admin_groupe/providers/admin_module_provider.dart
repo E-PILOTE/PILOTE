@@ -85,7 +85,7 @@ final adminModuleProvider = FutureProvider.autoDispose
   try {
     final r = await client.from('access_profiles')
         .select('id, name, role_type').eq('group_id', groupId)
-        .order('name') as List;
+        .order('name', ascending: true) as List;
     apRows.addAll(r.cast<Map<String, dynamic>>());
   } catch (_) {}
 

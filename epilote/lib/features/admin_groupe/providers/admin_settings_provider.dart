@@ -701,7 +701,7 @@ final adminPaymentConfigsProvider =
       .select('id, provider, display_name, api_key, api_secret, merchant_id, '
           'webhook_url, is_active, is_test_mode, notes')
       .eq('group_id', groupId)
-      .order('created_at') as List;
+      .order('created_at', ascending: false) as List;
   return rows
       .map((r) => PaymentConfig.fromRow(r as Map<String, dynamic>))
       .toList();

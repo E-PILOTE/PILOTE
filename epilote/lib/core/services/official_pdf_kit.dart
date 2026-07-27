@@ -5,7 +5,6 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  KIT DOCUMENT OFFICIEL — chrome partagé de tous les exports PDF de l'espace
@@ -42,11 +41,33 @@ class PdfKpi {
 }
 
 class OfficialPdfKit {
-  static Future<PdfFonts> loadFonts() async => PdfFonts(
-        await PdfGoogleFonts.notoSansRegular(),
-        await PdfGoogleFonts.notoSansMedium(),
-        await PdfGoogleFonts.notoSansBold(),
-      );
+  // ⚠️ Les polices sont EMBARQUÉES, jamais téléchargées.
+  //
+  //  `PdfGoogleFonts.notoSans*()` va chercher le fichier sur fonts.gstatic.com.
+  //  Sur un poste sans réseau — le cas normal d'une école congolaise — et sans
+  //  cache, le moteur retombe sur Helvetica, qui NE GÈRE PAS l'Unicode : tous
+  //  les accents disparaissent des documents officiels (« Élèves » → « lèves »),
+  //  et personne ne s'en aperçoit avant l'impression. Pour un produit
+  //  offline-first, la seule position tenable est d'embarquer les fichiers.
+  //
+  //  Les polices ne sont chargées qu'une fois par session : décoder 1,6 Mo de
+  //  TTF à chaque export ralentirait chaque impression pour rien.
+  static PdfFonts? _cached;
+
+  static Future<PdfFonts> loadFonts() async {
+    final hit = _cached;
+    if (hit != null) return hit;
+
+    Future<pw.Font> load(String file) async =>
+        pw.Font.ttf(await rootBundle.load('assets/fonts/$file'));
+
+    final fonts = PdfFonts(
+      await load('NotoSans-Regular.ttf'),
+      await load('NotoSans-Medium.ttf'),
+      await load('NotoSans-Bold.ttf'),
+    );
+    return _cached = fonts;
+  }
 
   static Future<pw.MemoryImage?> loadLogo() async {
     final bytes = await _rasterizeSvg('assets/icons/logo.svg', 320);

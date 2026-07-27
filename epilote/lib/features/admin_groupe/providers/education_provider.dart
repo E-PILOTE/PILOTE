@@ -195,15 +195,15 @@ final educationCatalogProvider =
     final cyc = await client
         .from('education_cycles')
         .select('id, code, name, description, order_index, has_programs, group_id, is_active')
-        .order('order_index') as List;
+        .order('order_index', ascending: true) as List;
     final pro = await client
         .from('education_programs')
         .select('id, cycle_id, code, name, description, order_index, group_id, is_active')
-        .order('order_index') as List;
+        .order('order_index', ascending: true) as List;
     final lvl = await client
         .from('education_levels')
         .select('id, cycle_id, program_id, code, name, order_index, group_id, is_active')
-        .order('order_index') as List;
+        .order('order_index', ascending: true) as List;
 
     return EducationCatalog(
       cycles:   [for (final r in cyc) EducationCycle.fromRow(r as Map<String, dynamic>)],

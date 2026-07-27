@@ -242,7 +242,7 @@ final adminUsersProvider =
         .select('id, name')
         .eq('group_id', groupId)
         .eq('is_active', true)
-        .order('name') as List;
+        .order('name', ascending: true) as List;
     for (final s in rows) {
       schools.add(SchoolOption(id: s['id'] as String, name: s['name'] as String? ?? '—'));
     }
@@ -255,7 +255,7 @@ final adminUsersProvider =
         .select('id, name')
         .eq('group_id', groupId)
         .eq('is_active', true)
-        .order('name') as List;
+        .order('name', ascending: true) as List;
     for (final a in rows) {
       aps.add(AccessProfileOption(id: a['id'] as String, name: a['name'] as String? ?? '—'));
     }

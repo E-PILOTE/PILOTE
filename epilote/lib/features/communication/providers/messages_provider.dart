@@ -562,7 +562,7 @@ final messageRecipientsProvider =
   final rows = await client
       .from('school_groups')
       .select('id, name')
-      .order('name');
+      .order('name', ascending: true);
   return (rows as List)
       .map((r) => r as Map)
       .map((m) => RecipientOption(
