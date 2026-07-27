@@ -162,11 +162,7 @@ class _DepartmentDialog extends StatelessWidget {
         content: SizedBox(
           width: 560,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            AdminDialogHeader(
-              title: row.department,
-              icon: Icons.map_rounded,
-              subtitle: '$exam · rang ${row.rank} sur la dernière session',
-            ),
+            _DeptHeader(row: row, exam: exam),
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -193,9 +189,11 @@ class _DepartmentDialog extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
               child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Fermer')),
+                FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: kNavy),
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Fermer'),
+                ),
               ]),
             ),
           ]),
@@ -269,6 +267,88 @@ class _Year extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// En-tête du détail départemental : le rang tient la médaille, le taux et
+/// l'effectif sont donnés d'emblée. Ouvrir un dialogue sur une simple liste
+/// obligerait à reconstituer de quoi il parle.
+class _DeptHeader extends StatelessWidget {
+  const _DeptHeader({required this.row, required this.exam});
+  final DepartmentStanding row;
+  final String exam;
+
+  static const _gold = Color(0xFFD4AF37);
+  static const _silver = Color(0xFF9AA5B1);
+  static const _bronze = Color(0xFFB87333);
+
+  Color get _medal => switch (row.rank) {
+        1 => _gold,
+        2 => _silver,
+        3 => _bronze,
+        _ => kNavy,
+      };
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [_medal.withValues(alpha: 0.14), Colors.transparent],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: Border(bottom: BorderSide(color: kBorder)),
+        ),
+        child: Row(children: [
+          Container(
+            width: 46,
+            height: 46,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+                color: _medal, borderRadius: BorderRadius.circular(13)),
+            child: Text('${row.rank}',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900)),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(row.department,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                          color: kTextPrimary)),
+                  const SizedBox(height: 2),
+                  Text(
+                      '$exam · ${row.admitted ?? '—'} admis sur '
+                      '${row.present ?? '—'} présents',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: kTextMuted)),
+                ]),
+          ),
+          const SizedBox(width: 12),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text('${row.rate.toStringAsFixed(2)} %',
+                style: TextStyle(
+                    fontSize: 21, fontWeight: FontWeight.w900, color: kNavy)),
+            if (row.deltaPoints != null)
+              Text(
+                  '${row.deltaPoints! >= 0 ? '+' : ''}'
+                  '${row.deltaPoints!.toStringAsFixed(2)} pt',
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      color: row.deltaPoints! >= 0 ? kGreen : kRed)),
+          ]),
+        ]),
+      );
 }
 
 // ─── Trajectoire nationale ──────────────────────────────────────────────────

@@ -38,6 +38,7 @@ import '../../features/admin_groupe/screens/admin_users_screen.dart';
 import '../../features/admin_groupe/screens/admin_access_screen.dart';
 import '../../features/admin_groupe/screens/admin_reports_screen.dart';
 import '../../features/admin_groupe/screens/admin_exams_screen.dart';
+import '../../features/admin_groupe/screens/admin_exam_results_screen.dart';
 import '../../features/admin_groupe/screens/admin_merit_screen.dart';
 import '../../features/admin_groupe/screens/admin_students_screen.dart';
 import '../../features/admin_groupe/screens/admin_subscription_screen.dart';
@@ -408,6 +409,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.adminExamens,
         builder: (_, _) => const AdminExamsScreen(),
+      ),
+      GoRoute(
+        path: Routes.adminResultats,
+        builder: (_, _) => const AdminExamResultsScreen(),
       ),
       GoRoute(
         path: Routes.adminPalmares,

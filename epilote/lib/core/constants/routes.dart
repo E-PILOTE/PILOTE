@@ -42,6 +42,7 @@ class Routes {
   static const String adminEleves       = '/admin/eleves';
   static const String adminProfils      = '/admin/profils';
   static const String adminExamens      = '/admin/examens';
+  static const String adminResultats    = '/admin/resultats';
   static const String adminPalmares     = '/admin/palmares';
   static const String adminRapports     = '/admin/rapports';
   static const String adminAbonnement   = '/admin/abonnement';

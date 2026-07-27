@@ -189,6 +189,14 @@ List<NavSection> _adminGroupeSections(WidgetRef ref) {
         label: 'Examens nationaux',
         route: Routes.adminExamens,
       ),
+      // Le RETOUR de la DEC : résultats proclamés et pièces archivées. Suit
+      // immédiatement l'envoi — c'est le second temps du même cycle, mais pas
+      // la même page : l'un suit la campagne en cours, l'autre l'histoire.
+      const NavEntry.item(
+        icon: Icons.verified_rounded,
+        label: 'Résultats & archives',
+        route: Routes.adminResultats,
+      ),
       // Les meilleurs lauréats du réseau : la matière première d'une commission
       // de bourses. Adossé aux examens, donc juste après eux.
       const NavEntry.item(

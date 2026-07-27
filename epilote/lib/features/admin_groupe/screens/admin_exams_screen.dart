@@ -7,8 +7,6 @@ import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../providers/admin_exams_provider.dart';
 import '../widgets/admin_exams_breakdown.dart';
-import '../widgets/exam_archives_section.dart';
-import '../widgets/exam_history_section.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  EXAMENS NATIONAUX — cockpit du MINISTÈRE (espace admin_groupe, online).
@@ -70,16 +68,15 @@ class _State extends ConsumerState<AdminExamsScreen> {
                 _ExamChart(bars: d.byExam, yearLabel: d.yearLabel),
                 const SizedBox(height: 20),
                 if (d.byFiliere.isNotEmpty || d.byDepartment.isNotEmpty) ...[
+                  // Chiffres de la PLATEFORME : ce que nos écoles ont saisi,
+                  // sur nos seuls établissements. Les résultats proclamés par
+                  // la DEC vivent sur « Résultats & archives » — deux pages,
+                  // pour que deux « réussites par département » aux valeurs
+                  // différentes ne se touchent jamais.
                   ExamBreakdownRow(
                       filiere: d.byFiliere, departement: d.byDepartment),
                   const SizedBox(height: 20),
                 ],
-                // Second temps du cycle : ce que la DEC a publié en retour.
-                // Le premier temps (dossiers, transmission) est au-dessus.
-                const ExamHistorySection(),
-                const SizedBox(height: 20),
-                const ExamArchivesSection(),
-                const SizedBox(height: 20),
                 ListFilterBar(
                   searchCtrl: _search,
                   searchHint: 'Rechercher une école…',
