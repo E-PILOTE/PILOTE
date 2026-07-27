@@ -363,7 +363,7 @@ class ArchiveActions {
   /// L'ordre n'est pas indifférent — une ligne pointant vers un fichier absent
   /// donnerait une archive qui ment. Si le téléversement échoue, rien n'est
   /// écrit.
-  Future<void> deposit({
+  Future<String> deposit({
     required String sessionId,
     required PubScope scope,
     required String title,
@@ -389,8 +389,9 @@ class ArchiveActions {
 
     await client.storage.from('exam-publications').uploadBinary(path, bytes);
 
+    final String id;
     try {
-      await client.from('exam_publications').insert({
+      final row = await client.from('exam_publications').insert({
         'group_id': groupId,
         'session_id': sessionId,
         'scope': scope.code,
@@ -407,7 +408,8 @@ class ArchiveActions {
         'file_sha256': digest,
         'notes': _trimOrNull(notes),
         'deposited_by': profile?.id,
-      });
+      }).select('id').single();
+      id = row['id'] as String;
     } catch (_) {
       // Ne pas laisser un fichier orphelin derrière une insertion refusée.
       await client.storage.from('exam-publications').remove([path]);
@@ -415,6 +417,92 @@ class ArchiveActions {
     }
 
     _ref.invalidate(examPublicationsProvider);
+    return id;
+  }
+
+  /// Prévient les établissements concernés qu'une publication les touche.
+  ///
+  /// C'est le maillon qui manquait : la DEC proclame, la DSIC archive — et
+  /// personne ne prévenait les écoles. Leurs résultats restaient « en attente »
+  /// non par négligence mais faute de savoir qu'il y avait quelque chose à
+  /// saisir. Sans cette notification, la couverture des résultats dépend du
+  /// hasard des coups de téléphone.
+  ///
+  /// Destinataires : chefs d'établissement (directeur, proviseur) — ceux qui
+  /// décident de la saisie. Prévenir tout le personnel noierait l'information.
+  ///
+  /// Renvoie le nombre de destinataires. L'échec n'annule PAS le dépôt : une
+  /// pièce archivée sans notification reste archivée, l'inverse serait absurde.
+  Future<int> notify({
+    required String publicationId,
+    required PubScope scope,
+    required String title,
+    String? department,
+    String? schoolId,
+    String? examShortName,
+    String? yearLabel,
+  }) async {
+    final client = _ref.read(supabaseClientProvider);
+    final groupId = _ref.read(authNotifierProvider).valueOrNull?.groupId;
+    if (groupId == null) return 0;
+
+    // Périmètre des écoles touchées, déduit du périmètre du document.
+    var q = client.from('schools').select('id').eq('group_id', groupId);
+    if (scope == PubScope.etablissement && schoolId != null) {
+      q = q.eq('id', schoolId);
+    } else if (scope == PubScope.departement && department != null) {
+      q = q.eq('department', department);
+    }
+    final schools = [
+      for (final r in await q) r['id'] as String,
+    ];
+    if (schools.isEmpty) return 0;
+
+    final heads = await client
+        .from('profiles')
+        .select('id')
+        .eq('group_id', groupId)
+        .inFilter('school_id', schools)
+        .inFilter('role', ['directeur', 'proviseur']);
+
+    final rows = [
+      for (final h in heads as List)
+        {
+          'group_id': groupId,
+          'recipient_id': (h as Map<String, dynamic>)['id'],
+          'type': 'exam_publication',
+          'title': 'Résultats publiés — ${examShortName ?? 'examen d\'État'}'
+              '${yearLabel == null ? '' : ' · $yearLabel'}',
+          'body': 'La DEC a publié « $title ». Saisissez les résultats de vos '
+              'candidats depuis la session concernée.',
+          'data': {
+            'publication_id': publicationId,
+            'scope': scope.code,
+            'department': ?department,
+          },
+        },
+    ];
+    if (rows.isEmpty) return 0;
+
+    await client.from('notifications').insert(rows);
+    return rows.length;
+  }
+
+  /// Rapatrie les octets d'une pièce — pour l'enregistrer hors de la
+  /// plateforme, ou en vérifier l'empreinte.
+  Future<Uint8List> fileBytes(ExamPublication p) => _ref
+      .read(supabaseClientProvider)
+      .storage
+      .from('exam-publications')
+      .download(p.filePath);
+
+  /// Recalcule l'empreinte du fichier stocké et la compare à celle enregistrée
+  /// au dépôt. C'est ce qui fait la différence entre « on a un fichier » et
+  /// « on a LA pièce ».
+  Future<bool> verifyIntegrity(ExamPublication p) async {
+    if (p.sha256 == null) return false;
+    final bytes = await fileBytes(p);
+    return sha256.convert(bytes).toString() == p.sha256;
   }
 
   /// Enregistre (ou corrige) un chiffre officiel relevé sur une publication.

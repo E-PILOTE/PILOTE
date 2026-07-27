@@ -126,7 +126,7 @@ class _State extends ConsumerState<_PublicationDialog> {
 
     try {
       final actions = ref.read(archiveActionsProvider);
-      await actions.deposit(
+      final pubId = await actions.deposit(
         sessionId: _sessionId!,
         scope: _scope,
         title: _title.text,
@@ -160,7 +160,30 @@ class _State extends ConsumerState<_PublicationDialog> {
         );
       }
 
-      if (mounted) Navigator.of(context).pop();
+      // La pièce est archivée : on prévient les écoles concernées. Un échec
+      // ici n'annule rien — une publication non notifiée reste une
+      // publication.
+      var notified = 0;
+      try {
+        notified = await actions.notify(
+          publicationId: pubId,
+          scope: _scope,
+          title: _title.text.trim(),
+          department: _department,
+          schoolId: _schoolId,
+        );
+      } catch (_) {}
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(notified == 0
+              ? 'Publication archivée. Aucun chef d\'établissement à prévenir '
+                  'sur ce périmètre.'
+              : 'Publication archivée · $notified chef(s) d\'établissement '
+                  'prévenu(s)'),
+        ));
+      }
     } catch (e) {
       if (mounted) {
         setState(() {

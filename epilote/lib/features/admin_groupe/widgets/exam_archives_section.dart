@@ -1,4 +1,8 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -96,6 +100,109 @@ class _PublicationTile extends ConsumerWidget {
 
   final ExamPublication pub;
   final OfficialFigure? figure;
+
+  void _say(BuildContext context, String msg) =>
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(msg)));
+
+  /// Enregistre la pièce hors de la plateforme. Une archive dont on ne peut
+  /// pas ressortir le document n'est qu'une base de données.
+  Future<void> _download(BuildContext context, WidgetRef ref) async {
+    try {
+      final bytes = await ref.read(archiveActionsProvider).fileBytes(pub);
+      final path = await FilePicker.platform.saveFile(
+        dialogTitle: 'Enregistrer la publication',
+        fileName: pub.fileName,
+        bytes: bytes,
+      );
+      if (path == null) return;
+      final file = File(path);
+      if (!await file.exists() || await file.length() == 0) {
+        await file.writeAsBytes(bytes);
+      }
+      if (context.mounted) _say(context, 'Enregistré : $path');
+    } catch (e) {
+      if (context.mounted) _say(context, 'Échec de l\'enregistrement : $e');
+    }
+  }
+
+  /// Recalcule l'empreinte et la compare à celle du dépôt. C'est ce qui
+  /// distingue « on a un fichier » de « on a LA pièce ».
+  Future<void> _verify(BuildContext context, WidgetRef ref) async {
+    if (pub.sha256 == null) {
+      return _say(context, 'Aucune empreinte enregistrée pour cette pièce.');
+    }
+    _say(context, 'Vérification en cours…');
+    try {
+      final ok = await ref.read(archiveActionsProvider).verifyIntegrity(pub);
+      if (!context.mounted) return;
+      _say(
+          context,
+          ok
+              ? 'Intègre — le document est identique à celui déposé.'
+              : '⚠ ALTÉRÉ — le fichier stocké diffère de celui déposé.');
+    } catch (e) {
+      if (context.mounted) _say(context, 'Vérification impossible : $e');
+    }
+  }
+
+  /// Renvoie l'avis aux chefs d'établissement — utile quand une école déclare
+  /// n'avoir rien reçu.
+  Future<void> _notify(BuildContext context, WidgetRef ref) async {
+    try {
+      final n = await ref.read(archiveActionsProvider).notify(
+            publicationId: pub.id,
+            scope: pub.scope,
+            title: pub.title,
+            department: pub.department,
+            schoolId: pub.schoolId,
+            examShortName: pub.examShortName,
+            yearLabel: pub.yearLabel,
+          );
+      if (context.mounted) {
+        _say(context,
+            n == 0 ? 'Aucun destinataire sur ce périmètre.' : '$n avis envoyé(s).');
+      }
+    } catch (e) {
+      if (context.mounted) _say(context, 'Envoi impossible : $e');
+    }
+  }
+
+  /// Retrait d'une pièce — jamais sans confirmation : ce qui part d'une
+  /// archive ne se retrouve pas.
+  Future<void> _remove(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        backgroundColor: kCardBg,
+        title: Text('Retirer cette pièce ?',
+            style: TextStyle(fontSize: 16, color: kTextPrimary)),
+        content: Text(
+          'Le document « ${pub.title} » et son fichier seront supprimés. '
+          'Les chiffres officiels relevés dessus perdront leur source : ils '
+          'resteront affichés, mais sans pièce pour les appuyer.',
+          style: TextStyle(fontSize: 13, color: kTextMuted),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(c).pop(false),
+              child: const Text('Annuler')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: kRed),
+            onPressed: () => Navigator.of(c).pop(true),
+            child: const Text('Retirer'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ref.read(archiveActionsProvider).removePublication(pub);
+      if (context.mounted) _say(context, 'Pièce retirée de l\'archive.');
+    } catch (e) {
+      if (context.mounted) _say(context, 'Retrait impossible : $e');
+    }
+  }
 
   Future<void> _open(BuildContext context, WidgetRef ref) async {
     try {
@@ -200,6 +307,35 @@ class _PublicationTile extends ConsumerWidget {
           tooltip: 'Ouvrir le document',
           onPressed: () => _open(context, ref),
           icon: Icon(Icons.open_in_new_rounded, size: 18, color: kNavy),
+        ),
+        PopupMenuButton<String>(
+          tooltip: 'Actions',
+          icon: Icon(Icons.more_vert_rounded, size: 18, color: kTextMuted),
+          onSelected: (v) => switch (v) {
+            'dl' => _download(context, ref),
+            'check' => _verify(context, ref),
+            'notify' => _notify(context, ref),
+            'copy' => Clipboard.setData(ClipboardData(text: pub.sha256 ?? ''))
+                .then((_) => context.mounted
+                    ? _say(context, 'Empreinte copiée.')
+                    : null),
+            _ => _remove(context, ref),
+          },
+          itemBuilder: (_) => [
+            const PopupMenuItem(value: 'dl', child: Text('Télécharger')),
+            const PopupMenuItem(
+                value: 'check', child: Text('Vérifier l\'intégrité')),
+            const PopupMenuItem(
+                value: 'notify', child: Text('Renvoyer l\'avis aux écoles')),
+            if (pub.sha256 != null)
+              const PopupMenuItem(
+                  value: 'copy', child: Text('Copier l\'empreinte')),
+            const PopupMenuDivider(),
+            PopupMenuItem(
+                value: 'rm',
+                child: Text('Retirer de l\'archive',
+                    style: TextStyle(color: kRed))),
+          ],
         ),
       ]),
     );
