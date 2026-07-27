@@ -7,12 +7,19 @@ import '../../../core/widgets/list_chrome.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../providers/admin_dashboard_provider.dart';
 import '../providers/admin_merit_provider.dart';
+import '../providers/student_dossier_provider.dart';
 import '../services/merit_pdf_service.dart';
 import '../widgets/merit_podium.dart';
 import '../widgets/merit_table.dart';
+import '../widgets/student_dossier_dialog.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
-//  PALMARÈS NATIONAL — écran du ministère (admin_groupe, online).
+//  MEILLEURS ÉLÈVES — écran du ministère (admin_groupe, online).
+//
+//  Le titre dit ce que la page FAIT, pas comment on l'appelle en séance :
+//  « Palmarès national » supposait qu'on sache déjà de quoi il s'agit. Le
+//  document imprimé, lui, garde le vocabulaire officiel (« Palmarès des
+//  lauréats ») — c'est la pièce, pas la porte d'entrée.
 //
 //  À quoi il sert concrètement : constituer la liste courte d'une commission
 //  de bourses, d'une distinction ou d'une affectation, et l'emporter en séance
@@ -37,28 +44,40 @@ class _State extends ConsumerState<AdminMeritScreen> {
     final filter = ref.watch(meritFilterProvider);
 
     return AppShell(
-      title: 'Palmarès national',
+      title: 'Meilleurs élèves du réseau',
       child: async.when(
         skipLoadingOnReload: true,
         loading: () => const ListShimmer(),
         error: (e, _) => _ErrorView(
             message: '$e', onRetry: () => ref.invalidate(adminMeritProvider)),
         data: (d) {
-          final rows = rankMerit(d.entries, filter);
+          // L'examen est arrêté AVANT tout classement : sans lui, `rankMerit`
+          // alignerait des épreuves de niveaux différents. On corrige l'état
+          // après la frame — le modifier pendant le build relancerait la
+          // construction en cours.
+          final exam = resolveExam(d, filter.exam);
+          if (exam != filter.exam) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              ref.read(meritFilterProvider.notifier).state =
+                  filter.copyWith(exam: exam);
+            });
+          }
+          final rows = rankMerit(d.entries, filter.copyWith(exam: exam));
           return SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _Intro(yearLabel: d.yearLabel),
+                _Intro(yearLabel: d.yearLabel, exam: exam),
                 const SizedBox(height: 18),
-                KpiGrid(items: _kpis(d, rows)),
+                KpiGrid(items: _kpis(d, rows, exam)),
                 const SizedBox(height: 20),
                 if (d.unranked > 0) ...[
                   _UnrankedNotice(count: d.unranked),
                   const SizedBox(height: 16),
                 ],
-                MeritPodium(rows: rows),
+                MeritPodium(rows: rows, onTap: (r) => _openLaureate(r, d, exam)),
                 const SizedBox(height: 20),
                 _Filters(data: d, filter: filter),
                 const SizedBox(height: 16),
@@ -72,7 +91,7 @@ class _State extends ConsumerState<AdminMeritScreen> {
                   if (rows.isNotEmpty)
                     AdminPdfButton(
                       label: 'Palmarès officiel',
-                      onTap: () => _openPdf(d, rows),
+                      onTap: () => _openPdf(d, rows, exam),
                     ),
                 ]),
                 const SizedBox(height: 12),
@@ -89,7 +108,8 @@ class _State extends ConsumerState<AdminMeritScreen> {
                         : 'Élargissez les critères pour retrouver des lauréats.',
                   )
                 else
-                  MeritTable(rows: rows),
+                  MeritTable(
+                      rows: rows, onTap: (r) => _openLaureate(r, d, exam)),
                 const SizedBox(height: 24),
                 const _ContinuousAssessmentNote(),
               ],
@@ -100,16 +120,50 @@ class _State extends ConsumerState<AdminMeritScreen> {
     );
   }
 
-  List<KpiData> _kpis(MeritData d, List<RankedMerit> rows) {
+  /// Ouvre le dossier complet du lauréat, précédé de sa distinction.
+  ///
+  /// On ne construit PAS une seconde fiche « lauréat » : le dossier de l'élève
+  /// existe déjà et fait autorité. On lui ajoute seulement le contexte
+  /// d'examen — rang, moyenne, mention — et surtout LE PÉRIMÈTRE dans lequel ce
+  /// rang a été calculé : un 1ᵉʳ filtré sur une filière n'est pas un 1ᵉʳ
+  /// national, et le laisser croire ferait attribuer une bourse de travers.
+  void _openLaureate(RankedMerit r, MeritData d, String? exam) {
+    // On relit le filtre en y réinjectant l'examen résolu : au tout premier
+    // rendu, l'état n'a pas encore été recalé et porterait un périmètre faux.
+    final filter = ref.read(meritFilterProvider).copyWith(exam: exam);
+    showStudentDossierDialog(
+      context,
+      r.entry.studentId,
+      distinction: DossierDistinction(
+        rank: r.rank,
+        average: r.entry.average,
+        mention: r.entry.mention,
+        scope: filter.scopeLabel,
+        exAequo: r.exAequo,
+        sessionLabel: d.yearLabel,
+        candidateNumber: r.entry.candidateNumber,
+      ),
+    );
+  }
+
+  List<KpiData> _kpis(MeritData d, List<RankedMerit> rows, String? exam) {
     final share = femaleShare(rows);
     final schools = rows.map((r) => r.entry.schoolId).toSet().length;
     final best = rows.isEmpty ? null : rows.first.entry;
+
+    // Assiette de l'examen affiché, et non le total du réseau : rapporter un
+    // top 10 du BET aux admis de TOUS les examens donnerait une proportion qui
+    // ne veut rien dire.
+    final classable =
+        d.entries.where((e) => exam == null || e.examShortName == exam).length;
 
     return [
       KpiData(
         label: 'Lauréats au palmarès',
         value: '${rows.length}',
-        sub: 'sur ${d.admittedTotal} admis du réseau',
+        sub: exam == null
+            ? 'sur ${d.admittedTotal} admis du réseau'
+            : 'sur $classable classés au $exam',
         icon: Icons.emoji_events_rounded,
         color: kNavy,
       ),
@@ -140,13 +194,15 @@ class _State extends ConsumerState<AdminMeritScreen> {
     ];
   }
 
-  void _openPdf(MeritData d, List<RankedMerit> rows) {
+  void _openPdf(MeritData d, List<RankedMerit> rows, String? exam) {
     final groupName = ref.read(adminDashboardProvider).valueOrNull?.groupName ??
         'Groupe scolaire';
-    final filter = ref.read(meritFilterProvider);
+    final filter = ref.read(meritFilterProvider).copyWith(exam: exam);
     showPdfPreviewDialog(
       context,
-      title: 'Palmarès national',
+      // Le document garde le vocabulaire officiel : c'est la pièce qu'une
+      // commission verse au dossier, pas l'intitulé de la page.
+      title: 'Palmarès des lauréats',
       subtitle: filter.scopeLabel,
       pdfFileName: 'palmares_national.pdf',
       build: (_) => MeritPdfService.buildPdf(
@@ -159,8 +215,9 @@ class _State extends ConsumerState<AdminMeritScreen> {
 
 // ─── Bandeau d'intention ────────────────────────────────────────────────────
 class _Intro extends StatelessWidget {
-  const _Intro({this.yearLabel});
+  const _Intro({this.yearLabel, this.exam});
   final String? yearLabel;
+  final String? exam;
 
   @override
   Widget build(BuildContext context) {
@@ -172,9 +229,11 @@ class _Intro extends StatelessWidget {
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(
-              yearLabel == null
-                  ? 'Les meilleurs lauréats du réseau'
-                  : 'Les meilleurs lauréats du réseau — session $yearLabel',
+              [
+                'Les meilleurs lauréats du réseau',
+                if (exam != null) 'au $exam',
+                if (yearLabel != null) '— session $yearLabel',
+              ].join(' '),
               style: TextStyle(
                   fontSize: 15.5,
                   fontWeight: FontWeight.w800,
@@ -187,6 +246,14 @@ class _Intro extends StatelessWidget {
               'C\'est la seule base comparable entre écoles, donc la seule '
               'opposable pour une bourse ou une distinction.',
               style: TextStyle(fontSize: 12.5, color: kTextMuted, height: 1.45),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              'Un palmarès porte sur UN examen : les moyennes du CEPE, du BET '
+              'et du Baccalauréat ne se comparent pas entre elles. Changez '
+              'd\'examen dans le périmètre ci-dessous pour voir les meilleurs '
+              'de chaque épreuve.',
+              style: TextStyle(fontSize: 12, color: kTextMuted, height: 1.45),
             ),
           ]),
         ),
@@ -261,7 +328,8 @@ class _Filters extends ConsumerWidget {
           const Spacer(),
           if (!filter.isDefault)
             TextButton.icon(
-              onPressed: () => update(MeritFilter(topN: filter.topN)),
+              onPressed: () =>
+                  update(MeritFilter(exam: filter.exam, topN: filter.topN)),
               icon: Icon(Icons.filter_alt_off_rounded, size: 14, color: kRed),
               label: Text('Réinitialiser',
                   style: TextStyle(fontSize: 11.5, color: kRed)),
@@ -269,12 +337,17 @@ class _Filters extends ConsumerWidget {
         ]),
         const SizedBox(height: 12),
         Wrap(spacing: 10, runSpacing: 10, children: [
+          // PAS d'option « tous les examens » : un classement qui mêlerait le
+          // CEPE et le Baccalauréat n'aurait aucun sens (cf. MeritFilter.exam).
+          // L'examen est toujours l'un de ceux qui ont des lauréats.
           _Slot(
             child: ListFilterDropdown(
               icon: Icons.workspace_premium_rounded,
               label: 'Examen',
-              value: filter.exam ?? _kAll,
-              items: opts(data.exams, 'Tous les examens'),
+              value: filter.exam ?? (data.exams.isEmpty ? _kAll : data.exams.first),
+              items: data.exams.isEmpty
+                  ? {_kAll: 'Aucun examen proclamé'}
+                  : {for (final v in data.exams) v: v},
               onChanged: (v) =>
                   update(filter.copyWith(exam: v == _kAll ? null : v)),
             ),

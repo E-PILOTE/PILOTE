@@ -177,4 +177,65 @@ void main() {
       expect(f.scopeLabel, contains('filles'));
     });
   });
+
+  // ── Un palmarès porte sur UN examen ───────────────────────────────────────
+  //  Classer ensemble le CEPE (fin de primaire) et le Baccalauréat n'a pas de
+  //  sens : ce ne sont ni les mêmes épreuves, ni les mêmes niveaux. C'est le
+  //  même principe qui exclut déjà les bulletins du classement. Tant qu'un seul
+  //  examen a des résultats le mélange ne se voit pas — d'où ces garde-fous.
+  group('Choix de l\'examen classé', () {
+    MeritData data(List<MeritEntry> entries) => MeritData(
+          entries: entries,
+          unranked: 0,
+          exams: const [],
+          filieres: const [],
+          departments: const [],
+          yearLabel: null,
+          admittedTotal: entries.length,
+        );
+
+    test('sans lauréat, aucun examen n\'est retenu', () {
+      expect(resolveExam(data(const []), null), isNull);
+    });
+
+    test('l\'examen le plus représenté est retenu par défaut', () {
+      final d = data([
+        e(12, exam: 'CEPE'),
+        e(11, exam: 'BET'),
+        e(10, exam: 'BET'),
+      ]);
+      expect(resolveExam(d, null), 'BET');
+    });
+
+    test('un choix explicite est respecté s\'il a des lauréats', () {
+      final d = data([e(12, exam: 'BET'), e(11, exam: 'CEPE')]);
+      expect(resolveExam(d, 'CEPE'), 'CEPE');
+    });
+
+    test('un examen devenu vide est remplacé, pas conservé', () {
+      final d = data([e(12, exam: 'BET')]);
+      expect(resolveExam(d, 'BAC'), 'BET',
+          reason: 'garder « BAC » afficherait une page vide sans explication');
+    });
+
+    test('à égalité, le choix par défaut est stable', () {
+      final d = data([e(12, exam: 'CEPE'), e(11, exam: 'BET')]);
+      expect(resolveExam(d, null), 'BET');
+      expect(resolveExam(d, null), 'BET', reason: 'jamais aléatoire');
+    });
+
+    test('des lauréats sans examen nommé ne fabriquent pas de périmètre', () {
+      expect(resolveExam(data([e(12), e(11)]), null), isNull);
+    });
+
+    test('le classement ne retient QUE l\'examen demandé', () {
+      final rows = rankMerit(
+        [e(19, exam: 'CEPE'), e(15, exam: 'BET'), e(14, exam: 'BET')],
+        const MeritFilter(exam: 'BET'),
+      );
+      expect(rows.length, 2);
+      expect(rows.first.entry.average, 15,
+          reason: 'le 19 du CEPE ne prend pas la tête du palmarès du BET');
+    });
+  });
 }

@@ -268,38 +268,68 @@ class OfficialPdfKit {
   }
 
   // ── Grille KPI ────────────────────────────────────────────────────────────────
-  static pw.Widget kpiGrid(PdfFonts f, List<PdfKpi> cells, {double width = 100}) {
+  /// [width] à `null` (recommandé) : les cartouches se PARTAGENT la largeur de
+  /// la page. Une largeur fixe laissait une bande vide à droite — quatre boîtes
+  /// de 118 pt sur 539 pt utiles s'arrêtaient à 37 pt du bord, et le bandeau
+  /// paraissait décalé au lieu d'être posé sur la page.
+  /// Une valeur explicite conserve l'ancien comportement (retour à la ligne)
+  /// pour les documents qui alignent plus de cinq indicateurs.
+  static pw.Widget kpiGrid(PdfFonts f, List<PdfKpi> cells, {double? width}) {
+    pw.Widget box(PdfKpi c) => pw.Container(
+          width: width,
+          padding: const pw.EdgeInsets.all(11),
+          decoration: pw.BoxDecoration(
+            color: PdfColors.white,
+            border: pw.Border.all(color: kPdfBorder),
+            borderRadius: pw.BorderRadius.circular(8),
+          ),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Container(width: 22, height: 3, color: c.color),
+              pw.SizedBox(height: 8),
+              pw.Text(c.value,
+                  maxLines: 1,
+                  style:
+                      pw.TextStyle(font: f.bold, fontSize: 18, color: c.color)),
+              pw.SizedBox(height: 2),
+              // Une ligne, toujours : un libellé qui passerait sur deux lignes
+              // rendrait un cartouche plus haut que ses voisins et ferait
+              // onduler le bandeau.
+              pw.Text(c.label,
+                  maxLines: 1,
+                  overflow: pw.TextOverflow.clip,
+                  style: pw.TextStyle(
+                      font: f.regular, fontSize: 8, color: kPdfMuted)),
+            ],
+          ),
+        );
+
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 28),
-      child: pw.Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: cells
-            .map((c) => pw.Container(
-                  width: width,
-                  padding: const pw.EdgeInsets.all(11),
-                  decoration: pw.BoxDecoration(
-                    color: PdfColors.white,
-                    border: pw.Border.all(color: kPdfBorder),
-                    borderRadius: pw.BorderRadius.circular(8),
+      child: width != null
+          ? pw.Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: cells.map(box).toList(),
+            )
+          : pw.Row(
+              // Surtout PAS `stretch` : dans un `MultiPage`, la hauteur
+              // disponible n'est pas bornée, et étirer les cartouches donne une
+              // hauteur infinie — le document refuse alors de se générer.
+              // Les libellés tenant sur une ligne, les hauteurs s'égalisent
+              // d'elles-mêmes.
+              children: [
+                for (var i = 0; i < cells.length; i++)
+                  pw.Expanded(
+                    child: pw.Padding(
+                      padding: pw.EdgeInsets.only(
+                          right: i == cells.length - 1 ? 0 : 10),
+                      child: box(cells[i]),
+                    ),
                   ),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Container(width: 22, height: 3, color: c.color),
-                      pw.SizedBox(height: 8),
-                      pw.Text(c.value,
-                          style: pw.TextStyle(
-                              font: f.bold, fontSize: 18, color: c.color)),
-                      pw.SizedBox(height: 2),
-                      pw.Text(c.label,
-                          style: pw.TextStyle(
-                              font: f.regular, fontSize: 8, color: kPdfMuted)),
-                    ],
-                  ),
-                ))
-            .toList(),
-      ),
+              ],
+            ),
     );
   }
 

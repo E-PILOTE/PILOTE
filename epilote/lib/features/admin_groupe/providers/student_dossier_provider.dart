@@ -18,6 +18,32 @@ import '../../auth/providers/auth_provider.dart';
 //    On transmet les faits, pas le carnet de travail de celui qui les suit.
 // ════════════════════════════════════════════════════════════════════════════
 
+/// Distinction obtenue à un examen d'État, telle qu'on la présente en tête de
+/// dossier quand on arrive depuis le palmarès.
+///
+/// [scope] est OBLIGATOIRE et jamais décoratif : un rang n'existe que dans un
+/// périmètre. « 1ᵉʳ » filtré sur une filière n'est pas « 1ᵉʳ du pays », et un
+/// dossier qui l'afficherait sans le dire ferait décider de travers.
+class DossierDistinction {
+  const DossierDistinction({
+    required this.rank,
+    required this.average,
+    required this.mention,
+    required this.scope,
+    this.exAequo = false,
+    this.sessionLabel,
+    this.candidateNumber,
+  });
+
+  final int rank;
+  final double average;
+  final String mention;
+  final String scope;
+  final bool exAequo;
+  final String? sessionLabel;
+  final String? candidateNumber;
+}
+
 class DossierTutor {
   const DossierTutor({
     required this.fullName,
@@ -117,6 +143,8 @@ class DossierSchool {
 
 class DossierEnrollment {
   const DossierEnrollment({
+    this.classId,
+    this.academicYearId,
     this.className,
     this.filiere,
     this.cycleCode,
@@ -130,6 +158,10 @@ class DossierEnrollment {
     this.validatedAt,
   });
 
+  /// Identifiants de l'inscription retenue — ils servent à aller chercher les
+  /// résultats de l'élève dans SA classe et SUR l'année en cours.
+  final String? classId;
+  final String? academicYearId;
   final String? className;
   final String? filiere;
   final String? cycleCode;
@@ -343,6 +375,8 @@ final studentDossierProvider =
       directorPhone: director?['phone'] as String?,
     ),
     enrollment: DossierEnrollment(
+      classId: enroll?['class_id'] as String?,
+      academicYearId: enroll?['academic_year_id'] as String?,
       className: klass?['name'] as String?,
       filiere: klass?['filiere_label'] as String?,
       cycleCode: klass?['cycle_code'] as String?,

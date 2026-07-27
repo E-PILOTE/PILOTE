@@ -114,7 +114,8 @@ class MeritData {
   );
 }
 
-/// Critères de sélection du palmarès. `null` = pas de restriction.
+/// Critères de sélection du palmarès. `null` = pas de restriction — SAUF pour
+/// l'examen, qui doit toujours être choisi (cf. [exam]).
 class MeritFilter {
   const MeritFilter({
     this.exam,
@@ -124,6 +125,17 @@ class MeritFilter {
     this.topN = 10,
   });
 
+  /// Examen classé. **Un palmarès porte sur UN examen, jamais sur plusieurs.**
+  ///
+  /// C'est le même principe que celui qui exclut les bulletins : deux épreuves
+  /// différentes ne sont pas comparables. 18,60 au CEPE (fin de primaire) et
+  /// 18,60 au Baccalauréat ne mesurent pas la même chose ; les aligner dans un
+  /// classement unique produirait un palmarès qui distingue surtout l'examen le
+  /// plus indulgent. Tant qu'un seul examen a des résultats, le mélange ne se
+  /// voit pas — c'est précisément pourquoi il fallait le fermer avant.
+  ///
+  /// `null` ne signifie donc pas « tous les examens » mais « pas encore
+  /// déterminé » : l'écran le résout immédiatement (cf. [resolveExam]).
   final String? exam;
   final String? filiere;
   final String? department;
@@ -155,13 +167,36 @@ class MeritFilter {
   /// officiel : un palmarès sans son périmètre n'est pas opposable.
   String get scopeLabel {
     final parts = <String>[
-      exam ?? 'tous examens',
+      exam ?? 'examen non déterminé',
       if (filiere != null) 'filière $filiere',
       if (department != null) 'département $department',
       if (gender != null) (gender == 'F' ? 'filles' : 'garçons'),
     ];
     return parts.join(' · ');
   }
+}
+
+/// Examen à classer : celui déjà choisi s'il a des lauréats, sinon celui qui en
+/// compte le plus. On ne laisse jamais l'écran sur « aucun examen » alors que
+/// des résultats existent, et on ne garde jamais un examen devenu vide après un
+/// changement de filtre — dans les deux cas l'utilisateur verrait une page vide
+/// sans comprendre pourquoi.
+String? resolveExam(MeritData data, String? current) {
+  if (data.entries.isEmpty) return null;
+  final counts = <String, int>{};
+  for (final e in data.entries) {
+    final name = e.examShortName;
+    if (name != null) counts[name] = (counts[name] ?? 0) + 1;
+  }
+  if (counts.isEmpty) return null;
+  if (current != null && counts.containsKey(current)) return current;
+  final best = counts.entries.reduce((a, b) {
+    if (a.value != b.value) return a.value > b.value ? a : b;
+    // Départage alphabétique : l'examen retenu par défaut ne doit pas changer
+    // d'une consultation à l'autre.
+    return a.key.compareTo(b.key) <= 0 ? a : b;
+  });
+  return best.key;
 }
 
 final meritFilterProvider =

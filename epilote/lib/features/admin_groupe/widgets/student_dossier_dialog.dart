@@ -5,9 +5,11 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../providers/admin_dashboard_provider.dart';
 import '../providers/student_dossier_provider.dart';
+import '../providers/student_results_provider.dart';
 import '../services/student_dossier_pdf_service.dart';
 import 'student_avatar.dart';
 import 'student_dossier_sections.dart';
+import 'student_results_section.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  DOSSIER DE L'ÉLÈVE — fiche complète, consultable depuis l'espace ministère.
@@ -19,17 +21,23 @@ import 'student_dossier_sections.dart';
 //  LECTURE SEULE, toujours. Le ministère consulte ; l'école saisit. Aucune
 //  action d'écriture n'est offerte ici, y compris par mégarde.
 // ════════════════════════════════════════════════════════════════════════════
-Future<void> showStudentDossierDialog(BuildContext context, String studentId) {
+Future<void> showStudentDossierDialog(
+  BuildContext context,
+  String studentId, {
+  DossierDistinction? distinction,
+}) {
   return showDialog(
     context: context,
     barrierColor: Colors.black54,
-    builder: (_) => _DossierDialog(studentId: studentId),
+    builder: (_) =>
+        _DossierDialog(studentId: studentId, distinction: distinction),
   );
 }
 
 class _DossierDialog extends ConsumerWidget {
-  const _DossierDialog({required this.studentId});
+  const _DossierDialog({required this.studentId, this.distinction});
   final String studentId;
+  final DossierDistinction? distinction;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -51,7 +59,7 @@ class _DossierDialog extends ConsumerWidget {
             child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
           ),
           error: (e, _) => _ErrorBody(message: '$e'),
-          data: (d) => _Body(dossier: d),
+          data: (d) => _Body(dossier: d, distinction: distinction),
         ),
       ),
     );
@@ -59,21 +67,40 @@ class _DossierDialog extends ConsumerWidget {
 }
 
 class _Body extends ConsumerWidget {
-  const _Body({required this.dossier});
+  const _Body({required this.dossier, this.distinction});
   final StudentDossier dossier;
+  final DossierDistinction? distinction;
 
   void _openPdf(BuildContext context, WidgetRef ref) {
     final groupName = ref.read(adminDashboardProvider).valueOrNull?.groupName ??
         'Groupe scolaire';
+    // Les résultats sont déjà chargés par la section à l'écran : on réutilise
+    // la valeur du cache plutôt que de relancer la requête à l'impression.
+    final e = dossier.enrollment;
+    final results = (e.classId == null || e.academicYearId == null)
+        ? null
+        : ref
+            .read(studentResultsProvider(ResultsKey(
+              studentId: dossier.id,
+              classId: e.classId!,
+              academicYearId: e.academicYearId!,
+            )))
+            .valueOrNull;
     showPdfPreviewDialog(
       context,
       title: 'Dossier de l\'élève',
       subtitle: dossier.fullName,
       pdfFileName: 'dossier_eleve.pdf',
       build: (_) => StudentDossierPdfService.buildPdf(
-          groupName: groupName, d: dossier),
+          groupName: groupName,
+          d: dossier,
+          distinction: distinction,
+          results: results),
       onDownload: () => StudentDossierPdfService.download(
-          groupName: groupName, d: dossier),
+          groupName: groupName,
+          d: dossier,
+          distinction: distinction,
+          results: results),
     );
   }
 
@@ -163,6 +190,7 @@ class _Body extends ConsumerWidget {
           ),
         ]),
       ),
+      if (distinction != null) _DistinctionBand(d: distinction!),
       // ─ Corps ──────────────────────────────────────────────────────────────
       Flexible(
         child: SingleChildScrollView(
@@ -237,26 +265,9 @@ class _Body extends ConsumerWidget {
                         ],
                       ),
               ),
-              DossierSection(
-                title: 'Équipe enseignante',
-                icon: Icons.co_present_rounded,
-                child: d.teachers.isEmpty
-                    ? const DossierEmpty(
-                        'Aucun enseignant affecté aux matières de cette classe.')
-                    : Container(
-                        decoration: BoxDecoration(
-                          color: kCardBg,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: kBorder),
-                        ),
-                        child: Column(children: [
-                          for (var i = 0; i < d.teachers.length; i++)
-                            TeacherRow(
-                                teacher: d.teachers[i],
-                                last: i == d.teachers.length - 1),
-                        ]),
-                      ),
-              ),
+              // Les notes plutôt que l'organigramme : l'enseignant reste
+              // visible, mais en colonne du tableau de résultats.
+              StudentResultsSection(dossier: d),
               DossierSection(
                 title: 'Établissement de rattachement',
                 icon: Icons.account_balance_rounded,
@@ -323,6 +334,92 @@ class _PrivacyFooter extends StatelessWidget {
               style: TextStyle(fontSize: 11.5, color: kTextMuted, height: 1.4),
             ),
           ),
+        ]),
+      );
+}
+
+/// Bandeau de distinction — visible seulement quand on ouvre le dossier depuis
+/// le palmarès. Il porte le rang ET son périmètre sur la même ligne : les deux
+/// ne doivent jamais pouvoir être lus séparément.
+class _DistinctionBand extends StatelessWidget {
+  const _DistinctionBand({required this.d});
+  final DossierDistinction d;
+
+  static const _gold = Color(0xFFD4AF37);
+  static const _silver = Color(0xFF9AA5B1);
+  static const _bronze = Color(0xFFB87333);
+
+  Color get _color => switch (d.rank) {
+        1 => _gold,
+        2 => _silver,
+        3 => _bronze,
+        _ => kNavy,
+      };
+
+  String get _rankLabel =>
+      '${d.rank}${d.rank == 1 ? 'ᵉʳ' : 'ᵉ'}${d.exAequo ? ' ex æquo' : ''}';
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+        decoration: BoxDecoration(
+          color: _color.withValues(alpha: 0.08),
+          border: Border(bottom: BorderSide(color: kBorder)),
+        ),
+        child: Row(children: [
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+                color: _color, borderRadius: BorderRadius.circular(11)),
+            child: const Icon(Icons.emoji_events_rounded,
+                size: 20, color: Colors.white),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$_rankLabel du palmarès — ${d.scope}',
+                  maxLines: 2,
+                  style: TextStyle(
+                      color: kTextPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    'Examen d\'État',
+                    if (d.sessionLabel != null) 'session ${d.sessionLabel}',
+                    if (d.candidateNumber != null)
+                      'n° ${d.candidateNumber}',
+                  ].join('  ·  '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: kTextMuted, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic, children: [
+              Text(d.average.toStringAsFixed(2),
+                  style: TextStyle(
+                      color: _color, fontSize: 20, fontWeight: FontWeight.w900)),
+              Text(' /20', style: TextStyle(color: kTextMuted, fontSize: 11)),
+            ]),
+            Text(d.mention,
+                style: TextStyle(
+                    color: kTextMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700)),
+          ]),
         ]),
       );
 }

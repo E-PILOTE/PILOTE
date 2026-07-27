@@ -193,7 +193,7 @@ List<NavSection> _adminGroupeSections(WidgetRef ref) {
       // de bourses. Adossé aux examens, donc juste après eux.
       const NavEntry.item(
         icon: Icons.emoji_events_rounded,
-        label: 'Palmarès national',
+        label: 'Meilleurs élèves',
         route: Routes.adminPalmares,
       ),
       const NavEntry.item(

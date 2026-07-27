@@ -8,8 +8,10 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/services/official_pdf_kit.dart';
+import '../../../core/utils/mention.dart';
 import '../../../core/utils/discipline_vocab.dart';
 import '../providers/student_dossier_provider.dart';
+import '../providers/student_results_provider.dart';
 import '../widgets/student_dossier_sections.dart'
     show
         fmtDate,
@@ -32,6 +34,8 @@ class StudentDossierPdfService {
   static Future<Uint8List> buildPdf({
     required String groupName,
     required StudentDossier d,
+    DossierDistinction? distinction,
+    StudentResults? results,
   }) async {
     final f = await OfficialPdfKit.loadFonts();
     final logo = await OfficialPdfKit.loadLogo();
@@ -50,7 +54,9 @@ class StudentDossierPdfService {
     doc.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
       margin: pw.EdgeInsets.zero,
-      header: (_) => OfficialPdfKit.header(logo, f, badge: 'DOSSIER\nÉLÈVE'),
+      header: (ctx) => OfficialPdfKit.headerFor(ctx, logo, f,
+          badge: 'DOSSIER\nÉLÈVE',
+          title: 'Dossier de l\'élève — ${d.fullName}'),
       footer: (ctx) => OfficialPdfKit.footer(ctx, f, now, ref),
       build: (_) => [
         OfficialPdfKit.titleBlock(
@@ -65,6 +71,10 @@ class StudentDossierPdfService {
           line2: d.school.name,
           statusBadge: d.isActive ? 'ACTIF' : 'INACTIF',
         ),
+        if (distinction != null) ...[
+          pw.SizedBox(height: 12),
+          _distinction(f, distinction),
+        ],
         pw.SizedBox(height: 14),
         _kv(f, 'IDENTITÉ', kPdfNavy, [
           ('Matricule', d.matricule ?? '—'),
@@ -120,25 +130,48 @@ class StudentDossierPdfService {
                 ),
               ),
         pw.SizedBox(height: 12),
-        d.teachers.isEmpty
-            ? _note(f, 'ÉQUIPE ENSEIGNANTE',
-                'Aucun enseignant affecté aux matières de cette classe.')
+        (results == null || results.isEmpty)
+            ? _note(f, 'RÉSULTATS PAR MATIÈRE',
+                'Aucune évaluation publiée pour cette classe sur l\'année en cours.')
             : OfficialPdfKit.frame(
-                title: 'ÉQUIPE ENSEIGNANTE',
+                title: 'RÉSULTATS PAR MATIÈRE',
                 color: kPdfNavyL,
                 fonts: f,
                 child: OfficialPdfKit.table(
-                  headers: const ['Matière', 'Enseignant', 'Volume'],
-                  flex: const [38, 44, 18],
-                  leftAlignCols: const {1},
+                  headers: const [
+                    'Matière',
+                    'Coef',
+                    'Élève',
+                    'Classe',
+                    'Enseignant',
+                  ],
+                  flex: const [32, 8, 13, 13, 34],
+                  leftAlignCols: const {4},
                   fonts: f,
                   rows: [
-                    for (final t in d.teachers)
+                    for (final r in results.subjects)
                       [
-                        t.subject,
-                        t.fullName,
-                        t.weeklyHours == null ? '—' : '${t.weeklyHours} h/sem',
+                        r.subject,
+                        '${r.coefficient}',
+                        r.average == null
+                            ? 'non évaluée'
+                            : r.average!.toStringAsFixed(2),
+                        r.classAverage == null
+                            ? '—'
+                            : r.classAverage!.toStringAsFixed(2),
+                        _teacherOf(d, r.subject),
                       ],
+                    [
+                      'MOYENNE GÉNÉRALE',
+                      '',
+                      results.overall == null
+                          ? '—'
+                          : results.overall!.toStringAsFixed(2),
+                      results.classOverall == null
+                          ? '—'
+                          : results.classOverall!.toStringAsFixed(2),
+                      results.overall == null ? '' : mentionFor(results.overall!),
+                    ],
                   ],
                 ),
               ),
@@ -231,6 +264,71 @@ class StudentDossierPdfService {
         ),
       );
 
+  /// Bandeau de distinction — imprimé seulement si le dossier a été ouvert
+  /// depuis le palmarès. Le rang y est INDISSOCIABLE de son périmètre : sur une
+  /// pièce qui circule, « 1ᵉʳ » sans mention du périmètre se lirait « premier
+  /// du pays » et fonderait une décision fausse.
+  static pw.Widget _distinction(PdfFonts f, DossierDistinction d) {
+    final rank = '${d.rank}${d.rank == 1 ? 'er' : 'e'}'
+        '${d.exAequo ? ' ex æquo' : ''}';
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 28),
+      child: pw.Container(
+        padding: const pw.EdgeInsets.all(11),
+        decoration: pw.BoxDecoration(
+          color: PdfColors.amber50,
+          borderRadius: pw.BorderRadius.circular(8),
+          border: pw.Border.all(color: kPdfGold, width: 0.9),
+        ),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('$rank du palmarès — ${d.scope}',
+                      style: pw.TextStyle(
+                          font: f.bold, fontSize: 10, color: kPdfText)),
+                  pw.SizedBox(height: 2),
+                  pw.Text(
+                    [
+                      'Examen d\'État',
+                      if (d.sessionLabel != null) 'session ${d.sessionLabel}',
+                      if (d.candidateNumber != null) 'n° ${d.candidateNumber}',
+                    ].join('  -  '),
+                    style: pw.TextStyle(
+                        font: f.regular, fontSize: 8, color: kPdfMuted),
+                  ),
+                ],
+              ),
+            ),
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.end,
+              children: [
+                pw.Text('${d.average.toStringAsFixed(2)} / 20',
+                    style: pw.TextStyle(
+                        font: f.bold, fontSize: 14, color: kPdfGold)),
+                pw.Text(d.mention,
+                    style: pw.TextStyle(
+                        font: f.medium, fontSize: 8, color: kPdfMuted)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Enseignant de la matière : la correspondance se fait par nom de matière,
+  /// seule clé commune aux affectations et aux évaluations.
+  static String _teacherOf(StudentDossier d, String subject) {
+    for (final t in d.teachers) {
+      if (t.subject.toLowerCase() == subject.toLowerCase()) return t.fullName;
+    }
+    return '—';
+  }
+
   static pw.Widget _note(PdfFonts f, String title, String text) =>
       OfficialPdfKit.frame(
         title: title,
@@ -272,8 +370,11 @@ class StudentDossierPdfService {
   static Future<String?> download({
     required String groupName,
     required StudentDossier d,
+    DossierDistinction? distinction,
+    StudentResults? results,
   }) async {
-    final bytes = await buildPdf(groupName: groupName, d: d);
+    final bytes =
+        await buildPdf(groupName: groupName, d: d, distinction: distinction);
     final fileName = 'Dossier_eleve_${_slug(d.fullName)}'
         '_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf';
 

@@ -56,7 +56,7 @@ class MeritPdfService {
           title: 'Palmarès des lauréats',
           line1: 'Périmètre : ${filter.scopeLabel}',
           line2: data.yearLabel == null
-              ? null
+              ? 'Classement établi sur la moyenne obtenue à l\'examen d\'État'
               : 'Session ${data.yearLabel} — classement établi sur la moyenne '
                   'obtenue à l\'examen d\'État',
           statusBadge: 'TOP ${filter.topN}',
@@ -68,7 +68,7 @@ class MeritPdfService {
           PdfKpi('Établissements', '$schools', kPdfNavyL),
           PdfKpi('Part de filles',
               share == null ? '—' : '${share.toStringAsFixed(0)} %', kPdfGold),
-        ], width: 118),
+        ]),
         pw.SizedBox(height: 16),
         if (rows.isEmpty)
           OfficialPdfKit.frame(
@@ -147,6 +147,12 @@ class MeritPdfService {
                     'Les moyennes de contrôle continu ne sont pas retenues : '
                     'elles ne sont pas comparables d\'un établissement à '
                     'l\'autre.',
+                    f),
+                _line(
+                    'Ce palmarès ne porte que sur ${filter.exam ?? 'un examen'} : '
+                    'les moyennes d\'examens différents ne se comparent pas '
+                    'entre elles. Un classement par examen fait l\'objet d\'un '
+                    'document distinct.',
                     f),
                 if (data.unranked > 0)
                   _line(

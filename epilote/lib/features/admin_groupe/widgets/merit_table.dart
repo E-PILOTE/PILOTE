@@ -13,9 +13,13 @@ import 'merit_podium.dart' show MeritPodium;
 //  une commission qui l'ignore attribue deux fois la même aide.
 // ════════════════════════════════════════════════════════════════════════════
 class MeritTable extends StatelessWidget {
-  const MeritTable({super.key, required this.rows});
+  const MeritTable({super.key, required this.rows, required this.onTap});
 
   final List<RankedMerit> rows;
+
+  /// Chaque ligne ouvre le dossier du lauréat : un palmarès sert à instruire
+  /// des cas, pas seulement à les énumérer.
+  final ValueChanged<RankedMerit> onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +28,11 @@ class MeritTable extends StatelessWidget {
       child: Column(children: [
         const _HeaderRow(),
         for (var i = 0; i < rows.length; i++)
-          _Row(row: rows[i], striped: i.isOdd),
+          _Row(
+            row: rows[i],
+            striped: i.isOdd,
+            onTap: () => onTap(rows[i]),
+          ),
       ]),
     );
   }
@@ -81,10 +89,11 @@ class _HeaderRow extends StatelessWidget {
 }
 
 class _Row extends StatelessWidget {
-  const _Row({required this.row, required this.striped});
+  const _Row({required this.row, required this.striped, required this.onTap});
 
   final RankedMerit row;
   final bool striped;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -113,7 +122,9 @@ class _Row extends StatelessWidget {
           ),
         );
 
-    return Container(
+    return InkWell(
+      onTap: onTap,
+      child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: striped ? kCardBg.withValues(alpha: 0.4) : Colors.transparent,
@@ -173,6 +184,7 @@ class _Row extends StatelessWidget {
             color: kTextPrimary, weight: FontWeight.w800, size: 13),
         cell(6, e.mention, color: kNavy, weight: FontWeight.w700, size: 12),
       ]),
+      ),
     );
   }
 }

@@ -79,7 +79,7 @@ class GroupStudentsPdfService {
           PdfKpi('Établissements', '$schools', kPdfNavyL),
           PdfKpi('Sans classe', '$unplaced',
               unplaced == 0 ? kPdfGreen : kPdfRed),
-        ], width: 118),
+        ]),
         pw.SizedBox(height: 16),
         if (truncated) ...[
           _warning(

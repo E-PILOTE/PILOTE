@@ -14,9 +14,13 @@ import '../providers/admin_merit_provider.dart';
 //  même marche, on ne les départage pas pour faire joli.
 // ════════════════════════════════════════════════════════════════════════════
 class MeritPodium extends StatelessWidget {
-  const MeritPodium({super.key, required this.rows});
+  const MeritPodium({super.key, required this.rows, required this.onTap});
 
   final List<RankedMerit> rows;
+
+  /// Ouvre le dossier du lauréat. Le podium n'est pas une vignette : c'est la
+  /// porte d'entrée vers l'élève.
+  final ValueChanged<RankedMerit> onTap;
 
   static const _gold = Color(0xFFD4AF37);
   static const _silver = Color(0xFF9AA5B1);
@@ -40,7 +44,7 @@ class MeritPodium extends StatelessWidget {
         const AdminSectionTitle(
           'Podium',
           icon: Icons.emoji_events_rounded,
-          subtitle: 'Meilleures moyennes du périmètre sélectionné',
+          subtitle: 'Cliquez un lauréat pour ouvrir son dossier',
         ),
         const SizedBox(height: 16),
         LayoutBuilder(builder: (context, c) {
@@ -51,22 +55,27 @@ class MeritPodium extends StatelessWidget {
                 for (final r in top)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: _Step(row: r, compact: true),
+                    child: _Step(row: r, onTap: () => onTap(r)),
                   ),
               ],
             );
           }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              for (final r in top)
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 5),
-                    child: _Step(row: r),
+          // Marches de MÊME taille. La hiérarchie est déjà portée par le rang,
+          // la médaille et la moyenne ; des hauteurs inégales n'ajoutaient
+          // rien et faisaient sauter la ligne dès qu'un ex æquo ajoutait un mot.
+          return IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final r in top)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 5),
+                      child: _Step(row: r, onTap: () => onTap(r)),
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           );
         }),
       ]),
@@ -75,98 +84,106 @@ class MeritPodium extends StatelessWidget {
 }
 
 class _Step extends StatelessWidget {
-  const _Step({required this.row, this.compact = false});
+  const _Step({required this.row, required this.onTap});
 
   final RankedMerit row;
-  final bool compact;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final e = row.entry;
     final color = MeritPodium.medalColor(row.rank);
-    // La 1ʳᵉ marche est plus haute : la hiérarchie se lit sans lire les rangs.
-    //
-    // HAUTEUR MINIMALE, jamais fixe : une marche ex æquo porte une ligne de
-    // plus, et une hauteur figée la faisait déborder d'un pixel. Le minimum
-    // conserve l'effet de podium quand le contenu est court, et cède quand il
-    // ne l'est pas — y compris si l'utilisateur agrandit la police système.
-    final minHeight =
-        compact ? 0.0 : switch (row.rank) { 1 => 128.0, 2 => 112.0, _ => 100.0 };
 
-    return Container(
-      constraints: BoxConstraints(minHeight: minHeight),
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.07),
+    return Material(
+      color: color.withValues(alpha: 0.07),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Text('${row.rank}',
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800)),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withValues(alpha: 0.35)),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(e.fullName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        color: kTextPrimary,
-                        fontSize: 13.5,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Text('${row.rank}',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
                         fontWeight: FontWeight.w800)),
-                const SizedBox(height: 2),
-                Text(e.schoolName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: kTextMuted, fontSize: 11)),
-                if (e.filiere != null)
-                  Text(e.filiere!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: kTextMuted, fontSize: 10.5)),
-                const SizedBox(height: 10),
-                Row(children: [
-                  Text(e.average.toStringAsFixed(2),
-                      style: TextStyle(
-                          color: color,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900)),
-                  Text(' /20',
-                      style: TextStyle(color: kTextMuted, fontSize: 10)),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      row.exAequo ? 'ex æquo' : e.mention,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          color: kTextMuted,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                // `spaceBetween` plutôt qu'un `Spacer` : il pousse la moyenne
+                // en bas de marche quand la hauteur est contrainte (podium
+                // large, marches égalisées) et ne fait simplement rien quand
+                // elle ne l'est pas (empilement étroit). Un `Spacer` aurait
+                // lancé une exception dans ce second cas.
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(e.fullName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                color: kTextPrimary,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 2),
+                        Text(e.schoolName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: kTextMuted, fontSize: 11)),
+                        Text(e.filiere ?? 'Enseignement général',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style:
+                                TextStyle(color: kTextMuted, fontSize: 10.5)),
+                        const SizedBox(height: 10),
+                      ],
                     ),
-                  ),
-                ]),
-              ],
-            ),
+                    Row(children: [
+                      Text(e.average.toStringAsFixed(2),
+                          style: TextStyle(
+                              color: color,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900)),
+                      Text(' /20',
+                          style: TextStyle(color: kTextMuted, fontSize: 10)),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          row.exAequo ? 'ex æquo' : e.mention,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              color: kTextMuted,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ]),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
