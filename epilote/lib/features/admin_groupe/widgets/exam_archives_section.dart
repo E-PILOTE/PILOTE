@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../providers/exam_archives_provider.dart';
+import 'exam_figure_batch_panel.dart';
 import 'exam_publication_dialog.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -46,7 +47,7 @@ class ExamArchivesSection extends ConsumerWidget {
             ),
           ),
           FilledButton.icon(
-            onPressed: () => showExamPublicationDialog(context),
+            onPressed: () => _depositThenRead(context, ref),
             icon: const Icon(Icons.add_rounded, size: 17),
             label: const Text('Déposer'),
             style: FilledButton.styleFrom(backgroundColor: kNavy),
@@ -73,6 +74,34 @@ class ExamArchivesSection extends ConsumerWidget {
           ),
       ]),
     );
+  }
+
+  /// Archive une pièce, puis propose d'en relever les chiffres dans la foulée.
+  ///
+  /// Une publication déposée dont on ne relève rien ne nourrit aucun
+  /// historique : elle dort dans l'archive. Le moment où l'on a le document
+  /// sous les yeux est le seul où l'on saisira ses quinze lignes — pas trois
+  /// semaines plus tard, depuis un autre écran.
+  static Future<void> _depositThenRead(BuildContext context, WidgetRef ref) async {
+    final id = await showExamPublicationDialog(context);
+    if (id == null || !context.mounted) return;
+
+    final ok = await showAdminConfirm(
+      context,
+      title: 'Relever les chiffres de cette pièce ?',
+      message: 'Le document est archivé. Vous pouvez maintenant y lire le '
+          'national, puis chaque département, sans le rouvrir à chaque fois.',
+      confirmLabel: 'Relever les chiffres',
+      cancelLabel: 'Plus tard',
+    );
+    if (!ok || !context.mounted) return;
+
+    // La pièce vient d'être créée : le provider a été invalidé par `deposit`,
+    // on relit la liste fraîche pour en récupérer l'objet complet.
+    final pubs = await ref.read(examPublicationsProvider.future);
+    final pub = pubs.where((p) => p.id == id).firstOrNull;
+    if (pub == null || !context.mounted) return;
+    await showExamFigureBatchPanel(context, publication: pub);
   }
 
   /// Rapproche une pièce de son chiffre officiel — même session, même
@@ -293,6 +322,7 @@ class _PublicationTile extends ConsumerWidget {
           tooltip: 'Actions',
           icon: Icon(Icons.more_vert_rounded, size: 18, color: kTextMuted),
           onSelected: (v) => switch (v) {
+            'figures' => showExamFigureBatchPanel(context, publication: pub),
             'dl' => _download(context, ref),
             'check' => _verify(context, ref),
             'notify' => _notify(context, ref),
@@ -303,6 +333,12 @@ class _PublicationTile extends ConsumerWidget {
             _ => _remove(context, ref),
           },
           itemBuilder: (_) => [
+            // En tête : c'est ce qu'on vient faire sur une pièce fraîchement
+            // archivée. Une publication déposée dont on n'a rien relevé ne
+            // nourrit aucun historique — elle dort.
+            const PopupMenuItem(
+                value: 'figures', child: Text('Relever les chiffres…')),
+            const PopupMenuDivider(),
             const PopupMenuItem(value: 'dl', child: Text('Télécharger')),
             const PopupMenuItem(
                 value: 'check', child: Text('Vérifier l\'intégrité')),
