@@ -127,45 +127,69 @@ class AdminStatCard extends StatelessWidget {
     return AdminCard(
       padding: const EdgeInsets.all(18),
       onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Icon(icon, color: color, size: 22),
-              ),
-              if (onTap != null)
-                Icon(Icons.arrow_forward_ios, size: 12, color: Colors.grey.shade400),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: color)),
-          const SizedBox(height: 2),
-          Text(label,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                  fontSize: 12.5, color: kTextMuted, fontWeight: FontWeight.w600)),
-          if (subtitle != null) ...[
-            const SizedBox(height: 2),
-            Text(subtitle!,
+      // ── POURQUOI UN LayoutBuilder ICI ────────────────────────────────────
+      // Ces cartes vivent presque toujours dans une grille à `mainAxisExtent`
+      // fixe. Dès qu'une colonne devient étroite, le libellé ET le sous-titre
+      // passent chacun sur deux lignes, et la hauteur nécessaire dépasse la
+      // hauteur allouée : « BOTTOM OVERFLOWED BY 6 PIXELS ». Rehausser
+      // l'extent ne règle rien — le même défaut revient au libellé suivant, à
+      // l'autre thème, ou dès que l'utilisateur agrandit la police du système.
+      //
+      // La hauteur disponible est donc RENDUE au texte : quand elle est
+      // bornée, libellé et sous-titre deviennent flexibles et se tronquent
+      // proprement. Le débordement cesse d'être possible par construction.
+      // Quand elle ne l'est pas (carte posée dans une colonne qui défile),
+      // `Flexible` déclencherait une assertion — on garde alors la mise en
+      // page naturelle.
+      child: LayoutBuilder(builder: (context, c) {
+        final bounded = c.maxHeight.isFinite;
+        final label = Text(this.label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                fontSize: 12.5, color: kTextMuted, fontWeight: FontWeight.w600));
+        final sub = subtitle == null
+            ? null
+            : Text(subtitle!,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade400));
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(icon, color: color, size: 22),
+                ),
+                if (onTap != null)
+                  Icon(Icons.arrow_forward_ios,
+                      size: 12, color: Colors.grey.shade400),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontSize: 24, fontWeight: FontWeight.w800, color: color)),
+            const SizedBox(height: 2),
+            if (bounded) Flexible(child: label) else label,
+            if (sub != null) ...[
+              const SizedBox(height: 2),
+              if (bounded) Flexible(child: sub) else sub,
+            ],
           ],
-        ],
-      ),
+        );
+      }),
     );
   }
 }

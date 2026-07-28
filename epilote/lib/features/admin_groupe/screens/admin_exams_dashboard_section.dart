@@ -36,16 +36,25 @@ class AdminExamsDashboardSection extends ConsumerWidget {
     final rate = d.totalCandidates == 0
         ? 0
         : (d.totalComplete / d.totalCandidates * 100).round();
+    final transmitted =
+        d.schools.where((s) => s.transmissions > 0).length;
+    final success = d.successRate;
+    void open() => context.go(Routes.adminExamens);
 
+    // ── LES SIX CHIFFRES SE LISENT DANS L'ORDRE DE LA CAMPAGNE ─────────────
+    // Déclarés → complets → transmis → proclamés, puis les deux alertes. Le
+    // tableau de bord montrait les transmissions et les stages mais PAS la
+    // réussite : le premier chiffre qu'un ministre demande manquait à l'écran
+    // d'accueil, et « Transmissions DEC : 10 » ne disait pas 10 sur combien.
     final cards = <Widget>[
       AdminStatCard(
-        label: 'Candidats aux examens',
+        label: 'Candidats déclarés',
         value: '${d.totalCandidates}',
         subtitle: '${d.schoolsWithCandidates} école(s) · '
-            '${d.sessionCount} session(s)',
+            '${d.examOptions.length} examen(s)',
         icon: Icons.workspace_premium_rounded,
         color: kNavy,
-        onTap: () => context.go(Routes.adminExamens),
+        onTap: open,
       ),
       AdminStatCard(
         label: 'Dossiers complets',
@@ -53,15 +62,28 @@ class AdminExamsDashboardSection extends ConsumerWidget {
         subtitle: '${d.totalComplete}/${d.totalCandidates} candidats',
         icon: Icons.fact_check_rounded,
         color: kGreen,
-        onTap: () => context.go(Routes.adminExamens),
+        onTap: open,
       ),
       AdminStatCard(
-        label: 'Transmissions DEC',
-        value: '${d.transmissionCount}',
-        subtitle: '${d.transmissionsAcknowledged} accusé(s) de réception',
+        label: 'Écoles ayant transmis',
+        value: '$transmitted/${d.schoolsWithCandidates}',
+        subtitle: '${d.transmissionCount} dépôt(s) · '
+            '${d.transmissionsAcknowledged} accusé(s)',
         icon: Icons.outbox_rounded,
         color: const Color(0xFF0EA5E9),
-        onTap: () => context.go(Routes.adminExamens),
+        onTap: open,
+      ),
+      // Le taux ne s'affiche JAMAIS sans son assiette, et « en attente » n'est
+      // pas « 0 % » : tant que la DEC n'a rien proclamé, il n'y a pas de taux.
+      AdminStatCard(
+        label: 'Réussite du réseau',
+        value: success == null ? '—' : '${success.toStringAsFixed(1)} %',
+        subtitle: success == null
+            ? 'en attente de la DEC'
+            : '${d.totalAdmitted} admis / ${d.totalWithResult} connus',
+        icon: Icons.emoji_events_rounded,
+        color: const Color(0xFF7C3AED),
+        onTap: open,
       ),
       AdminStatCard(
         label: 'Écoles à risque',
@@ -69,15 +91,7 @@ class AdminExamsDashboardSection extends ConsumerWidget {
         subtitle: 'candidats, rien de transmis',
         icon: Icons.warning_amber_rounded,
         color: d.schoolsAtRisk > 0 ? kRed : kTextMuted,
-        onTap: () => context.go(Routes.adminExamens),
-      ),
-      AdminStatCard(
-        label: 'Stages du réseau',
-        value: '${d.internshipsTotal}',
-        subtitle: '${d.attestationsTotal} attestation(s) délivrée(s)',
-        icon: Icons.work_history_rounded,
-        color: const Color(0xFF7C3AED),
-        onTap: () => context.go(Routes.adminExamens),
+        onTap: open,
       ),
       AdminStatCard(
         label: 'Bacs bloqués',
@@ -85,7 +99,7 @@ class AdminExamsDashboardSection extends ConsumerWidget {
         subtitle: 'stage manquant · dossier irrecevable',
         icon: Icons.block_rounded,
         color: d.bacBlocked > 0 ? kRed : kTextMuted,
-        onTap: () => context.go(Routes.adminExamens),
+        onTap: open,
       ),
     ];
 
@@ -108,7 +122,20 @@ class AdminExamsDashboardSection extends ConsumerWidget {
         ),
         const SizedBox(height: 16),
         LayoutBuilder(builder: (ctx, c) {
-          final cross = c.maxWidth > 900 ? 6 : (c.maxWidth > 600 ? 3 : 2);
+          // Le nombre de colonnes se déduit d'une LARGEUR MINIMALE de carte,
+          // pas d'un palier d'écran. Six colonnes au-delà de 900 px donnaient,
+          // sur un écran de 1280, des cartes de 140 px où le libellé et le
+          // sous-titre passaient chacun sur deux lignes — la grille débordait
+          // alors de 6 px. Une largeur plancher règle la cause : les colonnes
+          // se retirent d'elles-mêmes avant que le texte n'étouffe.
+          var cross = (c.maxWidth / 200).floor().clamp(1, 6);
+          // Et une dernière rangée à moitié vide se lit comme une carte
+          // manquante : à largeur égale, on préfère le plus grand nombre de
+          // colonnes qui divise le lot (six cartes sur quatre colonnes → 4+2 ;
+          // sur trois → deux rangées pleines).
+          while (cross > 2 && cards.length % cross != 0) {
+            cross--;
+          }
           return GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -116,10 +143,6 @@ class AdminExamsDashboardSection extends ConsumerWidget {
               crossAxisCount: cross,
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
-              // Hauteur du PIRE cas, pas du cas moyen : sur six colonnes, les
-              // cartes sont étroites et « stage manquant · dossier
-              // irrecevable » passe sur deux lignes, comme le libellé
-              // au-dessus. À 176 px, ces cartes-là débordaient de 8 px.
               mainAxisExtent: 196,
             ),
             itemCount: cards.length,
@@ -130,9 +153,45 @@ class AdminExamsDashboardSection extends ConsumerWidget {
           const SizedBox(height: 20),
           _ExamBars(bars: d.examOptions),
         ],
+        // Les stages quittent la bande de KPI : au niveau ministériel, le
+        // compteur brut est du détail de cockpit — c'est « Bacs bloqués » qui
+        // appelle une décision. Il reste lisible, en une ligne.
+        if (d.internshipsTotal > 0) ...[
+          const SizedBox(height: 14),
+          _StagesLine(
+            total: d.internshipsTotal,
+            attested: d.attestationsTotal,
+          ),
+        ],
       ]),
     ),
     );
+  }
+}
+
+// ─── Stages du réseau, en une ligne ──────────────────────────────────────────
+class _StagesLine extends StatelessWidget {
+  const _StagesLine({required this.total, required this.attested});
+  final int total;
+  final int attested;
+
+  @override
+  Widget build(BuildContext context) {
+    final missing = total - attested;
+    return Row(children: [
+      Icon(Icons.engineering_rounded, size: 15, color: kTextMuted),
+      const SizedBox(width: 8),
+      Expanded(
+        child: Text(
+          'Stages du réseau : $total convention(s) · '
+          '$attested attestation(s) délivrée(s)'
+          '${missing > 0 ? ' · $missing en attente' : ''}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 11.5, color: kTextMuted),
+        ),
+      ),
+    ]);
   }
 }
 

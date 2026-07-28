@@ -43,6 +43,7 @@ class ExamPublication {
     required this.fileName,
     required this.filePath,
     required this.receivedAt,
+    this.examCode,
     this.examShortName,
     this.yearLabel,
     this.department,
@@ -63,6 +64,11 @@ class ExamPublication {
   final String fileName;
   final String filePath;
   final DateTime receivedAt;
+
+  /// Code de l'examen (`BAC_TP`, `BET`…) — c'est par lui que le cockpit
+  /// rapproche un chiffre officiel du périmètre affiché ; le sigle, lui, peut
+  /// changer d'orthographe sans que la clé de rapprochement bouge.
+  final String? examCode;
   final String? examShortName;
   final String? yearLabel;
   final String? department;
@@ -102,6 +108,7 @@ class OfficialFigure {
     this.publicationId,
     this.sourceLabel,
     this.publishedAt,
+    this.examCode,
     this.examShortName,
     this.yearLabel,
   });
@@ -120,6 +127,10 @@ class OfficialFigure {
   final String? publicationId;
   final String? sourceLabel;
   final DateTime? publishedAt;
+  /// Code de l'examen (`BAC_TP`, `BET`…) — c'est par lui que le cockpit
+  /// rapproche un chiffre officiel du périmètre affiché ; le sigle, lui, peut
+  /// changer d'orthographe sans que la clé de rapprochement bouge.
+  final String? examCode;
   final String? examShortName;
   final String? yearLabel;
 
@@ -272,7 +283,8 @@ final examPublicationsProvider =
           'filiere_label, title, published_at, received_at, file_path, '
           'file_name, file_size, file_sha256, notes, '
           'schools(name), '
-          'exam_sessions!inner(year_label, national_exams!inner(short_name))')
+          'exam_sessions!inner(year_label, '
+          'national_exams!inner(code, short_name))')
       .eq('group_id', groupId)
       // La dernière pièce reçue en tête : c'est celle qu'on vient chercher.
       .order('received_at', ascending: false);
@@ -294,6 +306,7 @@ ExamPublication _toPublication(Map<String, dynamic> r) {
     filePath: (r['file_path'] as String?) ?? '',
     receivedAt:
         DateTime.tryParse('${r['received_at']}')?.toLocal() ?? DateTime.now(),
+    examCode: exam?['code'] as String?,
     examShortName: exam?['short_name'] as String?,
     yearLabel: session?['year_label'] as String?,
     department: r['department'] as String?,
@@ -324,7 +337,8 @@ final officialFiguresProvider =
       .select('id, session_id, scope, department, school_id, filiere_label, '
           'registered, present, admitted, pass_rate, publication_id, '
           'source_label, published_at, schools(name), '
-          'exam_sessions!inner(year_label, national_exams!inner(short_name))')
+          'exam_sessions!inner(year_label, '
+          'national_exams!inner(code, short_name))')
       .eq('group_id', groupId);
 
   final out = [
@@ -357,6 +371,7 @@ OfficialFigure _toFigure(Map<String, dynamic> r) {
     publicationId: r['publication_id'] as String?,
     sourceLabel: r['source_label'] as String?,
     publishedAt: DateTime.tryParse('${r['published_at']}'),
+    examCode: exam?['code'] as String?,
     examShortName: exam?['short_name'] as String?,
     yearLabel: session?['year_label'] as String?,
   );
