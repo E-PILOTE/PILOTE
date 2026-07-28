@@ -7,6 +7,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../providers/admin_schools_provider.dart';
 import '../providers/exam_archives_provider.dart';
+import 'exam_publication_fields.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  DÉPÔT D'UNE PUBLICATION DE LA DEC.
@@ -27,19 +28,14 @@ import '../providers/exam_archives_provider.dart';
 /// jamais ni le début ni la fin. Un panneau pleine hauteur les tient tous,
 /// laisse la page visible derrière — on garde sous les yeux ce qui est déjà
 /// archivé — et se ferme d'un geste latéral.
+///
+/// Le chrome vient de `AdminSidePanel` : même en-tête, même pied que les autres
+/// modales de l'espace. La version précédente empilait sa propre croix par-dessus
+/// celle de l'en-tête — deux boutons « fermer » superposés.
 Future<void> showExamPublicationDialog(BuildContext context) =>
-    showGeneralDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Fermer',
-      barrierColor: Colors.black.withValues(alpha: 0.35),
-      transitionDuration: const Duration(milliseconds: 220),
-      pageBuilder: (_, _, _) => const _PublicationDialog(),
-      transitionBuilder: (_, anim, _, child) => SlideTransition(
-        position: Tween(begin: const Offset(1, 0), end: Offset.zero).animate(
-            CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
-        child: child,
-      ),
+    showAdminSidePanel<void>(
+      context,
+      builder: (_) => const _PublicationDialog(),
     );
 
 class _PublicationDialog extends ConsumerStatefulWidget {
@@ -218,158 +214,125 @@ class _State extends ConsumerState<_PublicationDialog> {
     final schools =
         ref.watch(adminSchoolsProvider).valueOrNull?.schools ?? const [];
 
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Material(
-        color: kCardBg,
-        child: SizedBox(
-          // Largeur bornée : au-delà, les champs s'étirent et le formulaire
-          // devient plus dur à parcourir qu'une colonne étroite.
-          width: 560,
-          height: double.infinity,
-          child: Column(
-          children: [
-            Stack(children: [
-              const AdminDialogHeader(
-                title: 'Déposer une publication de la DEC',
-                icon: Icons.inventory_2_rounded,
-                subtitle: 'La pièce est archivée telle quelle ; ses chiffres '
-                    'sont relevés à la main, jamais extraits',
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: IconButton(
-                  tooltip: 'Fermer',
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: Icon(Icons.close_rounded, size: 20, color: kTextMuted),
-                ),
-              ),
-            ]),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Examen et session'),
-                    SizedBox(
-                      height: 42,
-                      child: ListFilterDropdown(
-                        icon: Icons.workspace_premium_rounded,
-                        label: 'Session',
-                        value: _sessionId ?? '',
-                        items: {
-                          '': 'Choisir…',
-                          for (final s in sessions) s.id: s.label,
-                        },
-                        onChanged: (v) =>
-                            setState(() => _sessionId = v.isEmpty ? null : v),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _label('Périmètre couvert par le document'),
-                    _ScopePicker(
-                      scope: _scope,
-                      onChanged: (s) => setState(() => _scope = s),
-                    ),
-                    const SizedBox(height: 10),
-                    if (_scope == PubScope.departement)
-                      SizedBox(
-                        height: 42,
-                        child: ListFilterDropdown(
-                          icon: Icons.map_rounded,
-                          label: 'Département',
-                          value: _department ?? '',
-                          items: {
-                            '': 'Choisir…',
-                            for (final d in _departments(schools)) d: d,
-                          },
-                          onChanged: (v) =>
-                              setState(() => _department = v.isEmpty ? null : v),
-                        ),
-                      ),
-                    if (_scope == PubScope.etablissement) ...[
-                      SizedBox(
-                        height: 42,
-                        child: ListFilterDropdown(
-                          icon: Icons.account_balance_rounded,
-                          label: 'Établissement',
-                          value: _schoolId ?? '',
-                          items: {
-                            '': 'Non rattaché',
-                            for (final s in schools) s.id: s.name,
-                          },
-                          onChanged: (v) =>
-                              setState(() => _schoolId = v.isEmpty ? null : v),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      _field(_decCode, 'Code DEC de l\'établissement',
-                          hint: 'ex. AAB — tel qu\'il figure sur le document'),
-                    ],
-                    const SizedBox(height: 10),
-                    _field(_filiere, 'Filière ou série (facultatif)',
-                        hint: 'ex. F5, Électrotechnique'),
-                    const SizedBox(height: 14),
-                    _label('Le document'),
-                    _FileTile(file: _file, onPick: _pick),
-                    const SizedBox(height: 10),
-                    _field(_title, 'Intitulé du document'),
-                    const SizedBox(height: 10),
-                    _DatePick(
-                      value: _publishedAt,
-                      onChanged: (d) => setState(() => _publishedAt = d),
-                    ),
-                    const SizedBox(height: 16),
-                    const _FiguresNote(),
-                    const SizedBox(height: 10),
-                    Row(children: [
-                      Expanded(child: _num(_registered, 'Inscrits')),
-                      const SizedBox(width: 10),
-                      Expanded(child: _num(_present, 'Présents')),
-                      const SizedBox(width: 10),
-                      Expanded(child: _num(_admitted, 'Admis')),
-                    ]),
-                    const SizedBox(height: 10),
-                    if (!_hasCounts)
-                      _field(_rate, 'Taux publié (%)',
-                          hint: 'si la publication ne donne que le pourcentage'),
-                    if (_preview != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          'Taux retenu : ${_preview!.toStringAsFixed(2)} % '
-                          '${_hasCounts ? '(admis ÷ présents)' : '(publié)'}',
-                          style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              color: kGreen),
-                        ),
-                      ),
-                    const SizedBox(height: 10),
-                    _field(_source, 'Source (facultatif)',
-                        hint: 'ex. Statistiques DEC, communiqué du 12/07'),
-                    if (_error != null) ...[
-                      const SizedBox(height: 12),
-                      Text(_error!,
-                          style: TextStyle(fontSize: 12.5, color: kRed)),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            AdminDialogFooter(
-              saving: _saving,
-              submitLabel: 'Archiver',
-              submitIcon: Icons.inventory_2_rounded,
-              onCancel: () => Navigator.of(context).pop(),
-              onSubmit: _save,
-            ),
-          ],
-        ),
+    return AdminSidePanel(
+      icon: Icons.inventory_2_rounded,
+      title: 'Déposer une publication de la DEC',
+      subtitle: 'La pièce est archivée telle quelle ; ses chiffres sont '
+          'relevés à la main, jamais extraits',
+      footer: AdminModalActions(
+        saving: _saving,
+        submitLabel: 'Archiver',
+        submitIcon: Icons.inventory_2_rounded,
+        onSubmit: _save,
       ),
-    ));
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _label('Examen et session'),
+          SizedBox(
+            height: 42,
+            child: ListFilterDropdown(
+              icon: Icons.workspace_premium_rounded,
+              label: 'Session',
+              value: _sessionId ?? '',
+              items: {
+                '': 'Choisir…',
+                for (final s in sessions) s.id: s.label,
+              },
+              onChanged: (v) =>
+                  setState(() => _sessionId = v.isEmpty ? null : v),
+            ),
+          ),
+          const SizedBox(height: 14),
+          _label('Périmètre couvert par le document'),
+          ScopePicker(
+            scope: _scope,
+            onChanged: (s) => setState(() => _scope = s),
+          ),
+          const SizedBox(height: 10),
+          if (_scope == PubScope.departement)
+            SizedBox(
+              height: 42,
+              child: ListFilterDropdown(
+                icon: Icons.map_rounded,
+                label: 'Département',
+                value: _department ?? '',
+                items: {
+                  '': 'Choisir…',
+                  for (final d in _departments(schools)) d: d,
+                },
+                onChanged: (v) =>
+                    setState(() => _department = v.isEmpty ? null : v),
+              ),
+            ),
+          if (_scope == PubScope.etablissement) ...[
+            SizedBox(
+              height: 42,
+              child: ListFilterDropdown(
+                icon: Icons.account_balance_rounded,
+                label: 'Établissement',
+                value: _schoolId ?? '',
+                items: {
+                  '': 'Non rattaché',
+                  for (final s in schools) s.id: s.name,
+                },
+                onChanged: (v) =>
+                    setState(() => _schoolId = v.isEmpty ? null : v),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _field(_decCode, 'Code DEC de l\'établissement',
+                hint: 'ex. AAB — tel qu\'il figure sur le document'),
+          ],
+          const SizedBox(height: 10),
+          _field(_filiere, 'Filière ou série (facultatif)',
+              hint: 'ex. F5, Électrotechnique'),
+          const SizedBox(height: 14),
+          _label('Le document'),
+          FileTile(file: _file, onPick: _pick),
+          const SizedBox(height: 10),
+          _field(_title, 'Intitulé du document'),
+          const SizedBox(height: 10),
+          DatePick(
+            value: _publishedAt,
+            onChanged: (d) => setState(() => _publishedAt = d),
+          ),
+          const SizedBox(height: 16),
+          const FiguresNote(),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: _num(_registered, 'Inscrits')),
+            const SizedBox(width: 10),
+            Expanded(child: _num(_present, 'Présents')),
+            const SizedBox(width: 10),
+            Expanded(child: _num(_admitted, 'Admis')),
+          ]),
+          const SizedBox(height: 10),
+          if (!_hasCounts)
+            _field(_rate, 'Taux publié (%)',
+                hint: 'si la publication ne donne que le pourcentage'),
+          if (_preview != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Taux retenu : ${_preview!.toStringAsFixed(2)} % '
+                '${_hasCounts ? '(admis ÷ présents)' : '(publié)'}',
+                style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: kGreen),
+              ),
+            ),
+          const SizedBox(height: 10),
+          _field(_source, 'Source (facultatif)',
+              hint: 'ex. Statistiques DEC, communiqué du 12/07'),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            AdminErrorBanner(message: _error!),
+          ],
+        ],
+      ),
+    );
   }
 
   List<String> _departments(List<dynamic> schools) {
@@ -382,14 +345,10 @@ class _State extends ConsumerState<_PublicationDialog> {
     return out;
   }
 
+  /// Même libellé de section que les autres formulaires de l'espace admin.
   Widget _label(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(text,
-            style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: kTextPrimary,
-                letterSpacing: 0.3)),
+        padding: const EdgeInsets.only(bottom: 9),
+        child: AdminFormSectionLabel(text.toUpperCase()),
       );
 
   Widget _field(TextEditingController c, String label, {String? hint}) =>
@@ -419,140 +378,5 @@ class _State extends ConsumerState<_PublicationDialog> {
           labelStyle: TextStyle(fontSize: 12.5, color: kTextMuted),
           border: const OutlineInputBorder(),
         ),
-      );
-}
-
-// ─── Périmètre ──────────────────────────────────────────────────────────────
-class _ScopePicker extends StatelessWidget {
-  const _ScopePicker({required this.scope, required this.onChanged});
-  final PubScope scope;
-  final ValueChanged<PubScope> onChanged;
-
-  @override
-  Widget build(BuildContext context) => Wrap(
-        spacing: 8,
-        children: [
-          for (final s in PubScope.values)
-            ChoiceChip(
-              label: Text(s.label, style: const TextStyle(fontSize: 12.5)),
-              selected: scope == s,
-              onSelected: (_) => onChanged(s),
-            ),
-        ],
-      );
-}
-
-// ─── Fichier ────────────────────────────────────────────────────────────────
-class _FileTile extends StatelessWidget {
-  const _FileTile({required this.file, required this.onPick});
-  final PlatformFile? file;
-  final VoidCallback onPick;
-
-  @override
-  Widget build(BuildContext context) {
-    final f = file;
-    return InkWell(
-      onTap: onPick,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          border: Border.all(color: f == null ? kBorder : kGreen),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(children: [
-          Icon(f == null ? Icons.upload_file_rounded : Icons.description_rounded,
-              size: 20, color: f == null ? kTextMuted : kGreen),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              f == null
-                  ? 'Joindre le PDF publié par la DEC'
-                  : '${f.name}  ·  ${(f.size / 1024).round()} Ko',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: f == null ? kTextMuted : kTextPrimary),
-            ),
-          ),
-          if (f != null)
-            Text('Changer',
-                style: TextStyle(fontSize: 11.5, color: kTextMuted)),
-        ]),
-      ),
-    );
-  }
-}
-
-// ─── Date de proclamation ───────────────────────────────────────────────────
-class _DatePick extends StatelessWidget {
-  const _DatePick({required this.value, required this.onChanged});
-  final DateTime? value;
-  final ValueChanged<DateTime?> onChanged;
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: () async {
-          final now = DateTime.now();
-          final d = await showDatePicker(
-            context: context,
-            initialDate: value ?? now,
-            firstDate: DateTime(now.year - 30),
-            lastDate: now,
-            helpText: 'Date de publication par la DEC',
-          );
-          if (d != null) onChanged(d);
-        },
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-              border: Border.all(color: kBorder),
-              borderRadius: BorderRadius.circular(8)),
-          child: Row(children: [
-            Icon(Icons.event_rounded, size: 18, color: kTextMuted),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                value == null
-                    ? 'Date de publication par la DEC (recommandée)'
-                    : 'Publié le ${value!.day.toString().padLeft(2, '0')}/'
-                        '${value!.month.toString().padLeft(2, '0')}/${value!.year}',
-                style: TextStyle(
-                    fontSize: 12.5,
-                    color: value == null ? kTextMuted : kTextPrimary),
-              ),
-            ),
-          ]),
-        ),
-      );
-}
-
-// ─── Rappel de la règle de calcul ───────────────────────────────────────────
-class _FiguresNote extends StatelessWidget {
-  const _FiguresNote();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(11),
-        decoration: BoxDecoration(
-          color: kNavy.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(Icons.calculate_rounded, size: 17, color: kNavy),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Chiffres officiels portés par ce document (facultatif). Le taux '
-              'se calcule sur les PRÉSENTS, jamais sur les inscrits : les '
-              'absents sortent du dénominateur. Si la publication ne donne '
-              'qu\'un pourcentage, saisissez-le tel quel.',
-              style: TextStyle(fontSize: 11.5, color: kTextMuted, height: 1.4),
-            ),
-          ),
-        ]),
       );
 }

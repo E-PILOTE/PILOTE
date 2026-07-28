@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../providers/admin_dashboard_provider.dart';
 import '../providers/exam_archives_provider.dart';
 import '../services/exam_statistics_pdf_service.dart';
+import 'exam_history_hero.dart';
+import 'exam_standings_modal.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  HISTORIQUE DES RÉSULTATS — chiffres OFFICIELS de la DEC, empilés.
 //
-//  Deux lectures, celles-là mêmes que le ministère publie chaque année :
-//   • la TRAJECTOIRE nationale d'un examen, année après année ;
-//   • le CLASSEMENT ordinal des départements sur la dernière session, avec
-//     l'évolution de chacun en POINTS.
+//  Ce qu'on vient y lire tient en une phrase : où en est l'examen, et dans
+//  quel sens il va. La section le dit donc dans cet ordre — le taux de la
+//  dernière session en grand, son évolution à côté, puis la courbe qui la
+//  porte. Le classement des départements, lui, est un tableau de quinze
+//  lignes : il s'ouvre en feuille montante (`exam_standings_modal.dart`)
+//  plutôt que d'écraser la courbe.
 //
 //  Une évolution s'exprime en points de pourcentage, jamais en « % de hausse » :
 //  passer de 43,65 % à 48,48 % est un gain de 4,83 POINTS, pas de 11 %. La
@@ -62,42 +67,46 @@ class ExamHistorySection extends ConsumerWidget {
                   'sur les présents',
             ),
           ),
+          if (standings.isNotEmpty) ...[
+            _StandingsButton(
+              count: standings.length,
+              onTap: () => showExamStandingsModal(
+                context,
+                history: history,
+                standings: standings,
+                figures: figures,
+                yearLabel: years.last,
+              ),
+            ),
+            const SizedBox(width: 10),
+          ],
           AdminPdfButton(
             label: 'Statistiques officielles',
             onTap: () => _openPdf(context, ref, history, standings),
           ),
         ]),
-        const SizedBox(height: 14),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final h in histories)
-              ChoiceChip(
-                label: Text(h.examShortName,
-                    style: const TextStyle(fontSize: 12.5)),
-                selected: h.examShortName == history.examShortName,
-                onSelected: (_) => ref
-                    .read(_selectedExamProvider.notifier)
-                    .state = h.examShortName,
-              ),
-          ],
-        ),
-        const SizedBox(height: 18),
-        _Trend(history: history),
-        if (standings.isNotEmpty) ...[
-          const SizedBox(height: 22),
-          Text('Classement départemental · ${years.last}',
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: kTextPrimary)),
-          const SizedBox(height: 10),
-          _Standings(
-            rows: standings,
-            onTap: (r) => _openDepartment(context, figures, history, r),
+        if (histories.length > 1) ...[
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final h in histories)
+                ChoiceChip(
+                  label: Text(h.examShortName,
+                      style: const TextStyle(fontSize: 12.5)),
+                  selected: h.examShortName == history.examShortName,
+                  onSelected: (_) => ref
+                      .read(_selectedExamProvider.notifier)
+                      .state = h.examShortName,
+                ),
+            ],
           ),
         ],
+        const SizedBox(height: 16),
+        ExamHistoryHero(history: history),
+        const SizedBox(height: 16),
+        _TrendChart(history: history),
       ]),
     );
   }
@@ -117,429 +126,179 @@ class ExamHistorySection extends ConsumerWidget {
           groupName: groupName, history: history, standings: standings),
     );
   }
-
-  /// Détail d'un département : sa trajectoire propre sur le même examen.
-  /// Un rang seul ne dit pas si le département progresse ou décroche.
-  void _openDepartment(BuildContext context, List<OfficialFigure> figures,
-      ExamHistory history, DepartmentStanding row) {
-    final series = [
-      for (final f in figures)
-        if (f.scope == PubScope.departement &&
-            f.examShortName == history.examShortName &&
-            f.department == row.department &&
-            f.passRate != null &&
-            f.yearLabel != null)
-          f,
-    ]..sort((a, b) => a.yearLabel!.compareTo(b.yearLabel!));
-
-    showDialog<void>(
-      context: context,
-      builder: (_) => _DepartmentDialog(
-          row: row, exam: history.examShortName, series: series,
-          national: history),
-    );
-  }
 }
 
-// ─── Détail départemental ───────────────────────────────────────────────────
-class _DepartmentDialog extends StatelessWidget {
-  const _DepartmentDialog(
-      {required this.row,
-      required this.exam,
-      required this.series,
-      required this.national});
-
-  final DepartmentStanding row;
-  final String exam;
-  final List<OfficialFigure> series;
-  final ExamHistory national;
+/// Accès au classement — chiffré, pour dire ce qu'on trouvera derrière.
+class _StandingsButton extends StatelessWidget {
+  const _StandingsButton({required this.count, required this.onTap});
+  final int count;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-        backgroundColor: kCardBg,
-        contentPadding: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        content: SizedBox(
-          width: 560,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            _DeptHeader(row: row, exam: exam),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Trajectoire du département',
-                          style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w800,
-                              color: kTextPrimary)),
-                      const SizedBox(height: 10),
-                      for (var i = 0; i < series.length; i++)
-                        _Year(
-                          figure: series[i],
-                          previous: i == 0 ? null : series[i - 1],
-                          // L'écart au national est la seule mesure qui situe
-                          // un département : 62 % ne se juge pas dans l'absolu.
-                          national: _nationalRate(series[i].yearLabel!),
-                        ),
-                    ]),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-              child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                FilledButton(
-                  style: FilledButton.styleFrom(backgroundColor: kNavy),
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Fermer'),
-                ),
-              ]),
-            ),
-          ]),
-        ),
-      );
-
-  double? _nationalRate(String year) {
-    for (final p in national.points) {
-      if (p.yearLabel == year) return p.rate;
-    }
-    return null;
-  }
-}
-
-class _Year extends StatelessWidget {
-  const _Year({required this.figure, this.previous, this.national});
-  final OfficialFigure figure;
-  final OfficialFigure? previous;
-  final double? national;
-
-  @override
-  Widget build(BuildContext context) {
-    final rate = figure.passRate!;
-    final delta = previous?.passRate == null ? null : rate - previous!.passRate!;
-    final gap = national == null ? null : rate - national!;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: kBorder),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(children: [
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(figure.yearLabel ?? '—',
-                style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: kTextPrimary)),
-            Text('${figure.admitted ?? '—'} admis sur ${figure.present ?? '—'} présents',
-                style: TextStyle(fontSize: 11, color: kTextMuted)),
-            if (gap != null)
-              Text(
-                gap >= 0
-                    ? '+${gap.toStringAsFixed(2)} pt au-dessus du national'
-                    : '${gap.toStringAsFixed(2)} pt sous le national',
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: gap >= 0 ? kGreen : kRed),
-              ),
-          ]),
-        ),
-        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text('${rate.toStringAsFixed(2)} %',
-              style: TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.w900, color: kNavy)),
-          Text(
-              delta == null
-                  ? 'référence'
-                  : '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(2)} pt',
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: delta == null
-                      ? kTextMuted
-                      : (delta >= 0 ? kGreen : kRed))),
-        ]),
-      ]),
-    );
-  }
-}
-
-/// En-tête du détail départemental : le rang tient la médaille, le taux et
-/// l'effectif sont donnés d'emblée. Ouvrir un dialogue sur une simple liste
-/// obligerait à reconstituer de quoi il parle.
-class _DeptHeader extends StatelessWidget {
-  const _DeptHeader({required this.row, required this.exam});
-  final DepartmentStanding row;
-  final String exam;
-
-  static const _gold = Color(0xFFD4AF37);
-  static const _silver = Color(0xFF9AA5B1);
-  static const _bronze = Color(0xFFB87333);
-
-  Color get _medal => switch (row.rank) {
-        1 => _gold,
-        2 => _silver,
-        3 => _bronze,
-        _ => kNavy,
-      };
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [_medal.withValues(alpha: 0.14), Colors.transparent],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          border: Border(bottom: BorderSide(color: kBorder)),
-        ),
-        child: Row(children: [
-          Container(
-            width: 46,
-            height: 46,
-            alignment: Alignment.center,
+  Widget build(BuildContext context) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-                color: _medal, borderRadius: BorderRadius.circular(13)),
-            child: Text('${row.rank}',
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 19,
-                    fontWeight: FontWeight.w900)),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(row.department,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                          color: kTextPrimary)),
-                  const SizedBox(height: 2),
-                  Text(
-                      '$exam · ${row.admitted ?? '—'} admis sur '
-                      '${row.present ?? '—'} présents',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 12, color: kTextMuted)),
-                ]),
-          ),
-          const SizedBox(width: 12),
-          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text('${row.rate.toStringAsFixed(2)} %',
-                style: TextStyle(
-                    fontSize: 21, fontWeight: FontWeight.w900, color: kNavy)),
-            if (row.deltaPoints != null)
-              Text(
-                  '${row.deltaPoints! >= 0 ? '+' : ''}'
-                  '${row.deltaPoints!.toStringAsFixed(2)} pt',
+              color: kNavy.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: kNavy.withValues(alpha: 0.22)),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.leaderboard_rounded, size: 15, color: kNavy),
+              const SizedBox(width: 6),
+              Text('Classement départemental',
                   style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w800,
-                      color: row.deltaPoints! >= 0 ? kGreen : kRed)),
-          ]),
-        ]),
+                      color: kNavy,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700)),
+              const SizedBox(width: 6),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: kNavy.withValues(alpha: 0.13),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text('$count',
+                    style: TextStyle(
+                        color: kNavy,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900)),
+              ),
+            ]),
+          ),
+        ),
       );
 }
 
 // ─── Trajectoire nationale ──────────────────────────────────────────────────
-class _Trend extends StatelessWidget {
-  const _Trend({required this.history});
+class _TrendChart extends StatelessWidget {
+  const _TrendChart({required this.history});
   final ExamHistory history;
 
   @override
   Widget build(BuildContext context) {
     final points = history.points;
     if (points.isEmpty) return const SizedBox.shrink();
+    if (points.length == 1) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        decoration: BoxDecoration(
+          color: kSurface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: kBorder),
+        ),
+        child: Row(children: [
+          Icon(Icons.show_chart_rounded, size: 19, color: kTextMuted),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Une seule session archivée : la courbe apparaîtra dès qu\'une '
+              'deuxième publication sera déposée.',
+              style: TextStyle(fontSize: 12.5, color: kTextMuted),
+            ),
+          ),
+        ]),
+      );
+    }
+
     final rates = points.map((p) => p.rate);
     final maxRate = rates.reduce((a, b) => a > b ? a : b);
     final minRate = rates.reduce((a, b) => a < b ? a : b);
-    // Base de l'échelle placée SOUS le minimum de la série. Caler les barres
-    // sur zéro rendrait quatre taux voisins (62,81 → 66,45 %) visuellement
-    // identiques : la tendance, seule chose qu'on vienne lire ici,
-    // disparaîtrait. Chaque barre porte sa valeur exacte au-dessus, donc
-    // l'échelle resserrée n'induit personne en erreur.
-    final base = maxRate - minRate < 0.01
-        ? maxRate - 1
-        : minRate - (maxRate - minRate) * 0.6;
-    final gain = history.totalGain;
+    // Échelle resserrée SOUS le minimum de la série. Caler l'axe sur zéro
+    // rendrait quatre taux voisins (62,81 → 66,45 %) visuellement identiques :
+    // la tendance, seule chose qu'on vienne lire ici, disparaîtrait. Chaque
+    // point porte sa valeur exacte, donc l'échelle n'induit personne en erreur.
+    final span = maxRate - minRate;
+    final base = span < 0.01 ? maxRate - 1 : minRate - span * 0.55;
+    final top = span < 0.01 ? maxRate + 1 : maxRate + span * 0.35;
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-        for (final p in points) ...[
-          Expanded(child: _Bar(point: p, maxRate: maxRate, base: base)),
-          if (p != points.last) const SizedBox(width: 10),
-        ],
-      ]),
-      if (gain != null) ...[
-        const SizedBox(height: 12),
-        Text(
-          '${points.first.yearLabel} → ${points.last.yearLabel} : '
-          '${gain >= 0 ? '+' : ''}${gain.toStringAsFixed(2)} points '
-          'sur ${points.length} sessions',
-          style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: gain >= 0 ? kGreen : kRed),
+    return Container(
+      height: 268,
+      padding: const EdgeInsets.fromLTRB(10, 16, 16, 6),
+      decoration: BoxDecoration(
+        color: kSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kBorder),
+      ),
+      child: SfCartesianChart(
+        margin: EdgeInsets.zero,
+        plotAreaBorderWidth: 0,
+        primaryXAxis: CategoryAxis(
+          majorGridLines: const MajorGridLines(width: 0),
+          axisLine: AxisLine(color: kBorder),
+          majorTickLines: const MajorTickLines(size: 0),
+          labelStyle: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.w700, color: kTextMuted),
         ),
-      ],
-    ]);
+        primaryYAxis: NumericAxis(
+          minimum: base,
+          maximum: top,
+          axisLine: const AxisLine(width: 0),
+          majorTickLines: const MajorTickLines(size: 0),
+          majorGridLines: MajorGridLines(width: 0.6, color: kBorder),
+          labelFormat: '{value} %',
+          labelStyle: TextStyle(fontSize: 10.5, color: kTextMuted),
+        ),
+        tooltipBehavior: TooltipBehavior(enable: true, format: 'point.x : point.y %'),
+        series: <CartesianSeries<HistoryPoint, String>>[
+          SplineAreaSeries<HistoryPoint, String>(
+            dataSource: points,
+            xValueMapper: (p, _) => p.yearLabel,
+            yValueMapper: (p, _) => p.rate,
+            borderColor: kNavy,
+            borderWidth: 2.6,
+            gradient: LinearGradient(
+              colors: [
+                kNavy.withValues(alpha: 0.34),
+                kNavy.withValues(alpha: 0.02),
+              ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+            markerSettings: MarkerSettings(
+              isVisible: true,
+              height: 8,
+              width: 8,
+              borderWidth: 2.4,
+              borderColor: kNavy,
+              color: kCardBg,
+            ),
+            dataLabelSettings: DataLabelSettings(
+              isVisible: true,
+              labelAlignment: ChartDataLabelAlignment.top,
+              builder: (data, _, _, _, _) => _PointLabel(point: data as HistoryPoint),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
-class _Bar extends StatelessWidget {
-  const _Bar({required this.point, required this.maxRate, required this.base});
+/// Étiquette d'un point : le taux, et l'évolution qui l'a amené là.
+class _PointLabel extends StatelessWidget {
+  const _PointLabel({required this.point});
   final HistoryPoint point;
-  final double maxRate;
-
-  /// Bas de l'échelle — voir `_Trend`.
-  final double base;
 
   @override
   Widget build(BuildContext context) {
-    final span = maxRate - base;
-    final h = span <= 0 ? 92.0 : ((point.rate - base) / span) * 92;
     final d = point.deltaPoints;
-
-    return Column(children: [
+    return Column(mainAxisSize: MainAxisSize.min, children: [
       Text('${point.rate.toStringAsFixed(2)} %',
-          maxLines: 1,
           style: TextStyle(
-              fontSize: 12.5, fontWeight: FontWeight.w900, color: kNavy)),
-      const SizedBox(height: 5),
-      Container(
-        height: h.clamp(6, 92),
-        decoration: BoxDecoration(
-          color: kNavy.withValues(alpha: 0.85),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
-        ),
-      ),
-      const SizedBox(height: 6),
-      Text(point.yearLabel,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 10.5, color: kTextMuted)),
-      Text('${point.admitted} / ${point.present}',
-          maxLines: 1,
-          style: TextStyle(fontSize: 10, color: kTextMuted)),
-      if (d != null)
-        Text('${d >= 0 ? '+' : ''}${d.toStringAsFixed(2)} pt',
-            maxLines: 1,
-            style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
-                color: d >= 0 ? kGreen : kRed))
-      else
-        // Première session : rien à comparer. Un « +0,00 » y ferait croire à
-        // une stagnation mesurée.
-        Text('référence', style: TextStyle(fontSize: 10.5, color: kTextMuted)),
+              fontSize: 12, fontWeight: FontWeight.w900, color: kNavy)),
+      Text(
+          d == null
+              ? '${point.admitted}/${point.present}'
+              : '${d >= 0 ? '+' : ''}${d.toStringAsFixed(2)} pt',
+          style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: d == null ? kTextMuted : (d >= 0 ? kGreen : kRed))),
     ]);
   }
-}
-
-// ─── Classement départemental ───────────────────────────────────────────────
-class _Standings extends StatelessWidget {
-  const _Standings({required this.rows, required this.onTap});
-  final List<DepartmentStanding> rows;
-  final ValueChanged<DepartmentStanding> onTap;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: kBorder),
-          borderRadius: BorderRadius.circular(9),
-        ),
-        child: Column(children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            decoration: BoxDecoration(
-              color: kNavy.withValues(alpha: 0.05),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(8)),
-            ),
-            child: Row(children: [
-              _h('#', 5),
-              _h('DÉPARTEMENT', 34),
-              _h('ADMIS / PRÉSENTS', 25, end: true),
-              _h('TAUX', 18, end: true),
-              _h('ÉVOL.', 18, end: true),
-            ]),
-          ),
-          for (final r in rows)
-            InkWell(
-              onTap: () => onTap(r),
-              child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: kBorder)),
-              ),
-              child: Row(children: [
-                _c('${r.rank}', 5,
-                    bold: r.rank <= 3,
-                    color: r.rank <= 3 ? const Color(0xFFD4AF37) : null),
-                _c(r.department, 34, bold: true),
-                _c(
-                    r.present == null
-                        ? '—'
-                        : '${r.admitted} / ${r.present}',
-                    25,
-                    end: true,
-                    muted: true),
-                _c('${r.rate.toStringAsFixed(2)} %', 18,
-                    end: true, bold: true, color: kNavy),
-                _c(
-                    r.deltaPoints == null
-                        ? '—'
-                        : '${r.deltaPoints! >= 0 ? '+' : ''}'
-                            '${r.deltaPoints!.toStringAsFixed(2)}',
-                    18,
-                    end: true,
-                    bold: true,
-                    color: r.deltaPoints == null
-                        ? null
-                        : (r.deltaPoints! >= 0 ? kGreen : kRed)),
-                Icon(Icons.chevron_right_rounded, size: 16, color: kTextMuted),
-              ]),
-            )),
-        ]),
-      );
-
-  static Widget _h(String t, int flex, {bool end = false}) => Expanded(
-        flex: flex,
-        child: Text(t,
-            textAlign: end ? TextAlign.end : TextAlign.start,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.4,
-                color: kTextMuted)),
-      );
-
-  static Widget _c(String t, int flex,
-          {bool end = false,
-          bool bold = false,
-          bool muted = false,
-          Color? color}) =>
-      Expanded(
-        flex: flex,
-        child: Text(t,
-            textAlign: end ? TextAlign.end : TextAlign.start,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
-                color: color ?? (muted ? kTextMuted : kTextPrimary))),
-      );
 }

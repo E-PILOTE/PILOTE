@@ -171,31 +171,16 @@ class _PublicationTile extends ConsumerWidget {
   /// Retrait d'une pièce — jamais sans confirmation : ce qui part d'une
   /// archive ne se retrouve pas.
   Future<void> _remove(BuildContext context, WidgetRef ref) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        backgroundColor: kCardBg,
-        title: Text('Retirer cette pièce ?',
-            style: TextStyle(fontSize: 16, color: kTextPrimary)),
-        content: Text(
-          'Le document « ${pub.title} » et son fichier seront supprimés. '
+    final ok = await showAdminConfirm(
+      context,
+      danger: true,
+      title: 'Retirer cette pièce ?',
+      message: 'Le document « ${pub.title} » et son fichier seront supprimés. '
           'Les chiffres officiels relevés dessus perdront leur source : ils '
           'resteront affichés, mais sans pièce pour les appuyer.',
-          style: TextStyle(fontSize: 13, color: kTextMuted),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.of(c).pop(false),
-              child: const Text('Annuler')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: kRed),
-            onPressed: () => Navigator.of(c).pop(true),
-            child: const Text('Retirer'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Retirer de l\'archive',
     );
-    if (ok != true) return;
+    if (!ok) return;
     try {
       await ref.read(archiveActionsProvider).removePublication(pub);
       if (context.mounted) _say(context, 'Pièce retirée de l\'archive.');
