@@ -1,11 +1,16 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/list_chrome.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
+import '../providers/admin_dashboard_provider.dart';
 import '../providers/admin_exams_provider.dart';
 import '../providers/ministry_exam_rows.dart';
+import '../services/exam_axis_pdf_service.dart';
 import '../widgets/admin_exams_breakdown.dart';
 import '../widgets/admin_exams_views.dart';
 import '../widgets/exam_axis_drilldown_modal.dart';
@@ -146,6 +151,20 @@ class _State extends ConsumerState<AdminExamsScreen> {
                   // La seule action du cockpit : relancer celles qui n'ont
                   // rien transmis. Constater un risque irrattrapable sans
                   // pouvoir agir dessus n'était pas du pilotage.
+                  // Exporter ce qu'on regarde : le périmètre courant, tel
+                  // qu'il est à l'écran.
+                  _ExportButton(
+                    label: 'Exporter',
+                    title: 'Campagne examens'
+                        '${_examLabel(d, code) != null ? ' · ${_examLabel(d, code)}' : ''}',
+                    fileName: 'campagne-examens-${code ?? 'tous'}',
+                    buildPdf: (groupName) => ExamAxisPdfService.buildScopePdf(
+                      groupName: groupName,
+                      data: d,
+                      examLabel: _examLabel(d, code),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   if (d.schoolsAtRisk > 0)
                     ExamsRemindButton(
                       schools: d.schools
@@ -178,24 +197,42 @@ class _State extends ConsumerState<AdminExamsScreen> {
     String label,
   ) {
     final rows = scopeRows(d.rows, code);
+    final examLabel = _examLabel(d, code);
+    final schools = schoolsForAxis(
+      rows,
+      axis: axis,
+      label: label,
+      transmittedSchoolIds: d.transmittedSchoolIds,
+    );
     showExamAxisDrilldown(
       context,
       axis: axis,
       label: label,
-      examLabel: code == null
-          ? null
-          : d.examOptions
-              .where((o) => o.code == code)
-              .map((o) => o.shortName)
-              .firstOrNull,
-      schools: schoolsForAxis(
-        rows,
-        axis: axis,
-        label: label,
-        transmittedSchoolIds: d.transmittedSchoolIds,
+      examLabel: examLabel,
+      schools: schools,
+      // Un seul bouton : l'aperçu porte déjà imprimer et enregistrer.
+      exportButton: _ExportButton(
+        label: 'Exporter',
+        title: 'Réussite par ${axis.label} · $label',
+        fileName: 'reussite-${axis.name}-$label',
+        buildPdf: (groupName) => ExamAxisPdfService.buildAxisPdf(
+          groupName: groupName,
+          axis: axis,
+          label: label,
+          examLabel: examLabel,
+          yearLabel: d.yearLabel,
+          schools: schools,
+        ),
       ),
     );
   }
+
+  String? _examLabel(MinistryExamsData d, String? code) => code == null
+      ? null
+      : d.examOptions
+          .where((o) => o.code == code)
+          .map((o) => o.shortName)
+          .firstOrNull;
 
   List<KpiData> _kpis(MinistryExamsData d) {
     final rate = d.totalCandidates == 0
@@ -312,3 +349,52 @@ class _State extends ConsumerState<AdminExamsScreen> {
 }
 
 // ─── Graphique ────────────────────────────────────────────────────────────────
+
+// ════════════════════════════════════════════════════════════════════════════
+//  UN SEUL BOUTON D'EXPORT.
+//
+//  L'aperçu PDF porte déjà « Imprimer » et « Enregistrer » : ajouter ces deux
+//  actions à côté ferait trois boutons pour un seul geste. Et pas de
+//  « partager » — l'application n'a aucun canal sortant réel ; la relance par
+//  notification reste le seul envoi de cet écran, et elle a son propre bouton.
+// ════════════════════════════════════════════════════════════════════════════
+class _ExportButton extends ConsumerWidget {
+  const _ExportButton({
+    required this.label,
+    required this.title,
+    required this.fileName,
+    required this.buildPdf,
+  });
+
+  final String label;
+  final String title;
+  final String fileName;
+
+  /// Nommé `buildPdf` et non `build` : un champ `build` entrerait en collision
+  /// avec la méthode du widget.
+  final Future<Uint8List> Function(String groupName) buildPdf;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => OutlinedButton.icon(
+        onPressed: () {
+          final groupName =
+              ref.read(adminDashboardProvider).valueOrNull?.groupName ??
+                  'Ministère';
+          showPdfPreviewDialog(
+            context,
+            title: title,
+            subtitle: 'Chiffres de la plateforme — distincts des résultats '
+                'proclamés par la DEC',
+            pdfFileName: '$fileName.pdf',
+            build: (_) => buildPdf(groupName),
+          );
+        },
+        icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+        label: Text(label),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: kNavy,
+          side: BorderSide(color: kBorder),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        ),
+      );
+}
