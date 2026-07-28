@@ -111,14 +111,20 @@ class _Header extends StatelessWidget {
           _h('ÉTABLISSEMENT', 34),
           _h('CAND.', 10, end: true),
           _h('ADMIS', 10, end: true),
-          _h('TAUX', 32),
+          // Le même retrait que la cellule de taux : sans lui, « ADMIS »
+          // aligné à droite et « TAUX » aligné à gauche se touchent, et
+          // l'en-tête se lit « ADMISTAUX ».
+          _h('TAUX', 32, indent: 12),
           const SizedBox(width: 108),
         ]),
       );
 
-  static Widget _h(String t, int flex, {bool end = false}) => Expanded(
+  static Widget _h(String t, int flex, {bool end = false, double indent = 0}) =>
+      Expanded(
         flex: flex,
-        child: Text(t,
+        child: Padding(
+          padding: EdgeInsets.only(left: indent),
+          child: Text(t,
             textAlign: end ? TextAlign.end : TextAlign.start,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -127,6 +133,7 @@ class _Header extends StatelessWidget {
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0.4,
                 color: kTextMuted)),
+        ),
       );
 }
 

@@ -26,7 +26,13 @@ import 'admin_exams_provider.dart';
 /// Examens dont le dossier exige une attestation de stage (note METP). Un
 /// candidat au BET n'en a jamais eu besoin : l'alerte « bac bloqué » n'a de
 /// sens que sur ce périmètre.
-const kBacProInternship = {'BAC_T', 'BAC_P'};
+///
+/// ⚠️ `BAC_TP` est le code RÉEL : la Direction des examens et concours ne
+/// délibère qu'UN baccalauréat technique et professionnel. `BAC_T` et `BAC_P`
+/// étaient deux examens fictifs, supprimés par la migration 0065 ; ils restent
+/// listés pour qu'un groupe non encore migré ne perde pas son alerte du jour
+/// au lendemain.
+const kBacProInternship = {'BAC_TP', 'BAC_T', 'BAC_P'};
 
 const _kUnsetDepartment = 'Non renseigné';
 

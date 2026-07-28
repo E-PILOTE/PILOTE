@@ -96,6 +96,16 @@ class ExamChart extends StatelessWidget {
     // seule qui compte — un nombre sur chaque colonne d'un graphe à quinze
     // départements ne se lit plus, il se traverse.
     final labelAll = data.length <= 5;
+    // Largeur du GROUPE de trois colonnes, en fraction du créneau. Sans ce
+    // réglage, un axe à une seule catégorie — le cas courant quand un seul
+    // examen est ouvert — étale trois colonnes sur toute la largeur du
+    // graphique : on ne lit plus un entonnoir, on lit un aplat.
+    final groupWidth = switch (data.length) {
+      1 => 0.30,
+      2 => 0.45,
+      <= 4 => 0.62,
+      _ => 0.80,
+    };
     final labels = DataLabelSettings(
       isVisible: true,
       textStyle: TextStyle(fontSize: 9.5, color: kTextMuted),
@@ -150,6 +160,7 @@ class ExamChart extends StatelessWidget {
             yValueMapper: (b, _) => b.declared,
             color: ramp.declared,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+            width: groupWidth,
             spacing: 0.06, // le filet de surface entre deux colonnes voisines
             animationDuration: 700,
             dataLabelSettings: labelAll ? labels : const DataLabelSettings(),
@@ -161,6 +172,7 @@ class ExamChart extends StatelessWidget {
             yValueMapper: (b, _) => b.submitted,
             color: ramp.submitted,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+            width: groupWidth,
             spacing: 0.06,
             animationDuration: 700,
             dataLabelSettings: labelAll ? labels : const DataLabelSettings(),
@@ -172,6 +184,7 @@ class ExamChart extends StatelessWidget {
             yValueMapper: (b, _) => b.admitted,
             color: ramp.admitted,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+            width: groupWidth,
             spacing: 0.06,
             animationDuration: 700,
             // Toujours étiquetée : c'est le chiffre sur lequel on s'arrête.

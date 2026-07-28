@@ -234,13 +234,34 @@ class _State extends ConsumerState<AdminExamsScreen> {
           .map((o) => o.shortName)
           .firstOrNull;
 
+  // ════════════════════════════════════════════════════════════════════════
+  //  LES INDICATEURS SE LISENT COMME UNE CHAÎNE, PAS COMME HUIT MESURES.
+  //
+  //  Une candidature suit toujours le même parcours : déclarée, complétée,
+  //  déposée par le chef d'établissement, transmise à la DEC, puis proclamée.
+  //  Les cartes étaient rangées dans un ordre arbitraire — les transmissions
+  //  avant les dépôts, les résultats avant les dossiers déposés — de sorte
+  //  qu'on lisait huit chiffres indépendants là où il y a une progression.
+  //
+  //  Rangées dans l'ordre, elles disent aussi ce qu'elles ne disaient pas : le
+  //  DÉCHET à chaque étape. « 80 déclarés, 55 complets » devient « −25 ».
+  //
+  //  Et le taux de réussite porte désormais TOUJOURS son assiette, comme les
+  //  ventilations le font déjà. « 74 % » seul n'est pas vérifiable ; « 74 % ·
+  //  59 admis / 80 connus » se recoupe avec la publication de la DEC.
+  // ════════════════════════════════════════════════════════════════════════
   List<KpiData> _kpis(MinistryExamsData d) {
-    final rate = d.totalCandidates == 0
-        ? 0.0
-        : d.totalComplete / d.totalCandidates;
+    final completeRate =
+        d.totalCandidates == 0 ? 0.0 : d.totalComplete / d.totalCandidates;
+    final incomplete = d.totalCandidates - d.totalComplete;
+    final notSubmitted = d.totalComplete - d.totalSubmitted;
+    final pending = d.totalCandidates - d.totalWithResult;
+    final success = d.successRate;
+
     return [
+      // 1 ─ Ce que les écoles ont déclaré.
       KpiData(
-        label: 'Candidats déclarés',
+        label: '1 · Candidats déclarés',
         value: '${d.totalCandidates}',
         sub: '${d.schoolsWithCandidates} école(s) · ${d.sessionCount} session(s)',
         icon: Icons.groups_rounded,
@@ -248,35 +269,72 @@ class _State extends ConsumerState<AdminExamsScreen> {
         progressValue: d.totalCandidates > 0 ? 1 : 0,
         trend: d.yearLabel ?? '—',
       ),
+      // 2 ─ Dont le dossier tient debout.
       KpiData(
-        label: 'Dossiers complets',
+        label: '2 · Dossiers complets',
         value: '${d.totalComplete}',
-        sub: '${d.totalCandidates - d.totalComplete} incomplet(s)',
+        sub: incomplete == 0
+            ? 'aucun dossier incomplet'
+            : '$incomplete incomplet(s) — pièces manquantes',
         icon: Icons.folder_shared_rounded,
-        color: rate >= 0.8 ? kGreen : (rate >= 0.5 ? kListOrange : kRed),
-        progressValue: rate,
-        trend: '${(rate * 100).round()}% complets',
-        trendUp: rate >= 0.5,
+        color: completeRate >= 0.8
+            ? kGreen
+            : (completeRate >= 0.5 ? kListOrange : kRed),
+        progressValue: completeRate,
+        trend: incomplete == 0 ? 'complet' : '−$incomplete',
+        trendUp: incomplete == 0,
       ),
+      // 3 ─ Que le chef d'établissement a validés.
       KpiData(
-        label: 'Transmissions DEC',
+        label: '3 · Dossiers déposés',
+        value: '${d.totalSubmitted}',
+        sub: notSubmitted <= 0
+            ? 'tous les dossiers complets sont déposés'
+            : '$notSubmitted complet(s) pas encore déposé(s)',
+        icon: Icons.assignment_turned_in_rounded,
+        color: notSubmitted <= 0 ? kGreen : kAccent,
+        progressValue:
+            d.totalCandidates == 0 ? 0 : d.totalSubmitted / d.totalCandidates,
+        trend: notSubmitted <= 0 ? 'à jour' : '−$notSubmitted',
+        trendUp: notSubmitted <= 0,
+      ),
+      // 4 ─ Et qui sont réellement partis à la DEC.
+      KpiData(
+        label: '4 · Transmissions DEC',
         value: '${d.transmissionCount}',
         sub: d.transmissionsAcknowledged > 0
-            ? '${d.transmissionsAcknowledged} accusé(s) reçu(s)'
-            : 'dépôts opposables',
+            ? '${d.transmissionsAcknowledged} accusé(s) de réception'
+            : 'dépôts opposables à la DEC',
         icon: Icons.outbox_rounded,
         color: d.transmissionCount > 0 ? kGreen : kTextMuted,
         progressValue: d.transmissionCount > 0 ? 1 : 0,
-        trend: d.transmissionCount > 0 ? 'déposé' : 'aucun dépôt',
+        trend: d.transmissionCount > 0 ? 'transmis' : 'aucun dépôt',
         trendUp: d.transmissionCount > 0,
       ),
+      // 5 ─ Ce que la DEC a proclamé en retour.
+      KpiData(
+        label: '5 · Résultats proclamés',
+        value: '${d.totalWithResult}',
+        // Le taux ne s'affiche JAMAIS sans son dénominateur : « 74 % » seul
+        // ne se recoupe avec aucune publication.
+        sub: success == null
+            ? 'en attente de la DEC'
+            : '${d.totalAdmitted} admis / ${d.totalWithResult} connus',
+        icon: Icons.workspace_premium_rounded,
+        color: kListPurple,
+        progressValue:
+            d.totalCandidates == 0 ? 0 : d.totalWithResult / d.totalCandidates,
+        trend: success == null
+            ? (pending > 0 ? '$pending en attente' : '—')
+            : '${success.toStringAsFixed(1)} % de réussite',
+        trendUp: true,
+      ),
+      // ── Alerte : le seul risque irrattrapable de la campagne ────────────
       KpiData(
         label: 'Écoles à risque',
         value: '${d.schoolsAtRisk}',
-        // Candidats déclarés mais AUCUNE transmission : après la clôture, une
-        // année perdue. La seule alerte irrattrapable du pilotage.
         sub: d.schoolsAtRisk > 0
-            ? 'candidats non transmis'
+            ? 'des candidats, aucune transmission'
             : '✅ toutes ont transmis',
         icon: Icons.report_problem_rounded,
         color: d.schoolsAtRisk > 0 ? kRed : kGreen,
@@ -285,31 +343,6 @@ class _State extends ConsumerState<AdminExamsScreen> {
             : 1 - (d.schoolsAtRisk / d.schoolsWithCandidates),
         trend: d.schoolsAtRisk > 0 ? '⚠ à relancer' : 'sous contrôle',
         trendUp: d.schoolsAtRisk == 0,
-      ),
-      KpiData(
-        label: 'Résultats reçus',
-        value: '${d.totalWithResult}',
-        sub: d.successRate == null
-            ? 'en attente de la DEC'
-            : '${d.successRate!.round()}% de réussite',
-        icon: Icons.workspace_premium_rounded,
-        color: kListPurple,
-        progressValue:
-            d.totalCandidates == 0 ? 0 : d.totalWithResult / d.totalCandidates,
-        trend: d.totalWithResult > 0 ? '${d.totalAdmitted} admis' : '—',
-        trendUp: true,
-      ),
-      KpiData(
-        label: 'Dossiers déposés',
-        value: '${d.totalSubmitted}',
-        sub: 'validés par les chefs d\'établissement',
-        icon: Icons.assignment_turned_in_rounded,
-        color: kAccent,
-        progressValue:
-            d.totalCandidates == 0 ? 0 : d.totalSubmitted / d.totalCandidates,
-        trend: d.totalCandidates > 0
-            ? '${(d.totalSubmitted * 100 / d.totalCandidates).round()}%'
-            : '—',
       ),
       // ── Module STAGES : le ministère pilote les deux modules ─────────────
       // Mais l'attestation ne conditionne QUE les bacs technique et
