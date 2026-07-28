@@ -115,7 +115,11 @@ class AdminExamsDashboardSection extends ConsumerWidget {
               crossAxisCount: cross,
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
-              mainAxisExtent: 176,
+              // Hauteur du PIRE cas, pas du cas moyen : sur six colonnes, les
+              // cartes sont étroites et « stage manquant · dossier
+              // irrecevable » passe sur deux lignes, comme le libellé
+              // au-dessus. À 176 px, ces cartes-là débordaient de 8 px.
+              mainAxisExtent: 196,
             ),
             itemCount: cards.length,
             itemBuilder: (_, i) => cards[i],

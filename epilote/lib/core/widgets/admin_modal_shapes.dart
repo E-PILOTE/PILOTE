@@ -187,7 +187,11 @@ class AdminSidePanel extends StatelessWidget {
                 accent: accent,
                 topRadius: 0,
               ),
-              Flexible(
+              // `Expanded`, pas `Flexible` : le panneau occupe toute la
+              // hauteur, donc un corps court laisserait le pied flotter au
+              // milieu de l'écran avec du vide dessous. Le corps prend le
+              // reste, le pied reste ancré en bas.
+              Expanded(
                 child: SingleChildScrollView(
                     padding: bodyPadding, child: body),
               ),
@@ -255,6 +259,10 @@ class AdminBottomModal extends StatelessWidget {
   /// Bandeau fixe sous l'en-tête (voir `AdminFormDialog.hero`).
   final Widget? hero;
   final double maxWidth;
+
+  /// Hauteur MAXIMALE, en fraction de l'écran — pas une hauteur imposée. Une
+  /// feuille figée à 88 % laissait un grand vide sous un contenu court, et le
+  /// pied flottait au milieu de nulle part.
   final double heightFactor;
   final EdgeInsets bodyPadding;
 
@@ -270,7 +278,8 @@ class AdminBottomModal extends StatelessWidget {
           color: Colors.transparent,
           child: Container(
             width: maxWidth,
-            height: size.height * heightFactor,
+            constraints:
+                BoxConstraints(maxHeight: size.height * heightFactor),
             decoration: BoxDecoration(
               color: kCardBg,
               borderRadius:
@@ -283,7 +292,7 @@ class AdminBottomModal extends StatelessWidget {
               ],
             ),
             clipBehavior: Clip.antiAlias,
-            child: Column(children: [
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
               // Poignée : dit d'un coup d'œil que la feuille se referme vers
               // le bas — le seul repère que ce n'est pas une page.
               Padding(

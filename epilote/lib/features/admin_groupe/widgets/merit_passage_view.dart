@@ -345,7 +345,9 @@ class _Filters extends ConsumerWidget {
           // classement national.
           if (data.departments.length > 1)
             SizedBox(
-              width: 210,
+              // « Tout le réseau » ne doit pas se lire « Tout le r… » : le
+              // libellé du filtre dit le périmètre, donc il se lit en entier.
+              width: 242,
               height: 40,
               child: ListFilterDropdown(
                 icon: Icons.map_rounded,
@@ -362,7 +364,7 @@ class _Filters extends ConsumerWidget {
           // Filière — l'axe de pilotage propre à un ministère technique.
           if (data.filieres.length > 1)
             SizedBox(
-              width: 230,
+              width: 242,
               height: 40,
               child: ListFilterDropdown(
                 icon: Icons.category_rounded,

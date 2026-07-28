@@ -241,6 +241,11 @@ class _TrendChart extends StatelessWidget {
           majorTickLines: const MajorTickLines(size: 0),
           majorGridLines: MajorGridLines(width: 0.6, color: kBorder),
           labelFormat: '{value} %',
+          // L'échelle est resserrée, donc ses bornes tombent sur des décimales
+          // arbitraires : « 62.077 % » sur une graduation ne veut rien dire et
+          // salit la lecture. Les valeurs exactes sont sur les points.
+          decimalPlaces: 0,
+          interval: _axisInterval(base, top),
           labelStyle: TextStyle(fontSize: 10.5, color: kTextMuted),
         ),
         tooltipBehavior: TooltipBehavior(enable: true, format: 'point.x : point.y %'),
@@ -277,6 +282,16 @@ class _TrendChart extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Graduation entière la plus lisible pour l'amplitude affichée : jamais plus
+/// de cinq lignes, jamais une valeur à virgule.
+double _axisInterval(double base, double top) {
+  final span = top - base;
+  for (final step in const [1.0, 2.0, 5.0, 10.0, 20.0, 25.0, 50.0]) {
+    if (span / step <= 5) return step;
+  }
+  return 100;
 }
 
 /// Étiquette d'un point : le taux, et l'évolution qui l'a amené là.
