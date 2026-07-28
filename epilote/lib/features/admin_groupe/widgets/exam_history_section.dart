@@ -27,11 +27,15 @@ import 'exam_standings_modal.dart';
 final _selectedExamProvider = StateProvider.autoDispose<String?>((_) => null);
 
 class ExamHistorySection extends ConsumerWidget {
-  const ExamHistorySection({super.key});
+  const ExamHistorySection({super.key, required this.figures});
+
+  /// Reçus de l'écran, qui résout le chargement une fois pour toute la page.
+  /// La section ne s'abonne plus au provider : quatre abonnements pour deux
+  /// requêtes multipliaient les reconstructions sans rien apporter.
+  final List<OfficialFigure> figures;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final figures = ref.watch(officialFiguresProvider).valueOrNull ?? const [];
     final histories = buildNationalHistory(figures);
     if (histories.isEmpty) return const SizedBox.shrink();
 

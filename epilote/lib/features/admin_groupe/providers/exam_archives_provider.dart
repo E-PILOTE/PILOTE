@@ -257,6 +257,11 @@ final archiveSessionsProvider =
 // ─── Publications archivées ─────────────────────────────────────────────────
 final examPublicationsProvider =
     FutureProvider.autoDispose<List<ExamPublication>>((ref) async {
+  // L'archive est consultée par allers-retours : on ouvre une pièce, on
+  // revient, on relève un chiffre, on revient. Sans `keepAlive`, chacun de
+  // ces retours détruisait le provider et relançait la requête — la lenteur
+  // ressentie sur cette page n'était pas du réseau, c'était ça.
+  ref.keepAlive();
   final client = ref.watch(supabaseClientProvider);
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
   if (groupId == null) return const [];
@@ -306,6 +311,10 @@ ExamPublication _toPublication(Map<String, dynamic> r) {
 // ─── Chiffres officiels ─────────────────────────────────────────────────────
 final officialFiguresProvider =
     FutureProvider.autoDispose<List<OfficialFigure>>((ref) async {
+  // Même raison que pour les publications : les chiffres relevés sont relus à
+  // chaque ouverture de panneau. Ils restent en mémoire, les écritures les
+  // invalident explicitement (`recordFigure`, `removeFigure`).
+  ref.keepAlive();
   final client = ref.watch(supabaseClientProvider);
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
   if (groupId == null) return const [];

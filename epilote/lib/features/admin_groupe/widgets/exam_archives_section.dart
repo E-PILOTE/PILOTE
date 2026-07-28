@@ -22,13 +22,19 @@ import 'exam_publication_dialog.dart';
 //  et une note de service.
 // ════════════════════════════════════════════════════════════════════════════
 class ExamArchivesSection extends ConsumerWidget {
-  const ExamArchivesSection({super.key});
+  const ExamArchivesSection({
+    super.key,
+    required this.publications,
+    required this.figures,
+  });
+
+  /// Reçues de l'écran : l'état de chargement appartient à la page entière,
+  /// pas à chacune de ses sections.
+  final List<ExamPublication> publications;
+  final List<OfficialFigure> figures;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pubs = ref.watch(examPublicationsProvider);
-    final figures = ref.watch(officialFiguresProvider).valueOrNull ?? const [];
-
     return AdminCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
@@ -49,32 +55,22 @@ class ExamArchivesSection extends ConsumerWidget {
         const SizedBox(height: 6),
         const _Rule(),
         const SizedBox(height: 14),
-        pubs.when(
-          loading: () => const Padding(
-            padding: EdgeInsets.symmetric(vertical: 28),
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        if (publications.isEmpty)
+          const AdminEmptyState(
+            icon: Icons.inventory_2_outlined,
+            title: 'Aucune publication archivée',
+            message: 'La DEC proclame les résultats et publie ses listes ; '
+                'la plateforme ne les calcule pas. Déposez ici les '
+                'documents reçus : ils deviennent la mémoire opposable '
+                'du réseau, examen par examen et année par année.',
+          )
+        else
+          Column(
+            children: [
+              for (final p in publications)
+                _PublicationTile(pub: p, figure: _figureFor(figures, p)),
+            ],
           ),
-          error: (e, _) => Text('$e',
-              style: TextStyle(fontSize: 12.5, color: kRed)),
-          data: (list) => list.isEmpty
-              ? const AdminEmptyState(
-                  icon: Icons.inventory_2_outlined,
-                  title: 'Aucune publication archivée',
-                  message: 'La DEC proclame les résultats et publie ses listes ; '
-                      'la plateforme ne les calcule pas. Déposez ici les '
-                      'documents reçus : ils deviennent la mémoire opposable '
-                      'du réseau, examen par examen et année par année.',
-                )
-              : Column(
-                  children: [
-                    for (final p in list)
-                      _PublicationTile(
-                        pub: p,
-                        figure: _figureFor(figures, p),
-                      ),
-                  ],
-                ),
-        ),
       ]),
     );
   }

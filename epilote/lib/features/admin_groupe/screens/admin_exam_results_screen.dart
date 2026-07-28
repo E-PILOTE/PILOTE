@@ -5,6 +5,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../providers/exam_archives_provider.dart';
+import '../widgets/admin_exams_views.dart';
 import '../widgets/exam_archives_section.dart';
 import '../widgets/exam_figures_section.dart';
 import '../widgets/exam_history_section.dart';
@@ -32,33 +33,78 @@ class AdminExamResultsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final figures = ref.watch(officialFiguresProvider).valueOrNull ?? const [];
-    final pubs = ref.watch(examPublicationsProvider).valueOrNull ?? const [];
-
     return AppShell(
       title: 'Résultats & archives',
-      child: SingleChildScrollView(
+      child: _resolve(
+        ref,
+        ref.watch(officialFiguresProvider),
+        ref.watch(examPublicationsProvider),
+      ),
+    );
+  }
+
+  /// Une page, un seul état de chargement.
+  ///
+  /// L'écran affichait auparavant `?? const []` sur chacune des deux sources :
+  /// pendant que les requêtes tournaient, il rendait donc une page COMPLÈTE et
+  /// fausse — KPI à zéro, « aucun chiffre officiel enregistré », historique
+  /// absent — avant de basculer d'un coup. Une archive vide et une archive pas
+  /// encore chargée ne se disent pas de la même manière : la première est une
+  /// réponse, la seconde n'en est pas une.
+  Widget _resolve(
+    WidgetRef ref,
+    AsyncValue<List<OfficialFigure>> figuresAsync,
+    AsyncValue<List<ExamPublication>> pubsAsync,
+  ) {
+    final error = figuresAsync.error ?? pubsAsync.error;
+    if (error != null) {
+      return ExamsErrorView(
+        message: '$error',
+        onRetry: () {
+          ref.invalidate(officialFiguresProvider);
+          ref.invalidate(examPublicationsProvider);
+        },
+      );
+    }
+    final figures = figuresAsync.valueOrNull;
+    final pubs = pubsAsync.valueOrNull;
+    // `valueOrNull` non nul = des données sont déjà là. Un rafraîchissement en
+    // arrière-plan ne doit pas revider la page sous les yeux du lecteur.
+    if (figures == null || pubs == null) return const ListShimmer();
+    return _Content(figures: figures, publications: pubs);
+  }
+}
+
+/// Le contenu, une fois les deux sources résolues. Séparé de l'écran pour que
+/// les sections reçoivent des listes — et non des `AsyncValue` — ce qui les
+/// rend testables sans Supabase.
+class _Content extends StatelessWidget {
+  const _Content({required this.figures, required this.publications});
+
+  final List<OfficialFigure> figures;
+  final List<ExamPublication> publications;
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const _Intro(),
             const SizedBox(height: 20),
-            KpiGrid(items: _kpis(figures, pubs)),
+            KpiGrid(items: _kpis(figures, publications)),
             const SizedBox(height: 20),
-            const ExamHistorySection(),
+            ExamHistorySection(figures: figures),
             const SizedBox(height: 20),
-            const ExamArchivesSection(),
+            ExamArchivesSection(publications: publications, figures: figures),
             const SizedBox(height: 20),
             // Les chiffres viennent APRÈS les pièces : on lit d'abord ce que la
             // DEC a publié, ensuite ce que la DSIC en a relevé — et ce qui
             // reste à sourcer.
-            const ExamFiguresSection(),
+            ExamFiguresSection(figures: figures),
           ],
         ),
-      ),
-    );
-  }
+      );
 
   /// Quatre mesures de l'ARCHIVE elle-même, pas des résultats : ce que le
   /// ministère détient, et à quel point il peut s'y fier. Le taux national

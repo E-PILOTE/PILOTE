@@ -23,11 +23,14 @@ final _sessionFilterProvider = StateProvider.autoDispose<String?>((_) => null);
 final _unsourcedOnlyProvider = StateProvider.autoDispose<bool>((_) => false);
 
 class ExamFiguresSection extends ConsumerWidget {
-  const ExamFiguresSection({super.key});
+  const ExamFiguresSection({super.key, required this.figures});
+
+  /// Reçus de l'écran. `archiveSessionsProvider` reste observé localement :
+  /// c'est un référentiel (la liste des sessions), pas une donnée de page.
+  final List<OfficialFigure> figures;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(officialFiguresProvider);
     final sessions = ref.watch(archiveSessionsProvider).valueOrNull ?? const [];
     final sessionId = ref.watch(_sessionFilterProvider);
     final unsourcedOnly = ref.watch(_unsourcedOnlyProvider);
@@ -52,55 +55,49 @@ class ExamFiguresSection extends ConsumerWidget {
           ),
         ]),
         const SizedBox(height: 14),
-        async.when(
-          loading: () => const Padding(
-            padding: EdgeInsets.symmetric(vertical: 28),
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          ),
-          error: (e, _) => AdminErrorBanner(message: '$e'),
-          data: (all) {
-            final unsourced = all.where((f) => !f.hasSource).length;
-            var rows = all;
-            if (sessionId != null) {
-              rows = rows.where((f) => f.sessionId == sessionId).toList();
-            }
-            if (unsourcedOnly) {
-              rows = rows.where((f) => !f.hasSource).toList();
-            }
-            return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _Filters(
-                    sessions: sessions,
-                    sessionId: sessionId,
+        Builder(builder: (context) {
+          final all = figures;
+          final unsourced = all.where((f) => !f.hasSource).length;
+          var rows = all;
+          if (sessionId != null) {
+            rows = rows.where((f) => f.sessionId == sessionId).toList();
+          }
+          if (unsourcedOnly) {
+            rows = rows.where((f) => !f.hasSource).toList();
+          }
+          return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _Filters(
+                  sessions: sessions,
+                  sessionId: sessionId,
+                  unsourcedOnly: unsourcedOnly,
+                  unsourcedCount: unsourced,
+                  onSession: (v) =>
+                      ref.read(_sessionFilterProvider.notifier).state = v,
+                  onUnsourced: (v) =>
+                      ref.read(_unsourcedOnlyProvider.notifier).state = v,
+                ),
+                const SizedBox(height: 14),
+                if (all.isEmpty)
+                  const AdminEmptyState(
+                    icon: Icons.fact_check_outlined,
+                    title: 'Aucun chiffre officiel relevé',
+                    message: 'Déposez une publication de la DEC en relevant '
+                        'ses chiffres, ou enregistrez ici un taux annoncé '
+                        'dont le document n\'est pas encore parvenu.',
+                  )
+                else if (rows.isEmpty)
+                  _Empty(
                     unsourcedOnly: unsourcedOnly,
-                    unsourcedCount: unsourced,
-                    onSession: (v) =>
-                        ref.read(_sessionFilterProvider.notifier).state = v,
-                    onUnsourced: (v) =>
-                        ref.read(_unsourcedOnlyProvider.notifier).state = v,
+                  )
+                else
+                  _FiguresTable(
+                    rows: rows,
+                    onTap: (f) => showExamFigurePanel(context, figure: f),
                   ),
-                  const SizedBox(height: 14),
-                  if (all.isEmpty)
-                    const AdminEmptyState(
-                      icon: Icons.fact_check_outlined,
-                      title: 'Aucun chiffre officiel relevé',
-                      message: 'Déposez une publication de la DEC en relevant '
-                          'ses chiffres, ou enregistrez ici un taux annoncé '
-                          'dont le document n\'est pas encore parvenu.',
-                    )
-                  else if (rows.isEmpty)
-                    _Empty(
-                      unsourcedOnly: unsourcedOnly,
-                    )
-                  else
-                    _FiguresTable(
-                      rows: rows,
-                      onTap: (f) => showExamFigurePanel(context, figure: f),
-                    ),
-                ]);
-          },
-        ),
+              ]);
+        }),
       ]),
     );
   }
