@@ -8,6 +8,7 @@ import '../providers/admin_exams_provider.dart';
 import '../providers/ministry_exam_rows.dart';
 import '../widgets/admin_exams_breakdown.dart';
 import '../widgets/admin_exams_views.dart';
+import '../widgets/exam_axis_drilldown_modal.dart';
 import '../widgets/exam_scope_chips.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -98,7 +99,13 @@ class _State extends ConsumerState<AdminExamsScreen> {
                   // pour que deux « réussites par département » aux valeurs
                   // différentes ne se touchent jamais.
                   ExamBreakdownRow(
-                      filiere: d.byFiliere, departement: d.byDepartment),
+                    filiere: d.byFiliere,
+                    departement: d.byDepartment,
+                    onTapFiliere: (l) =>
+                        _openAxis(context, d, code, ExamAxis.filiere, l.label),
+                    onTapDepartement: (l) => _openAxis(
+                        context, d, code, ExamAxis.departement, l.label),
+                  ),
                   const SizedBox(height: 20),
                 ],
                 ListFilterBar(
@@ -157,6 +164,35 @@ class _State extends ConsumerState<AdminExamsScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// Ouvre les écoles d'un axe. Les lignes viennent de la mémoire : le
+  /// drill-down ne coûte aucune requête.
+  void _openAxis(
+    BuildContext context,
+    MinistryExamsData d,
+    String? code,
+    ExamAxis axis,
+    String label,
+  ) {
+    final rows = scopeRows(d.rows, code);
+    showExamAxisDrilldown(
+      context,
+      axis: axis,
+      label: label,
+      examLabel: code == null
+          ? null
+          : d.examOptions
+              .where((o) => o.code == code)
+              .map((o) => o.shortName)
+              .firstOrNull,
+      schools: schoolsForAxis(
+        rows,
+        axis: axis,
+        label: label,
+        transmittedSchoolIds: d.transmittedSchoolIds,
       ),
     );
   }

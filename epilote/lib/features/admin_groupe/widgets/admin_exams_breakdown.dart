@@ -18,6 +18,7 @@ class ExamRateBreakdown extends StatelessWidget {
     required this.title,
     required this.icon,
     required this.lines,
+    required this.onTap,
     this.subtitle,
     this.maxRows = 8,
   });
@@ -25,6 +26,10 @@ class ExamRateBreakdown extends StatelessWidget {
   final String title;
   final IconData icon;
   final List<ExamStatLine> lines;
+
+  /// Ouvre les écoles de la ligne. Une ventilation qui nomme un problème sans
+  /// permettre de le localiser est un constat, pas du pilotage.
+  final ValueChanged<ExamStatLine> onTap;
   final String? subtitle;
   final int maxRows;
 
@@ -53,7 +58,7 @@ class ExamRateBreakdown extends StatelessWidget {
                 style: TextStyle(fontSize: 12.5, color: kTextMuted)),
           )
         else
-          for (final l in shown) _RateRow(line: l),
+          for (final l in shown) _RateRow(line: l, onTap: () => onTap(l)),
       ]),
     );
   }
@@ -65,9 +70,13 @@ class ExamBreakdownRow extends StatelessWidget {
     super.key,
     required this.filiere,
     required this.departement,
+    required this.onTapFiliere,
+    required this.onTapDepartement,
   });
   final List<ExamStatLine> filiere;
   final List<ExamStatLine> departement;
+  final ValueChanged<ExamStatLine> onTapFiliere;
+  final ValueChanged<ExamStatLine> onTapDepartement;
 
   @override
   Widget build(BuildContext context) {
@@ -76,12 +85,14 @@ class ExamBreakdownRow extends StatelessWidget {
       icon: Icons.category_rounded,
       lines: filiere,
       subtitle: 'Pilotage de l’offre de formation technique',
+      onTap: onTapFiliere,
     );
     final d = ExamRateBreakdown(
       title: 'Réussite par département',
       icon: Icons.public_rounded,
       lines: departement,
       subtitle: 'Équité territoriale',
+      onTap: onTapDepartement,
     );
     return LayoutBuilder(builder: (ctx, c) {
       if (c.maxWidth < 820) {
@@ -97,8 +108,9 @@ class ExamBreakdownRow extends StatelessWidget {
 }
 
 class _RateRow extends StatelessWidget {
-  const _RateRow({required this.line});
+  const _RateRow({required this.line, required this.onTap});
   final ExamStatLine line;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -106,8 +118,11 @@ class _RateRow extends StatelessWidget {
     final color = ExamRateBreakdown._rateColor(rate);
     final pct = rate == null ? null : (rate * 100).round();
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 11),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+      padding: const EdgeInsets.fromLTRB(4, 3, 2, 8),
       child: Row(children: [
         // Libellé de l'axe (filière / département). Largeur généreuse et police
         // légèrement resserrée : « Bâtiment et Génie civil » doit se lire ENTIER
@@ -178,7 +193,10 @@ class _RateRow extends StatelessWidget {
             ],
           ),
         ),
+        // Une ligne cliquable qui ne le dit pas ne se clique pas.
+        Icon(Icons.chevron_right_rounded, size: 16, color: kTextMuted),
       ]),
+      ),
     );
   }
 }
