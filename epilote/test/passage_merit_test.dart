@@ -149,4 +149,41 @@ void main() {
           reason: 'un cadre trop haut bloquerait tout le document');
     });
   });
+
+  group('Périmètre du palmarès — il doit toujours être énonçable', () {
+    test('sans restriction, le périmètre se réduit à la période', () {
+      expect(const PassageFilter().scopeLabel('année entière'),
+          'année entière');
+    });
+
+    test('territoire, filière et niveau s\'ajoutent dans un ordre stable', () {
+      // L'ordre est fixe pour que le même périmètre produise toujours la même
+      // phrase : deux PDF du même classement ne doivent pas se lire
+      // différemment.
+      const f = PassageFilter(
+        department: 'Niari',
+        filiere: 'Électrotechnique',
+        levelCode: '2nde',
+      );
+      expect(f.scopeLabel('2e trimestre'),
+          '2e trimestre · département Niari · Électrotechnique · niveau 2nde');
+    });
+
+    test('un rang filtré ne se présente jamais comme national', () {
+      const f = PassageFilter(department: 'Pool');
+      final label = f.scopeLabel('année entière');
+      expect(label, contains('Pool'),
+          reason: 'un 1er du Pool présenté sans son département serait '
+              'lu comme un 1er national');
+    });
+
+    test('deux filtres identiques sont le même périmètre', () {
+      // L'égalité pilote le rechargement du provider : sans elle, changer un
+      // filtre puis revenir relancerait une requête pour rien.
+      expect(const PassageFilter(department: 'Niari', filiere: 'Série C'),
+          const PassageFilter(department: 'Niari', filiere: 'Série C'));
+      expect(const PassageFilter(department: 'Niari'),
+          isNot(const PassageFilter(department: 'Pool')));
+    });
+  });
 }

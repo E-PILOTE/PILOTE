@@ -506,6 +506,17 @@ class ArchiveActions {
   }
 
   /// Enregistre (ou corrige) un chiffre officiel relevé sur une publication.
+  ///
+  /// ⚠️ L'`onConflict` porte sur le périmètre, pas sur l'identifiant : deux
+  /// relevés pour la même (session, scope, département, école, filière) sont
+  /// deux vérités concurrentes, et la seconde écrase la première. L'index qui
+  /// rend cette inférence possible est posé par la migration 0063 — celui de
+  /// 0062 était un index d'EXPRESSION, que Postgres n'infère jamais : toute
+  /// écriture partait en 42P10 et les chiffres relevés au dépôt étaient perdus.
+  ///
+  /// [replacingId] sert à la CORRECTION d'un relevé dont on change le
+  /// périmètre : la ligne visée n'entre alors plus en collision avec elle-même
+  /// et resterait derrière, en doublon silencieux. On la retire après coup.
   Future<void> recordFigure({
     required String sessionId,
     required PubScope scope,
@@ -519,13 +530,14 @@ class ArchiveActions {
     String? publicationId,
     String? sourceLabel,
     DateTime? publishedAt,
+    String? replacingId,
   }) async {
     final client = _ref.read(supabaseClientProvider);
     final profile = _ref.read(authNotifierProvider).valueOrNull;
     final groupId = profile?.groupId;
     if (groupId == null) throw StateError('Groupe introuvable');
 
-    await client.from('exam_official_results').upsert({
+    final saved = await client.from('exam_official_results').upsert({
       'group_id': groupId,
       'session_id': sessionId,
       'scope': scope.code,
@@ -543,8 +555,26 @@ class ArchiveActions {
       'published_at': publishedAt?.toIso8601String().split('T').first,
       'recorded_by': profile?.id,
       'updated_at': DateTime.now().toIso8601String(),
-    }, onConflict: 'session_id, scope, department, school_id, filiere_label');
+    }, onConflict: 'session_id, scope, department, school_id, filiere_label')
+        .select('id')
+        .single();
 
+    final savedId = saved['id'] as String?;
+    if (replacingId != null && replacingId != savedId) {
+      await client.from('exam_official_results').delete().eq('id', replacingId);
+    }
+
+    _ref.invalidate(officialFiguresProvider);
+  }
+
+  /// Retire un chiffre relevé. La pièce, elle, reste : c'est la lecture qu'on
+  /// efface, pas le document publié par la DEC.
+  Future<void> removeFigure(OfficialFigure f) async {
+    await _ref
+        .read(supabaseClientProvider)
+        .from('exam_official_results')
+        .delete()
+        .eq('id', f.id);
     _ref.invalidate(officialFiguresProvider);
   }
 

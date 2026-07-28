@@ -123,6 +123,8 @@ class PassageFilter {
   const PassageFilter({
     this.trimesterId,
     this.levelCode,
+    this.department,
+    this.filiere,
     this.topN = 10,
   });
 
@@ -130,11 +132,21 @@ class PassageFilter {
   /// que le document doit énoncer.
   final String? trimesterId;
   final String? levelCode;
+
+  /// Territoire — une commission de bourses attribue par département, pas sur
+  /// un classement national qu'un seul chef-lieu occuperait.
+  final String? department;
+
+  /// Filière technique — l'axe de pilotage propre au METP.
+  final String? filiere;
+
   final int topN;
 
   PassageFilter copyWith({
     Object? trimesterId = _keep,
     Object? levelCode = _keep,
+    Object? department = _keep,
+    Object? filiere = _keep,
     int? topN,
   }) =>
       PassageFilter(
@@ -143,20 +155,37 @@ class PassageFilter {
             : trimesterId as String?,
         levelCode:
             identical(levelCode, _keep) ? this.levelCode : levelCode as String?,
+        department: identical(department, _keep)
+            ? this.department
+            : department as String?,
+        filiere: identical(filiere, _keep) ? this.filiere : filiere as String?,
         topN: topN ?? this.topN,
       );
 
   static const Object _keep = Object();
+
+  /// Périmètre écrit en toutes lettres — il accompagne le classement partout,
+  /// à l'écran comme dans le PDF : un 1ᵉʳ filtré sur une filière n'est pas un
+  /// 1ᵉʳ national, et un document qui l'omet n'est pas opposable.
+  String scopeLabel(String periodLabel) => [
+        periodLabel,
+        if (department != null) 'département $department',
+        ?filiere,
+        if (levelCode != null) 'niveau $levelCode',
+      ].join(' · ');
 
   @override
   bool operator ==(Object other) =>
       other is PassageFilter &&
       other.trimesterId == trimesterId &&
       other.levelCode == levelCode &&
+      other.department == department &&
+      other.filiere == filiere &&
       other.topN == topN;
 
   @override
-  int get hashCode => Object.hash(trimesterId, levelCode, topN);
+  int get hashCode =>
+      Object.hash(trimesterId, levelCode, department, filiere, topN);
 }
 
 final passageFilterProvider =
@@ -201,12 +230,23 @@ List<RankedPassage> rankPassage(List<PassageEntry> sorted, int topN) {
 }
 
 class PassageData {
-  const PassageData({required this.entries, required this.levels});
+  const PassageData({
+    required this.entries,
+    required this.levels,
+    this.departments = const [],
+    this.filieres = const [],
+  });
+
   final List<PassageEntry> entries;
 
   /// Niveaux présents — comparer une 6e à une Terminale n'aurait pas de sens,
   /// l'écran doit pouvoir restreindre.
   final List<String> levels;
+
+  /// Territoires et filières RÉELLEMENT classés. Jamais une nomenclature
+  /// théorique : un filtre qui ne renvoie jamais rien use la confiance.
+  final List<String> departments;
+  final List<String> filieres;
 
   static const empty = PassageData(entries: [], levels: []);
 }
@@ -237,6 +277,11 @@ final passageMeritProvider =
     'p_trimester_id': filter.trimesterId,
     'p_level_code': filter.levelCode,
     'p_limit': 200,
+    // ⚠️ Territoire et filière filtrent EN BASE, avant la coupe du classement
+    // (migration 0064). Les appliquer côté client donnerait « les meilleurs du
+    // Niari parmi les 200 meilleurs du pays » — faux sans le dire.
+    'p_department': filter.department,
+    'p_filiere_label': filter.filiere,
   });
 
   final entries = [
@@ -252,8 +297,36 @@ final passageMeritProvider =
   }.toList()
     ..sort();
 
-  return PassageData(entries: entries, levels: levels);
+  // Les options des filtres se lisent sur le classement NON restreint : sinon
+  // choisir « Niari » ferait disparaître tous les autres départements de la
+  // liste déroulante, et on ne pourrait plus en sortir.
+  final unfiltered = filter.department == null && filter.filiere == null
+      ? entries
+      : [
+          for (final r in (await client.rpc('get_passage_merit', params: {
+                'p_group_id': groupId,
+                'p_academic_year_id': yearId,
+                'p_trimester_id': filter.trimesterId,
+                'p_level_code': filter.levelCode,
+                'p_limit': 200,
+              }) as List? ??
+              const []))
+            _toEntry(r as Map<String, dynamic>),
+        ];
+
+  return PassageData(
+    entries: entries,
+    levels: levels,
+    departments: _distinct(unfiltered.map((e) => e.department)),
+    filieres: _distinct(unfiltered.map((e) => e.filiere)),
+  );
 });
+
+List<String> _distinct(Iterable<String?> values) => (<String>{
+      for (final v in values)
+        if ((v ?? '').trim().isNotEmpty) v!.trim(),
+    }.toList()
+      ..sort());
 
 PassageEntry _toEntry(Map<String, dynamic> r) => PassageEntry(
       studentId: r['student_id'] as String? ?? '',

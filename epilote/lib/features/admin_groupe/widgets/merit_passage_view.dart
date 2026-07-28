@@ -17,10 +17,18 @@ import 'student_dossier_dialog.dart';
 //  MEILLEURS ÉLÈVES DES CLASSES DE PASSAGE.
 //
 //  La base que la plateforme produit elle-même (cf. passage_merit_provider).
-//  Trois choix commandent la lecture, et chacun est écrit à l'écran :
+//  Cinq choix commandent la lecture, et tous sont écrits à l'écran comme dans
+//  le PDF — un rang sans son périmètre n'est pas opposable :
 //    • le TRIMESTRE — une moyenne n'existe pas hors d'une période ;
 //    • le NIVEAU — comparer une 6e à une Terminale n'a pas de sens ;
+//    • le DÉPARTEMENT — une bourse départementale ne se décide pas sur un
+//      classement national qu'un seul chef-lieu occupe ;
+//    • la FILIÈRE — l'axe de pilotage propre à un ministère technique ;
 //    • la taille du palmarès.
+//
+//  ⚠️ Département et filière filtrent EN BASE (migration 0064), avant la coupe
+//  du classement. Les appliquer ici donnerait « les meilleurs du Niari parmi
+//  les 200 meilleurs du pays ».
 //
 //  La moyenne de la classe accompagne toujours celle de l'élève : 16/20 dans
 //  une classe à 15 n'est pas 16/20 dans une classe à 9, et une commission de
@@ -76,7 +84,7 @@ class MeritPassageView extends ConsumerWidget {
               ),
               const SizedBox(height: 20),
             ],
-            _Filters(filter: filter, trimesters: trimesters, levels: d.levels),
+            _Filters(filter: filter, trimesters: trimesters, data: d),
             const SizedBox(height: 16),
             if (rows.isEmpty)
               const AdminEmptyState(
@@ -118,13 +126,16 @@ class MeritPassageView extends ConsumerWidget {
   }
 
   static String _scopeLabel(PassageFilter f, List<Trimester> trimesters) {
-    final t = f.trimesterId == null
+    final period = f.trimesterId == null
         ? 'année entière'
         : trimesters
-            .where((x) => x.id == f.trimesterId)
-            .map((x) => x.label)
-            .firstOrNull ?? 'trimestre sélectionné';
-    return f.levelCode == null ? t : '$t · niveau ${f.levelCode}';
+                .where((x) => x.id == f.trimesterId)
+                .map((x) => x.label)
+                .firstOrNull ??
+            'trimestre sélectionné';
+    // Un seul endroit compose le périmètre : l'écran et le PDF ne peuvent pas
+    // en donner deux versions différentes.
+    return f.scopeLabel(period);
   }
 
   void _openPdf(
@@ -263,12 +274,12 @@ class _Filters extends ConsumerWidget {
   const _Filters({
     required this.filter,
     required this.trimesters,
-    required this.levels,
+    required this.data,
   });
 
   final PassageFilter filter;
   final List<Trimester> trimesters;
-  final List<String> levels;
+  final PassageData data;
 
   static const _kYear = '__annee__';
   static const _kAll = '__all__';
@@ -324,12 +335,47 @@ class _Filters extends ConsumerWidget {
               value: filter.levelCode ?? _kAll,
               items: {
                 _kAll: 'Tous',
-                for (final l in levels) l: l,
+                for (final l in data.levels) l: l,
               },
               onChanged: (v) =>
                   update(filter.copyWith(levelCode: v == _kAll ? null : v)),
             ),
           ),
+          // Territoire — une bourse départementale ne se décide pas sur un
+          // classement national.
+          if (data.departments.length > 1)
+            SizedBox(
+              width: 210,
+              height: 40,
+              child: ListFilterDropdown(
+                icon: Icons.map_rounded,
+                label: 'Département',
+                value: filter.department ?? _kAll,
+                items: {
+                  _kAll: 'Tout le réseau',
+                  for (final d in data.departments) d: d,
+                },
+                onChanged: (v) =>
+                    update(filter.copyWith(department: v == _kAll ? null : v)),
+              ),
+            ),
+          // Filière — l'axe de pilotage propre à un ministère technique.
+          if (data.filieres.length > 1)
+            SizedBox(
+              width: 230,
+              height: 40,
+              child: ListFilterDropdown(
+                icon: Icons.category_rounded,
+                label: 'Filière',
+                value: filter.filiere ?? _kAll,
+                items: {
+                  _kAll: 'Toutes filières',
+                  for (final f in data.filieres) f: f,
+                },
+                onChanged: (v) =>
+                    update(filter.copyWith(filiere: v == _kAll ? null : v)),
+              ),
+            ),
           SizedBox(
             width: 175,
             height: 40,

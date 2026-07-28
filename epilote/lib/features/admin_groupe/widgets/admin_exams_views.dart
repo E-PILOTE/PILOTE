@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../providers/admin_exams_provider.dart';
+import 'admin_exam_school_modal.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  VUES DE « EXAMENS NATIONAUX » — graphique, tableau, cartes, états vides.
@@ -122,6 +124,7 @@ class SchoolsTable extends StatelessWidget {
             _h('DÉPOSÉS', flex: 2),
             _h('TRANSMIS', flex: 2),
             _h('RÉSULTATS', flex: 2),
+            const SizedBox(width: 20),
           ]),
         ),
         for (var i = 0; i < rows.length; i++)
@@ -148,7 +151,11 @@ class _SchoolRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    // La ligne ouvre la fiche de l'établissement : « 12 candidats, aucune
+    // transmission » appelle immédiatement « lesquels, à quel examen ».
+    return InkWell(
+      onTap: () => showSchoolExamModal(context, row),
+      child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       decoration: BoxDecoration(
         color: striped ? kNavy.withValues(alpha: 0.02) : null,
@@ -187,8 +194,12 @@ class _SchoolRow extends StatelessWidget {
         ),
         _num(row.withResult > 0 ? '${row.withResult}' : '—',
             flex: 2, color: row.withResult > 0 ? kListPurple : kTextMuted),
+        SizedBox(
+          width: 20,
+          child: Icon(Icons.chevron_right_rounded, size: 16, color: kTextMuted),
+        ),
       ]),
-    );
+    ));
   }
 
   Widget _num(String t, {required int flex, required Color color, bool bold = false}) =>
@@ -255,7 +266,10 @@ class _SchoolCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final risk = row.hasCandidatesNotTransmitted;
-    return Container(
+    return InkWell(
+      onTap: () => showSchoolExamModal(context, row),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: kCardBg,
@@ -289,7 +303,7 @@ class _SchoolCard extends StatelessWidget {
           ]),
         ],
       ),
-    );
+    ));
   }
 
   Widget _stat(String value, String label, Color color) => Expanded(
@@ -350,5 +364,71 @@ class ExamsErrorView extends StatelessWidget {
             label: const Text('Réessayer'),
           ),
         ]),
+      );
+}
+
+// ─── Relance groupée ─────────────────────────────────────────────────────────
+/// Relance en une fois toutes les écoles qui n'ont rien transmis.
+///
+/// Le geste est adressant : il touche des chefs d'établissement réels. Il passe
+/// donc par une confirmation nominative — combien d'écoles, combien de
+/// candidats — parce qu'une relance envoyée par erreur ne se rappelle pas.
+class ExamsRemindButton extends ConsumerStatefulWidget {
+  const ExamsRemindButton({super.key, required this.schools});
+  final List<MinistrySchoolExam> schools;
+
+  @override
+  ConsumerState<ExamsRemindButton> createState() => _RemindState();
+}
+
+class _RemindState extends ConsumerState<ExamsRemindButton> {
+  bool _sending = false;
+
+  Future<void> _run() async {
+    final n = widget.schools.length;
+    final candidates =
+        widget.schools.fold<int>(0, (s, e) => s + e.candidates);
+    final ok = await showAdminConfirm(
+      context,
+      icon: Icons.notifications_active_rounded,
+      title: 'Relancer $n établissement(s) ?',
+      message: 'Un avis part au chef de chacune de ces écoles : ensemble, '
+          'elles ont déclaré $candidates candidat(s) sans aucune transmission '
+          'à la DEC. L\'avis nomme le nombre de candidats propre à chaque '
+          'établissement.',
+      confirmLabel: 'Envoyer la relance',
+      confirmIcon: Icons.send_rounded,
+    );
+    if (!ok || !mounted) return;
+
+    setState(() => _sending = true);
+    try {
+      final sent = await ref
+          .read(ministryExamActionsProvider)
+          .remindSchools(widget.schools);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(sent == 0
+            ? 'Aucun chef d\'établissement enregistré sur ce périmètre : '
+                'aucune relance n\'a pu être adressée.'
+            : '$sent chef(s) d\'établissement relancé(s).'),
+      ));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Envoi impossible : $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AdminPrimaryButton(
+        label: 'Relancer ${widget.schools.length} école(s)',
+        icon: Icons.notifications_active_rounded,
+        color: kRed,
+        saving: _sending,
+        onTap: _run,
       );
 }

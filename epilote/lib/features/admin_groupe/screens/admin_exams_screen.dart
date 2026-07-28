@@ -105,10 +105,23 @@ class _State extends ConsumerState<AdminExamsScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                ListResultHeader(
-                    total: d.schools.length,
-                    filtered: filtered.length,
-                    noun: 'école'),
+                Row(children: [
+                  Expanded(
+                    child: ListResultHeader(
+                        total: d.schools.length,
+                        filtered: filtered.length,
+                        noun: 'école'),
+                  ),
+                  // La seule action du cockpit : relancer celles qui n'ont
+                  // rien transmis. Constater un risque irrattrapable sans
+                  // pouvoir agir dessus n'était pas du pilotage.
+                  if (d.schoolsAtRisk > 0)
+                    ExamsRemindButton(
+                      schools: d.schools
+                          .where((s) => s.hasCandidatesNotTransmitted)
+                          .toList(),
+                    ),
+                ]),
                 const SizedBox(height: 12),
                 if (filtered.isEmpty)
                   ExamsEmptyView(hasData: d.totalCandidates > 0)

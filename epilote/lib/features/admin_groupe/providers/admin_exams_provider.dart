@@ -19,6 +19,29 @@ import '../../examens/models/exam_stats.dart';
 //  information irrattrapable, elle appartient au pilotage ministériel.
 // ════════════════════════════════════════════════════════════════════════════
 
+/// Ce qu'une école présente à UN examen — la ligne du détail d'établissement.
+class SchoolExamLine {
+  const SchoolExamLine({
+    required this.examShortName,
+    required this.candidates,
+    required this.complete,
+    required this.submitted,
+    required this.withResult,
+    required this.admitted,
+  });
+
+  final String examShortName;
+  final int candidates;
+  final int complete;
+  final int submitted;
+  final int withResult;
+  final int admitted;
+
+  /// `null` tant qu'aucun résultat n'est connu : 0 % dirait « tous recalés ».
+  double? get successRate =>
+      withResult == 0 ? null : admitted / withResult * 100;
+}
+
 /// Agrégat par école : la ligne du tableau.
 class MinistrySchoolExam {
   const MinistrySchoolExam({
@@ -31,6 +54,8 @@ class MinistrySchoolExam {
     required this.admitted,
     required this.transmissions,
     required this.lastTransmittedAt,
+    this.department,
+    this.byExam = const [],
   });
 
   final String schoolId;
@@ -42,6 +67,16 @@ class MinistrySchoolExam {
   final int admitted;
   final int transmissions;
   final DateTime? lastTransmittedAt;
+
+  /// Département de rattachement — le ministère relance par territoire.
+  final String? department;
+
+  /// Détail par examen : une école présente rarement un seul concours, et
+  /// « 12 candidats » ne dit pas lesquels sont en retard.
+  final List<SchoolExamLine> byExam;
+
+  int get incomplete => candidates - complete;
+  int get pending => candidates - withResult;
 
   /// Une école qui a des candidats mais n'a rien transmis : le point chaud du
   /// pilotage. Le ministère la relance avant la clôture.
@@ -211,13 +246,21 @@ final adminExamsProvider =
     final isSubmitted = dossier == 'depose' || dossier == 'valide';
     final hasResult = result != null && result != 'en_attente';
 
+    final department = r['schools']?['department'] as String?;
     final s = bySchool.putIfAbsent(
-        schoolId, () => _SchoolAcc(schoolId, schoolName));
+        schoolId, () => _SchoolAcc(schoolId, schoolName, department));
     s.candidates++;
     if (isComplete) s.complete++;
     if (isSubmitted) s.submitted++;
     if (hasResult) s.withResult++;
     if (result == 'admis') s.admitted++;
+
+    final se = s.byExam.putIfAbsent(examName, () => _ExamAcc(examName, tutelle));
+    se.candidates++;
+    if (isComplete) se.complete++;
+    if (isSubmitted) se.submitted++;
+    if (hasResult) se.withResult++;
+    if (result == 'admis') se.admitted++;
 
     final e = byExam.putIfAbsent(examName, () => _ExamAcc(examName, tutelle));
     e.candidates++;
@@ -258,6 +301,18 @@ final adminExamsProvider =
             admitted: a.admitted,
             transmissions: a.transmissions,
             lastTransmittedAt: a.lastTransmittedAt,
+            department: a.department,
+            byExam: (a.byExam.values.toList()
+                  ..sort((x, y) => y.candidates.compareTo(x.candidates)))
+                .map((e) => SchoolExamLine(
+                      examShortName: e.name,
+                      candidates: e.candidates,
+                      complete: e.complete,
+                      submitted: e.submitted,
+                      withResult: e.withResult,
+                      admitted: e.admitted,
+                    ))
+                .toList(),
           ))
       .toList()
     ..sort((x, y) => y.candidates.compareTo(x.candidates));
@@ -289,9 +344,10 @@ final adminExamsProvider =
 });
 
 class _SchoolAcc {
-  _SchoolAcc(this.schoolId, this.schoolName);
+  _SchoolAcc(this.schoolId, this.schoolName, this.department);
   final String schoolId;
   final String schoolName;
+  final String? department;
   int candidates = 0;
   int complete = 0;
   int submitted = 0;
@@ -299,6 +355,7 @@ class _SchoolAcc {
   int admitted = 0;
   int transmissions = 0;
   DateTime? lastTransmittedAt;
+  final Map<String, _ExamAcc> byExam = {};
 }
 
 class _ExamAcc {
@@ -306,4 +363,73 @@ class _ExamAcc {
   final String name;
   final String? tutelle;
   int candidates = 0;
+  int complete = 0;
+  int submitted = 0;
+  int withResult = 0;
+  int admitted = 0;
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+//  RELANCE DES ÉCOLES EN RETARD.
+//
+//  Le cockpit savait NOMMER les écoles à risque — des candidats déclarés, rien
+//  de transmis — sans rien permettre d'en faire. Or c'est la seule alerte
+//  irrattrapable de la campagne : après la clôture, un candidat non déposé perd
+//  son année. Constater sans pouvoir agir était le trou de cet écran.
+//
+//  La relance emprunte le même canal que l'avis de publication : une
+//  notification au CHEF D'ÉTABLISSEMENT, seul décideur du dépôt. Prévenir tout
+//  le personnel noierait l'information.
+// ════════════════════════════════════════════════════════════════════════════
+class MinistryExamActions {
+  const MinistryExamActions(this._ref);
+  final Ref _ref;
+
+  /// Relance les chefs des écoles passées en argument. Renvoie le nombre
+  /// d'avis réellement envoyés — zéro destinataire est une information, pas
+  /// une erreur : une école sans chef enregistré ne peut pas être relancée.
+  Future<int> remindSchools(List<MinistrySchoolExam> schools) async {
+    if (schools.isEmpty) return 0;
+    final client = _ref.read(supabaseClientProvider);
+    final groupId = _ref.read(authNotifierProvider).valueOrNull?.groupId;
+    if (groupId == null) return 0;
+
+    final byId = {for (final s in schools) s.schoolId: s};
+    final heads = await client
+        .from('profiles')
+        .select('id, school_id')
+        .eq('group_id', groupId)
+        .inFilter('school_id', byId.keys.toList())
+        .inFilter('role', ['directeur', 'proviseur']);
+
+    final rows = <Map<String, dynamic>>[];
+    for (final h in heads as List) {
+      final head = h as Map<String, dynamic>;
+      final school = byId[head['school_id'] as String?];
+      if (school == null) continue;
+      rows.add({
+        'group_id': groupId,
+        'recipient_id': head['id'],
+        'type': 'exam_transmission_reminder',
+        'title': 'Dossiers d\'examen non transmis',
+        // Le message porte le CHIFFRE de l'école : une relance générique se
+        // classe sans suite, un « vos 12 candidats » se traite.
+        'body': '${school.candidates} candidat(s) déclaré(s) dans votre '
+            'établissement n\'ont fait l\'objet d\'aucune transmission à la '
+            'DEC. Un dossier non déposé avant la clôture ne se rattrape pas.',
+        'data': {
+          'school_id': school.schoolId,
+          'candidates': school.candidates,
+          'submitted': school.submitted,
+        },
+      });
+    }
+    if (rows.isEmpty) return 0;
+
+    await client.from('notifications').insert(rows);
+    return rows.length;
+  }
+}
+
+final ministryExamActionsProvider =
+    Provider.autoDispose<MinistryExamActions>(MinistryExamActions.new);

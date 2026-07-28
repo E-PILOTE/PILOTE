@@ -6,6 +6,7 @@ import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../providers/exam_archives_provider.dart';
 import '../widgets/exam_archives_section.dart';
+import '../widgets/exam_figures_section.dart';
 import '../widgets/exam_history_section.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -48,6 +49,11 @@ class AdminExamResultsScreen extends ConsumerWidget {
             const ExamHistorySection(),
             const SizedBox(height: 20),
             const ExamArchivesSection(),
+            const SizedBox(height: 20),
+            // Les chiffres viennent APRÈS les pièces : on lit d'abord ce que la
+            // DEC a publié, ensuite ce que la DSIC en a relevé — et ce qui
+            // reste à sourcer.
+            const ExamFiguresSection(),
           ],
         ),
       ),
