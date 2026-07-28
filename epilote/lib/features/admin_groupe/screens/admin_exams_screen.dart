@@ -5,8 +5,10 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../providers/admin_exams_provider.dart';
+import '../providers/ministry_exam_rows.dart';
 import '../widgets/admin_exams_breakdown.dart';
 import '../widgets/admin_exams_views.dart';
+import '../widgets/exam_scope_chips.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  EXAMENS NATIONAUX — cockpit du MINISTÈRE (espace admin_groupe, online).
@@ -56,16 +58,38 @@ class _State extends ConsumerState<AdminExamsScreen> {
         loading: () => const ListShimmer(),
         error: (e, _) => ExamsErrorView(
             message: '$e', onRetry: () => ref.invalidate(adminExamsProvider)),
-        data: (d) {
+        data: (all) {
+          // Le périmètre se recompose EN MÉMOIRE : changer d'examen ne
+          // redemande rien au serveur.
+          final code = ref.watch(examFilterProvider);
+          final d = all.forExam(code);
           final filtered = _filter(d.schools);
           return SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (all.examOptions.length > 1) ...[
+                  ExamScopeChips(
+                    options: all.examOptions,
+                    selected: code,
+                    onChanged: (v) =>
+                        ref.read(examFilterProvider.notifier).state = v,
+                  ),
+                  const SizedBox(height: 18),
+                ],
                 KpiGrid(items: _kpis(d)),
                 const SizedBox(height: 20),
-                ExamChart(bars: d.byExam, yearLabel: d.yearLabel),
+                ExamChart(
+                  // Sur « Tous », un groupe par examen : on voit où la
+                  // campagne fuit. Sur un examen, par département — une barre
+                  // unique ne compare rien.
+                  bars: code == null
+                      ? funnelByExam(d.rows)
+                      : funnelByDepartment(scopeRows(d.rows, code)),
+                  yearLabel: d.yearLabel,
+                  byDepartment: code != null,
+                ),
                 const SizedBox(height: 20),
                 if (d.byFiliere.isNotEmpty || d.byDepartment.isNotEmpty) ...[
                   // Chiffres de la PLATEFORME : ce que nos écoles ont saisi,
@@ -215,6 +239,11 @@ class _State extends ConsumerState<AdminExamsScreen> {
             : '—',
       ),
       // ── Module STAGES : le ministère pilote les deux modules ─────────────
+      // Mais l'attestation ne conditionne QUE les bacs technique et
+      // professionnel. Ces deux indicateurs disparaissent donc dès qu'on
+      // regarde un autre examen : promener « Bacs bloqués » devant un
+      // candidat au BET, c'est fabriquer une alerte qu'on apprend à ignorer.
+      if (d.showsInternshipKpis) ...[
       KpiData(
         label: 'Stages du réseau',
         value: '${d.internshipsTotal}',
@@ -241,6 +270,7 @@ class _State extends ConsumerState<AdminExamsScreen> {
         trend: d.bacBlocked == 0 ? 'OK' : '⚠ à traiter',
         trendUp: d.bacBlocked == 0,
       ),
+      ],
     ];
   }
 }

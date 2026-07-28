@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/providers/auth_provider.dart';
 import '../../examens/models/exam_stats.dart';
+import 'ministry_exam_rows.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  COCKPIT EXAMENS DU MINISTÈRE — vue NATIONALE, online (admin_groupe).
@@ -85,21 +86,13 @@ class MinistrySchoolExam {
   double get completionRate => candidates == 0 ? 0 : complete / candidates;
 }
 
-/// Barre du graphique : candidats par examen.
-class MinistryExamBar {
-  const MinistryExamBar(this.examShortName, this.tutelle, this.candidates);
-  final String examShortName;
-  final String? tutelle;
-  final int candidates;
-}
-
-/// Examens dont le dossier exige une attestation de stage (note METP).
-const _kBacProInternship = {'BAC_T', 'BAC_P'};
-
 class MinistryExamsData {
   const MinistryExamsData({
+    required this.rows,
+    required this.transmissions,
+    required this.selectedExamCode,
+    required this.examOptions,
     required this.schools,
-    required this.byExam,
     required this.byFiliere,
     required this.byDepartment,
     required this.totalCandidates,
@@ -111,14 +104,26 @@ class MinistryExamsData {
     required this.schoolsWithCandidates,
     required this.transmissionCount,
     required this.transmissionsAcknowledged,
+    required this.transmittedSchoolIds,
     required this.internshipsTotal,
     required this.attestationsTotal,
     required this.bacBlocked,
     required this.yearLabel,
   });
 
+  /// Les lignes BRUTES du réseau, tous examens confondus. Elles restent en
+  /// mémoire pour que [forExam] recompose sans rien redemander au serveur, et
+  /// pour que les vues (entonnoir, drill-down) travaillent sur la même source.
+  final List<MinistryCandidateRow> rows;
+  final List<MinistryTransmissionRow> transmissions;
+
+  /// Examen du périmètre courant — `null` = tous.
+  final String? selectedExamCode;
+
+  /// Les examens proposés par la barre de puces, calculés sur TOUT le réseau.
+  final List<ExamOption> examOptions;
+
   final List<MinistrySchoolExam> schools;
-  final List<MinistryExamBar> byExam;
 
   /// Réussite ventilée par FILIÈRE technique et par DÉPARTEMENT — les deux
   /// axes de pilotage propres au ministère. Taux `null` tant que non proclamé.
@@ -135,7 +140,12 @@ class MinistryExamsData {
   final int transmissionCount;
   final int transmissionsAcknowledged;
 
+  /// Écoles ayant déposé au moins une fois — sert au drill-down par axe, qui
+  /// signale celles dont rien n'est parti.
+  final Set<String> transmittedSchoolIds;
+
   /// Module Stages, agrégé sur le réseau — le ministère pilote les 2 modules.
+  /// Volontairement NON filtré par examen : c'est un compteur de réseau.
   final int internshipsTotal;
   final int attestationsTotal;
 
@@ -151,9 +161,30 @@ class MinistryExamsData {
   double? get successRate =>
       totalWithResult == 0 ? null : totalAdmitted / totalWithResult * 100;
 
+  /// Le stage ne conditionne que les bacs technique et professionnel. Sur un
+  /// autre examen, afficher « Stages du réseau » et « Bacs bloqués » promène
+  /// une alerte hors de son périmètre — et une alerte qu'on apprend à ignorer
+  /// ne protège plus de rien.
+  bool get showsInternshipKpis =>
+      selectedExamCode == null ||
+      kBacProInternship.contains(selectedExamCode);
+
+  /// Recompose la vue pour un autre examen. Pure : aucune requête.
+  MinistryExamsData forExam(String? code) => buildMinistryExamsData(
+        rows: rows,
+        transmissions: transmissions,
+        internshipsTotal: internshipsTotal,
+        attestationsTotal: attestationsTotal,
+        yearLabel: yearLabel,
+        examCode: code,
+      );
+
   static const empty = MinistryExamsData(
+    rows: [],
+    transmissions: [],
+    selectedExamCode: null,
+    examOptions: [],
     schools: [],
-    byExam: [],
     byFiliere: [],
     byDepartment: [],
     totalCandidates: 0,
@@ -165,6 +196,7 @@ class MinistryExamsData {
     schoolsWithCandidates: 0,
     transmissionCount: 0,
     transmissionsAcknowledged: 0,
+    transmittedSchoolIds: {},
     internshipsTotal: 0,
     attestationsTotal: 0,
     bacBlocked: 0,
@@ -215,159 +247,54 @@ final adminExamsProvider =
     }
   }
 
-  final bySchool = <String, _SchoolAcc>{};
-  final byExam = <String, _ExamAcc>{};
-  final statInputs = <ExamStatInput>[];   // pour la ventilation filière/département
-  final sessionIds = <String>{};
-  var bacBlocked = 0;
+  // L'agrégation vit dans `ministry_exam_rows.dart`, en fonctions PURES : le
+  // provider ne fait plus que traduire les lignes SQL en lignes de domaine.
+  // C'est ce qui permet au filtre examen de recomposer toute la page sans
+  // aucun aller-retour serveur — et à chaque règle de calcul d'être vérifiée
+  // sans base.
+  final candidates = <MinistryCandidateRow>[];
   String? year;
 
-  for (final r in (rows as List)) {
-    final schoolId = r['school_id'] as String? ?? '—';
-    final schoolName = (r['schools']?['name'] as String?) ?? '—';
+  for (final raw in (rows as List)) {
+    final r = raw as Map<String, dynamic>;
     final session = r['exam_sessions'] as Map<String, dynamic>?;
     final exam = session?['national_exams'] as Map<String, dynamic>?;
-    final examName = (exam?['short_name'] as String?) ?? '—';
-    final examCode = exam?['code'] as String?;
-    final tutelle = exam?['tutelle'] as String?;
     year ??= session?['year_label'] as String?;
-    if (session?['id'] != null) sessionIds.add(session!['id'] as String);
-
-    // Bac technique/pro sans attestation de stage = dossier irrecevable.
     final studentId = r['student_id'] as String?;
-    if (_kBacProInternship.contains(examCode) &&
-        (studentId == null || !studentsWithAttestation.contains(studentId))) {
-      bacBlocked++;
-    }
 
-    final dossier = r['dossier_status'] as String?;
-    final result = r['result'] as String?;
-    final isComplete = dossier != null && dossier != 'incomplet';
-    final isSubmitted = dossier == 'depose' || dossier == 'valide';
-    final hasResult = result != null && result != 'en_attente';
-
-    final department = r['schools']?['department'] as String?;
-    final s = bySchool.putIfAbsent(
-        schoolId, () => _SchoolAcc(schoolId, schoolName, department));
-    s.candidates++;
-    if (isComplete) s.complete++;
-    if (isSubmitted) s.submitted++;
-    if (hasResult) s.withResult++;
-    if (result == 'admis') s.admitted++;
-
-    final se = s.byExam.putIfAbsent(examName, () => _ExamAcc(examName, tutelle));
-    se.candidates++;
-    if (isComplete) se.complete++;
-    if (isSubmitted) se.submitted++;
-    if (hasResult) se.withResult++;
-    if (result == 'admis') se.admitted++;
-
-    final e = byExam.putIfAbsent(examName, () => _ExamAcc(examName, tutelle));
-    e.candidates++;
-
-    statInputs.add(ExamStatInput(
-      result: result ?? 'en_attente',
-      filiereLabel: r['classes']?['filiere_label'] as String?,
+    candidates.add(MinistryCandidateRow(
+      schoolId: r['school_id'] as String? ?? '—',
+      schoolName: (r['schools']?['name'] as String?) ?? '—',
       department: r['schools']?['department'] as String?,
+      examCode: (exam?['code'] as String?) ?? '—',
+      examShortName: (exam?['short_name'] as String?) ?? '—',
+      tutelle: exam?['tutelle'] as String?,
+      sessionId: session?['id'] as String?,
+      filiereLabel: r['classes']?['filiere_label'] as String?,
+      dossierStatus: r['dossier_status'] as String?,
+      result: (r['result'] as String?) ?? 'en_attente',
+      hasAttestation:
+          studentId != null && studentsWithAttestation.contains(studentId),
     ));
   }
 
-  var acknowledged = 0;
-  for (final t in (trRows as List)) {
-    final schoolId = t['school_id'] as String?;
-    if (schoolId == null) continue;
-    final s = bySchool[schoolId];
-    if (s != null) {
-      s.transmissions++;
-      final at = _d(t['transmitted_at']);
-      if (at != null &&
-          (s.lastTransmittedAt == null || at.isAfter(s.lastTransmittedAt!))) {
-        s.lastTransmittedAt = at;
-      }
-    }
-    if (t['status'] == 'accuse_reception' || t['status'] == 'traite') {
-      acknowledged++;
-    }
-  }
+  final transmissions = [
+    for (final t in (trRows as List))
+      MinistryTransmissionRow(
+        schoolId: t['school_id'] as String?,
+        status: t['status'] as String?,
+        transmittedAt: _d(t['transmitted_at']),
+      ),
+  ];
 
-  final schools = bySchool.values
-      .map((a) => MinistrySchoolExam(
-            schoolId: a.schoolId,
-            schoolName: a.schoolName,
-            candidates: a.candidates,
-            complete: a.complete,
-            submitted: a.submitted,
-            withResult: a.withResult,
-            admitted: a.admitted,
-            transmissions: a.transmissions,
-            lastTransmittedAt: a.lastTransmittedAt,
-            department: a.department,
-            byExam: (a.byExam.values.toList()
-                  ..sort((x, y) => y.candidates.compareTo(x.candidates)))
-                .map((e) => SchoolExamLine(
-                      examShortName: e.name,
-                      candidates: e.candidates,
-                      complete: e.complete,
-                      submitted: e.submitted,
-                      withResult: e.withResult,
-                      admitted: e.admitted,
-                    ))
-                .toList(),
-          ))
-      .toList()
-    ..sort((x, y) => y.candidates.compareTo(x.candidates));
-
-  final bars = byExam.values
-      .map((a) => MinistryExamBar(a.name, a.tutelle, a.candidates))
-      .toList()
-    ..sort((x, y) => y.candidates.compareTo(x.candidates));
-
-  return MinistryExamsData(
-    schools: schools,
-    byExam: bars,
-    byFiliere: groupExamLines(statInputs, (r) => r.filiereLabel),
-    byDepartment: groupExamLines(statInputs, (r) => r.department),
-    totalCandidates: schools.fold(0, (s, e) => s + e.candidates),
-    totalComplete: schools.fold(0, (s, e) => s + e.complete),
-    totalSubmitted: schools.fold(0, (s, e) => s + e.submitted),
-    totalWithResult: schools.fold(0, (s, e) => s + e.withResult),
-    totalAdmitted: schools.fold(0, (s, e) => s + e.admitted),
-    sessionCount: sessionIds.length,
-    schoolsWithCandidates: schools.where((s) => s.candidates > 0).length,
-    transmissionCount: (trRows).length,
-    transmissionsAcknowledged: acknowledged,
+  return buildMinistryExamsData(
+    rows: candidates,
+    transmissions: transmissions,
     internshipsTotal: internshipsTotal,
     attestationsTotal: attestationsTotal,
-    bacBlocked: bacBlocked,
     yearLabel: year,
   );
 });
-
-class _SchoolAcc {
-  _SchoolAcc(this.schoolId, this.schoolName, this.department);
-  final String schoolId;
-  final String schoolName;
-  final String? department;
-  int candidates = 0;
-  int complete = 0;
-  int submitted = 0;
-  int withResult = 0;
-  int admitted = 0;
-  int transmissions = 0;
-  DateTime? lastTransmittedAt;
-  final Map<String, _ExamAcc> byExam = {};
-}
-
-class _ExamAcc {
-  _ExamAcc(this.name, this.tutelle);
-  final String name;
-  final String? tutelle;
-  int candidates = 0;
-  int complete = 0;
-  int submitted = 0;
-  int withResult = 0;
-  int admitted = 0;
-}
 
 // ════════════════════════════════════════════════════════════════════════════
 //  RELANCE DES ÉCOLES EN RETARD.
@@ -433,3 +360,10 @@ class MinistryExamActions {
 
 final ministryExamActionsProvider =
     Provider.autoDispose<MinistryExamActions>(MinistryExamActions.new);
+
+/// Examen sélectionné dans le cockpit — `null` = tous les examens.
+///
+/// Vit délibérément HORS du `FutureProvider` : changer de périmètre ne doit
+/// rien redemander au serveur. Tout se recalcule sur les lignes déjà chargées,
+/// par [MinistryExamsData.forExam].
+final examFilterProvider = StateProvider.autoDispose<String?>((_) => null);

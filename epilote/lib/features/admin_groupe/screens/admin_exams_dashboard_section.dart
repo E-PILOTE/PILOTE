@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/routes.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../providers/admin_exams_provider.dart';
+import '../providers/ministry_exam_rows.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  SECTION EXAMENS & STAGES DU RÉSEAU — sur le tableau de bord du ministère.
@@ -125,9 +126,9 @@ class AdminExamsDashboardSection extends ConsumerWidget {
             itemBuilder: (_, i) => cards[i],
           );
         }),
-        if (d.byExam.isNotEmpty) ...[
+        if (d.examOptions.isNotEmpty) ...[
           const SizedBox(height: 20),
-          _ExamBars(bars: d.byExam),
+          _ExamBars(bars: d.examOptions),
         ],
       ]),
     ),
@@ -138,7 +139,7 @@ class AdminExamsDashboardSection extends ConsumerWidget {
 // ─── Candidats par examen (barres horizontales) ───────────────────────────────
 class _ExamBars extends StatelessWidget {
   const _ExamBars({required this.bars});
-  final List<MinistryExamBar> bars;
+  final List<ExamOption> bars;
 
   @override
   Widget build(BuildContext context) {
@@ -159,7 +160,7 @@ class _ExamBars extends StatelessWidget {
           child: Row(children: [
             SizedBox(
               width: 74,
-              child: Text(b.examShortName,
+              child: Text(b.shortName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

@@ -5,6 +5,7 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../providers/admin_exams_provider.dart';
+import '../providers/ministry_exam_rows.dart';
 import 'admin_exam_school_modal.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -15,14 +16,59 @@ import 'admin_exam_school_modal.dart';
 //  naturelle : l'écran décide QUOI montrer, ces widgets décident COMMENT.
 // ════════════════════════════════════════════════════════════════════════════
 
+// ════════════════════════════════════════════════════════════════════════════
+//  L'ENTONNOIR DE LA CAMPAGNE — déclarés → déposés → admis.
+//
+//  Le graphe ne montrait qu'une série plate, « candidats par examen », qui ne
+//  disait rien qu'un indicateur ne dise déjà. L'entonnoir, lui, LOCALISE la
+//  perte : l'écart entre déclarés et déposés est un retard de dossier, encore
+//  rattrapable avant la clôture ; l'écart entre déposés et admis est un
+//  résultat, et ne se rattrape pas.
+//
+//  ── POURQUOI UNE RAMPE ET NON TROIS COULEURS ───────────────────────────────
+//  Les trois séries ne sont pas trois identités : ce sont trois sous-ensembles
+//  emboîtés d'une même population. L'encodage juste est donc SÉQUENTIEL — une
+//  seule teinte, du clair au foncé —, et non catégoriel. Trois teintes
+//  distinctes suggéreraient trois choses différentes.
+//
+//  Les pas sont validés (séparation à vision normale et sous déficience,
+//  contraste sur la surface) et diffèrent en thème sombre : une rampe claire
+//  sur fond sombre s'inverse, elle ne se retourne pas toute seule.
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Les trois pas de la rampe, du plus large au plus étroit de l'entonnoir.
+/// Le foncé porte « admis » : c'est le chiffre sur lequel on s'arrête.
+({Color declared, Color submitted, Color admitted}) _funnelRamp(Brightness b) =>
+    b == Brightness.dark
+        ? (
+            declared: const Color(0xFF456C97),
+            submitted: const Color(0xFF7CA6D2),
+            admitted: const Color(0xFFC2DBF7),
+          )
+        : (
+            declared: const Color(0xFF7BA0C4),
+            submitted: const Color(0xFF41719F),
+            admitted: const Color(0xFF1E3A5F),
+          );
+
 class ExamChart extends StatelessWidget {
-  const ExamChart({super.key, required this.bars, required this.yearLabel});
-  final List<MinistryExamBar> bars;
+  const ExamChart({
+    super.key,
+    required this.bars,
+    required this.yearLabel,
+    this.byDepartment = false,
+  });
+
+  final List<ExamFunnelBar> bars;
   final String? yearLabel;
+
+  /// Vrai quand un seul examen est sélectionné : l'axe porte alors les
+  /// départements. Une barre unique par examen ne comparerait rien.
+  final bool byDepartment;
 
   @override
   Widget build(BuildContext context) {
-    final data = bars.where((b) => b.candidates > 0).toList();
+    final data = bars.where((b) => b.declared > 0).toList();
     if (data.isEmpty) {
       return Container(
         padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 18),
@@ -36,16 +82,27 @@ class ExamChart extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Aucun candidat déclaré sur le réseau — le graphique se remplira à '
-              'mesure que les écoles inscrivent.',
+              'Aucun candidat déclaré sur ce périmètre — le graphique se '
+              'remplira à mesure que les écoles inscrivent.',
               style: TextStyle(fontSize: 12.5, color: kTextMuted),
             ),
           ),
         ]),
       );
     }
+
+    final ramp = _funnelRamp(Theme.of(context).brightness);
+    // Étiquettes sur les trois séries tant qu'elles tiennent ; au-delà, la
+    // seule qui compte — un nombre sur chaque colonne d'un graphe à quinze
+    // départements ne se lit plus, il se traverse.
+    final labelAll = data.length <= 5;
+    final labels = DataLabelSettings(
+      isVisible: true,
+      textStyle: TextStyle(fontSize: 9.5, color: kTextMuted),
+    );
+
     return Container(
-      height: 260,
+      height: 320,
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
       decoration: BoxDecoration(
         color: kCardBg,
@@ -54,16 +111,26 @@ class ExamChart extends StatelessWidget {
       ),
       child: SfCartesianChart(
         title: ChartTitle(
-          text: 'Candidats par examen'
+          text: 'Déclarés → déposés → admis'
+              '${byDepartment ? ' · par département' : ' · par examen'}'
               '${yearLabel != null ? ' · $yearLabel' : ''}',
           alignment: ChartAlignment.near,
           textStyle: TextStyle(
               fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary),
         ),
         plotAreaBorderWidth: 0,
+        // La légende est la seule chose qui nomme les trois pas : sans elle,
+        // l'identité des séries reposerait sur la couleur seule.
+        legend: Legend(
+          isVisible: true,
+          position: LegendPosition.bottom,
+          overflowMode: LegendItemOverflowMode.wrap,
+          textStyle: TextStyle(fontSize: 11, color: kTextMuted),
+        ),
         primaryXAxis: CategoryAxis(
           majorGridLines: const MajorGridLines(width: 0),
           labelStyle: TextStyle(fontSize: 10.5, color: kTextMuted),
+          labelRotation: data.length > 8 ? -35 : 0,
           axisLine: AxisLine(color: kBorder),
         ),
         primaryYAxis: NumericAxis(
@@ -71,27 +138,44 @@ class ExamChart extends StatelessWidget {
           axisLine: const AxisLine(width: 0),
           labelStyle: TextStyle(fontSize: 10.5, color: kTextMuted),
         ),
-        tooltipBehavior: TooltipBehavior(enable: true),
-        series: <CartesianSeries<MinistryExamBar, String>>[
-          ColumnSeries<MinistryExamBar, String>(
-            name: 'Candidats',
+        // Partagé : survoler un groupe donne l'entonnoir entier, donc
+        // l'assiette. Un taux sans son dénominateur ne se commente pas.
+        tooltipBehavior: TooltipBehavior(enable: true, shared: true),
+        enableSideBySideSeriesPlacement: true,
+        series: <CartesianSeries<ExamFunnelBar, String>>[
+          ColumnSeries<ExamFunnelBar, String>(
+            name: 'Déclarés',
             dataSource: data,
-            xValueMapper: (b, _) => b.examShortName,
-            yValueMapper: (b, _) => b.candidates,
-            pointColorMapper: (b, _) => b.tutelle == 'mepsa' ? kAccent : kNavy,
+            xValueMapper: (b, _) => b.label,
+            yValueMapper: (b, _) => b.declared,
+            color: ramp.declared,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-            // `width` = fraction du créneau : rétrécie quand les barres sont
-            // rares, sinon une seule colonne mange tout le graphique.
-            width: switch (data.length) {
-              1 => 0.12,
-              2 => 0.22,
-              <= 4 => 0.38,
-              _ => 0.55,
-            },
-            dataLabelSettings: DataLabelSettings(
-              isVisible: true,
-              textStyle: TextStyle(fontSize: 10, color: kTextMuted),
-            ),
+            spacing: 0.06, // le filet de surface entre deux colonnes voisines
+            animationDuration: 700,
+            dataLabelSettings: labelAll ? labels : const DataLabelSettings(),
+          ),
+          ColumnSeries<ExamFunnelBar, String>(
+            name: 'Déposés',
+            dataSource: data,
+            xValueMapper: (b, _) => b.label,
+            yValueMapper: (b, _) => b.submitted,
+            color: ramp.submitted,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+            spacing: 0.06,
+            animationDuration: 700,
+            dataLabelSettings: labelAll ? labels : const DataLabelSettings(),
+          ),
+          ColumnSeries<ExamFunnelBar, String>(
+            name: 'Admis',
+            dataSource: data,
+            xValueMapper: (b, _) => b.label,
+            yValueMapper: (b, _) => b.admitted,
+            color: ramp.admitted,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+            spacing: 0.06,
+            animationDuration: 700,
+            // Toujours étiquetée : c'est le chiffre sur lequel on s'arrête.
+            dataLabelSettings: labels,
           ),
         ],
       ),
