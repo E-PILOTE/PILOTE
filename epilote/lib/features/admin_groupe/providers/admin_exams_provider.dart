@@ -341,9 +341,14 @@ class MinistryExamActions {
         'title': 'Dossiers d\'examen non transmis',
         // Le message porte le CHIFFRE de l'école : une relance générique se
         // classe sans suite, un « vos 12 candidats » se traite.
+        // Le message porte le CHIFFRE de l'école, et le détail quand il
+        // existe : une relance générique se classe, « dont 6 au dossier
+        // incomplet » se traite — le chef sait par où commencer.
         'body': '${school.candidates} candidat(s) déclaré(s) dans votre '
             'établissement n\'ont fait l\'objet d\'aucune transmission à la '
-            'DEC. Un dossier non déposé avant la clôture ne se rattrape pas.',
+            'DEC'
+            '${school.incomplete > 0 ? ', dont ${school.incomplete} au dossier incomplet' : ''}'
+            '. Un dossier non déposé avant la clôture ne se rattrape pas.',
         'data': {
           'school_id': school.schoolId,
           'candidates': school.candidates,

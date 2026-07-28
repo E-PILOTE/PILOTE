@@ -5,6 +5,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../providers/admin_exams_provider.dart';
 import '../providers/exam_archives_provider.dart';
+import 'school_candidates_section.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  FICHE D'ÉTABLISSEMENT — le détail derrière une ligne du cockpit.
@@ -70,6 +71,12 @@ class _SchoolSheet extends ConsumerWidget {
           const _Muted('Aucun examen rattaché à cet établissement.')
         else
           _ExamTable(lines: row.byExam),
+        const SizedBox(height: 22),
+        // « 8 complets sur 12 » ne se traite pas. La liste nominative, avec
+        // les pièces qui manquent, transforme la relance en instruction.
+        const AdminModalSectionTitle('Candidats de l\'établissement'),
+        const SizedBox(height: 10),
+        SchoolCandidatesSection(schoolId: row.schoolId),
         const SizedBox(height: 22),
         const AdminModalSectionTitle('Ce que la DEC a proclamé pour cette école'),
         const SizedBox(height: 10),
