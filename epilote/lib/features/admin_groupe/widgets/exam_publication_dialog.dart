@@ -32,24 +32,54 @@ import 'exam_publication_fields.dart';
 /// Le chrome vient de `AdminSidePanel` : même en-tête, même pied que les autres
 /// modales de l'espace. La version précédente empilait sa propre croix par-dessus
 /// celle de l'en-tête — deux boutons « fermer » superposés.
-Future<void> showExamPublicationDialog(BuildContext context) =>
-    showAdminSidePanel<void>(
+///
+/// Renvoie l'identifiant de la publication déposée — `null` si l'utilisateur
+/// annule. Le panneau de relevé s'en sert pour rattacher immédiatement son
+/// chiffre à la pièce qui vient d'être archivée : sans cette valeur de retour,
+/// il faudrait ressortir du relevé, rouvrir, et retrouver la pièce à la main
+/// dans une liste — ce qui rendait le sourcing si pénible qu'on l'omettait.
+///
+/// Les paramètres préremplissent le périmètre : quand le dépôt est déclenché
+/// depuis un relevé qui porte déjà « Pool », on ne resaisit pas « Pool ».
+Future<String?> showExamPublicationDialog(
+  BuildContext context, {
+  String? sessionId,
+  PubScope? scope,
+  String? department,
+  String? schoolId,
+}) =>
+    showAdminSidePanel<String>(
       context,
-      builder: (_) => const _PublicationDialog(),
+      builder: (_) => _PublicationDialog(
+        sessionId: sessionId,
+        scope: scope,
+        department: department,
+        schoolId: schoolId,
+      ),
     );
 
 class _PublicationDialog extends ConsumerStatefulWidget {
-  const _PublicationDialog();
+  const _PublicationDialog({
+    this.sessionId,
+    this.scope,
+    this.department,
+    this.schoolId,
+  });
+
+  final String? sessionId;
+  final PubScope? scope;
+  final String? department;
+  final String? schoolId;
 
   @override
   ConsumerState<_PublicationDialog> createState() => _State();
 }
 
 class _State extends ConsumerState<_PublicationDialog> {
-  String? _sessionId;
-  PubScope _scope = PubScope.national;
-  String? _department;
-  String? _schoolId;
+  late String? _sessionId = widget.sessionId;
+  late PubScope _scope = widget.scope ?? PubScope.national;
+  late String? _department = widget.department;
+  late String? _schoolId = widget.schoolId;
 
   final _title = TextEditingController();
   final _decCode = TextEditingController();
@@ -189,7 +219,7 @@ class _State extends ConsumerState<_PublicationDialog> {
       } catch (_) {}
 
       if (mounted) {
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(pubId);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(notified == 0
               ? 'Publication archivée. Aucun chef d\'établissement à prévenir '

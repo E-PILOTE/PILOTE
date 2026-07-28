@@ -6,6 +6,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../providers/admin_schools_provider.dart';
 import '../providers/exam_archives_provider.dart';
+import 'exam_publication_dialog.dart';
 import 'exam_publication_fields.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -151,6 +152,26 @@ class _State extends ConsumerState<_FigurePanel> {
         });
       }
     }
+  }
+
+  /// Archive la pièce SANS quitter le relevé en cours, puis la rattache.
+  ///
+  /// La DEC/DSIC produit toujours un document — le ministère publie, les écoles
+  /// viennent chercher les listes. Le panneau ne proposait pourtant que les
+  /// pièces DÉJÀ archivées pour la session : quand il n'y en avait aucune, on
+  /// enregistrait un chiffre non sourcé et plus rien n'y ramenait.
+  ///
+  /// Le périmètre déjà choisi pour le chiffre préremplit celui de la pièce.
+  Future<void> _depositPiece() async {
+    final id = await showExamPublicationDialog(
+      context,
+      sessionId: _sessionId,
+      scope: _scope,
+      department: _department,
+      schoolId: _schoolId,
+    );
+    if (id == null || !mounted) return;
+    setState(() => _publicationId = id);
   }
 
   Future<void> _remove() async {
@@ -301,6 +322,7 @@ class _State extends ConsumerState<_FigurePanel> {
           selected: _publicationId,
           onChanged: (v) => setState(() => _publicationId = v),
           sessionChosen: _sessionId != null,
+          onDeposit: _depositPiece,
         ),
         const SizedBox(height: 10),
         _field(_source, 'Référence de la source (facultatif)',
@@ -365,12 +387,14 @@ class _SourcePicker extends StatelessWidget {
     required this.selected,
     required this.onChanged,
     required this.sessionChosen,
+    required this.onDeposit,
   });
 
   final List<ExamPublication> publications;
   final String? selected;
   final ValueChanged<String?> onChanged;
   final bool sessionChosen;
+  final Future<void> Function() onDeposit;
 
   @override
   Widget build(BuildContext context) {
@@ -378,24 +402,39 @@ class _SourcePicker extends StatelessWidget {
       return _note('Choisissez d\'abord la session : les pièces proposées sont '
           'celles qui la couvrent.');
     }
-    if (publications.isEmpty) {
-      return _note('Aucune pièce archivée pour cette session. Le chiffre sera '
-          'enregistré SANS source — l\'écran le signalera jusqu\'à ce qu\'une '
-          'publication lui soit rattachée.');
-    }
-    return SizedBox(
-      height: 42,
-      child: ListFilterDropdown(
-        icon: Icons.attach_file_rounded,
-        label: 'Pièce',
-        value: selected ?? '',
-        items: {
-          '': 'Aucune — chiffre non sourcé',
-          for (final p in publications) p.id: '${p.scopeLabel} · ${p.title}',
-        },
-        onChanged: (v) => onChanged(v.isEmpty ? null : v),
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (publications.isEmpty)
+        _note('Aucune pièce archivée pour cette session — déposez-la ici, elle '
+            'sera rattachée à ce chiffre sans quitter la saisie.')
+      else
+        SizedBox(
+          height: 42,
+          child: ListFilterDropdown(
+            icon: Icons.attach_file_rounded,
+            label: 'Pièce',
+            value: selected ?? '',
+            items: {
+              '': 'Aucune — chiffre non sourcé',
+              for (final p in publications) p.id: '${p.scopeLabel} · ${p.title}',
+            },
+            onChanged: (v) => onChanged(v.isEmpty ? null : v),
+          ),
+        ),
+      const SizedBox(height: 8),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: onDeposit,
+          icon: const Icon(Icons.upload_file_rounded, size: 16),
+          label: const Text('Déposer la pièce…'),
+          style: TextButton.styleFrom(
+            foregroundColor: kNavy,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
       ),
-    );
+    ]);
   }
 
   Widget _note(String text) => Builder(

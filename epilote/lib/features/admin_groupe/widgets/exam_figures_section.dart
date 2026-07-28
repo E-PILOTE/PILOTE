@@ -311,10 +311,18 @@ class _FigureRow extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: f.hasSource
                   ? _Pill('pièce jointe', kGreen, Icons.attachment_rounded)
-                  // `kListOrange` est une constante, `kGreen` un jeton de thème
-                  // : d'où le `const` d'un seul côté.
-                  : const _Pill(
-                      'sans source', kListOrange, Icons.link_off_rounded),
+                  // Un chiffre sans source n'est pas un état à contempler,
+                  // c'est une dette à rembourser : la pastille porte donc
+                  // l'action et non le constat. Elle ouvre le même panneau,
+                  // où « Déposer la pièce… » attend.
+                  // `kListOrange` est une constante, `kGreen` un jeton de
+                  // thème : d'où le `const` d'un seul côté.
+                  : InkWell(
+                      onTap: onTap,
+                      borderRadius: BorderRadius.circular(20),
+                      child: const _Pill(
+                          'Sourcer', kListOrange, Icons.upload_file_rounded),
+                    ),
             ),
           ),
           SizedBox(
