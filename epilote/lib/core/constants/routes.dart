@@ -27,7 +27,6 @@ class Routes {
   static const String superPartenaires  = '/super/messagerie/partenaires';
   static const String superNotifications= '/super/notifications';
   static const String superIa           = '/super/ia';
-  static const String superSessions     = '/super/sessions-examen';
   static const String superAudit        = '/super/audit';
   static const String superRapports     = '/super/rapports';
   static const String superParametres   = '/super/parametres';
@@ -42,6 +41,11 @@ class Routes {
   static const String adminEleves       = '/admin/eleves';
   static const String adminProfils      = '/admin/profils';
   static const String adminExamens      = '/admin/examens';
+  // Le référentiel national et son calendrier appartiennent au MINISTÈRE, pas
+  // à l'opérateur de la plateforme : c'est lui qui connaît les examens et
+  // reçoit les arrêtés. Le super_admin exploite le SaaS, il ne le peuple pas.
+  static const String adminReferentiel  = '/admin/referentiel-examens';
+  static const String adminSessions     = '/admin/sessions-examen';
   static const String adminResultats    = '/admin/resultats';
   static const String adminPalmares     = '/admin/palmares';
   static const String adminRapports     = '/admin/rapports';

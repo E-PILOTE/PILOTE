@@ -4,28 +4,40 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../providers/exam_referential_provider.dart';
 import '../providers/exam_sessions_admin_provider.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
-//  AJOUTER UN EXAMEN NATIONAL — la « saisie à la main » demandée.
+//  DÉCLARER OU CORRIGER UN EXAMEN NATIONAL.
 //
 //  ── LE TROU QUE ÇA COMBLE ──────────────────────────────────────────────────
 //  Les 12 examens (CEPE → Bac) ont été semés par une migration. Aucun écran ne
 //  permettait d'en ajouter : une réforme (le METP en publie régulièrement)
 //  aurait exigé du SQL. C'est la même bombe que les sessions, un cran plus haut.
+//  Et aucun ne permettait d'en CORRIGER un : une faute dans l'intitulé du BET
+//  vivait en base pour toujours.
 //
 //  ── CE QUE ÇA N'EST PAS ────────────────────────────────────────────────────
 //  On ne saisit PAS ici une session ni un candidat : on déclare un DIPLÔME ou un
 //  CONCOURS de portée nationale. Le geste est rare et réservé au super_admin
 //  (RLS `is_super_admin()`). La DEC reste la source ; ceci est une copie de
 //  référence tant que l'API n'existe pas.
+//
+//  ── ET ÇA NE SUFFIT PAS ────────────────────────────────────────────────────
+//  Un examen créé ici n'est relié à AUCUNE classe. C'est la règle d'éligibilité
+//  qui fait ce travail (feuille « Règles » du référentiel). Le formulaire le
+//  dit, parce que l'oublier est le piège n°1 du module.
 // ════════════════════════════════════════════════════════════════════════════
 
-/// Renvoie l'`id` de l'examen créé (pour présélection dans le formulaire de
-/// session), ou `null` si annulé.
-Future<String?> showNationalExamForm(BuildContext context) => showDialog<String>(
+/// Renvoie l'`id` de l'examen créé ou modifié (pour présélection dans le
+/// formulaire de session), ou `null` si annulé.
+Future<String?> showNationalExamForm(
+  BuildContext context, {
+  NationalExamRow? existing,
+}) =>
+    showDialog<String>(
       context: context,
-      builder: (_) => const _NationalExamForm(),
+      builder: (_) => _NationalExamForm(existing: existing),
     );
 
 const _kTutelles = <(String, String)>[
@@ -38,9 +50,12 @@ const _kKinds = <(String, String)>[
   ('concours', 'Concours'),
 ];
 
-// Alignés sur les cycles réels du référentiel (national_exams.cycle_code).
+// Les 5 codes de cycle du référentiel national (migration 0010). `prescolaire`
+// y figure : aucun examen d'État ne s'y rattache aujourd'hui, mais amputer la
+// liste rendrait le champ menteur.
 const _kCycles = <(String?, String)>[
   (null, 'Non précisé'),
+  ('prescolaire', 'Préscolaire'),
   ('primaire', 'Primaire'),
   ('college', 'Collège'),
   ('formation_pro', 'Formation professionnelle'),
@@ -48,22 +63,33 @@ const _kCycles = <(String?, String)>[
 ];
 
 class _NationalExamForm extends ConsumerStatefulWidget {
-  const _NationalExamForm();
+  const _NationalExamForm({this.existing});
+  final NationalExamRow? existing;
 
   @override
   ConsumerState<_NationalExamForm> createState() => _State();
 }
 
 class _State extends ConsumerState<_NationalExamForm> {
-  final _code = TextEditingController();
-  final _name = TextEditingController();
-  final _shortName = TextEditingController();
-  final _minAvg = TextEditingController();
-  String _tutelle = 'metp';
-  String _kind = 'diplome';
-  String? _cycle;
+  late final _code = TextEditingController(text: widget.existing?.code ?? '');
+  late final _name = TextEditingController(text: widget.existing?.name ?? '');
+  late final _shortName =
+      TextEditingController(text: widget.existing?.shortName ?? '');
+  late final _minAvg = TextEditingController(
+      text: widget.existing?.minAverage == null
+          ? ''
+          : _trimZero(widget.existing!.minAverage!));
+  late String _tutelle = widget.existing?.tutelle ?? 'metp';
+  late String _kind = widget.existing?.kind ?? 'diplome';
+  late String? _cycle = widget.existing?.cycleCode;
   bool _saving = false;
   String? _error;
+
+  bool get _isEdit => widget.existing != null;
+
+  /// « 10.00 » n'est pas une note, c'est un format de colonne numérique.
+  static String _trimZero(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
 
   @override
   void dispose() {
@@ -85,7 +111,7 @@ class _State extends ConsumerState<_NationalExamForm> {
         Icon(Icons.workspace_premium_rounded, size: 20, color: kNavy),
         const SizedBox(width: 10),
         Expanded(
-          child: Text('Nouvel examen national',
+          child: Text(_isEdit ? 'Modifier l\'examen' : 'Nouvel examen national',
               style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
@@ -112,8 +138,19 @@ class _State extends ConsumerState<_NationalExamForm> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Un diplôme ou concours de portée nationale (issu d\'un '
-                      'arrêté). Vous ouvrirez ensuite une session pour l\'année.',
+                      _isEdit
+                          // Le code porte les rattachements : archives de la
+                          // DEC, alerte « stage obligatoire », règles. Le
+                          // changer est licite (BAC_T est devenu BAC_TP), mais
+                          // ce n'est pas une correction de forme.
+                          ? 'Le CODE identifie l\'examen dans les archives et '
+                              'les alertes. Le modifier est possible, mais il '
+                              'ne s\'agit pas d\'une simple correction de '
+                              'libellé.'
+                          : 'Un diplôme ou concours de portée nationale (issu '
+                              'd\'un arrêté). Il faudra ensuite une RÈGLE '
+                              'D\'ÉLIGIBILITÉ pour que des classes s\'y '
+                              'rattachent, puis une session pour l\'année.',
                       style: TextStyle(fontSize: 11.5, color: kTextMuted),
                     ),
                   ),
@@ -217,7 +254,9 @@ class _State extends ConsumerState<_NationalExamForm> {
         FilledButton(
           onPressed: _saving || !_valid ? null : _save,
           style: FilledButton.styleFrom(backgroundColor: kNavy),
-          child: Text(_saving ? 'Création…' : 'Créer l\'examen'),
+          child: Text(_saving
+              ? 'Enregistrement…'
+              : (_isEdit ? 'Enregistrer' : 'Créer l\'examen')),
         ),
       ],
     );
@@ -244,20 +283,41 @@ class _State extends ConsumerState<_NationalExamForm> {
       _error = null;
     });
     try {
-      await createNationalExam(
-        ref.read(supabaseClientProvider),
-        code: _code.text,
-        name: _name.text,
-        shortName: _shortName.text,
-        tutelle: _tutelle,
-        kind: _kind,
-        cycleCode: _cycle,
-        minAverage: parsedAvg,
-      );
-      ref.invalidate(examRefsProvider);
+      final client = ref.read(supabaseClientProvider);
+      final existing = widget.existing;
+      if (existing != null) {
+        await updateNationalExam(
+          client,
+          id: existing.id,
+          code: _code.text,
+          name: _name.text,
+          shortName: _shortName.text,
+          tutelle: _tutelle,
+          kind: _kind,
+          cycleCode: _cycle,
+          minAverage: parsedAvg,
+        );
+      } else {
+        await createNationalExam(
+          client,
+          code: _code.text,
+          name: _name.text,
+          shortName: _shortName.text,
+          tutelle: _tutelle,
+          kind: _kind,
+          cycleCode: _cycle,
+          minAverage: parsedAvg,
+        );
+      }
+      ref
+        ..invalidate(examRefsProvider)
+        ..invalidate(examReferentialProvider);
+      if (existing != null) {
+        if (mounted) Navigator.of(context).pop(existing.id);
+        return;
+      }
       // On récupère l'id pour le présélectionner dans le formulaire de session.
-      final created = await ref
-          .read(supabaseClientProvider)
+      final created = await client
           .from('national_exams')
           .select('id')
           .eq('code', _code.text.trim().toUpperCase())

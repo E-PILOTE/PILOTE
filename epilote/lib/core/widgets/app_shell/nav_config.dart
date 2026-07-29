@@ -112,13 +112,6 @@ List<NavSection> _superAdminSections() => const [
         ),
       ]),
       NavSection(title: 'RAPPORTS & SYSTÈME', pinned: true, entries: [
-        // Le calendrier national : sans session ouverte, aucune école du pays
-        // ne peut inscrire un candidat. Il se saisit depuis l'arrêté.
-        NavEntry.item(
-          icon: Icons.event_note_rounded,
-          label: "Sessions d'examen",
-          route: Routes.superSessions,
-        ),
         NavEntry.item(
           icon: Icons.list_alt_rounded,
           label: "Journal d'audit",
@@ -188,6 +181,20 @@ List<NavSection> _adminGroupeSections(WidgetRef ref) {
         icon: Icons.workspace_premium_rounded,
         label: 'Examens nationaux',
         route: Routes.adminExamens,
+      ),
+      // AMONT de la campagne — c'est le ministère qui connaît les examens et
+      // reçoit les arrêtés, pas l'opérateur de la plateforme. Le référentiel
+      // d'abord (un examen se déclare et se branche à des classes), le
+      // calendrier ensuite : sans session ouverte, aucune école n'inscrit.
+      const NavEntry.item(
+        icon: Icons.rule_rounded,
+        label: 'Référentiel des examens',
+        route: Routes.adminReferentiel,
+      ),
+      const NavEntry.item(
+        icon: Icons.event_note_rounded,
+        label: "Sessions d'examen",
+        route: Routes.adminSessions,
       ),
       // Le RETOUR de la DEC : résultats proclamés et pièces archivées. Suit
       // immédiatement l'envoi — c'est le second temps du même cycle, mais pas

@@ -17,7 +17,6 @@ import '../../features/super_admin/screens/modules_screen.dart';
 import '../../features/super_admin/screens/plans_screen.dart';
 import '../../features/super_admin/screens/subscriptions_screen.dart';
 import '../../features/super_admin/screens/audit_screen.dart';
-import '../../features/super_admin/screens/exam_sessions_screen.dart';
 import '../../features/super_admin/screens/invoices_screen.dart';
 import '../../features/super_admin/screens/receipts_screen.dart';
 import '../../features/super_admin/screens/payment_methods_screen.dart';
@@ -38,6 +37,8 @@ import '../../features/admin_groupe/screens/admin_users_screen.dart';
 import '../../features/admin_groupe/screens/admin_access_screen.dart';
 import '../../features/admin_groupe/screens/admin_reports_screen.dart';
 import '../../features/admin_groupe/screens/admin_exams_screen.dart';
+import '../../features/admin_groupe/screens/exam_referential_screen.dart';
+import '../../features/admin_groupe/screens/exam_sessions_screen.dart';
 import '../../features/admin_groupe/screens/admin_exam_results_screen.dart';
 import '../../features/admin_groupe/screens/admin_merit_screen.dart';
 import '../../features/admin_groupe/screens/admin_students_screen.dart';
@@ -360,9 +361,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const PlatformPartnersScreen(),
       ),
       GoRoute(path: Routes.superIa, builder: (_, _) => const AiScreen()),
-      GoRoute(
-          path: Routes.superSessions,
-          builder: (_, _) => const ExamSessionsScreen()),
       GoRoute(path: Routes.superAudit, builder: (_, _) => const AuditScreen()),
       GoRoute(
         path: Routes.superRapports,
@@ -405,6 +403,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.adminProfils,
         builder: (_, _) => const AdminAccessScreen(),
+      ),
+      GoRoute(
+        path: Routes.adminReferentiel,
+        builder: (_, _) => const ExamReferentialScreen(),
+      ),
+      GoRoute(
+        path: Routes.adminSessions,
+        builder: (_, _) => const ExamSessionsScreen(),
       ),
       GoRoute(
         path: Routes.adminExamens,

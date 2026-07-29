@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:epilote/features/super_admin/providers/exam_sessions_admin_provider.dart';
+import 'package:epilote/features/admin_groupe/providers/exam_sessions_admin_provider.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  SESSIONS D'EXAMEN — administration du calendrier national.
