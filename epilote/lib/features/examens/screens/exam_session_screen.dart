@@ -274,11 +274,13 @@ class _State extends ConsumerState<ExamSessionScreen> {
     // Le dépôt à la DEC engage l'établissement : acte du chef d'établissement.
     final canSubmit = ref.watch(canProvider((slug: _kSlug, action: 'validate')));
 
+    // Le retour ne vit PAS dans l'en-tête : cette barre porte l'identité de la
+    // page (titre, année, compte), pas la navigation. Il se présente en fil
+    // d'Ariane au-dessus du contenu, où il nomme sa destination au lieu de la
+    // faire deviner à une flèche.
     return ModuleScaffold(
       slug: _kSlug,
       title: 'Session d\'examen',
-      onBack: () =>
-          context.canPop() ? context.pop() : context.go(Routes.examens),
       child: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => ExamErrorCard(message: '$e'),
@@ -323,6 +325,11 @@ class _State extends ConsumerState<ExamSessionScreen> {
         : null;
 
     final slivers = <Widget>[
+      _pad(_Breadcrumb(
+        onBack: () =>
+            context.canPop() ? context.pop() : context.go(Routes.examens),
+      )),
+      _gap(12),
       _pad(_Head(
         session: s,
         canExport: canExport,
@@ -489,6 +496,29 @@ class _State extends ConsumerState<ExamSessionScreen> {
       );
 
   Widget _gap(double h) => SliverToBoxAdapter(child: SizedBox(height: h));
+}
+
+/// Fil d'Ariane — un retour qui NOMME sa destination. Une flèche seule, dans
+/// l'en-tête, oblige à se souvenir d'où l'on vient ; « Examens » le dit.
+class _Breadcrumb extends StatelessWidget {
+  const _Breadcrumb({required this.onBack});
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) => Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: onBack,
+          icon: const Icon(Icons.arrow_back_rounded, size: 16),
+          label: const Text('Examens'),
+          style: TextButton.styleFrom(
+            foregroundColor: kTextMuted,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            textStyle:
+                const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+          ),
+        ),
+      );
 }
 
 class _Head extends StatelessWidget {

@@ -123,11 +123,69 @@ class ExamOverview {
 
   int get missingTotal => examClasses.fold(0, (sum, c) => sum + c.missing);
 
-  /// Sessions ouvertes concernant au moins une classe d'examen de l'école.
+  /// Sessions concernant au moins une classe d'examen de l'école.
   List<ExamSessionRow> get relevantSessions {
     final codes = {for (final c in examClasses) c.examCode};
     return sessions.where((s) => codes.contains(s.examCode)).toList();
   }
+
+  /// ── CE QUI SE JOUE MAINTENANT ────────────────────────────────────────────
+  /// Le calendrier national est PARTAGÉ : l'école reçoit toutes les sessions
+  /// de tous les examens qu'elle prépare, y compris celles des années
+  /// précédentes (le référentiel remonte à 2021-2022). Les afficher toutes,
+  /// à égalité, noyait la seule qui appelle une action — huit bandeaux morts
+  /// avant celui de l'année en cours.
+  ///
+  /// Sont « vivantes » : la session de l'année scolaire courante, et toute
+  /// session encore ouverte ou dont les épreuves se déroulent — une session
+  /// d'une autre année qui reste ouverte concerne toujours l'école.
+  List<ExamSessionRow> get liveSessions {
+    final year = currentSchoolYearLabel();
+    final live = relevantSessions
+        .where((s) =>
+            s.yearLabel == year || s.status == 'open' || s.status == 'running')
+        .toList();
+    live.sort(_byUrgency);
+    return live;
+  }
+
+  /// L'histoire, pas l'actualité. Reste accessible, mais repliée.
+  List<ExamSessionRow> get pastSessions {
+    final liveIds = {for (final s in liveSessions) s.id};
+    final past =
+        relevantSessions.where((s) => !liveIds.contains(s.id)).toList();
+    // La plus récente d'abord : on remonte le temps, on ne le descend pas.
+    past.sort((a, b) => b.yearLabel.compareTo(a.yearLabel));
+    return past;
+  }
+
+  /// L'échéance la plus proche en tête : c'est l'ordre de ce qu'il faut
+  /// traiter. Une session sans date de clôture ne peut pas être urgente, elle
+  /// passe donc après celles qui en ont une.
+  static int _byUrgency(ExamSessionRow a, ExamSessionRow b) {
+    int rank(ExamSessionRow s) => switch (s.status) {
+          'open' => 0,
+          'running' => 1,
+          'closed' => 2,
+          'published' => 3,
+          _ => 4,
+        };
+    final r = rank(a).compareTo(rank(b));
+    if (r != 0) return r;
+    final da = a.closesAt, db = b.closesAt;
+    if (da != null && db != null) return da.compareTo(db);
+    if (da != null) return -1;
+    if (db != null) return 1;
+    return b.yearLabel.compareTo(a.yearLabel);
+  }
+}
+
+/// Année scolaire courante au format du référentiel (« 2025-2026 »).
+/// L'année scolaire congolaise court de septembre à juin.
+String currentSchoolYearLabel([DateTime? now]) {
+  final d = now ?? DateTime.now();
+  final start = d.month >= 9 ? d.year : d.year - 1;
+  return '$start-${start + 1}';
 }
 
 DateTime? _date(Object? v) =>

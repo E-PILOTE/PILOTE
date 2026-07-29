@@ -26,16 +26,16 @@ const _kSlug = 'examens';
 class ExamensScreen extends ConsumerWidget {
   const ExamensScreen({super.key});
 
+  // PAS de flèche « retour » dans l'en-tête : /user/examens est une page de
+  // PREMIER niveau, atteinte depuis la barre latérale. Elle n'a pas
+  // d'antécédent — une flèche y proposait de « revenir » à un endroit dont on
+  // ne venait pas, et occupait la place réservée au titre. Le retour appartient
+  // aux pages de détail (fiche de session), et s'y présente en fil d'Ariane.
   @override
-  Widget build(BuildContext context, WidgetRef ref) => ModuleScaffold(
+  Widget build(BuildContext context, WidgetRef ref) => const ModuleScaffold(
         slug: _kSlug,
         title: 'Examens',
-        // On revient là d'où l'on vient s'il y a une pile (fiche, session…),
-        // sinon au tableau de bord : un module atteint par la barre latérale
-        // n'a pas d'antécédent, et un retour sans destination est un cul-de-sac.
-        onBack: () =>
-            context.canPop() ? context.pop() : context.go(Routes.userDashboard),
-        child: const _Body(),
+        child: _Body(),
       );
 }
 
@@ -60,16 +60,34 @@ class _Body extends ConsumerWidget {
           byExam.putIfAbsent(c.examCode ?? '—', () => []).add(c);
         }
 
+        final live = o.liveSessions;
+        final past = o.pastSessions;
+
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
           children: [
             // ── Sessions : l'information périssable d'abord ────────────────
-            for (final s in o.relevantSessions) ...[
+            // Seules les sessions VIVANTES portent un bandeau. Le calendrier
+            // national descend jusqu'à 2021-2022 : tout afficher à égalité
+            // enterrait la seule session sur laquelle l'école peut encore agir.
+            for (final s in live) ...[
               ExamSessionBanner(
                 session: s,
                 // Le bandeau mène à la page qui PRODUIT : candidats, couverture
                 // par cycle/niveau/classe, liste officielle en PDF, export CSV.
                 onTap: () => context.go(
+                    Routes.examenSession.replaceFirst(':id', s.id)),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (live.isEmpty && o.examClasses.isNotEmpty) ...[
+              ExamNoOpenSession(yearLabel: currentSchoolYearLabel()),
+              const SizedBox(height: 12),
+            ],
+            if (past.isNotEmpty) ...[
+              ExamPastSessions(
+                sessions: past,
+                onOpen: (s) => context.go(
                     Routes.examenSession.replaceFirst(':id', s.id)),
               ),
               const SizedBox(height: 12),

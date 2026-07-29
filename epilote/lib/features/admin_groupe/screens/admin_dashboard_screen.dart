@@ -612,7 +612,9 @@ class _KpiSection extends ConsumerWidget {
         rawValue: data.tauxPaiement,
         fmt: (v) => '${v.round()} %',
         label: 'Taux de paiement',
-        sub: '${data.elevesAJour}/${data.elevesTotal} à jour',
+        // « À jour » = a réglé au moins une tranche depuis la rentrée. Le
+        // dire, sans quoi on croit lire un état au jour le jour.
+        sub: '${data.elevesAJour}/${data.elevesTotal} depuis la rentrée',
         spark: _Spark.progress,
         progress: (data.tauxPaiement / 100).clamp(0, 1),
         onTap: () => context.go(Routes.adminRapports),
@@ -622,8 +624,11 @@ class _KpiSection extends ConsumerWidget {
         color: _kOrange,
         rawValue: data.revenusMois,
         fmt: fmtCompact,
-        label: 'Revenus du mois',
-        sub: '${data.paiementsMoisCount} paiement(s)',
+        label: data.revenusMoisLabel == null
+            ? 'Revenus du mois'
+            : 'Revenus · ${data.revenusMoisLabel}',
+        sub: '${data.paiementsMoisCount} paiement(s)'
+            '${data.revenusMoisLabel == null ? '' : ' · dernier mois encaissé'}',
         spark: _Spark.area,
         areaPts: data.revenueTrend,
         onTap: () => context.go(Routes.adminAbonnement),

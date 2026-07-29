@@ -99,9 +99,11 @@ class ExamSessionBanner extends StatelessWidget {
               ]),
               const SizedBox(height: 4),
               Text(
-                'Inscriptions du ${formatDate(s.opensAt)} au ${formatDate(s.closesAt)}'
-                '${s.writtenFrom != null ? ' · écrits le ${formatDate(s.writtenFrom)}' : ''}'
-                '${s.maxAge != null ? ' · âge max ${s.maxAge} ans' : ''}',
+                // « du — au — » se lisait comme un défaut d'affichage. L'arrêté
+                // ouvre souvent les inscriptions AVANT de publier le
+                // calendrier : ce n'est pas une donnée manquante, c'est un
+                // calendrier pas encore paru. On le dit.
+                _scheduleLine(s),
                 style: TextStyle(fontSize: 12, color: kTextMuted, height: 1.4),
               ),
             ],
@@ -114,6 +116,130 @@ class ExamSessionBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+String _scheduleLine(ExamSessionRow s) {
+  final parts = <String>[];
+  if (s.opensAt != null || s.closesAt != null) {
+    parts.add('Inscriptions du ${formatDate(s.opensAt)} '
+        'au ${formatDate(s.closesAt)}');
+  } else {
+    parts.add('Calendrier d\'inscription non encore publié');
+  }
+  if (s.writtenFrom != null) parts.add('écrits le ${formatDate(s.writtenFrom)}');
+  if (s.maxAge != null) parts.add('âge max ${s.maxAge} ans');
+  return parts.join(' · ');
+}
+
+// ─── « Rien d'ouvert » ──────────────────────────────────────────────────────
+/// L'absence de session est une information, pas un vide. Sans elle, une école
+/// qui ne voit aucun bandeau croit à une panne — alors que la DEC n'a
+/// simplement rien publié pour l'année en cours.
+class ExamNoOpenSession extends StatelessWidget {
+  const ExamNoOpenSession({super.key, required this.yearLabel});
+  final String yearLabel;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: kSurface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: kBorder),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(Icons.event_busy_rounded, size: 19, color: kTextMuted),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Aucune session ouverte pour $yearLabel',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: kTextPrimary)),
+                const SizedBox(height: 3),
+                Text(
+                  'Le calendrier national n\'est pas encore paru. Les classes '
+                  'd\'examen ci-dessous restent préparées : dès l\'ouverture, '
+                  'les inscriptions se feront ici.',
+                  style:
+                      TextStyle(fontSize: 11.5, color: kTextMuted, height: 1.45),
+                ),
+              ],
+            ),
+          ),
+        ]),
+      );
+}
+
+// ─── Sessions antérieures, repliées ─────────────────────────────────────────
+/// L'historique reste consultable — un proviseur cherche parfois la session de
+/// l'an dernier — mais il ne dispute pas la place à ce qui presse.
+class ExamPastSessions extends StatelessWidget {
+  const ExamPastSessions({
+    super.key,
+    required this.sessions,
+    required this.onOpen,
+  });
+
+  final List<ExamSessionRow> sessions;
+  final void Function(ExamSessionRow) onOpen;
+
+  // `Material` obligatoire : les `ListTile` du repli dessinent leur encre sur
+  // une surface Material. Dans un simple `Container` décoré, Flutter avertit
+  // que le fond et les ondes de clic seront invisibles.
+  @override
+  Widget build(BuildContext context) => Material(
+        color: kCardBg,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: kBorder),
+        ),
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+            leading: Icon(Icons.history_rounded, size: 19, color: kTextMuted),
+            title: Text(
+              'Sessions antérieures',
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: kTextPrimary),
+            ),
+            subtitle: Text('${sessions.length} session(s) closes',
+                style: TextStyle(fontSize: 11.5, color: kTextMuted)),
+            children: [
+              for (final s in sessions)
+                ListTile(
+                  dense: true,
+                  contentPadding:
+                      const EdgeInsets.only(left: 52, right: 14, bottom: 2),
+                  title: Text('${s.examShortName} — ${s.yearLabel}',
+                      style: TextStyle(fontSize: 12.5, color: kTextPrimary)),
+                  subtitle: Text(_statusLabel(s.status),
+                      style: TextStyle(fontSize: 11, color: kTextMuted)),
+                  trailing: Icon(Icons.chevron_right_rounded,
+                      size: 18, color: kTextMuted),
+                  onTap: () => onOpen(s),
+                ),
+              const SizedBox(height: 6),
+            ],
+          ),
+        ),
+      );
+
+  static String _statusLabel(String status) => switch (status) {
+        'published' => 'résultats proclamés',
+        'closed' => 'inscriptions closes',
+        'running' => 'épreuves en cours',
+        'draft' => 'brouillon',
+        _ => status,
+      };
 }
 
 // ─── Groupe de classes par diplôme ──────────────────────────────────────────

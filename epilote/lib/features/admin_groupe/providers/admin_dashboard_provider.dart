@@ -63,6 +63,7 @@ class AdminDashboardData {
     required this.classesTotal,
     required this.revenusMois,
     required this.paiementsMoisCount,
+    this.revenusMoisLabel,
     required this.elevesAJour,
     required this.schools,
     required this.recentActivity,
@@ -92,6 +93,10 @@ class AdminDashboardData {
   final int     ecolesTotal, ecolesActives, elevesTotal, personnelTotal, classesTotal;
   final double  revenusMois;
   final int     paiementsMoisCount;
+
+  /// Nommé SEULEMENT si les revenus affichés ne sont pas ceux du mois en
+  /// cours — un chiffre d'une autre période ne se montre jamais sans sa date.
+  final String? revenusMoisLabel;
   final int     elevesAJour;
   final List<SchoolSummary> schools;
   final List<AdminActivity> recentActivity;
@@ -170,6 +175,20 @@ class AdminDashboardData {
     fonctionnaires: 0, nonFonctionnaires: 0,
     staffByContract: {}, staffByDept: {}, hireTrend: [],
   );
+}
+
+/// « 2026-06 » → « juin 2026 ». Un chiffre venu d'un autre mois que le mois
+/// courant doit porter son mois, sinon il se lit comme celui d'aujourd'hui.
+String _monthLabel(String key) {
+  const noms = [
+    'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+    'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
+  ];
+  final parts = key.split('-');
+  if (parts.length != 2) return key;
+  final m = int.tryParse(parts[1]);
+  if (m == null || m < 1 || m > 12) return key;
+  return '${noms[m - 1]} ${parts[0]}';
 }
 
 // ─── Provider principal ─────────────────────────────────────────────────────
@@ -366,36 +385,64 @@ final adminDashboardProvider =
     );
   }).toList();
 
-  // ── Finance du mois courant + tendance 6 mois ────────────────────────────
+  // ── Finance : élèves à jour sur l'ANNÉE, revenus du dernier mois encaissé ──
+  //
+  // ⚠️ Deux erreurs de fenêtre corrigées ici, toutes deux visibles sur l'écran
+  // d'accueil du ministère :
+  //
+  //  1. « Élèves à jour » se comptait sur le MOIS CIVIL en cours. Or la
+  //     scolarité se règle par tranches sur l'année (sept→juin) : le 1er de
+  //     chaque mois, et pendant toutes les vacances de juillet-août, le taux
+  //     retombait mécaniquement à 0 % — un rouge franc sur la page d'accueil,
+  //     alors que la page Rapports, elle, comptait sur l'année et affichait
+  //     69 %. Deux chiffres contradictoires pour la même question.
+  //  2. « Revenus du mois » restait à zéro dès qu'aucun encaissement n'avait
+  //     encore eu lieu dans le mois courant. On montre désormais le DERNIER
+  //     mois encaissé, en le nommant — un chiffre daté vaut mieux qu'un zéro
+  //     muet.
   double revenusMois = 0;
   int    paiementsCount = 0;
+  String? revenusMoisLabel;
   final  Set<String> studentsPaid = {};
   final  List<DateTime> payDates = [];
   final  Map<String, double> revByMonth = {};
+  final  Map<String, int> countByMonth = {};
   try {
-    final now   = DateTime.now();
+    final now = DateTime.now();
+    // L'année scolaire congolaise court de septembre à juin.
+    final yearStart = DateTime(now.month >= 9 ? now.year : now.year - 1, 9, 1);
     final from6 = DateTime(now.year, now.month - 5, 1);
-    final start = DateTime(now.year, now.month, 1);
+    final from = yearStart.isBefore(from6) ? yearStart : from6;
     final rows = await client
         .from('student_payments')
         .select('amount_xaf, student_id, status, payment_date')
         .eq('group_id', groupId)
         .eq('status', 'confirmed')
-        .gte('payment_date', from6.toIso8601String().substring(0, 10)) as List;
+        .gte('payment_date', from.toIso8601String().substring(0, 10)) as List;
     for (final r in rows) {
       final amount = (r['amount_xaf'] as num? ?? 0).toDouble();
       final dt = DateTime.tryParse(r['payment_date'] as String? ?? '');
-      if (dt != null) {
-        final key = '${dt.year}-${dt.month.toString().padLeft(2, '0')}';
-        revByMonth[key] = (revByMonth[key] ?? 0) + amount;
-        payDates.add(dt);
-      }
-      if (dt != null && !dt.isBefore(start)) {
-        revenusMois += amount;
-        paiementsCount++;
+      if (dt == null) continue;
+      final key = '${dt.year}-${dt.month.toString().padLeft(2, '0')}';
+      revByMonth[key] = (revByMonth[key] ?? 0) + amount;
+      countByMonth[key] = (countByMonth[key] ?? 0) + 1;
+      payDates.add(dt);
+      // À jour = a réglé au moins une tranche depuis la rentrée.
+      if (!dt.isBefore(yearStart)) {
         final sid = r['student_id'] as String?;
         if (sid != null) studentsPaid.add(sid);
       }
+    }
+    // Le mois courant s'il a encaissé, sinon le dernier qui l'a fait.
+    final currentKey =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    final key = revByMonth.containsKey(currentKey)
+        ? currentKey
+        : (revByMonth.keys.toList()..sort()).lastOrNull;
+    if (key != null) {
+      revenusMois = revByMonth[key] ?? 0;
+      paiementsCount = countByMonth[key] ?? 0;
+      if (key != currentKey) revenusMoisLabel = _monthLabel(key);
     }
   } catch (_) {}
 
@@ -437,6 +484,7 @@ final adminDashboardProvider =
     classesTotal:       classesTotal,
     revenusMois:        revenusMois,
     paiementsMoisCount: paiementsCount,
+    revenusMoisLabel:   revenusMoisLabel,
     elevesAJour:        studentsPaid.length,
     schools:            schools,
     recentActivity:     activity,

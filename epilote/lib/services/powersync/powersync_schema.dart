@@ -784,7 +784,15 @@ const schema = Schema([
     Column.text('student_id'),
     Column.text('enrollment_id'),
     Column.text('fee_structure_id'),
-    Column.real('amount_xaf'),
+    // ⚠️ INTEGER, jamais `real` — et c'est un piège qui a coûté de l'argent.
+    // `student_payments.amount_xaf` est un `integer` côté Postgres (le franc
+    // CFA n'a pas de subdivision). Déclarée `real` ici, la colonne locale
+    // stockait 10000.0 ; le connecteur l'envoyait tel quel et Postgres
+    // refusait — « invalid input syntax for type integer: "10000.0" », code
+    // 22P02. PowerSync ABANDONNE alors la transaction ENTIÈRE : le paiement
+    // était perdu, et avec lui toutes les écritures du même lot.
+    // Le type local doit suivre le type serveur pour toute colonne numérique.
+    Column.integer('amount_xaf'),
     Column.text('payment_date'),
     Column.integer('period_month'),
     Column.integer('period_year'),
