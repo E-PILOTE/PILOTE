@@ -468,6 +468,82 @@ final schoolStructureProvider =
   });
 });
 
+// ════════════════════════════════════════════════════════════════════════════
+//  BILAN DE L'ANNÉE — toutes les inscriptions, pas seulement celles qui restent
+//  au guichet.
+//
+//  La liste de cette page est volontairement le PIPELINE : `inscriptionsDataProvider`
+//  écarte `status = 'active'`, parce qu'un dossier validé n'a plus rien à y
+//  faire — l'élève inscrit vit dans la page Élèves. C'est un bon découpage.
+//
+//  Mais les compteurs, eux, en héritaient : sur une école qui avait inscrit
+//  trente élèves et en avait réinscrit trente et un, la carte « Nouvelles —
+//  premières inscriptions » affichait **0**, et « Réinscriptions » **1**. Non
+//  pas approximativement : le chiffre décrivait les deux dossiers non traités
+//  qui traînaient, pas le travail de l'année. Aucune ligne à l'écran ne
+//  permettait de s'en douter, et la question la plus simple qu'on pose à un
+//  module d'inscription — « combien d'élèves avez-vous inscrits ? » — n'avait
+//  aucune réponse dans la page qui porte ce nom.
+//
+//  D'où cette agrégation distincte, sur TOUTES les inscriptions de l'année.
+//  Elle compte des lignes, pas des personnes : un élève réinscrit après un
+//  rejet a deux dossiers, et c'est bien deux dossiers qu'a traités le
+//  secrétariat. L'effectif, lui, se lit sur les inscriptions actives.
+// ════════════════════════════════════════════════════════════════════════════
+class YearInscriptionTotals {
+  const YearInscriptionTotals({
+    this.enrolled = 0,
+    this.newCount = 0,
+    this.reinscription = 0,
+    this.transfer = 0,
+    this.repeating = 0,
+  });
+
+  /// Inscriptions ACTIVES : l'effectif réellement scolarisé cette année.
+  final int enrolled;
+
+  /// Dossiers de l'année par type, tous statuts confondus.
+  final int newCount, reinscription, transfer;
+
+  /// Dossiers portant la mention « redoublant ».
+  final int repeating;
+}
+
+final yearInscriptionTotalsProvider =
+    StreamProvider.autoDispose<YearInscriptionTotals>((ref) {
+  final schoolId = ref.watch(authNotifierProvider).valueOrNull?.schoolId;
+  final yearId = ref.watch(activeYearIdProvider);
+  if (schoolId == null || schoolId.isEmpty || yearId == null) {
+    return Stream.value(const YearInscriptionTotals());
+  }
+  return db
+      .watch(
+        '''
+        SELECT
+          SUM(CASE WHEN status = 'active'                THEN 1 ELSE 0 END) AS enrolled,
+          SUM(CASE WHEN inscription_type = 'reinscription' THEN 1 ELSE 0 END) AS re,
+          SUM(CASE WHEN inscription_type = 'transfer'      THEN 1 ELSE 0 END) AS tr,
+          SUM(CASE WHEN COALESCE(inscription_type, 'new') NOT IN
+                        ('reinscription', 'transfer')     THEN 1 ELSE 0 END) AS nw,
+          SUM(CASE WHEN is_repeating = 1                 THEN 1 ELSE 0 END) AS rep
+        FROM class_enrollments
+        WHERE school_id = ? AND academic_year_id = ?
+        ''',
+        parameters: [schoolId, yearId],
+      )
+      .map((rows) {
+        if (rows.isEmpty) return const YearInscriptionTotals();
+        int n(String k) => (rows.first[k] as int?) ?? 0;
+        return YearInscriptionTotals(
+          enrolled: n('enrolled'),
+          newCount: n('nw'),
+          reinscription: n('re'),
+          transfer: n('tr'),
+          repeating: n('rep'),
+        );
+      });
+});
+
 // ─── Export CSV ──────────────────────────────────────────────────────────────
 
 String _csvCell(String? v) {

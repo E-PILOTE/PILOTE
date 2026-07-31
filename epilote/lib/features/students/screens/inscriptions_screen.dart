@@ -164,7 +164,21 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
         builder: (_) => _EditStudentModal(row: r),
       );
 
+  // ── Verrou LICENCE ─────────────────────────────────────────────────────────
+  // Les gestes ci-dessous portent déjà leur propre `try` et leur propre
+  // bandeau : on ne peut pas les passer par `runModuleWrite` sans afficher deux
+  // messages pour un seul échec. On pose donc le MÊME verrou à la main, en tête
+  // de chaque geste — avant la boîte de dialogue, pour ne pas faire saisir un
+  // motif de rejet qui sera refusé ensuite.
+  //
+  // Il manquait ici, et ici seulement : le tiroir élève, l'annuaire, les
+  // transferts et les dossiers passaient par `runModuleWrite`. Une école dont
+  // l'abonnement avait expiré continuait donc d'inscrire, de valider et de
+  // rejeter des dossiers — c'est-à-dire de faire entrer des élèves — pendant
+  // que le reste de l'application était en lecture seule.
+
   Future<void> _changeClass(InscriptionRow r) async {
+    if (writeRefusedForLicense(context)) return;
     final classes = ref.read(classesProvider).valueOrNull ?? const <ClassModel>[];
     final others = classes.where((c) => c.id != r.classId).toList();
     if (others.isEmpty) {
@@ -207,6 +221,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
   }
 
   Future<void> _withdraw(InscriptionRow r) async {
+    if (writeRefusedForLicense(context)) return;
     final ctrl = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
@@ -247,6 +262,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
   }
 
   Future<void> _delete(InscriptionRow r) async {
+    if (writeRefusedForLicense(context)) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -277,6 +293,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
   }
 
   Future<void> _validate(InscriptionRow r) async {
+    if (writeRefusedForLicense(context)) return;
     final me = _actorOrComplain();
     if (me == null) return;
     try {
@@ -288,6 +305,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
   }
 
   Future<void> _reject(InscriptionRow r) async {
+    if (writeRefusedForLicense(context)) return;
     final ctrl = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
@@ -399,6 +417,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
   void _clearSelection() => setState(_selected.clear);
 
   Future<void> _bulkValidate(List<InscriptionRow> rows) async {
+    if (writeRefusedForLicense(context)) return;
     final targets = rows
         .where((r) => _selected.contains(r.id) && r.status == 'pending_validation')
         .toList();
@@ -431,6 +450,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
   }
 
   Future<void> _bulkReject(List<InscriptionRow> rows) async {
+    if (writeRefusedForLicense(context)) return;
     final targets = rows
         .where((r) => _selected.contains(r.id) && r.status == 'pending_validation')
         .toList();
@@ -515,8 +535,19 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _KpiSection(st: st),
-                  const SizedBox(height: 26),
+                  _KpiSection(
+                    st: st,
+                    year: ref.watch(yearInscriptionTotalsProvider).valueOrNull ??
+                        const YearInscriptionTotals(),
+                  ),
+                  const SizedBox(height: 14),
+                  // Dire ce que la page montre. Sans cette ligne, « 2 dossiers »
+                  // sous un titre « Inscriptions » se lit comme « cette école a
+                  // deux inscriptions » — alors qu'elle en a soixante et une,
+                  // toutes validées, et que c'est justement pour ça qu'elles
+                  // n'apparaissent pas ici.
+                  const _PipelineNotice(),
+                  const SizedBox(height: 22),
                   // L'effectif VALIDÉ (cycle/niveau/classe) vit dans la page
                   // Élèves. Ici = guichet des admissions : rythme global +
                   // pipeline par dimension (dossiers en cours). Zéro doublon.
@@ -531,8 +562,12 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                   ],
                   if (all.isNotEmpty)
                     ScopeDrilldownPanel(
-                      title: 'Répartition des dossiers',
+                      title: 'Dossiers en cours, par classe',
                       metricLabel: '',
+                      // Ce panneau compte des DOSSIERS à traiter, pas des
+                      // élèves : « 2 élèves » sous un guichet qui en scolarise
+                      // soixante et un se lit comme un effectif.
+                      unitNoun: 'dossiers',
                       selected: _scope,
                       onSelect: (s) => setState(() => _scope = s),
                       units: [
@@ -662,16 +697,58 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
   }
 }
 
+/// Bandeau expliquant que la liste ne contient QUE les dossiers à traiter.
+class _PipelineNotice extends StatelessWidget {
+  const _PipelineNotice();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: kNavy.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: kNavy.withValues(alpha: 0.16)),
+        ),
+        child: Row(children: [
+          Icon(Icons.inbox_rounded, size: 17, color: kNavy),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Cette page est le guichet des admissions : elle ne liste que les '
+              'dossiers encore à traiter — en attente, rejetés ou sortis. Dès '
+              'qu\'une inscription est validée, l\'élève rejoint la page Élèves.',
+              style: TextStyle(
+                  fontSize: 12.5, color: kTextMuted, height: 1.45),
+            ),
+          ),
+        ]),
+      );
+}
+
 // ─── Section KPI générale (cartes pleine taille, comme le Tableau de bord) ────
 class _KpiSection extends StatelessWidget {
-  const _KpiSection({required this.st});
+  const _KpiSection({required this.st, required this.year});
   final InscriptionStats st;
+  final YearInscriptionTotals year;
 
   @override
   Widget build(BuildContext context) {
-    // Page = guichet des admissions (les inscriptions VALIDÉES passent dans la
-    // page Élèves). KPI centrés sur le pipeline à traiter.
+    // ⚠️ DEUX SOURCES, ET C'EST VOULU.
+    // `st` décrit le GUICHET : les dossiers encore à traiter (la liste du bas).
+    // `year` décrit l'ANNÉE ENTIÈRE, inscriptions validées comprises.
+    //
+    // Les quatre cartes de droite lisaient `st` : « Nouvelles » affichait 0
+    // dans une école qui avait inscrit trente élèves, parce que ces trente-là
+    // étaient validés donc absents du guichet. Un compteur d'activité qui
+    // retombe à zéro à mesure que le travail est fait ne mesure pas le travail.
     final cards = <Widget>[
+      AdminStatCard(
+        label: 'Inscrits',
+        value: '${year.enrolled}',
+        icon: Icons.groups_rounded,
+        color: kGreen,
+        subtitle: 'Effectif de l\'année',
+      ),
       AdminStatCard(
         label: 'En attente',
         value: '${st.pending}',
@@ -688,31 +765,24 @@ class _KpiSection extends StatelessWidget {
       ),
       AdminStatCard(
         label: 'Nouvelles',
-        value: '${st.typeNew}',
+        value: '${year.newCount}',
         icon: Icons.fiber_new_rounded,
-        color: kGreen,
+        color: kNavy,
         subtitle: 'Premières inscriptions',
       ),
       AdminStatCard(
         label: 'Réinscriptions',
-        value: '${st.reinscription}',
+        value: '${year.reinscription}',
         icon: Icons.autorenew_rounded,
-        color: kNavy,
+        color: _kBlue,
         subtitle: 'Élèves de retour',
       ),
       AdminStatCard(
-        label: 'Transferts',
-        value: '${st.transfer}',
-        icon: Icons.swap_horiz_rounded,
-        color: _kBlue,
-        subtitle: 'Venus d\'une autre école',
-      ),
-      AdminStatCard(
         label: 'Redoublants',
-        value: '${st.repeating}',
+        value: '${year.repeating}',
         icon: Icons.replay_rounded,
         color: const Color(0xFF7C3AED),
-        subtitle: 'Dans le pipeline',
+        subtitle: 'Recommencent leur niveau',
       ),
     ];
 

@@ -10,6 +10,7 @@ import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/classes/providers/class_provider.dart';
 import '../../../features/structure/providers/academic_year_context.dart';
 import '../../../features/structure/providers/academic_year_provider.dart';
+import '../../navigation/widgets/module_scaffold.dart';
 import '../widgets/inscription_form_kit.dart';
 import '../providers/inscriptions_data_provider.dart';
 import '../providers/student_documents_provider.dart';
@@ -197,6 +198,18 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
       setState(() {
         _submitting = false;
         _error = 'Année en lecture seule — inscription impossible.';
+      });
+      return;
+    }
+
+    // Verrou LICENCE : abonnement expiré au-delà de la grâce ⇒ lecture seule.
+    // L'assistant affiche ses erreurs dans son propre bandeau, pas en snackbar :
+    // un message qui disparaît au bout de quatre secondes derrière un modal
+    // plein écran n'est pas un refus, c'est un clignotement.
+    if (writeBlockedByLicense) {
+      setState(() {
+        _submitting = false;
+        _error = kReadOnlyWriteMessage;
       });
       return;
     }

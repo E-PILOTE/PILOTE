@@ -609,6 +609,7 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
   }
 
   Future<void> _save() async {
+    if (writeRefusedForLicense(context)) return;
     if (_firstName.text.trim().isEmpty || _lastName.text.trim().isEmpty) {
       if (_step != 0) {
         setState(() => _step = 0);

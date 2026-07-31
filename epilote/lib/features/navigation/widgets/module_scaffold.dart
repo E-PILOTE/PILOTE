@@ -126,6 +126,40 @@ class PermissionGate extends ConsumerWidget {
   }
 }
 
+/// Message affiché quand l'abonnement expiré met l'application en lecture seule.
+const kReadOnlyWriteMessage =
+    'Abonnement expiré — application en lecture seule. '
+    'Modification impossible pour le moment.';
+
+/// `true` si l'abonnement expiré met l'application en lecture seule, SANS rien
+/// afficher — pour les écrans qui portent leur propre bandeau d'erreur.
+/// Sinon, préférer [writeRefusedForLicense] ou [runModuleWrite].
+bool get writeBlockedByLicense => LicenseEnforcement.writeBlockedNow;
+
+/// `true` si l'écriture locale doit être REFUSÉE (abonnement expiré au-delà de
+/// la grâce), après en avoir averti l'utilisateur.
+///
+/// Même verrou que [runModuleWrite], pour les gestes qui gèrent déjà leurs
+/// propres erreurs et leurs propres messages — appeler `runModuleWrite` y
+/// afficherait deux bandeaux pour un seul échec. À placer en TÊTE du geste :
+///
+/// ```dart
+/// if (writeRefusedForLicense(context)) return;
+/// ```
+///
+/// Fail-soft : sans licence (enforcement dormant) il renvoie toujours `false`.
+/// Ne touche JAMAIS la synchro (C4).
+bool writeRefusedForLicense(BuildContext context) {
+  if (!LicenseEnforcement.writeBlockedNow) return false;
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      backgroundColor: _kRed,
+      content: Text(kReadOnlyWriteMessage),
+    ));
+  }
+  return true;
+}
+
 /// Exécute une mutation locale ([op]) en capturant les erreurs immédiates
 /// (contraintes locales, exceptions) et en les remontant à l'utilisateur.
 ///
@@ -141,16 +175,7 @@ Future<bool> runModuleWrite(
   // de la grâce, ou fenêtre de confiance dépassée), on refuse l'écriture LOCALE
   // avant exécution. Fail-soft (aucune licence ⇒ jamais bloquant). Ne touche
   // JAMAIS la synchro (C4) : les données déjà créées continuent de remonter.
-  if (LicenseEnforcement.writeBlockedNow) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        backgroundColor: _kRed,
-        content: Text('Abonnement expiré — application en lecture seule. '
-            'Modification impossible pour le moment.'),
-      ));
-    }
-    return false;
-  }
+  if (writeRefusedForLicense(context)) return false;
   try {
     await op();
     if (context.mounted && success != null) {
