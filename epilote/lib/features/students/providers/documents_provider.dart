@@ -176,7 +176,7 @@ class StudentDossier {
 /// Dossiers de tous les élèves ACTIFS (même ceux sans aucune pièce → incomplets).
 final studentDossiersProvider =
     Provider.autoDispose<AsyncValue<List<StudentDossier>>>((ref) {
-  final roster = ref.watch(studentsRegistryProvider);
+  final roster = ref.watch(studentsRegistryProvider('documents'));
   final docs = ref.watch(schoolDocumentsProvider);
   return roster.whenData((students) {
     final byStudent = <String, List<DocRow>>{};

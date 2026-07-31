@@ -5,13 +5,27 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../navigation/providers/permissions_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
-//  REGISTRE DES ÉLÈVES (la PERSONNE, pas l'inscription). Chaque élève est joint
-//  à son inscription de l'ANNÉE ACTIVE (classe + statut) si elle existe — sinon
-//  il apparaît « Non inscrit ». Distinct de la page Inscriptions (qui liste les
-//  inscriptions de l'année). Offline-first (db.watch).
+//  REGISTRE DES ÉLÈVES (la PERSONNE, pas l'inscription) — l'effectif ACTIF de
+//  l'année en cours : chaque élève est joint à son inscription active, avec sa
+//  classe. Un dossier « en attente de validation », retiré ou transféré n'y
+//  figure pas ; il vit dans la page Inscriptions. Offline-first (db.watch).
+//
+//  ── ⚠️ CE PROVIDER PORTE UN PÉRIMÈTRE ──────────────────────────────────────
+//  Il alimente TROIS pages — Élèves, Dossiers documentaires et surtout
+//  l'Annuaire des familles (noms, téléphones, adresses des tuteurs). Il n'avait
+//  aucun filtre : un enseignant dont le profil d'accès dit `own_classes` y
+//  voyait l'école entière, coordonnées des parents comprises, alors que la même
+//  restriction était correctement appliquée par `studentsProvider`. Le verrou
+//  n'était pas contourné — il n'avait jamais été posé ici.
+//
+//  D'où le paramètre : le périmètre se règle PAR MODULE (`eleves`, `documents`,
+//  `annuaire` sont trois entrées distinctes du profil d'accès), donc l'appelant
+//  déclare sous quel module il lit. Passer le mauvais slug, c'est appliquer les
+//  droits d'une autre page.
 // ════════════════════════════════════════════════════════════════════════════
 class StudentRow {
   const StudentRow({
@@ -55,9 +69,6 @@ class StudentRow {
     return '$l $f';
   }
 
-  bool get isEnrolled => enrollmentId != null;
-  bool get isActiveEnrolled => enrollmentStatus == 'active';
-
   int? get age {
     final d = dateOfBirth;
     if (d == null) return null;
@@ -72,14 +83,22 @@ DateTime? _d(Object? v) =>
     (v is String && v.isNotEmpty) ? DateTime.tryParse(v) : null;
 bool _b(Object? v) => v == 1 || v == true;
 
-/// Registre complet des élèves de l'école + inscription de l'année active.
+/// Effectif actif de l'école pour le module [slug] (`eleves`, `documents`,
+/// `annuaire`), restreint aux classes du membre si son profil dit
+/// `own_classes`.
 final studentsRegistryProvider =
-    StreamProvider.autoDispose<List<StudentRow>>((ref) {
+    StreamProvider.autoDispose.family<List<StudentRow>, String>((ref, slug) {
   ref.keepAlive();
   final profile = ref.watch(authNotifierProvider).valueOrNull;
   final schoolId = profile?.schoolId;
   final yearId = ref.watch(activeYearIdProvider);
   if (schoolId == null || schoolId.isEmpty) return Stream.value(const []);
+  // Tant que le profil d'accès n'est pas lu, on ne PUBLIE rien : la page garde
+  // son squelette de chargement. Émettre une liste vide afficherait « aucun
+  // élève » à une école qui en a huit cents ; émettre la liste complète
+  // montrerait à un enseignant restreint ce qu'il n'a pas à voir.
+  if (!permissionsLoaded(ref)) return const Stream.empty();
+  final scope = classScopeClause(ref, slug, column: 'ce.class_id');
 
   return db
       .watch(
@@ -102,9 +121,10 @@ final studentsRegistryProvider =
               AND ce.status = 'active'
         LEFT JOIN classes c ON c.id = ce.class_id
         WHERE  s.school_id = ? AND s.is_active = 1
+        ${scope?.clause ?? ''}
         ORDER  BY s.last_name, s.first_name
         ''',
-        parameters: [yearId ?? '', schoolId],
+        parameters: [yearId ?? '', schoolId, ...?scope?.params],
       )
       .map((rows) => [
             for (final r in rows)

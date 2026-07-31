@@ -14,18 +14,20 @@ const _uuid = Uuid();
 /// classes du membre, quand son profil d'accès `eleves` est `own_classes`.
 /// Retourne `null` (= aucune restriction, toute l'école) ou un fragment SQL
 /// `AND id IN (SELECT …)` accompagné de ses paramètres.
+///
+/// La décision (restreint ou non, et sur quelles classes) vient de
+/// [classScopeClause], commune à tous les modules ; il ne reste ici que
+/// l'enveloppe SQL, parce que `students` n'a pas de colonne de classe — il faut
+/// passer par ses inscriptions actives.
 ({String clause, List<String> params})? _eleveScope(Ref ref) {
-  final perm = ref.watch(modulePermissionProvider('eleves'));
-  if (perm == null || !perm.isOwnClasses) return null; // own_school → tout
-  final ids = ref.watch(scopedClassIdsProvider('eleves')).valueOrNull
-      ?? const <String>[];
-  final ph = List.filled(ids.length, '?').join(',');
-  // ids vide → `IN ()` impossible : on force un ensemble vide via `IN (NULL)`.
-  final clause = ids.isEmpty
-      ? 'AND 0 = 1'
-      : 'AND id IN (SELECT student_id FROM class_enrollments '
-        "WHERE status = 'active' AND class_id IN ($ph))";
-  return (clause: clause, params: ids);
+  final scope = classScopeClause(ref, 'eleves', column: 'class_id');
+  if (scope == null) return null;
+  if (scope.params.isEmpty) return (clause: 'AND 0 = 1', params: const []);
+  return (
+    clause: 'AND id IN (SELECT student_id FROM class_enrollments '
+        "WHERE status = 'active' ${scope.clause})",
+    params: scope.params,
+  );
 }
 
 // ─── Matricule ────────────────────────────────────────────────────────────────

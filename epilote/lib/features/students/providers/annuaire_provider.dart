@@ -61,7 +61,7 @@ class FamilyRow {
 /// Répertoire complet (élèves actifs + tuteurs regroupés par élève).
 final familiesProvider =
     Provider.autoDispose<AsyncValue<List<FamilyRow>>>((ref) {
-  final roster = ref.watch(studentsRegistryProvider);
+  final roster = ref.watch(studentsRegistryProvider('annuaire'));
   final tutors = ref.watch(schoolTutorsProvider);
   return roster.whenData((students) {
     final byStudent = <String, List<StudentTutorModel>>{};

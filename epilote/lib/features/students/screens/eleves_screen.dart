@@ -268,7 +268,7 @@ class _BodyState extends ConsumerState<_Body> {
 
   @override
   Widget build(BuildContext context) {
-    final async = ref.watch(studentsRegistryProvider);
+    final async = ref.watch(studentsRegistryProvider('eleves'));
     final readOnly = ref.watch(yearReadOnlyProvider);
 
     return async.when(

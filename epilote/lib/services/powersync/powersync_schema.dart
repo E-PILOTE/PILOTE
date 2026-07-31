@@ -398,10 +398,14 @@ const schema = Schema([
   Table('staff_members', [
     Column.text('group_id'),
     Column.text('school_id'),
-    // ⚠️ profile_id N'EXISTE PAS encore en base LIVE (audit 2026-06-21). Conservé
-    // ici car myStaffIdProvider le LIT (renvoie null tant que non peuplé) — le
-    // retirer ferait crasher cette requête. NE RIEN ÉCRIRE dessus (échec upload
-    // silencieux). À matérialiser en Phase 5 (Paie) : ALTER TABLE en prod + FK.
+    // ⚠️ COLONNE FANTÔME — n'existe pas en base LIVE, donc toujours vide.
+    // Plus personne ne la LIT : le périmètre `own_classes` passait par elle et
+    // ne trouvait jamais rien (cf. scopedClassIdsProvider). Il n'y a d'ailleurs
+    // rien à y mettre — `staff_members.id` EST déjà l'id du profil
+    // (`staff_members_id_fkey → profiles(id)`), le lien existe par la clé
+    // primaire. Conservée le temps d'un cycle pour ne pas provoquer de
+    // migration du schéma local avant la démonstration ; à supprimer ensuite.
+    // NE RIEN ÉCRIRE dessus (échec d'upload silencieux).
     Column.text('profile_id'),
     Column.text('job_title'),
     Column.text('hire_date'),
