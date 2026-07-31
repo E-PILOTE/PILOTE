@@ -93,4 +93,42 @@ void main() {
       }
     });
   });
+
+  group('redoublement une seule fois par niveau', () {
+    // Règle publiée pour les collèges d'enseignement technique : « Le
+    // redoublement, une seule fois par niveau, est toutefois autorisé. »
+    // L'écran doit donc SIGNALER un second redoublement au conseil — sans le
+    // bloquer : une dérogation relève de l'établissement, pas du logiciel.
+    PassageEntry entry({required bool repeating, String? decision}) =>
+        PassageEntry(
+          enrollmentId: 'e1',
+          studentId: 's1',
+          studentName: 'Élève test',
+          matricule: 'MAT-99-001',
+          annualAverage: 9.0,
+          rank: 12,
+          totalStudents: 15,
+          decision: decision,
+          decidedAverage: null,
+          targetClassId: null,
+          reenrolled: false,
+          alreadyRepeating: repeating,
+        );
+
+    test('un redoublant à qui on propose de redoubler est signalé', () {
+      expect(entry(repeating: true, decision: 'redouble').repeatingTwice, isTrue);
+    });
+
+    test('un redoublant qui passe n\'est pas signalé', () {
+      expect(entry(repeating: true, decision: 'passe').repeatingTwice, isFalse);
+    });
+
+    test('un non-redoublant qui redouble n\'est pas signalé', () {
+      expect(entry(repeating: false, decision: 'redouble').repeatingTwice, isFalse);
+    });
+
+    test('sans décision, aucun signalement', () {
+      expect(entry(repeating: true).repeatingTwice, isFalse);
+    });
+  });
 }

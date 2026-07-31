@@ -81,6 +81,7 @@ class PassageEntry {
     required this.decidedAverage,
     required this.targetClassId,
     required this.reenrolled,
+    required this.alreadyRepeating,
   });
   final String enrollmentId, studentId, studentName;
   final String? matricule;
@@ -92,6 +93,19 @@ class PassageEntry {
 
   /// L'inscription de l'année suivante existe déjà pour cet élève.
   final bool reenrolled;
+
+  /// L'élève REFAIT déjà ce niveau cette année.
+  ///
+  /// Le redoublement n'est autorisé qu'UNE FOIS par niveau. Proposer à cet
+  /// élève de redoubler une seconde fois, c'est proposer une décision que
+  /// l'établissement ne peut pas prendre — le conseil doit le savoir avant de
+  /// voter, pas le découvrir en juillet.
+  final bool alreadyRepeating;
+
+  /// Vrai quand le verdict retenu se heurte à la limite d'un redoublement par
+  /// niveau. L'écran le signale ; il ne bloque pas : c'est une délibération,
+  /// et c'est au conseil, pas au logiciel, de trancher une dérogation.
+  bool get repeatingTwice => alreadyRepeating && decision == 'redouble';
 
   bool get decided => decision != null && decision!.isNotEmpty;
 }
@@ -254,7 +268,7 @@ final passageSessionProvider =
   // Décisions déjà prises + inscriptions déjà créées pour l'année suivante.
   final rows = await db.getAll(
     'SELECT id, student_id, promotion_decision, promotion_average, '
-    '       promotion_target_class_id '
+    '       promotion_target_class_id, is_repeating '
     '  FROM class_enrollments WHERE class_id = ?',
     [classId],
   );
@@ -289,6 +303,9 @@ final passageSessionProvider =
           targetClassId:
               decided[s.enrollmentId]?['promotion_target_class_id'] as String?,
           reenrolled: reenrolled.contains(s.studentId),
+          // SQLite rend le booléen en entier : 1 = l'élève refait ce niveau.
+          alreadyRepeating:
+              (decided[s.enrollmentId]?['is_repeating'] as int? ?? 0) == 1,
         ),
     ],
     classAverage: comp.classAverage,

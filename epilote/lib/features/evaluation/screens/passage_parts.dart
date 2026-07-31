@@ -212,6 +212,27 @@ class _StudentRow extends StatelessWidget {
               if (entry.matricule != null)
                 Text(entry.matricule!,
                     style: TextStyle(fontSize: 10.5, color: kTextMuted)),
+              // Le redoublement n'est autorisé qu'une fois par niveau. Le
+              // conseil doit voir la contrainte AVANT de voter, pas la
+              // découvrir à la rentrée. On signale, on ne bloque pas : une
+              // dérogation relève de l'établissement, pas du logiciel.
+              if (entry.repeatingTwice)
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.report_problem_rounded, size: 12, color: kAccent),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text('redouble déjà ce niveau',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: kAccent)),
+                  ),
+                ])
+              else if (entry.alreadyRepeating)
+                Text('redoublant cette année',
+                    style: TextStyle(fontSize: 10.5, color: kTextMuted)),
             ]),
           ),
           SizedBox(
