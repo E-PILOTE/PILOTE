@@ -318,25 +318,7 @@ Future<void> clearResult(String candidateId) async {
   );
 }
 
-// ─── Attribution en masse (numéros de candidat, centre) ──────────────────────
-
-/// Affecte un centre d'examen à plusieurs candidats d'un coup.
-/// À 300 candidats, le faire un par un n'est pas une option.
-Future<void> assignCenter({
-  required List<String> candidateIds,
-  required String? centerId,
-}) async {
-  if (candidateIds.isEmpty) return;
-  final now = DateTime.now().toIso8601String();
-  await db.writeTransaction((tx) async {
-    for (final id in candidateIds) {
-      await tx.execute(
-        'UPDATE exam_candidates SET center_id = ?, updated_at = ? WHERE id = ?',
-        [centerId, now, id],
-      );
-    }
-  });
-}
+// ─── Attribution en masse des numéros de candidat ────────────────────────────
 
 /// Attribue les numéros de candidat communiqués par la DEC.
 ///
@@ -363,27 +345,4 @@ Future<int> assignCandidateNumbers(Map<String, String> numbersByCandidateId) asy
     }
   });
   return entries.length;
-}
-
-/// Centres d'examen disponibles (référentiel synchronisé).
-final examCentersProvider = StreamProvider.autoDispose<List<ExamCenterRow>>((ref) {
-  return db
-      .watch(
-        'SELECT id, name, code FROM exam_centers WHERE is_active = 1 '
-        'ORDER BY name',
-      )
-      .map((rows) => [
-            for (final r in rows)
-              ExamCenterRow(
-                id: r['id'] as String,
-                name: r['name'] as String? ?? '',
-                code: r['code'] as String?,
-              ),
-          ]);
-});
-
-class ExamCenterRow {
-  const ExamCenterRow({required this.id, required this.name, this.code});
-  final String id, name;
-  final String? code;
 }

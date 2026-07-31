@@ -202,7 +202,6 @@ class ExamExportService {
               ['Redoublant', c.isRepeater ? 'Oui' : 'Non'],
               ['Examen', c.examName ?? '—'],
               ['Session', c.yearLabel ?? '—'],
-              ['Centre d\'examen', c.centerName ?? '—'],
               ['Début des épreuves', _fmtDate(c.writtenFrom)],
               ['Inscrit le', _fmtDate(c.registeredAt)],
               ['Dossier déposé le', _fmtDate(c.submittedAt)],

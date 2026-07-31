@@ -39,7 +39,6 @@ class CandidateFile {
     required this.examShortName,
     required this.tutelle,
     required this.yearLabel,
-    required this.centerName,
     required this.writtenFrom,
     required this.result,
     required this.average,
@@ -57,7 +56,7 @@ class CandidateFile {
   final String? candidateNumber, dossierStatus;
   final bool isRepeater;
   final DateTime? registeredAt, submittedAt, decidedAt;
-  final String? examName, examShortName, tutelle, yearLabel, centerName;
+  final String? examName, examShortName, tutelle, yearLabel;
   final DateTime? writtenFrom;
   final String? result, mention, resultSource, notes;
   final double? average;
@@ -95,14 +94,12 @@ final candidateFileProvider =
              cl.name AS class_name, cl.filiere_label,
              cl.level_code AS level_name,
              s.year_label, s.written_from,
-             e.name AS exam_name, e.short_name AS exam_short_name, e.tutelle,
-             ctr.name AS center_name
+             e.name AS exam_name, e.short_name AS exam_short_name, e.tutelle
         FROM exam_candidates c
         JOIN students       st  ON st.id  = c.student_id
         JOIN exam_sessions  s   ON s.id   = c.session_id
         JOIN national_exams e   ON e.id   = s.exam_id
         LEFT JOIN classes   cl  ON cl.id  = c.class_id
-        LEFT JOIN exam_centers ctr ON ctr.id = c.center_id
        WHERE c.id = ?
       ''',
       [candidateId],
@@ -133,7 +130,6 @@ final candidateFileProvider =
       examShortName: r['exam_short_name'] as String?,
       tutelle: r['tutelle'] as String?,
       yearLabel: r['year_label'] as String?,
-      centerName: r['center_name'] as String?,
       writtenFrom: _date(r['written_from']),
       result: r['result'] as String?,
       average: (r['average'] as num?)?.toDouble(),

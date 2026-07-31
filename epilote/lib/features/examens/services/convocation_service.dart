@@ -17,10 +17,15 @@ import '../providers/exam_candidates_provider.dart';
 //  par page. Les imprimer une par une n'est pas une option réaliste.
 //
 //  ── Pourquoi on imprime même quand tout n'est pas connu ────────────────────
-//  Le numéro de candidat et le centre viennent de la DEC, souvent APRÈS que
-//  l'école a commencé à distribuer. Refuser d'imprimer bloquerait l'école ;
-//  imprimer un champ vide laisserait croire à un oubli. On écrit donc
-//  « à compléter » — l'information manquante est visible en tant que telle.
+//  Le numéro de candidat vient de la DEC, souvent APRÈS que l'école a commencé
+//  à distribuer. Refuser d'imprimer bloquerait l'école ; imprimer un champ vide
+//  laisserait croire à un oubli. On écrit donc « à compléter » — l'information
+//  manquante est visible en tant que telle.
+//
+//  ── Pas de centre d'examen sur ce document ─────────────────────────────────
+//  L'affectation des centres relève de la DEC/DSIC, qui ne la notifie pas aux
+//  établissements. La convocation ne peut donc pas l'annoncer : le candidat
+//  l'apprend par la voie officielle, pas par un papier de son école.
 // ══════════════════════════════════════════════════════════════════════════════
 
 const _kToComplete = 'à compléter';
@@ -144,7 +149,6 @@ class ConvocationService {
             rows: [
               ['Examen', examName],
               ['Session', _or(yearLabel)],
-              ['Centre d\'examen', _or(c.centerName)],
               ['Dates des épreuves', period],
             ],
             fonts: f,

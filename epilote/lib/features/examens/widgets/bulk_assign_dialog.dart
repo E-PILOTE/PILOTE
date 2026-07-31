@@ -6,18 +6,24 @@ import '../providers/exam_candidates_provider.dart';
 import '../providers/exam_registration_provider.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
-//  ATTRIBUER CENTRE ET NUMÉROS DE CANDIDAT — en masse.
+//  ATTRIBUER LES NUMÉROS DE CANDIDAT — en masse.
 //
-//  La DEC renvoie ses affectations sous forme de liste : un centre pour tout un
-//  établissement, et des numéros dans l'ordre alphabétique. Les reporter un par
-//  un sur 300 candidats prend une journée et produit des fautes de frappe.
+//  La DEC renvoie les numéros sous forme de liste, dans l'ordre alphabétique.
+//  Les reporter un par un sur 300 candidats prend une journée et produit des
+//  fautes de frappe.
+//
+//  ── Pas de centre d'examen ici, et c'est délibéré ──────────────────────────
+//  L'affectation des centres relève de la DEC/DSIC, qui ne la notifie pas aux
+//  établissements. L'école prépare sa liste, la dépose, reçoit les numéros —
+//  rien d'autre. Un champ « centre » que personne ne peut renseigner n'est pas
+//  une fonctionnalité, c'est une impasse à l'écran.
 //
 //  ── La correspondance est POSITIONNELLE, et c'est assumé ───────────────────
 //  Le n-ième numéro collé va au n-ième candidat de la liste affichée. C'est
 //  exactement la forme sous laquelle la DEC transmet. L'écran montre donc
 //  l'appariement AVANT d'écrire : coller une liste décalée d'une ligne
 //  donnerait à chaque élève le numéro de son voisin, et la faute ne se verrait
-//  qu'au centre d'examen.
+//  qu'à l'épreuve.
 // ════════════════════════════════════════════════════════════════════════════
 
 Future<bool> showBulkAssignDialog(
@@ -44,7 +50,6 @@ class _BulkAssignDialog extends ConsumerStatefulWidget {
 
 class _State extends ConsumerState<_BulkAssignDialog> {
   final _numbers = TextEditingController();
-  String? _centerId;
   bool _saving = false;
   String? _error;
   String? _done;
@@ -62,7 +67,6 @@ class _State extends ConsumerState<_BulkAssignDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final centers = ref.watch(examCentersProvider).valueOrNull ?? const [];
     final n = widget.candidates.length;
     final filled = _lines.where((l) => l.isNotEmpty).length;
 
@@ -73,7 +77,7 @@ class _State extends ConsumerState<_BulkAssignDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Centre et numéros de candidat',
+          Text('Numéros de candidat',
               style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
@@ -90,38 +94,6 @@ class _State extends ConsumerState<_BulkAssignDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              DropdownButtonFormField<String?>(
-                initialValue: _centerId,
-                decoration: InputDecoration(
-                  labelText: 'Centre d\'examen',
-                  helperText: 'Appliqué à toute la sélection.',
-                  helperStyle: TextStyle(fontSize: 11, color: kTextMuted),
-                  border: const OutlineInputBorder(),
-                  isDense: true,
-                  labelStyle: TextStyle(color: kTextMuted),
-                ),
-                items: [
-                  const DropdownMenuItem(
-                      value: null, child: Text('— Ne pas modifier —')),
-                  for (final c in centers)
-                    DropdownMenuItem(
-                      value: c.id,
-                      child: Text(
-                          c.code == null ? c.name : '${c.name} (${c.code})'),
-                    ),
-                ],
-                onChanged: (v) => setState(() => _centerId = v),
-              ),
-              if (centers.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    'Aucun centre d\'examen n\'est encore enregistré pour '
-                    'votre département.',
-                    style: TextStyle(fontSize: 11, color: kAccent),
-                  ),
-                ),
-              const SizedBox(height: 18),
               Text('NUMÉROS DE CANDIDAT',
                   style: TextStyle(
                       fontSize: 10,
@@ -179,9 +151,7 @@ class _State extends ConsumerState<_BulkAssignDialog> {
           child: Text('Annuler', style: TextStyle(color: kTextMuted)),
         ),
         FilledButton(
-          onPressed: _saving || (_centerId == null && filled == 0)
-              ? null
-              : _apply,
+          onPressed: _saving || filled == 0 ? null : _apply,
           style: FilledButton.styleFrom(backgroundColor: kNavy),
           child: Text(_saving ? 'Application…' : 'Appliquer'),
         ),
@@ -272,13 +242,6 @@ class _State extends ConsumerState<_BulkAssignDialog> {
       _done = null;
     });
     try {
-      if (_centerId != null) {
-        await assignCenter(
-          candidateIds: [for (final c in widget.candidates) c.id],
-          centerId: _centerId,
-        );
-      }
-
       final lines = _lines;
       final map = <String, String>{};
       for (var i = 0; i < widget.candidates.length && i < lines.length; i++) {
@@ -288,9 +251,7 @@ class _State extends ConsumerState<_BulkAssignDialog> {
 
       ref.invalidate(sessionCandidatesProvider(widget.sessionId));
       if (mounted) {
-        setState(() => _done = n > 0
-            ? '$n numéro(s) attribué(s).'
-            : 'Centre appliqué à la sélection.');
+        setState(() => _done = '$n numéro(s) attribué(s).');
         Navigator.of(context).pop(true);
       }
     } catch (e) {

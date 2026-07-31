@@ -108,7 +108,7 @@ class ExamBulkBar extends StatelessWidget {
         TextButton.icon(
           onPressed: onAssign,
           icon: const Icon(Icons.confirmation_number_outlined, size: 16),
-          label: const Text('Centre et n° candidat'),
+          label: const Text('N° de candidat'),
           style: TextButton.styleFrom(foregroundColor: kNavy),
         ),
         TextButton.icon(

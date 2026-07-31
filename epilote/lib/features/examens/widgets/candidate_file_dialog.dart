@@ -104,7 +104,6 @@ class _CandidateFileDialog extends ConsumerWidget {
                     ('Examen', c.examName ?? '—'),
                     ('Session', c.yearLabel ?? '—'),
                     ('N° candidat', c.candidateNumber ?? '—'),
-                    ('Centre d\'examen', c.centerName ?? '—'),
                     ('Début des épreuves', _fmt(c.writtenFrom)),
                     ('Inscrit le', _fmt(c.registeredAt)),
                     ('Dossier déposé le', _fmt(c.submittedAt)),

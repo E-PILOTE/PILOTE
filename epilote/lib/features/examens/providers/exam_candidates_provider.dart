@@ -37,7 +37,6 @@ class ExamCandidateRow {
     required this.result,
     required this.average,
     required this.mention,
-    this.centerName,
   });
 
   final String id;
@@ -59,10 +58,6 @@ class ExamCandidateRow {
   final String? result;
   final double? average;
   final String? mention;
-
-  /// Centre d'examen affecté — souvent inconnu au moment où l'école imprime
-  /// ses convocations : la DEC ne l'a pas encore communiqué.
-  final String? centerName;
 
   bool get isSubmitted =>
       submittedAt != null || dossierStatus == 'depose' || dossierStatus == 'valide';
@@ -139,12 +134,10 @@ final sessionCandidatesProvider = FutureProvider.autoDispose
     '       ec.missing_documents, ec.submitted_at, ec.result, ec.average, ec.mention, '
     '       st.first_name, st.last_name, st.matricule, st.date_of_birth, st.gender, '
     '       c.id AS class_id, c.name AS class_name, c.filiere_label, '
-    '       c.cycle_code, c.level_code, c.level_order, '
-    '       ctr.name AS center_name '
+    '       c.cycle_code, c.level_code, c.level_order '
     '  FROM exam_candidates ec '
     '  JOIN students st ON st.id = ec.student_id '
     '  LEFT JOIN classes c ON c.id = ec.class_id '
-    '  LEFT JOIN exam_centers ctr ON ctr.id = ec.center_id '
     ' WHERE ec.session_id = ? '
     ' ORDER BY c.level_order, c.name, st.last_name, st.first_name',
     [sessionId],
@@ -180,7 +173,6 @@ final sessionCandidatesProvider = FutureProvider.autoDispose
           result: r['result'] as String?,
           average: (r['average'] as num?)?.toDouble(),
           mention: r['mention'] as String?,
-          centerName: r['center_name'] as String?,
         ),
     ],
   );

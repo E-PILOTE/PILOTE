@@ -193,8 +193,10 @@ class ExamPastSessions extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
         color: kCardBg,
-        borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
+        // `shape` porte DÉJÀ le rayon : y ajouter `borderRadius` déclenche
+        // l'assertion `!(shape != null && borderRadius != null)` de Material
+        // et l'écran entier tombe en rouge. Un seul des deux, jamais les deux.
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(color: kBorder),
