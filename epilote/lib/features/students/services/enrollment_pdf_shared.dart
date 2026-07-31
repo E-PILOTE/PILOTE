@@ -62,10 +62,14 @@ class EnrollmentGroup {
 
 const _kEnrollmentPad = pw.EdgeInsets.symmetric(horizontal: 28);
 
-/// Lignes par bloc. Le premier bloc d'une classe porte aussi son intitulé, d'où
-/// une contenance plus faible. Valeurs alignées sur le reste des exports du
-/// projet (`first`/`next` de `OfficialPdfKit.paginate`).
-const _kFirstRows = 20;
+/// Lignes par bloc.
+///
+/// Une page A4 tient une trentaine de lignes. Le premier bloc arrive sous le
+/// bloc titre et la grille d'indicateurs : il doit donc rester petit pour tenir
+/// dans ce qu'il reste de la première page. Les suivants sont bornés à moins
+/// d'une page pleine — condition NÉCESSAIRE, car un bloc insécable plus haut
+/// qu'une page fait échouer tout le document (cf. `enrollmentCycleBlocks`).
+const _kFirstRows = 10;
 const _kNextRows = 26;
 
 /// La section d'un cycle, découpée en blocs dont AUCUN ne dépasse une page.
@@ -141,22 +145,36 @@ List<pw.Widget> enrollmentCycleBlocks({
       for (final (i, chunk) in OfficialPdfKit.paginate(g.rows,
               first: _kFirstRows, next: _kNextRows)
           .indexed)
-        pw.Padding(
-          padding: _kEnrollmentPad,
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              groupLabel(g.label, suite: i > 0),
-              pw.SizedBox(height: 5),
-              OfficialPdfKit.table(
-                headers: g.headers,
-                rows: chunk,
-                fonts: fonts,
-                flex: g.flex,
-                leftAlignCols: g.leftAlignCols,
-              ),
-              pw.SizedBox(height: 8),
-            ],
+        // ⚠️ `Inseparable` n'est pas décoratif.
+        // Dans le paquet `pdf`, un `SingleChildWidget` — donc un `Padding` —
+        // délègue `canSpan` à son enfant, et un `Column` vertical, lui, se
+        // scinde volontiers ENTRE ses enfants. Sans ce garde-fou, l'intitulé de
+        // la classe restait seul en bas d'une page et son tableau partait sur
+        // la suivante : chaque page se terminait sur un titre orphelin suivi
+        // d'un grand vide. `Inseparable` rend le bloc atomique — il tient d'un
+        // seul tenant ou passe entier à la page suivante.
+        //
+        // La contrepartie, c'est la contrainte ci-dessus : un bloc insécable
+        // plus haut qu'une page ne peut aller nulle part et fait échouer tout
+        // le document. D'où le découpage en petits blocs, jamais l'inverse.
+        pw.Inseparable(
+          child: pw.Padding(
+            padding: _kEnrollmentPad,
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                groupLabel(g.label, suite: i > 0),
+                pw.SizedBox(height: 5),
+                OfficialPdfKit.table(
+                  headers: g.headers,
+                  rows: chunk,
+                  fonts: fonts,
+                  flex: g.flex,
+                  leftAlignCols: g.leftAlignCols,
+                ),
+                pw.SizedBox(height: 8),
+              ],
+            ),
           ),
         ),
   ];

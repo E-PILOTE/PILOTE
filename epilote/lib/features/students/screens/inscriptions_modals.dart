@@ -14,6 +14,8 @@ Widget _statusBadge(String status) {
     'pending_validation' => ('En attente', kAccent),
     'rejected' => ('Rejetée', kRed),
     'withdrawn' => ('Retirée', kTextMuted),
+    'transferred' => ('Transférée', kNavy),
+    'graduated' => ('Diplômée', kGreen),
     _ => (status, kTextMuted),
   };
   return AdminBadge(label, color: color);

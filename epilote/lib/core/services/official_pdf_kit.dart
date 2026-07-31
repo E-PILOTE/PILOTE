@@ -267,9 +267,12 @@ class OfficialPdfKit {
           // L'émetteur est en tête ; E-PILOTE reste ici, à sa place : l'outil
           // qui a produit le document, pas celui qui le délivre.
           child: pw.Text(
+            // « de ${nom} » produisait « de Ministère de l'Enseignement… ».
+            // L'article correct dépend du nom, qui varie d'un établissement à
+            // l'autre : on emploie donc une formule qui n'en demande aucun.
             _issuer == null
                 ? 'Document officiel généré le $now  •  $_kDefaultName  •  Réf. $ref'
-                : 'Document officiel de ${_issuer!.name} — généré le $now '
+                : 'Document officiel — ${_issuer!.name}  •  Généré le $now '
                     'via $_kDefaultName  •  Réf. $ref',
             style: pw.TextStyle(font: f.regular, fontSize: 7.5, color: kPdfMuted),
           ),

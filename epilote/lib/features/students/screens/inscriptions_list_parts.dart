@@ -464,10 +464,16 @@ class _StatusBadge extends StatelessWidget {
   final String status;
   @override
   Widget build(BuildContext context) {
+    // Les trois statuts de SORTIE manquaient : le filtre « Sorties » les
+    // affiche pourtant, et l'écran rendait alors le code brut de la base —
+    // « transferred » en toutes lettres dans la colonne Statut.
     final (label, color, icon) = switch (status) {
       'active' => ('Validée', kGreen, Icons.check_circle_rounded),
       'pending_validation' => ('En attente', kAccent, Icons.hourglass_top_rounded),
       'rejected' => ('Rejetée', kRed, Icons.cancel_rounded),
+      'withdrawn' => ('Retirée', kTextMuted, Icons.logout_rounded),
+      'transferred' => ('Transférée', kNavy, Icons.swap_horiz_rounded),
+      'graduated' => ('Diplômée', kGreen, Icons.school_rounded),
       _ => (status, kTextMuted, Icons.help_outline_rounded),
     };
     return AdminBadge(label, color: color, icon: icon);
