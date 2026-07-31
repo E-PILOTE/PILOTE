@@ -167,6 +167,7 @@ class _BodyState extends ConsumerState<_Body> {
       backgroundColor: Colors.transparent,
       builder: (_) => _VerdictSheet(
         entry: e,
+        trimesters: s.trimesters,
         upper: s.upperClass,
         repeat: s.repeatClass,
       ),
@@ -240,11 +241,20 @@ class _BodyState extends ConsumerState<_Body> {
     );
   }
 
+  /// Les classes rangées par cycle, dans l'ordre déjà trié par le provider.
+  Map<String, List<PassageClass>> _byCycle(List<PassageClass> rows) {
+    final out = <String, List<PassageClass>>{};
+    for (final r in rows) {
+      (out[r.cycleName] ??= []).add(r);
+    }
+    return out;
+  }
+
   Widget _content(
     List<PassageClass> rows,
     String yearId,
     String yearLabel,
-    (String, String)? next,
+    NextYear? next,
     bool canEdit,
   ) {
     // La structure d'accueil est prête dès qu'une classe existe l'an prochain.
@@ -262,11 +272,12 @@ class _BodyState extends ConsumerState<_Body> {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       _CampaignHeader(
         yearLabel: yearLabel,
-        nextLabel: next?.$2,
+        nextLabel: next?.label,
+        nextHasTrimesters: next?.hasTrimesters ?? true,
         structureReady: structureReady,
         canEdit: canEdit,
         busy: _busy,
-        onRollover: () => next == null ? null : _rollover(yearId, next.$1),
+        onRollover: () => next == null ? null : _rollover(yearId, next.id),
       ),
       const SizedBox(height: 16),
       EvalHeroKpis(cards: [
@@ -277,7 +288,7 @@ class _BodyState extends ConsumerState<_Body> {
         (Icons.how_to_vote_rounded, 'Délibérés', '$decided/$students', kGreen,
             students == 0 ? '—' : '${(decided * 100 / students).round()}%'),
         (Icons.how_to_reg_rounded, 'Réinscrits', '$reenrolled',
-            const Color(0xFF8B5CF6), next?.$2 ?? 'année suivante à ouvrir'),
+            const Color(0xFF8B5CF6), next?.label ?? 'année suivante à ouvrir'),
       ]),
       const SizedBox(height: 18),
       if (rows.isEmpty)
@@ -291,25 +302,36 @@ class _BodyState extends ConsumerState<_Body> {
         const EvalSectionLabel(
             icon: Icons.touch_app_rounded,
             text: 'Ouvrez une classe pour délibérer'),
-        const SizedBox(height: 12),
-        LayoutBuilder(builder: (context, c) {
-          final cols = c.maxWidth > 1100 ? 4 : (c.maxWidth > 760 ? 3 : 2);
-          return GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: cols,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              mainAxisExtent: 138,
-            ),
-            itemCount: rows.length,
-            itemBuilder: (_, i) => _ClassCard(
-              row: rows[i],
-              onOpen: () => setState(() => _openClassId = rows[i].classId),
-            ),
-          );
-        }),
+        const SizedBox(height: 4),
+        // Un intertitre par cycle. `level_order` repart à 1 dans chaque cycle :
+        // trier dessus sans le cycle entrelaçait CP1, 6ème et 2nde.
+        for (final cycle in _byCycle(rows).entries) ...[
+          const SizedBox(height: 8),
+          EvalSectionLabel(
+              icon: Icons.school_rounded,
+              text: '${cycle.key} · ${cycle.value.length} classe'
+                  '${cycle.value.length > 1 ? 's' : ''}'),
+          const SizedBox(height: 10),
+          LayoutBuilder(builder: (context, c) {
+            final cols = c.maxWidth > 1100 ? 4 : (c.maxWidth > 760 ? 3 : 2);
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: cols,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                mainAxisExtent: 112,
+              ),
+              itemCount: cycle.value.length,
+              itemBuilder: (_, i) => _ClassCard(
+                row: cycle.value[i],
+                onOpen: () =>
+                    setState(() => _openClassId = cycle.value[i].classId),
+              ),
+            );
+          }),
+        ],
       ] else
         _ClassDeliberation(
           classId: _openClassId!,
@@ -404,6 +426,18 @@ class _ClassDeliberation extends ConsumerWidget {
               ],
             ]),
             const SizedBox(height: 12),
+            if (s.emptyTrimesters.isNotEmpty) ...[
+              _Notice(
+                color: kAccent,
+                icon: Icons.playlist_remove_rounded,
+                text: 'Aucune note en '
+                    '${s.emptyTrimesters.map((t) => t.label).join(', ')}. '
+                    'La moyenne annuelle ne porte donc que sur les trimestres '
+                    'renseignés — vérifiez que les notes sont bien saisies '
+                    'avant de délibérer.',
+              ),
+              const SizedBox(height: 12),
+            ],
             AdminCard(
               padding: EdgeInsets.zero,
               child: Column(children: [
@@ -417,7 +451,14 @@ class _ClassDeliberation extends ConsumerWidget {
                   child: Row(children: [
                     SizedBox(width: 34, child: _h('RG')),
                     Expanded(flex: 4, child: _h('ÉLÈVE')),
-                    SizedBox(width: 92, child: _h('MOY. ANNUELLE')),
+                    for (final t in s.trimesters)
+                      SizedBox(
+                          width: _kTrimCol,
+                          child: _h(t.shortLabel, align: TextAlign.right)),
+                    SizedBox(
+                        width: 92,
+                        child: _h('MOY. ANNUELLE', align: TextAlign.right)),
+                    const SizedBox(width: 12),
                     Expanded(flex: 3, child: _h('DÉCISION')),
                     const SizedBox(width: 96),
                     const SizedBox(width: 14),
@@ -435,6 +476,7 @@ class _ClassDeliberation extends ConsumerWidget {
                   if (i > 0) Divider(height: 1, color: kBorder),
                   _StudentRow(
                     entry: s.entries[i],
+                    trimesterCount: s.trimesters.length,
                     canEdit: canEdit,
                     onTap: () => onDecide(s.entries[i], s, yearId),
                   ),
@@ -445,7 +487,8 @@ class _ClassDeliberation extends ConsumerWidget {
     );
   }
 
-  Widget _h(String t) => Text(t,
+  Widget _h(String t, {TextAlign align = TextAlign.left}) => Text(t,
+      textAlign: align,
       style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w800,

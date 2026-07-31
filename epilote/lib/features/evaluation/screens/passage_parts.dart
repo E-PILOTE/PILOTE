@@ -10,6 +10,7 @@ class _CampaignHeader extends StatelessWidget {
   const _CampaignHeader({
     required this.yearLabel,
     required this.nextLabel,
+    required this.nextHasTrimesters,
     required this.structureReady,
     required this.canEdit,
     required this.busy,
@@ -18,6 +19,7 @@ class _CampaignHeader extends StatelessWidget {
 
   final String yearLabel;
   final String? nextLabel;
+  final bool nextHasTrimesters;
   final bool structureReady, canEdit, busy;
   final VoidCallback onRollover;
 
@@ -41,6 +43,16 @@ class _CampaignHeader extends StatelessWidget {
                     ? '$yearLabel · aucune année suivante déclarée'
                     : '$yearLabel  →  $nextLabel',
                 style: TextStyle(fontSize: 12, color: kTextMuted),
+              ),
+              const SizedBox(height: 6),
+              // Dire d'emblée ce qui se décide ici et ce qui s'est décidé
+              // ailleurs : les deux conseils portent le même nom et ne
+              // tranchent pas la même chose.
+              Text(
+                'Les conseils de classe trimestriels décernent les distinctions '
+                'sur les bulletins. Ce conseil-ci rend le verdict de l\'année, '
+                'sur la moyenne des trois trimestres.',
+                style: TextStyle(fontSize: 11.5, color: kTextMuted, height: 1.4),
               ),
             ]),
           ),
@@ -70,6 +82,23 @@ class _CampaignHeader extends StatelessWidget {
                 'Reconduisez la structure pour pouvoir réinscrire — le nom, le '
                 'niveau, la filière et le programme sont recopiés ; le '
                 'professeur principal reste à désigner.',
+          ),
+        ],
+        // Le calendrier appartient au GROUPE : l'école ne peut pas créer les
+        // trimestres de l'année d'accueil (RLS `trimesters_write_ministry`).
+        // Elle doit donc le signaler à temps — sans trimestre, la classe
+        // reconduite ne pourra recevoir aucune note à la rentrée.
+        if (nextLabel != null && !nextHasTrimesters) ...[
+          const SizedBox(height: 12),
+          _Notice(
+            color: kRed,
+            icon: Icons.event_repeat_rounded,
+            text: '$nextLabel n\'a encore aucun trimestre. Les classes peuvent '
+                'être reconduites et les élèves réinscrits, mais aucune note ne '
+                'pourra y être saisie tant que le calendrier n\'est pas ouvert. '
+                'Le découpage de l\'année se déclare au niveau du groupe '
+                '(« Années scolaires ») : signalez-le à votre direction '
+                'générale.',
           ),
         ],
       ]),
@@ -171,14 +200,23 @@ class _ClassCard extends StatelessWidget {
   }
 }
 
+/// Largeur d'une colonne de moyenne trimestrielle.
+const _kTrimCol = 46.0;
+
 /// Une ligne d'élève dans la table de délibération.
 class _StudentRow extends StatelessWidget {
   const _StudentRow({
     required this.entry,
+    required this.trimesterCount,
     required this.canEdit,
     required this.onTap,
   });
   final PassageEntry entry;
+
+  /// Nombre de colonnes trimestrielles à afficher. Il vient de la SESSION, pas
+  /// de l'élève : un élève sans note au 2ᵉ trimestre doit garder sa colonne, un
+  /// tiret dedans, sinon les colonnes se décalent d'une ligne à l'autre.
+  final int trimesterCount;
   final bool canEdit;
   final VoidCallback onTap;
 
@@ -235,10 +273,27 @@ class _StudentRow extends StatelessWidget {
                     style: TextStyle(fontSize: 10.5, color: kTextMuted)),
             ]),
           ),
+          // Les trois moyennes trimestrielles qui composent l'annuelle. Le
+          // conseil lit la trajectoire, pas seulement le résultat : un 8 qui
+          // finit à 11 ne se juge pas comme un 12 qui finit à 9.
+          for (var i = 0; i < trimesterCount; i++)
+            SizedBox(
+              width: _kTrimCol,
+              child: Text(
+                i < entry.trimesterAverages.length &&
+                        entry.trimesterAverages[i] != null
+                    ? entry.trimesterAverages[i]!.toStringAsFixed(2)
+                    : '—',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w500, color: kTextMuted),
+              ),
+            ),
           SizedBox(
             width: 92,
             child: Text(
               avg == null ? '—' : '${avg.toStringAsFixed(2)}/20',
+              textAlign: TextAlign.right,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -248,6 +303,7 @@ class _StudentRow extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(width: 12),
           Expanded(
             flex: 3,
             child: v == null
@@ -298,10 +354,12 @@ class _StudentRow extends StatelessWidget {
 class _VerdictSheet extends StatefulWidget {
   const _VerdictSheet({
     required this.entry,
+    required this.trimesters,
     required this.upper,
     required this.repeat,
   });
   final PassageEntry entry;
+  final List<PassageTrimester> trimesters;
   final TargetClass? upper, repeat;
 
   @override
@@ -364,6 +422,24 @@ class _VerdictSheetState extends State<_VerdictSheet> {
             ),
           ]),
         ),
+        // Le détail du calcul, sous les yeux du conseil : la moyenne annuelle
+        // est la moyenne de ces trois-là, celles des bulletins.
+        if (widget.trimesters.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Row(children: [
+            for (var i = 0; i < widget.trimesters.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              Expanded(
+                child: _TrimesterChip(
+                  label: widget.trimesters[i].shortLabel,
+                  average: i < e.trimesterAverages.length
+                      ? e.trimesterAverages[i]
+                      : null,
+                ),
+              ),
+            ],
+          ]),
+        ],
         const SizedBox(height: 18),
         for (final v in passageVerdicts)
           Padding(
@@ -393,19 +469,58 @@ class _VerdictSheetState extends State<_VerdictSheet> {
             ),
           ),
           const SizedBox(width: 12),
+          // Rien de coché : il n'y a à effacer que s'il y avait une décision.
+          // Sinon le bouton principal proposait « Effacer la décision » à un
+          // élève qui n'avait jamais été délibéré — un geste sans objet.
           Expanded(
             child: FilledButton(
               style: FilledButton.styleFrom(backgroundColor: kNavy),
-              onPressed: () => Navigator.pop(context, (
-                code: _code,
-                targetClassId: _targetFor(_code),
-              )),
+              onPressed: _code == null && !e.decided
+                  ? null
+                  : () => Navigator.pop(context, (
+                        code: _code,
+                        targetClassId: _targetFor(_code),
+                      )),
               child: Text(_code == null
-                  ? 'Effacer la décision'
+                  ? (e.decided ? 'Effacer la décision' : 'Choisissez un verdict')
                   : (target == null ? 'Enregistrer' : 'Enregistrer → $target')),
             ),
           ),
         ]),
+      ]),
+    );
+  }
+}
+
+/// Une moyenne trimestrielle dans la feuille de verdict.
+class _TrimesterChip extends StatelessWidget {
+  const _TrimesterChip({required this.label, required this.average});
+  final String label;
+  final double? average;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = average;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      decoration: BoxDecoration(
+        color: kSurface,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: kBorder),
+      ),
+      child: Column(children: [
+        Text(label,
+            style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.5,
+                color: kTextMuted)),
+        const SizedBox(height: 3),
+        Text(a == null ? '—' : a.toStringAsFixed(2),
+            style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w700,
+                color: a == null ? kTextMuted : (a >= 10 ? kGreen : kRed))),
       ]),
     );
   }

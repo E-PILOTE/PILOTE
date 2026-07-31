@@ -94,6 +94,46 @@ void main() {
     });
   });
 
+  group('moyenne annuelle = moyenne des trimestres', () {
+    // L'année se délibère trois fois — conseils de classe trimestriels, qui
+    // décernent des DISTINCTIONS — et s'arbitre une fois, ici. La moyenne qui
+    // fonde le verdict annuel est celle des trois bulletins, à poids égal.
+    //
+    // ⚠️ Ce n'est PAS la moyenne de toutes les notes de l'année mises ensemble :
+    // le trimestre le plus chargé en évaluations pèserait alors plus que les
+    // autres. Sur les données de démo l'écart est nul (chaque trimestre y porte
+    // exactement le même nombre d'évaluations) — aucun test manuel ne l'aurait
+    // révélé, d'où ce test.
+    test('les trois trimestres pèsent le même poids', () {
+      expect(annualAverageOf(const [12.0, 6.0, 12.0]), closeTo(10.0, 1e-9));
+      expect(annualAverageOf(const [9.0, 9.0, 15.0]), closeTo(11.0, 1e-9));
+    });
+
+    test('un trimestre sans note est ignoré, jamais compté zéro', () {
+      // Élève arrivé en janvier : il n'a pas « eu 0 » au 1er trimestre.
+      expect(annualAverageOf(const [null, 12.0, 14.0]), closeTo(13.0, 1e-9));
+      // Compté zéro, il tomberait à 8.67 et redoublerait.
+      expect(annualAverageOf(const [null, 12.0, 14.0])! >= 10, isTrue);
+    });
+
+    test('aucune note du tout ne donne aucune moyenne', () {
+      expect(annualAverageOf(const [null, null, null]), isNull);
+      expect(annualAverageOf(const []), isNull);
+    });
+
+    test('un seul trimestre renseigné vaut sa propre moyenne', () {
+      expect(annualAverageOf(const [8.5, null, null]), closeTo(8.5, 1e-9));
+    });
+
+    test('la moyenne des trimestres décide du verdict, pas celle des notes', () {
+      // 1er trimestre chargé (mauvais), 3e léger (bon) : mis dans le même sac,
+      // le 1er l'emporterait. Trimestre par trimestre, l'élève passe.
+      final moyenne = annualAverageOf(const [8.0, 10.0, 14.0]);
+      expect(moyenne, closeTo(32 / 3, 1e-9));
+      expect(suggestedVerdict(moyenne), 'passe');
+    });
+  });
+
   group('redoublement une seule fois par niveau', () {
     // Règle publiée pour les collèges d'enseignement technique : « Le
     // redoublement, une seule fois par niveau, est toutefois autorisé. »
@@ -105,6 +145,7 @@ void main() {
           studentId: 's1',
           studentName: 'Élève test',
           matricule: 'MAT-99-001',
+          trimesterAverages: const [9.0, 9.0, 9.0],
           annualAverage: 9.0,
           rank: 12,
           totalStudents: 15,

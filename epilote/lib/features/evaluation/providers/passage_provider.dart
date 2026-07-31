@@ -19,10 +19,30 @@ import 'bulletins_provider.dart';
 //  TOUJOURS dans le même cycle, un niveau plus haut. Aucune logique de
 //  franchissement de cycle à écrire — et donc aucune à faire fausser.
 //
-//  ── LA MOYENNE ANNUELLE, PAS TRIMESTRIELLE ─────────────────────────────────
-//  Le calcul réutilise `bulletinComputationProvider` avec `trimesterId: null` :
-//  toutes les évaluations de l'année, pondérées par coefficient. C'est le même
-//  moteur que les bulletins — deux calculs de moyenne divergeraient un jour, et
+//  ── LA MOYENNE ANNUELLE EST LA MOYENNE DES TROIS TRIMESTRES ────────────────
+//  L'année scolaire se délibère trois fois : le conseil de classe se réunit à
+//  chaque trimestre et porte sur le bulletin une DISTINCTION (Félicitations,
+//  Encouragements, Tableau d'honneur, Avertissement, Blâme — `bulletins.
+//  decision`). Ces trois conseils n'orientent pas : ils apprécient. Le verdict
+//  annuel, lui, se rend une seule fois, ici, et vaut pour l'année entière
+//  (`class_enrollments.promotion_decision`).
+//
+//  La moyenne qui le fonde est donc `(MT1 + MT2 + MT3) / 3` : les trois
+//  moyennes trimestrielles, à poids égal. Ce sont exactement les nombres déjà
+//  imprimés sur les trois bulletins remis aux familles — une famille doit
+//  pouvoir refaire le calcul avec les papiers qu'elle a chez elle.
+//
+//  ⚠️ Ce n'est PAS la même chose que la moyenne de toutes les notes de l'année
+//  prises ensemble, ce que faisait la première version (`trimesterId: null`).
+//  Mettre toutes les notes dans le même sac donne au trimestre le plus chargé
+//  en évaluations un poids supérieur aux autres : un 3ᵉ trimestre court —
+//  celui de la remontée, souvent — pèse alors moins que le premier. Sur les
+//  données de démo l'écart est nul (chaque trimestre y porte le même nombre
+//  d'évaluations), donc rien ne l'aurait révélé à l'écran ; dans une école
+//  réelle il décide de qui redouble.
+//
+//  Chaque moyenne trimestrielle est calculée par `bulletinComputationProvider`,
+//  le moteur des bulletins. Deux calculs de moyenne divergeraient un jour, et
 //  ce jour-là on ne saurait plus lequel a décidé du sort d'un enfant.
 //
 //  ── LA DÉCISION SE FIGE, LA RÉINSCRIPTION VIENT APRÈS ──────────────────────
@@ -67,6 +87,36 @@ String? suggestedVerdict(double? annualAverage) {
   return annualAverage >= 10 ? 'passe' : 'redouble';
 }
 
+/// La moyenne annuelle : moyenne des moyennes trimestrielles RENSEIGNÉES.
+///
+/// Les trois trimestres pèsent le même poids — c'est la règle, et c'est aussi
+/// la seule façon qu'une famille refasse le calcul avec ses trois bulletins.
+/// Un trimestre sans note est ignoré, jamais compté zéro : un élève arrivé en
+/// janvier n'a pas « eu 0 » au premier trimestre, il n'y était pas.
+double? annualAverageOf(List<double?> trimesterAverages) {
+  final vals = trimesterAverages.whereType<double>().toList();
+  if (vals.isEmpty) return null;
+  return vals.reduce((a, b) => a + b) / vals.length;
+}
+
+/// Un trimestre de l'année délibérée.
+class PassageTrimester {
+  const PassageTrimester({
+    required this.id,
+    required this.label,
+    required this.number,
+    required this.hasGrades,
+  });
+  final String id, label;
+  final int number;
+
+  /// Le trimestre porte au moins une évaluation. Un trimestre vide ne compte
+  /// pas dans la moyenne annuelle — le compter reviendrait à y mettre zéro.
+  final bool hasGrades;
+
+  String get shortLabel => 'T$number';
+}
+
 /// Un élève devant le conseil de fin d'année.
 class PassageEntry {
   const PassageEntry({
@@ -74,6 +124,7 @@ class PassageEntry {
     required this.studentId,
     required this.studentName,
     required this.matricule,
+    required this.trimesterAverages,
     required this.annualAverage,
     required this.rank,
     required this.totalStudents,
@@ -85,7 +136,15 @@ class PassageEntry {
   });
   final String enrollmentId, studentId, studentName;
   final String? matricule;
-  final double? annualAverage; // recalculée à l'instant
+
+  /// Les moyennes trimestrielles, dans l'ordre des trimestres de l'année.
+  /// `null` là où l'élève n'a aucune note — arrivé en cours d'année, malade
+  /// tout un trimestre. Le trou se voit à l'écran et sur le procès-verbal ;
+  /// il n'est jamais remplacé par un zéro.
+  final List<double?> trimesterAverages;
+
+  /// Moyenne des moyennes trimestrielles renseignées. `null` si aucune.
+  final double? annualAverage;
   final int rank, totalStudents;
   final String? decision; // verdict persisté
   final double? decidedAverage; // moyenne figée au vote
@@ -119,6 +178,7 @@ class TargetClass {
 class PassageSession {
   const PassageSession({
     required this.entries,
+    required this.trimesters,
     required this.classAverage,
     required this.evaluationCount,
     required this.nextYearId,
@@ -127,6 +187,11 @@ class PassageSession {
     required this.repeatClass,
   });
   final List<PassageEntry> entries;
+
+  /// Les trimestres de l'année, dans l'ordre. Vide si l'établissement n'a pas
+  /// découpé son année — la moyenne annuelle retombe alors sur l'ensemble des
+  /// notes.
+  final List<PassageTrimester> trimesters;
   final double? classAverage;
   final int evaluationCount;
 
@@ -143,6 +208,12 @@ class PassageSession {
   int get decidedCount => entries.where((e) => e.decided).length;
   int get reenrolledCount => entries.where((e) => e.reenrolled).length;
 
+  /// Trimestres déclarés mais sans la moindre note. Le conseil doit le savoir :
+  /// délibérer une année dont il manque un trimestre, c'est délibérer sur une
+  /// moyenne qui n'est pas celle des bulletins.
+  List<PassageTrimester> get emptyTrimesters =>
+      [for (final t in trimesters) if (!t.hasGrades) t];
+
   /// Peut-on réinscrire ? Il faut une année suivante ET les classes qui vont
   /// avec. Sans elles, la décision reste enregistrée : seule l'inscription
   /// attend.
@@ -154,12 +225,18 @@ class PassageClass {
   const PassageClass({
     required this.classId,
     required this.className,
+    required this.cycleName,
     required this.filiereLabel,
     required this.students,
     required this.decided,
     required this.reenrolled,
   });
   final String classId, className;
+
+  /// Libellé du cycle (Primaire, Collège, Lycée…). Sert d'intertitre : sans
+  /// lui la liste mélange CP1, 6ème et 2nde, car `level_order` REPART À 1 à
+  /// chaque cycle — trier dessus seul entrelace les trois.
+  final String cycleName;
   final String? filiereLabel;
   final int students, decided, reenrolled;
 }
@@ -174,15 +251,18 @@ final passageClassesProvider = FutureProvider.autoDispose
   final rows = await db.getAll(
     '''
     SELECT c.id, c.name, c.filiere_label,
+           COALESCE(ec.name, 'Autres')   AS cycle_name,
+           COALESCE(ec.order_index, 9)   AS cycle_order,
            COUNT(e.id)                                            AS students,
            SUM(CASE WHEN e.promotion_decision IS NOT NULL THEN 1 ELSE 0 END) AS decided
       FROM classes c
+      LEFT JOIN education_cycles ec ON ec.code = c.cycle_code
       LEFT JOIN class_enrollments e
              ON e.class_id = c.id AND e.status = 'active'
      WHERE c.academic_year_id = ? AND c.is_active = 1
        AND COALESCE(c.exam_status, 'passage') = 'passage'
-     GROUP BY c.id, c.name, c.filiere_label
-     ORDER BY c.level_order, c.name
+     GROUP BY c.id, c.name, c.filiere_label, ec.name, ec.order_index
+     ORDER BY cycle_order, c.level_order, c.name
     ''',
     [yearId],
   );
@@ -211,6 +291,7 @@ final passageClassesProvider = FutureProvider.autoDispose
       PassageClass(
         classId: r['id'] as String,
         className: r['name'] as String? ?? '—',
+        cycleName: r['cycle_name'] as String? ?? 'Autres',
         filiereLabel: r['filiere_label'] as String?,
         students: (r['students'] as int?) ?? 0,
         decided: (r['decided'] as int?) ?? 0,
@@ -219,20 +300,47 @@ final passageClassesProvider = FutureProvider.autoDispose
   ];
 });
 
+/// L'année d'accueil, telle que l'en-tête de campagne doit la présenter.
+class NextYear {
+  const NextYear({
+    required this.id,
+    required this.label,
+    required this.trimesterCount,
+  });
+  final String id, label;
+
+  /// Trimestres déclarés dans l'année d'accueil.
+  ///
+  /// Zéro n'empêche ni de délibérer ni de réinscrire, mais aucune note ne
+  /// pourra y être saisie : une évaluation porte `trimester_id`. Et l'école ne
+  /// peut pas y remédier elle-même — le calendrier est écrit par le groupe
+  /// (RLS `trimesters_write_ministry`). Elle doit donc le SAVOIR à temps, en
+  /// juin, pas le découvrir à la rentrée.
+  final int trimesterCount;
+
+  bool get hasTrimesters => trimesterCount > 0;
+}
+
 /// Année suivante de l'année active — pour l'en-tête de campagne.
 final nextYearProvider =
-    FutureProvider.autoDispose.family<(String, String)?, String>(
-        (ref, yearId) async => _nextYear(yearId));
+    FutureProvider.autoDispose.family<NextYear?, String>((ref, yearId) async {
+  final next = await _nextYear(yearId);
+  if (next == null) return null;
+  final rows = await db.getAll(
+    'SELECT COUNT(*) AS n FROM trimesters WHERE academic_year_id = ?',
+    [next.$1],
+  );
+  return NextYear(
+    id: next.$1,
+    label: next.$2,
+    trimesterCount: (rows.first['n'] as int?) ?? 0,
+  );
+});
 
 /// Délibération de fin d'année d'une classe.
 final passageSessionProvider =
     FutureProvider.autoDispose.family<PassageSession, String>((ref, classId) async {
   ref.keepAlive();
-
-  // Moyennes ANNUELLES : aucun filtre de trimestre.
-  final comp = await ref
-      .watch(bulletinComputationProvider((classId: classId, trimesterId: null))
-          .future);
 
   final cls = await db.getAll(
     'SELECT school_id, academic_year_id, cycle_code, level_order, filiere_label '
@@ -242,6 +350,7 @@ final passageSessionProvider =
   if (cls.isEmpty) {
     return const PassageSession(
       entries: [],
+      trimesters: [],
       classAverage: null,
       evaluationCount: 0,
       nextYearId: null,
@@ -256,6 +365,57 @@ final passageSessionProvider =
   final cycle = c['cycle_code'] as String?;
   final levelOrder = (c['level_order'] as int?) ?? 0;
   final filiere = c['filiere_label'] as String?;
+
+  // ── Les trois moyennes trimestrielles, puis leur moyenne ──────────────────
+  // Un calcul par trimestre, avec le moteur des bulletins : les nombres de
+  // cette page sont ceux des bulletins déjà remis aux familles.
+  final trimRows = yearId == null
+      ? const <Map<String, Object?>>[]
+      : await db.getAll(
+          'SELECT id, label, trimester_number FROM trimesters '
+          'WHERE academic_year_id = ? ORDER BY trimester_number',
+          [yearId],
+        );
+
+  final comps = <BulletinComputation>[];
+  for (final t in trimRows) {
+    comps.add(await ref.watch(bulletinComputationProvider(
+            (classId: classId, trimesterId: t['id'] as String))
+        .future));
+  }
+  // Année non découpée en trimestres : on retombe sur l'ensemble des notes.
+  // C'est un pis-aller assumé, pas la règle — mais mieux vaut une délibération
+  // fondée sur toutes les notes que pas de délibération du tout.
+  final pooled = comps.isEmpty
+      ? await ref.watch(
+          bulletinComputationProvider((classId: classId, trimesterId: null))
+              .future)
+      : null;
+
+  final trimesters = [
+    for (var i = 0; i < trimRows.length; i++)
+      PassageTrimester(
+        id: trimRows[i]['id'] as String,
+        label: trimRows[i]['label'] as String? ??
+            'Trimestre ${trimRows[i]['trimester_number']}',
+        number: (trimRows[i]['trimester_number'] as num?)?.toInt() ?? i + 1,
+        hasGrades: comps[i].evaluationCount > 0,
+      ),
+  ];
+
+  // L'effectif est le même à chaque trimestre (il vient des inscriptions, pas
+  // des notes) : n'importe quel calcul porte la liste complète.
+  final roster = pooled ?? comps.first;
+  final byTrimester = <String, List<double?>>{
+    for (final s in roster.students)
+      s.enrollmentId: List<double?>.filled(comps.length, null),
+  };
+  for (var i = 0; i < comps.length; i++) {
+    for (final s in comps[i].students) {
+      final row = byTrimester[s.enrollmentId];
+      if (row != null) row[i] = s.overallAverage;
+    }
+  }
 
   final next = await _nextYear(yearId);
   final upper = next == null
@@ -286,30 +446,58 @@ final passageSessionProvider =
     }
   }
 
+  // La moyenne annuelle, puis le rang QU'ELLE donne. Reprendre le rang d'un
+  // trimestre reviendrait à classer l'année sur un tiers de l'année.
+  final annual = <String, double?>{
+    for (final s in roster.students)
+      s.enrollmentId: comps.isEmpty
+          ? s.overallAverage
+          : annualAverageOf(byTrimester[s.enrollmentId] ?? const []),
+  };
+  final ordered = [
+    for (final s in roster.students)
+      if (annual[s.enrollmentId] != null) (s.enrollmentId, annual[s.enrollmentId]!)
+  ]..sort((a, b) => b.$2.compareTo(a.$2));
+  final ranks = {
+    for (var i = 0; i < ordered.length; i++) ordered[i].$1: i + 1,
+  };
+
+  final values = annual.values.whereType<double>().toList();
+  final entries = [
+    for (final s in roster.students)
+      PassageEntry(
+        enrollmentId: s.enrollmentId,
+        studentId: s.studentId,
+        studentName: s.studentName,
+        matricule: s.matricule,
+        trimesterAverages: byTrimester[s.enrollmentId] ?? const [],
+        annualAverage: annual[s.enrollmentId],
+        rank: ranks[s.enrollmentId] ?? 0,
+        totalStudents: roster.students.length,
+        decision: decided[s.enrollmentId]?['promotion_decision'] as String?,
+        decidedAverage:
+            (decided[s.enrollmentId]?['promotion_average'] as num?)?.toDouble(),
+        targetClassId:
+            decided[s.enrollmentId]?['promotion_target_class_id'] as String?,
+        reenrolled: reenrolled.contains(s.studentId),
+        // SQLite rend le booléen en entier : 1 = l'élève refait ce niveau.
+        alreadyRepeating:
+            (decided[s.enrollmentId]?['is_repeating'] as int? ?? 0) == 1,
+      ),
+  ]..sort((a, b) {
+      if (a.rank == 0 || b.rank == 0) return a.rank == b.rank ? 0 : (a.rank == 0 ? 1 : -1);
+      return a.rank.compareTo(b.rank);
+    });
+
   return PassageSession(
-    entries: [
-      for (final s in comp.students)
-        PassageEntry(
-          enrollmentId: s.enrollmentId,
-          studentId: s.studentId,
-          studentName: s.studentName,
-          matricule: s.matricule,
-          annualAverage: s.overallAverage,
-          rank: s.rank,
-          totalStudents: s.totalStudents,
-          decision: decided[s.enrollmentId]?['promotion_decision'] as String?,
-          decidedAverage:
-              (decided[s.enrollmentId]?['promotion_average'] as num?)?.toDouble(),
-          targetClassId:
-              decided[s.enrollmentId]?['promotion_target_class_id'] as String?,
-          reenrolled: reenrolled.contains(s.studentId),
-          // SQLite rend le booléen en entier : 1 = l'élève refait ce niveau.
-          alreadyRepeating:
-              (decided[s.enrollmentId]?['is_repeating'] as int? ?? 0) == 1,
-        ),
-    ],
-    classAverage: comp.classAverage,
-    evaluationCount: comp.evaluationCount,
+    entries: entries,
+    trimesters: trimesters,
+    classAverage: values.isEmpty
+        ? null
+        : values.reduce((a, b) => a + b) / values.length,
+    evaluationCount: comps.isEmpty
+        ? roster.evaluationCount
+        : comps.fold(0, (a, c) => a + c.evaluationCount),
     nextYearId: next?.$1,
     nextYearLabel: next?.$2,
     upperClass: upper,

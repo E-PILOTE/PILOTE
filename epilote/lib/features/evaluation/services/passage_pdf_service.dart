@@ -13,8 +13,10 @@ import '../providers/passage_provider.dart';
 //
 //  C'est ce papier qui fait foi, pas l'écran : il est signé, archivé, et c'est
 //  lui qu'on ressort quand une famille conteste. Il porte donc, pour chaque
-//  élève, la moyenne annuelle ET la décision — les deux ensemble, jamais l'une
-//  sans l'autre, sinon la décision n'est plus justifiable.
+//  élève, les TROIS moyennes trimestrielles, la moyenne annuelle qu'elles
+//  donnent ET la décision. Les quatre ensemble : une moyenne annuelle seule ne
+//  se vérifie pas, et une décision sans le calcul qui la fonde ne se défend
+//  pas devant une famille qui a les trois bulletins sous la main.
 //
 //  Le récapitulatif compte les trois verdicts : c'est le chiffre que le chef
 //  d'établissement remonte à sa hiérarchie.
@@ -68,13 +70,40 @@ class PassagePdfService {
                   font: f.bold, fontSize: 8, color: PdfColors.white)),
         );
 
+    final trims = session.trimesters;
+
+    // L'en-tête du tableau, monté une fois : il coiffe le tableau en page 1 et
+    // se répète en tête de chaque page suivante. Un procès-verbal dont la
+    // page 3 est une colonne de nombres sans intitulé ne se relit pas.
+    pw.Widget tableHeader() => pw.Container(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: const pw.BoxDecoration(color: kPdfNavy),
+          child: pw.Row(children: [
+            th('Rg', align: pw.TextAlign.center, flex: 0.5),
+            th('Élève', flex: 2.4),
+            th('Matricule', flex: 1.3),
+            for (final t in trims)
+              th(t.shortLabel, align: pw.TextAlign.center, flex: 0.65),
+            th('Moy. annuelle', align: pw.TextAlign.center, flex: 1.1),
+            th('Mention', flex: 1.0),
+            th('Décision du conseil', flex: 2.4),
+          ]),
+        );
+
     doc.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
       margin: pw.EdgeInsets.zero,
       header: (ctx) => ctx.pageNumber == 1
           ? OfficialPdfKit.header(logo, f,
               badge: 'PROCÈS-VERBAL\nPASSAGE EN CLASSE SUPÉRIEURE')
-          : pw.SizedBox(),
+          : pw.Column(children: [
+              OfficialPdfKit.continuationHeader(f,
+                  title: 'Procès-verbal de passage — $className'),
+              pw.Padding(
+                padding: const pw.EdgeInsets.fromLTRB(28, 10, 28, 0),
+                child: tableHeader(),
+              ),
+            ]),
       footer: (ctx) => OfficialPdfKit.footer(ctx, f, now, ref),
       build: (ctx) => [
         pw.Padding(
@@ -105,21 +134,20 @@ class PassagePdfService {
                   ]),
                 ),
                 pw.SizedBox(height: 14),
-                pw.Container(
-                  padding:
-                      const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                  decoration: const pw.BoxDecoration(color: kPdfNavy),
-                  child: pw.Row(children: [
-                    th('Rg', align: pw.TextAlign.center, flex: 0.5),
-                    th('Élève', flex: 2.4),
-                    th('Matricule', flex: 1.2),
-                    th('Moy. annuelle', align: pw.TextAlign.center, flex: 1),
-                    th('Mention', flex: 1.2),
-                    th('Décision du conseil', flex: 2),
-                  ]),
-                ),
+                tableHeader(),
                 for (var i = 0; i < session.entries.length; i++)
-                  _row(session.entries[i], i, f),
+                  _row(session.entries[i], i, f, trims.length),
+                if (trims.isNotEmpty) ...[
+                  pw.SizedBox(height: 6),
+                  pw.Text(
+                    'Moyenne annuelle = moyenne des '
+                    '${trims.length == 3 ? 'trois' : '${trims.length}'} '
+                    'moyennes trimestrielles, à poids égal. Barre de passage : '
+                    '10/20.',
+                    style: pw.TextStyle(
+                        font: f.regular, fontSize: 7.5, color: kPdfMuted),
+                  ),
+                ],
                 pw.SizedBox(height: 18),
                 pw.Row(children: [
                   pw.Expanded(child: _sign(f, 'Le Chef d\'établissement')),
@@ -135,7 +163,7 @@ class PassagePdfService {
     return doc.save();
   }
 
-  static pw.Widget _row(PassageEntry e, int i, PdfFonts f) {
+  static pw.Widget _row(PassageEntry e, int i, PdfFonts f, int trimesterCount) {
     // La moyenne imprimée est celle FIGÉE au vote quand elle existe : c'est
     // elle qui a fondé la décision, même si une note a bougé depuis.
     final avg = e.decidedAverage ?? e.annualAverage;
@@ -165,12 +193,23 @@ class PassagePdfService {
       child: pw.Row(children: [
         td(e.rank == 0 ? '—' : '${e.rank}', align: pw.TextAlign.center, flex: 0.5),
         td(e.studentName, flex: 2.4, bold: true),
-        td(e.matricule ?? '—', flex: 1.2, color: kPdfMuted),
+        td(e.matricule ?? '—', flex: 1.3, color: kPdfMuted),
+        // Le détail du calcul. Une case vide n'est pas un zéro : c'est un
+        // trimestre sans note, et le tiret le dit.
+        for (var t = 0; t < trimesterCount; t++)
+          td(
+            t < e.trimesterAverages.length && e.trimesterAverages[t] != null
+                ? e.trimesterAverages[t]!.toStringAsFixed(2)
+                : '—',
+            align: pw.TextAlign.center,
+            flex: 0.65,
+            color: kPdfMuted,
+          ),
         td(avg == null ? '—' : '${avg.toStringAsFixed(2)}/20',
-            align: pw.TextAlign.center, flex: 1, bold: true),
-        td(mentionFor(avg), flex: 1.2),
+            align: pw.TextAlign.center, flex: 1.1, bold: true),
+        td(mentionFor(avg), flex: 1.0),
         td(v?.label ?? 'non délibéré',
-            flex: 2,
+            flex: 2.4,
             bold: v != null,
             color: v == null ? kPdfMuted : kPdfNavy),
       ]),
