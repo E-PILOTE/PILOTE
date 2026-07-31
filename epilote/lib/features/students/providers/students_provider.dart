@@ -116,10 +116,32 @@ final studentCountProvider = StreamProvider.autoDispose<int>((ref) {
 
 // ─── Mutations (offline-first) ────────────────────────────────────────────────
 
-/// Vérifie le quota d'élèves avant création offline.
-/// Retourne null si OK, ou un message d'erreur si quota dépassé.
-/// Actuellement aucun quota n'est enforced côté DB — toujours null.
-/// À câbler si la table `schools` reçoit un champ `max_students` plus tard.
+/// Vérifie le quota d'élèves avant création offline. `null` = rien à signaler.
+///
+/// ⚠️ CE CONTRÔLE NE PEUT PAS ÊTRE FIDÈLE HORS LIGNE, et il ne faut pas faire
+/// semblant du contraire.
+///
+/// Le quota est réel : `trg_enforce_student_quota` s'exécute BEFORE INSERT ON
+/// students et lève `check_violation` (23514) via `check_quota(group_id,
+/// 'students')`, qui compare `subscription_plans.max_students` au nombre
+/// d'élèves actifs DU GROUPE ENTIER — toutes écoles confondues. Un appareil ne
+/// synchronise que SON école : il ne détient pas de quoi refaire ce compte.
+/// `subscription_plans` n'est d'ailleurs pas dans le schéma local.
+///
+/// Un contrôle local approximatif serait pire que pas de contrôle : il
+/// refuserait des inscriptions légitimes, ou en laisserait passer en donnant
+/// l'illusion d'avoir vérifié.
+///
+/// Ce qui rattrape donc le dépassement : le refus serveur `23514` tombe dans la
+/// classe `^23...$` de `_fatalResponseCodes`, la transaction est abandonnée et
+/// journalisée dans `sync_failures` avec le message français du trigger
+/// (« Quota d'élèves atteint pour le plan d'abonnement de ce groupe »), que la
+/// bannière de synchro affiche et fait acquitter. La perte est réelle mais elle
+/// est NOMMÉE — c'est le contrat du journal d'échecs.
+///
+/// Pour un vrai garde-fou en amont, il faut le compte au niveau du groupe : le
+/// faire remonter par les sync-rules (une ligne d'usage par groupe) plutôt que
+/// tenter de le recalculer sur l'appareil.
 Future<String?> checkStudentQuota({
   required String schoolId,
   required String groupId,

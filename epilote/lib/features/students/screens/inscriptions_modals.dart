@@ -621,19 +621,71 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
       _snack('Sélectionnez la classe (cycle ▸ niveau ▸ classe).', kRed);
       return;
     }
-    setState(() => _saving = true);
     final id = widget.row.studentId;
-    final groupId = ref.read(authNotifierProvider).valueOrNull?.groupId ?? '';
+    final groupId = ref.read(authNotifierProvider).valueOrNull?.groupId;
+
+    // Un tuteur NEUF est la seule écriture de cet écran qui ait besoin du
+    // `group_id`. Le motif `?? ''` écrivait une chaîne vide dans une colonne
+    // `uuid` NOT NULL : SQLite l'acceptait, l'écran affichait « Modifications
+    // enregistrées », puis le serveur répondait `22P02` et PowerSync abandonnait
+    // le LOT ENTIER — emportant l'élève et son inscription modifiés juste avant.
+    // On refuse donc en le disant, au lieu de perdre en silence. Et seulement
+    // quand c'est nécessaire : sans tuteur neuf, l'identifiant ne sert pas et
+    // rien ne doit bloquer une correction faisable hors ligne.
+    final newTutors = _tutors.where((t) =>
+        t.id == null &&
+        t.firstName.text.trim().isNotEmpty &&
+        t.lastName.text.trim().isNotEmpty &&
+        t.phone.text.trim().isNotEmpty);
+    if (newTutors.isNotEmpty && !isUsableId(groupId)) {
+      _snack(writeIdentityMessage(const ['groupe']), kRed);
+      return;
+    }
+
+    // Une fiche de tuteur commencée puis laissée incomplète était jetée en
+    // silence (`continue`) : l'agent lisait « enregistré » et repartait avec un
+    // dossier sans aucun contact parental — dans une école où le tuteur est le
+    // seul canal joignable.
+    final incomplets = _tutors
+        .where((t) => t.id == null)
+        .where((t) =>
+            t.firstName.text.trim().isNotEmpty ||
+            t.lastName.text.trim().isNotEmpty ||
+            t.phone.text.trim().isNotEmpty)
+        .where((t) =>
+            t.firstName.text.trim().isEmpty ||
+            t.lastName.text.trim().isEmpty ||
+            t.phone.text.trim().isEmpty)
+        .length;
+    if (incomplets > 0) {
+      setState(() => _step = 2);
+      _page.jumpToPage(2);
+      _snack(
+          '$incomplets fiche(s) de tuteur incomplète(s) : le prénom, le nom et '
+          'le téléphone sont obligatoires — complétez-les ou supprimez la fiche.',
+          kRed);
+      return;
+    }
+
+    setState(() => _saving = true);
+    var photoDiffere = false;
     try {
       String? photoUrl;
       if (_photoBytes != null) {
-        final client = ref.read(supabaseClientProvider);
-        photoUrl = await uploadStudentPhoto(
-          client: client,
-          studentId: id,
-          bytes: _photoBytes!,
-          ext: _photoExt,
-        );
+        // La photo passe par Storage, donc par le réseau. Tout le reste de cet
+        // écran est faisable hors ligne : un échec de téléversement ne doit pas
+        // emporter la correction d'identité, de scolarité et de tuteurs.
+        try {
+          final client = ref.read(supabaseClientProvider);
+          photoUrl = await uploadStudentPhoto(
+            client: client,
+            studentId: id,
+            bytes: _photoBytes!,
+            ext: _photoExt,
+          );
+        } catch (_) {
+          photoDiffere = true;
+        }
       }
       await updateStudent(
         studentId: id,
@@ -680,9 +732,12 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
         final ph = t.phone.text.trim();
         if (fn.isEmpty || ln.isEmpty || ph.isEmpty) continue;
         if (t.id == null) {
+          // Non-nul par construction : la garde d'identité en tête de `_save`
+          // a déjà refusé l'enregistrement s'il existait un tuteur neuf sans
+          // `group_id` utilisable.
           await addTutor(
             studentId: id,
-            groupId: groupId,
+            groupId: groupId!.trim(),
             firstName: fn,
             lastName: ln,
             relationship: t.relationship,
@@ -713,7 +768,13 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
       ref.invalidate(enrollmentDetailProvider(widget.row.id));
       if (mounted) {
         Navigator.of(context).pop();
-        _snack('Modifications enregistrées.', kGreen);
+        _snack(
+          photoDiffere
+              ? 'Modifications enregistrées — la photo n\'a pas pu être '
+                  'envoyée (connexion requise), reprenez-la plus tard.'
+              : 'Modifications enregistrées.',
+          photoDiffere ? kAccent : kGreen,
+        );
       }
     } catch (e) {
       if (mounted) {

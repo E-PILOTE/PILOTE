@@ -262,7 +262,9 @@ class _DocRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: has ? _kGreen.withValues(alpha: 0.06) : const Color(0xFFF8FAFC),
+        // Un FOND doit suivre le thème : `#F8FAFC` restait blanc sur carte
+        // sombre. Le jeton de surface, lui, s'assombrit avec la palette.
+        color: has ? _kGreen.withValues(alpha: 0.06) : kSurface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
             color: has ? _kGreen.withValues(alpha: 0.4) : _kBorder),

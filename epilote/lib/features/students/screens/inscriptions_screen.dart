@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../../data/models/class_model.dart';
@@ -276,7 +277,8 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
   }
 
   Future<void> _validate(InscriptionRow r) async {
-    final me = ref.read(authNotifierProvider).valueOrNull?.id ?? '';
+    final me = _actorOrComplain();
+    if (me == null) return;
     try {
       await validateEnrollment(enrollmentId: r.id, validatedBy: me);
       _snack('Inscription validée', kGreen);
@@ -313,7 +315,8 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
       ),
     );
     if (ok != true) { ctrl.dispose(); return; }
-    final me = ref.read(authNotifierProvider).valueOrNull?.id ?? '';
+    final me = _actorOrComplain();
+    if (me == null) { ctrl.dispose(); return; }
     try {
       await rejectEnrollment(
         enrollmentId: r.id,
@@ -360,6 +363,22 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
         .showSnackBar(SnackBar(content: Text(msg), backgroundColor: c));
   }
 
+  /// L'agent qui valide, ou `null` si son identité n'est pas résolue.
+  ///
+  /// `class_enrollments.validated_by` est un `uuid` NOT NULL avec clé étrangère
+  /// vers `profiles`. Le motif `?? ''` qui régnait ici écrivait une chaîne vide :
+  /// SQLite l'accepte, le badge passait « Validée », puis le serveur répondait
+  /// `22P02` et PowerSync abandonnait le LOT ENTIER. L'inscription restait « en
+  /// attente » partout ailleurs et l'élève n'entrait jamais dans l'effectif — en
+  /// emportant au passage tout ce qui avait été saisi dans la même fenêtre.
+  /// En validation groupée, la même chaîne vide partait sur N lignes d'un coup.
+  String? _actorOrComplain() {
+    final id = ref.read(authNotifierProvider).valueOrNull?.id;
+    if (isUsableId(id)) return id!.trim();
+    _snack(writeIdentityMessage(const ['agent']), kRed);
+    return null;
+  }
+
   // ── Sélection / actions groupées ───────────────────────────────────────────
   void _toggleSelect(String id, bool sel) => setState(() {
         if (sel) {
@@ -380,7 +399,6 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
   void _clearSelection() => setState(_selected.clear);
 
   Future<void> _bulkValidate(List<InscriptionRow> rows) async {
-    final me = ref.read(authNotifierProvider).valueOrNull?.id ?? '';
     final targets = rows
         .where((r) => _selected.contains(r.id) && r.status == 'pending_validation')
         .toList();
@@ -388,15 +406,28 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
       _snack('Aucune inscription « en attente » dans la sélection', kTextMuted);
       return;
     }
+    final me = _actorOrComplain();
+    if (me == null) return;
     var ok = 0;
+    String? firstError;
     for (final r in targets) {
       try {
         await validateEnrollment(enrollmentId: r.id, validatedBy: me);
         ok++;
-      } catch (_) {}
+      } catch (e) {
+        // Sur trente lignes sélectionnées, un `catch (_) {}` laissait douze
+        // échecs invisibles derrière un « 18 validée(s) » satisfaisant.
+        firstError ??= '$e';
+      }
     }
     if (mounted) setState(() => _selected.clear());
-    _snack('$ok inscription(s) validée(s)', kGreen);
+    final ko = targets.length - ok;
+    _snack(
+      ko == 0
+          ? '$ok inscription(s) validée(s)'
+          : '$ok validée(s) · $ko en échec — $firstError',
+      ko == 0 ? kGreen : kRed,
+    );
   }
 
   Future<void> _bulkReject(List<InscriptionRow> rows) async {
@@ -427,8 +458,10 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
       ),
     );
     if (ok != true) return;
-    final me = ref.read(authNotifierProvider).valueOrNull?.id ?? '';
+    final me = _actorOrComplain();
+    if (me == null) return;
     var n = 0;
+    String? firstError;
     for (final r in targets) {
       try {
         await rejectEnrollment(
@@ -436,10 +469,18 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
             rejectionReason: 'Rejet groupé',
             validatedBy: me);
         n++;
-      } catch (_) {}
+      } catch (e) {
+        firstError ??= '$e';
+      }
     }
     if (mounted) setState(() => _selected.clear());
-    _snack('$n inscription(s) rejetée(s)', kTextMuted);
+    final ko = targets.length - n;
+    _snack(
+      ko == 0
+          ? '$n inscription(s) rejetée(s)'
+          : '$n rejetée(s) · $ko en échec — $firstError',
+      ko == 0 ? kTextMuted : kRed,
+    );
   }
 
   @override
@@ -558,11 +599,17 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                   if (all.isEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 30),
+                      // Cette page ne liste que les dossiers NON validés. Une
+                      // école dont toutes les inscriptions sont traitées y
+                      // lisait « Aucune inscription cette année » alors qu'elle
+                      // en compte cinq cents — le pire message possible devant
+                      // un visiteur. On nomme donc ce que la page montre.
                       child: AdminEmptyState(
-                        icon: Icons.how_to_reg_outlined,
-                        title: 'Aucune inscription cette année',
+                        icon: Icons.task_alt_rounded,
+                        title: 'Aucun dossier en instance',
                         message:
-                            'Inscrivez le premier élève pour démarrer le suivi des effectifs.',
+                            'Toutes les inscriptions de l\'année sont traitées. '
+                            'Les effectifs se consultent dans « Élèves ».',
                         actionLabel: readOnly ? null : 'Inscrire un élève',
                         onAction: readOnly ? null : _openAdd,
                       ),
@@ -1177,7 +1224,10 @@ class _ResultHeader extends StatelessWidget {
   final VoidCallback? onExportPdf;
   @override
   Widget build(BuildContext context) => Row(children: [
-        Text('$filtered inscrit${filtered > 1 ? 's' : ''}',
+        // « inscrit » était faux : la requête du provider exclut
+        // `status = 'active'`, donc cette page ne montre QUE des dossiers non
+        // encore validés. L'élève inscrit, lui, vit dans la page Élèves.
+        Text('$filtered dossier${filtered > 1 ? 's' : ''}',
             style: TextStyle(
                 color: kTextPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
         if (filtered < total) ...[
@@ -1203,9 +1253,12 @@ class _InscriptionsSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Jetons de thème, pas des gris figés : ce squelette est le TOUT PREMIER
+    // écran affiché à l'ouverture du module. En gris clair codé en dur, il
+    // éclatait en blanc sur le fond sombre avant même que la page existe.
     return Shimmer.fromColors(
-      baseColor: const Color(0xFFE8ECF0),
-      highlightColor: const Color(0xFFF5F7FA),
+      baseColor: kSurface,
+      highlightColor: kBorder,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(

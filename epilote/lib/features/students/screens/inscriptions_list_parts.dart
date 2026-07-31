@@ -134,12 +134,17 @@ class _InscritsTable extends StatelessWidget {
       padding: EdgeInsets.zero,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-                minWidth: MediaQuery.of(context).size.width - 96),
-            child: DataTable(
+        // La largeur de référence doit être celle DISPONIBLE, pas celle de
+        // l'écran : la zone de contenu est déjà amputée de la barre latérale.
+        // Avec `MediaQuery.size.width`, le tableau était toujours plus large
+        // que son conteneur et une barre de défilement horizontale s'installait
+        // à demeure, sur toutes les listes, même courtes.
+        child: LayoutBuilder(
+          builder: (context, cns) => SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: cns.maxWidth),
+              child: DataTable(
               sortColumnIndex: _sortIdx,
               sortAscending: sortAsc,
               showCheckboxColumn: true,
@@ -227,6 +232,7 @@ class _InscritsTable extends StatelessWidget {
                     ],
                   ),
               ],
+              ),
             ),
           ),
         ),
