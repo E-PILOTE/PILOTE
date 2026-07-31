@@ -33,7 +33,11 @@ class InscriptionsPdfService {
     final cycleKeys = byCycle.keys.toList()
       ..sort((a, b) => cycleOrderPdf(a).compareTo(cycleOrderPdf(b)));
 
-    final validated = rows.where((r) => r.status == 'active').length;
+    // ⚠️ Pas de cartouche « Validées » ici : `inscriptionsDataProvider` exclut
+    // `status = 'active'`, donc ce compte vaudrait TOUJOURS zéro. Un document
+    // officiel qui annonce « Validées : 0 » en tête se discrédite tout seul.
+    // Ce que ce document contient réellement, ce sont les dossiers en instance.
+    final rejected = rows.where((r) => r.status == 'rejected').length;
     final pending =
         rows.where((r) => r.status == 'pending_validation').length;
     final news = rows.where((r) => r.inscriptionType == 'new').length;
@@ -48,24 +52,32 @@ class InscriptionsPdfService {
     doc.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
       margin: pw.EdgeInsets.zero,
-      header: (ctx) => OfficialPdfKit.header(logo, f, badge: 'LISTE DES\nINSCRIPTIONS'),
+      // `headerFor` : l'emblème et le bandeau tricolore n'apparaissent qu'en
+      // première page ; les suivantes reçoivent le bandeau de continuation.
+      // Répété en entier, l'en-tête officiel mangeait un quart de CHAQUE page
+      // et une liste de deux cents élèves ressemblait à dix documents empilés.
+      header: (ctx) => OfficialPdfKit.headerFor(ctx, logo, f,
+          badge: 'DOSSIERS\nD\'INSCRIPTION',
+          title: yearLabel?.trim().isNotEmpty ?? false
+              ? 'Dossiers d\'inscription — ${yearLabel!.trim()}'
+              : 'Dossiers d\'inscription'),
       footer: (ctx) => OfficialPdfKit.footer(ctx, f, now, ref),
       build: (ctx) => [
         pw.SizedBox(height: 14),
         OfficialPdfKit.titleBlock(f,
-            kicker: 'INSCRIPTIONS',
+            kicker: 'DOSSIERS D\'INSCRIPTION EN INSTANCE',
             title: schoolName?.trim().isNotEmpty ?? false
                 ? schoolName!.trim()
-                : 'Inscriptions par classe',
+                : 'Dossiers d\'inscription par classe',
             line1: yearLabel?.trim().isNotEmpty ?? false
                 ? 'Année scolaire : ${yearLabel!.trim()}'
                 : null,
             line2: 'Édité le $genDate'),
         pw.SizedBox(height: 16),
         OfficialPdfKit.kpiGrid(f, [
-          PdfKpi('Inscriptions', '${rows.length}', kPdfNavy),
-          PdfKpi('Validées', '$validated', kPdfGreen),
+          PdfKpi('Dossiers', '${rows.length}', kPdfNavy),
           PdfKpi('En attente', '$pending', kPdfGold),
+          PdfKpi('Rejetés', '$rejected', kPdfRed),
           PdfKpi('Nouvelles', '$news', const PdfColor.fromInt(0xFF0EA5E9)),
         ]),
         pw.SizedBox(height: 16),
@@ -73,7 +85,7 @@ class InscriptionsPdfService {
           OfficialPdfKit.empty('Aucune inscription à exporter.', f.regular)
         else
           for (final k in cycleKeys) ...[
-            _cycleSection(k, byCycle[k]!, f),
+            ..._cycleSection(k, byCycle[k]!, f),
             pw.SizedBox(height: 14),
           ],
         pw.SizedBox(height: 8),
@@ -83,7 +95,7 @@ class InscriptionsPdfService {
     return doc.save();
   }
 
-  static pw.Widget _cycleSection(
+  static List<pw.Widget> _cycleSection(
       String code, List<InscriptionRow> items, PdfFonts f) {
     final color = cycleColorPdf(code);
     final name = cycleNamePdf(code, items.first.cycle.label);
@@ -99,7 +111,7 @@ class InscriptionsPdfService {
           r.className.isEmpty ? 'Sans classe' : r.className, () => []).add(r);
     }
 
-    return enrollmentCycleSection(
+    return enrollmentCycleBlocks(
       color: color,
       cycleName: name,
       count: items.length,
@@ -110,23 +122,20 @@ class InscriptionsPdfService {
         for (final e in byClass.entries)
           EnrollmentGroup(
             label: e.key,
-            table: OfficialPdfKit.table(
-              headers: const ['Matricule', 'Nom & prénom', 'Sexe', 'Âge',
-                'Type', 'Statut'],
-              rows: e.value
-                  .map((r) => [
-                        r.matricule,
-                        r.lastFirst,
-                        _sex(r.gender),
-                        r.age?.toString() ?? '—',
-                        r.typeLabel,
-                        r.statusLabel,
-                      ])
-                  .toList(),
-              fonts: f,
-              flex: const [3, 6, 2, 2, 3, 3],
-              leftAlignCols: const {1},
-            ),
+            headers: const ['Matricule', 'Nom & prénom', 'Sexe', 'Âge',
+              'Type', 'Statut'],
+            rows: e.value
+                .map((r) => [
+                      r.matricule,
+                      r.lastFirst,
+                      _sex(r.gender),
+                      r.age?.toString() ?? '—',
+                      r.typeLabel,
+                      r.statusLabel,
+                    ])
+                .toList(),
+            flex: const [3, 6, 2, 2, 3, 3],
+            leftAlignCols: const {1},
           ),
       ],
     );

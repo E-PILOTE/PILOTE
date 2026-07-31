@@ -76,7 +76,7 @@ class StudentsPdfService {
           OfficialPdfKit.empty('Aucun élève à exporter.', f.regular)
         else
           for (final k in cycleKeys) ...[
-            _cycleSection(k, byCycle[k]!, f),
+            ..._cycleSection(k, byCycle[k]!, f),
             pw.SizedBox(height: 14),
           ],
         pw.SizedBox(height: 8),
@@ -86,7 +86,7 @@ class StudentsPdfService {
     return doc.save();
   }
 
-  static pw.Widget _cycleSection(
+  static List<pw.Widget> _cycleSection(
       String code, List<StudentRow> items, PdfFonts f) {
     final color = cycleColorPdf(code);
     final name = cycleNamePdf(code);
@@ -102,7 +102,7 @@ class StudentsPdfService {
       byClass.putIfAbsent(r.className ?? 'Sans classe', () => []).add(r);
     }
 
-    return enrollmentCycleSection(
+    return enrollmentCycleBlocks(
       color: color,
       cycleName: name,
       count: items.length,
@@ -113,23 +113,20 @@ class StudentsPdfService {
         for (final e in byClass.entries)
           EnrollmentGroup(
             label: e.key,
-            table: OfficialPdfKit.table(
-              headers: const ['Matricule', 'Nom & prénom', 'Sexe', 'Âge',
-                'Interne', 'Boursier'],
-              rows: e.value
-                  .map((r) => [
-                        r.matricule,
-                        r.lastFirst,
-                        _sex(r.gender),
-                        r.age?.toString() ?? '—',
-                        r.isBoarder ? 'Oui' : '—',
-                        (r.hasScholarship || r.hasSocialAid) ? 'Oui' : '—',
-                      ])
-                  .toList(),
-              fonts: f,
-              flex: const [3, 6, 2, 2, 2, 2],
-              leftAlignCols: const {1},
-            ),
+            headers: const ['Matricule', 'Nom & prénom', 'Sexe', 'Âge',
+              'Interne', 'Boursier'],
+            rows: e.value
+                .map((r) => [
+                      r.matricule,
+                      r.lastFirst,
+                      _sex(r.gender),
+                      r.age?.toString() ?? '—',
+                      r.isBoarder ? 'Oui' : '—',
+                      (r.hasScholarship || r.hasSocialAid) ? 'Oui' : '—',
+                    ])
+                .toList(),
+            flex: const [3, 6, 2, 2, 2, 2],
+            leftAlignCols: const {1},
           ),
       ],
     );
