@@ -60,6 +60,7 @@ import '../../features/structure/screens/emploi_du_temps_screen.dart';
 import '../../features/evaluation/screens/notes_screen.dart';
 import '../../features/evaluation/screens/bulletins_screen.dart';
 import '../../features/evaluation/screens/conseils_screen.dart';
+import '../../features/evaluation/screens/passage_screen.dart';
 import '../../features/vie_scolaire/screens/presences_screen.dart';
 import '../../features/vie_scolaire/screens/discipline_screen.dart';
 import '../../features/vie_scolaire/screens/orientation_screen.dart';
@@ -538,6 +539,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.conseils,
         builder: (_, _) => const ConseilsScreen(),
+      ),
+      GoRoute(
+        path: Routes.passage,
+        builder: (_, _) => const PassageScreen(),
       ),
       GoRoute(
         path: Routes.examens,

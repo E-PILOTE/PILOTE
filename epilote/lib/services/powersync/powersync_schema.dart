@@ -330,6 +330,13 @@ const schema = Schema([
     Column.text('rejection_reason'),
     Column.text('previous_school_name'),
     Column.text('previous_class_name'),
+    // Décision de fin d'année du conseil de classe (migration 0074).
+    // `promotion_average` est un `numeric` en base : `real` est le bon miroir.
+    Column.text('promotion_decision'),        // passe|redouble|reoriente
+    Column.real('promotion_average'),
+    Column.text('promotion_target_class_id'),
+    Column.text('promotion_decided_at'),
+    Column.text('promotion_decided_by'),
     Column.text('created_at'),
     Column.text('updated_at'),
   ]),

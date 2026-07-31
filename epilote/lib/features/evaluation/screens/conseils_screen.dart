@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/constants/routes.dart';
 
 import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
@@ -33,10 +36,20 @@ const _kSlug = 'conseils';
 class ConseilsScreen extends ConsumerWidget {
   const ConseilsScreen({super.key});
   @override
-  Widget build(BuildContext context, WidgetRef ref) => const ModuleScaffold(
+  Widget build(BuildContext context, WidgetRef ref) => ModuleScaffold(
         slug: _kSlug,
         title: 'Conseil de classe',
-        child: _Body(),
+        // Le conseil de fin d'année est la suite de celui-ci, pas un autre
+        // module : on y accède d'ici plutôt que par une entrée de sidebar de
+        // plus, qui laisserait croire à deux instances distinctes.
+        actions: [
+          OutlinedButton.icon(
+            onPressed: () => context.go(Routes.passage),
+            icon: const Icon(Icons.moving_rounded, size: 16),
+            label: const Text('Passage en classe supérieure'),
+          ),
+        ],
+        child: const _Body(),
       );
 }
 
