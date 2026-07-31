@@ -20,6 +20,19 @@ import '../../../services/powersync/powersync_service.dart';
 //      année. La recopier attribuerait en silence une charge que personne n'a
 //      confiée.
 //
+//  ── ⚠️ PAS LE CALENDRIER, ET SURTOUT PAS ICI ───────────────────────────────
+//  Le découpage de l'année en trimestres appartient au GROUPE, pas à l'école :
+//  la politique RLS `trimesters_write_ministry` n'ouvre l'écriture qu'à
+//  `admin_groupe`. Une reconduction qui tenterait de créer les trimestres se
+//  ferait refuser (42501) — et comme PowerSync abandonne le LOT ENTIER sur un
+//  code fatal, elle emporterait avec elle les seize classes et tous leurs
+//  programmes, sans que rien n'ait été enregistré. Vérifié à l'exécution :
+//  « new row violates row-level security policy for table "trimesters" », toute
+//  la reconduction perdue.
+//
+//  L'école ne peut donc que CONSTATER l'absence de trimestres et la signaler ;
+//  c'est le groupe qui ouvre l'année (écran « Années scolaires »).
+//
 //  `exam_id` / `exam_status` ne sont pas recopiés non plus : un trigger les
 //  DÉRIVE à l'insertion depuis les règles d'éligibilité. Les écrire à la main
 //  ferait diverger la classe du référentiel ministériel.
