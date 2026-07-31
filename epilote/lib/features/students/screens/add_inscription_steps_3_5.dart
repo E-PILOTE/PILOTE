@@ -77,21 +77,60 @@ class _Step3ScolariteState extends ConsumerState<_Step3Scolarite> {
           ),
           const SizedBox(height: 12),
           const FormSectionTitle('Affectation'),
+          // ── L'ANNÉE NE SE CHOISIT PAS ICI ────────────────────────────────
+          // C'était une liste déroulante de toutes les années. Or la liste des
+          // CLASSES, juste en dessous, est verrouillée sur l'année active
+          // (`classesProvider`) : choisir « 2024-2025 » puis une classe —
+          // forcément de l'année en cours — écrivait une inscription rattachée
+          // à une année et à une classe d'une AUTRE année. Rien ne l'arrête :
+          // aucune contrainte en base ne relie les deux. L'élève se retrouvait
+          // compté dans une année et scolarisé dans une autre, sans erreur.
+          //
+          // Le guichet des admissions inscrit dans l'année en cours. On le dit,
+          // et on ne propose plus un choix que le formulaire ne peut pas tenir.
+          // (La réinscription vers l'année suivante se fait à sa place, depuis
+          // l'écran Passage.)
           yearsAsync.when(
             loading: () => const LinearProgressIndicator(),
             error:   (e, _) => Text('Erreur : $e', style: TextStyle(color: _kRed)),
             data:    (years) {
-              if (years.isEmpty) {
+              final active = ref.watch(activeYearProvider);
+              if (years.isEmpty || active == null) {
                 return Text(
-                  'Aucune année scolaire active.',
-                  style: TextStyle(color: _kMuted),
+                  'Aucune année scolaire en cours — inscription impossible.',
+                  style: TextStyle(color: _kRed),
                 );
               }
-              return FormDropdown<String>(
-                label: 'Année scolaire *',
-                value: s.academicYearId,
-                items: {for (final y in years) y.id: y.label},
-                onChanged: (v) { s.academicYearId = v; widget.onChanged(); },
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const FormFieldLabel('Année scolaire'),
+                  const SizedBox(height: 6),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 13),
+                    decoration: BoxDecoration(
+                      color: _kNavy.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _kNavy.withValues(alpha: 0.18)),
+                    ),
+                    child: Row(children: [
+                      Icon(Icons.event_available_rounded,
+                          size: 17, color: _kNavy),
+                      const SizedBox(width: 9),
+                      Text(active.label,
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: _kText)),
+                      const SizedBox(width: 8),
+                      Text('· année en cours',
+                          style: TextStyle(fontSize: 12.5, color: _kMuted)),
+                    ]),
+                  ),
+                  const SizedBox(height: 12),
+                ],
               );
             },
           ),
@@ -324,12 +363,22 @@ class _DocRow extends StatelessWidget {
 
 // ─── Étape 5 — Résumé ─────────────────────────────────────────────────────────
 
-class _Step5Resume extends StatelessWidget {
+class _Step5Resume extends ConsumerWidget {
   const _Step5Resume({required this.state});
   final _InscriptionState state;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Le récapitulatif ne montrait ni l'année, ni le niveau, ni LA CLASSE :
+    // seulement le type d'inscription. Or l'affectation est ce qui engage —
+    // c'est elle qu'on relit avant d'enregistrer, et c'est la seule chose que
+    // l'écran ne disait pas.
+    final classes = ref.watch(classesProvider).valueOrNull ?? const [];
+    final klass = state.classId == null
+        ? null
+        : classes.where((c) => c.id == state.classId).firstOrNull;
+    final yearLabel = ref.watch(activeYearProvider)?.label;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -352,11 +401,13 @@ class _Step5Resume extends StatelessWidget {
           ResumeCard(
             title: 'Parents / Tuteurs',
             icon: Icons.family_restroom,
-            rows: state.tutors
-                .where((t) => t.firstName.isNotEmpty)
+            // `!isBlank` et non « prénom non vide » : une fiche saisie sans
+            // prénom serait enregistrée mais absente du récapitulatif — on ne
+            // relit alors pas ce qu'on s'apprête à écrire.
+            rows: tutorsToPersist(state.tutors)
                 .map((t) => (
                   (t.isPrimary ? 'Principal' : 'Contact'),
-                  '${t.firstName} ${t.lastName} (${t.relationship})',
+                  '${t.firstName} ${t.lastName} · ${tutorRelationshipLabel(t.relationship)}',
                 ))
                 .toList(),
           ),
@@ -370,6 +421,11 @@ class _Step5Resume extends StatelessWidget {
                 'transfer'      => 'Transfert',
                 _               => state.inscriptionType,
               }),
+              if (yearLabel != null) ('Année scolaire', yearLabel),
+              if (klass != null) ('Classe', klass.name),
+              if (klass?.levelCode != null) ('Niveau', klass!.levelCode!),
+              if (klass?.filiereLabel?.trim().isNotEmpty ?? false)
+                ('Filière', klass!.filiereLabel!.trim()),
               if (state.isRepeating) ('Statut', 'Redoublant'),
               if (state.previousSchoolName != null)
                 ('École précédente', state.previousSchoolName!),
@@ -379,7 +435,7 @@ class _Step5Resume extends StatelessWidget {
             title: 'Dossier (pièces téléversées)',
             icon: Icons.folder_open_rounded,
             rows: state.uploadedDocs.isEmpty
-                ? [('Aucune pièce téléversée', '')]
+                ? [('Pièces', 'Aucune pour le moment')]
                 : state.uploadedDocs.values.map((d) => (d.label, '✓')).toList(),
           ),
           const SizedBox(height: 16),

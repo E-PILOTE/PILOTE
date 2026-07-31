@@ -18,6 +18,7 @@ import '../../../features/structure/providers/academic_year_context.dart';
 import '../widgets/inscription_form_kit.dart';
 import '../widgets/scope_drilldown_panel.dart';
 import '../providers/inscriptions_data_provider.dart';
+import '../models/tutor_draft.dart';
 import '../providers/students_provider.dart';
 import '../providers/student_documents_provider.dart';
 import '../providers/student_tutors_provider.dart';

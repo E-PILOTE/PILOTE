@@ -31,13 +31,7 @@ Widget _typeBadge(String type) {
   return AdminBadge(label, color: color);
 }
 
-String _tutorRel(String code) => switch (code) {
-      'pere' => 'Père',
-      'mere' => 'Mère',
-      'tuteur' => 'Tuteur légal',
-      'autre' => 'Autre',
-      _ => _orDash(code),
-    };
+String _tutorRel(String code) => tutorRelationshipLabel(code);
 
 // Convertit une classe en entrée de cascade Cycle ▸ Niveau ▸ Classe.
 ClassPickerEntry _pickerEntry(ClassModel c) {

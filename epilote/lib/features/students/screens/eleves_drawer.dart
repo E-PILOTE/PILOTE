@@ -199,13 +199,7 @@ class _DwBody extends StatelessWidget {
   }
 
   static String _od(String v) => v.isEmpty ? '—' : v;
-  static String _rel(String c) => switch (c) {
-        'pere' => 'Père',
-        'mere' => 'Mère',
-        'tuteur' => 'Tuteur légal',
-        'autre' => 'Autre',
-        _ => c.isEmpty ? '—' : c,
-      };
+  static String _rel(String c) => tutorRelationshipLabel(c);
 }
 
 class _DwActionBar extends ConsumerWidget {

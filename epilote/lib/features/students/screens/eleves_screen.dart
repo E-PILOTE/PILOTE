@@ -17,6 +17,7 @@ import '../providers/inscriptions_data_provider.dart';
 import '../providers/student_documents_provider.dart';
 import '../providers/student_tutors_provider.dart';
 import '../providers/students_provider.dart';
+import '../models/tutor_draft.dart';
 import '../providers/students_registry_provider.dart';
 import '../providers/transfers_provider.dart';
 import '../services/students_pdf_service.dart';

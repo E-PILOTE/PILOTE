@@ -11,6 +11,7 @@ import '../../../features/classes/providers/class_provider.dart';
 import '../../../features/structure/providers/academic_year_context.dart';
 import '../../../features/structure/providers/academic_year_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
+import '../models/tutor_draft.dart';
 import '../widgets/inscription_form_kit.dart';
 import '../providers/inscriptions_data_provider.dart';
 import '../providers/student_documents_provider.dart';
@@ -86,19 +87,9 @@ class _DocEntry {
   final String typeSlug, label, fileName, path;
 }
 
-class _TutorEntry {
-  _TutorEntry({this.isPrimary = false});
-  String  firstName    = '';
-  String  lastName     = '';
-  String  relationship = 'mere';
-  String  phonePrimary = '';
-  String? phoneSecondary;
-  String? email;
-  String? profession;
-  String? address;
-  bool    isPrimary;
-  bool    isEmergency  = false;
-}
+/// La fiche tuteur et sa règle de validation vivent dans `models/tutor_draft.dart`
+/// pour être testables hors widget (perte silencieuse — cf. l'en-tête du fichier).
+typedef _TutorEntry = TutorDraft;
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -118,6 +109,15 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
   String? _error;
 
   static const _steps = ['Élève', 'Parents', 'Scolarité', 'Documents', 'Résumé'];
+
+  @override
+  void initState() {
+    super.initState();
+    // L'inscription porte l'année EN COURS, la seule dont l'étape 3 sait
+    // proposer les classes. On la fixe ici plutôt que de la faire choisir :
+    // le formulaire ne peut honorer aucun autre choix.
+    _state.academicYearId = ref.read(activeYearIdProvider);
+  }
 
   @override
   void dispose() {
@@ -158,6 +158,10 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
           return 'La date de naissance est obligatoire.';
         }
         return null;
+      // La règle est dans `models/tutor_draft.dart` : elle refuse une fiche
+      // entamée mais incomplète au lieu de la sauter en silence.
+      case 1:
+        return validateTutorDrafts(_state.tutors);
       case 2: // Scolarité — l'affectation porte l'année et la classe
         if (_state.academicYearId == null) {
           return "Sélectionnez l'année scolaire.";
@@ -216,7 +220,8 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
 
     // Dernier rempart : champs NOT NULL (identité + affectation) — évite la
     // perte silencieuse à la synchro si une étape a été contournée.
-    final missing = _validateStep(0) ?? _validateStep(2);
+    final missing =
+        _validateStep(0) ?? _validateStep(1) ?? _validateStep(2);
     if (missing != null) {
       setState(() { _submitting = false; _error = missing; });
       return;
@@ -279,10 +284,9 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
       );
 
       // Créer les tuteurs
-      for (final t in _state.tutors) {
-        if (t.firstName.isEmpty || t.lastName.isEmpty || t.phonePrimary.isEmpty) {
-          continue;
-        }
+      // Seules les fiches JAMAIS remplies sont écartées : une fiche partielle
+      // a déjà été refusée à l'étape 2, elle ne peut plus se perdre ici.
+      for (final t in tutorsToPersist(_state.tutors)) {
         await addTutor(
           studentId:         studentId,
           groupId:           profile.groupId!,
