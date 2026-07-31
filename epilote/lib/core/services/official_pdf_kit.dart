@@ -40,6 +40,37 @@ class PdfKpi {
   final PdfColor color;
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+//  L'ÉMETTEUR DU DOCUMENT
+//
+//  Un bulletin, une convocation, un procès-verbal sont émis par un
+//  ÉTABLISSEMENT — pas par l'éditeur du logiciel. Un parent qui reçoit une
+//  fiche d'inscription doit y lire le nom de l'école de son enfant, et un
+//  document remonté à la hiérarchie doit porter l'identité de qui le remonte.
+//  Tant que l'en-tête annonçait « E-PILOTE CONGO », le papier officiel de
+//  chaque école était signé du nom d'un fournisseur.
+//
+//  E-PILOTE reste mentionné en pied de page : c'est l'outil qui a produit le
+//  document, ce n'est pas son auteur.
+//
+//  L'émetteur est posé UNE FOIS par session (cf. `pdf_issuer.dart`) plutôt que
+//  passé aux vingt-trois services d'export : ceux-ci n'ont pas à connaître
+//  l'identité de l'établissement pour dessiner leur contenu.
+// ════════════════════════════════════════════════════════════════════════════
+class PdfIssuer {
+  const PdfIssuer({required this.name, this.subtitle, this.logo});
+
+  /// Nom du groupe scolaire (« Groupe Scolaire Bethel »).
+  final String name;
+
+  /// Ligne de contexte : l'école, le département, la nature du réseau.
+  final String? subtitle;
+
+  /// Logo du groupe, déjà décodé. `null` → l'emblème de l'application sert de
+  /// repli : mieux vaut un document sans logo qu'un document qui n'existe pas.
+  final pw.MemoryImage? logo;
+}
+
 class OfficialPdfKit {
   // ⚠️ Les polices sont EMBARQUÉES, jamais téléchargées.
   //
@@ -74,9 +105,30 @@ class OfficialPdfKit {
     return bytes != null ? pw.MemoryImage(bytes) : null;
   }
 
+  // ── Émetteur courant ───────────────────────────────────────────────────────
+  //  Volontairement statique, comme le cache de polices : l'identité de
+  //  l'établissement ne change pas d'un export à l'autre au sein d'une session,
+  //  et la faire transiter par vingt-trois services d'export n'apporterait rien
+  //  qu'une occasion de l'oublier dans l'un d'eux.
+  static PdfIssuer? _issuer;
+
+  /// Pose l'émetteur pour toute la session. `null` rétablit l'identité par
+  /// défaut (utile au super_admin, qui édite au nom de la plateforme).
+  static void setIssuer(PdfIssuer? issuer) => _issuer = issuer;
+
+  static PdfIssuer? get issuer => _issuer;
+
+  static const _kDefaultName = 'E-PILOTE CONGO';
+  static const _kDefaultSubtitle = 'Plateforme Nationale de Gestion Scolaire';
+
   // ── En-tête officiel (bandeau tricolore + emblème + badge) ──────────────────
   static pw.Widget header(pw.ImageProvider? logo, PdfFonts f,
       {required String badge}) {
+    // Le logo du groupe prime ; l'emblème passé par le service sert de repli.
+    final issuer = _issuer;
+    final mark = issuer?.logo ?? logo;
+    final name = issuer?.name ?? _kDefaultName;
+    final subtitle = issuer?.subtitle ?? _kDefaultSubtitle;
     return pw.Column(children: [
       pw.Row(children: [
         pw.Expanded(child: pw.Container(height: 5, color: kPdfGreen)),
@@ -87,8 +139,8 @@ class OfficialPdfKit {
         padding: const pw.EdgeInsets.fromLTRB(28, 16, 28, 14),
         color: PdfColors.white,
         child: pw.Row(children: [
-          logo != null
-              ? pw.SizedBox(width: 54, height: 54, child: pw.Image(logo))
+          mark != null
+              ? pw.SizedBox(width: 54, height: 54, child: pw.Image(mark))
               : pw.Container(
                   width: 50,
                   height: 50,
@@ -112,10 +164,12 @@ class OfficialPdfKit {
                         color: kPdfMuted,
                         letterSpacing: 1.5)),
                 pw.SizedBox(height: 2),
-                pw.Text('E-PILOTE CONGO',
+                pw.Text(name,
+                    maxLines: 2,
                     style: pw.TextStyle(
                         font: f.bold, fontSize: 16, color: kPdfNavy)),
-                pw.Text('Plateforme Nationale de Gestion Scolaire',
+                pw.Text(subtitle,
+                    maxLines: 1,
                     style: pw.TextStyle(
                         font: f.regular, fontSize: 9, color: kPdfMuted)),
               ],
@@ -176,7 +230,9 @@ class OfficialPdfKit {
                   style: pw.TextStyle(
                       font: f.medium, fontSize: 8, color: kPdfNavy)),
             ),
-            pw.Text('E-PILOTE CONGO',
+            pw.Text(_issuer?.name ?? _kDefaultName,
+                maxLines: 1,
+                overflow: pw.TextOverflow.clip,
                 style: pw.TextStyle(
                     font: f.medium,
                     fontSize: 7,
@@ -208,8 +264,13 @@ class OfficialPdfKit {
       ),
       child: pw.Row(children: [
         pw.Expanded(
+          // L'émetteur est en tête ; E-PILOTE reste ici, à sa place : l'outil
+          // qui a produit le document, pas celui qui le délivre.
           child: pw.Text(
-            'Document officiel généré le $now  •  E-PILOTE CONGO  •  Réf. $ref',
+            _issuer == null
+                ? 'Document officiel généré le $now  •  $_kDefaultName  •  Réf. $ref'
+                : 'Document officiel de ${_issuer!.name} — généré le $now '
+                    'via $_kDefaultName  •  Réf. $ref',
             style: pw.TextStyle(font: f.regular, fontSize: 7.5, color: kPdfMuted),
           ),
         ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../constants/app_constants.dart';
+import '../services/pdf_issuer.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/super_admin/providers/super_dashboard_provider.dart';
 import '../../features/super_admin/providers/school_groups_provider.dart';
@@ -103,6 +104,11 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
     final expanded = _expanded;
+    // Pose l'identité de l'établissement sur les exports PDF. Surveillé ici, et
+    // pas dans les vingt-trois services d'export, parce que c'est la seule
+    // enveloppe traversée par les deux espaces : un document ne peut donc pas
+    // partir au nom de l'éditeur du logiciel faute d'un appel oublié.
+    ref.watch(pdfIssuerProvider);
     final profile = ref.watch(authNotifierProvider).valueOrNull;
     final isStaff = profile != null &&
         profile.role != AppConstants.roleSuperAdmin &&
