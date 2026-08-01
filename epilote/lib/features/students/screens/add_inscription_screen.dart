@@ -16,7 +16,9 @@ import '../widgets/inscription_form_kit.dart';
 import '../providers/inscriptions_data_provider.dart';
 import '../providers/student_documents_provider.dart';
 import '../providers/student_tutors_provider.dart';
+import '../providers/student_match_provider.dart';
 import '../providers/students_provider.dart';
+import '../../../services/powersync/powersync_service.dart';
 
 part 'add_inscription_steps_1_2.dart';
 part 'add_inscription_steps_3_5.dart';
@@ -55,6 +57,18 @@ class _InscriptionState {
   String? region;
   String? bloodGroup;
   String? allergies;
+
+  /// Renseigné quand le secrétariat reconnaît un élève DÉJÀ présent dans
+  /// l'école : on n'écrit alors ni fiche élève ni tuteurs — seulement la
+  /// nouvelle inscription. C'est la vraie réinscription. Sans cela, le même
+  /// enfant repartait avec un second matricule et un dossier vierge.
+  String? existingStudentId;
+  String? existingStudentName;
+
+  bool get reusesExistingStudent => existingStudentId != null;
+
+  /// L'identifiant sous lequel l'inscription sera écrite.
+  String get effectiveStudentId => existingStudentId ?? studentId;
 
   // Étape 2 — Tuteurs
   final List<_TutorEntry> tutors = [
@@ -161,6 +175,8 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
       // La règle est dans `models/tutor_draft.dart` : elle refuse une fiche
       // entamée mais incomplète au lieu de la sauter en silence.
       case 1:
+        // Un élève déjà connu a ses tuteurs en base : rien à exiger ici.
+        if (_state.reusesExistingStudent) return null;
         return validateTutorDrafts(_state.tutors);
       case 2: // Scolarité — l'affectation porte l'année et la classe
         if (_state.academicYearId == null) {
@@ -244,19 +260,50 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
       return;
     }
 
-    try {
-      // Vérifier quota avant création offline
-      final quotaError = await checkStudentQuota(
-        schoolId: profile.schoolId!,
-        groupId:  profile.groupId!,
+    // ── RÉINSCRIPTION D'UN ÉLÈVE DÉJÀ CONNU ────────────────────────────────
+    // `class_enrollments` porte `UNIQUE (student_id, academic_year_id)`. Une
+    // seconde inscription du même élève sur la même année serait rejetée par
+    // le serveur (23505) — et un code fatal fait abandonner à PowerSync le LOT
+    // ENTIER : l'inscription, les pièces, et tout ce qui aurait été saisi dans
+    // la même fenêtre disparaîtraient sans un mot. On vérifie donc en local
+    // AVANT d'écrire quoi que ce soit.
+    if (_state.reusesExistingStudent) {
+      final existing = await db.getAll(
+        'SELECT status FROM class_enrollments '
+        'WHERE student_id = ? AND academic_year_id = ? LIMIT 1',
+        [_state.existingStudentId, _state.academicYearId],
       );
-      if (quotaError != null) {
-        setState(() { _submitting = false; _error = quotaError; });
+      if (existing.isNotEmpty) {
+        setState(() {
+          _submitting = false;
+          _error = '${_state.existingStudentName ?? 'Cet élève'} a déjà une '
+              'inscription pour cette année scolaire. Ouvrez son dossier depuis '
+              'la page Élèves pour le modifier.';
+        });
         return;
       }
+    }
 
-      // Créer l'élève (id généré en amont = chemin du dossier documentaire)
-      final studentId = await createStudent(
+    try {
+      // Le quota compte les ÉLÈVES : réinscrire un élève déjà présent n'en
+      // ajoute aucun, la vérification n'a donc pas lieu d'être.
+      if (!_state.reusesExistingStudent) {
+        final quotaError = await checkStudentQuota(
+          schoolId: profile.schoolId!,
+          groupId:  profile.groupId!,
+        );
+        if (quotaError != null) {
+          setState(() { _submitting = false; _error = quotaError; });
+          return;
+        }
+      }
+
+      // Créer l'élève (id généré en amont = chemin du dossier documentaire),
+      // sauf s'il s'agit d'un élève déjà présent : son identité et ses tuteurs
+      // existent, les réécrire créerait le doublon qu'on cherche à éviter.
+      final studentId = _state.reusesExistingStudent
+          ? _state.existingStudentId!
+          : await createStudent(
         id:                 _state.studentId,
         schoolId:           profile.schoolId!,
         groupId:            profile.groupId!,
@@ -283,10 +330,12 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
         isAffecte:          _state.isAffecte,
       );
 
-      // Créer les tuteurs
+      // Créer les tuteurs — l'élève déjà connu a les siens.
       // Seules les fiches JAMAIS remplies sont écartées : une fiche partielle
       // a déjà été refusée à l'étape 2, elle ne peut plus se perdre ici.
-      for (final t in tutorsToPersist(_state.tutors)) {
+      for (final t in _state.reusesExistingStudent
+          ? const <_TutorEntry>[]
+          : tutorsToPersist(_state.tutors)) {
         await addTutor(
           studentId:         studentId,
           groupId:           profile.groupId!,

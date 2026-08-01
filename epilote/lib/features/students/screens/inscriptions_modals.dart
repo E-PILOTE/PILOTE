@@ -98,6 +98,10 @@ class _InscriptionDetailModal extends ConsumerWidget {
         ),
         _DetailActionBar(
           readOnly: readOnly,
+          // Imprimer la fiche est une LECTURE : elle reste offerte sur une
+          // année archivée et sur un dossier rejeté. C'est même là qu'une
+          // famille vient réclamer une trace.
+          onPrintFiche: () => _printFiche(context, ref),
           isPending: row.status == 'pending_validation',
           onValidate: onValidate,
           onReject: onReject,
@@ -107,6 +111,32 @@ class _InscriptionDetailModal extends ConsumerWidget {
           onDelete: onDelete,
         ),
       ]),
+    );
+  }
+
+  /// Ouvre l'aperçu de la fiche d'inscription — le récépissé que la famille
+  /// emporte. Le dossier est déjà en cache local (offline-first) : on le relit
+  /// plutôt que de dépendre de l'état d'affichage du modal.
+  void _printFiche(BuildContext context, WidgetRef ref) {
+    final school = ref.read(currentSchoolProvider).valueOrNull;
+    final year = ref.read(activeYearProvider)?.label;
+    Future<Uint8List> build(PdfPageFormat _) async {
+      final d = await ref.read(studentDossierProvider(row.studentId).future);
+      return InscriptionFicheService.buildPdf(
+        row: row,
+        dossier: d,
+        schoolName: school?['name'] as String?,
+        yearLabel: year,
+      );
+    }
+
+    showPdfPreviewDialog(
+      context,
+      title: 'Fiche d\'inscription',
+      subtitle: '${row.fullName} · ${row.className}',
+      pdfFileName:
+          'Fiche_inscription_${row.matricule.isEmpty ? row.lastName : row.matricule}.pdf',
+      build: build,
     );
   }
 }
@@ -283,6 +313,7 @@ class _DossierBody extends ConsumerWidget {
 class _DetailActionBar extends StatelessWidget {
   const _DetailActionBar({
     required this.readOnly,
+    required this.onPrintFiche,
     required this.isPending,
     required this.onValidate,
     required this.onReject,
@@ -293,7 +324,7 @@ class _DetailActionBar extends StatelessWidget {
   });
   final bool readOnly, isPending;
   final VoidCallback? onValidate, onReject, onChangeClass, onWithdraw, onDelete;
-  final VoidCallback onEdit;
+  final VoidCallback onEdit, onPrintFiche;
 
   @override
   Widget build(BuildContext context) {
@@ -309,6 +340,12 @@ class _DetailActionBar extends StatelessWidget {
           Expanded(
             child: Text('Année archivée — consultation seule.',
                 style: TextStyle(fontSize: 12.5, color: kTextMuted)),
+          ),
+          _OutlineBtn(
+            label: 'Fiche',
+            icon: Icons.print_outlined,
+            color: kNavy,
+            onTap: onPrintFiche,
           ),
         ]),
       );
@@ -346,6 +383,13 @@ class _DetailActionBar extends StatelessWidget {
             color: kNavy,
             onTap: onEdit,
           ),
+        ),
+        const SizedBox(width: 10),
+        _OutlineBtn(
+          label: 'Fiche',
+          icon: Icons.print_outlined,
+          color: kNavy,
+          onTap: onPrintFiche,
         ),
         const SizedBox(width: 10),
         _MoreMenu(

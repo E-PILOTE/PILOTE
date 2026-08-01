@@ -150,10 +150,52 @@ class _Step3ScolariteState extends ConsumerState<_Step3Scolarite> {
                 for (final c in classes)
                   _entryFor(c),
               ];
-              return CycleLevelClassPicker(
-                entries: entries,
-                classId: s.classId,
-                onChanged: (v) { s.classId = v; widget.onChanged(); },
+              final picked = s.classId == null
+                  ? null
+                  : classes.where((c) => c.id == s.classId).firstOrNull;
+              final cap = picked?.capacity ?? 0;
+              final head = picked?.studentCount ?? 0;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CycleLevelClassPicker(
+                    entries: entries,
+                    classId: s.classId,
+                    onChanged: (v) { s.classId = v; widget.onChanged(); },
+                  ),
+                  // La capacité était affichée « (45/45) » et rien de plus :
+                  // on pouvait remplir indéfiniment une classe pleine sans que
+                  // l'écran le dise. On avertit — sans bloquer : au Congo une
+                  // classe dépasse couramment sa capacité théorique, et
+                  // refuser une inscription pour cela serait pire.
+                  if (picked != null && cap > 0 && head >= cap) ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 13, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: kAccent.withValues(alpha: 0.09),
+                        borderRadius: BorderRadius.circular(9),
+                        border:
+                            Border.all(color: kAccent.withValues(alpha: 0.32)),
+                      ),
+                      child: Row(children: [
+                        Icon(Icons.groups_2_rounded, size: 17, color: kAccent),
+                        const SizedBox(width: 9),
+                        Expanded(
+                          child: Text(
+                            '${picked.name} est à $head élèves pour $cap '
+                            'places. Cette inscription la portera à '
+                            '${head + 1}.',
+                            style: TextStyle(
+                                fontSize: 12.5, color: _kText, height: 1.4),
+                          ),
+                        ),
+                      ]),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ],
               );
             },
           ),
@@ -385,10 +427,21 @@ class _Step5Resume extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const FormSectionTitle('Résumé de l\'inscription'),
-          ResumeCard(
-            title: 'Élève',
-            icon: Icons.person_outline,
-            rows: [
+          if (state.reusesExistingStudent)
+            ResumeCard(
+              title: 'Élève (fiche existante)',
+              icon: Icons.how_to_reg_rounded,
+              rows: [
+                ('Élève', state.existingStudentName ?? ''),
+                ('Fiche', 'Conservée — aucun doublon créé'),
+                ('Tuteurs', 'Déjà enregistrés'),
+              ],
+            )
+          else
+            ResumeCard(
+              title: 'Élève',
+              icon: Icons.person_outline,
+              rows: [
               ('Prénom', state.firstName),
               ('Nom', state.lastName),
               ('Genre', state.gender == 'M' ? 'Masculin' : 'Féminin'),
@@ -398,7 +451,8 @@ class _Step5Resume extends ConsumerWidget {
                 ('Situation familiale', state.situationFamiliale!),
             ],
           ),
-          ResumeCard(
+          if (!state.reusesExistingStudent)
+            ResumeCard(
             title: 'Parents / Tuteurs',
             icon: Icons.family_restroom,
             // `!isBlank` et non « prénom non vide » : une fiche saisie sans
