@@ -16,6 +16,7 @@ import '../../../features/auth/providers/auth_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_animated_button/flutter_animated_button.dart';
 import '../services/group_pdf_service.dart';
+import '../widgets/plan_change_notice.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 Color get _kNavy => kNavy;
@@ -2520,6 +2521,11 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
                       onChanged: (v) => setState(() => _planId = v),
                       validator: (v) =>
                           v == null ? 'Sélectionner un plan' : null,
+                    ),
+                    PlanChangeNotice(
+                      existing: widget.existing,
+                      plans: widget.plans,
+                      selectedPlanId: _planId,
                     ),
 
                     const _FormDivider(),
