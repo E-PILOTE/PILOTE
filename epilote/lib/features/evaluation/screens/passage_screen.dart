@@ -10,8 +10,10 @@ import '../../navigation/widgets/module_scaffold.dart';
 import '../../structure/providers/academic_year_context.dart';
 import '../../structure/providers/academic_year_provider.dart';
 import '../../structure/providers/class_rollover.dart';
+import '../providers/cloture_examen_provider.dart';
 import '../providers/passage_provider.dart';
 import '../services/passage_pdf_service.dart';
+import 'cloture_examen_section.dart';
 import 'evaluation_overview_widgets.dart';
 
 part 'passage_parts.dart';
@@ -31,15 +33,20 @@ const _kSlug = 'conseils';
 //  3. Imprimer le procès-verbal — c'est lui qui fait foi.
 //  4. Réinscrire : les inscriptions de l'année suivante sont créées.
 //
-//  Les classes d'EXAMEN n'apparaissent pas : la DEC proclame, l'école n'a pas
-//  à décider à sa place.
+//  ── DEUX RÉGIMES, DEUX ONGLETS ─────────────────────────────────────────────
+//  Les classes d'EXAMEN ne se délibèrent pas : la DEC proclame, l'école n'a
+//  pas à décider à sa place. Elles ne disparaissent pas pour autant — elles
+//  passent dans l'onglet « Classes d'examen », où l'on reporte la
+//  proclamation, où l'on réinscrit les ajournés et où l'on prononce la sortie
+//  des diplômés. Les deux onglets réunis couvrent TOUTES les classes de
+//  l'école : aucune ne peut rester sans issue au 30 juin.
 // ════════════════════════════════════════════════════════════════════════════
 class PassageScreen extends ConsumerWidget {
   const PassageScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) => const ModuleScaffold(
         slug: _kSlug,
-        title: 'Passage en classe supérieure',
+        title: 'Fin d\'année — passage et clôture',
         child: _Body(),
       );
 }
@@ -53,6 +60,9 @@ class _Body extends ConsumerStatefulWidget {
 class _BodyState extends ConsumerState<_Body> {
   String? _openClassId;
   bool _busy = false;
+
+  /// Onglet ouvert : classes de passage, ou classes d'examen.
+  bool _examTab = false;
 
   void _refresh(String yearId) {
     ref.invalidate(passageClassesProvider(yearId));
@@ -224,18 +234,38 @@ class _BodyState extends ConsumerState<_Body> {
     final classes = ref.watch(passageClassesProvider(yearId));
     final next = ref.watch(nextYearProvider(yearId)).valueOrNull;
 
+    final examClasses = ref.watch(examClosureClassesProvider(yearId));
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        classes.when(
-          loading: () => const Padding(
-              padding: EdgeInsets.only(top: 60),
-              child: Center(child: CircularProgressIndicator())),
-          error: (e, _) => Padding(
-              padding: const EdgeInsets.only(top: 40),
-              child: Center(child: Text('Erreur : $e'))),
-          data: (rows) => _content(rows, yearId, year?.label ?? '', next, canEdit),
+        YearEndRegimeTabs(
+          examTab: _examTab,
+          passageCount: classes.valueOrNull?.length,
+          examCount: examClasses.valueOrNull?.length,
+          onChanged: (v) => setState(() {
+            _examTab = v;
+            _openClassId = null;
+          }),
         ),
+        const SizedBox(height: 18),
+        if (_examTab)
+          ExamClosureSection(
+            yearId: yearId,
+            yearLabel: year?.label ?? '',
+            canEdit: canEdit,
+          )
+        else
+          classes.when(
+            loading: () => const Padding(
+                padding: EdgeInsets.only(top: 60),
+                child: Center(child: CircularProgressIndicator())),
+            error: (e, _) => Padding(
+                padding: const EdgeInsets.only(top: 40),
+                child: Center(child: Text('Erreur : $e'))),
+            data: (rows) =>
+                _content(rows, yearId, year?.label ?? '', next, canEdit),
+          ),
         const SizedBox(height: 24),
       ]),
     );

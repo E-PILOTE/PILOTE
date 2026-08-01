@@ -532,9 +532,15 @@ Future<TargetClass?> _classAt(
 ) async {
   if (schoolId == null) return null;
   final rows = await db.getAll(
+    // ⚠️ `is_active = 1` — et non `<> 0` — ne retrouvait PAS les classes que
+    // l'application venait elle-même de créer en reconduisant la structure :
+    // la valeur écrite localement ne s'égale pas à l'entier 1 dans la vue
+    // PowerSync. L'écran annonçait alors « les classes de l'an prochain
+    // n'existent pas encore » juste après les avoir créées, et la
+    // réinscription restait grisée pour toujours.
     'SELECT id, name, filiere_label FROM classes '
     'WHERE school_id = ? AND academic_year_id = ? AND cycle_code = ? '
-    '  AND level_order = ? AND is_active = 1 ORDER BY name',
+    '  AND level_order = ? AND COALESCE(is_active, 1) <> 0 ORDER BY name',
     [schoolId, yearId, cycle, levelOrder],
   );
   if (rows.isEmpty) return null;
