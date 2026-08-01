@@ -10,6 +10,7 @@ import 'package:printing/printing.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show FileOptions;
 
 import '../../../core/widgets/app_shell.dart';
+import '../../../core/utils/media_compression.dart';
 import '../providers/school_groups_provider.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -2199,16 +2200,28 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
 
     try {
       final client = ref.read(supabaseClientProvider);
-      final ext = file.extension ?? 'jpg';
-      final fileName =
-          'logo_${DateTime.now().millisecondsSinceEpoch}.$ext';
+
+      // ⚠️ Le logo partait BRUT vers le stockage : un fichier sorti d'un
+      // téléphone ou d'un scanner (3 à 8 Mo) était transféré tel quel pour être
+      // affiché… en 38 pixels dans la liste des groupes. Sur les connexions
+      // congolaises, cet envoi pouvait ne jamais aboutir — et chaque affichage
+      // le retéléchargeait. La fiche ÉCOLE compressait déjà, pas celle du
+      // GROUPE : deux formulaires jumeaux, un seul des deux corrigé.
+      final media = await compressLogo(
+        bytes: file.bytes!,
+        fileName: file.name,
+        mime: mimeForImageExtension(file.extension),
+      );
+
+      final ext = media.fileName.split('.').last;
+      final fileName = 'logo_${DateTime.now().millisecondsSinceEpoch}.$ext';
       final path = 'groups/$fileName';
 
       await client.storage.from('group-logos').uploadBinary(
         path,
-        file.bytes!,
+        media.bytes,
         fileOptions: FileOptions(
-          contentType: 'image/$ext',
+          contentType: media.mime,
           upsert: true,
         ),
       );

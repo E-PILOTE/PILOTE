@@ -11,6 +11,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show FileOptions;
 
 import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/media_compression.dart';
 import '../providers/administrators_provider.dart';
 import '../services/admin_pdf_service.dart';
 
@@ -1575,14 +1576,19 @@ class _AdminFormModalState extends ConsumerState<_AdminFormModal> {
 
     try {
       final client = ref.read(supabaseClientProvider);
-      final ext = file.extension ?? 'jpg';
+      final media = await compressAvatar(
+        bytes: file.bytes!,
+        fileName: file.name,
+        mime: mimeForImageExtension(file.extension),
+      );
+      final ext = media.fileName.split('.').last;
       final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
       final path = 'admins/$fileName';
 
       await client.storage.from('avatars').uploadBinary(
         path,
-        file.bytes!,
-        fileOptions: FileOptions(contentType: 'image/$ext', upsert: true),
+        media.bytes,
+        fileOptions: FileOptions(contentType: media.mime, upsert: true),
       );
 
       final url = client.storage.from('avatars').getPublicUrl(path);

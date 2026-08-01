@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/utils/media_compression.dart';
 import 'powersync_service.dart';
 import 'upload_outbox.dart';
 
@@ -52,8 +53,23 @@ Future<String> attachStudentDocumentOffline({
   String? internshipId,
   SupabaseClient? client,
 }) async {
-  final ext = fileName.contains('.') ? fileName.split('.').last : 'bin';
-  final safe = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+  final rawExt = fileName.contains('.') ? fileName.split('.').last : 'bin';
+
+  // On compresse AVANT la mise en file, pas au moment de l'envoi. Hors ligne,
+  // ces octets dorment sur le disque du poste — parfois des jours. Une pièce
+  // photographiée au téléphone (4 à 8 Mo) mise en file telle quelle occupe
+  // cette place tout ce temps, et une école qui constitue cinquante dossiers
+  // avant de retrouver du réseau sature son propre appareil. Les PDF passent
+  // inchangés.
+  final media = await compressForUpload(
+    bytes: bytes,
+    fileName: fileName,
+    mime: studentDocMime(rawExt),
+  );
+  final ext = media.fileName.contains('.')
+      ? media.fileName.split('.').last
+      : rawExt;
+  final safe = media.fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
   final storagePath =
       '$schoolId/$studentId/${documentType}_${_uuid.v4().substring(0, 8)}_$safe';
 
@@ -62,7 +78,7 @@ Future<String> attachStudentDocumentOffline({
   await enqueueUpload(
     bucket: kStudentDocsBucket,
     storagePath: storagePath,
-    bytes: bytes,
+    bytes: media.bytes,
     mime: studentDocMime(ext),
     fileName: safe,
   );

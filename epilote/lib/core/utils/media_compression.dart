@@ -200,6 +200,109 @@ bool _hasTransparency(img.Image im) {
   return false;
 }
 
+// ─── Avatars ────────────────────────────────────────────────────────────────
+// Une photo de profil ne s'affiche jamais au-delà de 96 px dans l'application
+// (38 px dans une liste, 88 px sur une fiche). 256 px laisse la marge rétine.
+// Un téléphone moderne produit des photos de 4 à 8 Mo : sans cette étape, on
+// transfère 8 Mo pour afficher une pastille de 38 pixels.
+
+/// Plus long côté (px) cible pour un avatar.
+const int kMaxAvatarEdge = 256;
+
+/// Qualité JPEG d'un avatar.
+const int kAvatarJpegQuality = 82;
+
+/// Compresse une photo de profil hors du thread UI.
+Future<CompressedMedia> compressAvatar({
+  required Uint8List bytes,
+  required String fileName,
+  required String mime,
+}) async {
+  if (!mime.startsWith('image/') || mime.contains('svg')) {
+    return CompressedMedia(bytes: bytes, fileName: fileName, mime: mime);
+  }
+  try {
+    return await compute(
+      _compressAvatarIsolate,
+      (bytes: bytes, fileName: fileName, mime: mime),
+    );
+  } catch (_) {
+    return CompressedMedia(bytes: bytes, fileName: fileName, mime: mime);
+  }
+}
+
+CompressedMedia _compressAvatarIsolate(
+        ({Uint8List bytes, String fileName, String mime}) a) =>
+    _resizeEncode(a.bytes, a.fileName, a.mime,
+        maxEdge: kMaxAvatarEdge, quality: kAvatarJpegQuality, keepAlpha: false);
+
+/// Redimensionne puis ré-encode. `keepAlpha` conserve la transparence en PNG
+/// (logos) ; sinon tout part en JPEG (photos, où l'alpha n'a pas de sens).
+CompressedMedia _resizeEncode(
+  Uint8List bytes,
+  String fileName,
+  String mime, {
+  required int maxEdge,
+  required int quality,
+  required bool keepAlpha,
+}) {
+  img.Image? decoded;
+  try {
+    decoded = img.decodeImage(bytes);
+  } catch (_) {
+    decoded = null;
+  }
+  if (decoded == null) {
+    return CompressedMedia(bytes: bytes, fileName: fileName, mime: mime);
+  }
+
+  var out = decoded;
+  final longest =
+      decoded.width > decoded.height ? decoded.width : decoded.height;
+  if (longest > maxEdge) {
+    out = decoded.width >= decoded.height
+        ? img.copyResize(decoded,
+            width: maxEdge, interpolation: img.Interpolation.average)
+        : img.copyResize(decoded,
+            height: maxEdge, interpolation: img.Interpolation.average);
+  }
+
+  final alpha = keepAlpha && out.hasAlpha && _hasTransparency(out);
+  final encoded =
+      alpha ? img.encodePng(out, level: 9) : img.encodeJpg(out, quality: quality);
+  if (encoded.length >= bytes.length) {
+    return CompressedMedia(bytes: bytes, fileName: fileName, mime: mime);
+  }
+  return CompressedMedia(
+    bytes: Uint8List.fromList(encoded),
+    fileName: _withExtension(fileName, alpha ? 'png' : 'jpg'),
+    mime: alpha ? 'image/png' : 'image/jpeg',
+  );
+}
+
+// ─── Type MIME ──────────────────────────────────────────────────────────────
+
+/// Type MIME d'après l'extension du fichier.
+///
+/// ⚠️ Plusieurs écrans composaient le type à la main : `'image/$ext'`. Pour un
+/// fichier `logo.jpg` cela donne `image/jpg`, qui **n'est pas un type MIME
+/// valide** (c'est `image/jpeg`) ; pour un `.svg` cela donne `image/svg` au
+/// lieu de `image/svg+xml`. Le navigateur et le CDN s'en accommodent souvent,
+/// mais pas toujours — et le fichier finit téléchargé au lieu d'être affiché.
+String mimeForImageExtension(String? ext) => switch (
+    (ext ?? '').toLowerCase().replaceFirst('.', '')) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      'gif' => 'image/gif',
+      'bmp' => 'image/bmp',
+      'svg' => 'image/svg+xml',
+      'heic' || 'heif' => 'image/heic',
+      'avif' => 'image/avif',
+      final e when e.isNotEmpty => 'image/$e',
+      _ => 'application/octet-stream',
+    };
+
 /// Compresse une **vidéo** (mobile uniquement). Renvoie l'original ailleurs ou
 /// si le transcodage échoue. Écrit un fichier temporaire pour `video_compress`.
 Future<CompressedMedia> compressVideoBytes({

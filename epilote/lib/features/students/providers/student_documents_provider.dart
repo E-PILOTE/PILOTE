@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/utils/media_compression.dart';
 import '../../../services/powersync/powersync_service.dart';
 
 const _uuid = Uuid();
@@ -46,12 +47,27 @@ Future<String> uploadStudentDocumentFile({
   required String fileName,
   required Uint8List bytes,
 }) async {
-  final ext = fileName.contains('.') ? fileName.split('.').last : 'bin';
-  final safe = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+  final rawExt = fileName.contains('.') ? fileName.split('.').last : 'bin';
+
+  // Une pièce du dossier est le plus souvent PHOTOGRAPHIÉE : un acte de
+  // naissance pris au téléphone pèse 4 à 8 Mo. On le ramène à 1600 px de long
+  // — assez pour rester parfaitement lisible à l'écran comme à l'impression —
+  // avant de le transférer. Les PDF et les formats indécodables passent
+  // inchangés : `compressForUpload` n'agit que sur ce qu'il sait décoder.
+  final media = await compressForUpload(
+    bytes: bytes,
+    fileName: fileName,
+    mime: _mime(rawExt),
+  );
+
+  final ext = media.fileName.contains('.')
+      ? media.fileName.split('.').last
+      : rawExt;
+  final safe = media.fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
   final path = '$schoolId/$studentId/${typeSlug}_${_uuid.v4().substring(0, 8)}_$safe';
   await client.storage.from(_bucket).uploadBinary(
         path,
-        bytes,
+        media.bytes,
         fileOptions: FileOptions(contentType: _mime(ext), upsert: true),
       );
   return path;
@@ -135,12 +151,20 @@ Future<String> uploadStudentPhoto({
   required Uint8List bytes,
   required String ext,
 }) async {
-  final e = ext.toLowerCase().replaceAll('jpeg', 'jpg');
+  // Une photo d'élève sort d'un téléphone : 4 à 8 Mo pour une pastille de
+  // 38 pixels dans l'annuaire. On réduit à 256 px avant l'envoi — sur une
+  // école de 600 élèves, c'est plusieurs gigaoctets de transfert évités.
+  final media = await compressAvatar(
+    bytes: bytes,
+    fileName: 'photo.$ext',
+    mime: mimeForImageExtension(ext),
+  );
+  final e = media.fileName.split('.').last;
   final path = 'students/${studentId}_${DateTime.now().millisecondsSinceEpoch}.$e';
   await client.storage.from('avatars').uploadBinary(
         path,
-        bytes,
-        fileOptions: FileOptions(contentType: _mime(e), upsert: true),
+        media.bytes,
+        fileOptions: FileOptions(contentType: media.mime, upsert: true),
       );
   return client.storage.from('avatars').getPublicUrl(path);
 }

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show FileOptions;
 
+import '../../../core/utils/media_compression.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 
 /// Catégories de partenaires — enum applicatif volontairement FERMÉ (curation
@@ -144,13 +145,21 @@ class PartnersAdminService {
   }
 
   /// Upload d'un logo → bucket public `partner-logos`, renvoie l'URL publique.
+  ///
+  /// Le logo est réduit avant l'envoi : il s'affiche sur l'écran d'accueil des
+  /// postes, jamais au-delà de quelques dizaines de pixels.
   Future<String> uploadLogo(Uint8List bytes, String ext) async {
-    final e = ext.toLowerCase();
+    final media = await compressLogo(
+      bytes: bytes,
+      fileName: 'partner.$ext',
+      mime: mimeForImageExtension(ext),
+    );
+    final e = media.fileName.split('.').last;
     final path = 'partners/partner_${DateTime.now().millisecondsSinceEpoch}.$e';
     await _client.storage.from('partner-logos').uploadBinary(
           path,
-          bytes,
-          fileOptions: FileOptions(contentType: 'image/$e', upsert: true),
+          media.bytes,
+          fileOptions: FileOptions(contentType: media.mime, upsert: true),
         );
     return _client.storage.from('partner-logos').getPublicUrl(path);
   }
