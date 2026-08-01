@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../core/constants/routes.dart';
+import '../../../core/utils/billing_period.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 
@@ -84,7 +85,7 @@ final aiProvider = FutureProvider.autoDispose<AiData>((ref) async {
   final results = await Future.wait([
     client.from('school_groups').select(
         'id, name, subscription_status, subscription_end, plan_id, '
-        'subscription_plans(name, price_xaf)'),
+        'subscription_plans(name, price_xaf, billing_period)'),
     client.from('group_invoices').select('group_id, amount_xaf, status, created_at, paid_at'),
     client.from('schools').select('id, group_id'),
   ]);
@@ -196,12 +197,13 @@ final aiProvider = FutureProvider.autoDispose<AiData>((ref) async {
     forecast.add(AiForecastMonth(label: label, actual: actual, forecast: i >= 5 ? predicted : 0));
   }
 
-  // MRR from active plans
+  // MRR : tarifs ramenés au mois. Un plan annuel n'apporte pas son montant
+  // entier chaque mois — cf. `billing_period.dart`.
   final mrr = groups
       .where((g) => (g as Map)['subscription_status'] == 'active')
       .fold<int>(0, (s, g) {
         final plan = (g as Map)['subscription_plans'] as Map?;
-        return s + ((plan?['price_xaf'] as num? ?? 0).toInt());
+        return s + monthlyPriceOfPlanRow(plan).round();
       });
   final projectedMrr = math.max(0, mrr + slope.round());
 

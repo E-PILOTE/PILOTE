@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
 
+import '../../../core/utils/plan_referential_realtime.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import 'admin_dashboard_provider.dart';
 import 'admin_regional_provider.dart';
@@ -117,6 +118,12 @@ final adminSchoolsProvider =
         },
       );
     }
+    // Le bandeau « X / Y écoles » compare au quota du PLAN : il doit suivre un
+    // changement de plan comme un changement d'école.
+    channel.watchPlanReferential(() {
+      debounce?.cancel();
+      debounce = Timer(const Duration(seconds: 2), () => ref.invalidateSelf());
+    });
     channel.subscribe();
     ref.onDispose(() {
       debounce?.cancel();

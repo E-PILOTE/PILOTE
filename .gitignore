@@ -67,3 +67,8 @@ supabase/.temp/
 
 # Artefacts d'empaquetage (.deb, bundles)
 dist/
+
+# ─── Sauvegardes de base ──────────────────────────────────────────────────────
+# Dumps CSV de la base de production : données scolaires réelles (élèves,
+# personnels, paiements). Elles n'ont rien à faire dans un dépôt, même privé.
+backups/

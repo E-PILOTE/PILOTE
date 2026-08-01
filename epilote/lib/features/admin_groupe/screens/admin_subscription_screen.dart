@@ -476,7 +476,9 @@ class _CurrentPlanCard extends StatelessWidget {
                           icon: Icons.circle, ),
                     ]),
                     const SizedBox(height: 2),
-                    Text(sub.priceXaf == 0 ? 'Gratuit' : '${fmtXaf(sub.priceXaf)} / an',
+                    Text(sub.priceXaf == 0
+                            ? 'Gratuit'
+                            : '${fmtXaf(sub.priceXaf)} / ${sub.periodSuffix}',
                         style: TextStyle(fontSize: 13, color: kTextMuted, fontWeight: FontWeight.w600)),
                   ],
                 ),
@@ -1002,7 +1004,10 @@ class _PlanCard extends ConsumerWidget {
             Text(plan.priceXaf == 0 ? 'Gratuit' : fmtXaf(plan.priceXaf),
                 style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: pColor)),
             if (plan.priceXaf != 0)
-              Text(' / an', style: TextStyle(fontSize: 12.5, color: kTextMuted, fontWeight: FontWeight.w600)),
+              // La période vient du plan : « / an » en dur contredisait
+              // l'espace plateforme, qui affichait « / mois » pour le MÊME
+              // tarif. C'est cette divergence qu'on supprime.
+              Text(' / ${plan.periodSuffix}', style: TextStyle(fontSize: 12.5, color: kTextMuted, fontWeight: FontWeight.w600)),
           ]),
           const SizedBox(height: 12),
           _PlanFeature(icon: Icons.school_rounded, text: plan.unlimitedSchools ? 'Écoles illimitées' : '${plan.maxSchools} école${plan.maxSchools > 1 ? 's' : ''}'),
@@ -1169,7 +1174,13 @@ class _ComparisonMatrix extends StatelessWidget {
     }
 
     final rows = <_MatrixRow>[
-      _MatrixRow('Prix / an', Icons.payments_rounded, plans.map((p) => limit(p.priceXaf, money: true)).toList(), highlight: true),
+      _MatrixRow('Tarif', Icons.payments_rounded,
+          plans.map((p) => p.priceXaf == 0
+              ? 'Gratuit'
+              : '${limit(p.priceXaf, money: true)} / ${p.periodSuffix}').toList(),
+          highlight: true),
+      _MatrixRow('Périodicité', Icons.event_repeat_rounded,
+          plans.map((p) => p.periodLabel).toList()),
       _MatrixRow('Écoles', Icons.school_rounded, plans.map((p) => limit(p.maxSchools)).toList()),
       _MatrixRow('Élèves', Icons.groups_rounded, plans.map((p) => limit(p.maxStudents)).toList()),
       _MatrixRow('Personnel', Icons.badge_rounded, plans.map((p) => limit(p.maxStaff)).toList()),
@@ -1529,7 +1540,9 @@ class _RequestPlanChangeDialogState extends ConsumerState<RequestPlanChangeDialo
                         Expanded(
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Text('Plan ${widget.plan.name}', style: TextStyle(fontWeight: FontWeight.w800, color: kTextPrimary)),
-                            Text(widget.plan.priceXaf == 0 ? 'Gratuit' : '${fmtXaf(widget.plan.priceXaf)} / an',
+                            Text(widget.plan.priceXaf == 0
+                                ? 'Gratuit'
+                                : '${fmtXaf(widget.plan.priceXaf)} / ${widget.plan.periodSuffix}',
                                 style: TextStyle(fontSize: 12, color: kTextMuted)),
                           ]),
                         ),

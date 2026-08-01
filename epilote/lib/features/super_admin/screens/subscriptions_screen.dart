@@ -1150,7 +1150,8 @@ class _SubCardState extends State<_SubCard> {
           Row(children: [
             _miniStat(Icons.school_rounded, '${s.schoolsCount} écoles', _kNavy),
             const SizedBox(width: 12),
-            _miniStat(Icons.payments_rounded, '${_money(s.priceXaf)} F', _kPurple),
+            _miniStat(Icons.payments_rounded,
+                '${_money(s.priceXaf)} F/${s.periodSuffix}', _kPurple),
           ]),
           const SizedBox(height: 6),
           Row(children: [
@@ -1763,7 +1764,7 @@ class _PlanDropdown extends StatelessWidget {
               const Icon(Icons.workspace_premium_rounded, size: 14, color: _kPurple),
               const SizedBox(width: 8),
               Flexible(child: Text(
-                '${p.name} · ${_money(p.priceXaf)} F',
+                '${p.name} · ${p.priceLabel}',
                 overflow: TextOverflow.ellipsis,
               )),
             ]),
@@ -2039,7 +2040,7 @@ class _SubSubscriptionTab extends StatelessWidget {
         _SubDetailCard([
           _SubDetailRow(Icons.workspace_premium_rounded, 'Plan', s.planName ?? '—'),
           _SubDetailRow(Icons.payments_outlined, 'Prix mensuel',
-              s.priceXaf > 0 ? '${_money(s.priceXaf)} FCFA' : 'Gratuit'),
+              s.priceLabel),
           _SubDetailRow(Icons.radio_button_checked_rounded, 'Statut', s.statusLabel, last: true),
         ]),
         const SizedBox(height: 14),
@@ -2059,7 +2060,8 @@ class _SubSubscriptionTab extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(child: _SubMetaChip(
             icon: Icons.payments_rounded,
-            label: '${_money(s.priceXaf)} F / mois',
+            // « / mois » était faux : le même montant est facturé pour un an.
+            label: '${_money(s.priceXaf)} F / ${s.periodSuffix}',
             color: _kPurple)),
         ]),
       ]),

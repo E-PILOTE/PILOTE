@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
 
+import '../../../core/utils/billing_period.dart';
+import '../../../core/utils/plan_referential_realtime.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../super_admin/providers/invoices_provider.dart' show InvoiceDetail;
 
@@ -14,6 +16,7 @@ class GroupSubscription {
     required this.planName,
     required this.planSlug,
     required this.priceXaf,
+    this.billingPeriod = kDefaultBillingPeriod,
     required this.status,
     required this.start,
     required this.end,
@@ -31,12 +34,19 @@ class GroupSubscription {
   final String planName;
   final String planSlug;
   final int priceXaf;
+  final String billingPeriod;
   final String status;
   final DateTime? start;
   final DateTime? end;
   final int maxSchools, maxStudents, maxStaff, moduleCount;
   final int schoolsUsed, studentsUsed, staffUsed;
   final String? description;
+
+  /// Durée couverte par `priceXaf` — « Annuel », « Trimestriel »…
+  String get periodLabel => billingPeriodLabel(billingPeriod);
+
+  /// Suffixe à accoler au montant : « / an », « / mois ».
+  String get periodSuffix => billingPeriodSuffix(billingPeriod);
 
   int? get daysLeft => end?.difference(DateTime.now()).inDays;
   bool get expireSoon {
@@ -75,6 +85,7 @@ class PlanOption {
     required this.maxStudents,
     required this.maxStaff,
     required this.moduleCount,
+    this.billingPeriod = kDefaultBillingPeriod,
     this.description,
     this.categories = const [],
   });
@@ -83,10 +94,14 @@ class PlanOption {
   final String slug;
   final int priceXaf;
   final int maxSchools, maxStudents, maxStaff, moduleCount;
+  final String billingPeriod;
   final String? description;
 
   /// Familles de modules débloquées (triées par display_order).
   final List<PlanCategory> categories;
+
+  String get periodLabel  => billingPeriodLabel(billingPeriod);
+  String get periodSuffix => billingPeriodSuffix(billingPeriod);
 
   bool get unlimitedSchools  => maxSchools  <= 0;
   bool get unlimitedStudents => maxStudents <= 0;
@@ -231,6 +246,9 @@ final adminSubscriptionProvider =
           type: PostgresChangeFilterType.eq, column: 'group_id', value: groupId),
       callback: onChange,
     );
+    // Le tarif et les quotas affichés viennent du PLAN, pas du groupe : sans
+    // cette écoute, une révision tarifaire reste invisible côté client.
+    channel.watchPlanReferential(() => onChange(null));
     channel.subscribe();
     ref.onDispose(() {
       debounce?.cancel();
@@ -244,7 +262,7 @@ final adminSubscriptionProvider =
     final g = await client
         .from('school_groups')
         .select('name, plan_id, subscription_status, subscription_start, subscription_end, '
-            'subscription_plans!plan_id(id, name, slug, price_xaf, max_schools, max_students, max_staff, module_count, description)')
+            'subscription_plans!plan_id(id, name, slug, price_xaf, billing_period, max_schools, max_students, max_staff, module_count, description)')
         .eq('id', groupId)
         .maybeSingle();
 
@@ -274,6 +292,8 @@ final adminSubscriptionProvider =
         planName:     plan?['name'] as String? ?? '—',
         planSlug:     plan?['slug'] as String? ?? '',
         priceXaf:     (plan?['price_xaf'] as int?) ?? 0,
+        billingPeriod:
+            plan?['billing_period'] as String? ?? kDefaultBillingPeriod,
         status:       g['subscription_status'] as String? ?? 'trial',
         start:        DateTime.tryParse(g['subscription_start'] as String? ?? ''),
         end:          DateTime.tryParse(g['subscription_end'] as String? ?? ''),
@@ -323,7 +343,7 @@ final adminSubscriptionProvider =
   final List<PlanOption> plans = [];
   try {
     final rows = await client.from('subscription_plans')
-        .select('id, name, slug, price_xaf, max_schools, max_students, max_staff, module_count, description, is_active')
+        .select('id, name, slug, price_xaf, billing_period, max_schools, max_students, max_staff, module_count, description, is_active')
         .eq('is_active', true)
         .order('price_xaf', ascending: true) as List;
     for (final r in rows) {
@@ -335,6 +355,8 @@ final adminSubscriptionProvider =
         name:        r['name'] as String? ?? '—',
         slug:        r['slug'] as String? ?? '',
         priceXaf:    (r['price_xaf'] as int?) ?? 0,
+        billingPeriod:
+            r['billing_period'] as String? ?? kDefaultBillingPeriod,
         maxSchools:  (r['max_schools'] as int?) ?? 0,
         maxStudents: (r['max_students'] as int?) ?? 0,
         maxStaff:    (r['max_staff'] as int?) ?? 0,

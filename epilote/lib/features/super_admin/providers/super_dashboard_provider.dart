@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
 
+import '../../../core/utils/billing_period.dart';
+import '../../../core/utils/plan_referential_realtime.dart';
+
 import '../../../features/auth/providers/auth_provider.dart';
 
 // ─── MonthlyPoint ─────────────────────────────────────────────────────────────
@@ -188,21 +191,26 @@ final superDashboardProvider =
   ref.keepAlive();
   final client = ref.watch(supabaseClientProvider);
 
-  // ── Abonnement Supabase Realtime sur school_groups ────────────────────────
+  // ── Abonnement Supabase Realtime ──────────────────────────────────────────
   // Invalide le provider dès qu'une ligne change (INSERT / UPDATE / DELETE).
   Timer? debounce;
+  void scheduleInvalidate() {
+    debounce?.cancel();
+    debounce = Timer(const Duration(seconds: 2), () {
+      ref.invalidateSelf();
+    });
+  }
+
   final channel = client.channel('super_dashboard_realtime')
       .onPostgresChanges(
         event: PostgresChangeEvent.all,
         schema: 'public',
         table: 'school_groups',
-        callback: (_) {
-          debounce?.cancel();
-          debounce = Timer(const Duration(seconds: 2), () {
-            ref.invalidateSelf();
-          });
-        },
+        callback: (_) => scheduleInvalidate(),
       )
+      // Le revenu récurrent est le PRIX du plan × groupes actifs : il change
+      // sans qu'aucun groupe ne bouge.
+      .watchPlanReferential(scheduleInvalidate)
       .subscribe();
   ref.onDispose(() {
     debounce?.cancel();
@@ -277,7 +285,8 @@ final superDashboardProvider =
 
     final groups = await client.from('school_groups').select(
       'id, name, department, is_active, subscription_status, '
-      'subscription_end, created_at, subscription_plans!plan_id(name, price_xaf)',
+      'subscription_end, created_at, '
+      'subscription_plans!plan_id(name, price_xaf, billing_period)',
     ) as List;
 
     groupesTotal  = groups.length;
@@ -293,7 +302,9 @@ final superDashboardProvider =
           ? grp['department'] as String
           : 'Autres';
       final planName = plan?['name'] as String? ?? 'Inconnu';
-      final price    = (plan?['price_xaf'] as num? ?? 0).toDouble();
+      // Revenu MENSUEL : un plan annuel à 2 500 000 FCFA pèse 208 333 par
+      // mois. Sommer les tarifs bruts multipliait le revenu par douze.
+      final price    = monthlyPriceOfPlanRow(plan);
 
       if (status == 'active') {
         revenusXafMois += price;
@@ -337,7 +348,7 @@ final superDashboardProvider =
         final subEnd2    = subEndStr2 != null ? DateTime.tryParse(subEndStr2) : null;
         if (subEnd2 != null && subEnd2.isBefore(mDate)) continue;
         final plan2  = grp['subscription_plans'] as Map<String, dynamic>?;
-        final price2 = (plan2?['price_xaf'] as num? ?? 0).toDouble();
+        final price2 = monthlyPriceOfPlanRow(plan2);
         if (price2 > 0) { mrr += price2; subs++; }
       }
       mrList.add(MonthlyRevenue(

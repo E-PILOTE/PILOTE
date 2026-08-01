@@ -1682,7 +1682,7 @@ class _InfoTab extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(child: _MetaChip(
             icon: Icons.account_balance_wallet_rounded,
-            label: '${_fmtXaf(g.priceXaf.toDouble())}/mois',
+            label: '${_fmtXaf(g.priceXaf.toDouble())}/${g.periodSuffix}',
             color: _kGold,
           )),
         ]),
@@ -1727,7 +1727,7 @@ class _SubscriptionTab extends ConsumerWidget {
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Plan ${g.planName}', style: TextStyle(
                   color: _kNavy, fontSize: 16, fontWeight: FontWeight.w800)),
-              Text('${_fmtXaf(g.priceXaf.toDouble())} / mois',
+              Text('${_fmtXaf(g.priceXaf.toDouble())} / ${g.periodSuffix}',
                   style: TextStyle(color: _kGold, fontSize: 14, fontWeight: FontWeight.w700)),
             ])),
             _StatusBadge(status: g.subscriptionStatus, label: g.statusLabel),
@@ -1748,7 +1748,7 @@ class _SubscriptionTab extends ConsumerWidget {
         _QuotaBar(
           label: 'Capacité élèves',
           used: 0,
-          max:  g.maxStudents,
+          max:  g.maxStudents == -1 ? null : g.maxStudents,
           color: _kGreen,
           showUsed: false,
         ),
@@ -2511,7 +2511,7 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
                           Text(
                             p.priceXaf == 0
                                 ? 'Gratuit'
-                                : '${_fmtXaf(p.priceXaf.toDouble())}/mois',
+                                : '${_fmtXaf(p.priceXaf.toDouble())}/${p.periodSuffix}',
                             style: TextStyle(
                                 color: _kMuted, fontSize: 12),
                           ),
@@ -2952,7 +2952,7 @@ class _PrintPreviewModalState extends State<_PrintPreviewModal> {
       '',
       '── ABONNEMENT ───────────────────────────',
       '  Plan        : ${g.planName}',
-      '  Tarif       : ${_fmtXaf(g.priceXaf.toDouble())} / mois',
+      '  Tarif       : ${_fmtXaf(g.priceXaf.toDouble())} / ${g.periodSuffix}',
       if (g.subscriptionStart != null)
         '  Début       : ${DateFormat('dd/MM/yyyy').format(g.subscriptionStart!)}',
       if (g.subscriptionEnd != null)

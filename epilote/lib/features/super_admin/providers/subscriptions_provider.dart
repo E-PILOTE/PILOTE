@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
+import '../../../core/utils/billing_period.dart';
+import '../../../core/utils/plan_referential_realtime.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import 'plans_provider.dart' show moneyXaf;
 
 // ─── Modèle SubscriptionDetail (un groupe scolaire = un abonnement) ───────────
 
@@ -14,6 +17,7 @@ class SubscriptionDetail {
     required this.status,
     required this.priceXaf,
     required this.schoolsCount,
+    this.billingPeriod = kDefaultBillingPeriod,
     required this.createdAt,
     required this.updatedAt,
     this.groupLogo,
@@ -44,6 +48,8 @@ class SubscriptionDetail {
       planName:    planMap['name']    as String?,
       planSlug:    planMap['slug']    as String?,
       priceXaf:    (planMap['price_xaf'] as num?)?.toInt() ?? 0,
+      billingPeriod:
+          planMap['billing_period'] as String? ?? kDefaultBillingPeriod,
       status:      m['subscription_status'] as String? ?? 'trial',
       start:       _date(m['subscription_start']),
       end:         _date(m['subscription_end']),
@@ -56,8 +62,22 @@ class SubscriptionDetail {
   final String  id, groupName, adminEmail, groupType, status;
   final String? groupLogo, phone, department, planId, planName, planSlug;
   final int     priceXaf, schoolsCount;
+  final String  billingPeriod;
   final DateTime  createdAt, updatedAt;
   final DateTime? start, end;
+
+  /// Tarif avec sa période — « 120 000 FCFA / an ». Un montant nu laissait
+  /// chaque écran inventer son suffixe : l'espace admin_groupe affichait
+  /// « / an » et l'espace plateforme « / mois », sur le MÊME abonnement.
+  String get priceLabel => priceXaf == 0
+      ? 'Gratuit'
+      : '${moneyXaf(priceXaf)} FCFA / ${billingPeriodSuffix(billingPeriod)}';
+
+  /// Contribution mensuelle de cet abonnement au revenu récurrent.
+  int get monthlyPrice => monthlyEquivalent(priceXaf, billingPeriod);
+
+  /// Suffixe de période — « an », « mois ».
+  String get periodSuffix => billingPeriodSuffix(billingPeriod);
 
   bool get isActive => status == 'active';
   bool get isTrial  => status == 'trial';
@@ -121,9 +141,15 @@ class PlanOption {
     required this.id,
     required this.name,
     required this.priceXaf,
+    this.billingPeriod = kDefaultBillingPeriod,
   });
   final String id, name;
   final int    priceXaf;
+  final String billingPeriod;
+
+  String get priceLabel => priceXaf == 0
+      ? 'Gratuit'
+      : '${moneyXaf(priceXaf)} FCFA / ${billingPeriodSuffix(billingPeriod)}';
 }
 
 // ─── Modèle données globales ───────────────────────────────────────────────────
@@ -172,6 +198,9 @@ final subscriptionsProvider =
           table: 'school_groups',
           callback: (_) => scheduleInvalidate(),
         )
+        // Un changement de tarif ne touche pas `school_groups` : sans ça, la
+        // colonne « Montant » garde l'ancien prix toute la session.
+        .watchPlanReferential(scheduleInvalidate)
         .subscribe();
     ref.onDispose(() {
       debounce?.cancel();
@@ -197,7 +226,7 @@ final subscriptionsProvider =
         .select('id, name, logo_url, admin_email, phone, group_type, '
             'department, plan_id, subscription_status, subscription_start, '
             'subscription_end, created_at, updated_at, '
-            'plan:subscription_plans(name, slug, price_xaf)')
+            'plan:subscription_plans(name, slug, price_xaf, billing_period)')
         .order('created_at', ascending: false) as List;
     subs = rows.map((r) {
       final m = Map<String, dynamic>.from(r as Map);
@@ -213,7 +242,7 @@ final subscriptionsProvider =
   try {
     final rows = await client
         .from('subscription_plans')
-        .select('id, name, price_xaf')
+        .select('id, name, price_xaf, billing_period')
         .eq('is_active', true)
         .order('price_xaf', ascending: true) as List;
     plans = rows.map((r) {
@@ -222,6 +251,8 @@ final subscriptionsProvider =
         id:       m['id']   as String,
         name:     m['name'] as String? ?? '',
         priceXaf: (m['price_xaf'] as num?)?.toInt() ?? 0,
+        billingPeriod:
+            m['billing_period'] as String? ?? kDefaultBillingPeriod,
       );
     }).toList();
   } catch (_) {}
@@ -231,7 +262,8 @@ final subscriptionsProvider =
   for (final s in subs) {
     if (s.isActive) {
       actifs++;
-      mrr += s.priceXaf;
+      // Ramené au mois : le MRR mélangeait des tarifs annuels et mensuels.
+      mrr += s.monthlyPrice;
     } else if (s.isTrial) {
       trials++;
     } else {

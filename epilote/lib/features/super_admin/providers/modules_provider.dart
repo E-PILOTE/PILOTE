@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
+import '../../../core/utils/plan_referential_realtime.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 
 // ─── Modèle ModuleCategory ────────────────────────────────────────────────────
@@ -170,12 +171,9 @@ final modulesProvider = FutureProvider.autoDispose<ModulesData>((ref) async {
           table: 'module_categories',
           callback: (_) => scheduleInvalidate(),
         )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'plan_modules',
-          callback: (_) => scheduleInvalidate(),
-        )
+        // `plan_modules` + `subscription_plans` : cet écran liste aussi les
+        // plans auxquels chaque module est rattaché, avec leur tarif.
+        .watchPlanReferential(scheduleInvalidate)
         .subscribe();
     ref.onDispose(() {
       debounce?.cancel();

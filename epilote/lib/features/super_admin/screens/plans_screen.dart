@@ -6,10 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../../../core/utils/billing_period.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../providers/plans_provider.dart';
 import '../services/plan_pdf_service.dart';
+import '../widgets/plan_period_fields.dart';
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
 Color get _kNavy => kNavy;
@@ -860,7 +862,11 @@ class _TableView extends StatelessWidget {
             child: Row(children: [
               const SizedBox(width: _iconW),
               _hdr('Plan',          3),
-              _hdr('Prix /mois',    2),
+              // Le tarif porte désormais sa période (« / an », « / mois ») :
+              // un en-tête qui l'impose serait faux dès le premier plan
+              // mensuel. Cf. `billing_period.dart`.
+              _hdr('Tarif',         2),
+              _hdr('Périodicité',   2),
               _hdr('Écoles max',    2),
               _hdr('Modules',       2),
               _hdr('Abonnés',       2),
@@ -972,10 +978,14 @@ class _TableRowState extends State<_TableRow> {
               ),
             ),
           )),
-          Expanded(flex: 2, child: Text(p.priceLabel,
+          // Montant nu : la période a sa propre colonne juste à droite.
+          Expanded(flex: 2, child: Text(p.priceAmountLabel,
               style: TextStyle(fontSize: 12.5,
                   color: p.isFree ? _kMuted : _kText,
                   fontWeight: FontWeight.w700),
+              overflow: TextOverflow.ellipsis)),
+          Expanded(flex: 2, child: Text(p.periodLabel,
+              style: TextStyle(fontSize: 12, color: _kMuted),
               overflow: TextOverflow.ellipsis)),
           Expanded(flex: 2, child: Text(p.maxSchoolsLabel,
               style: TextStyle(fontSize: 12, color: _kText),
@@ -1408,6 +1418,7 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
   final _descCtrl      = TextEditingController();
 
   String  _slug      = 'premium';
+  String  _period    = kDefaultBillingPeriod;
   bool    _isPublic  = false;
   bool    _isActive  = true;
   bool    _saving    = false;
@@ -1428,6 +1439,7 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
       _maxStaffCtrl.text    = p.maxStaff.toString();
       _descCtrl.text        = p.description ?? '';
       _slug                 = p.slug;
+      _period               = p.billingPeriod;
       _isPublic             = p.isPublicPlan;
       _isActive             = p.isActive;
       _loadingModules       = true;
@@ -1463,7 +1475,11 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
         'max_schools':    _parseInt(_maxSchoolsCtrl.text),
         'max_students':   _parseInt(_maxStudentsCtrl.text),
         'max_staff':      _parseInt(_maxStaffCtrl.text),
-        'module_count':   _selectedModules.length,
+        'billing_period': _period,
+        // `module_count` n'est PAS envoyé : depuis la migration 0076 il est
+        // recalculé par trigger à partir de `plan_modules`. Deux écrivains pour
+        // un même fait, c'était la dérive garantie — le plan « pro » annonçait
+        // 26 modules et en donnait 28.
         'description':    _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
         'is_public_plan': _isPublic,
         'is_active':      _isActive,
@@ -1617,16 +1633,34 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _FormField(
-                    controller: _priceCtrl,
-                    label: 'Prix mensuel (FCFA) *',
-                    icon: Icons.payments_rounded,
-                    keyboardType: TextInputType.number,
-                    hint: '0 = gratuit',
-                    onChanged: (_) => setState(() {}),
-                    validator: (v) => int.tryParse(v!.trim().replaceAll(' ', '')) == null
-                        ? 'Nombre requis' : null,
-                  ),
+                  // Le tarif et sa durée vont ensemble : un montant sans période
+                  // ne veut rien dire, et c'est exactement l'ambiguïté qui
+                  // faisait facturer un « prix mensuel » pour douze mois.
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(
+                      flex: 3,
+                      child: _FormField(
+                        controller: _priceCtrl,
+                        label: 'Tarif (FCFA) *',
+                        icon: Icons.payments_rounded,
+                        keyboardType: TextInputType.number,
+                        hint: '0 = gratuit',
+                        onChanged: (_) => setState(() {}),
+                        validator: (v) =>
+                            int.tryParse(v!.trim().replaceAll(' ', '')) == null
+                                ? 'Nombre requis'
+                                : null,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(flex: 2, child: PlanPeriodPicker(
+                      value: _period,
+                      onChanged: (v) => setState(() => _period = v),
+                    )),
+                  ]),
+                  const SizedBox(height: 6),
+                  PlanPriceEquivalence(
+                      priceXaf: _parseInt(_priceCtrl.text), period: _period),
                   const SizedBox(height: 14),
                   const _SectionTitle('Quotas & Limites'),
                   const SizedBox(height: 10),
@@ -1637,7 +1671,7 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
                       icon: Icons.school_rounded,
                       keyboardType: TextInputType.number,
                       hint: '-1 = illimité',
-                      validator: (v) => int.tryParse(v!.trim()) == null ? 'Requis' : null,
+                      validator: validatePlanQuota,
                     )),
                     const SizedBox(width: 12),
                     Expanded(child: _FormField(
@@ -1645,7 +1679,8 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
                       label: 'Élèves max *',
                       icon: Icons.groups_rounded,
                       keyboardType: TextInputType.number,
-                      validator: (v) => int.tryParse(v!.trim()) == null ? 'Requis' : null,
+                      hint: '-1 = illimité',
+                      validator: validatePlanQuota,
                     )),
                   ]),
                   const SizedBox(height: 14),
@@ -1654,7 +1689,8 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
                     label: 'Personnel max *',
                     icon: Icons.badge_rounded,
                     keyboardType: TextInputType.number,
-                    validator: (v) => int.tryParse(v!.trim()) == null ? 'Requis' : null,
+                    hint: '-1 = illimité',
+                    validator: validatePlanQuota,
                   ),
                   const SizedBox(height: 14),
                   _SectionTitle('Modules inclus (${_selectedModules.length})'),
@@ -2064,7 +2100,9 @@ class _PlanInfoTab extends StatelessWidget {
         const _PlanSectionTitle('Tarification'),
         const SizedBox(height: 8),
         _PlanDetailCard([
-          _PlanDetailRow(Icons.payments_outlined, 'Prix mensuel', p.priceLabel),
+          _PlanDetailRow(Icons.payments_outlined, 'Tarif', p.priceLabel),
+          _PlanDetailRow(Icons.event_repeat_rounded, 'Périodicité',
+              p.periodLabel),
           _PlanDetailRow(Icons.category_outlined, 'Type', _slugLabel(p.slug)),
           _PlanDetailRow(Icons.trending_up_rounded, 'Revenu mensuel généré',
               '${moneyXaf(p.monthlyRevenue)} FCFA', last: true),
@@ -2074,10 +2112,9 @@ class _PlanInfoTab extends StatelessWidget {
         const SizedBox(height: 8),
         _PlanDetailCard([
           _PlanDetailRow(Icons.school_rounded, 'Écoles max', p.maxSchoolsLabel),
-          _PlanDetailRow(Icons.groups_rounded, 'Élèves max',
-              p.maxStudents < 0 ? 'Illimité' : moneyXaf(p.maxStudents)),
-          _PlanDetailRow(Icons.badge_rounded, 'Personnel max',
-              p.maxStaff < 0 ? 'Illimité' : moneyXaf(p.maxStaff), last: true),
+          _PlanDetailRow(Icons.groups_rounded, 'Élèves max', p.maxStudentsLabel),
+          _PlanDetailRow(Icons.badge_rounded, 'Personnel max', p.maxStaffLabel,
+              last: true),
         ]),
         const SizedBox(height: 14),
         Row(children: [

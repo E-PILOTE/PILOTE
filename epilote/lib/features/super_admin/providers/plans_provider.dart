@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
+import '../../../core/utils/billing_period.dart';
+import '../../../core/utils/plan_referential_realtime.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 
 // ─── Modèle PlanDetail ─────────────────────────────────────────────────────────
@@ -22,6 +24,7 @@ class PlanDetail {
     required this.subscribersActive,
     required this.createdAt,
     required this.updatedAt,
+    this.billingPeriod = kDefaultBillingPeriod,
     this.description,
   });
 
@@ -40,6 +43,7 @@ class PlanDetail {
         maxStudents:  (m['max_students']  as num?)?.toInt() ?? 0,
         maxStaff:     (m['max_staff']     as num?)?.toInt() ?? 0,
         moduleCount:  (m['module_count']  as num?)?.toInt() ?? 0,
+        billingPeriod: m['billing_period'] as String? ?? kDefaultBillingPeriod,
         description:  m['description']    as String?,
         isPublicPlan: m['is_public_plan'] as bool? ?? false,
         isActive:     m['is_active']      as bool? ?? true,
@@ -55,16 +59,41 @@ class PlanDetail {
   final int     priceXaf, maxSchools, maxStudents, maxStaff, moduleCount;
   final int     linkedModules, subscribersTotal, subscribersActive;
   final bool    isPublicPlan, isActive;
+  final String  billingPeriod;
   final DateTime createdAt, updatedAt;
 
   bool get isFree    => priceXaf <= 0;
   bool get unlimited => maxSchools < 0;
 
-  /// Revenu mensuel récurrent généré par les groupes actifs sur ce plan.
-  int get monthlyRevenue => priceXaf * subscribersActive;
+  /// Nombre de mois couverts par `priceXaf`.
+  int get billingMonths => billingPeriodMonths(billingPeriod);
 
-  String get priceLabel => isFree ? 'Gratuit' : '${_money(priceXaf)} FCFA';
-  String get maxSchoolsLabel => unlimited ? 'Illimité' : '$maxSchools';
+  /// Libellé de la périodicité : « Annuel ».
+  String get periodLabel => billingPeriodLabel(billingPeriod);
+
+  /// Tarif ramené au mois — indispensable pour additionner des plans de
+  /// périodicités différentes.
+  int get monthlyPrice => monthlyEquivalent(priceXaf, billingPeriod);
+
+  /// Revenu mensuel récurrent généré par les groupes actifs sur ce plan.
+  ///
+  /// ⚠️ C'est bien le tarif RAMENÉ AU MOIS qui compte : un plan à 2 500 000
+  /// FCFA par AN pèse 208 333 FCFA de MRR, pas 2 500 000. L'ancien calcul
+  /// multipliait le revenu de la plateforme par douze.
+  int get monthlyRevenue => monthlyPrice * subscribersActive;
+
+  /// Tarif AVEC sa période — « 120 000 FCFA / an ». À utiliser partout où la
+  /// période n'est pas déjà affichée à côté.
+  String get priceLabel => isFree
+      ? 'Gratuit'
+      : '${_money(priceXaf)} FCFA / ${billingPeriodSuffix(billingPeriod)}';
+
+  /// Tarif SEUL — pour un tableau qui possède déjà une colonne « Périodicité ».
+  /// Répéter le suffixe y tronquait le montant.
+  String get priceAmountLabel => isFree ? 'Gratuit' : '${_money(priceXaf)} FCFA';
+  String get maxSchoolsLabel  => quotaLabel(maxSchools);
+  String get maxStudentsLabel => quotaLabel(maxStudents);
+  String get maxStaffLabel    => quotaLabel(maxStaff);
 
   String get initials {
     final n = name.trim();
@@ -123,6 +152,25 @@ String _money(int v) {
 
 String moneyXaf(int v) => _money(v);
 
+// ─── Quotas : la convention « -1 = illimité » ─────────────────────────────────
+//
+// `check_quota()` en base traite `-1` comme « pas de plafond », pour les trois
+// quotas. Le formulaire ne l'annonçait que sur les écoles, et rien n'empêchait
+// de saisir `-5` — qui aurait bloqué toute création dès la première ligne, sans
+// message compréhensible. Ces deux fonctions tiennent la convention d'un seul
+// endroit, côté affichage comme côté saisie.
+
+/// Étiquette d'un quota : `-1` (ou tout négatif) → « Illimité ».
+String quotaLabel(int v) => v < 0 ? 'Illimité' : _money(v);
+
+/// Valide la saisie d'un quota. `null` = valeur acceptable.
+String? validatePlanQuota(String? raw) {
+  final n = int.tryParse((raw ?? '').trim().replaceAll(' ', ''));
+  if (n == null) return 'Nombre requis';
+  if (n < -1) return '-1 (illimité) ou ≥ 0';
+  return null;
+}
+
 // ─── Provider principal ─────────────────────────────────────────────────────────
 
 final plansProvider = FutureProvider.autoDispose<PlansData>((ref) async {
@@ -138,18 +186,7 @@ final plansProvider = FutureProvider.autoDispose<PlansData>((ref) async {
 
   try {
     final channel = client.channel('platform_plans_list')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'subscription_plans',
-          callback: (_) => scheduleInvalidate(),
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'plan_modules',
-          callback: (_) => scheduleInvalidate(),
-        )
+        .watchPlanReferential(scheduleInvalidate)
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
@@ -198,7 +235,7 @@ final plansProvider = FutureProvider.autoDispose<PlansData>((ref) async {
         .from('subscription_plans')
         .select('id, name, slug, price_xaf, max_schools, max_students, '
             'max_staff, module_count, description, is_public_plan, '
-            'is_active, created_at, updated_at')
+            'is_active, billing_period, created_at, updated_at')
         .order('price_xaf', ascending: true) as List;
     plans = rows.map((r) {
       final m = Map<String, dynamic>.from(r as Map);
@@ -239,9 +276,12 @@ final plansProvider = FutureProvider.autoDispose<PlansData>((ref) async {
   final subscribers  = subsByPlan.values.fold<int>(0, (a, b) => a + b);
   final mrr          = plans.fold<int>(0, (a, p) => a + p.monthlyRevenue);
   final paidPlans    = plans.where((p) => !p.isFree).toList();
+  // Prix moyen ramené au mois : additionner un tarif annuel et un tarif
+  // mensuel tels quels ne produirait aucune grandeur interprétable.
   final avgPrice     = paidPlans.isEmpty
       ? 0
-      : (paidPlans.fold<int>(0, (a, p) => a + p.priceXaf) / paidPlans.length).round();
+      : (paidPlans.fold<int>(0, (a, p) => a + p.monthlyPrice) / paidPlans.length)
+          .round();
 
   return PlansData(
     plans:       plans,

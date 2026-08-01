@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
+import '../../../core/utils/billing_period.dart';
+import '../../../core/utils/plan_referential_realtime.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 
 // ─── Modèle GroupDetail ───────────────────────────────────────────────────────
@@ -15,6 +17,7 @@ class GroupDetail {
     required this.planId,
     required this.planName,
     required this.priceXaf,
+    this.billingPeriod = kDefaultBillingPeriod,
     required this.maxSchools,
     required this.maxStudents,
     required this.isActive,
@@ -43,6 +46,8 @@ class GroupDetail {
       planId:             m['plan_id']              as String,
       planName:           plan?['name']             as String? ?? '—',
       priceXaf:           (plan?['price_xaf']       as int?)   ?? 0,
+      billingPeriod:
+          plan?['billing_period'] as String? ?? kDefaultBillingPeriod,
       maxSchools:         (plan?['max_schools']     as int?)   ?? 1,
       maxStudents:        (plan?['max_students']    as int?)   ?? 100,
       subscriptionStatus: m['subscription_status']  as String? ?? 'trial',
@@ -69,6 +74,10 @@ class GroupDetail {
   final String  planId, planName;
   final String? slug, department, phone, address, logoUrl, notes;
   final int     priceXaf, maxSchools, maxStudents, schoolCount;
+  final String  billingPeriod;
+
+  /// Suffixe de période à accoler au tarif — « an », « mois ».
+  String get periodSuffix => billingPeriodSuffix(billingPeriod);
   final int?    foundedYear;
   final bool    isActive;
   final DateTime  createdAt, updatedAt;
@@ -120,6 +129,7 @@ class GroupDetail {
     planId:             planId             ?? this.planId,
     planName:           planName           ?? this.planName,
     priceXaf:           priceXaf           ?? this.priceXaf,
+    billingPeriod:      billingPeriod,
     maxSchools:         maxSchools         ?? this.maxSchools,
     maxStudents:        maxStudents        ?? this.maxStudents,
     notes:              notes              ?? this.notes,
@@ -135,11 +145,15 @@ class PlanInfo {
     required this.id,
     required this.name,
     required this.priceXaf,
+    this.billingPeriod = kDefaultBillingPeriod,
     required this.maxSchools,
     required this.maxStudents,
   });
   final String id, name;
   final int priceXaf, maxSchools, maxStudents;
+  final String billingPeriod;
+
+  String get periodSuffix => billingPeriodSuffix(billingPeriod);
 }
 
 // ─── Modèle données globales ──────────────────────────────────────────────────
@@ -179,17 +193,21 @@ final schoolGroupsProvider =
 
   // Realtime : invalidation silencieuse sur changement (hors try/catch)
   Timer? debounce;
+  void scheduleInvalidate() {
+    debounce?.cancel();
+    debounce = Timer(const Duration(seconds: 2), () => ref.invalidateSelf());
+  }
+
   try {
     final channel = client.channel('school_groups_list')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'school_groups',
-          callback: (_) {
-            debounce?.cancel();
-            debounce = Timer(const Duration(seconds: 2), () => ref.invalidateSelf());
-          },
+          callback: (_) => scheduleInvalidate(),
         )
+        // Chaque carte de groupe affiche le tarif et les quotas de son plan.
+        .watchPlanReferential(scheduleInvalidate)
         .subscribe();
     ref.onDispose(() {
       debounce?.cancel();
@@ -204,13 +222,15 @@ final schoolGroupsProvider =
   try {
     final rows = await client
         .from('subscription_plans')
-        .select('id, name, price_xaf, max_schools, max_students')
+        .select('id, name, price_xaf, billing_period, max_schools, max_students')
         .eq('is_active', true)
         .order('price_xaf', ascending: true) as List;
     plans = rows.map((r) => PlanInfo(
       id:          r['id']           as String,
       name:        r['name']         as String,
       priceXaf:    (r['price_xaf']   as int?) ?? 0,
+      billingPeriod:
+          r['billing_period'] as String? ?? kDefaultBillingPeriod,
       maxSchools:  (r['max_schools'] as int?) ?? 1,
       maxStudents: (r['max_students'] as int?) ?? 100,
     )).toList();
@@ -233,7 +253,7 @@ final schoolGroupsProvider =
       'id, name, slug, group_type, department, plan_id, subscription_status, '
       'subscription_start, subscription_end, admin_email, phone, address, '
       'logo_url, is_active, notes, founded_year, created_at, updated_at, '
-      'subscription_plans!plan_id(name, price_xaf, max_schools, max_students)',
+      'subscription_plans!plan_id(name, price_xaf, billing_period, max_schools, max_students)',
     ).order('created_at', ascending: false) as List;
 
     groups = rows.map((r) =>
@@ -249,7 +269,12 @@ final schoolGroupsProvider =
   double revenus   = 0;
 
   for (final g in groups) {
-    if (g.isActif)     { actifs++;    revenus += g.priceXaf; }
+    // Ramené au mois : additionner des tarifs annuels et mensuels bruts ne
+    // produit aucune grandeur interprétable (cf. `billing_period.dart`).
+    if (g.isActif) {
+      actifs++;
+      revenus += monthlyEquivalent(g.priceXaf, g.billingPeriod);
+    }
     if (g.isEssai)       enEssai++;
     if (g.isSuspendu)    suspendus++;
     if (g.expiresBientot) expirant++;

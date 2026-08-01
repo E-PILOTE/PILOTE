@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
 
+import '../../../core/utils/plan_referential_realtime.dart';
+
 import '../../../features/auth/providers/auth_provider.dart';
 
 // ─── Point mensuel (sparklines / courbes) ───────────────────────────────────
@@ -222,6 +224,9 @@ final adminDashboardProvider =
         callback: onChange,
       );
     }
+    // Les quotas du bandeau viennent du plan : un relèvement de limite doit
+    // s'y voir sans redémarrer l'application.
+    channel.watchPlanReferential(() => onChange(null));
     channel.subscribe();
     ref.onDispose(() {
       debounce?.cancel();

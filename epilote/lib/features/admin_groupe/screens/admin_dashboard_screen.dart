@@ -639,7 +639,10 @@ class _KpiSection extends ConsumerWidget {
         rawValue: data.tauxOccupationEleves,
         fmt: (v) => '${v.round()} %',
         label: 'Quota élèves',
-        sub: '${fmtInt(data.elevesTotal)}/${fmtInt(data.maxStudents)}',
+        // `-1` = illimité : l'afficher tel quel donnerait « 1 234/-1 ».
+        sub: data.maxStudents <= 0
+            ? '${fmtInt(data.elevesTotal)}/∞'
+            : '${fmtInt(data.elevesTotal)}/${fmtInt(data.maxStudents)}',
         spark: _Spark.progress,
         progress: (data.tauxOccupationEleves / 100).clamp(0, 1),
         onTap: () => context.go(Routes.adminAbonnement),
