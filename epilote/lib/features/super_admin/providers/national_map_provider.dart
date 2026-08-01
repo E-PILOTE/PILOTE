@@ -59,6 +59,7 @@ class NationalMapData {
     required this.totalSchools,
     required this.totalStudents,
     required this.coveredDepts,
+    required this.totalDepts,
   });
 
   final List<DeptMapEntry> depts;
@@ -66,6 +67,19 @@ class NationalMapData {
   final int                totalSchools;
   final int                totalStudents;
   final int                coveredDepts;
+
+  /// Nombre de départements du pays, LU dans la table `departments`.
+  ///
+  /// ⚠️ Il était écrit en dur — et pas de la même façon selon l'endroit : la
+  /// même page affichait « 0/12 départements couverts » dans un encadré et
+  /// « 0 / 15 départements couverts » dans celui d'à côté. Deux chiffres
+  /// contradictoires sur le découpage administratif du pays, sur l'écran
+  /// national d'une plateforme d'État.
+  final int totalDepts;
+
+  /// Part du territoire atteinte, 0…1. Zéro tant que le référentiel des
+  /// départements n'est pas chargé — plutôt qu'une division par une constante.
+  double get coverage => totalDepts == 0 ? 0 : coveredDepts / totalDepts;
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -142,12 +156,18 @@ final nationalMapProvider = FutureProvider.autoDispose<NationalMapData>((ref) as
   }).toList()
     ..sort((a, b) => b.groupCount.compareTo(a.groupCount));
 
+  var totalDepts = 0;
+  try {
+    totalDepts = (await client.from('departments').select('id') as List).length;
+  } catch (_) {}
+
   return NationalMapData(
     depts:         depts,
     totalGroups:   groups.length,
     totalSchools:  schools.length,
     totalStudents: students.length,
     coveredDepts:  depts.length,
+    totalDepts:    totalDepts,
   );
 });
 

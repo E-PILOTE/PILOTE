@@ -432,6 +432,24 @@ class _AlertesSection extends StatelessWidget {
 // Type de sparkline — chaque KPI a le sien
 enum _SparkType { spline, splineArea, column, barH, progress }
 
+// ─── Tendances réelles ───────────────────────────────────────────────────────
+//
+// Les cartes portaient des slogans écrits en dur : « ↑ dynamique »,
+// « ↑ croissance », « ↑ inscriptions », « ↑ +8 % », « ✅ Nominal ». Ils
+// s'affichaient quelle que soit la donnée — « 0 groupe · ↑ dynamique » — et le
+// « +8 % » avait la précision d'une mesure sans en être une.
+//
+// Les séries mensuelles existaient déjà et comptent les CRÉATIONS du mois. On
+// les lit, tout simplement.
+
+double _lastMonth(List<MonthlyPoint> pts) => pts.isEmpty ? 0 : pts.last.value;
+
+String _newThisMonth(List<MonthlyPoint> pts, String noun) {
+  final n = _lastMonth(pts).round();
+  if (n == 0) return 'aucun ce mois-ci';
+  return '+$n $noun${n > 1 ? 's' : ''} ce mois-ci';
+}
+
 class _KD {
   _KD({
     required this.icon,
@@ -507,7 +525,8 @@ class _KpiGrid extends StatelessWidget {
         format: (v) => _fmt(v.round()),
         label: 'Groupes actifs',
         sub: '${stats.groupesTotal} au total',
-        trend: '↑ dynamique', trendUp: true,
+        trend: _newThisMonth(stats.trendGroupes, 'groupe'),
+        trendUp: _lastMonth(stats.trendGroupes) > 0,
         sparkType: _SparkType.spline,
         pts: stats.trendGroupes,
       ),
@@ -517,7 +536,8 @@ class _KpiGrid extends StatelessWidget {
         rawValue: stats.ecolesTotal.toDouble(),
         format: (v) => _fmt(v.round()),
         label: 'Écoles actives',
-        trend: '↑ croissance', trendUp: true,
+        trend: _newThisMonth(stats.trendEcoles, 'école'),
+        trendUp: _lastMonth(stats.trendEcoles) > 0,
         sparkType: _SparkType.column,
         pts: stats.trendEcoles,
       ),
@@ -527,17 +547,26 @@ class _KpiGrid extends StatelessWidget {
         rawValue: stats.elevesTotal.toDouble(),
         format: (v) => _fmtLg(v.round()),
         label: 'Élèves total',
-        trend: '↑ inscriptions', trendUp: true,
+        trend: _newThisMonth(stats.trendEleves, 'inscrit'),
+        trendUp: _lastMonth(stats.trendEleves) > 0,
         sparkType: _SparkType.splineArea,
         pts: stats.trendEleves,
       ),
       // 4 · Personnel — BarH (barres horizontales par rôle)
+      //
+      // Pas de série mensuelle pour le personnel : la carte affichait « ↑ +8 % »,
+      // un pourcentage précis que rien ne calculait. On dit ce qu'on sait —
+      // combien de métiers différents composent ce total.
       _KD(
         icon: Icons.badge_rounded, color: _kPurple,
         rawValue: stats.personnelTotal.toDouble(),
         format: (v) => _fmt(v.round()),
         label: 'Personnel actif',
-        trend: '↑ +8%', trendUp: true,
+        trend: stats.personnelByRole.isEmpty
+            ? '—'
+            : '${stats.personnelByRole.length} métier'
+                '${stats.personnelByRole.length > 1 ? 's' : ''}',
+        trendUp: stats.personnelTotal > 0,
         sparkType: _SparkType.barH,
         barsData: stats.personnelByRole,
       ),
@@ -548,7 +577,10 @@ class _KpiGrid extends StatelessWidget {
         format: (v) => _fmtRevenu(v),
         label: 'Revenus XAF/mois',
         sub: 'FCFA · abonnements actifs',
-        trend: '↑ revenus', trendUp: true,
+        trend: _lastMonth(stats.trendRevenus) > 0
+            ? '${_fmtRevenu(_lastMonth(stats.trendRevenus))} encaissés'
+            : 'aucun encaissement ce mois',
+        trendUp: _lastMonth(stats.trendRevenus) > 0,
         sparkType: _SparkType.splineArea,
         pts: stats.trendRevenus,
       ),
@@ -564,24 +596,44 @@ class _KpiGrid extends StatelessWidget {
         sparkType: _SparkType.barH,
         barsData: stats.abonnementsByStatus,
       ),
-      // 7 · Sync — barre de progression animée avec glow
+      // 7 · Écoles géolocalisées — barre de progression
+      //
+      // ⚠️ Remplace « Sync réussie 99,7 % », qui était une CONSTANTE. Rien dans
+      // la plateforme ne mesure un taux de synchronisation : le chiffre
+      // s'affichait identique, base pleine ou base vide, application en ligne
+      // ou hors ligne. Ce qui suit se compte : combien d'écoles portent des
+      // coordonnées, donc apparaissent réellement sur la carte nationale.
       _KD(
-        icon: Icons.sync_rounded, color: _kBlue,
-        rawValue: stats.syncRate,
-        format: (v) => '${v.toStringAsFixed(1)}%',
-        label: 'Sync réussie',
+        icon: Icons.place_rounded, color: _kBlue,
+        rawValue: stats.ecolesTotal == 0
+            ? 0
+            : stats.ecolesGeolocalisees * 100 / stats.ecolesTotal,
+        format: (v) => '${v.toStringAsFixed(0)}%',
+        label: 'Écoles géolocalisées',
+        sub: '${stats.ecolesGeolocalisees}/${stats.ecolesTotal} sur la carte',
         trend: isSyncing ? '✅ En ligne' : '⚡ Hors ligne',
         trendUp: isSyncing,
         sparkType: _SparkType.progress,
         progressMax: 100.0,
       ),
-      // 8 · SLA — barre de progression animée avec glow
+      // 8 · Couverture territoriale — barre de progression
+      //
+      // ⚠️ Remplace « Disponibilité SLA 99,5 % », constante elle aussi : un
+      // engagement de service annoncé à un ministère sans rien pour le mesurer.
       _KD(
-        icon: Icons.shield_rounded, color: _kTeal,
-        rawValue: stats.slaRate,
-        format: (v) => '${v.toStringAsFixed(1)}%',
-        label: 'Disponibilité SLA',
-        trend: '✅ Nominal', trendUp: true,
+        icon: Icons.map_rounded, color: _kTeal,
+        rawValue: stats.departementsTotal == 0
+            ? 0
+            : stats.departementsCouverts * 100 / stats.departementsTotal,
+        format: (v) => '${v.toStringAsFixed(0)}%',
+        label: 'Couverture nationale',
+        sub: '${stats.departementsCouverts}/${stats.departementsTotal} '
+            'départements',
+        trend: stats.departementsCouverts == 0
+            ? 'aucun département'
+            : '${stats.departementsCouverts} atteint'
+                '${stats.departementsCouverts > 1 ? 's' : ''}',
+        trendUp: stats.departementsCouverts > 0,
         sparkType: _SparkType.progress,
         progressMax: 100.0,
       ),
@@ -1204,9 +1256,12 @@ class _DeptChartState extends State<_DeptChart>
           const SizedBox(width: 8),
           Expanded(child: Text('Par Département', style: TextStyle(
               color: _kText, fontSize: 15, fontWeight: FontWeight.w700))),
-          widget.stats.deptStats.isNotEmpty
-              ? _Chip('Données réelles', _kGreen)
-              : _Chip('Démo', _kGold),
+          // « Démo » laissait croire que la carte montrait un jeu d'exemple.
+          // Elle ne montre rien : il n'y a aucun groupe à répartir.
+          if (widget.stats.deptStats.isNotEmpty)
+            _Chip('Données réelles', _kGreen)
+          else
+            _Chip('Aucune donnée', _kMuted),
         ]),
         const SizedBox(height: 2),
         Text('$totalG groupe${totalG != 1 ? 's' : ''} · '
@@ -1573,22 +1628,24 @@ class _ActivityFeed extends StatelessWidget {
   const _ActivityFeed({required this.stats});
   final SuperDashboardData stats;
 
-  static const _demo = [
-    ActivityItem(time: 'il y a 17h', icon: '🏫',
-        title: 'Groupe mis à jour', detail: 'Réseau EDEC Congo'),
-    ActivityItem(time: 'il y a 2 j', icon: '👤',
-        title: 'Profil mis à jour', detail: 'Grace'),
-    ActivityItem(time: 'il y a 3 j', icon: '🏫',
-        title: 'Nouvelle école ajoutée', detail: 'École Primaire Saint-Pierre'),
-    ActivityItem(time: 'il y a 5 j', icon: '📋',
-        title: "Plan d'abonnement mis à jour", detail: 'Premium'),
-    ActivityItem(time: 'il y a 6 j', icon: '🏫',
-        title: 'Nouvelle école ajoutée', detail: 'École Savorgnan de Brazza'),
-  ];
+  // ⚠️ AUCUNE ACTIVITÉ FICTIVE ICI.
+  //
+  // Cette carte affichait, quand le journal d'audit était vide, cinq
+  // événements écrits en dur : « Réseau EDEC Congo », « École Primaire
+  // Saint-Pierre », « École Savorgnan de Brazza », un profil « Grace », un
+  // plan « Premium ». Sur une plateforme sans le moindre groupe enregistré,
+  // le tableau de bord racontait donc une semaine d'exploitation qui n'avait
+  // pas eu lieu — avec des noms d'établissements qui n'existent pas. Une
+  // pastille « Démo » le signalait, mais une pastille n'annule pas ce que
+  // l'œil a lu : devant un ministère, ces cinq lignes appellent des questions
+  // auxquelles personne ne peut répondre.
+  //
+  // Le vide se dit. Il est même informatif : il indique que le journal
+  // d'audit n'a encore rien enregistré.
 
   @override
   Widget build(BuildContext context) {
-    final items = stats.recentActivity.isEmpty ? _demo : stats.recentActivity;
+    final items = stats.recentActivity;
     return _Card(child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1597,9 +1654,7 @@ class _ActivityFeed extends StatelessWidget {
               title: 'Activité récente',
               sub: 'Dernières modifications plateforme'),
           const Spacer(),
-          if (stats.recentActivity.isEmpty)
-            _Chip('Démo', _kGold)
-          else
+          if (items.isNotEmpty)
             TextButton(
               onPressed: () => context.go(Routes.superAudit),
               style: TextButton.styleFrom(foregroundColor: _kNavy,
@@ -1609,7 +1664,24 @@ class _ActivityFeed extends StatelessWidget {
             ),
         ]),
         const SizedBox(height: 14),
-        ...items.map((i) => _ATile(item: i)),
+        if (items.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 22),
+            child: Column(children: [
+              Icon(Icons.history_toggle_off_rounded, size: 26, color: _kMuted),
+              const SizedBox(height: 8),
+              Text('Aucune opération enregistrée',
+                  style: TextStyle(color: _kText, fontSize: 12.5,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(height: 3),
+              Text('Le journal se remplira dès la première création de '
+                  'groupe, d\'école ou d\'abonnement.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: _kMuted, fontSize: 11.5)),
+            ]),
+          )
+        else
+          ...items.map((i) => _ATile(item: i)),
       ],
     ));
   }

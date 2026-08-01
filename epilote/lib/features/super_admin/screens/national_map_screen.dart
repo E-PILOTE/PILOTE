@@ -617,7 +617,7 @@ class _NationalAnalytics extends StatelessWidget {
                 ]),
                 const SizedBox(height: 8),
                 Row(children: [
-                  _AnalyticKpi(label: 'Depts couverts', value: '${data.coveredDepts}/12', color: _kGold),
+                  _AnalyticKpi(label: 'Depts couverts', value: '${data.coveredDepts}/${data.totalDepts}', color: _kGold),
                   const SizedBox(width: 8),
                   _AnalyticKpi(label: 'Total élèves', value: '${data.totalStudents}', color: const Color(0xFF7C3AED)),
                 ]),
@@ -734,14 +734,15 @@ class _NationalAnalytics extends StatelessWidget {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
-                          value: data.coveredDepts / 15,
+                          value: data.coverage,
                           minHeight: 10,
                           backgroundColor: _kBg,
                           valueColor: AlwaysStoppedAnimation(_kGreen),
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Text('${data.coveredDepts} / 15 départements couverts (${(data.coveredDepts / 15 * 100).toStringAsFixed(0)}%)',
+                      Text('${data.coveredDepts} / ${data.totalDepts} départements couverts '
+                          '(${(data.coverage * 100).toStringAsFixed(0)} %)',
                           style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _kNavy)),
                     ],
                   ),

@@ -106,8 +106,10 @@ class SuperDashboardData {
     required this.abonnementsByStatus,
     // ── Historique revenus ─────────────────────────────────────────────────
     required this.revenueMonthly,
-    this.syncRate = 99.7,
-    this.slaRate  = 99.5,
+    // ── Couverture territoriale ────────────────────────────────────────────
+    this.ecolesGeolocalisees = 0,
+    this.departementsCouverts = 0,
+    this.departementsTotal = 0,
   });
 
   final int    groupesActifs;
@@ -115,8 +117,26 @@ class SuperDashboardData {
   final int    elevesTotal;
   final int    personnelTotal;
   final double revenusXafMois;
-  final double syncRate;
-  final double slaRate;
+
+  // ── Couverture territoriale ───────────────────────────────────────────────
+  //
+  // ⚠️ Ces deux mesures REMPLACENT « Sync réussie 99,7 % » et « Disponibilité
+  // SLA 99,5 % », qui étaient des CONSTANTES écrites en dur dans ce fichier.
+  // La plateforme n'instrumente ni l'une ni l'autre : aucune table ne mesure le
+  // taux de synchronisation ni la disponibilité du service. Le tableau de bord
+  // annonçait donc un engagement de service à un ministère sur la foi de deux
+  // nombres inventés — y compris application hors ligne et base vide.
+  //
+  // Ce qui les remplace se compte vraiment, et répond à la question qu'un
+  // superviseur national se pose : jusqu'où le déploiement est-il allé ?
+  final int ecolesGeolocalisees;
+  final int departementsCouverts;
+
+  /// Nombre de départements du pays, lu en base (`departments`) — jamais
+  /// codé en dur : l'écran national affichait « /12 » à un endroit et « /15 »
+  /// à un autre, sur la même page.
+  final int departementsTotal;
+
   final int    ecolesTotal;
   final int    abonnementsActifs;
   final int    expirantDans30j;
@@ -220,10 +240,34 @@ final superDashboardProvider =
   // ── Historique revenus 12 mois ────────────────────────────────────────────
   List<MonthlyRevenue> revenueMonthly = const [];
 
+  // ── Couverture territoriale ───────────────────────────────────────────────
+  // Deux mesures qui se comptent : combien d'écoles ont des coordonnées (donc
+  // apparaissent sur la carte nationale), et combien de départements du pays
+  // sont atteints. Le total des départements se LIT en base : il ne se devine
+  // pas, et surtout il ne s'écrit pas en dur deux fois avec deux valeurs
+  // différentes.
+  var ecolesGeolocalisees = 0, departementsCouverts = 0, departementsTotal = 0;
+  try {
+    departementsTotal =
+        (await client.from('departments').select('id') as List).length;
+  } catch (_) {}
+
   // ── Écoles + Groupes ───────────────────────────────────────────────────────
   try {
-    final schools = await client.from('schools').select('id, group_id') as List;
+    final schools = await client
+        .from('schools')
+        .select('id, group_id, latitude, longitude, department') as List;
     ecolesTotal = schools.length;
+
+    final coveredDepts = <String>{};
+    for (final s in schools) {
+      if (s['latitude'] != null && s['longitude'] != null) {
+        ecolesGeolocalisees++;
+      }
+      final d = (s['department'] as String?)?.trim();
+      if (d != null && d.isNotEmpty) coveredDepts.add(d.toLowerCase());
+    }
+    departementsCouverts = coveredDepts.length;
 
     final Map<String, int> schoolsByGroup = {};
     for (final s in schools) {
@@ -302,10 +346,11 @@ final superDashboardProvider =
         amount: mrr, subscriptions: subs,
       ));
     }
-    revenueMonthly = mrList.isNotEmpty ? mrList : _revenueEstimate12m(revenusXafMois);
-  } catch (_) {
-    if (revenusXafMois > 0) revenueMonthly = _revenueEstimate12m(revenusXafMois);
-  }
+    // Pas de repli inventé : le calcul ci-dessus reconstitue le revenu
+    // récurrent à partir des groupes et des plans RÉELS. Quand il ne donne
+    // rien, c'est qu'il n'y a rien — et c'est ce qu'il faut montrer.
+    revenueMonthly = mrList;
+  } catch (_) {}
 
   // ── Personnel par rôle (barres horizontales) ──────────────────────────────
   List<MapEntry<String, int>> personnelByRole = const [];
@@ -378,8 +423,21 @@ final superDashboardProvider =
         .gte('created_at', sixMo.toIso8601String()) as List;
     trendEleves = _monthly6m(rows);
   } catch (_) {}
-  if (revenusXafMois > 0) {
-    trendRevenus = _revenueTrend6m(revenusXafMois);
+  // ⚠️ Les revenus se lisent sur les FACTURES ENCAISSÉES, pas sur une courbe
+  // fabriquée. La version précédente prenait le revenu du mois courant et le
+  // multipliait par [0.62, 0.70, 0.79, 0.87, 0.93, 1.0] : le graphique
+  // « Revenus mensuels · Tendance » montrait donc une croissance régulière
+  // inventée, identique quelle que soit la réalité de la plateforme — et une
+  // courbe montante même un mois où rien n'a été encaissé.
+  // La courbe de la carte « Revenus » est la QUEUE de l'historique 12 mois
+  // calculé plus haut : une seule mesure, lue deux fois. Deux calculs
+  // distincts sous deux libellés voisins finiraient par diverger, et personne
+  // ne saurait lequel dit vrai.
+  if (revenueMonthly.length >= 6) {
+    trendRevenus = [
+      for (final m in revenueMonthly.sublist(revenueMonthly.length - 6))
+        MonthlyPoint(m.label, m.amount),
+    ];
   }
 
   // ── Tri ────────────────────────────────────────────────────────────────────
@@ -408,6 +466,9 @@ final superDashboardProvider =
     trendRevenus:        trendRevenus,
     personnelByRole:     personnelByRole,
     abonnementsByStatus: abonnementsByStatus,
+    ecolesGeolocalisees:  ecolesGeolocalisees,
+    departementsCouverts: departementsCouverts,
+    departementsTotal:    departementsTotal,
     revenueMonthly:      revenueMonthly,
   );
 });
@@ -457,28 +518,15 @@ List<MonthlyPoint> _monthly6m(List rows) {
   }).toList();
 }
 
-List<MonthlyPoint> _revenueTrend6m(double current) {
-  const factors = [0.62, 0.70, 0.79, 0.87, 0.93, 1.0];
-  final now = DateTime.now();
-  return List.generate(6, (i) {
-    final m = DateTime(now.year, now.month - 5 + i);
-    return MonthlyPoint(_kMonthLabels[DateTime(m.year, m.month).month - 1],
-        current * factors[i]);
-  });
-}
-
-List<MonthlyRevenue> _revenueEstimate12m(double current) {
-  const factors = [0.35, 0.42, 0.50, 0.57, 0.63, 0.70, 0.76, 0.82, 0.88, 0.93, 0.97, 1.0];
-  final now = DateTime.now();
-  return List.generate(12, (i) {
-    final m = DateTime(now.year, now.month - 11 + i);
-    return MonthlyRevenue(
-      month: m.month, year: m.year,
-      label: _kMonthLabels[DateTime(m.year, m.month).month - 1],
-      amount: current * factors[i], subscriptions: 0,
-    );
-  });
-}
+// ⚠️ Deux fabriques de courbes ont été supprimées ici : `_revenueTrend6m` et
+// `_revenueEstimate12m`. Elles prenaient le revenu du mois courant et le
+// multipliaient par une suite de facteurs croissants ([0.62, 0.70, 0.79, 0.87,
+// 0.93, 1.0] pour l'une, douze valeurs de 0.35 à 1.0 pour l'autre). Le
+// graphique « Revenus mensuels · Tendance » montrait donc TOUJOURS une belle
+// progression, identique quelle que soit la réalité de la plateforme, y
+// compris un mois sans le moindre encaissement. Le revenu se reconstitue
+// désormais à partir des groupes, de leurs plans et de leurs dates
+// d'abonnement — c'est-à-dire de faits.
 
 // ─── Helpers audit ────────────────────────────────────────────────────────────
 
