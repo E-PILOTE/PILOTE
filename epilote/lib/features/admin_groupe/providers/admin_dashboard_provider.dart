@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
@@ -293,11 +294,14 @@ final adminDashboardProvider =
   final List<DateTime> enrollDates = [];
   int elevesTotal = 0, studentsM = 0, studentsF = 0;
   try {
-    final rows = await client
+    // Ventilation par école, département et genre : il faut les lignes, donc
+    // une pagination — `.length` sur une réponse tronquée à 1 000 plafonnait
+    // l'effectif du groupe (cf. `paged_fetch.dart`).
+    final rows = await fetchAllRows(() => client
         .from('students')
         .select('school_id, gender, created_at')
         .eq('group_id', groupId)
-        .eq('is_active', true) as List;
+        .eq('is_active', true));
     elevesTotal = rows.length;
     for (final r in rows) {
       final sid = r['school_id'] as String? ?? '';
@@ -320,18 +324,22 @@ final adminDashboardProvider =
   final List<DateTime>   hireDates        = [];
   int personnelTotal = 0, fonctionnaires = 0, nonFonctionnaires = 0;
   try {
-    final rows = await client
-        .from('staff_members')
-        .select('school_id, contract_type, hire_date')
+    // Le personnel vit dans `profiles` : `staff_members` est vide et
+    // l'application n'y écrit jamais. Ce bandeau affichait donc zéro agent
+    // dans un groupe qui en compte des centaines.
+    final rows = await fetchAllRows(() => client
+        .from('profiles')
+        .select('school_id, employment_status, hire_date')
         .eq('group_id', groupId)
-        .eq('is_active', true) as List;
+        .eq('is_active', true)
+        .not('role', 'in', '(super_admin,admin_groupe,parent,eleve)'));
     personnelTotal = rows.length;
     for (final r in rows) {
       final sid = r['school_id'] as String? ?? '';
       staffBySchool[sid] = (staffBySchool[sid] ?? 0) + 1;
       final dept = schoolDept[sid] ?? 'Non précisé';
       staffByDept[dept] = (staffByDept[dept] ?? 0) + 1;
-      final ct = (r['contract_type'] as String?) ?? 'permanent';
+      final ct = (r['employment_status'] as String?) ?? 'permanent';
       staffByContract[ct] = (staffByContract[ct] ?? 0) + 1;
       // Fonctionnaire de l'État = contrat permanent (titulaire) ; sinon non-fonctionnaire.
       if (ct == 'permanent') {
@@ -348,11 +356,11 @@ final adminDashboardProvider =
   final Map<String, int> classesBySchool = {};
   int classesTotal = 0;
   try {
-    final rows = await client
+    final rows = await fetchAllRows(() => client
         .from('classes')
         .select('school_id')
         .eq('group_id', groupId)
-        .eq('is_active', true) as List;
+        .eq('is_active', true));
     classesTotal = rows.length;
     for (final r in rows) {
       final sid = r['school_id'] as String? ?? '';

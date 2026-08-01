@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 
 import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
@@ -232,17 +233,27 @@ final superDashboardProvider =
   final Map<String, List<DeptGroupInfo>> deptMap   = {};
 
   // ── Élèves ─────────────────────────────────────────────────────────────────
+  //
+  // ⚠️ COMPTER, PAS RAMENER. `select('id')` puis `.length` compte les lignes
+  // REÇUES — or PostgREST en renvoie 1 000 au maximum. Avec 9 104 élèves semés,
+  // le tableau de bord affichait « 1.0 K » : un plafond technique présenté au
+  // ministère comme un effectif national. À l'échelle visée (1 000+ écoles), la
+  // mesure aurait été fausse d'un ordre de grandeur, et d'autant plus crédible
+  // qu'elle est ronde.
   try {
-    elevesTotal = (await client.from('students').select('id') as List).length;
+    elevesTotal = await client.from('students').count(CountOption.exact);
   } catch (_) {}
 
   // ── Personnel (hors super_admin / admin_groupe) ───────────────────────────
   try {
+    // `count()` s'applique au constructeur de requête : le filtre passe donc
+    // par `select()` avant d'être compté.
     personnelTotal = (await client
-        .from('profiles')
-        .select('id')
-        .not('role', 'in', '(super_admin,admin_groupe)') as List)
-        .length;
+            .from('profiles')
+            .select()
+            .not('role', 'in', '(super_admin,admin_groupe)')
+            .count(CountOption.exact))
+        .count;
   } catch (_) {}
 
   // ── Historique revenus 12 mois ────────────────────────────────────────────
@@ -257,7 +268,7 @@ final superDashboardProvider =
   var ecolesGeolocalisees = 0, departementsCouverts = 0, departementsTotal = 0;
   try {
     departementsTotal =
-        (await client.from('departments').select('id') as List).length;
+        await client.from('departments').count(CountOption.exact);
   } catch (_) {}
 
   // ── Écoles + Groupes ───────────────────────────────────────────────────────

@@ -1,4 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
+
+import '../../../core/utils/paged_fetch.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
@@ -93,7 +96,7 @@ final nationalMapProvider = FutureProvider.autoDispose<NationalMapData>((ref) as
         'id, name, department, subscription_status, '
         'subscription_plans(name)'),
     client.from('schools').select('id, group_id, department'),
-    client.from('students').select('id, school_id'),
+    fetchAllRows(() => client.from('students').select('id, school_id')),
   ]);
 
   final groups   = results[0] as List;
@@ -124,18 +127,45 @@ final nationalMapProvider = FutureProvider.autoDispose<NationalMapData>((ref) as
     studentsByDept[dept] = (studentsByDept[dept] ?? 0) + 1;
   }
 
-  // Groupes par département
-  final Map<String, List<Map>> groupsByDept = {};
-  for (final g in groups) {
-    final m = g as Map;
+  // ── Groupes PRÉSENTS dans chaque département ─────────────────────────────
+  //
+  // ⚠️ La présence se lit sur les ÉCOLES, pas sur le siège du groupe. Le
+  // MEPSA siège à Brazzaville et scolarise à Ouésso, Impfondo et Mossaka : en
+  // rattachant les groupes à leur seule adresse administrative, la carte
+  // nationale annonçait 3 départements couverts sur 15, alors que les
+  // établissements en atteignent la totalité. Sur une vue destinée à un
+  // ministère, c'est l'inverse du message : le déploiement paraissait cantonné
+  // à trois villes.
+  //
+  // Un groupe sans aucune école reste rattaché à son siège — sinon il
+  // disparaîtrait de la carte au lieu d'y apparaître comme non déployé.
+  final Map<String, Map> groupById = {
+    for (final g in groups) (g as Map)['id'] as String: g,
+  };
+  final Map<String, Map<String, Map>> groupsByDept = {};
+  for (final s in schools) {
+    final m    = s as Map;
     final dept = m['department'] as String? ?? 'Non précisé';
-    groupsByDept.putIfAbsent(dept, () => []).add(m);
+    final gid  = m['group_id'] as String?;
+    final g    = gid != null ? groupById[gid] : null;
+    if (g != null) {
+      groupsByDept.putIfAbsent(dept, () => {})[gid!] = g;
+    }
+  }
+  for (final g in groups) {
+    final m   = g as Map;
+    final gid = m['id'] as String;
+    final has = groupsByDept.values.any((set) => set.containsKey(gid));
+    if (!has) {
+      final dept = m['department'] as String? ?? 'Non précisé';
+      groupsByDept.putIfAbsent(dept, () => {})[gid] = m;
+    }
   }
 
   // Construction des entrées par département
   final depts = groupsByDept.entries.map((e) {
     final dept    = e.key;
-    final dGroups = e.value;
+    final dGroups = e.value.values.toList();
 
     return DeptMapEntry(
       dept:         dept,
@@ -158,7 +188,7 @@ final nationalMapProvider = FutureProvider.autoDispose<NationalMapData>((ref) as
 
   var totalDepts = 0;
   try {
-    totalDepts = (await client.from('departments').select('id') as List).length;
+    totalDepts = await client.from('departments').count(CountOption.exact);
   } catch (_) {}
 
   return NationalMapData(

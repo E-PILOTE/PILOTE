@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 
 import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
@@ -268,20 +269,32 @@ final adminSubscriptionProvider =
 
     // Compteurs d'usage
     int schoolsUsed = 0, studentsUsed = 0, staffUsed = 0;
+    // ⚠️ COMPTER, PAS RAMENER. `select('id')` puis `.length` compte les lignes
+    // REÇUES, et PostgREST en renvoie 1 000 au maximum : passé ce seuil la
+    // jauge se figeait à « 1 000 / 2 000 » quel que soit l'effectif réel. Sur
+    // un quota, c'est le pire endroit possible pour mentir — le client croit
+    // avoir de la marge, et l'écriture est refusée par le serveur.
     try {
-      final s = await client.from('schools').select('id')
-          .eq('group_id', groupId).eq('is_active', true) as List;
-      schoolsUsed = s.length;
+      schoolsUsed = (await client.from('schools').select()
+              .eq('group_id', groupId).eq('is_active', true)
+              .count(CountOption.exact))
+          .count;
     } catch (_) {}
     try {
-      final s = await client.from('students').select('id')
-          .eq('group_id', groupId).eq('is_active', true) as List;
-      studentsUsed = s.length;
+      studentsUsed = (await client.from('students').select()
+              .eq('group_id', groupId).eq('is_active', true)
+              .count(CountOption.exact))
+          .count;
     } catch (_) {}
     try {
-      final s = await client.from('staff_members').select('id')
-          .eq('group_id', groupId).eq('is_active', true) as List;
-      staffUsed = s.length;
+      // Le personnel vit dans `profiles` : `staff_members` est vide et
+      // l'application n'y écrit jamais (cf. migration 0076). La jauge affichait
+      // donc perpétuellement 0.
+      staffUsed = (await client.from('profiles').select()
+              .eq('group_id', groupId).eq('is_active', true)
+              .not('role', 'in', '(super_admin,parent,eleve)')
+              .count(CountOption.exact))
+          .count;
     } catch (_) {}
 
     if (g != null) {
