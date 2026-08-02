@@ -59,6 +59,7 @@ class NationalMapData {
   const NationalMapData({
     required this.depts,
     required this.totalGroups,
+    this.activeGroupsTotal = 0,
     required this.totalSchools,
     required this.totalStudents,
     required this.coveredDepts,
@@ -67,6 +68,14 @@ class NationalMapData {
 
   final List<DeptMapEntry> depts;
   final int                totalGroups;
+
+  /// Groupes actifs, comptés une seule fois.
+  ///
+  /// ⚠️ Ne JAMAIS additionner `DeptMapEntry.activeGroups` pour l'obtenir :
+  /// depuis que la présence se lit sur les écoles, un groupe implanté dans neuf
+  /// départements apparaît dans neuf entrées. La somme donnait un « taux
+  /// d'activation » de 357 %.
+  final int                activeGroupsTotal;
   final int                totalSchools;
   final int                totalStudents;
   final int                coveredDepts;
@@ -194,6 +203,9 @@ final nationalMapProvider = FutureProvider.autoDispose<NationalMapData>((ref) as
   return NationalMapData(
     depts:         depts,
     totalGroups:   groups.length,
+    activeGroupsTotal: groups
+        .where((g) => (g as Map)['subscription_status'] == 'active')
+        .length,
     totalSchools:  schools.length,
     totalStudents: students.length,
     coveredDepts:  depts.length,

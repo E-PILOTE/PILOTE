@@ -558,9 +558,11 @@ class _NationalAnalytics extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalActive = data.depts.fold<int>(0, (s, d) => s + d.activeGroups);
+    // Compté sur les groupes distincts, pas sur la somme des départements : un
+    // groupe implanté dans neuf départements y apparaît neuf fois.
     final activationRate = data.totalGroups > 0
-        ? (totalActive / data.totalGroups * 100).toStringAsFixed(0) : '0';
+        ? (data.activeGroupsTotal / data.totalGroups * 100).toStringAsFixed(0)
+        : '0';
     final avgSchools = data.totalGroups > 0
         ? (data.totalSchools / data.totalGroups).toStringAsFixed(1) : '0';
 
