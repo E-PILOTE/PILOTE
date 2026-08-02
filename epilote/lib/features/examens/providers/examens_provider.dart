@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../services/powersync/powersync_service.dart';
+import '../../structure/providers/academic_year_context.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  EXAMENS D'ÉTAT — espace école, 100 % offline (db.watch / db.getAll).
@@ -194,9 +195,16 @@ DateTime? _date(Object? v) =>
 final examOverviewProvider =
     FutureProvider.autoDispose<ExamOverview>((ref) async {
   ref.keepAlive();
+  final yearId = ref.watch(activeYearIdProvider);
 
   // Classes porteuses d'un enjeu d'examen. Les classes de passage sont
   // volontairement exclues : les afficher noierait le signal.
+  //
+  // ⚠️ Le filtre sur l'ANNÉE ACTIVE n'est pas décoratif. Dès que l'année
+  // suivante est ouverte — ce que fait la reconduction des classes — ses
+  // Terminales existent déjà, vides. Sans ce filtre, l'écran comptait deux fois
+  // ses classes d'examen et affichait des lignes « 0 élève » à côté des vraies :
+  // un chef d'établissement y lisait une couverture d'inscription fausse.
   final classRows = await db.getAll(
     'SELECT c.id, c.name, c.level_code, c.cycle_code, c.filiere_label, '
     '       c.exam_status, c.exam_override_id, '
@@ -209,8 +217,9 @@ final examOverviewProvider =
     '  LEFT JOIN national_exams e '
     '    ON e.id = COALESCE(c.exam_override_id, c.exam_id) '
     ' WHERE c.is_active = 1 AND c.exam_status IN (?, ?) '
+    '   AND c.academic_year_id = ? '
     ' ORDER BY c.cycle_code, c.level_code, c.name',
-    ['active', 'examen', 'a_qualifier'],
+    ['active', 'examen', 'a_qualifier', yearId ?? ''],
   );
 
   final sessionRows = await db.getAll(
