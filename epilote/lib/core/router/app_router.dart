@@ -339,7 +339,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.superPaiements,
         builder: (_, _) => const PaymentMethodsScreen(),
       ),
-      _placeholder(Routes.superMessages, 'Messagerie'),
+      // `/super/messagerie` n'est pas un écran : c'est le PARENT de l'accueil,
+      // des messages, des tickets, des annonces et des partenaires. La sidebar
+      // pointe déjà sur l'accueil ; taper l'adresse nue tombait sur un
+      // placeholder, seul cul-de-sac de l'espace opérateur.
+      GoRoute(
+        path: Routes.superMessages,
+        redirect: (_, _) => Routes.superMessagesAccueil,
+      ),
       GoRoute(
         path: Routes.superMessagesInbox,
         builder: (_, state) => StaffMessagesScreen(
