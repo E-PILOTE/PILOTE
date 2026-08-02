@@ -91,7 +91,7 @@ UPDATE exam_sessions s SET
   updated_at = now()
 FROM national_exams e
 WHERE e.id = s.exam_id AND s.year_label = '2025-2026'
-  AND e.code IN ('CEPE', 'BEPC', 'BET', 'BAC_G', 'BAC_TP');
+  AND e.code IN ('CEPE', 'BEPC', 'BET', 'BAC_G', 'BAC_T');
 
 -- ── 3. Les élèves ──────────────────────────────────────────────────────────
 DELETE FROM class_enrollments

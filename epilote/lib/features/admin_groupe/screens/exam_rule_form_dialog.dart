@@ -217,7 +217,7 @@ class _RuleFormState extends ConsumerState<_RuleForm> {
             maxLines: 2,
             style: TextStyle(fontSize: 13, color: kTextPrimary),
             decoration: _dec('Note / référence de l\'arrêté',
-                hint: 'ex. arrêté N°… — série F7 vers le Bac T&P'),
+                hint: 'ex. arrêté N°… — série F7 vers le Bac technique'),
           ),
           const SizedBox(height: 10),
           SwitchListTile.adaptive(

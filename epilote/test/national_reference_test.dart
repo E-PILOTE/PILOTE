@@ -17,7 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 OfficialFigure _fig({
   String id = 'f1',
   PubScope scope = PubScope.national,
-  String? examCode = 'BAC_TP',
+  String? examCode = 'BAC_T',
   String? yearLabel = '2025-2026',
   int? present,
   int? admitted,
@@ -58,7 +58,7 @@ void main() {
           _fig(id: 'a', yearLabel: '2024-2025', present: 15843, admitted: 7681),
           _fig(id: 'b', yearLabel: '2025-2026', storedRate: 51.61),
         ],
-        examCode: 'BAC_TP',
+        examCode: 'BAC_T',
         currentYearLabel: '2025-2026',
       );
 
@@ -100,7 +100,7 @@ void main() {
       // et non 7 681 / 16 070 inscrits.
       final r = nationalReferenceFor(
         [_fig(yearLabel: '2024-2025', present: 15843, admitted: 7681)],
-        examCode: 'BAC_TP',
+        examCode: 'BAC_T',
         currentYearLabel: '2024-2025',
       );
 
@@ -118,7 +118,7 @@ void main() {
               storedRate: 99.23),
           _fig(id: 'x', examCode: 'BET', storedRate: 77.59),
         ],
-        examCode: 'BAC_TP',
+        examCode: 'BAC_T',
         currentYearLabel: '2025-2026',
       );
 
@@ -129,7 +129,7 @@ void main() {
     test('un taux publié sans effectifs reste exploitable', () {
       final r = nationalReferenceFor(
         [_fig(storedRate: 51.61, sourceLabel: 'Délibération DEC 2026')],
-        examCode: 'BAC_TP',
+        examCode: 'BAC_T',
         currentYearLabel: '2025-2026',
       );
 
@@ -140,13 +140,13 @@ void main() {
     test('rien de relevé : aucune référence, jamais un zéro', () {
       expect(
         nationalReferenceFor(const [],
-            examCode: 'BAC_TP', currentYearLabel: '2025-2026'),
+            examCode: 'BAC_T', currentYearLabel: '2025-2026'),
         isNull,
       );
       // Une ligne sans taux ni effectifs ne fabrique pas un 0 %.
       expect(
         nationalReferenceFor([_fig()],
-            examCode: 'BAC_TP', currentYearLabel: '2025-2026'),
+            examCode: 'BAC_T', currentYearLabel: '2025-2026'),
         isNull,
       );
     });

@@ -27,12 +27,16 @@ import 'admin_exams_provider.dart';
 /// candidat au BET n'en a jamais eu besoin : l'alerte « bac bloqué » n'a de
 /// sens que sur ce périmètre.
 ///
-/// ⚠️ `BAC_TP` est le code RÉEL : la Direction des examens et concours ne
-/// délibère qu'UN baccalauréat technique et professionnel. `BAC_T` et `BAC_P`
-/// étaient deux examens fictifs, supprimés par la migration 0065 ; ils restent
-/// listés pour qu'un groupe non encore migré ne perde pas son alerte du jour
-/// au lendemain.
-const kBacProInternship = {'BAC_TP', 'BAC_T', 'BAC_P'};
+/// ⚠️ Les codes RÉELS sont `BAC_T` et `BAC_P` : la Direction des examens et
+/// concours publie DEUX palmarès, « Baccalauréat technique » et « Baccalauréat
+/// professionnel ». Le libellé « bac technique et professionnel » qu'emploie la
+/// presse désigne la SESSION commune de juin, où les deux jurys siègent
+/// ensemble — pas un diplôme unique. La migration 0065 en avait tiré une fusion
+/// erronée, défaite par la 0079.
+///
+/// `BAC_TP` reste listé pour qu'un groupe pas encore migré ne perde pas son
+/// alerte du jour au lendemain.
+const kBacProInternship = {'BAC_T', 'BAC_P', 'BAC_TP'};
 
 const _kUnsetDepartment = 'Non renseigné';
 

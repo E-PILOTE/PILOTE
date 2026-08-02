@@ -28,7 +28,7 @@
 --
 --  Les taux visés sont ancrés sur le réel :
 --    • BET     ≈ 76 %   — la DEC a proclamé 77,59 % en juin 2025
---    • Bac T&P ≈ 50,5 % — la DEC a proclamé 51,61 % en juin 2026
+--    • Bac technique ≈ 50,5 % — la DEC a proclamé 51,61 % en juin 2026
 --    • CEPE ≈ 78 %, BEPC ≈ 58 %, Bac G ≈ 46 %
 --
 --  ⚠️ L'écart d'un point entre le réseau et le national au bac technique est
@@ -81,7 +81,7 @@ UPDATE exam_sessions s SET
   updated_at = now()
 FROM national_exams e
 WHERE e.id = s.exam_id AND s.year_label = '2025-2026'
-  AND e.code IN ('CEPE', 'BEPC', 'BET', 'BAC_G', 'BAC_TP');
+  AND e.code IN ('CEPE', 'BEPC', 'BET', 'BAC_G', 'BAC_T');
 
 -- ────────────────────────────────────────────────────────────────────────────
 --  2. LA SESSION SUIVANTE EST OUVERTE, ET VIDE
@@ -104,7 +104,7 @@ SELECT seed_uuid('session:' || e.code || ':2026-2027'), s.exam_id, '2026-2027',
 FROM exam_sessions s
 JOIN national_exams e ON e.id = s.exam_id
 WHERE s.year_label = '2025-2026'
-  AND e.code IN ('CEPE', 'BEPC', 'BET', 'BAC_G', 'BAC_TP')
+  AND e.code IN ('CEPE', 'BEPC', 'BET', 'BAC_G', 'BAC_T')
 ON CONFLICT (exam_id, year_label) DO UPDATE SET
   registration_opens_at = EXCLUDED.registration_opens_at,
   registration_closes_at = EXCLUDED.registration_closes_at,
@@ -191,7 +191,7 @@ SELECT t.*,
          WHEN 'BEPC'   THEN 0.580
          WHEN 'BET'    THEN 0.760
          WHEN 'BAC_G'  THEN 0.460
-         WHEN 'BAC_TP' THEN 0.505
+         WHEN 'BAC_T' THEN 0.505
          ELSE               0.600
        END AS taux_vise,
        p.position,

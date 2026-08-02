@@ -47,7 +47,7 @@ CREATE TEMP TABLE tmp_school_cycle(school_key text, cycle_code text) ON COMMIT D
 
 INSERT INTO tmp_school_cycle VALUES
   -- METP : technique uniquement. Les collèges d'enseignement technique
-  -- préparent le BET en 3ᵉ ; les lycées et instituts mènent au Bac T&P.
+  -- préparent le BET en 3ᵉ ; les lycées et instituts mènent au Bac technique.
   ('metp-lt-1er-mai','lycee'), ('metp-lti-sankara','lycee'),
   ('metp-ltc-bacongo','lycee'), ('metp-lt-pnr','lycee'),
   ('metp-iti-loandjili','lycee'), ('metp-lt-dolisie','lycee'),

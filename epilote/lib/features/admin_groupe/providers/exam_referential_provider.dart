@@ -245,7 +245,7 @@ final examReferentialProvider =
 // ─── Écritures : examens ────────────────────────────────────────────────────
 
 /// Modifier un examen existant. Le CODE reste modifiable (une réforme peut
-/// renommer un diplôme — `BAC_T` est devenu `BAC_TP` par la migration 0065),
+/// renommer un diplôme — `BAC_TP` est redevenu `BAC_T` par la migration 0079),
 /// mais il porte les rattachements : `kBacProInternship` et les publications
 /// archivées s'y adossent. L'écran le dit avant de laisser faire.
 Future<void> updateNationalExam(
