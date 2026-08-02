@@ -127,6 +127,14 @@ DELETE FROM auth.users
 
 -- ⚠️ `access_profiles` n'a pas de colonne `slug` : la clé d'origine est le
 -- `role_type` (« directeur », « secretaire »…), c'est lui qui se recalcule.
+--
+-- Les permissions partiraient d'elles-mêmes par cascade ; on les efface quand
+-- même, pour que ce fichier reste la liste complète de ce qu'il détruit.
+DELETE FROM profile_permissions pp
+ USING access_profiles ap, school_groups g
+ WHERE pp.profile_id = ap.id AND g.id = ap.group_id AND g.slug IS NOT NULL
+   AND ap.id = seed_uuid('ap:' || g.slug || ':' || ap.role_type);
+
 DELETE FROM access_profiles ap
  USING school_groups g
  WHERE g.id = ap.group_id AND g.slug IS NOT NULL

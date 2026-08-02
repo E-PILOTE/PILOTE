@@ -136,16 +136,52 @@ JOIN (VALUES
 --  de présenter au ministère un organigramme d'établissement français.
 -- ────────────────────────────────────────────────────────────────────────────
 
-CREATE TEMP TABLE tmp_person(idx int, first text, last text) ON COMMIT DROP;
-INSERT INTO tmp_person VALUES
-  (0,'Jean-Claude','Massamba'), (1,'Alphonsine','Kimbembé'),
-  (2,'Rodrigue','Bantsimba'),   (3,'Véronique','Ossébi'),
-  (4,'Serge','Mavoungou'),      (5,'Bernadette','Tchicaya'),
-  (6,'Firmin','Okemba'),        (7,'Adèle','Ngouabi'),
-  (8,'Pascal','Ibara'),         (9,'Léontine','Samba'),
-  (10,'Hervé','Milandou'),      (11,'Chantal','Makosso'),
-  (12,'Norbert','Ekondi'),      (13,'Josiane','Bouity'),
-  (14,'Guy-Blaise','Malonga'),  (15,'Micheline','Ondzé');
+-- ── DEUX HOMONYMES DANS UNE MÊME ÉCOLE, ET LA DÉMO EST MORTE ───────────────
+--  Première version : seize identités complètes, tirées au hasard pour chacun
+--  des dix agents d'une école. Le paradoxe des anniversaires a fait le reste —
+--  soixante-deux collisions, jusqu'à QUATRE « Alphonsine Kimbembé » dans le même
+--  établissement, alignées dans le sélecteur de poste partagé. Un ministère y
+--  lit un bug d'unicité, pas une coïncidence.
+--
+--  Désormais : seize prénoms × trente-deux noms = 512 identités, et surtout
+--  chaque agent reçoit un RANG dans son école (0 pour le chef, 1 à 3 pour
+--  l'encadrement, 4 à 9 pour les enseignants). L'identité se déduit du rang par
+--  incrément, donc deux rangs différents ne peuvent PAS retomber sur le même
+--  prénom : l'unicité n'est plus une chance, c'est une conséquence.
+CREATE TEMP TABLE tmp_prenom(idx int, first text) ON COMMIT DROP;
+INSERT INTO tmp_prenom VALUES
+  (0,'Jean-Claude'), (1,'Alphonsine'), (2,'Rodrigue'),  (3,'Véronique'),
+  (4,'Serge'),       (5,'Bernadette'), (6,'Firmin'),    (7,'Adèle'),
+  (8,'Pascal'),      (9,'Léontine'),  (10,'Hervé'),    (11,'Chantal'),
+  (12,'Norbert'),   (13,'Josiane'),   (14,'Guy-Blaise'),(15,'Micheline');
+
+-- Les mêmes patronymes que les élèves (seed 04) : dans un pays, le personnel
+-- porte les noms des familles qu'il scolarise.
+CREATE TEMP TABLE tmp_nom(idx int, last text) ON COMMIT DROP;
+INSERT INTO tmp_nom VALUES
+  (0,'Mabiala'),(1,'Ngoma'),(2,'Bakala'),(3,'Loubaki'),(4,'Mouko'),
+  (5,'Ondongo'),(6,'Nkodia'),(7,'Massamba'),(8,'Kimbembé'),(9,'Bantsimba'),
+  (10,'Ossébi'),(11,'Mavoungou'),(12,'Tchicaya'),(13,'Okemba'),(14,'Ngouabi'),
+  (15,'Ibara'),(16,'Samba'),(17,'Milandou'),(18,'Makosso'),(19,'Ekondi'),
+  (20,'Bouity'),(21,'Malonga'),(22,'Ondzé'),(23,'Moukala'),(24,'Nzaba'),
+  (25,'Kouka'),(26,'Bemba'),(27,'Itoua'),(28,'Gackosso'),(29,'Mfoutou'),
+  (30,'Ngakosso'),(31,'Obami');
+
+-- L'identité de l'agent de rang `p_rang` dans l'école `p_school`.
+--
+-- ⚠️ Le pas est 17, pas 1. Avancer d'un cran ne changeait que le prénom — le
+-- nom, lui, vit dans la division par 16 et restait figé : dix agents, dix
+-- prénoms différents et un seul patronyme pour toute l'école. Avec 17, le
+-- prénom avance de 1 (17 mod 16) ET le nom d'un cran : les deux bougent, et
+-- l'unicité des prénoms reste garantie sur les dix rangs.
+CREATE OR REPLACE FUNCTION pg_temp.identite(p_school uuid, p_rang int)
+RETURNS TABLE(first text, last text)
+LANGUAGE sql STABLE AS $f$
+  SELECT pr.first, nm.last
+  FROM (SELECT (abs(hashtext(p_school::text)) + p_rang * 17) % 512 AS k) c
+  JOIN tmp_prenom pr ON pr.idx = c.k % 16
+  JOIN tmp_nom    nm ON nm.idx = (c.k / 16) % 32
+$f$;
 
 -- Chef d'établissement
 SELECT seed_account(
@@ -159,9 +195,8 @@ SELECT seed_account(
   'DIR-' || s.school_code)
 FROM schools s
 JOIN school_groups g ON g.id = s.group_id
-JOIN tmp_person p ON p.idx = abs(hashtext(s.id::text)) % 16
-WHERE s.id = seed_uuid('school:' || replace(lower(s.school_code), '', ''))
-   OR s.school_code IS NOT NULL;
+JOIN LATERAL pg_temp.identite(s.id, 0) p ON true
+WHERE s.school_code IS NOT NULL;
 
 -- Secrétariat, surveillance générale, comptabilité
 SELECT seed_account(
@@ -174,11 +209,11 @@ SELECT seed_account(
 FROM schools s
 JOIN school_groups g ON g.id = s.group_id
 CROSS JOIN (VALUES
-  ('sec',  'secretaire',  'secretaire',  false, false, 0),
-  ('vs',   'surveillant', 'surveillant', false, true,  1),
-  ('cpt',  'comptable',   'comptable',   true,  false, 400)
-) AS r(tag, role, ap, fin, disc, min_cap)
-JOIN tmp_person p ON p.idx = abs(hashtext(r.tag || s.id::text)) % 16
+  ('sec',  'secretaire',  'secretaire',  false, false, 0,   1),
+  ('vs',   'surveillant', 'surveillant', false, true,  1,   2),
+  ('cpt',  'comptable',   'comptable',   true,  false, 400, 3)
+) AS r(tag, role, ap, fin, disc, min_cap, rang)
+JOIN LATERAL pg_temp.identite(s.id, r.rang) p ON true
 WHERE s.capacity >= r.min_cap;
 
 -- Enseignants : cinq par établissement, six au-delà de 600 places.
@@ -192,7 +227,8 @@ FROM schools s
 JOIN school_groups g ON g.id = s.group_id
 JOIN generate_series(1, 6) AS n(i)
   ON n.i <= (CASE WHEN s.capacity >= 600 THEN 6 ELSE 5 END)
-JOIN tmp_person p ON p.idx = abs(hashtext('ens' || n.i || s.id::text)) % 16;
+-- Rangs 4 à 9 : à la suite de la direction, jamais sur elle.
+JOIN LATERAL pg_temp.identite(s.id, 3 + n.i) p ON true;
 
 -- ────────────────────────────────────────────────────────────────────────────
 --  4. LE PROFESSEUR PRINCIPAL DE CHAQUE CLASSE

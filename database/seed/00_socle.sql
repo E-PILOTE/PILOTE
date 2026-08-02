@@ -16,10 +16,15 @@
 --    02_structure.sql        → cycles/niveaux/matières/classes des deux années
 --    03_personnel.sql        → direction et enseignants
 --    04_eleves.sql           → élèves et inscriptions
---    05_evaluation.sql       → notes, bulletins, décisions de fin d'année
+--    05_evaluation.sql       → trimestres, matières, notes, bulletins
 --    06_examens.sql          → candidatures et résultats proclamés
+--    07_droits.sql           → ce que chaque profil d'accès peut ouvrir
 --
---  Pour tout effacer : `database/seed/99_purge.sql`.
+--  ⚠️ Le 07 n'est pas facultatif. Sans lui, les profils d'accès existent mais
+--  n'accordent RIEN : chaque agent se connecte sur une sidebar vide, et pas une
+--  ligne des seeds 02 à 06 n'est visible dans l'application.
+--
+--  Pour tout effacer : `psql … -v purge_confirm=oui -f database/seed/99_purge.sql`.
 -- ════════════════════════════════════════════════════════════════════════════
 
 CREATE OR REPLACE FUNCTION public.seed_uuid(p_key text)
