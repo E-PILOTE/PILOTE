@@ -67,6 +67,17 @@ OutputDir=..\..\dist
 OutputBaseFilename=E-PILOTE-{#AppVersion}-installateur
 WizardStyle=modern
 
+; ── Mise à jour d'un poste où l'application tourne ──────────────────────────
+; L'installateur remplace l'exécutable en cours d'exécution. Sans cela, Windows
+; refuse l'écriture et l'installation échoue à mi-parcours — état dont un
+; secrétariat d'établissement ne saura pas sortir. Le Gestionnaire de
+; redémarrage détecte le processus et propose de le fermer.
+CloseApplications=yes
+; ...mais on ne le RELANCE pas : après une mise à jour, l'agent doit rouvrir
+; lui-même et voir l'écran de connexion. Une application qui réapparaît seule
+; sur un poste partagé laisse une session ouverte à qui passe.
+RestartApplications=no
+
 [Languages]
 ; Le français seul. L'application l'est, ses utilisateurs aussi ; proposer un
 ; choix de langue à l'installation n'ajouterait qu'une étape à franchir.

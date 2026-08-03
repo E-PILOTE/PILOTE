@@ -65,6 +65,9 @@ dependencies:
   path: ^1.9.1
   shared_preferences: ^2.5.5
   crypto: ^3.0.7
+  # `AccumulatorSink` — le calcul d'empreinte EN FLUX. Sans lui, vérifier un
+  # installateur de 34 Mo le charge entier en mémoire sur un poste d'école.
+  convert: ^3.1.2
   cryptography: ^2.7.0          # Ed25519 (vérif signature licence) — crypto seul ne fait que SHA/HMAC
   flutter_secure_storage: ^9.2.4 # coffre licence (Keychain/Keystore ; faible desktop → intégrité par signature)
   flutter_map: ^7.0.2

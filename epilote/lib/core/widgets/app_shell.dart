@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../constants/app_constants.dart';
+import '../../features/updates/widgets/update_banner.dart';
 import '../services/pdf_issuer.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/super_admin/providers/super_dashboard_provider.dart';
@@ -175,6 +176,10 @@ class _AppShellState extends ConsumerState<AppShell> {
                 if (isStaff) const LicenseBanner(),
                 if (profile?.role == AppConstants.roleAdminGroupe)
                   const SubscriptionBanner(),
+                // En dernier, sous les bannières d'état : une mise à jour est
+                // une information, pas une urgence. Elle ne doit jamais passer
+                // devant un échec de synchronisation ou une licence expirée.
+                const UpdateBanner(),
                 Expanded(
                   child: Stack(
                     children: [

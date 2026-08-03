@@ -166,11 +166,74 @@ jobs:
             '{0} — {1:N1} Mo' -f $_.Name, ($_.Length / 1MB)
           }
 
+      # ── Signature de code ──────────────────────────────────────────────
+      # Le certificat n'existe pas encore : le Congo n'avait aucun système, il
+      # est à créer de toutes pièces. Cette étape est donc écrite MAINTENANT et
+      # reste INERTE tant que le secret est absent — le jour où le certificat
+      # arrive, il n'y a qu'un secret à poser, aucun code à écrire dans
+      # l'urgence d'une veille de déploiement.
+      #
+      # Secrets attendus : WINDOWS_CERT_PFX (base64 du .pfx) et
+      # WINDOWS_CERT_PASSWORD.
+      - name: Signer l'installateur
+        shell: pwsh
+        env:
+          CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+          CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          if (-not $env:CERT_PFX) {
+            Write-Host '::notice::Aucun certificat configure - installateur NON SIGNE.'
+            Write-Host 'Windows affichera un avertissement SmartScreen. Voir packaging/windows/INSTALL.md.'
+            exit 0
+          }
+          $pfx = Join-Path $env:RUNNER_TEMP 'epilote.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERT_PFX))
+          $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter signtool.exe |
+                      Where-Object { $_.FullName -like '*x64*' } | Select-Object -First 1
+          if (-not $signtool) { throw 'signtool.exe introuvable sur le runner.' }
+          Get-ChildItem dist\*.exe | ForEach-Object {
+            & $signtool.FullName sign /f $pfx /p $env:CERT_PASSWORD `
+              /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $_.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Signature echouee pour $($_.Name)" }
+          }
+          Remove-Item $pfx -Force
+          Write-Host 'Installateur signe'
+
+      # ── L'empreinte ────────────────────────────────────────────────────────
+      # Elle n'est pas décorative : l'application REFUSE d'installer un fichier
+      # dont l'empreinte diffère de celle publiée (table `app_releases`). La
+      # calculer ici évite de la retaper à la main — une empreinte recopiée de
+      # travers bloque toute mise à jour du parc, sans que personne comprenne.
+      - name: Empreinte et manifeste
+        shell: pwsh
+        run: |
+          $pubspec = Get-Content epilote\pubspec.yaml | Select-String '^version:'
+          $brut = ($pubspec -split ':')[1].Trim()
+          $version = $brut.Split('+')[0]
+          $build = $brut.Split('+')[1]
+          $exe = Get-ChildItem dist\*.exe | Select-Object -First 1
+          $sha = (Get-FileHash $exe.FullName -Algorithm SHA256).Hash.ToLower()
+
+          $manifeste = [ordered]@{
+            version      = $version
+            build_number = [int]$build
+            platform     = 'windows'
+            channel      = 'stable'
+            sha256       = $sha
+            size_bytes   = $exe.Length
+            download_url = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:GITHUB_REF_NAME/$($exe.Name)"
+          }
+          $manifeste | ConvertTo-Json | Set-Content dist\manifest.json -Encoding utf8
+          Write-Host "Version   : $version (build $build)"
+          Write-Host "Empreinte : $sha"
+
       - name: Artefact — installateur
         uses: actions/upload-artifact@v4
         with:
           name: E-PILOTE-installateur-${{ github.sha }}
-          path: dist/*.exe
+          path: |
+            dist/*.exe
+            dist/manifest.json
           retention-days: 30
           if-no-files-found: error
 
@@ -206,9 +269,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" dist/*.exe \
+          SHA=$(sha256sum dist/*.exe | cut -d' ' -f1)
+          gh release create "${GITHUB_REF_NAME}" dist/*.exe dist/manifest.json \
             --title "E-PILOTE CONGO ${GITHUB_REF_NAME}" \
-            --notes "$(cat <<'NOTES'
+            --notes "$(cat <<NOTES
           Installateur Windows 10/11 (64 bits, build 17763 minimum).
 
           Télécharger le fichier `.exe` ci-dessous et le double-cliquer.
@@ -219,6 +283,18 @@ jobs:
           complémentaires » puis « Exécuter quand même ». Acceptable pour une
           recette interne, à lever avant tout déploiement en établissement.
 
-          Procédure complète : `packaging/windows/INSTALL.md`.
+          **Empreinte SHA-256 de l'installateur**
+
+              ${SHA}
+
+          C'est elle que l'application vérifie avant d'installer une mise à
+          jour. Elle est aussi le seul moyen, sans signature, de prouver qu'un
+          installateur reçu par clé USB est bien celui qui a été publié :
+          Get-FileHash fichier.exe -Algorithm SHA256
+
+          Le fichier manifest.json ci-dessous contient la ligne à publier dans
+          la table app_releases pour ouvrir la mise à jour au parc.
+
+          Procédure complète : packaging/windows/INSTALL.md
           NOTES
           )"
