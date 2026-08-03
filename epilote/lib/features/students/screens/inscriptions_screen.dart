@@ -9,6 +9,7 @@ import 'package:shimmer/shimmer.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../core/utils/write_identity.dart';
+import '../../../core/utils/sortie_motif.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../../data/models/class_model.dart';
@@ -229,36 +230,58 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
   Future<void> _withdraw(InscriptionRow r) async {
     if (writeRefusedForLicense(context)) return;
     final ctrl = TextEditingController();
+    // Le motif normalisé est OBLIGATOIRE : c'est lui qui se compte. Le champ
+    // libre reste à côté, pour le cas particulier. Sans catégorie, cette
+    // sortie deviendrait une ligne de plus dans un total qu'on ne sait pas
+    // ventiler — et la déperdition scolaire ne se lit nulle part ailleurs.
+    String? motif;
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: const Text('Retirer de la classe'),
-        content: TextField(
-          controller: ctrl,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: 'Motif du retrait',
-            hintText: 'Ex. : Déménagement, transfert…',
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          DropdownButtonFormField<String>(
+            initialValue: motif,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Motif *'),
+            items: [
+              for (final m in motifsPour(transfert: false))
+                DropdownMenuItem(value: m.code, child: Text(m.label)),
+            ],
+            onChanged: (v) => setLocal(() => motif = v),
           ),
-        ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: ctrl,
+            maxLines: 2,
+            decoration: const InputDecoration(
+              labelText: 'Précision (facultatif)',
+              hintText: 'Ce que la catégorie ne dit pas',
+            ),
+          ),
+        ]),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Annuler')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: kAccent),
-            onPressed: () => Navigator.pop(ctx, true),
+            onPressed:
+                motif == null ? null : () => Navigator.pop(ctx, true),
             child: const Text('Retirer'),
           ),
         ],
+        ),
       ),
     );
     if (ok != true) { ctrl.dispose(); return; }
     try {
       await withdrawStudent(
         enrollmentId: r.id,
-        reason: ctrl.text.trim().isEmpty ? 'Aucun motif précisé' : ctrl.text.trim(),
+        motif: motif!,
+        reason: ctrl.text.trim().isEmpty ? '' : ctrl.text.trim(),
       );
       _snack('Élève retiré de la classe', kTextMuted);
     } catch (e) {

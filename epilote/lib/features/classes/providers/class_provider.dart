@@ -436,6 +436,7 @@ Future<void> rejectEnrollment({
 Future<void> withdrawStudent({
   required String enrollmentId,
   required String reason,
+  required String motif,
 }) async {
   final now   = DateTime.now().toIso8601String();
   final today = now.substring(0, 10);
@@ -444,11 +445,12 @@ Future<void> withdrawStudent({
     UPDATE class_enrollments
     SET    status = 'withdrawn',
            withdrawal_date   = ?,
+           withdrawal_motif  = ?,
            withdrawal_reason = ?,
            updated_at        = ?
     WHERE  id = ?
     ''',
-    [today, reason, now, enrollmentId],
+    [today, motif, reason, now, enrollmentId],
   );
 }
 
@@ -487,6 +489,7 @@ Future<void> setEnrollmentExit({
   required String enrollmentId,
   required String status,
   required String reason,
+  required String motif,
 }) async {
   final now = DateTime.now().toIso8601String();
   final today = now.substring(0, 10);
@@ -495,11 +498,12 @@ Future<void> setEnrollmentExit({
     UPDATE class_enrollments
     SET    status            = ?,
            withdrawal_date   = ?,
+           withdrawal_motif  = ?,
            withdrawal_reason = ?,
            updated_at        = ?
     WHERE  id = ?
     ''',
-    [status, today, reason, now, enrollmentId],
+    [status, today, motif, reason, now, enrollmentId],
   );
 }
 

@@ -319,6 +319,9 @@ const schema = Schema([
     Column.text('previous_class_id'),
     Column.text('withdrawal_date'),
     Column.text('withdrawal_reason'),
+    // Catégorie normalisée de la sortie (migration 0082) — c'est elle
+    // qui se compte ; `withdrawal_reason` reste le commentaire libre.
+    Column.text('withdrawal_motif'),
     // Workflow inscription
     Column.text('inscription_type'),       // new|reinscription|transfer
     Column.text('transfer_reason'),        // motif si type=transfer (migration 0007)

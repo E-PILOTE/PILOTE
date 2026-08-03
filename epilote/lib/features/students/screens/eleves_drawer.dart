@@ -264,7 +264,10 @@ class _DwActionBar extends ConsumerWidget {
       context,
       () async {
         await setEnrollmentExit(
-            enrollmentId: row.enrollmentId!, status: status, reason: res.reason);
+            enrollmentId: row.enrollmentId!,
+            status: status,
+            motif: res.motif,
+            reason: res.reason);
         // Réconciliation : un transfert depuis la fiche alimente le registre
         // des Transferts (statut « terminé », l'élève étant déjà sorti).
         if (isTransfer &&
@@ -459,13 +462,24 @@ class _ExitDialog extends ConsumerStatefulWidget {
 /// Résultat de la sortie : motif + (pour un transfert) école de destination
 /// (cascade groupe → école). Alimente le registre des Transferts (réconciliation).
 class _ExitResult {
-  const _ExitResult({required this.reason, this.toSchoolId, this.toSchoolName});
+  const _ExitResult({
+    required this.motif,
+    required this.reason,
+    this.toSchoolId,
+    this.toSchoolName,
+  });
+
+  /// Catégorie normalisée — c'est elle qui se compte.
+  final String motif;
+
+  /// Le commentaire de l'agent, pour ce que la catégorie ne dit pas.
   final String reason;
   final String? toSchoolId, toSchoolName;
 }
 
 class _ExitDialogState extends ConsumerState<_ExitDialog> {
   final _reason = TextEditingController();
+  String? _motif;
   TransferDestination? _dest;
   @override
   void dispose() {
@@ -484,12 +498,16 @@ class _ExitDialogState extends ConsumerState<_ExitDialog> {
       submitLabel: t ? 'Transférer' : 'Radier',
       submitIcon: Icons.check_rounded,
       submitColor: kRed,
-      onSubmit: () => Navigator.pop(
+      // Sans motif, pas de sortie. Ce n'est pas une rigidité : une sortie sans
+      // catégorie est une ligne de plus dans un total qu'on ne sait pas
+      // ventiler, et la déperdition scolaire ne se lit nulle part ailleurs.
+      onSubmit: _motif == null
+          ? null
+          : () => Navigator.pop(
         context,
         _ExitResult(
-          reason: _reason.text.trim().isEmpty
-              ? (t ? 'Transfert' : 'Radiation')
-              : _reason.text.trim(),
+          motif: _motif!,
+          reason: _reason.text.trim(),
           toSchoolId: t ? _dest?.schoolId : null,
           toSchoolName: t && (_dest?.isValid ?? false) ? _dest!.schoolName : null,
         ),
@@ -508,7 +526,32 @@ class _ExitDialogState extends ConsumerState<_ExitDialog> {
           TransferDestinationPicker(onChanged: (d) => _dest = d),
           const SizedBox(height: 14),
         ],
-        Text('Motif',
+        Text('Motif *',
+            style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: kTextPrimary)),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          initialValue: _motif,
+          isExpanded: true,
+          decoration: adminFilledInput('Choisir un motif'),
+          style: const TextStyle(fontSize: 13.5),
+          items: [
+            for (final m in motifsPour(transfert: t))
+              DropdownMenuItem(value: m.code, child: Text(m.label)),
+          ],
+          onChanged: (v) => setState(() => _motif = v),
+        ),
+        if (_motif != null) ...[
+          const SizedBox(height: 5),
+          Text(
+            motifsPour(transfert: t).firstWhere((m) => m.code == _motif).hint,
+            style: TextStyle(fontSize: 11.5, color: kTextMuted, height: 1.3),
+          ),
+        ],
+        const SizedBox(height: 12),
+        Text('Précision (facultatif)',
             style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
@@ -516,10 +559,10 @@ class _ExitDialogState extends ConsumerState<_ExitDialog> {
         const SizedBox(height: 6),
         TextField(
           controller: _reason,
-          maxLines: 3,
+          maxLines: 2,
           style: const TextStyle(fontSize: 13.5),
-          decoration: adminFilledInput(
-              t ? 'Ex. : déménagement, motif…' : 'Ex. : abandon, exclusion…'),
+          decoration:
+              adminFilledInput('Ce que la catégorie ne dit pas'),
         ),
       ]),
     );

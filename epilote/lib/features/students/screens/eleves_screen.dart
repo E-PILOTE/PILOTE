@@ -27,6 +27,7 @@ import '../widgets/transfer_destination_picker.dart';
 import '../widgets/inscription_form_kit.dart';
 import 'add_inscription_screen.dart';
 import '../../../core/utils/ine.dart';
+import '../../../core/utils/sortie_motif.dart';
 
 part 'eleves_parts.dart';
 part 'eleves_drawer.dart';
