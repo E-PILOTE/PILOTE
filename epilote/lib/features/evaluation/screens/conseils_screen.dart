@@ -36,20 +36,20 @@ const _kSlug = 'conseils';
 class ConseilsScreen extends ConsumerWidget {
   const ConseilsScreen({super.key});
   @override
-  Widget build(BuildContext context, WidgetRef ref) => ModuleScaffold(
+  Widget build(BuildContext context, WidgetRef ref) => const ModuleScaffold(
         slug: _kSlug,
         title: 'Conseil de classe',
-        // Le conseil de fin d'année est la suite de celui-ci, pas un autre
+        // Le conseil de fin d'année est la SUITE de celui-ci, pas un autre
         // module : on y accède d'ici plutôt que par une entrée de sidebar de
         // plus, qui laisserait croire à deux instances distinctes.
-        actions: [
-          OutlinedButton.icon(
-            onPressed: () => context.go(Routes.passage),
-            icon: const Icon(Icons.moving_rounded, size: 16),
-            label: const Text('Passage en classe supérieure'),
-          ),
-        ],
-        child: const _Body(),
+        //
+        // Il vit dans la PAGE, en bas, et non dans la barre de titre : la barre
+        // est le chrome de l'application, partagé par tous les écrans. Y poser
+        // l'action la plus lourde de l'année — celle qui fait passer ou
+        // redoubler une promotion entière — la présentait comme un utilitaire
+        // de navigation, à portée de clic distrait, et sans un mot pour dire ce
+        // qu'elle déclenche.
+        child: _Body(),
       );
 }
 
@@ -354,6 +354,10 @@ class _BodyState extends ConsumerState<_Body> {
           onOpen: (c) => setState(() => _openClassId = c.classId),
         ),
       ],
+      // En bas, et non en haut : c'est l'étape D'APRÈS. Placée avant les
+      // classes, elle aurait concurrencé le travail du trimestre en cours.
+      const SizedBox(height: 24),
+      const _PassageGateway(),
     ]);
   }
 
