@@ -127,6 +127,38 @@ jobs:
           Write-Host "✓ Toujours en vie après 30 s (PID $($p.Id))"
           Stop-Process -Id $p.Id -Force
 
+      # L'installateur. Le dossier « Release » brut n'est pas distribuable :
+      # 108 Mo en vingt-six DLL, dont personne dans un établissement ne saura
+      # quoi faire. Inno Setup en fait un unique .exe à double-cliquer.
+      - name: Installateur
+        shell: pwsh
+        run: |
+          $pubspec = Get-Content epilote\pubspec.yaml | Select-String '^version:'
+          # « 3.1.7+18 » -> « 3.1.7 » : Inno Setup n'accepte pas le « + ».
+          $version = ($pubspec -split ':')[1].Trim().Split('+')[0]
+          Write-Host "Version : $version"
+
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) {
+            Write-Host 'Inno Setup absent du runner — installation'
+            choco install innosetup --no-progress -y
+          }
+
+          & $iscc "/DAppVersion=$version" packaging\windows\epilote.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC a échoué ($LASTEXITCODE)" }
+
+          Get-ChildItem dist\*.exe | ForEach-Object {
+            '{0} — {1:N1} Mo' -f $_.Name, ($_.Length / 1MB)
+          }
+
+      - name: Artefact — installateur
+        uses: actions/upload-artifact@v4
+        with:
+          name: E-PILOTE-installateur-${{ github.sha }}
+          path: dist/*.exe
+          retention-days: 30
+          if-no-files-found: error
+
       - name: Artefact
         uses: actions/upload-artifact@v4
         with:
