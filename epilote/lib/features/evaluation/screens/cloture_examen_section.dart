@@ -25,23 +25,33 @@ import 'evaluation_overview_widgets.dart';
 //  avant d'être posés.
 // ════════════════════════════════════════════════════════════════════════════
 
-/// La bascule entre les deux régimes de fin d'année.
+/// Les trois issues possibles d'une année scolaire.
+enum YearEndTab { passage, examen, nonRevenus }
+
+/// La bascule entre les régimes de fin d'année.
 ///
-/// Deux onglets et non deux pages : c'est la MÊME échéance — le 30 juin — et
-/// le chef d'établissement doit voir d'un coup d'œil qu'aucune de ses classes
-/// n'a été oubliée. Le compteur porté par chaque onglet est là pour ça.
+/// Des onglets et non des pages : c'est la MÊME échéance — le 30 juin — et le
+/// chef d'établissement doit voir d'un coup d'œil que rien n'a été oublié. Le
+/// compteur porté par chaque onglet est là pour ça.
+///
+/// Le troisième onglet ferme la boucle. Les deux premiers disent ce que
+/// l'établissement DÉCIDE ; celui-ci dit ce qu'il CONSTATE — les enfants qu'il
+/// attendait et qui ne sont pas revenus. Sans lui, une classe pouvait être
+/// entièrement délibérée pendant qu'un tiers de ses élèves disparaissait sans
+/// que rien ne l'écrive nulle part.
 class YearEndRegimeTabs extends StatelessWidget {
   const YearEndRegimeTabs({
     super.key,
-    required this.examTab,
+    required this.tab,
     required this.passageCount,
     required this.examCount,
     required this.onChanged,
+    this.absentCount,
   });
 
-  final bool examTab;
-  final int? passageCount, examCount;
-  final ValueChanged<bool> onChanged;
+  final YearEndTab tab;
+  final int? passageCount, examCount, absentCount;
+  final ValueChanged<YearEndTab> onChanged;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -52,21 +62,30 @@ class YearEndRegimeTabs extends StatelessWidget {
         ),
         child: Row(children: [
           _tab(
-            selected: !examTab,
+            selected: tab == YearEndTab.passage,
             icon: Icons.how_to_vote_rounded,
             label: 'Classes de passage',
             count: passageCount,
             hint: 'le conseil décide',
-            onTap: () => onChanged(false),
+            onTap: () => onChanged(YearEndTab.passage),
           ),
           const SizedBox(width: 4),
           _tab(
-            selected: examTab,
+            selected: tab == YearEndTab.examen,
             icon: Icons.workspace_premium_rounded,
             label: 'Classes d\'examen',
             count: examCount,
             hint: 'la DEC proclame',
-            onTap: () => onChanged(true),
+            onTap: () => onChanged(YearEndTab.examen),
+          ),
+          const SizedBox(width: 4),
+          _tab(
+            selected: tab == YearEndTab.nonRevenus,
+            icon: Icons.person_search_rounded,
+            label: 'Non revenus',
+            count: absentCount,
+            hint: 'ce qu\'on constate',
+            onTap: () => onChanged(YearEndTab.nonRevenus),
           ),
         ]),
       );

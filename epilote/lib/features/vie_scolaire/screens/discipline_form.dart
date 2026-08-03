@@ -103,7 +103,68 @@ class _IncidentFormState extends ConsumerState<_IncidentForm> {
     );
     if (!mounted) return;
     setState(() => _saving = false);
-    if (ok) Navigator.pop(context);
+    if (!ok) return;
+    // L'incident est écrit quoi qu'il arrive. La suite ne peut plus le défaire.
+    if (sanctionMetFinALaScolarite(_sanction)) {
+      await _proposerExclusion(yearId);
+      if (!mounted) return;
+    }
+    Navigator.pop(context);
+  }
+
+  /// Une exclusion définitive met fin à la scolarité. On PROPOSE de fermer
+  /// l'inscription — on ne le fait jamais tout seul : c'est un acte de
+  /// l'établissement, et le chef d'établissement peut vouloir attendre le
+  /// conseil de discipline, ou la notification aux parents.
+  Future<void> _proposerExclusion(String yearId) async {
+    final insc = await inscriptionActive(_studentId!, yearId);
+    if (!mounted) return;
+    if (insc == null) return; // rien d'ouvert à fermer
+
+    final eleve = ref.read(vsStudentsProvider).valueOrNull
+        ?.where((s) => s.id == _studentId)
+        .map((s) => s.name)
+        .firstOrNull;
+
+    final fermer = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(Icons.gavel_rounded, color: kRed, size: 32),
+        title: const Text('Fermer l\'inscription ?'),
+        content: Text(
+          'L\'exclusion définitive met fin à la scolarité de '
+          '${eleve ?? 'cet élève'} dans l\'établissement '
+          '(${insc.className}).\n\n'
+          'Fermer son inscription avec le motif « Exclusion disciplinaire » ? '
+          'Sans cela, il continuera de figurer dans l\'effectif de sa classe.\n\n'
+          'Vous pouvez refuser maintenant et le faire plus tard depuis sa '
+          'fiche — par exemple après le conseil de discipline. La sanction '
+          'reste enregistrée dans les deux cas.',
+          style: const TextStyle(height: 1.45),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Pas maintenant')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: kRed),
+            child: const Text('Fermer l\'inscription'),
+          ),
+        ],
+      ),
+    );
+    if (fermer != true || !mounted) return;
+
+    await runModuleWrite(
+      context,
+      () => prononcerExclusion(
+        enrollmentId: insc.id,
+        sanctionDate: _sanctionDate == null ? null : _key(_sanctionDate!),
+        motivation: _desc.text.trim().isEmpty ? null : _desc.text.trim(),
+      ),
+      success: 'Inscription fermée — motif : exclusion disciplinaire',
+    );
   }
 
   @override

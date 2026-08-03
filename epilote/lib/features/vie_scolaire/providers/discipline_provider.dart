@@ -143,3 +143,60 @@ Future<void> saveIncident({
 Future<void> deleteIncident(String id) async {
   await db.execute('DELETE FROM discipline_incidents WHERE id = ?', [id]);
 }
+
+// ─── L'exclusion définitive et l'inscription ────────────────────────────────
+// Une exclusion définitive met fin à la scolarité dans l'établissement. Tant
+// que rien ne fermait l'inscription, l'élève restait `active` : il continuait
+// de compter dans un effectif où il n'était plus, et le motif `exclusion`
+// (migration 0082) n'était jamais écrit — donc jamais compté nulle part.
+//
+// ⚠️ RIEN N'EST AUTOMATIQUE. Une exclusion est un acte de l'établissement : il
+// se prononce, il ne se déduit pas d'une case cochée. On PROPOSE, l'agent
+// décide, et il peut refuser sans que la sanction en soit affectée.
+
+/// L'inscription active de l'élève pour l'année, si elle existe.
+Future<({String id, String className})?> inscriptionActive(
+  String studentId,
+  String academicYearId,
+) async {
+  final rows = await db.getAll(
+    '''
+    SELECT e.id, COALESCE(c.name, '—') AS class_name
+      FROM class_enrollments e
+      LEFT JOIN classes c ON c.id = e.class_id
+     WHERE e.student_id = ? AND e.academic_year_id = ? AND e.status = 'active'
+     LIMIT 1
+    ''',
+    [studentId, academicYearId],
+  );
+  if (rows.isEmpty) return null;
+  return (
+    id: rows.first['id'] as String,
+    className: rows.first['class_name'] as String? ?? '—',
+  );
+}
+
+/// Ferme l'inscription à la suite d'une exclusion définitive.
+///
+/// Le motif est `exclusion` — celui de la nomenclature partagée avec le
+/// ministère. La date de la sanction fait foi quand elle est connue : c'est
+/// elle qui figure sur la décision, pas le jour de la saisie.
+Future<void> prononcerExclusion({
+  required String enrollmentId,
+  required String? sanctionDate,
+  String? motivation,
+}) async {
+  final now = DateTime.now().toIso8601String();
+  await db.execute(
+    '''
+    UPDATE class_enrollments
+       SET status            = 'withdrawn',
+           withdrawal_date   = ?,
+           withdrawal_motif  = 'exclusion',
+           withdrawal_reason = ?,
+           updated_at        = ?
+     WHERE id = ? AND status = 'active'
+    ''',
+    [sanctionDate ?? now.substring(0, 10), motivation, now, enrollmentId],
+  );
+}

@@ -31,8 +31,24 @@ const kSanctions = <(String, String)>[
   ('exclusion_temporaire', 'Exclusion temporaire'),
   ('convocation_parents', 'Convocation des parents'),
   ('conseil_discipline', 'Conseil de discipline'),
+  // La seule sanction qui met fin à une scolarité. Elle manquait : une école
+  // qui excluait définitivement un élève n'avait aucun mot pour le dire, et
+  // l'inscription restait `active` — l'enfant continuait de compter dans un
+  // effectif où il n'était plus.
+  ('exclusion_definitive', 'Exclusion définitive'),
   ('aucune', 'Aucune'),
 ];
+
+/// Cette sanction met-elle fin à la scolarité dans l'établissement ?
+///
+/// Une exclusion TEMPORAIRE renvoie l'élève quelques jours ; une exclusion
+/// DÉFINITIVE le renvoie tout court. Confondre les deux, c'est soit fermer
+/// l'inscription d'un enfant qui revient lundi, soit laisser ouverte celle
+/// d'un enfant qui ne reviendra jamais.
+///
+/// ⚠️ Cette fonction ne FERME rien : elle sert à PROPOSER. Une exclusion est
+/// un acte de l'établissement — il se prononce, il ne se déduit pas.
+bool sanctionMetFinALaScolarite(String? s) => s == 'exclusion_definitive';
 
 String incidentTypeLabel(String? t) => kIncidentTypes
     .firstWhere((e) => e.$1 == t, orElse: () => ('autre', 'Autre'))

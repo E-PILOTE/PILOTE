@@ -11,9 +11,11 @@ import '../../structure/providers/academic_year_context.dart';
 import '../../structure/providers/academic_year_provider.dart';
 import '../../structure/providers/class_rollover.dart';
 import '../providers/cloture_examen_provider.dart';
+import '../providers/non_revenus_provider.dart';
 import '../providers/passage_provider.dart';
 import '../services/passage_pdf_service.dart';
 import 'cloture_examen_section.dart';
+import 'non_revenus_section.dart';
 import 'evaluation_overview_widgets.dart';
 
 part 'passage_parts.dart';
@@ -61,8 +63,8 @@ class _BodyState extends ConsumerState<_Body> {
   String? _openClassId;
   bool _busy = false;
 
-  /// Onglet ouvert : classes de passage, ou classes d'examen.
-  bool _examTab = false;
+  /// Onglet ouvert : passage, examen, ou non revenus.
+  YearEndTab _tab = YearEndTab.passage;
 
   void _refresh(String yearId) {
     ref.invalidate(passageClassesProvider(yearId));
@@ -235,24 +237,34 @@ class _BodyState extends ConsumerState<_Body> {
     final next = ref.watch(nextYearProvider(yearId)).valueOrNull;
 
     final examClasses = ref.watch(examClosureClassesProvider(yearId));
+    // Le compteur de l'onglet doit être connu avant qu'on l'ouvre : c'est lui
+    // qui signale au chef d'établissement qu'il a des élèves à chercher.
+    final absents = ref.watch(nonRevenusProvider(yearId));
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         YearEndRegimeTabs(
-          examTab: _examTab,
+          tab: _tab,
           passageCount: classes.valueOrNull?.length,
           examCount: examClasses.valueOrNull?.length,
+          absentCount: absents.valueOrNull?.eleves.length,
           onChanged: (v) => setState(() {
-            _examTab = v;
+            _tab = v;
             _openClassId = null;
           }),
         ),
         const SizedBox(height: 18),
-        if (_examTab)
+        if (_tab == YearEndTab.examen)
           ExamClosureSection(
             yearId: yearId,
             yearLabel: year?.label ?? '',
+            canEdit: canEdit,
+          )
+        else if (_tab == YearEndTab.nonRevenus)
+          NonRevenusSection(
+            yearId: yearId,
+            yearLabel: absents.valueOrNull?.labelPrecedent ?? '',
             canEdit: canEdit,
           )
         else
