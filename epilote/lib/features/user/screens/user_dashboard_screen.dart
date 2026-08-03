@@ -15,6 +15,7 @@ import '../../../features/classes/providers/class_provider.dart';
 import '../../../data/models/class_model.dart';
 import '../../../features/communication/providers/announcements_provider.dart';
 import '../../../features/structure/providers/academic_year_context.dart';
+import '../../../features/structure/widgets/demarrage_card.dart';
 import '../../../features/structure/providers/academic_year_provider.dart';
 import '../../../features/navigation/providers/module_navigation_provider.dart';
 import '../../../features/navigation/providers/permissions_provider.dart';
@@ -293,6 +294,10 @@ class _DashboardBody extends ConsumerWidget {
           agentAvatarUrl: agent?.avatarUrl,
         ),
         const SizedBox(height: 18),
+
+        // Le premier matin, un établissement ouvre l'application sur du vide.
+        // Cette carte dit par où commencer, puis s'efface d'elle-même.
+        const DemarrageCard(),
 
         if (activeYear != null) ...[
           _AcademicYearCard(year: activeYear, syncState: syncState),
