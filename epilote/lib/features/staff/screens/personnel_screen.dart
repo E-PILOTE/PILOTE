@@ -9,10 +9,12 @@ import '../../structure/providers/academic_year_provider.dart';
 import '../../students/widgets/scope_drilldown_panel.dart' show scopeCycleName;
 import '../../user/widgets/staff_account_widgets.dart' show staffRoleLabel;
 import '../../vie_scolaire/widgets/vs_kit.dart';
+import '../providers/agent_creation_provider.dart';
 import '../providers/staff_directory_provider.dart';
 import '../providers/staff_dossier_provider.dart' show employmentStatusLabel;
 import '../services/personnel_export_service.dart';
 import '../widgets/staff_kit.dart';
+import 'agent_creation_dialog.dart';
 import 'personnel_dossier_sheet.dart';
 
 part 'personnel_views.dart';
@@ -70,6 +72,19 @@ class _BodyState extends ConsumerState<_Body> {
             agents: agents, schoolName: _schoolName),
       );
 
+  /// Ouvrir un compte pour un agent de l'établissement.
+  ///
+  /// Seul geste EN LIGNE de cet écran : un identifiant de connexion vit sur le
+  /// serveur, il ne peut pas être fabriqué hors ligne. Le dialogue le dit
+  /// plutôt que d'échouer sans explication.
+  Future<void> _nouvelAgent() async {
+    if (await showAgentCreationDialog(context) && mounted) {
+      ref.invalidate(staffDirectoryProvider);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Compte créé — remettez les identifiants à l\'agent')));
+    }
+  }
+
   Future<void> _exportCsv(List<StaffMember> agents) async {
     final path = await PersonnelExportService.downloadCsv(agents: agents);
     if (!mounted || path == null) return;
@@ -116,6 +131,14 @@ class _BodyState extends ConsumerState<_Body> {
                 onView: (v) => setState(() => _table = v),
                 onPdf: all.isEmpty ? null : () => _exportPdf(agents),
                 onCsv: all.isEmpty ? null : () => _exportCsv(agents),
+                // N'apparaît que pour la direction : le serveur refuserait de
+                // toute façon, mais proposer un bouton qui échoue toujours est
+                // une promesse qu'on ne tient pas.
+                onNouvel: (ref.watch(contexteCreationAgentProvider)
+                            .valueOrNull?.autorise ??
+                        false)
+                    ? _nouvelAgent
+                    : null,
               ),
             ),
             const SizedBox(height: 20),
@@ -202,14 +225,23 @@ class _Toolbar extends StatelessWidget {
     required this.onView,
     required this.onPdf,
     required this.onCsv,
+    this.onNouvel,
   });
   final bool table;
   final ValueChanged<bool> onView;
-  final VoidCallback? onPdf, onCsv;
+  final VoidCallback? onPdf, onCsv, onNouvel;
 
   @override
   Widget build(BuildContext context) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
+      if (onNouvel != null) ...[
+        FilledButton.icon(
+          onPressed: onNouvel,
+          icon: const Icon(Icons.person_add_alt_1_rounded, size: 17),
+          label: const Text('Nouvel agent'),
+        ),
+        const SizedBox(width: 10),
+      ],
       // bascule Cartes / Tableau
       Container(
         padding: const EdgeInsets.all(3),
