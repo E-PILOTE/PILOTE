@@ -87,6 +87,7 @@ class InscriptionRow {
     required this.firstName,
     required this.lastName,
     required this.matricule,
+    required this.ine,
     required this.gender,
     required this.dateOfBirth,
     required this.photoUrl,
@@ -109,6 +110,10 @@ class InscriptionRow {
   final String firstName;
   final String lastName;
   final String matricule;
+
+  /// Identifiant national — `null` tant que l'inscription saisie hors ligne
+  /// n'a pas été synchronisée.
+  final String? ine;
   final String? gender;
   final DateTime? dateOfBirth;
   final String? photoUrl;
@@ -175,7 +180,7 @@ final inscriptionsDataProvider =
         '''
         SELECT ce.id, ce.student_id, ce.status, ce.inscription_type,
                ce.is_repeating, ce.enrollment_date, ce.validated_at,
-               s.first_name, s.last_name, s.matricule, s.gender,
+               s.first_name, s.last_name, s.matricule, s.ine, s.gender,
                s.date_of_birth, s.photo_url,
                c.id AS class_id, c.name AS class_name, c.capacity AS capacity,
                c.cycle_code AS cycle_code, c.level_code AS level_code,
@@ -197,6 +202,7 @@ final inscriptionsDataProvider =
                 firstName: r['first_name'] as String? ?? '',
                 lastName: r['last_name'] as String? ?? '',
                 matricule: r['matricule'] as String? ?? '',
+                ine: r['ine'] as String?,
                 gender: r['gender'] as String?,
                 dateOfBirth: _d(r['date_of_birth']),
                 photoUrl: r['photo_url'] as String?,

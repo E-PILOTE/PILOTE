@@ -22,6 +22,7 @@ class CandidateFile {
     required this.firstName,
     required this.lastName,
     required this.matricule,
+    required this.ine,
     required this.dateOfBirth,
     required this.placeOfBirth,
     required this.gender,
@@ -51,6 +52,9 @@ class CandidateFile {
   final String candidateId, studentId;
   final String firstName, lastName;
   final String? matricule, placeOfBirth, gender, nationality, photoUrl;
+
+  /// Identifiant national (migration 0080).
+  final String? ine;
   final DateTime? dateOfBirth;
   final String? className, filiereLabel, levelName;
   final String? candidateNumber, dossierStatus;
@@ -89,7 +93,7 @@ final candidateFileProvider =
              c.dossier_status, c.registered_at, c.submitted_at,
              c.result, c.average, c.mention, c.decided_at, c.result_source,
              c.notes,
-             st.first_name, st.last_name, st.matricule, st.date_of_birth,
+             st.first_name, st.last_name, st.matricule, st.ine, st.date_of_birth,
              st.place_of_birth, st.gender, st.nationality, st.photo_url,
              cl.name AS class_name, cl.filiere_label,
              cl.level_code AS level_name,
@@ -113,6 +117,7 @@ final candidateFileProvider =
       firstName: r['first_name'] as String? ?? '',
       lastName: r['last_name'] as String? ?? '',
       matricule: r['matricule'] as String?,
+      ine: r['ine'] as String?,
       dateOfBirth: _date(r['date_of_birth']),
       placeOfBirth: r['place_of_birth'] as String?,
       gender: r['gender'] as String?,

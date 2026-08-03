@@ -7,6 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../core/services/official_pdf_kit.dart';
 import '../providers/inscriptions_data_provider.dart';
 import '../models/tutor_draft.dart';
+import '../../../core/utils/ine.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  FICHE D'INSCRIPTION — le papier que la famille emporte.
@@ -65,6 +66,7 @@ class InscriptionFicheService {
             kicker: 'ANNÉE SCOLAIRE ${yearLabel ?? ''}'.trim(),
             title: row.fullName,
             line1: [
+              if (row.ine != null) 'INE : ${formatIne(row.ine)}',
               if (row.matricule.isNotEmpty) 'Matricule : ${row.matricule}',
               'Classe : ${row.className}',
             ].join('   ·   '),
@@ -124,7 +126,16 @@ class InscriptionFicheService {
       fonts: f,
       child: _rows(f, [
         ('Nom et prénom', row.fullName),
-        ('Matricule', row.matricule),
+        // L'INE d'abord : c'est le numéro que la famille devra présenter si
+        // l'enfant change d'établissement. Le matricule, lui, ne vaut que
+        // dans cette école — il ne servira à rien ailleurs.
+        (
+          'Identifiant national',
+          row.ine == null
+              ? 'Attribué à la synchronisation'
+              : formatIne(row.ine)
+        ),
+        ('Matricule (école)', row.matricule),
         ('Sexe', switch (row.gender) { 'F' => 'Féminin', 'M' => 'Masculin', _ => '—' }),
         (
           'Date de naissance',
@@ -209,9 +220,11 @@ class InscriptionFicheService {
                     'vaut pas certificat de scolarité : l\'inscription doit encore '
                     'être validée par la direction de l\'établissement. Conservez-le '
                     'et présentez-le à toute demande.'
-                : 'Conservez cette fiche : elle rappelle le matricule de l\'élève, '
-                    'sa classe et les contacts déclarés. Signalez à l\'établissement '
-                    'tout changement d\'adresse ou de numéro de téléphone.',
+                : 'Conservez cette fiche : elle porte l\'identifiant national de '
+                    'l\'élève — à présenter en cas de changement d\'établissement, '
+                    'pour que sa scolarité ne reparte pas de zéro — ainsi que son '
+                    'matricule, sa classe et les contacts déclarés. Signalez à '
+                    'l\'établissement tout changement d\'adresse ou de téléphone.',
             style: pw.TextStyle(
                 font: f.regular, fontSize: 9, lineSpacing: 2, color: kPdfText),
           ),

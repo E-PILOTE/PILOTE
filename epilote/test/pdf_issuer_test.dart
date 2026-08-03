@@ -26,6 +26,7 @@ InscriptionRow _row(int i) => InscriptionRow(
       firstName: 'Prénom$i',
       lastName: 'NOM$i',
       matricule: 'MAT-99-00$i',
+      ine: null,
       gender: 'F',
       dateOfBirth: DateTime(2010, 5, 12),
       photoUrl: null,

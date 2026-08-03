@@ -22,6 +22,7 @@ class ExamCandidateRow {
     required this.studentId,
     required this.fullName,
     required this.matricule,
+    required this.ine,
     required this.dateOfBirth,
     required this.gender,
     required this.className,
@@ -43,6 +44,9 @@ class ExamCandidateRow {
   final String studentId;
   final String fullName;
   final String? matricule;
+
+  /// Identifiant national — figure sur la liste déposée à la DEC.
+  final String? ine;
   final DateTime? dateOfBirth;
   final String? gender;
   final String? className;
@@ -132,7 +136,7 @@ final sessionCandidatesProvider = FutureProvider.autoDispose
   final rows = await db.getAll(
     'SELECT ec.id, ec.student_id, ec.candidate_number, ec.dossier_status, '
     '       ec.missing_documents, ec.submitted_at, ec.result, ec.average, ec.mention, '
-    '       st.first_name, st.last_name, st.matricule, st.date_of_birth, st.gender, '
+    '       st.first_name, st.last_name, st.matricule, st.ine, st.date_of_birth, st.gender, '
     '       c.id AS class_id, c.name AS class_name, c.filiere_label, '
     '       c.cycle_code, c.level_code, c.level_order '
     '  FROM exam_candidates ec '
@@ -158,6 +162,7 @@ final sessionCandidatesProvider = FutureProvider.autoDispose
           studentId: r['student_id'] as String,
           fullName: '${r['first_name'] ?? ''} ${r['last_name'] ?? ''}'.trim(),
           matricule: r['matricule'] as String?,
+          ine: r['ine'] as String?,
           dateOfBirth: _date(r['date_of_birth']),
           gender: r['gender'] as String?,
           className: r['class_name'] as String?,

@@ -202,6 +202,7 @@ class StudentDossier {
     required this.teachers,
     required this.incidents,
     this.matricule,
+    this.ine,
     this.gender,
     this.dateOfBirth,
     this.placeOfBirth,
@@ -228,6 +229,9 @@ class StudentDossier {
   final List<DossierIncident> incidents;
 
   final String? matricule;
+
+  /// Identifiant national (migration 0080).
+  final String? ine;
   final String? gender;
   final DateTime? dateOfBirth;
   final String? placeOfBirth;
@@ -275,7 +279,7 @@ final studentDossierProvider =
   // Identité + établissement. Ni `blood_group` ni `allergies` : voir l'en-tête.
   final row = await client
       .from('students')
-      .select('id, matricule, first_name, last_name, gender, date_of_birth, '
+      .select('id, matricule, ine, first_name, last_name, gender, date_of_birth, '
           'place_of_birth, nationality, address, city, photo_url, is_active, '
           'is_boarder, has_scholarship, scholarship_type, has_social_aid, '
           'is_affecte, situation_familiale, nombre_freres_soeurs, '
@@ -363,6 +367,7 @@ final studentDossierProvider =
     id: id,
     fullName: studentName.isEmpty ? 'Élève sans nom' : studentName,
     matricule: row['matricule'] as String?,
+    ine: row['ine'] as String?,
     gender: row['gender'] as String?,
     dateOfBirth: _d(row['date_of_birth']),
     placeOfBirth: row['place_of_birth'] as String?,

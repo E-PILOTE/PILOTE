@@ -13,6 +13,7 @@ import 'package:epilote/features/students/services/inscription_fiche_service.dar
 InscriptionRow _row({
   String status = 'pending_validation',
   String matricule = 'KIN-2026-0042',
+  String? ine = '26000000013',
 }) =>
     InscriptionRow(
       id: 'e1',
@@ -20,6 +21,7 @@ InscriptionRow _row({
       firstName: 'Aristide',
       lastName: 'NGOMA',
       matricule: matricule,
+      ine: ine,
       gender: 'M',
       dateOfBirth: DateTime(2014, 1, 15),
       photoUrl: null,

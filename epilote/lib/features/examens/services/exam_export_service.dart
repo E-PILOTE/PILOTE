@@ -12,6 +12,7 @@ import '../../../core/utils/safe_file_name.dart';
 import '../../../core/services/official_pdf_kit.dart';
 import '../providers/candidate_file_provider.dart';
 import '../providers/exam_candidates_provider.dart';
+import '../../../core/utils/ine.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  Export EXAMENS — la LISTE DES CANDIDATS.
@@ -94,6 +95,7 @@ class ExamExportService {
               headers: const [
                 'N°',
                 'Nom et prénom',
+                'INE',
                 'Matricule',
                 'Né(e) le',
                 'Sexe',
@@ -106,6 +108,7 @@ class ExamExportService {
                   [
                     '${i + 1}',
                     c.fullName,
+                    formatIne(c.ine),
                     c.matricule ?? '—',
                     _fmtDate(c.dateOfBirth),
                     c.gender ?? '—',
@@ -180,7 +183,8 @@ class ExamExportService {
             headers: const ['Rubrique', 'Information'],
             rows: [
               ['Nom et prénom', c.fullName],
-              ['Matricule', c.matricule ?? '—'],
+              ['Identifiant national', formatIne(c.ine)],
+              ['Matricule (école)', c.matricule ?? '—'],
               ['Né(e) le', _fmtDate(c.dateOfBirth)],
               ['Lieu de naissance', c.placeOfBirth ?? '—'],
               ['Sexe', c.gender ?? '—'],
@@ -315,11 +319,12 @@ class ExamExportService {
     }
 
     final b = StringBuffer()
-      ..writeln('Nom;Matricule;Date de naissance;Sexe;Classe;'
+      ..writeln('Nom;INE;Matricule;Date de naissance;Sexe;Classe;'
           'Numero candidat;Dossier;Resultat;Moyenne;Mention');
     for (final c in candidates) {
       b.writeln([
         esc(c.fullName),
+        esc(c.ine),
         esc(c.matricule),
         esc(_fmtDate(c.dateOfBirth)),
         esc(c.gender),

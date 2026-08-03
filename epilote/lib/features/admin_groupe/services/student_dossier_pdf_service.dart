@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../../core/utils/ine.dart';
 import '../../../core/services/official_pdf_kit.dart';
 import '../../../core/utils/mention.dart';
 import '../../../core/utils/discipline_vocab.dart';
@@ -64,6 +65,7 @@ class StudentDossierPdfService {
           kicker: groupName.toUpperCase(),
           title: d.fullName,
           line1: [
+            if (d.ine != null) 'INE ${formatIne(d.ine)}',
             if (d.matricule != null) 'Matricule ${d.matricule}',
             if (e.className != null) e.className!,
             if (e.filiere != null) e.filiere!,
@@ -77,7 +79,10 @@ class StudentDossierPdfService {
         ],
         pw.SizedBox(height: 14),
         _kv(f, 'IDENTITÉ', kPdfNavy, [
-          ('Matricule', d.matricule ?? '—'),
+          // L'INE avant le matricule : c'est le seul des deux qui ait un
+          // sens à l'échelle du pays, et ce document est celui du ministère.
+          ('Identifiant national', formatIne(d.ine)),
+          ('Matricule (école)', d.matricule ?? '—'),
           ('Sexe', switch (d.gender) { 'F' => 'Féminin', 'M' => 'Masculin', _ => '—' }),
           ('Date de naissance', fmtDate(d.dateOfBirth)),
           ('Lieu de naissance', d.placeOfBirth ?? '—'),

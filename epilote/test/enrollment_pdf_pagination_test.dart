@@ -25,6 +25,7 @@ InscriptionRow _row(int i, String className) => InscriptionRow(
       firstName: 'Prénom$i',
       lastName: 'NOM$i',
       matricule: 'MAT-99-${i.toString().padLeft(3, '0')}',
+      ine: null,
       gender: i.isEven ? 'M' : 'F',
       dateOfBirth: DateTime(2010, 1 + (i % 12), 1 + (i % 28)),
       photoUrl: null,
