@@ -63,6 +63,8 @@ class AdminUser {
     this.category,
     this.speciality,
     this.hireDate,
+    this.departureMotif,
+    this.departureDate,
   });
 
   factory AdminUser.fromMap(Map<String, dynamic> m) => AdminUser(
@@ -98,6 +100,10 @@ class AdminUser {
         hireDate: m['hire_date'] != null
             ? DateTime.tryParse(m['hire_date'] as String)
             : null,
+        departureMotif: m['departure_motif'] as String?,
+        departureDate: m['departure_date'] != null
+            ? DateTime.tryParse(m['departure_date'] as String)
+            : null,
       );
 
   final String id;
@@ -126,6 +132,10 @@ class AdminUser {
   final String?   category;
   final String?   speciality;
   final DateTime? hireDate;
+  // Fin de service (migration 0083) — ce que `isActive = false` ne disait pas.
+  // Jamais 'mutation' : un agent muté sert ailleurs, il reste actif.
+  final String?   departureMotif;
+  final DateTime? departureDate;
 
   String get fullName {
     final n = '${firstName.trim()} ${lastName.trim()}'.trim();
@@ -350,14 +360,11 @@ class AdminUsersService {
     _ref.invalidate(adminUsersProvider);
   }
 
-  Future<void> setActive(String id, bool active) async {
-    final client = _ref.read(supabaseClientProvider);
-    await client.from('profiles').update({
-      'is_active':  active,
-      'updated_at': DateTime.now().toIso8601String(),
-    }).eq('id', id);
-    _ref.invalidate(adminUsersProvider);
-  }
+  // ⚠️ `setActive` a été RETIRÉ (migration 0083). Basculer un booléen confondait
+  // huit situations — retraite, décès, révocation, démission, détachement… — et
+  // désactivait un agent MUTÉ, qu'on attendait pourtant à son nouveau poste.
+  // Utiliser `AgentCarriereService.radier / reintegrer / muter`, qui écrivent le
+  // motif, la date, l'acte, et ferment proprement l'affectation.
 
   Future<void> resetPassword(String userId, String newPassword) async {
     final client = _ref.read(supabaseClientProvider);

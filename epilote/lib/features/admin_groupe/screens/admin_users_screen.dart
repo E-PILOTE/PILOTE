@@ -4,7 +4,10 @@ import 'package:shimmer/shimmer.dart';
 
 import '../../../core/widgets/app_shell.dart';
 import '../../auth/providers/active_agent_provider.dart' show agentLockApplies;
+import '../../../core/utils/mouvement_agent.dart';
 import '../providers/admin_users_provider.dart';
+import '../widgets/agent_carriere_panel.dart';
+import 'agent_mouvement_dialogs.dart';
 import '../providers/subscription_access_provider.dart';
 import '../../../core/widgets/admin_ui.dart';
 
@@ -152,24 +155,46 @@ class _UsersBodyState extends ConsumerState<_UsersBody> {
           user: u,
           onEdit:     () { Navigator.of(context).pop(); _openEdit(u); },
           onPassword: () { Navigator.of(context).pop(); _openResetPwd(u); },
-          onToggle:   () { Navigator.of(context).pop(); _toggleActive(u); },
+          onToggle:   () { Navigator.of(context).pop(); _mouvementCarriere(u); },
         ),
       );
 
-  Future<void> _toggleActive(AdminUser u) async {
-    try {
-      await ref.read(adminUsersServiceProvider).setActive(u.id, !u.isActive);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          backgroundColor: kGreen,
-          content: Text(u.isActive ? 'Compte désactivé' : 'Compte activé'),
-        ));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(backgroundColor: kRed, content: Text('Erreur : $e')));
-      }
+  /// Muter, radier ou réintégrer — jamais « basculer un booléen ».
+  ///
+  /// L'ancien bouton Actif/Inactif confondait huit situations et désactivait
+  /// un agent MUTÉ, qu'on attendait pourtant dans une autre école. Chaque geste
+  /// a désormais son motif, sa date d'effet et la référence de son acte
+  /// (migration 0083).
+  Future<void> _mouvementCarriere(AdminUser u) async {
+    if (!ensureSubscriptionWritable(ref, context)) return;
+    final ok = u.isActive
+        ? await showRadiationDialog(context, user: u)
+        : await showReintegrationDialog(context, user: u, schools: widget.data.schools);
+    if (ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: kGreen,
+        content: Text(u.isActive
+            ? 'Fin de service enregistrée — le dossier reste consultable'
+            : 'Agent réintégré'),
+      ));
+    }
+  }
+
+  Future<void> _muter(AdminUser u) async {
+    if (!ensureSubscriptionWritable(ref, context)) return;
+    if (!u.isActive) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        backgroundColor: _kOrange,
+        content: Text('Cet agent a quitté le service : le réintégrer d\'abord.'),
+      ));
+      return;
+    }
+    if (await showMutationDialog(context, user: u, schools: widget.data.schools) &&
+        mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: kGreen,
+        content: Text('${u.fullName} muté — ancienneté conservée'),
+      ));
     }
   }
 
@@ -247,7 +272,8 @@ class _UsersBodyState extends ConsumerState<_UsersBody> {
                     onView:     _openDetail,
                     onEdit:     _openEdit,
                     onPassword: _openResetPwd,
-                    onToggle:   _toggleActive,
+                    onToggle:   _mouvementCarriere,
+                    onMuter:    _muter,
                     onResetPin: _resetPin,
                     data:       data,
                   )
@@ -258,7 +284,8 @@ class _UsersBodyState extends ConsumerState<_UsersBody> {
                     onView:     _openDetail,
                     onEdit:     _openEdit,
                     onPassword: _openResetPwd,
-                    onToggle:   _toggleActive,
+                    onToggle:   _mouvementCarriere,
+                    onMuter:    _muter,
                     onResetPin: _resetPin,
                   ),
                 const SizedBox(height: 24),
@@ -841,13 +868,15 @@ class _TableView extends StatelessWidget {
   const _TableView({
     required this.users, required this.sortField, required this.sortAsc,
     required this.onSort, required this.onView, required this.onEdit, required this.onPassword,
-    required this.onToggle, required this.onResetPin, required this.data,
+    required this.onToggle, required this.onMuter, required this.onResetPin,
+    required this.data,
   });
   final List<AdminUser>  users;
   final String sortField;
   final bool   sortAsc;
   final ValueChanged<String>    onSort;
-  final ValueChanged<AdminUser> onView, onEdit, onPassword, onToggle, onResetPin;
+  final ValueChanged<AdminUser> onView, onEdit, onPassword, onToggle, onMuter,
+      onResetPin;
   final AdminUsersData data;
 
   @override
@@ -881,6 +910,7 @@ class _TableView extends StatelessWidget {
             onEdit:     () => onEdit(e.value),
             onPassword: () => onPassword(e.value),
             onToggle:   () => onToggle(e.value),
+            onMuter:    () => onMuter(e.value),
             onResetPin: () => onResetPin(e.value),
           )),
         ]),
@@ -941,12 +971,12 @@ class _TableRow extends StatefulWidget {
   const _TableRow({
     required this.user, required this.isOdd, required this.data,
     required this.onView, required this.onEdit, required this.onPassword, required this.onToggle,
-    required this.onResetPin,
+    required this.onMuter, required this.onResetPin,
   });
   final AdminUser user;
   final bool isOdd;
   final AdminUsersData data;
-  final VoidCallback onView, onEdit, onPassword, onToggle, onResetPin;
+  final VoidCallback onView, onEdit, onPassword, onToggle, onMuter, onResetPin;
 
   @override
   State<_TableRow> createState() => _TableRowState();
@@ -1038,10 +1068,18 @@ class _TableRowState extends State<_TableRow> {
               _ActionBtn(icon: Icons.pin_rounded, color: kNavy, tooltip: 'Réinitialiser le code du poste', onTap: widget.onResetPin),
             ],
             const SizedBox(width: 4),
+            // Muter n'est PAS désactiver : l'agent change d'école et reste en
+            // service. Les deux gestes ont donc deux boutons.
             _ActionBtn(
-              icon: u.isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
+              icon: Icons.swap_horiz_rounded, color: _kPurple,
+              tooltip: 'Muter vers un autre établissement',
+              onTap: widget.onMuter,
+            ),
+            const SizedBox(width: 4),
+            _ActionBtn(
+              icon: u.isActive ? Icons.logout_rounded : Icons.person_add_alt_1_rounded,
               color: u.isActive ? kRed : kGreen,
-              tooltip: u.isActive ? 'Désactiver' : 'Activer',
+              tooltip: u.isActive ? 'Enregistrer une fin de service' : 'Réintégrer',
               onTap: widget.onToggle,
             ),
           ])),
@@ -1126,11 +1164,12 @@ class _CardGrid extends StatelessWidget {
   const _CardGrid({
     required this.users, required this.data, required this.onView,
     required this.onEdit, required this.onPassword, required this.onToggle,
-    required this.onResetPin,
+    required this.onMuter, required this.onResetPin,
   });
   final List<AdminUser>  users;
   final AdminUsersData   data;
-  final ValueChanged<AdminUser> onView, onEdit, onPassword, onToggle, onResetPin;
+  final ValueChanged<AdminUser> onView, onEdit, onPassword, onToggle, onMuter,
+      onResetPin;
 
   @override
   Widget build(BuildContext context) {
@@ -1153,6 +1192,7 @@ class _CardGrid extends StatelessWidget {
             onEdit:     () => onEdit(u),
             onPassword: () => onPassword(u),
             onToggle:   () => onToggle(u),
+            onMuter:    () => onMuter(u),
             onResetPin: () => onResetPin(u),
           ))).toList(),
       );
@@ -1162,9 +1202,10 @@ class _CardGrid extends StatelessWidget {
 
 class _UserCard extends StatefulWidget {
   const _UserCard({required this.user, required this.onView, required this.onEdit,
-      required this.onPassword, required this.onToggle, required this.onResetPin});
+      required this.onPassword, required this.onToggle, required this.onMuter,
+      required this.onResetPin});
   final AdminUser user;
-  final VoidCallback onView, onEdit, onPassword, onToggle, onResetPin;
+  final VoidCallback onView, onEdit, onPassword, onToggle, onMuter, onResetPin;
 
   @override
   State<_UserCard> createState() => _UserCardState();
@@ -1223,6 +1264,7 @@ class _UserCardState extends State<_UserCard> {
                 if (v == 'edit')     widget.onEdit();
                 if (v == 'password') widget.onPassword();
                 if (v == 'reset_pin') widget.onResetPin();
+                if (v == 'muter')    widget.onMuter();
                 if (v == 'toggle')   widget.onToggle();
               },
               itemBuilder: (_) => [
@@ -1239,11 +1281,15 @@ class _UserCardState extends State<_UserCard> {
                   PopupMenuItem(value: 'reset_pin', child: Row(children: [
                     Icon(Icons.pin_rounded, size: 18, color: kNavy), const SizedBox(width: 10), const Text('Réinit. code du poste'),
                   ])),
+                const PopupMenuItem(value: 'muter', child: Row(children: [
+                  Icon(Icons.swap_horiz_rounded, size: 18, color: _kPurple),
+                  SizedBox(width: 10), Text('Muter'),
+                ])),
                 PopupMenuItem(value: 'toggle', child: Row(children: [
-                  Icon(u.isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
+                  Icon(u.isActive ? Icons.logout_rounded : Icons.person_add_alt_1_rounded,
                       size: 18, color: u.isActive ? kRed : kGreen),
                   const SizedBox(width: 10),
-                  Text(u.isActive ? 'Désactiver' : 'Activer'),
+                  Text(u.isActive ? 'Fin de service' : 'Réintégrer'),
                 ])),
               ],
             ),
@@ -1332,7 +1378,7 @@ class _UserDetailModalState extends State<_UserDetailModal>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 3, vsync: this);
+    _tabs = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -1388,9 +1434,14 @@ class _UserDetailModalState extends State<_UserDetailModal>
                   const SizedBox(height: 6),
                   Wrap(spacing: 6, runSpacing: 4, children: [
                     _RoleBadge(role: u.role),
-                    AdminBadge(u.isActive ? 'Actif' : 'Inactif',
+                    // « Inactif » ne disait rien : on affiche le MOTIF du
+                    // départ, seule information exploitable (migration 0083).
+                    AdminBadge(
+                        u.isActive
+                            ? 'En service'
+                            : mouvementLabel(u.departureMotif),
                         color: u.isActive ? kGreen : kRed,
-                        icon: u.isActive ? Icons.check_circle : Icons.block_rounded),
+                        icon: u.isActive ? Icons.check_circle : Icons.logout_rounded),
                     if (u.schoolName != null)
                       AdminBadge(u.schoolName!, color: _kBlue,
                           icon: Icons.account_balance_outlined),
@@ -1438,6 +1489,7 @@ class _UserDetailModalState extends State<_UserDetailModal>
               labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
               tabs: const [
                 Tab(text: 'Informations'),
+                Tab(text: 'Carrière'),
                 Tab(text: 'Rôle & Accès'),
                 Tab(text: 'Activité'),
               ],
@@ -1449,6 +1501,10 @@ class _UserDetailModalState extends State<_UserDetailModal>
               controller: _tabs,
               children: [
                 _UserInfoTab(user: u),
+                SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: AgentCarrierePanel(profileId: u.id),
+                ),
                 _UserAccessTab(user: u),
                 _UserActivityTab(user: u),
               ],
@@ -1463,8 +1519,8 @@ class _UserDetailModalState extends State<_UserDetailModal>
             child: Row(children: [
               OutlinedButton.icon(
                 onPressed: widget.onToggle,
-                icon: Icon(u.isActive ? Icons.block_rounded : Icons.check_rounded, size: 16),
-                label: Text(u.isActive ? 'Désactiver' : 'Activer'),
+                icon: Icon(u.isActive ? Icons.logout_rounded : Icons.person_add_alt_1_rounded, size: 16),
+                label: Text(u.isActive ? 'Fin de service' : 'Réintégrer'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: u.isActive ? _kOrange : kGreen,
                   side: BorderSide(color: u.isActive ? _kOrange : kGreen),
