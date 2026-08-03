@@ -10,11 +10,61 @@ import '../../navigation/widgets/module_scaffold.dart';
 import '../../students/widgets/scope_drilldown_panel.dart' show scopeCycleName;
 import '../../user/widgets/staff_account_widgets.dart' show staffRoleLabel;
 import '../../vie_scolaire/widgets/vs_form_chrome.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
+import '../../structure/providers/academic_year_provider.dart';
 import '../providers/staff_dossier_provider.dart';
+import '../services/attestation_travail_pdf_service.dart';
 
 part 'personnel_dossier_forms.dart';
 
 const _kSlug = 'personnel';
+
+/// Délivre l'attestation de travail de l'agent.
+///
+/// Le signataire n'est proposé que si l'agent connecté dirige l'établissement :
+/// un secrétaire imprime le document, il ne le signe pas. Mieux vaut une ligne
+/// vide qu'un nom qui n'a pas qualité.
+Future<void> _attestationTravail(
+    BuildContext context, WidgetRef ref, StaffDossier d) async {
+  final school = ref.read(currentSchoolProvider).valueOrNull;
+  final moi = ref.read(authNotifierProvider).valueOrNull;
+  final dirige = moi?.role == 'directeur' || moi?.role == 'proviseur';
+  final nom = dirige ? '${moi?.firstName ?? ''} ${moi?.lastName ?? ''}'.trim() : '';
+
+  await showPdfPreviewDialog(
+    context,
+    title: 'Attestation de travail',
+    subtitle: '${d.fullName} · ${staffRoleLabel(d.role)}',
+    pdfFileName:
+        'attestation_travail_${d.lastName}_${d.firstName}.pdf'.replaceAll(' ', '_'),
+    build: (_) => AttestationTravailPdfService.build(
+      agent: AttestationAgent(
+        firstName: d.firstName,
+        lastName: d.lastName,
+        fonction: staffRoleLabel(d.role),
+        employeeNumber: d.employeeNumber,
+        employmentStatus: d.employmentStatus,
+        grade: d.grade,
+        echelon: d.echelon,
+        gender: d.gender,
+        birthPlace: d.birthPlace,
+        dateOfBirth:
+            d.dateOfBirth == null ? null : DateTime.tryParse(d.dateOfBirth!),
+        hireDate: d.hireDate == null ? null : DateTime.tryParse(d.hireDate!),
+      ),
+      schoolName: (school?['name'] as String?)?.trim().isNotEmpty ?? false
+          ? (school!['name'] as String).trim()
+          : 'l\'établissement',
+      city: (school?['city'] as String?) ?? (school?['department'] as String?),
+      signataire: nom.isEmpty ? null : nom,
+      fonctionSignataire: switch (moi?.role) {
+        'directeur' => 'Le Directeur',
+        'proviseur' => 'Le Proviseur',
+        _ => null,
+      },
+    ),
+  );
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 //  DOSSIER RH DE L'AGENT — feuille plein écran : identité étendue (lecture, du
@@ -114,6 +164,14 @@ class _DossierBody extends ConsumerWidget {
               ]),
             ]),
           ),
+          // Le papier que tout agent finit par demander : banque, bailleur,
+          // visa, dossier de prêt. Il se retapait à la main, et la date
+          // d'entrée en service — celle qui fonde l'ancienneté — s'y
+          // recopiait de mémoire.
+          IconButton(
+              tooltip: 'Attestation de travail',
+              onPressed: () => _attestationTravail(context, ref, d),
+              icon: const Icon(Icons.workspace_premium_outlined, size: 20)),
           IconButton(
               onPressed: () => Navigator.pop(context),
               icon: const Icon(Icons.close_rounded, size: 20)),

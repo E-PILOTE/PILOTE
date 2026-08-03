@@ -290,10 +290,31 @@ class _DwActionBar extends ConsumerWidget {
       },
       success: isTransfer ? 'Élève transféré' : 'Élève radié',
     );
-    if (done) {
-      ref.invalidate(studentsRegistryProvider);
-      if (context.mounted) Navigator.of(context).pop();
+    if (!done) return;
+    ref.invalidate(studentsRegistryProvider);
+
+    // Le papier au moment où la famille est encore au guichet. La chercher
+    // plus tard dans un registre où elle ne figure plus est bien plus coûteux.
+    if (context.mounted) {
+      await delivrerCertificatRadiation(
+        context,
+        ref,
+        eleve: AttestationEleve(
+          firstName: row.firstName,
+          lastName: row.lastName,
+          className: row.className ?? '—',
+          ine: row.ine,
+          matricule: row.matricule,
+          gender: row.gender,
+          dateOfBirth: row.dateOfBirth,
+        ),
+        enrollmentStatus: status,
+        motif: res.motif,
+        dateSortie: DateTime.now(),
+        observations: res.reason,
+      );
     }
+    if (context.mounted) Navigator.of(context).pop();
   }
 
   Future<void> _deactivate(BuildContext context, WidgetRef ref) async {
@@ -308,6 +329,29 @@ class _DwActionBar extends ConsumerWidget {
       ref.invalidate(studentsRegistryProvider);
       if (context.mounted) Navigator.of(context).pop();
     }
+  }
+
+  /// Le papier que le secrétariat délivre tous les jours — bourse, transport,
+  /// allocation, visa. Il se tapait à la machine, donc il se recopiait faux.
+  Future<void> _certificatScolarite(BuildContext context, WidgetRef ref) async {
+    final d = await ref.read(studentDossierProvider(row.id).future);
+    if (!context.mounted) return;
+    final lieu = d.s('place_of_birth');
+    await delivrerCertificatScolarite(
+      context,
+      ref,
+      eleve: AttestationEleve(
+        firstName: row.firstName,
+        lastName: row.lastName,
+        className: row.className ?? '—',
+        ine: row.ine,
+        matricule: row.matricule,
+        gender: row.gender,
+        dateOfBirth: row.dateOfBirth,
+        placeOfBirth: lieu.isEmpty ? null : lieu,
+      ),
+      enrollmentStatus: row.enrollmentStatus,
+    );
   }
 
   Future<bool?> _confirm(BuildContext context, String title, String body,
@@ -365,6 +409,8 @@ class _DwActionBar extends ConsumerWidget {
           offset: const Offset(0, 6),
           onSelected: (v) {
             switch (v) {
+              case 'certificat':
+                _certificatScolarite(context, ref);
               case 'class':
                 _changeClass(context, ref);
               case 'revert':
@@ -378,6 +424,12 @@ class _DwActionBar extends ConsumerWidget {
             }
           },
           itemBuilder: (_) => [
+            const PopupMenuItem(
+                value: 'certificat',
+                child: _MenuRow(
+                    icon: Icons.workspace_premium_outlined,
+                    label: 'Certificat de scolarité')),
+            const PopupMenuDivider(),
             if (canUpdate)
               const PopupMenuItem(
                   value: 'class',

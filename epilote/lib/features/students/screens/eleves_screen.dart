@@ -20,6 +20,8 @@ import '../providers/students_provider.dart';
 import '../models/tutor_draft.dart';
 import '../providers/students_registry_provider.dart';
 import '../providers/transfers_provider.dart';
+import '../services/attestation_actions.dart';
+import '../services/attestations_pdf_service.dart';
 import '../services/students_pdf_service.dart';
 import '../widgets/monthly_evolution_card.dart';
 import '../widgets/scope_drilldown_panel.dart';
