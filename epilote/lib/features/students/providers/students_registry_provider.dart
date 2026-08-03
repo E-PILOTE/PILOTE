@@ -33,6 +33,7 @@ class StudentRow {
     required this.firstName,
     required this.lastName,
     required this.matricule,
+    required this.ine,
     required this.gender,
     required this.dateOfBirth,
     required this.photoUrl,
@@ -51,6 +52,10 @@ class StudentRow {
   });
 
   final String id, firstName, lastName, matricule;
+
+  /// Identifiant national — `null` tant qu'une inscription saisie hors
+  /// ligne n'a pas été synchronisée (le serveur seul l'attribue).
+  final String? ine;
   final String? gender;
   final DateTime? dateOfBirth;
   final String? photoUrl;
@@ -103,7 +108,7 @@ final studentsRegistryProvider =
   return db
       .watch(
         '''
-        SELECT s.id, s.first_name, s.last_name, s.matricule, s.gender,
+        SELECT s.id, s.first_name, s.last_name, s.matricule, s.ine, s.gender,
                s.date_of_birth, s.photo_url, s.is_boarder, s.has_scholarship,
                s.has_social_aid, s.is_affecte,
                ce.id            AS enrollment_id,
@@ -133,6 +138,7 @@ final studentsRegistryProvider =
                 firstName: (r['first_name'] as String?) ?? '',
                 lastName: (r['last_name'] as String?) ?? '',
                 matricule: (r['matricule'] as String?) ?? '',
+                ine: r['ine'] as String?,
                 gender: r['gender'] as String?,
                 dateOfBirth: _d(r['date_of_birth']),
                 photoUrl: r['photo_url'] as String?,

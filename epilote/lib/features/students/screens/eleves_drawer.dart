@@ -141,7 +141,15 @@ class _DwBody extends StatelessWidget {
         title: 'Identité',
         icon: Icons.person_outline,
         rows: [
-          ('Matricule', row.matricule.isEmpty ? '—' : row.matricule),
+          // Les deux, et dans cet ordre. Le matricule est le numéro de
+          // l'école, celui que le secrétariat manipule tous les jours ; l'INE
+          // est celui qui suivra l'enfant s'il change d'établissement. Les
+          // confondre, c'est reperdre ce que l'INE apporte.
+          ('Matricule (école)', row.matricule.isEmpty ? '—' : row.matricule),
+          (
+            'Identifiant national',
+            row.ine == null ? kIneEnAttente : formatIne(row.ine)
+          ),
           (
             'Sexe',
             row.gender == 'F'

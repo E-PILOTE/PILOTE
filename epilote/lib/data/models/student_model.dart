@@ -8,6 +8,7 @@ class StudentModel {
     required this.schoolId,
     required this.groupId,
     required this.matricule,
+    this.ine,
     required this.firstName,
     required this.lastName,
     this.dateOfBirth,
@@ -40,6 +41,7 @@ class StudentModel {
       schoolId:            map['school_id']             as String,
       groupId:             map['group_id']              as String,
       matricule:           map['matricule']             as String? ?? '',
+      ine:                 map['ine']                   as String?,
       firstName:           map['first_name']            as String,
       lastName:            map['last_name']             as String,
       dateOfBirth:         map['date_of_birth'] != null
@@ -73,6 +75,12 @@ class StudentModel {
   final String   schoolId;
   final String   groupId;
   final String   matricule;
+
+  /// Identifiant NATIONAL — 11 chiffres, attribué par le serveur et
+  /// immuable. Distinct du [matricule], qui reste le numéro de l'école.
+  /// `null` tant qu'une inscription saisie hors ligne n'a pas été
+  /// synchronisée : ce n'est ni une erreur ni un oubli.
+  final String?  ine;
   final String   firstName;
   final String   lastName;
   final DateTime? dateOfBirth;
@@ -135,6 +143,7 @@ class StudentModel {
 
   StudentModel copyWith({
     String? matricule,
+    String? ine,
     String? firstName,
     String? lastName,
     DateTime? dateOfBirth,
@@ -160,6 +169,7 @@ class StudentModel {
     id: id, schoolId: schoolId, groupId: groupId,
     createdAt: createdAt, updatedAt: updatedAt,
     matricule:           matricule           ?? this.matricule,
+    ine:                 ine                 ?? this.ine,
     firstName:           firstName           ?? this.firstName,
     lastName:            lastName            ?? this.lastName,
     dateOfBirth:         dateOfBirth         ?? this.dateOfBirth,

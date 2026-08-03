@@ -347,6 +347,11 @@ const schema = Schema([
 
   Table('students', [
     Column.text('matricule'),
+    // Identifiant NATIONAL — 11 chiffres, attribué par le serveur et immuable
+    // (migration 0080). Distinct du matricule, qui reste le numéro propre à
+    // l'école. Reste NULL tant qu'une inscription saisie hors ligne n'a pas
+    // été synchronisée : c'est le prix de l'unicité nationale garantie.
+    Column.text('ine'),
     Column.text('first_name'),
     Column.text('last_name'),
     Column.text('date_of_birth'),
