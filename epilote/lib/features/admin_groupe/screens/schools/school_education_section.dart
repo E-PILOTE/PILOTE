@@ -141,6 +141,7 @@ class _SchoolEducationSectionState
       return eduError('Aucun cycle dans le référentiel.');
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _modeles(cat),
       Wrap(spacing: 8, runSpacing: 8, children: [
         for (final c in cycles)
           eduChip(
@@ -160,6 +161,67 @@ class _SchoolEducationSectionState
             style: TextStyle(fontSize: 11, color: kTextMuted, fontStyle: FontStyle.italic)),
       ],
     ]);
+  }
+
+  // ── Modèles d'établissement ────────────────────────────────────────────
+  //
+  // Ils ne s'affichent que sur une offre VIDE. Sur une école déjà configurée,
+  // un modèle remplacerait tout d'un clic : le serveur refuserait d'emporter
+  // des classes, mais la sélection à l'écran serait déjà détruite et
+  // l'utilisateur croirait avoir tout perdu. On se contente alors de nommer
+  // la forme reconnue — « c'est un CEG ».
+  Widget _modeles(EducationCatalog cat) {
+    if (_cycleIds.isNotEmpty) {
+      final codes = cat.activeCycles
+          .where((c) => _cycleIds.contains(c.id))
+          .map((c) => c.code);
+      final m = modelePour(codes);
+      if (m == null) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Row(children: [
+          Icon(Icons.verified_outlined, size: 14, color: kGreen),
+          const SizedBox(width: 6),
+          Text('Correspond au modèle « ${m.nom} »',
+              style: TextStyle(fontSize: 11.5, color: kTextMuted)),
+        ]),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Partir d\'un modèle',
+            style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                color: kTextPrimary)),
+        const SizedBox(height: 2),
+        Text('Il coche les cycles et leurs niveaux. Tout reste modifiable '
+            'ensuite.',
+            style: TextStyle(fontSize: 11, color: kTextMuted, height: 1.35)),
+        const SizedBox(height: 10),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final m in kModelesEtablissement)
+            Tooltip(
+              message: m.description,
+              child: OutlinedButton.icon(
+                onPressed: () => _appliquerModele(m, cat),
+                icon: const Icon(Icons.auto_awesome_outlined, size: 14),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: kNavy,
+                  side: BorderSide(color: kNavy.withValues(alpha: 0.35)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  visualDensity: VisualDensity.compact,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20)),
+                ),
+                label: Text(m.nom, style: const TextStyle(fontSize: 11.5)),
+              ),
+            ),
+        ]),
+      ]),
+    );
   }
 
   Widget _cycleCard(EducationCycle c, EducationCatalog cat) {
@@ -291,6 +353,35 @@ class _SchoolEducationSectionState
         _levelIds.removeWhere(lvlIds.contains);
       } else {
         _cycleIds.add(c.id);
+        // Un CEG a ses quatre niveaux, une EPP ses six : cocher un cycle, c'est
+        // vouloir ce que ce cycle contient. Les faire cocher un par un, mille
+        // fois, c'est mille occasions d'en oublier un — et un niveau oublié,
+        // c'est une classe qu'on ne peut pas ouvrir en novembre. Tout reste
+        // décochable ensuite.
+        //
+        // Sauf les cycles à filières : la formation professionnelle compte
+        // 63 niveaux, et aucun établissement du pays ne les offre tous.
+        if (!c.hasPrograms) {
+          _levelIds.addAll(cat.activeGeneralLevelsOf(c.id).map((l) => l.id));
+        }
+      }
+    });
+  }
+
+  /// Applique un modèle d'établissement : il désigne des cycles, la cascade
+  /// habituelle fait le reste. Rien de codé en dur — les niveaux viennent du
+  /// référentiel national, comme partout ailleurs.
+  void _appliquerModele(ModeleEtablissement m, EducationCatalog cat) {
+    final cibles = cat.activeCycles.where((c) => m.cycles.contains(c.code));
+    setState(() {
+      _cycleIds.clear();
+      _programIds.clear();
+      _levelIds.clear();
+      for (final c in cibles) {
+        _cycleIds.add(c.id);
+        if (!c.hasPrograms) {
+          _levelIds.addAll(cat.activeGeneralLevelsOf(c.id).map((l) => l.id));
+        }
       }
     });
   }

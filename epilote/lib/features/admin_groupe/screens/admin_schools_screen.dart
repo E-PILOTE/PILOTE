@@ -16,6 +16,7 @@ import '../providers/admin_users_provider.dart' show roleLabel;
 import '../providers/school_geocoder_provider.dart';
 import '../providers/subscription_access_provider.dart';
 import '../providers/education_provider.dart';
+import '../providers/structure_modeles.dart';
 import '../widgets/school_location_picker.dart';
 import '../../../core/widgets/admin_ui.dart';
 

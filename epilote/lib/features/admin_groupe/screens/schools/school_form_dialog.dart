@@ -188,7 +188,6 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
       await eduSvc.saveSchoolEducation(
         schoolId: schoolId,
         cycleIds: _eduCtrl.cycleIds,
-        programIds: _eduCtrl.programIds,
         levelIds: _eduCtrl.levelIds,
       );
       if (mounted) {
