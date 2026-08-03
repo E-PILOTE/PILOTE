@@ -52,6 +52,11 @@ dependencies:
   uuid: ^4.5.1
   logger: ^2.5.0
   connectivity_plus: ^6.1.4
+  # Version réellement embarquée dans le binaire installé. Un numéro écrit
+  # en dur dans le code se désynchronise — il affichait « 3.0.2 » pour un
+  # paquet en 3.1.7. Sur un parc mis à jour à la main, c'est la première
+  # question du support : quelle version tourne sur ce poste ?
+  package_info_plus: ^9.0.1
   url_launcher: ^6.3.1
   powersync: ^1.18.0
   fl_chart: ^1.2.0

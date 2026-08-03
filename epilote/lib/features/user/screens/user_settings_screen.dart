@@ -6,6 +6,7 @@ import '../../../core/widgets/logout_guard.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/routes.dart';
+import '../../../core/utils/app_version.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/staff_ui.dart';
@@ -152,7 +153,11 @@ class _Body extends ConsumerWidget {
               icon: Icons.flag_rounded,
               color: kNavy,
               title: 'E-PILOTE CONGO',
-              subtitle: 'Version 3.0.2',
+              // Lue dans le binaire, pas recopiée à la main : ce libellé
+              // annonçait « 3.0.2 » sur un paquet en 3.1.7. C'est la première
+              // question du support à un établissement.
+              subtitle:
+                  'Version ${ref.watch(appVersionProvider).valueOrNull ?? '…'}',
             ),
             Divider(height: 1, color: kBorder),
             SettingsTile(
