@@ -1,12 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:powersync/powersync.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'local_storage_dir.dart';
 import 'powersync_connector.dart';
 import 'powersync_schema.dart';
 import 'upload_outbox.dart';
@@ -107,8 +106,11 @@ Future<void> _writeLastDeviceUser(String uid) async {
 /// Initialise PowerSync : ouvre la base SQLite locale.
 /// La connexion réseau est conditionnée au rôle (utilisateur seulement).
 Future<void> initPowerSync() async {
-  final dir  = await getApplicationDocumentsDirectory();
-  final path = join(dir.path, 'epilote_v3.db');
+  // ⚠️ Surtout PAS le dossier « Documents » : sous Windows l'agent y voit la
+  // base et peut la supprimer, et le dossier est souvent redirigé vers
+  // OneDrive, dont la synchronisation corrompt une SQLite ouverte. Voir
+  // local_storage_dir.dart, qui reprend au passage une base déjà en place.
+  final path = await localDbPath();
 
   db = PowerSyncDatabase(schema: schema, path: path);
   await db.initialize();

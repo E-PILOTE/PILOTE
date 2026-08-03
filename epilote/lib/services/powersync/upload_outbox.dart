@@ -4,10 +4,10 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import 'local_storage_dir.dart';
 import 'powersync_service.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -30,7 +30,6 @@ import 'powersync_service.dart';
 // ════════════════════════════════════════════════════════════════════════════
 
 /// Sous-dossier disque des fichiers en attente.
-const _kOutboxDir = 'upload_outbox';
 
 /// Chemin Storage d'une pièce jointe — calculé sans réseau.
 /// Dossier = groupe (RLS Storage) ; nom imprévisible (UUID).
@@ -62,9 +61,7 @@ Future<void> enqueueUpload({
   required String mime,
   required String fileName,
 }) async {
-  final dir = Directory(
-      p.join((await getApplicationDocumentsDirectory()).path, _kOutboxDir));
-  if (!dir.existsSync()) dir.createSync(recursive: true);
+  final dir = await outboxDir();
 
   final local = p.join(dir.path, '${const Uuid().v4()}_$fileName');
   await File(local).writeAsBytes(bytes, flush: true);
@@ -168,8 +165,7 @@ Future<void> flushUploadOutbox(SupabaseClient client) async {
 /// précédente. À n'appeler QUE lors d'une purge assumée (changement d'agent).
 Future<void> purgeUploadOutboxFiles() async {
   try {
-    final dir = Directory(
-        p.join((await getApplicationDocumentsDirectory()).path, _kOutboxDir));
+    final dir = await outboxDir();
     if (dir.existsSync()) await dir.delete(recursive: true);
   } catch (_) {/* fail-soft */}
 }
