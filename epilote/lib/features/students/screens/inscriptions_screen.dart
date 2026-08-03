@@ -29,6 +29,7 @@ import '../providers/student_tutors_provider.dart';
 import '../services/inscription_fiche_service.dart';
 import '../services/inscriptions_pdf_service.dart';
 import 'add_inscription_screen.dart';
+import 'import_eleves_dialog.dart';
 
 part 'inscriptions_list_parts.dart';
 part 'inscriptions_page_parts.dart';
@@ -652,6 +653,31 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                   // toutes validées, et que c'est justement pour ça qu'elles
                   // n'apparaissent pas ici.
                   const _PipelineNotice(),
+                  const SizedBox(height: 12),
+                  // Presque toutes les écoles tiennent déjà leurs listes sur
+                  // Excel ou sur papier. Retaper trois cents noms un par un
+                  // dans un formulaire, c'est deux jours de travail — et c'est
+                  // le moment où l'on renonce au système.
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final fait = await showImportElevesDialog(context);
+                        if (fait && mounted) {
+                          _snack('Import terminé — les inscriptions attendent '
+                              'votre validation', kGreen);
+                        }
+                      },
+                      icon: const Icon(Icons.upload_file_outlined, size: 16),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: kNavy,
+                        side: BorderSide(color: kNavy.withValues(alpha: 0.35)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 13),
+                      ),
+                      label: const Text('Importer une liste d\'élèves'),
+                    ),
+                  ),
                   const SizedBox(height: 22),
                   // L'effectif VALIDÉ (cycle/niveau/classe) vit dans la page
                   // Élèves. Ici = guichet des admissions : rythme global +

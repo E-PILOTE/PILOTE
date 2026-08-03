@@ -78,7 +78,7 @@ void main() {
 
   group('Le refus de retirer un niveau peuplé', () {
     test('nomme les niveaux et compte leurs classes', () {
-      final e = StructureRefusee([
+      final e = const StructureRefusee([
         (niveau: 'Sixième (6e)', classes: 3),
         (niveau: 'Troisième (3e)', classes: 1),
       ]);
@@ -90,7 +90,7 @@ void main() {
     test('dit explicitement que rien n\'a été modifié', () {
       // La base refuse en bloc. Sans cette phrase, l'administrateur croit à un
       // enregistrement partiel et va vérifier école par école.
-      final msg = StructureRefusee([(niveau: 'CM2', classes: 2)]).toString();
+      final msg = const StructureRefusee([(niveau: 'CM2', classes: 2)]).toString();
       expect(msg.toLowerCase(), contains('rien n\'a été modifié'));
       expect(msg.toLowerCase(), contains('fermez'));
     });
