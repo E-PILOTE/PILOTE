@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -452,7 +453,11 @@ class StageExportService {
       ].join(';'));
     }
     final bytes = Uint8List.fromList(
-      [0xEF, 0xBB, 0xBF, ...b.toString().codeUnits],
+      // BOM UTF-8 + encodage UTF-8 : `codeUnits` rendait les unités UTF-16
+      // telles quelles, soit du Latin-1 sous une en-tête annonçant de
+      // l'UTF-8. Excel affichait un losange noir en fin de « Kimbembé », sur des
+      // listes déposées au ministère.
+      [0xEF, 0xBB, 0xBF, ...utf8.encode(b.toString())],
     );
     return _save(bytes, 'Stages.csv', 'Exporter en CSV');
   }

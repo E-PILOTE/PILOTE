@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -135,7 +136,11 @@ class PersonnelExportService {
         _csvCell(a.isActive ? 'Oui' : 'Non'),
       ].join(','));
     }
-    final bytes = Uint8List.fromList(b.toString().codeUnits);
+    // BOM UTF-8 : cet annuaire part vers un tableur, et les patronymes
+    // congolais sont accentués. Il manquait la marque ET l'encodage.
+    final bytes = Uint8List.fromList(
+      [0xEF, 0xBB, 0xBF, ...utf8.encode(b.toString())],
+    );
     return _save(bytes, 'Annuaire_personnel_'
         '${DateFormat('yyyyMMdd').format(DateTime.now())}.csv', ['csv']);
   }
