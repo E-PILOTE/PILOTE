@@ -2,9 +2,10 @@
 cmake_minimum_required(VERSION 3.14)
 project(epilote LANGUAGES CXX)
 
-# The name of the executable created for the application. Change this to change
-# the on-disk name of your application.
-set(BINARY_NAME "epilote")
+# Nom du binaire sur le disque, et donc du raccourci et de la ligne affichée
+# par le gestionnaire des tâches. Doit rester identique à `OriginalFilename`
+# dans runner/Runner.rc.
+set(BINARY_NAME "E-PILOTE")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.

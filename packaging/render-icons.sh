@@ -56,5 +56,25 @@ for sz in $SIZES; do
   convert "$MASTER" -filter Lanczos -resize "${sz}x${sz}" -strip "$d/${APPID}.png"
 done
 
+echo "▶ Icône Windows (.ico multi-résolution)"
+# Windows pioche la définition qui lui convient SELON LE CONTEXTE : 16 px dans
+# la barre des tâches, 32 px sur le bureau, 256 px dans l'explorateur en grandes
+# vignettes. Un .ico ne portant qu'une seule taille est rééchantillonné à la
+# volée par le système, et le logo ressort baveux là où l'agent le voit le plus.
+# Le 24 px n'a pas d'équivalent hicolor : on le dérive du master comme les autres.
+ICO="$REPO_ROOT/epilote/windows/runner/resources/app_icon.ico"
+ICO_SIZES="256 128 64 48 32 24 16"
+if [ -d "$(dirname "$ICO")" ]; then
+  layers=""
+  for sz in $ICO_SIZES; do
+    convert "$MASTER" -filter Lanczos -resize "${sz}x${sz}" -strip "$TMP/ico_${sz}.png"
+    layers="$layers $TMP/ico_${sz}.png"
+  done
+  convert $layers "$ICO"
+  echo "  ✓ $ICO ($(echo $ICO_SIZES | tr ' ' ','))"
+else
+  echo "  ⚠ dossier Windows absent — .ico non régénérée"
+fi
+
 echo "✓ Icônes régénérées dans $OUT"
 find "$OUT" -type f | sort | sed "s#$OUT/#  #"
