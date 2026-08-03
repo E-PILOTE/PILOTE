@@ -18,146 +18,7 @@ import '../../../core/utils/mouvement_agent.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../providers/admin_carriere_provider.dart';
 import '../providers/admin_users_provider.dart';
-
-String _jourFr(DateTime d) =>
-    '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-
-/// Pied de modale avec un bouton principal RÉELLEMENT désactivable — le chrome
-/// partagé n'en propose pas : `AdminPrimaryButton.onTap` est non nullable, et
-/// `AdminFormDialog` supprime tout le pied (bouton Annuler compris) quand
-/// `onSubmit` est null. Or ici l'action doit rester visible mais inerte tant
-/// que la date d'effet et le motif ne sont pas saisis.
-class _PiedMouvement extends StatelessWidget {
-  const _PiedMouvement({
-    required this.label,
-    required this.icon,
-    required this.couleur,
-    required this.saving,
-    required this.onSubmit,
-  });
-
-  final String label;
-  final IconData icon;
-  final Color couleur;
-  final bool saving;
-  final VoidCallback? onSubmit;
-
-  @override
-  Widget build(BuildContext context) => Row(children: [
-        TextButton.icon(
-          onPressed: saving ? null : () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.close_rounded, size: 16),
-          label: const Text('Annuler'),
-        ),
-        const Spacer(),
-        FilledButton.icon(
-          onPressed: saving ? null : onSubmit,
-          icon: saving
-              ? const SizedBox(
-                  width: 16, height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : Icon(icon, size: 18),
-          label: Text(label),
-          style: FilledButton.styleFrom(
-            backgroundColor: couleur,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          ),
-        ),
-      ]);
-}
-
-/// Champ date compact — un mouvement administratif a toujours une date d'effet.
-class _ChampDate extends StatelessWidget {
-  const _ChampDate({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-    this.helper,
-  });
-
-  final String label;
-  final DateTime? value;
-  final String? helper;
-  final ValueChanged<DateTime> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () async {
-        final d = await showDatePicker(
-          context: context,
-          initialDate: value ?? DateTime.now(),
-          firstDate: DateTime(2000),
-          lastDate: DateTime(DateTime.now().year + 5),
-          locale: const Locale('fr', 'FR'),
-        );
-        if (d != null) onChanged(d);
-      },
-      borderRadius: BorderRadius.circular(10),
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: label,
-          helperText: helper,
-          helperMaxLines: 2,
-          prefixIcon: const Icon(Icons.event_outlined, size: 20),
-          border: const OutlineInputBorder(),
-        ),
-        child: Text(value == null ? 'Choisir une date' : _jourFr(value!)),
-      ),
-    );
-  }
-}
-
-/// Les champs communs à tout mouvement : l'acte qui le fonde, et l'observation.
-class _ChampsActe extends StatelessWidget {
-  const _ChampsActe({
-    required this.reference,
-    required this.notes,
-    required this.acteDate,
-    required this.onActeDate,
-  });
-
-  final TextEditingController reference, notes;
-  final DateTime? acteDate;
-  final ValueChanged<DateTime> onActeDate;
-
-  @override
-  Widget build(BuildContext context) => Column(children: [
-        Row(children: [
-          Expanded(
-            flex: 3,
-            child: TextField(
-              controller: reference,
-              decoration: const InputDecoration(
-                labelText: 'Référence de l\'acte',
-                hintText: 'Arrêté n° 1234/METP/CAB/2026',
-                helperText: 'Facultatif, mais c\'est lui qui rend le registre '
-                    'opposable.',
-                helperMaxLines: 2,
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 2,
-            child: _ChampDate(
-                label: 'Date de l\'acte',
-                value: acteDate,
-                onChanged: onActeDate),
-          ),
-        ]),
-        const SizedBox(height: 14),
-        TextField(
-          controller: notes,
-          maxLines: 2,
-          decoration: const InputDecoration(
-            labelText: 'Observations',
-            border: OutlineInputBorder(),
-          ),
-        ),
-      ]);
-}
+import 'agent_mouvement_kit.dart';
 
 // ─── MUTATION ───────────────────────────────────────────────────────────────
 
@@ -231,7 +92,7 @@ class _MutationDialogState extends ConsumerState<_MutationDialog> {
       subtitle: 'Poste actuel : ${widget.user.schoolName ?? '—'} '
           '· ${widget.user.roleLbl}',
       accent: kNavy,
-      footer: _PiedMouvement(
+      footer: PiedMouvement(
         label: 'Enregistrer la mutation',
         icon: Icons.swap_horiz_rounded,
         couleur: kNavy,
@@ -239,7 +100,7 @@ class _MutationDialogState extends ConsumerState<_MutationDialog> {
         onSubmit: (_schoolId == null || _effet == null) ? null : _submit,
       ),
       body: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const _NoteExplicative(
+        const NoteExplicative(
           icon: Icons.info_outline,
           texte: 'L\'agent reste ACTIF : il change d\'établissement, il ne '
               'quitte pas le service. Son poste précédent se ferme la veille '
@@ -277,14 +138,14 @@ class _MutationDialogState extends ConsumerState<_MutationDialog> {
           onChanged: (v) => setState(() => _role = v),
         ),
         const SizedBox(height: 14),
-        _ChampDate(
+        ChampDate(
           label: 'Prise de fonction *',
           value: _effet,
           helper: 'Le poste quitté se ferme la veille.',
           onChanged: (d) => setState(() => _effet = d),
         ),
         const SizedBox(height: 14),
-        _ChampsActe(
+        ChampsActe(
           reference: _reference,
           notes: _notes,
           acteDate: _acteDate,
@@ -361,7 +222,7 @@ class _RadiationDialogState extends ConsumerState<_RadiationDialog> {
       title: 'Fin de service — ${widget.user.fullName}',
       subtitle: '${widget.user.schoolName ?? '—'} · ${widget.user.roleLbl}',
       accent: kRed,
-      footer: _PiedMouvement(
+      footer: PiedMouvement(
         label: 'Enregistrer le départ',
         icon: Icons.logout_rounded,
         couleur: kRed,
@@ -369,7 +230,7 @@ class _RadiationDialogState extends ConsumerState<_RadiationDialog> {
         onSubmit: (_motif == null || _effet == null) ? null : _submit,
       ),
       body: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const _NoteExplicative(
+        const NoteExplicative(
           icon: Icons.shield_outlined,
           texte: 'Rien n\'est supprimé. Le dossier reste consultable — pension, '
               'attestations — et les écritures faites par l\'agent restent '
@@ -399,13 +260,13 @@ class _RadiationDialogState extends ConsumerState<_RadiationDialog> {
                   fontWeight: choisi.reversible ? FontWeight.w400 : FontWeight.w600)),
         ],
         const SizedBox(height: 14),
-        _ChampDate(
+        ChampDate(
           label: 'Date d\'effet *',
           value: _effet,
           onChanged: (d) => setState(() => _effet = d),
         ),
         const SizedBox(height: 14),
-        _ChampsActe(
+        ChampsActe(
           reference: _reference,
           notes: _notes,
           acteDate: _acteDate,
@@ -491,10 +352,10 @@ class _ReintegrationDialogState extends ConsumerState<_ReintegrationDialog> {
       icon: Icons.person_add_alt_1_rounded,
       title: 'Réintégrer ${widget.user.fullName}',
       subtitle: 'Parti le '
-          '${widget.user.departureDate == null ? '—' : _jourFr(widget.user.departureDate!)}'
+          '${widget.user.departureDate == null ? '—' : jourFr(widget.user.departureDate!)}'
           ' · ${mouvementLabel(widget.user.departureMotif)}',
       accent: kGreen,
-      footer: _PiedMouvement(
+      footer: PiedMouvement(
         label: 'Réintégrer',
         icon: Icons.person_add_alt_1_rounded,
         couleur: kGreen,
@@ -503,7 +364,7 @@ class _ReintegrationDialogState extends ConsumerState<_ReintegrationDialog> {
       ),
       body: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         if (bloque)
-          _NoteExplicative(
+          NoteExplicative(
             icon: Icons.block,
             couleur: kRed,
             texte: 'Un départ pour '
@@ -512,7 +373,7 @@ class _ReintegrationDialogState extends ConsumerState<_ReintegrationDialog> {
                 'base refuse également cette réintégration.',
           )
         else
-          const _NoteExplicative(
+          const NoteExplicative(
             icon: Icons.history_rounded,
             texte: 'Une nouvelle affectation s\'ouvre ; les précédentes restent '
                 'au dossier. L\'ancienneté déjà acquise n\'est pas perdue.',
@@ -546,13 +407,13 @@ class _ReintegrationDialogState extends ConsumerState<_ReintegrationDialog> {
           onChanged: bloque ? null : (v) => setState(() => _role = v),
         ),
         const SizedBox(height: 14),
-        _ChampDate(
+        ChampDate(
           label: 'Reprise de fonction *',
           value: _effet,
           onChanged: (d) => setState(() => _effet = d),
         ),
         const SizedBox(height: 14),
-        _ChampsActe(
+        ChampsActe(
           reference: _reference,
           notes: _notes,
           acteDate: _acteDate,
@@ -562,36 +423,6 @@ class _ReintegrationDialogState extends ConsumerState<_ReintegrationDialog> {
           const SizedBox(height: 14),
           AdminErrorBanner(message: _erreur!),
         ],
-      ]),
-    );
-  }
-}
-
-// ─── Bandeau explicatif ─────────────────────────────────────────────────────
-
-class _NoteExplicative extends StatelessWidget {
-  const _NoteExplicative({required this.icon, required this.texte, this.couleur});
-  final IconData icon;
-  final String texte;
-  final Color? couleur;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = couleur ?? kNavy;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: c.withValues(alpha: 0.22)),
-      ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(icon, size: 18, color: c),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(texte,
-              style: const TextStyle(fontSize: 12.5, height: 1.45)),
-        ),
       ]),
     );
   }
