@@ -126,6 +126,24 @@ class _Step1EleveState extends ConsumerState<_Step1Eleve> {
             ),
             const SizedBox(height: 14),
           ],
+          // Après le rapprochement LOCAL, et pas avant : la question « est-il
+          // déjà chez nous ? » se règle d'abord. Le registre national ne sert
+          // qu'ensuite, pour l'enfant qui arrive d'ailleurs.
+          NationalLookupPanel(
+            lastName: s.lastName,
+            firstName: s.firstName,
+            dateOfBirth: s.dateOfBirth,
+            claimedIne: s.claimedIne,
+            onClaim: (m) {
+              setState(() => s.claimedIne = m.ine);
+              widget.onChanged();
+            },
+            onClear: () {
+              setState(() => s.claimedIne = null);
+              widget.onChanged();
+            },
+          ),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(

@@ -13,6 +13,7 @@ import '../../../features/structure/providers/academic_year_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
 import '../models/tutor_draft.dart';
 import '../widgets/inscription_form_kit.dart';
+import '../widgets/national_lookup_panel.dart';
 import '../providers/inscriptions_data_provider.dart';
 import '../providers/student_documents_provider.dart';
 import '../providers/student_tutors_provider.dart';
@@ -69,6 +70,15 @@ class _InscriptionState {
 
   /// L'identifiant sous lequel l'inscription sera écrite.
   String get effectiveStudentId => existingStudentId ?? studentId;
+
+  /// Identifiant national repris d'un élève reconnu dans une AUTRE école.
+  ///
+  /// Cas distinct de [existingStudentId] : là, l'enfant est déjà chez nous et
+  /// on réutilise sa fiche. Ici, il arrive d'ailleurs — on crée bien une fiche
+  /// neuve, mais elle porte l'identifiant qu'il avait déjà. C'est ce qui fait
+  /// que sa scolarité ne se coupe pas en deux au passage de la frontière entre
+  /// deux établissements.
+  String? claimedIne;
 
   // Étape 2 — Tuteurs
   final List<_TutorEntry> tutors = [
@@ -307,6 +317,7 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
         id:                 _state.studentId,
         schoolId:           profile.schoolId!,
         groupId:            profile.groupId!,
+        claimedIne:         _state.claimedIne,
         firstName:          _state.firstName,
         lastName:           _state.lastName,
         dateOfBirth:        _state.dateOfBirth != null

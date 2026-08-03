@@ -159,6 +159,11 @@ Future<String> createStudent({
   required String firstName,
   required String lastName,
   String? id,
+  /// Identifiant national repris d'un élève reconnu dans une autre école.
+  /// Laissé nul en temps normal : c'est le SERVEUR qui attribue, et lui
+  /// seul (migration 0080). On ne le fournit que pour RATTACHER un
+  /// dossier neuf à un parcours déjà commencé ailleurs.
+  String? claimedIne,
   DateTime? dateOfBirth,
   String? placeOfBirth,
   String? gender,
@@ -185,7 +190,7 @@ Future<String> createStudent({
   await db.execute(
     '''
     INSERT INTO students (
-      id, school_id, group_id, matricule,
+      id, school_id, group_id, matricule, ine,
       first_name, last_name, date_of_birth, place_of_birth,
       gender, nationality, address, city, region, photo_url,
       blood_group, allergies,
@@ -194,7 +199,7 @@ Future<String> createStudent({
       has_social_aid, social_aid_type, is_affecte,
       is_active, created_at, updated_at
     ) VALUES (
-      ?, ?, ?, ?,
+      ?, ?, ?, ?, ?,
       ?, ?, ?, ?,
       ?, ?, ?, ?, ?, ?,
       ?, ?,
@@ -205,7 +210,7 @@ Future<String> createStudent({
     )
     ''',
     [
-      sid, schoolId, groupId, matricule,
+      sid, schoolId, groupId, matricule, claimedIne,
       firstName, lastName,
       dateOfBirth?.toIso8601String().substring(0, 10),
       placeOfBirth,

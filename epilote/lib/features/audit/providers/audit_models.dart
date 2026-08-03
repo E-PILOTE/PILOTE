@@ -41,6 +41,10 @@ class AuditEntry {
         'INSERT' => 'Création',
         'UPDATE' => 'Modification',
         'DELETE' => 'Suppression',
+        // Consultation du registre national des élèves par une école
+        // (migration 0081). N'est pas une écriture, mais laisse une
+        // trace : une école y voit un enfant qui n'est pas le sien.
+        'RECHERCHE_NATIONALE' => 'Recherche nationale',
         _ => action,
       };
 

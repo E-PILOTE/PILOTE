@@ -209,4 +209,15 @@ COMMENT ON FUNCTION attribuer_ine_manquants() IS
   'format confirmé par le ministère : les INE seront imprimés sur des '
   'certificats, on ne les reprend pas.';
 
+-- ── Exécution du 2026-08-03, après confirmation du format par le ministère ──
+--  9 104 INE attribués, tous distincts, toutes les clés de Luhn justes, et
+--  l'ordre chronologique respecté (9 104 / 9 104 rangs identiques).
+--
+--  ⚠️ LA SÉQUENCE A DES TROUS : 00000005 → 00018211 pour 9 104 élèves. La
+--  fonction volatile est évaluée deux fois par ligne par le planificateur ;
+--  seule une valeur est retenue, l'autre est consommée pour rien. C'est sans
+--  conséquence — l'unicité et l'ordre tiennent, et huit chiffres laissent cent
+--  millions de numéros — mais il ne faut pas lire un INE comme un compteur
+--  d'élèves. « 26-00018211-x » n'est pas le 18 211ᵉ élève du Congo.
+
 COMMIT;
