@@ -1,0 +1,108 @@
+# ════════════════════════════════════════════════════════════════════════════
+#  Chaîne de livraison Windows — la plateforme de DÉPLOIEMENT du produit.
+#
+#  Le développement se fait sous Linux ; les établissements, eux, tournent sous
+#  Windows 10/11. On ne peut pas compiler Windows depuis un poste Linux : ce
+#  fichier est donc la SEULE façon de produire le binaire qui sera déployé, et
+#  la seule preuve continue que l'application compile pour sa cible.
+#
+#  Deux travaux DÉLIBÉRÉMENT indépendants :
+#    • `verification` (Linux)  — analyse et tests, dont les golden tests, qui
+#      sont calibrés sur le rendu de police Linux et échoueraient sous Windows
+#      pour des écarts d'antialiasing sans le moindre rapport avec un défaut.
+#    • `windows`               — la compilation et l'artefact.
+#  Le second ne dépend pas du premier : un test rouge ne doit pas nous priver de
+#  l'information « est-ce que ça compile ». Ce couplage sera resserré une fois
+#  la chaîne stabilisée, avant le déploiement.
+# ════════════════════════════════════════════════════════════════════════════
+
+name: Windows
+
+on:
+  push:
+    branches: [main, 'feat/**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+# Une nouvelle poussée sur la même branche annule la construction précédente :
+# la compilation Windows est longue, on ne fait pas la queue pour rien.
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Épinglée sur la version du poste de développement. Une montée de version de
+  # Flutter est une décision, jamais un effet de bord d'un runner mis à jour.
+  FLUTTER_VERSION: '3.44.0'
+
+jobs:
+  verification:
+    name: Analyse et tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Dépendances
+        working-directory: epilote
+        run: flutter pub get
+
+      - name: Analyse statique
+        working-directory: epilote
+        run: flutter analyze
+
+      - name: Tests
+        working-directory: epilote
+        run: flutter test
+
+  windows:
+    name: Construction Windows x64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Dépendances
+        working-directory: epilote
+        run: flutter pub get
+
+      - name: Compilation
+        working-directory: epilote
+        run: flutter build windows --release
+
+      # Vérification que l'identité de l'application est bien passée dans le
+      # binaire : c'est cette fiche que l'agent d'un établissement consulte
+      # avant d'installer, et c'est elle que le certificat de signature devra
+      # confirmer. Un « epilote / cg.epilote » ici signifierait que
+      # windows/runner/Runner.rc n'a pas été pris en compte.
+      - name: Identité du binaire
+        working-directory: epilote
+        shell: pwsh
+        run: |
+          $exe = 'build\windows\x64\runner\Release\E-PILOTE.exe'
+          if (-not (Test-Path $exe)) { throw "Binaire introuvable : $exe" }
+          (Get-Item $exe).VersionInfo | Format-List `
+            CompanyName, ProductName, FileDescription, FileVersion, ProductVersion
+          '{0:N1} Mo' -f ((Get-Item $exe).Length / 1MB)
+
+      - name: Artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: E-PILOTE-windows-x64-${{ github.sha }}
+          # Le dossier ENTIER : l'exécutable seul ne démarre pas. Il lui faut
+          # les DLL du moteur Flutter, celles des greffons natifs (PowerSync,
+          # media_kit) et le dossier `data/` des ressources Dart.
+          path: epilote/build/windows/x64/runner/Release/
+          retention-days: 30
+          if-no-files-found: error
