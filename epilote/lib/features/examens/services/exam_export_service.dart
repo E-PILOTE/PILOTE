@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../../core/utils/safe_file_name.dart';
+
 import '../../../core/services/official_pdf_kit.dart';
 import '../providers/candidate_file_provider.dart';
 import '../providers/exam_candidates_provider.dart';
@@ -243,8 +245,10 @@ class ExamExportService {
         c: c, schoolName: schoolName, pieces: pieces);
     final path = await FilePicker.platform.saveFile(
       dialogTitle: 'Enregistrer la fiche d\'inscription',
-      fileName: 'Fiche_${c.fullName}_${c.examShortName ?? ''}.pdf'
-          .replaceAll(' ', '_'),
+      fileName: safeFileName(
+        'Fiche_${c.fullName}_${c.examShortName ?? ''}.pdf'
+            .replaceAll(' ', '_'),
+      ),
       bytes: bytes,
     );
     if (path == null) return null;
@@ -283,8 +287,10 @@ class ExamExportService {
     );
     final path = await FilePicker.platform.saveFile(
       dialogTitle: 'Enregistrer la liste des candidats',
-      fileName: 'Candidats_${examShortName}_${yearLabel ?? ''}.pdf'
-          .replaceAll(' ', '_'),
+      fileName: safeFileName(
+        'Candidats_${examShortName}_${yearLabel ?? ''}.pdf'
+            .replaceAll(' ', '_'),
+      ),
       bytes: bytes,
     );
     if (path == null) return null;
@@ -331,8 +337,10 @@ class ExamExportService {
     );
     final path = await FilePicker.platform.saveFile(
       dialogTitle: 'Exporter en CSV',
-      fileName: 'Candidats_${examShortName}_${yearLabel ?? ''}.csv'
-          .replaceAll(' ', '_'),
+      fileName: safeFileName(
+        'Candidats_${examShortName}_${yearLabel ?? ''}.csv'
+            .replaceAll(' ', '_'),
+      ),
       bytes: bytes,
     );
     if (path == null) return null;

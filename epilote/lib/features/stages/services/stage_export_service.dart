@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../../core/utils/safe_file_name.dart';
+
 import '../../../core/services/official_pdf_kit.dart';
 import '../models/stage_detail.dart';
 import '../providers/stages_provider.dart';
@@ -397,7 +399,7 @@ class StageExportService {
       String dialogTitle) async {
     final path = await FilePicker.platform.saveFile(
       dialogTitle: dialogTitle,
-      fileName: fileName.replaceAll(' ', '_'),
+      fileName: safeFileName(fileName.replaceAll(' ', '_')),
       bytes: bytes,
     );
     if (path == null) return null;

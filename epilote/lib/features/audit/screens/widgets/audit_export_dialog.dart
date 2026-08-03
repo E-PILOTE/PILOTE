@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -108,8 +111,29 @@ class _AuditExportDialogState extends ConsumerState<AuditExportDialog> {
       final now = DateTime.now();
       final ts = '${now.year}${_p(now.month)}${_p(now.day)}_'
           '${_p(now.hour)}${_p(now.minute)}${_p(now.second)}';
-      final path = '/tmp/audit_export_$ts.csv';
-      await File(path).writeAsString(buf.toString());
+      // BOM UTF-8 : sans lui Excel massacre les accents des noms congolais.
+      final bytes = Uint8List.fromList(
+        [0xEF, 0xBB, 0xBF, ...utf8.encode(buf.toString())],
+      );
+      // Le chemin est demandé à l'utilisateur, comme pour tous les autres
+      // exports de l'application. Il l'était auparavant en dur dans `/tmp` :
+      // sous Windows — la plateforme de déploiement — ce dossier n'existe pas,
+      // et l'export du journal échouait purement et simplement.
+      final path = await FilePicker.platform.saveFile(
+        dialogTitle: 'Exporter le journal d\'audit',
+        fileName: 'Journal_audit_$ts.csv',
+        bytes: bytes,
+      );
+      if (path == null) {
+        if (mounted) setState(() => _loading = false);
+        return;
+      }
+      // Selon la plateforme, `saveFile` écrit lui-même les octets ou se
+      // contente de renvoyer le chemin choisi.
+      final file = File(path);
+      if (!await file.exists() || await file.length() == 0) {
+        await file.writeAsBytes(bytes);
+      }
       if (mounted) {
         setState(() {
           _loading = false;

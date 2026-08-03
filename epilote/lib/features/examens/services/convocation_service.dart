@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../../core/utils/safe_file_name.dart';
+
 import '../../../core/services/official_pdf_kit.dart';
 import '../providers/exam_candidates_provider.dart';
 
@@ -226,9 +228,10 @@ class ConvocationService {
     );
     final path = await FilePicker.platform.saveFile(
       dialogTitle: 'Enregistrer les convocations',
-      fileName:
-          'Convocations_${fileLabel ?? examShortName}_${yearLabel ?? ''}.pdf'
-              .replaceAll(' ', '_'),
+      fileName: safeFileName(
+        'Convocations_${fileLabel ?? examShortName}_${yearLabel ?? ''}.pdf'
+            .replaceAll(' ', '_'),
+      ),
       bytes: bytes,
     );
     if (path == null) return null;
