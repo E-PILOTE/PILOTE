@@ -117,6 +117,61 @@ class PorteurMatricule {
   final String? departureMotif;
 }
 
+/// Ce que le départ d'un agent a libéré — et ce qu'il laisse à faire.
+///
+/// La distinction porte tout : les cours, les classes dont il était professeur
+/// principal et ses disponibilités disent CE QUI EST, et deviennent faux à son
+/// départ ; l'emploi du temps, lui, n'est PAS touché. Qui remplace un
+/// enseignant est une décision de chef d'établissement, pas l'effet de bord
+/// d'un arrêté (migration 0085).
+class ChargeLiberee {
+  const ChargeLiberee({
+    this.coursLiberes = 0,
+    this.classesLiberees = 0,
+    this.disponibilitesEffacees = 0,
+    this.creneauxAReattribuer = 0,
+  });
+
+  factory ChargeLiberee.fromMap(Map<String, dynamic> m) => ChargeLiberee(
+        coursLiberes:           (m['cours_liberes'] as num?)?.toInt() ?? 0,
+        classesLiberees:        (m['classes_liberees'] as num?)?.toInt() ?? 0,
+        disponibilitesEffacees: (m['disponibilites_effacees'] as num?)?.toInt() ?? 0,
+        creneauxAReattribuer:   (m['creneaux_a_reattribuer'] as num?)?.toInt() ?? 0,
+      );
+
+  final int coursLiberes, classesLiberees, disponibilitesEffacees;
+
+  /// Créneaux d'emploi du temps encore à son nom : à réattribuer par l'école.
+  /// Ne jamais taire ce nombre — un silence se lirait « tout est réglé ».
+  final int creneauxAReattribuer;
+
+  bool get rienASignaler =>
+      coursLiberes == 0 && classesLiberees == 0 && creneauxAReattribuer == 0;
+
+  /// Phrase prête à afficher, ou `null` s'il n'y a rien à dire.
+  String? get resume {
+    if (rienASignaler) return null;
+    final faits = <String>[
+      if (classesLiberees > 0)
+        '$classesLiberees classe${classesLiberees > 1 ? 's' : ''} sans '
+            'professeur principal',
+      if (coursLiberes > 0)
+        '$coursLiberes affectation${coursLiberes > 1 ? 's' : ''} de cours '
+            'libérée${coursLiberes > 1 ? 's' : ''}',
+    ];
+    final phrase = StringBuffer();
+    if (faits.isNotEmpty) phrase.write('${faits.join(', ')}.');
+    if (creneauxAReattribuer > 0) {
+      if (phrase.isNotEmpty) phrase.write(' ');
+      phrase.write('$creneauxAReattribuer créneau'
+          '${creneauxAReattribuer > 1 ? 'x' : ''} d\'emploi du temps '
+          'reste${creneauxAReattribuer > 1 ? 'nt' : ''} à son nom : '
+          'à réattribuer par l\'établissement.');
+    }
+    return phrase.toString();
+  }
+}
+
 class AgentCarriereService {
   AgentCarriereService(this._ref);
   final Ref _ref;
@@ -127,7 +182,7 @@ class AgentCarriereService {
   }
 
   /// L'agent change d'établissement — et RESTE ACTIF.
-  Future<void> muter({
+  Future<ChargeLiberee> muter({
     required String profileId,
     required String schoolId,
     required DateTime effectiveDate,
@@ -137,7 +192,7 @@ class AgentCarriereService {
     String? notes,
   }) async {
     final client = _ref.read(supabaseClientProvider);
-    await client.rpc('muter_agent', params: {
+    final res = await client.rpc('muter_agent', params: {
       'p_profile_id':     profileId,
       'p_school_id':      schoolId,
       'p_effective_date': _jour(effectiveDate),
@@ -147,11 +202,13 @@ class AgentCarriereService {
       'p_notes':          notes,
     });
     _rafraichir(profileId);
+    return ChargeLiberee.fromMap(
+        res is Map ? Map<String, dynamic>.from(res) : const {});
   }
 
   /// L'agent quitte le service. Rien n'est supprimé : le dossier reste
   /// consultable, et les écritures qu'il a faites restent attribuables.
-  Future<void> radier({
+  Future<ChargeLiberee> radier({
     required String profileId,
     required String motif,
     required DateTime effectiveDate,
@@ -160,7 +217,7 @@ class AgentCarriereService {
     String? notes,
   }) async {
     final client = _ref.read(supabaseClientProvider);
-    await client.rpc('radier_agent', params: {
+    final res = await client.rpc('radier_agent', params: {
       'p_profile_id':     profileId,
       'p_motif':          motif,
       'p_effective_date': _jour(effectiveDate),
@@ -169,10 +226,12 @@ class AgentCarriereService {
       'p_notes':          notes,
     });
     _rafraichir(profileId);
+    return ChargeLiberee.fromMap(
+        res is Map ? Map<String, dynamic>.from(res) : const {});
   }
 
   /// L'agent revient.
-  Future<void> reintegrer({
+  Future<ChargeLiberee> reintegrer({
     required String profileId,
     required String schoolId,
     required DateTime effectiveDate,
@@ -182,7 +241,7 @@ class AgentCarriereService {
     String? notes,
   }) async {
     final client = _ref.read(supabaseClientProvider);
-    await client.rpc('reintegrer_agent', params: {
+    final res = await client.rpc('reintegrer_agent', params: {
       'p_profile_id':     profileId,
       'p_school_id':      schoolId,
       'p_effective_date': _jour(effectiveDate),
@@ -192,6 +251,8 @@ class AgentCarriereService {
       'p_notes':          notes,
     });
     _rafraichir(profileId);
+    return ChargeLiberee.fromMap(
+        res is Map ? Map<String, dynamic>.from(res) : const {});
   }
 
   /// Ce matricule est-il déjà porté ? On informe, on ne bloque pas : un rejet

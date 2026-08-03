@@ -161,17 +161,15 @@ class _ChampsActe extends StatelessWidget {
 
 // ─── MUTATION ───────────────────────────────────────────────────────────────
 
-Future<bool> showMutationDialog(
+Future<ChargeLiberee?> showMutationDialog(
   BuildContext context, {
   required AdminUser user,
   required List<SchoolOption> schools,
-}) async {
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (_) => _MutationDialog(user: user, schools: schools),
-  );
-  return ok ?? false;
-}
+}) =>
+    showDialog<ChargeLiberee>(
+      context: context,
+      builder: (_) => _MutationDialog(user: user, schools: schools),
+    );
 
 class _MutationDialog extends ConsumerStatefulWidget {
   const _MutationDialog({required this.user, required this.schools});
@@ -209,7 +207,7 @@ class _MutationDialogState extends ConsumerState<_MutationDialog> {
     if (_schoolId == null || _effet == null) return;
     setState(() { _saving = true; _erreur = null; });
     try {
-      await ref.read(agentCarriereServiceProvider).muter(
+      final charge = await ref.read(agentCarriereServiceProvider).muter(
             profileId:     widget.user.id,
             schoolId:      _schoolId!,
             effectiveDate: _effet!,
@@ -218,7 +216,7 @@ class _MutationDialogState extends ConsumerState<_MutationDialog> {
             acteDate:      _acteDate,
             notes:         _notes.text.trim().isEmpty ? null : _notes.text.trim(),
           );
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) Navigator.pop(context, charge);
     } catch (e) {
       if (mounted) setState(() { _saving = false; _erreur = '$e'; });
     }
@@ -303,13 +301,12 @@ class _MutationDialogState extends ConsumerState<_MutationDialog> {
 
 // ─── DÉPART DU SERVICE ──────────────────────────────────────────────────────
 
-Future<bool> showRadiationDialog(BuildContext context, {required AdminUser user}) async {
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (_) => _RadiationDialog(user: user),
-  );
-  return ok ?? false;
-}
+Future<ChargeLiberee?> showRadiationDialog(BuildContext context,
+        {required AdminUser user}) =>
+    showDialog<ChargeLiberee>(
+      context: context,
+      builder: (_) => _RadiationDialog(user: user),
+    );
 
 class _RadiationDialog extends ConsumerStatefulWidget {
   const _RadiationDialog({required this.user});
@@ -339,7 +336,7 @@ class _RadiationDialogState extends ConsumerState<_RadiationDialog> {
     if (_motif == null || _effet == null) return;
     setState(() { _saving = true; _erreur = null; });
     try {
-      await ref.read(agentCarriereServiceProvider).radier(
+      final charge = await ref.read(agentCarriereServiceProvider).radier(
             profileId:     widget.user.id,
             motif:         _motif!,
             effectiveDate: _effet!,
@@ -347,7 +344,7 @@ class _RadiationDialogState extends ConsumerState<_RadiationDialog> {
             acteDate:      _acteDate,
             notes:         _notes.text.trim().isEmpty ? null : _notes.text.trim(),
           );
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) Navigator.pop(context, charge);
     } catch (e) {
       if (mounted) setState(() { _saving = false; _erreur = '$e'; });
     }
@@ -425,17 +422,15 @@ class _RadiationDialogState extends ConsumerState<_RadiationDialog> {
 
 // ─── RÉINTÉGRATION ──────────────────────────────────────────────────────────
 
-Future<bool> showReintegrationDialog(
+Future<ChargeLiberee?> showReintegrationDialog(
   BuildContext context, {
   required AdminUser user,
   required List<SchoolOption> schools,
-}) async {
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (_) => _ReintegrationDialog(user: user, schools: schools),
-  );
-  return ok ?? false;
-}
+}) =>
+    showDialog<ChargeLiberee>(
+      context: context,
+      builder: (_) => _ReintegrationDialog(user: user, schools: schools),
+    );
 
 class _ReintegrationDialog extends ConsumerStatefulWidget {
   const _ReintegrationDialog({required this.user, required this.schools});
@@ -474,7 +469,7 @@ class _ReintegrationDialogState extends ConsumerState<_ReintegrationDialog> {
     if (_schoolId == null || _effet == null) return;
     setState(() { _saving = true; _erreur = null; });
     try {
-      await ref.read(agentCarriereServiceProvider).reintegrer(
+      final charge = await ref.read(agentCarriereServiceProvider).reintegrer(
             profileId:     widget.user.id,
             schoolId:      _schoolId!,
             effectiveDate: _effet!,
@@ -483,7 +478,7 @@ class _ReintegrationDialogState extends ConsumerState<_ReintegrationDialog> {
             acteDate:      _acteDate,
             notes:         _notes.text.trim().isEmpty ? null : _notes.text.trim(),
           );
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) Navigator.pop(context, charge);
     } catch (e) {
       if (mounted) setState(() { _saving = false; _erreur = '$e'; });
     }

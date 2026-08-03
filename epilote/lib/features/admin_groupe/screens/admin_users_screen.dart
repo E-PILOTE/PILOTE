@@ -5,6 +5,7 @@ import 'package:shimmer/shimmer.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../auth/providers/active_agent_provider.dart' show agentLockApplies;
 import '../../../core/utils/mouvement_agent.dart';
+import '../providers/admin_carriere_provider.dart' show ChargeLiberee;
 import '../providers/admin_users_provider.dart';
 import '../widgets/agent_carriere_panel.dart';
 import 'agent_mouvement_dialogs.dart';
@@ -167,17 +168,17 @@ class _UsersBodyState extends ConsumerState<_UsersBody> {
   /// (migration 0083).
   Future<void> _mouvementCarriere(AdminUser u) async {
     if (!ensureSubscriptionWritable(ref, context)) return;
-    final ok = u.isActive
+    final charge = u.isActive
         ? await showRadiationDialog(context, user: u)
         : await showReintegrationDialog(context, user: u, schools: widget.data.schools);
-    if (ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        backgroundColor: kGreen,
-        content: Text(u.isActive
-            ? 'Fin de service enregistrée — le dossier reste consultable'
-            : 'Agent réintégré'),
-      ));
-    }
+    if (charge == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      backgroundColor: kGreen,
+      content: Text(u.isActive
+          ? 'Fin de service enregistrée — le dossier reste consultable'
+          : 'Agent réintégré'),
+    ));
+    await _annoncerCharge(u, charge);
   }
 
   Future<void> _muter(AdminUser u) async {
@@ -189,13 +190,44 @@ class _UsersBodyState extends ConsumerState<_UsersBody> {
       ));
       return;
     }
-    if (await showMutationDialog(context, user: u, schools: widget.data.schools) &&
-        mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        backgroundColor: kGreen,
-        content: Text('${u.fullName} muté — ancienneté conservée'),
-      ));
-    }
+    final charge =
+        await showMutationDialog(context, user: u, schools: widget.data.schools);
+    if (charge == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      backgroundColor: kGreen,
+      content: Text('${u.fullName} muté — ancienneté conservée'),
+    ));
+    await _annoncerCharge(u, charge);
+  }
+
+  /// Ce que le départ a libéré, et surtout CE QUI RESTE À FAIRE.
+  ///
+  /// L'emploi du temps n'est jamais modifié par un mouvement administratif :
+  /// qui remplace un enseignant est une décision de l'établissement. Taire les
+  /// créneaux restés à son nom se lirait « tout est réglé » — d'où cette
+  /// modale, et non un message qui s'efface.
+  Future<void> _annoncerCharge(AdminUser u, ChargeLiberee charge) async {
+    final texte = charge.resume;
+    if (texte == null || !mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(
+            charge.creneauxAReattribuer > 0
+                ? Icons.warning_amber_rounded
+                : Icons.check_circle_outline,
+            color: charge.creneauxAReattribuer > 0 ? _kOrange : kGreen,
+            size: 34),
+        title: Text('Charge de ${u.fullName}'),
+        content: Text('$texte\n\nLes cours faits, les paies et les congés '
+            'déjà enregistrés restent au dossier : ils disent ce qui a été.'),
+        actions: [
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Compris')),
+        ],
+      ),
+    );
   }
 
   @override
