@@ -32,6 +32,7 @@ class Routes {
   static const String superParametres   = '/super/parametres';
   static const String superProfil       = '/super/profil';
   static const String superCarte        = '/super/carte';
+  static const String superVersions     = '/super/versions';
 
   // ── Admin Groupe ─────────────────────────────────────────────────────────
   static const String adminDashboard    = '/admin/dashboard';

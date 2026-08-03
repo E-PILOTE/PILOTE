@@ -83,6 +83,13 @@ List<NavSection> _superAdminSections() => const [
           label: 'Intelligence Artificielle',
           route: Routes.superIa,
         ),
+        // Sans cette page, une correction ne peut atteindre le parc que par
+        // un accès direct à la base de production.
+        NavEntry.item(
+          icon: Icons.system_update_rounded,
+          label: "Versions de l'application",
+          route: Routes.superVersions,
+        ),
       ]),
       NavSection(title: 'COMMUNICATION', entries: [
         NavEntry.item(

@@ -14,6 +14,7 @@ import '../../features/super_admin/screens/super_dashboard_screen.dart';
 import '../../features/super_admin/screens/school_groups_screen.dart';
 import '../../features/super_admin/screens/administrators_screen.dart';
 import '../../features/super_admin/screens/modules_screen.dart';
+import '../../features/super_admin/screens/releases_screen.dart';
 import '../../features/super_admin/screens/plans_screen.dart';
 import '../../features/super_admin/screens/subscriptions_screen.dart';
 import '../../features/super_admin/screens/audit_screen.dart';
@@ -321,6 +322,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.superModules,
         builder: (_, _) => const ModulesScreen(),
+      ),
+      GoRoute(
+        path: Routes.superVersions,
+        builder: (_, _) => const ReleasesScreen(),
       ),
       GoRoute(path: Routes.superPlans, builder: (_, _) => const PlansScreen()),
       GoRoute(
