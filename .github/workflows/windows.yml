@@ -127,6 +127,21 @@ jobs:
           Write-Host "✓ Toujours en vie après 30 s (PID $($p.Id))"
           Stop-Process -Id $p.Id -Force
 
+          # Un processus vivant ne prouve que le chargement des DLL. La
+          # présence de la base locale prouve bien plus : que l'extension
+          # SQLite native de PowerSync s'est chargée, qu'elle a su écrire, et
+          # que le dossier de support applicatif — où la base vient d'être
+          # déplacée depuis « Documents » — est bien celui que l'application
+          # utilise sous Windows.
+          $db = Get-ChildItem -Path $env:APPDATA -Recurse -Filter 'epilote_v3.db' `
+                              -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $db) {
+            throw "Aucune base locale créée sous `$env:APPDATA. PowerSync n'a " +
+                  "pas réussi à ouvrir sa base : l'application démarre, mais " +
+                  "le mode hors ligne ne fonctionne pas."
+          }
+          Write-Host "✓ Base hors ligne créée : $($db.FullName) ($($db.Length) o)"
+
       # L'installateur. Le dossier « Release » brut n'est pas distribuable :
       # 108 Mo en vingt-six DLL, dont personne dans un établissement ne saura
       # quoi faire. Inno Setup en fait un unique .exe à double-cliquer.
