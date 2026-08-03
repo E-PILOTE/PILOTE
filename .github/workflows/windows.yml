@@ -77,6 +77,16 @@ jobs:
         working-directory: epilote
         run: flutter pub get
 
+      # Les mêmes tests, mais exécutés SUR Windows. Ils n'y valident pas la
+      # logique — la CI Linux s'en charge — mais tout ce qui dépend en silence
+      # de la plateforme : séparateurs de chemin, encodage des accents, format
+      # des nombres et des dates sous une locale française.
+      # Les golden en sont écartés : leurs images de référence ont été rendues
+      # sous Linux et n'ont pas d'équivalent ici.
+      - name: Tests sur Windows
+        working-directory: epilote
+        run: flutter test --exclude-tags golden
+
       - name: Compilation
         working-directory: epilote
         run: flutter build windows --release
@@ -95,6 +105,27 @@ jobs:
           (Get-Item $exe).VersionInfo | Format-List `
             CompanyName, ProductName, FileDescription, FileVersion, ProductVersion
           '{0:N1} Mo' -f ((Get-Item $exe).Length / 1MB)
+
+      # Le démarrage réel. Compiler ne prouve rien sur le chargement des DLL :
+      # une extension native absente ou incompatible — `powersync_x64.dll` pour
+      # la base hors ligne, `libmpv-2.dll` pour la vidéo — ne se manifeste qu'à
+      # l'exécution, par une fermeture immédiate. C'est exactement ce que cette
+      # étape attrape, et c'est ce qu'on aurait découvert sur le poste d'un
+      # établissement à défaut de le faire ici.
+      - name: Démarrage du binaire
+        working-directory: epilote
+        shell: pwsh
+        run: |
+          $exe = 'build\windows\x64\runner\Release\E-PILOTE.exe'
+          $p = Start-Process $exe -PassThru
+          Start-Sleep -Seconds 30
+          if ($p.HasExited) {
+            throw "L'application s'est arrêtée seule au démarrage " +
+                  "(code $($p.ExitCode)). Une bibliothèque native manque " +
+                  "ou refuse de se charger."
+          }
+          Write-Host "✓ Toujours en vie après 30 s (PID $($p.Id))"
+          Stop-Process -Id $p.Id -Force
 
       - name: Artefact
         uses: actions/upload-artifact@v4
