@@ -75,7 +75,12 @@ dependencies:
   pdf: ^3.12.0                # génération PDF
   printing: ^5.14.3           # impression + téléchargement PDF
   pdfrx: ^2.4.4
-  audioplayers: ^6.7.1
+  # ⚠️ Plancher à 6.8.1 : c'est la première version dont le greffon Windows
+  # (audioplayers_windows 4.4.1) compile avec Visual Studio 18 (2026). En deçà,
+  # il inclut <experimental/coroutine>, que MSVC 14.51 transforme en erreur
+  # dure — la compilation Windows échoue, et elle seule. Voir aussi la
+  # politique CMP0091 exigée dans windows/CMakeLists.txt.
+  audioplayers: ^6.8.1
   media_kit: ^1.2.6
   media_kit_video: ^2.0.1
   media_kit_libs_video: ^1.0.7
