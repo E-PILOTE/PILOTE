@@ -210,11 +210,10 @@ class _BodyState extends ConsumerState<_Body> {
           padding: const EdgeInsets.all(24),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const VsHeader(
-              title: 'Personnel',
-              subtitle: 'Annuaire, dossiers et carrière des agents',
-            ),
-            const SizedBox(height: 20),
+            // ⚠️ Pas de carte de titre ici. La barre d'application affiche
+            // déjà « Personnel » deux centimètres plus haut : une carte qui le
+            // répète coûte une hauteur d'écran entière et n'apprend rien. La
+            // page commence donc par ce qu'on vient y chercher — les chiffres.
             VsHeroKpis(cards: [
               (Icons.groups_2_rounded, 'Effectif', '${all.length}', kNavy,
                   'agents'),

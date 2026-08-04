@@ -53,6 +53,16 @@ const String kCycleNonAffecte = '—';
   );
 }
 
+/// Icône du cycle — même vocabulaire que le panneau Élèves.
+IconData _iconeCycle(String code) => switch (code) {
+      'prescolaire' => Icons.child_care_rounded,
+      'primaire' => Icons.abc_rounded,
+      'college' => Icons.menu_book_rounded,
+      'lycee' => Icons.school_rounded,
+      kCycleNonAffecte => Icons.event_busy_rounded,
+      _ => Icons.workspace_premium_rounded,
+    };
+
 class _EnseignantsParCycle extends StatelessWidget {
   const _EnseignantsParCycle({
     required this.agents,
@@ -69,15 +79,21 @@ class _EnseignantsParCycle extends StatelessWidget {
     final r = enseignantsParCycle(agents);
     if (r.cycles.isEmpty && r.sansClasse == 0) return const SizedBox.shrink();
 
+    // Le total sert de dénominateur aux barres : chaque carte dit sa PART du
+    // corps enseignant, ce qui rend l'écart visible sans calcul mental.
+    final total = r.cycles.fold(0, (a, c) => a + c.n) + r.sansClasse;
+
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const VsSectionLabel(
           icon: Icons.school_rounded, text: 'Enseignants par cycle'),
-      const SizedBox(height: 10),
-      Wrap(spacing: 10, runSpacing: 10, children: [
+      const SizedBox(height: 12),
+      Wrap(spacing: 12, runSpacing: 12, children: [
         for (final c in r.cycles)
           _CycleCard(
             label: c.label,
+            icone: _iconeCycle(c.cle),
             n: c.n,
+            total: total,
             couleur: staffSegColor(c.cle, StaffAxis.cycle),
             selected: selected == c.cle,
             onTap: () => onSelect(c.cle),
@@ -85,7 +101,9 @@ class _EnseignantsParCycle extends StatelessWidget {
         if (r.sansClasse > 0)
           _CycleCard(
             label: 'Sans classe affectée',
+            icone: _iconeCycle(kCycleNonAffecte),
             n: r.sansClasse,
+            total: total,
             couleur: kAccent,
             selected: selected == kCycleNonAffecte,
             onTap: () => onSelect(kCycleNonAffecte),
@@ -96,10 +114,15 @@ class _EnseignantsParCycle extends StatelessWidget {
   }
 }
 
+/// Calquée sur `_CycleCard` du panneau Élèves (`scope_drilldown_panel.dart`) :
+/// 226 px de large, pastille d'icône de 34, chiffre en 32, barre de part.
+/// Les deux pages parlent des mêmes cycles — elles doivent le dire pareil.
 class _CycleCard extends StatelessWidget {
   const _CycleCard({
     required this.label,
+    required this.icone,
     required this.n,
+    required this.total,
     required this.couleur,
     required this.selected,
     required this.onTap,
@@ -107,7 +130,8 @@ class _CycleCard extends StatelessWidget {
   });
 
   final String label;
-  final int n;
+  final IconData icone;
+  final int n, total;
   final Color couleur;
   final bool selected;
   final VoidCallback onTap;
@@ -115,52 +139,86 @@ class _CycleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final carte = MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          width: 186,
-          padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),
-          decoration: BoxDecoration(
-            color: selected ? couleur.withValues(alpha: 0.10) : kCardBg,
-            borderRadius: BorderRadius.circular(11),
-            border: Border.all(
-                color: selected ? couleur : kBorder, width: selected ? 1.5 : 1),
-          ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Container(
-                  width: 8,
-                  height: 8,
-                  decoration:
-                      BoxDecoration(color: couleur, shape: BoxShape.circle)),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w700)),
+    final pct = total == 0 ? 0 : (n * 100 / total).round();
+    final carte = SizedBox(
+      width: 226,
+      child: Material(
+        color: selected ? couleur.withValues(alpha: 0.07) : kCardBg,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 15, 16, 15),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: selected ? couleur : kBorder,
+                  width: selected ? 1.6 : 1),
+            ),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                      color: couleur.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(9)),
+                  child: Icon(icone, size: 18, color: couleur),
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Text(label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: kTextPrimary,
+                          height: 1.15)),
+                ),
+                if (selected)
+                  Icon(Icons.filter_alt_rounded, size: 16, color: couleur),
+              ]),
+              const SizedBox(height: 14),
+              Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text('$n',
+                        style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.w800,
+                            color: kTextPrimary,
+                            height: 1)),
+                    const SizedBox(width: 6),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 3),
+                      child: Text('enseignant${n > 1 ? 's' : ''}',
+                          style: TextStyle(fontSize: 12, color: kTextMuted)),
+                    ),
+                  ]),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: total == 0 ? 0 : n / total,
+                  minHeight: 6,
+                  backgroundColor: kSurface,
+                  valueColor: AlwaysStoppedAnimation(couleur),
+                ),
               ),
-            ]),
-            const SizedBox(height: 6),
-            Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text('$n',
+              const SizedBox(height: 6),
+              Text('$pct % du corps enseignant',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                      fontSize: 23,
-                      fontWeight: FontWeight.w800,
-                      color: couleur,
-                      height: 1)),
-              const SizedBox(width: 5),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: Text('enseignant${n > 1 ? 's' : ''}',
-                    style: TextStyle(fontSize: 10.5, color: kTextMuted)),
-              ),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: couleur)),
             ]),
-          ]),
+          ),
         ),
       ),
     );

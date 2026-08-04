@@ -76,6 +76,40 @@ Color staffSegColor(String key, StaffAxis axis) {
   }
 }
 
+/// Icône d'un segment. Les cycles reprennent le vocabulaire du panneau Élèves
+/// (`scope_drilldown_panel.dart`) pour qu'un même cycle porte le même signe
+/// partout dans l'application.
+IconData staffSegIcon(String key, StaffAxis axis) {
+  switch (axis) {
+    case StaffAxis.categorie:
+      return switch (key) {
+        'direction' => Icons.workspace_premium_rounded,
+        'administration' => Icons.badge_rounded,
+        'enseignement' => Icons.menu_book_rounded,
+        'vieScolaire' => Icons.health_and_safety_rounded,
+        _ => Icons.groups_2_rounded,
+      };
+    case StaffAxis.statut:
+      return switch (key) {
+        'fonctionnaire' => Icons.account_balance_rounded,
+        'contractuel' => Icons.description_rounded,
+        'volontaire' => Icons.volunteer_activism_rounded,
+        'prestataire' => Icons.handshake_rounded,
+        'stagiaire' => Icons.school_rounded,
+        'benevole' => Icons.favorite_rounded,
+        _ => Icons.help_outline_rounded,
+      };
+    case StaffAxis.cycle:
+      return switch (key) {
+        'prescolaire' => Icons.child_care_rounded,
+        'primaire' => Icons.abc_rounded,
+        'college' => Icons.menu_book_rounded,
+        'lycee' => Icons.school_rounded,
+        _ => Icons.event_busy_rounded,
+      };
+  }
+}
+
 /// Ordre stable des segments (catégorie = organigramme ; statut = ordre enum ;
 /// cycle = ordre scolaire, hors enseignement en dernier).
 int staffSegOrder(String key, StaffAxis axis) {
@@ -180,8 +214,11 @@ class StaffSegmentBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (segments.isEmpty) return const SizedBox.shrink();
+    // Hauteur calée sur le contenu de `_SegCard`, lui-même calqué sur la carte
+    // de cycle du panneau Élèves. Sans métrique, la barre et sa légende
+    // disparaissent : la carte est d'autant plus courte.
     return SizedBox(
-      height: 78,
+      height: showMetric ? 152 : 118,
       child: ListView(scrollDirection: Axis.horizontal, children: [
         for (final s in segments)
           _SegCard(
@@ -211,65 +248,98 @@ class _SegCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Même grammaire visuelle que la carte de cycle du panneau Élèves
+    // (`scope_drilldown_panel.dart`) : 226 px, pastille d'icône de 34,
+    // chiffre en 32, barre de progression. Un chef d'établissement lit les
+    // deux pages dans la même journée ; elles doivent se ressembler.
+    final pct = seg.total == 0 ? 0 : (seg.ok * 100 / seg.total).round();
     return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: onTap,
-          child: Container(
-            width: 168,
-            padding: const EdgeInsets.fromLTRB(13, 10, 13, 10),
-            decoration: BoxDecoration(
-              color: selected ? seg.color.withValues(alpha: 0.10) : kCardBg,
-              borderRadius: BorderRadius.circular(11),
-              border: Border.all(
-                  color: selected ? seg.color : kBorder,
-                  width: selected ? 1.5 : 1),
-            ),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(children: [
-                    Container(
-                        width: 8,
-                        height: 8,
+      padding: const EdgeInsets.only(right: 12),
+      child: SizedBox(
+        width: 226,
+        child: Material(
+          color: selected ? seg.color.withValues(alpha: 0.07) : kCardBg,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 15, 16, 15),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: selected ? seg.color : kBorder,
+                    width: selected ? 1.6 : 1),
+              ),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Container(
+                        width: 34,
+                        height: 34,
                         decoration: BoxDecoration(
-                            color: seg.color, shape: BoxShape.circle)),
-                    const SizedBox(width: 7),
-                    Expanded(
-                      child: Text(seg.label,
+                            color: seg.color.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(9)),
+                        child: Icon(staffSegIcon(seg.key, seg.axis),
+                            size: 18, color: seg.color),
+                      ),
+                      const SizedBox(width: 11),
+                      Expanded(
+                        child: Text(seg.label,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: kTextPrimary,
+                                height: 1.15)),
+                      ),
+                      if (selected)
+                        Icon(Icons.filter_alt_rounded,
+                            size: 16, color: seg.color),
+                    ]),
+                    const SizedBox(height: 14),
+                    Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text('${seg.total}',
+                              style: TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w800,
+                                  color: kTextPrimary,
+                                  height: 1)),
+                          const SizedBox(width: 6),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 3),
+                            child: Text('agent${seg.total > 1 ? 's' : ''}',
+                                style: TextStyle(
+                                    fontSize: 12, color: kTextMuted)),
+                          ),
+                        ]),
+                    if (showMetric) ...[
+                      const SizedBox(height: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: seg.rate,
+                          minHeight: 6,
+                          backgroundColor: kSurface,
+                          valueColor: AlwaysStoppedAnimation(seg.color),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text('${seg.ok} $metricLabel · $pct %',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.w700)),
-                    ),
+                          style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: seg.color)),
+                    ],
                   ]),
-                  Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Text('${seg.total}',
-                        style: TextStyle(
-                            fontSize: 21,
-                            fontWeight: FontWeight.w800,
-                            color: seg.color)),
-                    const SizedBox(width: 4),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 3),
-                      child: Text('agents',
-                          style: TextStyle(fontSize: 10.5, color: kTextMuted)),
-                    ),
-                    const Spacer(),
-                    if (showMetric)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
-                        child: Text('${seg.ok} $metricLabel',
-                            style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: seg.color)),
-                      ),
-                  ]),
-                ]),
+            ),
           ),
         ),
       ),

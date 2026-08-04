@@ -87,6 +87,31 @@ Future<bool> hasPendingLocalWork() async => !(await pendingLocalWork()).isEmpty;
 
 const _kLastDeviceUserKey = 'epilote.last_device_user';
 
+/// ⚠️ LE SEUL MOMENT OÙ LA BASE LOCALE SE PURGE.
+///
+/// L'appareil change réellement de main quand un utilisateur DIFFÉRENT ouvre
+/// une session. C'est là, et nulle part ailleurs, qu'on efface ce qui restait
+/// du précédent.
+///
+/// En particulier, une DÉCONNEXION ne purge JAMAIS : Supabase émet `signedOut`
+/// de lui-même dès qu'un jeton de rafraîchissement ne vaut plus (week-end hors
+/// ligne, rotation perdue, coupure longue). L'agent n'a rien demandé, et une
+/// école à jour perdrait tout son corpus hors ligne — puis se retrouverait
+/// devant un écran de mot de passe que personne sur place ne connaît.
+///
+/// Le premier utilisateur d'un appareil neuf ([precedent] nul) ne purge pas
+/// non plus : il n'y a rien à effacer, et effacer coûterait un
+/// retéléchargement complet au premier démarrage.
+bool doitPurgerPourChangementDeCompte({
+  required String? precedent,
+  required String? courant,
+}) =>
+    precedent != null &&
+    courant != null &&
+    precedent.isNotEmpty &&
+    courant.isNotEmpty &&
+    precedent != courant;
+
 Future<String?> _readLastDeviceUser() async {
   try {
     return (await SharedPreferences.getInstance())
@@ -148,7 +173,8 @@ Future<void> initPowerSync() async {
           // agent revient, son travail en attente doit le retrouver intact.
           final uid = supabase.auth.currentUser?.id;
           final previous = await _readLastDeviceUser();
-          if (previous != null && uid != null && previous != uid) {
+          if (doitPurgerPourChangementDeCompte(
+              precedent: previous, courant: uid)) {
             await db.disconnectAndClear();
             await purgeUploadOutboxFiles();
           }
@@ -165,22 +191,34 @@ Future<void> initPowerSync() async {
           _cachedRole = null;
           _syncEnabled = false;
 
-          // ⚠️ NE JAMAIS DÉTRUIRE DU TRAVAIL NON SYNCHRONISÉ.
-          // `disconnectAndClear()` exécute `powersync_clear()` : il efface la
-          // base locale ET la file d'écritures en attente (ps_crud). Une école
-          // qui travaille hors-ligne et se déconnecte perdrait sa journée —
-          // silencieusement. Or `signedOut` peut aussi être émis TOUT SEUL
-          // (jeton de rafraîchissement invalidé après une longue coupure).
-          // Donc : s'il reste quoi que ce soit à remonter, on se contente de
-          // se déconnecter. Les données restent, et repartiront à la prochaine
-          // ouverture de session du même agent. La purge multi-tenant, elle,
-          // a lieu au signedIn d'un utilisateur DIFFÉRENT (ci-dessus).
-          if (await hasPendingLocalWork()) {
-            await db.disconnect();
-            return;
-          }
-          await db.disconnectAndClear();
-          await purgeUploadOutboxFiles();
+          // ⚠️ ON NE VIDE PLUS RIEN ICI. JAMAIS. (constaté le 2026-08-04)
+          //
+          // `signedOut` n'est PAS un ordre de l'utilisateur : Supabase l'émet
+          // aussi TOUT SEUL dès que le jeton de rafraîchissement ne vaut plus
+          // — expiration après un week-end hors ligne, rotation perdue si
+          // l'application est tuée pendant un renouvellement, coupure longue.
+          // L'agent n'a rien demandé.
+          //
+          // L'ancien code ne gardait la base que s'il RESTAIT DES ÉCRITURES à
+          // remonter. Une école parfaitement à jour — le cas normal — voyait
+          // donc `disconnectAndClear()` effacer d'un coup tout son corpus
+          // hors ligne. Deux conséquences, toutes deux graves au Congo :
+          //
+          //  1. il faut TOUT retélécharger. Neuf mille élèves et leurs notes
+          //     sur la liaison d'un lycée de Kinkala, c'est des heures — et
+          //     c'est précisément l'école à mauvaise liaison qui déclenche
+          //     l'expiration du jeton ;
+          //  2. le poste retombe sur l'écran e-mail + mot de passe. Sur un
+          //     poste PARTAGÉ, les agents ne connaissent que leur code à
+          //     quatre chiffres : PERSONNE SUR PLACE NE CONNAÎT LE MOT DE
+          //     PASSE. L'établissement est enfermé dehors, ses données
+          //     intactes de l'autre côté.
+          //
+          // Garder la base ne fait courir aucun risque de fuite : la purge
+          // multi-tenant a lieu au `signedIn` d'un utilisateur DIFFÉRENT
+          // (ci-dessus), qui est le seul moment où l'appareil change
+          // réellement de main. Se déconnecter suffit ici.
+          await db.disconnect();
         });
       case AuthChangeEvent.tokenRefreshed:
         // Renouveler les credentials uniquement si déjà connecté (utilisateur)
