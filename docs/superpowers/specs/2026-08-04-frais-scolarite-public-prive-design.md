@@ -72,6 +72,8 @@ Conséquences, sur 30 écoles publiques :
 | D4 | Un encaissement au-dessus du tarif officiel **passe**, mais il est **tracé et remonté** au groupe. On ne bloque pas. | Ministère |
 | D5 | Le groupe définit les **motifs d'exonération** ; l'école **constate** qu'un élève y a droit. Même grammaire que l'arrivée d'un agent (migration 0091). | Ministère |
 | D6 | Les montants réels sont saisis par le ministère. Nous livrons la table vide. | Ministère |
+| D7 | Un paiement est un **versement sur une obligation**, pas une transaction autonome. Le montant se **choisit** dans les barèmes du groupe ; l'élève peut **avancer une partie** de la somme. | Ministère |
+| D8 | **Pas de barème, pas d'encaissement.** Le module Paiements reste fermé tant que le groupe n'a rien défini. La saisie des tarifs devient un **prérequis bloquant du déploiement**. | Ministère |
 
 ## 5. Le modèle
 
@@ -105,7 +107,7 @@ l'encaissement (§5.3) : c'est ce qui permet à D3 d'exister sans réécrire le 
 |---|---|
 | `academic_year_id uuid NOT NULL` | Aucune requête ne borne l'année aujourd'hui : en 2027 les versements de 2026 compteraient comme payés. |
 | `reference_amount_xaf integer NULL` | **Tarif figé au moment de l'encaissement.** Sans lui, un tarif relevé en mars transforme rétroactivement des milliers d'élèves à jour en débiteurs, et un tarif baissé efface la preuve d'une surfacturation. |
-| `overcharge_reason text NULL` | Motif, **obligatoire** si `amount_xaf > reference_amount_xaf` (D4). |
+| `overcharge_reason text NULL` | Motif, **obligatoire** si le **cumul versé** dépasse le dû (D4 — voir §5.7, l'erreur corrigée). |
 | `cancelled_at`, `cancelled_by`, `cancellation_reason` | L'annulation remplace la suppression. |
 | `refunded_amount_xaf`, `refunded_at`, `refunded_by`, `refund_reason` | Le statut `refunded` existe déjà mais ne porte rien. |
 
@@ -173,6 +175,50 @@ Corrections, dans le même geste que la migration :
 - **RLS** : scinder la policy `ALL` en une policy de **lecture**
   (`... OR school_id IS NULL`) et une policy d'**écriture** réservée à
   `is_admin_groupe()`. L'école doit lire le barème du groupe sans jamais l'écrire.
+
+### 5.7 Le versement, l'avance, et l'erreur que ça corrige (D7, D8)
+
+Un élève avance rarement la totalité. Le formulaire ne demande donc plus
+« combien », il demande **« combien sur quoi »** :
+
+```
+Frais concerné   Inscription 2025-2026 — 5 000 F   ▾   (barèmes du groupe)
+Déjà versé       2 000 F
+Reste dû         3 000 F
+Montant versé  [ 3 000 ]  ← pré-rempli au reste, librement baissable
+```
+
+L'avance est le cas **normal** : le champ se baisse sans justification. C'est
+vers le haut qu'il faut s'expliquer.
+
+`fee_structure_id` devient **obligatoire** (D8) : l'option « Autre / libre »
+disparaît, et l'écran affiche un état vide bloquant nommant le groupe tant
+qu'aucun barème n'existe. **Pas d'imputation automatique** : si un élève doit
+l'inscription et l'APE et verse une somme sans préciser, c'est l'école qui
+désigne le frais. Un versement que personne n'a imputé est un versement qu'on
+ne saura pas justifier six mois plus tard.
+
+#### ⚠️ L'erreur corrigée dans §5.3
+
+La première version faisait porter l'alerte de dépassement sur **un versement**
+comparé au tarif. Avec des avances, cette règle est aveugle : trois versements
+de 2 000 sur un tarif de 5 000 dépassent de 1 000 **sans qu'aucun ne dépasse
+individuellement**. Le contrôle porte donc sur le **cumul versé confirmé contre
+le dû**, recalculé à chaque versement.
+
+Bénéfice collatéral : « Élèves à jour » (§6.5) devient enfin vrai. 2 000 versés
+sur 5 000 dus, ce n'est pas à jour — aujourd'hui l'application compte cet élève
+comme réglé.
+
+#### ⚠️ Piège de lecture, une couche au-dessus des sync-rules
+
+`feeStructuresProvider` (`frais_provider.dart:54`) filtre `WHERE f.school_id = ?`.
+Un barème du groupe (`school_id IS NULL`) ne remontera donc **jamais** dans le
+sélecteur, même une fois les sync-rules et la RLS corrigées (§5.6). Les **trois**
+couches sont à traiter ensemble : projection, RLS, requête applicative.
+
+Constaté à l'écran le 2026-08-04 : le sélecteur n'offrait que « Autre / libre »,
+la base ne contenant aucun barème.
 
 ## 6. Défauts trouvés à l'audit
 
@@ -260,8 +306,8 @@ L'APEEC réclame ce chiffre publiquement et personne ne l'a.
 |---|---|---|
 | **0** | Numéro de reçu (6.1) · reçu PDF (6.2) · annulation au lieu de suppression | rien — perte d'argent en cours |
 | **1** | `academic_year_id` · dû réel (6.5) · exonérations (5.4) · remboursement | rien |
-| **2** | Barèmes remontés au groupe (5.2) · **sync-rules + RLS** (5.6) · écrans `admin_groupe` · école en lecture seule · secteur au vocabulaire (5.5) | rien |
-| **3** | Tarif figé (5.3) · alerte de dépassement · écran « Écarts au tarif officiel » (§7) | **lot 2** (le tarif de référence est le barème du groupe) |
+| **2** | Barèmes remontés au groupe (5.2) · **sync-rules + RLS + provider** (5.6, 5.7) · écrans `admin_groupe` · école en lecture seule · secteur au vocabulaire (5.5) · versement sur obligation, avance, barème obligatoire (5.7) | rien |
+| **3** | Tarif figé (5.3) · alerte de dépassement **sur le cumul** · écran « Écarts au tarif officiel » (§7) | **lot 2** (le tarif de référence est le barème du groupe) |
 
 Seul le lot 3 dépend techniquement d'un autre. L'ordre 0 → 1 → 2 est un ordre de
 livraison : le lot 0 passe devant parce qu'il arrête une perte d'argent.
@@ -287,3 +333,15 @@ Migrations à partir de **0094** (dernière appliquée : 0093).
 - En public, `mensualite` est absent du vocabulaire proposé.
 - Un élève exonéré n'apparaît jamais débiteur.
 - Un élève transféré conserve son dû et ses versements.
+- Trois versements de 2 000 sur un tarif de 5 000 déclenchent l'alerte au
+  troisième — aucun ne dépasse seul (garde-fou de l'erreur du §5.7).
+- Un élève ayant versé 2 000 sur 5 000 n'est **pas** compté à jour.
+- Sans aucun barème, l'encaissement est impossible et l'écran désigne le groupe.
+
+## 11. Prérequis de déploiement (D8)
+
+Une conséquence directe de « pas de barème, pas d'encaissement » : **le groupe
+doit avoir saisi ses tarifs avant que ses écoles n'ouvrent le module Paiements**.
+À porter au parcours de démarrage ([[premiere-heure-etablissement]]) et à la
+check-list du 2 octobre — sinon trente écoles encaisseront hors système le temps
+que Brazzaville renseigne sa grille.
