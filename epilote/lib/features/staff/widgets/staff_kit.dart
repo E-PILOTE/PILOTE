@@ -215,10 +215,17 @@ class StaffSegmentBar extends StatelessWidget {
   Widget build(BuildContext context) {
     if (segments.isEmpty) return const SizedBox.shrink();
     // Hauteur calée sur le contenu de `_SegCard`, lui-même calqué sur la carte
-    // de cycle du panneau Élèves. Sans métrique, la barre et sa légende
-    // disparaissent : la carte est d'autant plus courte.
+    // de cycle du panneau Élèves :
+    //   marges 15+15 · pastille 34 · 14 · chiffre 32 · 10 · barre 6 · 6 ·
+    //   légende ~16   →  158, arrondi à 170 pour absorber un titre sur deux
+    //   lignes (« Mise à disposition », « Statut non renseigné »).
+    // Sans métrique, la barre et sa légende disparaissent : -38.
+    //
+    // ⚠️ Toute retouche du contenu de `_SegCard` doit repasser ici : un
+    // ListView horizontal impose une hauteur fixe, et le manque se voit
+    // immédiatement en rayures jaunes.
     return SizedBox(
-      height: showMetric ? 152 : 118,
+      height: showMetric ? 170 : 132,
       child: ListView(scrollDirection: Axis.horizontal, children: [
         for (final s in segments)
           _SegCard(
