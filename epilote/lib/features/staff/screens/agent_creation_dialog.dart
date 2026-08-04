@@ -1,13 +1,13 @@
 // ════════════════════════════════════════════════════════════════════════════
 //  ENREGISTRER UN AGENT — la direction CONSTATE une arrivée
 //
-//  Le titre n'est pas « Nouvel agent » par hasard. Dans le public, l'école ne
-//  choisit pas son personnel : elle reçoit un agent affecté par note de
-//  l'autorité de tutelle. Le formulaire demande donc l'ACTE avant l'identité —
-//  c'est lui qui justifie la présence, et c'est lui que le ministère lira dans
-//  la carrière. Dans le privé, la direction est l'employeur : le motif devient
-//  « recrutement » et la référence de contrat reste facultative. C'est le
-//  SERVEUR qui tranche selon le secteur du réseau, jamais cet écran.
+//  Le titre n'est pas « Nouvel agent » par hasard. Un fonctionnaire n'est pas
+//  choisi par son école : elle le reçoit, affecté par note de l'autorité de
+//  tutelle. Un volontaire payé par l'APE, lui, est bel et bien engagé par la
+//  direction. Le formulaire demande donc le STATUT en premier — c'est lui qui
+//  décide de tout le reste : les motifs d'arrivée possibles, et si la référence
+//  d'un acte sera exigée. C'est le SERVEUR qui tranche (migration 0092), jamais
+//  cet écran ; il ne fait que refléter la règle pour éviter un aller-retour.
 //
 //  Il dit trois choses AVANT de laisser saisir : combien de places restent sur
 //  l'abonnement, si le réseau est là, et qu'aucun compte ne s'ouvre sans profil
@@ -26,6 +26,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../providers/agent_creation_provider.dart';
 import '../providers/staff_directory_provider.dart';
+import '../providers/staff_dossier_provider.dart' show employmentStatusLabel;
 
 part 'agent_creation_parts.dart';
 
@@ -55,9 +56,12 @@ class _State extends ConsumerState<_AgentCreationDialog> {
   String _role = 'enseignant';
   String? _profilId;
 
-  /// Motif d'arrivée. Laissé nul tant que le serveur n'a pas dit lesquels sont
-  /// recevables ici : proposer « recrutement » à une école publique serait
-  /// suggérer qu'elle recrute.
+  /// Statut d'emploi — la première question, celle qui commande les autres.
+  /// Laissé nul : un défaut ferait passer un vacataire pour un fonctionnaire.
+  String? _statut;
+
+  /// Motif d'arrivée. Laissé nul tant qu'un statut n'est pas choisi : les
+  /// motifs recevables en dépendent entièrement.
   String? _motif;
   DateTime? _acteDate;
   DateTime? _priseService;
@@ -85,8 +89,9 @@ class _State extends ConsumerState<_AgentCreationDialog> {
       _email.text.trim().contains('@') &&
       _mdp.text.length >= 8 &&
       _profilId != null &&
+      _statut != null &&
       _motif != null &&
-      (!c.acteObligatoire ||
+      (!c.acteExige(_motif) ||
           (_acte.text.trim().isNotEmpty && _acteDate != null));
 
   Future<void> _creer() async {
@@ -99,6 +104,7 @@ class _State extends ConsumerState<_AgentCreationDialog> {
             nom: _nom.text,
             role: _role,
             profilAccesId: _profilId!,
+            statutEmploi: _statut!,
             motifArrivee: _motif!,
             acteReference: _acte.text,
             acteDate: _acteDate,
@@ -208,15 +214,12 @@ class _State extends ConsumerState<_AgentCreationDialog> {
       );
     }
 
-    // Le serveur dit quels motifs sont recevables ici ; on n'en invente aucun.
-    final motifs = c.motifsArrivee.isEmpty
-        ? (c.secteurPublic
-            ? const ['mutation', 'detachement', 'mise_a_disposition',
-                     'interim', 'reintegration']
-            : const ['recrutement', 'mise_a_disposition', 'interim'])
-        : c.motifsArrivee;
-    // Un seul motif possible : le choix n'en est pas un, on le pose.
+    // Le serveur dit quels motifs vont avec le statut choisi ; on n'en invente
+    // aucun. Un seul motif possible (le cas d'un volontaire) : le choix n'en
+    // est pas un, on le pose.
+    final motifs = c.motifsPour(_statut);
     if (_motif == null && motifs.length == 1) _motif = motifs.first;
+    final acteExige = c.acteExige(_motif);
 
     final restantes = c.placesRestantes;
     return SingleChildScrollView(
@@ -239,20 +242,42 @@ class _State extends ConsumerState<_AgentCreationDialog> {
         // Il vient avant l'identité parce qu'il en est la cause : c'est lui qui
         // explique pourquoi cet agent est ici, et c'est lui que la tutelle
         // lira dans la carrière.
-        AdminFormSectionLabel(c.secteurPublic
-            ? 'CE QUI AMÈNE L\'AGENT'
-            : 'ENGAGEMENT'),
+        const AdminFormSectionLabel('CE QUI AMÈNE L\'AGENT'),
         const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          initialValue: _statut,
+          isExpanded: true,
+          decoration: InputDecoration(
+            labelText: 'Statut d\'emploi *',
+            helperText: _statut == null
+                ? 'Un fonctionnaire arrive par acte ; un volontaire ou un '
+                    'vacataire est engagé par votre établissement.'
+                : kAideStatutEmploi[_statut],
+            helperMaxLines: 2,
+            border: const OutlineInputBorder(),
+          ),
+          items: [
+            for (final s in c.statutsProposables)
+              DropdownMenuItem(value: s, child: Text(employmentStatusLabel(s))),
+          ],
+          // Changer de statut change les motifs possibles : on ne garde pas un
+          // motif que le nouveau statut ne permet plus.
+          onChanged: (v) => setState(() {
+            _statut = v;
+            if (!c.motifsPour(v).contains(_motif)) _motif = null;
+          }),
+        ),
+        const SizedBox(height: 12),
         DropdownButtonFormField<String>(
           initialValue: _motif,
           isExpanded: true,
           decoration: InputDecoration(
             labelText: 'Motif d\'arrivée *',
-            helperText: _motif == null
-                ? (c.secteurPublic
-                    ? 'Votre établissement reçoit l\'agent : il ne le recrute pas.'
-                    : 'Votre établissement est l\'employeur.')
-                : kMotifsArrivee[_motif]?.aide,
+            helperText: _statut == null
+                ? 'Choisissez d\'abord le statut de l\'agent.'
+                : (_motif == null
+                    ? 'Ce qui explique sa présence dans votre établissement.'
+                    : kMotifsArrivee[_motif]?.aide),
             helperMaxLines: 2,
             border: const OutlineInputBorder(),
           ),
@@ -260,35 +285,34 @@ class _State extends ConsumerState<_AgentCreationDialog> {
             for (final m in motifs)
               DropdownMenuItem(value: m, child: Text(motifArriveeLabel(m))),
           ],
-          onChanged: (v) => setState(() => _motif = v),
+          onChanged:
+              motifs.isEmpty ? null : (v) => setState(() => _motif = v),
         ),
         const SizedBox(height: 12),
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(
-            flex: 3,
-            child: _champ(
-              _acte,
-              c.acteObligatoire
-                  ? 'Référence de la note d\'affectation *'
-                  : 'Référence du contrat',
-              aide: c.acteObligatoire
-                  ? 'Sans elle, la carrière de l\'agent naîtrait sans acte.'
-                  : 'Facultative.',
+        // La référence d'acte n'apparaît QUE si le motif la suppose. Demander
+        // un numéro d'arrêté pour un bénévole de l'APE n'aurait pas de sens :
+        // le champ resterait vide, et le formulaire paraîtrait bloqué.
+        if (acteExige) ...[
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              flex: 3,
+              child: _champ(_acte, 'Référence de l\'acte *',
+                  aide: 'Sans elle, la carrière de l\'agent naîtrait sans acte.'),
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            flex: 2,
-            child: _dateChamp(
-              label: c.acteObligatoire ? 'Date de l\'acte *' : 'Date de l\'acte',
-              valeur: _acteDate,
-              // Un acte est signé avant qu'on le constate : jamais de futur.
-              dernier: DateTime.now(),
-              onChoisi: (d) => setState(() => _acteDate = d),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 2,
+              child: _dateChamp(
+                label: 'Date de l\'acte *',
+                valeur: _acteDate,
+                // Un acte est signé avant qu'on le constate : jamais de futur.
+                dernier: DateTime.now(),
+                onChoisi: (d) => setState(() => _acteDate = d),
+              ),
             ),
-          ),
-        ]),
-        const SizedBox(height: 12),
+          ]),
+          const SizedBox(height: 12),
+        ],
         _dateChamp(
           label: 'Prise de service',
           valeur: _priseService,

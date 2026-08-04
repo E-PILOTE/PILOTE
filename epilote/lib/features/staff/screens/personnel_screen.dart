@@ -13,7 +13,8 @@ import '../../user/widgets/staff_account_widgets.dart' show staffRoleLabel;
 import '../../vie_scolaire/widgets/vs_kit.dart';
 import '../providers/agent_creation_provider.dart';
 import '../providers/staff_directory_provider.dart';
-import '../providers/staff_dossier_provider.dart' show employmentStatusLabel;
+import '../providers/staff_dossier_provider.dart'
+    show employmentStatusLabel, kEmploymentStatuses;
 import '../services/personnel_export_service.dart';
 import '../widgets/staff_kit.dart';
 import 'agent_creation_dialog.dart';
@@ -186,6 +187,14 @@ class _BodyState extends ConsumerState<_Body> {
         final enseignants = all.where((a) => a.role == 'enseignant').length;
         final fonctionnaires =
             all.where((a) => a.employmentStatus == 'fonctionnaire').length;
+        // ⚠️ « 0 fonctionnaire » et « on ne sait pas » ne sont pas la même
+        // chose. Les agents repris de l'existant n'ont aucun statut : afficher
+        // zéro titulaire dans un lycée d'État serait un contresens, et le
+        // ministère le lirait comme tel. Tant qu'il en manque, la carte dit ce
+        // qui reste à faire — et redevient un compteur une fois le travail
+        // terminé.
+        final sansStatut =
+            all.where((a) => (a.employmentStatus ?? '').isEmpty).length;
 
         // Les fonctions réellement présentes — proposer « Infirmier » à une
         // école qui n'en a pas produit une liste vide et un doute.
@@ -221,8 +230,12 @@ class _BodyState extends ConsumerState<_Body> {
                   '${all.length - actifs} inactifs'),
               (Icons.school_rounded, 'Enseignants', '$enseignants',
                   const Color(0xFF0EA5E9), 'corps enseignant'),
-              (Icons.badge_rounded, 'Fonctionnaires', '$fonctionnaires',
-                  const Color(0xFF7C3AED), 'titulaires'),
+              if (sansStatut > 0)
+                (Icons.badge_outlined, 'Statut à renseigner', '$sansStatut',
+                    kAccent, 'sur ${all.length} agents')
+              else
+                (Icons.badge_rounded, 'Fonctionnaires', '$fonctionnaires',
+                    const Color(0xFF7C3AED), 'titulaires'),
             ]),
             const SizedBox(height: 18),
             _EnseignantsParCycle(
@@ -231,6 +244,17 @@ class _BodyState extends ConsumerState<_Body> {
               onSelect: (c) => setState(() {
                 _cycle = _cycle == c ? null : c;
                 if (_cycle != null) _axis = StaffAxis.cycle;
+              }),
+            ),
+            const SizedBox(height: 18),
+            // Qui est fonctionnaire, qui ne l'est pas : la question que le
+            // ministère posera, lisible sans cliquer sur un onglet.
+            _PersonnelParStatut(
+              agents: all,
+              selected: _statutEmploi,
+              onSelect: (s) => setState(() {
+                _statutEmploi = _statutEmploi == s ? null : s;
+                if (_statutEmploi != null) _axis = StaffAxis.statut;
               }),
             ),
             const SizedBox(height: 18),

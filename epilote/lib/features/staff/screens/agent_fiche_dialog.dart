@@ -28,6 +28,8 @@ import '../../communication/widgets/user_avatar.dart';
 import '../../user/widgets/staff_account_widgets.dart' show staffRoleLabel;
 import '../providers/agent_creation_provider.dart';
 import '../providers/staff_directory_provider.dart';
+import '../providers/staff_dossier_provider.dart'
+    show kEmploymentStatuses, employmentStatusLabel;
 import '../services/agent_photo_service.dart';
 
 /// Ouvre la correction de fiche. Renvoie `true` si quelque chose a changé.
@@ -52,6 +54,12 @@ class _State extends ConsumerState<_AgentFicheDialog> {
   late final _tel = TextEditingController(text: widget.agent.phone ?? '');
   late final _matricule =
       TextEditingController(text: widget.agent.employeeNumber ?? '');
+
+  /// Statut d'emploi choisi, quand la fiche n'en portait aucun.
+  String? _statut;
+
+  bool get _statutDejaPose =>
+      (widget.agent.employmentStatus ?? '').isNotEmpty;
 
   /// Photo choisie mais pas encore envoyée — l'aperçu se fait sur ces octets.
   String? _photoUrl;
@@ -126,6 +134,16 @@ class _State extends ConsumerState<_AgentFicheDialog> {
             photoUrl: _photoUrl,
             effacerPhoto: _effacerPhoto,
           );
+      // Après la fiche, et seulement s'il en manquait un : deux appels parce
+      // que ce sont deux gestes de nature différente — soigner un dossier
+      // d'un côté, constater une situation administrative de l'autre. Ils ne
+      // portent pas la même trace d'audit.
+      if (!_statutDejaPose && _statut != null) {
+        await ref.read(agentCreationServiceProvider).renseignerStatut(
+              profileId: widget.agent.id,
+              statutEmploi: _statut!,
+            );
+      }
       ref.invalidate(staffDirectoryProvider);
       if (mounted) Navigator.pop(context, true);
     } on EchecCreationAgent catch (e) {
@@ -258,6 +276,36 @@ class _State extends ConsumerState<_AgentFicheDialog> {
               Expanded(child: _champ(_matricule, 'Matricule')),
             ]),
             const SizedBox(height: 18),
+            const AdminFormSectionLabel('STATUT D\'EMPLOI'),
+            const SizedBox(height: 8),
+            // Un statut ABSENT se renseigne — l'école a l'agent devant elle et
+            // sait s'il est fonctionnaire ou payé par l'APE. Un statut POSÉ ne
+            // se change plus : requalifier, c'est titulariser, et cela relève
+            // de la tutelle. Le serveur refuse (migration 0093) ; ici on se
+            // contente de ne pas proposer un geste qui serait rejeté.
+            if (_statutDejaPose)
+              _StatutPose(libelle: employmentStatusLabel(widget.agent.employmentStatus))
+            else
+              DropdownButtonFormField<String>(
+                initialValue: _statut,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Statut à renseigner',
+                  helperText: 'Il ne pourra plus être modifié ici ensuite : '
+                      'requalifier un agent est un acte de la tutelle.',
+                  helperMaxLines: 2,
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  for (final (code, libelle) in kEmploymentStatuses)
+                    DropdownMenuItem(value: code, child: Text(libelle)),
+                ],
+                onChanged: (v) => setState(() {
+                  _statut = v;
+                  _modifie = true;
+                }),
+              ),
+            const SizedBox(height: 18),
             // ── Ce que l'école ne peut pas faire, dit plutôt que caché ──────
             Container(
               padding: const EdgeInsets.all(13),
@@ -330,5 +378,40 @@ class _State extends ConsumerState<_AgentFicheDialog> {
           labelText: label,
           border: const OutlineInputBorder(),
         ),
+      );
+}
+
+/// Statut déjà posé : on le montre, on ne le propose pas à la modification.
+/// Le dire explicitement vaut mieux qu'un champ grisé sans explication — un
+/// champ grisé se lit comme une panne, une phrase se lit comme une règle.
+class _StatutPose extends StatelessWidget {
+  const _StatutPose({required this.libelle});
+  final String libelle;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: kSurface,
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: kBorder),
+        ),
+        child: Row(children: [
+          Icon(Icons.badge_rounded, size: 18, color: kTextMuted),
+          const SizedBox(width: 11),
+          Text(libelle,
+              style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: kTextPrimary)),
+          const Spacer(),
+          Flexible(
+            child: Text(
+              'Requalifier un agent relève du réseau.',
+              textAlign: TextAlign.right,
+              style: TextStyle(fontSize: 11, color: kTextMuted),
+            ),
+          ),
+        ]),
       );
 }

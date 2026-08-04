@@ -364,13 +364,21 @@ class AnnuaireFilterBar extends StatelessWidget {
         ]),
         if (filters.isNotEmpty) ...[
           const SizedBox(height: 10),
-          Row(children: [
-            for (var i = 0; i < filters.length; i++) ...[
-              if (i > 0) const SizedBox(width: 8),
-              filters[i],
+          // ⚠️ `Wrap`, pas `Row`. Le nombre de filtres varie d'un annuaire à
+          // l'autre (trois déroulants et un segment côté Personnel), et le
+          // « Réinitialiser » n'apparaît qu'une fois un filtre posé : la rangée
+          // débordait alors de quelques dizaines de pixels — rayures jaunes en
+          // plein milieu de l'écran, au moment précis où l'agent vient de
+          // filtrer. Un retour à la ligne coûte dix pixels de hauteur et ne
+          // peut jamais déborder.
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              child: Wrap(spacing: 8, runSpacing: 8, children: filters),
+            ),
+            if (hasActiveFilters) ...[
+              const SizedBox(width: 8),
+              AnnuaireResetChip(onTap: onReset),
             ],
-            const Spacer(),
-            if (hasActiveFilters) AnnuaireResetChip(onTap: onReset),
           ]),
         ],
       ]),

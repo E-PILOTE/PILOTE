@@ -90,10 +90,23 @@ bucket_definitions:
       SELECT school_id AS sid FROM profiles
       WHERE id = request.user_id() AND school_id IS NOT NULL
     data:
+      # ⚠️ LE VOLET CARRIÈRE FAISAIT DÉFAUT (constaté à l'écran le 2026-08-04).
+      # `employment_status`, `grade`, `echelon`, `category`, `hire_date`,
+      # `speciality`, `gender`, `birth_place`, `address` existent en base et
+      # dans le schéma SQLite local, mais n'étaient PAS projetés ici : ils
+      # arrivaient donc toujours NULL sur le poste. Conséquences visibles —
+      # chaque agent affichait « Statut à renseigner » quoi qu'on saisisse, le
+      # compteur « Fonctionnaires » restait à zéro, et le dossier RH d'un agent
+      # (grade, échelon, catégorie, prise de service) s'ouvrait vide hors ligne.
+      # Le salaire et l'IBAN restent AILLEURS (staff_members, bucket gaté par
+      # rôle) : ce qui est ajouté ici est de l'état civil professionnel, pas de
+      # la rémunération.
       - SELECT id, group_id, school_id, role, access_profile_id,
           first_name, last_name, phone, avatar_url, employee_number,
           date_of_birth, is_active, last_login, created_at, updated_at,
-          pin_reset_requested_at
+          pin_reset_requested_at,
+          employment_status, grade, echelon, category, hire_date, speciality,
+          gender, birth_place, address
         FROM profiles
         WHERE school_id = bucket.sid AND is_active = true
 

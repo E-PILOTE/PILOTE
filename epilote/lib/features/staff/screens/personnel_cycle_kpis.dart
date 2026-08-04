@@ -114,9 +114,104 @@ class _EnseignantsParCycle extends StatelessWidget {
   }
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+//  QUI EST FONCTIONNAIRE, QUI NE L'EST PAS
+//
+//  Dans un lycée d'État congolais, deux populations cohabitent : les agents de
+//  l'État — carrière, grade, échelon, mutation par arrêté — et ceux que
+//  l'établissement engage lui-même, volontaires et bénévoles payés par l'APE,
+//  vacataires à la tâche. Ce n'est pas une nuance de gestion : c'est ce qui
+//  décide de qui paie, de qui mute, et de ce que le ministère peut demander.
+//
+//  Ce chiffre existait déjà derrière l'onglet « Répartir par ▸ Statut ». Mais
+//  un onglet, ça se clique — donc ça ne se lit pas. Un chef d'établissement à
+//  qui l'on demande combien de titulaires il a doit pouvoir répondre sans
+//  chercher. La section est donc permanente, jumelle de celle des cycles.
+//
+//  ⚠️ « Statut à renseigner » a sa propre carte, et c'est essentiel : sans
+//  elle, un établissement dont personne n'a saisi les statuts lirait
+//  « Fonctionnaires 0 » et croirait le chiffre. Zéro et inconnu ne sont pas la
+//  même chose — cf. le KPI d'en-tête, qui applique la même règle.
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Clé de la carte « statut à renseigner » — la même que `staffSegKey` pose
+/// pour l'axe statut, pour que le filtre soit rigoureusement le même quel que
+/// soit l'endroit d'où on le pose.
+const String kStatutNonRenseigne = '—';
+
+/// Répartition de TOUT le personnel par statut d'emploi, dans l'ordre canonique
+/// de l'énumération, les statuts absents omis, « à renseigner » en dernier.
+List<({String cle, String label, int n})> personnelParStatut(
+    List<StaffMember> agents) {
+  final parStatut = <String, int>{};
+  for (final a in agents) {
+    final cle = (a.employmentStatus ?? '').isEmpty
+        ? kStatutNonRenseigne
+        : a.employmentStatus!;
+    parStatut[cle] = (parStatut[cle] ?? 0) + 1;
+  }
+  return [
+    for (final (code, _) in kEmploymentStatuses)
+      if ((parStatut[code] ?? 0) > 0)
+        (cle: code, label: employmentStatusLabel(code), n: parStatut[code]!),
+    if ((parStatut[kStatutNonRenseigne] ?? 0) > 0)
+      (
+        cle: kStatutNonRenseigne,
+        label: 'Statut à renseigner',
+        n: parStatut[kStatutNonRenseigne]!,
+      ),
+  ];
+}
+
+class _PersonnelParStatut extends StatelessWidget {
+  const _PersonnelParStatut({
+    required this.agents,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<StaffMember> agents;
+  final String? selected;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final statuts = personnelParStatut(agents);
+    if (statuts.isEmpty) return const SizedBox.shrink();
+    final total = statuts.fold(0, (a, s) => a + s.n);
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const VsSectionLabel(
+          icon: Icons.badge_rounded, text: 'Personnel par statut'),
+      const SizedBox(height: 12),
+      Wrap(spacing: 12, runSpacing: 12, children: [
+        for (final s in statuts)
+          _CycleCard(
+            label: s.label,
+            icone: staffSegIcon(s.cle, StaffAxis.statut),
+            n: s.n,
+            total: total,
+            unite: 'agent',
+            legende: 'de l\'effectif',
+            couleur: s.cle == kStatutNonRenseigne
+                ? kAccent
+                : staffSegColor(s.cle, StaffAxis.statut),
+            selected: selected == s.cle,
+            onTap: () => onSelect(s.cle),
+            aide: s.cle == kStatutNonRenseigne
+                ? 'Ouvrez la fiche de l\'agent pour le renseigner.'
+                : null,
+          ),
+      ]),
+    ]);
+  }
+}
+
 /// Calquée sur `_CycleCard` du panneau Élèves (`scope_drilldown_panel.dart`) :
 /// 226 px de large, pastille d'icône de 34, chiffre en 32, barre de part.
 /// Les deux pages parlent des mêmes cycles — elles doivent le dire pareil.
+/// Servie aussi par la section des statuts : mêmes cartes, mêmes proportions,
+/// une seule géométrie à tenir.
 class _CycleCard extends StatelessWidget {
   const _CycleCard({
     required this.label,
@@ -126,6 +221,8 @@ class _CycleCard extends StatelessWidget {
     required this.couleur,
     required this.selected,
     required this.onTap,
+    this.unite = 'enseignant',
+    this.legende = 'du corps enseignant',
     this.aide,
   });
 
@@ -135,6 +232,13 @@ class _CycleCard extends StatelessWidget {
   final Color couleur;
   final bool selected;
   final VoidCallback onTap;
+
+  /// Ce qu'on compte : « 5 enseignants », « 10 agents ».
+  final String unite;
+
+  /// Ce dont le pourcentage est une part : « du corps enseignant »,
+  /// « de l'effectif ».
+  final String legende;
   final String? aide;
 
   @override
@@ -195,7 +299,7 @@ class _CycleCard extends StatelessWidget {
                     const SizedBox(width: 6),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 3),
-                      child: Text('enseignant${n > 1 ? 's' : ''}',
+                      child: Text('$unite${n > 1 ? 's' : ''}',
                           style: TextStyle(fontSize: 12, color: kTextMuted)),
                     ),
                   ]),
@@ -210,7 +314,7 @@ class _CycleCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              Text('$pct % du corps enseignant',
+              Text('$pct % $legende',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

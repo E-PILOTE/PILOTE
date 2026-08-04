@@ -7,14 +7,19 @@
 //  ni les noms ni les arrivées de septembre. Le déploiement par vagues ne passe
 //  pas ce goulot. Le chef d'établissement, lui, sait qui travaille chez lui.
 //
-//  ── MAIS L'ÉCOLE NE CHOISIT PAS SON PERSONNEL ──────────────────────────────
-//  Dans le public, un enseignant n'est pas recruté par son lycée : il y est
-//  AFFECTÉ par une note de l'autorité de tutelle. L'école reçoit, elle ne
-//  décide pas. D'où la règle posée par la migration 0091 :
+//  ── MAIS L'ÉCOLE NE CHOISIT PAS TOUT SON PERSONNEL ─────────────────────────
+//  Un FONCTIONNAIRE n'est pas recruté par son lycée : il y est AFFECTÉ par une
+//  note de l'autorité de tutelle. Un VOLONTAIRE, un bénévole ou un vacataire,
+//  eux, sont engagés sur place — souvent payés par l'APE — et aucun arrêté ne
+//  les concerne. Les deux populations cohabitent dans le même établissement.
 //
-//    • à l'entrée : le motif d'arrivée et la référence de l'acte sont
-//      OBLIGATOIRES dans le public, et « recrutement » y est interdit ;
-//      dans le privé la direction est l'employeur, « recrutement » est vrai ;
+//  D'où la règle, posée par les migrations 0091 puis 0092 : ce n'est pas le
+//  SECTEUR qui commande, c'est le STATUT D'EMPLOI.
+//
+//    • à l'entrée : le statut est obligatoire ; il décide des motifs d'arrivée
+//      possibles, et le motif décide si la référence de l'acte est exigée
+//      (mutation, détachement, mise à disposition, intérim, réintégration →
+//      oui ; recrutement → non, l'école est elle-même l'employeur) ;
 //    • après : l'école CORRIGE une fiche (nom mal orthographié, téléphone,
 //      matricule, photo). Elle ne mute pas, ne transfère pas, ne désactive pas
 //      et ne change pas la fonction — la fonction EST l'affectation ;
@@ -40,6 +45,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import 'staff_dossier_provider.dart' show kEmploymentStatuses;
 
 /// Les fonctions qu'un chef d'établissement peut ouvrir lui-même.
 ///
@@ -57,11 +63,51 @@ const List<({String value, String label})> kRolesProvisionnablesParEcole = [
   (value: 'responsable_cantine', label: 'Responsable cantine'),
 ];
 
+/// Ce que dit le statut d'emploi, en une phrase, à celui qui remplit le
+/// formulaire. Le libellé, lui, vient de [employmentStatusLabel] : une seule
+/// source pour toute l'application.
+const Map<String, String> kAideStatutEmploi = {
+  'fonctionnaire':
+      'Agent de l\'État, nommé par le ministère. Il arrive par acte.',
+  'contractuel':
+      'Sous contrat — de l\'État (il arrive par acte) ou de l\'établissement '
+          '(vous l\'avez recruté).',
+  'volontaire':
+      'Engagé par l\'établissement, souvent rémunéré par l\'APE. Aucun arrêté.',
+  'benevole': 'Prête son concours sans rémunération de l\'État.',
+  'prestataire':
+      'Vacataire ou prestataire payé à la tâche, par contrat avec l\'école.',
+  'stagiaire': 'Accueilli par convention de stage.',
+};
+
+/// Quels motifs d'arrivée pour quel statut.
+///
+/// ⚠️ Tenu identique à `motifs_arrivee_pour_statut()` (migration 0092). La
+/// table qui fait foi vient du SERVEUR (`contexte_creation_agent`) ; celle-ci
+/// n'est qu'un repli si la question n'a pas pu être posée.
+const Map<String, List<String>> kMotifsArriveeParStatut = {
+  'fonctionnaire': [
+    'mutation', 'detachement', 'mise_a_disposition', 'interim', 'reintegration',
+  ],
+  'contractuel': [
+    'mutation', 'detachement', 'mise_a_disposition', 'interim', 'reintegration',
+    'recrutement',
+  ],
+  'volontaire': ['recrutement'],
+  'benevole': ['recrutement'],
+  'prestataire': ['recrutement'],
+  'stagiaire': ['recrutement'],
+};
+
+/// Motifs qui procèdent d'une décision écrite de l'autorité : sa référence est
+/// alors exigée. ⚠️ Tenu identique à `motif_exige_un_acte()` (migration 0092).
+const Set<String> kMotifsAvecActe = {
+  'mutation', 'detachement', 'mise_a_disposition', 'interim', 'reintegration',
+};
+
 /// Les motifs d'arrivée qu'une ÉCOLE peut constater.
 ///
-/// ⚠️ Tenu identique à `motifs_arrivee_constatables()` (migration 0091). La
-/// liste effective vient du SERVEUR (`contexte_creation_agent`), qui connaît le
-/// secteur ; celle-ci ne sert qu'à mettre un libellé lisible sur une clé.
+/// Ne sert qu'à mettre un libellé lisible et une explication sur une clé.
 const Map<String, ({String label, String aide})> kMotifsArrivee = {
   'mutation': (
     label: 'Mutation',
@@ -85,7 +131,7 @@ const Map<String, ({String label, String aide})> kMotifsArrivee = {
   ),
   'recrutement': (
     label: 'Recrutement',
-    aide: 'L\'établissement embauche par contrat — secteur privé uniquement.',
+    aide: 'L\'établissement est lui-même l\'employeur : aucun acte extérieur.',
   ),
 };
 
@@ -102,9 +148,10 @@ class ContexteCreationAgent {
   const ContexteCreationAgent({
     required this.autorise,
     required this.profils,
-    this.motifsArrivee = const [],
+    this.statutsEmploi = const [],
+    this.motifsParStatut = const {},
+    this.motifsAvecActe = kMotifsAvecActe,
     this.secteurPublic = true,
-    this.acteObligatoire = true,
     this.maxStaff,
     this.agentsActuels = 0,
     this.illimite = true,
@@ -115,11 +162,18 @@ class ContexteCreationAgent {
       ContexteCreationAgent(
         autorise: m['autorise'] as bool? ?? false,
         secteurPublic: m['secteur_public'] as bool? ?? true,
-        acteObligatoire: m['acte_obligatoire'] as bool? ?? true,
-        motifsArrivee: [
-          for (final v in (m['motifs_arrivee'] as List? ?? const []))
+        statutsEmploi: [
+          for (final v in (m['statuts_emploi'] as List? ?? const []))
             v as String,
         ],
+        motifsParStatut: {
+          for (final e in (m['motifs_par_statut'] as Map? ?? const {}).entries)
+            '${e.key}': [for (final v in (e.value as List? ?? const [])) '$v'],
+        },
+        motifsAvecActe: {
+          for (final v in (m['motifs_avec_acte'] as List? ?? const []))
+            v as String,
+        },
         maxStaff: (m['max_staff'] as num?)?.toInt(),
         agentsActuels: (m['agents_actuels'] as num?)?.toInt() ?? 0,
         illimite: m['illimite'] as bool? ?? true,
@@ -136,14 +190,19 @@ class ContexteCreationAgent {
   final bool autorise;
   final List<ProfilAcces> profils;
 
-  /// Les motifs recevables ici — le serveur les choisit selon le secteur.
-  final List<String> motifsArrivee;
+  /// Les statuts d'emploi, dans l'ordre où le secteur les rend probables :
+  /// fonctionnaire d'abord dans un établissement public, contractuel dans un
+  /// établissement privé.
+  final List<String> statutsEmploi;
 
-  /// Réseau public : l'agent arrive par acte, l'école ne recrute pas.
+  /// Quels motifs d'arrivée pour quel statut — la table qui fait foi.
+  final Map<String, List<String>> motifsParStatut;
+
+  /// Motifs qui supposent un acte écrit, dont la référence est alors exigée.
+  final Set<String> motifsAvecActe;
+
+  /// Réseau public : on y attend surtout des agents de l'État.
   final bool secteurPublic;
-
-  /// Référence et date de l'acte exigées.
-  final bool acteObligatoire;
 
   final int? maxStaff;
   final int agentsActuels;
@@ -153,6 +212,27 @@ class ContexteCreationAgent {
   /// dit pas à un directeur qu'il n'a pas le droit alors qu'il est seulement
   /// hors réseau.
   final bool horsLigne;
+
+  /// Les statuts à proposer — repli sur l'ordre canonique si le serveur n'a
+  /// pas répondu.
+  List<String> get statutsProposables => statutsEmploi.isNotEmpty
+      ? statutsEmploi
+      : [for (final e in kEmploymentStatuses) e.$1];
+
+  /// Les motifs recevables pour ce statut. Un statut inconnu ne propose rien :
+  /// mieux vaut un menu vide qu'un motif inventé, que le serveur refusera.
+  List<String> motifsPour(String? statut) {
+    if (statut == null) return const [];
+    return motifsParStatut[statut] ?? kMotifsArriveeParStatut[statut] ?? const [];
+  }
+
+  /// Ce motif suppose-t-il un acte écrit ? En cas de silence du serveur on
+  /// retombe sur la table Dart — jamais sur « non », qui laisserait naître une
+  /// mutation sans référence.
+  bool acteExige(String? motif) =>
+      motif != null &&
+      (motifsAvecActe.isEmpty ? kMotifsAvecActe : motifsAvecActe)
+          .contains(motif);
 
   /// Places restantes sur l'abonnement, `null` si illimité.
   int? get placesRestantes =>
@@ -202,6 +282,7 @@ class AgentCreationService {
     required String nom,
     required String role,
     required String profilAccesId,
+    required String statutEmploi,
     required String motifArrivee,
     String? acteReference,
     DateTime? acteDate,
@@ -221,6 +302,7 @@ class AgentCreationService {
         'p_last_name':         nom.trim(),
         'p_role':              role,
         'p_access_profile_id': profilAccesId,
+        'p_employment_status': statutEmploi,
         'p_arrival_motif':     motifArrivee,
         'p_acte_reference':    _nz(acteReference),
         'p_acte_date':         _jour(acteDate),
@@ -267,6 +349,26 @@ class AgentCreationService {
         'p_birth_place':     _nz(lieuNaissance),
         'p_avatar_url':      _nz(photoUrl),
         'p_effacer_photo':   effacerPhoto,
+      });
+    } catch (e) {
+      throw EchecCreationAgent(_lisible(e));
+    }
+  }
+
+  /// Renseigne un statut d'emploi ABSENT (migration 0093).
+  ///
+  /// Le serveur refuse d'écraser un statut déjà posé : requalifier un agent —
+  /// passer un volontaire en fonctionnaire — est une titularisation, donc un
+  /// acte de l'autorité de tutelle, pas une correction de fiche.
+  Future<void> renseignerStatut({
+    required String profileId,
+    required String statutEmploi,
+  }) async {
+    final client = _ref.read(supabaseClientProvider);
+    try {
+      await client.rpc('renseigner_statut_agent', params: {
+        'p_profile_id':        profileId,
+        'p_employment_status': statutEmploi,
       });
     } catch (e) {
       throw EchecCreationAgent(_lisible(e));
