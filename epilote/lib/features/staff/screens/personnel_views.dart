@@ -46,86 +46,16 @@ class _DistributionBar extends StatelessWidget {
   }
 }
 
-// ─── Recherche ───────────────────────────────────────────────────────────────
-class _SearchField extends StatelessWidget {
-  const _SearchField({
-    required this.controller,
-    required this.count,
-    required this.onChanged,
-  });
-  final TextEditingController controller;
-  final int count;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      onChanged: onChanged,
-      decoration: InputDecoration(
-        isDense: true,
-        hintText: 'Rechercher un agent parmi $count…',
-        hintStyle: TextStyle(fontSize: 13, color: kTextMuted),
-        prefixIcon:
-            Icon(Icons.search_rounded, size: 19, color: kTextMuted),
-        filled: true,
-        fillColor: kCardBg,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: kBorder),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: kBorder),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Filtre statut (Tous / Actifs / Inactifs) ────────────────────────────────
-class _StatusFilter extends StatelessWidget {
-  const _StatusFilter({required this.value, required this.onChanged});
-  final String value;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    const opts = [('all', 'Tous'), ('active', 'Actifs'), ('inactive', 'Inactifs')];
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: kSurface,
-        borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: kBorder),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        for (final (v, l) in opts)
-          GestureDetector(
-            onTap: () => onChanged(v),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              decoration: BoxDecoration(
-                color: value == v ? kNavy : Colors.transparent,
-                borderRadius: BorderRadius.circular(7),
-              ),
-              child: Text(l,
-                  style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: value == v ? Colors.white : kTextMuted)),
-            ),
-          ),
-      ]),
-    );
-  }
-}
-
 // ─── Vue CARTES (groupée par catégorie métier) ───────────────────────────────
 class _PersonnelCards extends StatelessWidget {
-  const _PersonnelCards({required this.agents, required this.onOpen});
+  const _PersonnelCards(
+      {required this.agents, required this.onOpen, this.onCorriger});
   final List<StaffMember> agents;
   final ValueChanged<StaffMember> onOpen;
+
+  /// Corriger la fiche — nul si l'utilisateur n'a pas cette capacité. Une
+  /// action qui échouerait toujours ne s'affiche pas.
+  final ValueChanged<StaffMember>? onCorriger;
 
   @override
   Widget build(BuildContext context) {
@@ -167,8 +97,8 @@ class _PersonnelCards extends StatelessWidget {
               mainAxisExtent: 84,
             ),
             itemCount: groups[c]!.length,
-            itemBuilder: (_, i) =>
-                _AgentCard(agent: groups[c]![i], onOpen: onOpen),
+            itemBuilder: (_, i) => _AgentCard(
+                agent: groups[c]![i], onOpen: onOpen, onCorriger: onCorriger),
           );
         }),
         const SizedBox(height: 8),
@@ -178,9 +108,11 @@ class _PersonnelCards extends StatelessWidget {
 }
 
 class _AgentCard extends StatelessWidget {
-  const _AgentCard({required this.agent, required this.onOpen});
+  const _AgentCard(
+      {required this.agent, required this.onOpen, this.onCorriger});
   final StaffMember agent;
   final ValueChanged<StaffMember> onOpen;
+  final ValueChanged<StaffMember>? onCorriger;
 
   @override
   Widget build(BuildContext context) {
@@ -232,6 +164,13 @@ class _AgentCard extends StatelessWidget {
                     ]),
                   ]),
             ),
+            if (onCorriger != null)
+              IconButton(
+                tooltip: 'Corriger la fiche',
+                icon: Icon(Icons.edit_outlined, size: 17, color: kTextMuted),
+                onPressed: () => onCorriger!(a),
+                visualDensity: VisualDensity.compact,
+              ),
             Icon(Icons.chevron_right_rounded, color: kTextMuted),
           ]),
         ),
@@ -252,9 +191,11 @@ class _AgentCard extends StatelessWidget {
 
 // ─── Vue TABLEAU ─────────────────────────────────────────────────────────────
 class _PersonnelTable extends StatelessWidget {
-  const _PersonnelTable({required this.agents, required this.onOpen});
+  const _PersonnelTable(
+      {required this.agents, required this.onOpen, this.onCorriger});
   final List<StaffMember> agents;
   final ValueChanged<StaffMember> onOpen;
+  final ValueChanged<StaffMember>? onCorriger;
 
   @override
   Widget build(BuildContext context) {
@@ -278,11 +219,15 @@ class _PersonnelTable extends StatelessWidget {
             Expanded(flex: 3, child: _Th('Statut')),
             Expanded(flex: 2, child: _Th('Cycle')),
             Expanded(flex: 3, child: _Th('Matricule')),
-            SizedBox(width: 28),
+            SizedBox(width: 68),
           ]),
         ),
         for (var i = 0; i < agents.length; i++)
-          _Tr(agent: agents[i], even: i.isEven, onOpen: onOpen),
+          _Tr(
+              agent: agents[i],
+              even: i.isEven,
+              onOpen: onOpen,
+              onCorriger: onCorriger),
       ]),
     );
   }
@@ -301,10 +246,15 @@ class _Th extends StatelessWidget {
 }
 
 class _Tr extends StatelessWidget {
-  const _Tr({required this.agent, required this.even, required this.onOpen});
+  const _Tr(
+      {required this.agent,
+      required this.even,
+      required this.onOpen,
+      this.onCorriger});
   final StaffMember agent;
   final bool even;
   final ValueChanged<StaffMember> onOpen;
+  final ValueChanged<StaffMember>? onCorriger;
 
   @override
   Widget build(BuildContext context) {
@@ -368,9 +318,20 @@ class _Tr extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 12.5, color: kTextMuted))),
           SizedBox(
-              width: 28,
-              child: Icon(Icons.chevron_right_rounded,
-                  size: 18, color: kTextMuted)),
+            width: 68,
+            child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+              if (onCorriger != null)
+                IconButton(
+                  tooltip: 'Corriger la fiche',
+                  icon: Icon(Icons.edit_outlined, size: 16, color: kTextMuted),
+                  onPressed: () => onCorriger!(a),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                ),
+              Icon(Icons.chevron_right_rounded, size: 18, color: kTextMuted),
+            ]),
+          ),
         ]),
       ),
     );

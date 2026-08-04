@@ -1,5 +1,13 @@
 // ════════════════════════════════════════════════════════════════════════════
-//  NOUVEL AGENT — le formulaire que la direction remplit à la rentrée
+//  ENREGISTRER UN AGENT — la direction CONSTATE une arrivée
+//
+//  Le titre n'est pas « Nouvel agent » par hasard. Dans le public, l'école ne
+//  choisit pas son personnel : elle reçoit un agent affecté par note de
+//  l'autorité de tutelle. Le formulaire demande donc l'ACTE avant l'identité —
+//  c'est lui qui justifie la présence, et c'est lui que le ministère lira dans
+//  la carrière. Dans le privé, la direction est l'employeur : le motif devient
+//  « recrutement » et la référence de contrat reste facultative. C'est le
+//  SERVEUR qui tranche selon le secteur du réseau, jamais cet écran.
 //
 //  Il dit trois choses AVANT de laisser saisir : combien de places restent sur
 //  l'abonnement, si le réseau est là, et qu'aucun compte ne s'ouvre sans profil
@@ -18,6 +26,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../providers/agent_creation_provider.dart';
 import '../providers/staff_directory_provider.dart';
+
+part 'agent_creation_parts.dart';
 
 Future<bool> showAgentCreationDialog(BuildContext context) async =>
     await showDialog<bool>(
@@ -40,9 +50,18 @@ class _State extends ConsumerState<_AgentCreationDialog> {
   final _mdp = TextEditingController();
   final _tel = TextEditingController();
   final _matricule = TextEditingController();
+  final _acte = TextEditingController();
 
   String _role = 'enseignant';
   String? _profilId;
+
+  /// Motif d'arrivée. Laissé nul tant que le serveur n'a pas dit lesquels sont
+  /// recevables ici : proposer « recrutement » à une école publique serait
+  /// suggérer qu'elle recrute.
+  String? _motif;
+  DateTime? _acteDate;
+  DateTime? _priseService;
+
   bool _saving = false;
   String? _erreur;
 
@@ -52,18 +71,23 @@ class _State extends ConsumerState<_AgentCreationDialog> {
 
   @override
   void dispose() {
-    for (final c in [_prenom, _nom, _email, _mdp, _tel, _matricule]) {
+    for (final c in [_prenom, _nom, _email, _mdp, _tel, _matricule, _acte]) {
       c.dispose();
     }
     super.dispose();
   }
 
-  bool get _complet =>
+  /// Ce que le serveur exigera. On le vérifie ici pour ne pas laisser remplir
+  /// douze champs avant de refuser — mais c'est la migration 0091 qui tranche.
+  bool _completPour(ContexteCreationAgent c) =>
       _prenom.text.trim().isNotEmpty &&
       _nom.text.trim().isNotEmpty &&
       _email.text.trim().contains('@') &&
       _mdp.text.length >= 8 &&
-      _profilId != null;
+      _profilId != null &&
+      _motif != null &&
+      (!c.acteObligatoire ||
+          (_acte.text.trim().isNotEmpty && _acteDate != null));
 
   Future<void> _creer() async {
     setState(() { _saving = true; _erreur = null; });
@@ -75,6 +99,10 @@ class _State extends ConsumerState<_AgentCreationDialog> {
             nom: _nom.text,
             role: _role,
             profilAccesId: _profilId!,
+            motifArrivee: _motif!,
+            acteReference: _acte.text,
+            acteDate: _acteDate,
+            priseDeService: _priseService,
             telephone: _tel.text,
             matricule: _matricule.text,
           );
@@ -97,10 +125,10 @@ class _State extends ConsumerState<_AgentCreationDialog> {
     final ctx = ref.watch(contexteCreationAgentProvider);
 
     return AlertDialog(
-      icon: Icon(_creees == null ? Icons.person_add_alt_1_rounded
+      icon: Icon(_creees == null ? Icons.how_to_reg_rounded
                                  : Icons.check_circle_outline,
           color: _creees == null ? kNavy : kGreen, size: 30),
-      title: Text(_creees == null ? 'Nouvel agent' : 'Compte créé'),
+      title: Text(_creees == null ? 'Enregistrer un agent' : 'Compte créé'),
       content: SizedBox(
         width: 520,
         child: _creees != null
@@ -127,9 +155,11 @@ class _State extends ConsumerState<_AgentCreationDialog> {
                 child: const Text('Annuler'),
               ),
               FilledButton.icon(
-                onPressed: (_saving || !_complet ||
-                        !(ctx.valueOrNull?.autorise ?? false) ||
-                        (ctx.valueOrNull?.quotaAtteint ?? false))
+                onPressed: (_saving ||
+                        ctx.valueOrNull == null ||
+                        !_completPour(ctx.value!) ||
+                        !ctx.value!.autorise ||
+                        ctx.value!.quotaAtteint)
                     ? null
                     : _creer,
                 icon: _saving
@@ -137,8 +167,8 @@ class _State extends ConsumerState<_AgentCreationDialog> {
                         width: 15, height: 15,
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.person_add_alt_1_rounded, size: 17),
-                label: Text(_saving ? 'Création…' : 'Créer le compte'),
+                    : const Icon(Icons.how_to_reg_rounded, size: 17),
+                label: Text(_saving ? 'Enregistrement…' : 'Enregistrer l\'agent'),
               ),
             ],
     );
@@ -178,6 +208,16 @@ class _State extends ConsumerState<_AgentCreationDialog> {
       );
     }
 
+    // Le serveur dit quels motifs sont recevables ici ; on n'en invente aucun.
+    final motifs = c.motifsArrivee.isEmpty
+        ? (c.secteurPublic
+            ? const ['mutation', 'detachement', 'mise_a_disposition',
+                     'interim', 'reintegration']
+            : const ['recrutement', 'mise_a_disposition', 'interim'])
+        : c.motifsArrivee;
+    // Un seul motif possible : le choix n'en est pas un, on le pose.
+    if (_motif == null && motifs.length == 1) _motif = motifs.first;
+
     final restantes = c.placesRestantes;
     return SingleChildScrollView(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -195,6 +235,72 @@ class _State extends ConsumerState<_AgentCreationDialog> {
             ),
           ),
         const SizedBox(height: 12),
+        // ── L'ACTE D'ABORD ──────────────────────────────────────────────────
+        // Il vient avant l'identité parce qu'il en est la cause : c'est lui qui
+        // explique pourquoi cet agent est ici, et c'est lui que la tutelle
+        // lira dans la carrière.
+        AdminFormSectionLabel(c.secteurPublic
+            ? 'CE QUI AMÈNE L\'AGENT'
+            : 'ENGAGEMENT'),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          initialValue: _motif,
+          isExpanded: true,
+          decoration: InputDecoration(
+            labelText: 'Motif d\'arrivée *',
+            helperText: _motif == null
+                ? (c.secteurPublic
+                    ? 'Votre établissement reçoit l\'agent : il ne le recrute pas.'
+                    : 'Votre établissement est l\'employeur.')
+                : kMotifsArrivee[_motif]?.aide,
+            helperMaxLines: 2,
+            border: const OutlineInputBorder(),
+          ),
+          items: [
+            for (final m in motifs)
+              DropdownMenuItem(value: m, child: Text(motifArriveeLabel(m))),
+          ],
+          onChanged: (v) => setState(() => _motif = v),
+        ),
+        const SizedBox(height: 12),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+            flex: 3,
+            child: _champ(
+              _acte,
+              c.acteObligatoire
+                  ? 'Référence de la note d\'affectation *'
+                  : 'Référence du contrat',
+              aide: c.acteObligatoire
+                  ? 'Sans elle, la carrière de l\'agent naîtrait sans acte.'
+                  : 'Facultative.',
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            flex: 2,
+            child: _dateChamp(
+              label: c.acteObligatoire ? 'Date de l\'acte *' : 'Date de l\'acte',
+              valeur: _acteDate,
+              // Un acte est signé avant qu'on le constate : jamais de futur.
+              dernier: DateTime.now(),
+              onChoisi: (d) => setState(() => _acteDate = d),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        _dateChamp(
+          label: 'Prise de service',
+          valeur: _priseService,
+          aide: 'Vide = aujourd\'hui. Une arrivée peut s\'enregistrer à '
+              'l\'avance, dans la limite de trois mois.',
+          premier: DateTime.now().subtract(const Duration(days: 365 * 2)),
+          dernier: DateTime.now().add(const Duration(days: 90)),
+          onChoisi: (d) => setState(() => _priseService = d),
+        ),
+        const SizedBox(height: 16),
+        const AdminFormSectionLabel('L\'AGENT'),
+        const SizedBox(height: 8),
         Row(children: [
           Expanded(child: _champ(_prenom, 'Prénom *')),
           const SizedBox(width: 10),
@@ -274,96 +380,50 @@ class _State extends ConsumerState<_AgentCreationDialog> {
           border: const OutlineInputBorder(),
         ),
       );
-}
 
-/// La remise des identifiants — le seul moment où le mot de passe est lisible.
-class _Identifiants extends StatelessWidget {
-  const _Identifiants({required this.email, required this.mdp});
-  final String email, mdp;
-
-  @override
-  Widget build(BuildContext context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'Remettez ces identifiants à l\'agent. Le mot de passe ne sera '
-            'plus affiché : il n\'est conservé nulle part en clair.',
-            style: TextStyle(fontSize: 13, height: 1.45),
-          ),
-          const SizedBox(height: 14),
-          _Ligne(label: 'Adresse', valeur: email),
-          const SizedBox(height: 8),
-          _Ligne(label: 'Mot de passe', valeur: mdp),
-          const SizedBox(height: 14),
-          Row(children: [
-            Icon(Icons.info_outline, size: 16, color: kTextMuted),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Invitez-le à le changer à sa première connexion.',
-                style: TextStyle(fontSize: 11.5, color: kTextMuted),
-              ),
-            ),
-          ]),
-        ],
-      );
-}
-
-class _Ligne extends StatelessWidget {
-  const _Ligne({required this.label, required this.valeur});
-  final String label, valeur;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: kNavy.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: kBorder),
+  /// Champ de date : on ouvre un calendrier plutôt que de laisser taper.
+  /// « 03/04 » se lit avril au Congo et mars ailleurs — la saisie libre d'une
+  /// date administrative est une source d'erreur qu'aucune relecture ne rattrape.
+  Widget _dateChamp({
+    required String label,
+    required DateTime? valeur,
+    required ValueChanged<DateTime> onChoisi,
+    String? aide,
+    DateTime? premier,
+    DateTime? dernier,
+  }) {
+    final d = valeur;
+    return InkWell(
+      onTap: () async {
+        final now = DateTime.now();
+        final choisi = await showDatePicker(
+          context: context,
+          initialDate: d ?? (dernier != null && dernier.isBefore(now) ? dernier : now),
+          firstDate: premier ?? DateTime(now.year - 5),
+          lastDate: dernier ?? now,
+          locale: const Locale('fr'),
+        );
+        if (choisi != null) onChoisi(choisi);
+      },
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          helperText: aide,
+          helperMaxLines: 3,
+          border: const OutlineInputBorder(),
+          suffixIcon: const Icon(Icons.event_rounded, size: 19),
         ),
-        child: Row(children: [
-          SizedBox(
-            width: 108,
-            child: Text(label,
-                style: TextStyle(fontSize: 12, color: kTextMuted)),
-          ),
-          Expanded(
-            child: SelectableText(valeur,
-                style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: 'monospace')),
-          ),
-          IconButton(
-            tooltip: 'Copier',
-            icon: const Icon(Icons.copy_rounded, size: 17),
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: valeur));
-              ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('$label copié')));
-            },
-          ),
-        ]),
-      );
-}
-
-/// Ce qui empêche, dit avant la saisie plutôt qu'après.
-class _Empechement extends StatelessWidget {
-  const _Empechement({required this.message, this.icone});
-  final String message;
-  final IconData? icone;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(icone ?? Icons.info_outline, color: kAccent, size: 24),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(message,
-                style: const TextStyle(fontSize: 13, height: 1.5)),
-          ),
-        ]),
-      );
+        child: Text(
+          d == null
+              ? '—'
+              : '${d.day.toString().padLeft(2, '0')}/'
+                  '${d.month.toString().padLeft(2, '0')}/${d.year}',
+          style: TextStyle(
+              fontSize: 14,
+              color: d == null ? kTextMuted : kTextPrimary,
+              fontWeight: d == null ? FontWeight.w400 : FontWeight.w600),
+        ),
+      ),
+    );
+  }
 }

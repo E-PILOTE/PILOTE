@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../../../core/widgets/annuaire_filter_bar.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../auth/providers/active_agent_provider.dart' show agentLockApplies;
 import '../../../core/utils/mouvement_agent.dart';
@@ -253,30 +254,60 @@ class _UsersBodyState extends ConsumerState<_UsersBody> {
                 _KpiGrid(data: data),
                 const SizedBox(height: 20),
                 // ── Filtres ──────────────────────────────────────────────────
-                _FilterBar(
-                  contentWidth:   w - 48,
+                // Kit partagé avec l'annuaire Personnel de l'école : mêmes
+                // widgets, mêmes gestes d'un espace à l'autre.
+                AnnuaireFilterBar(
+                  width:          w - 48,
                   searchCtrl:     _searchCtrl,
-                  roleFilter:     _roleFilter,
-                  schoolFilter:   _schoolFilter,
-                  statusFilter:   _statusFilter,
-                  isTableView:    _isTableView,
-                  rolesPresent:   roles,
-                  schools:        data.schools,
+                  searchHint:     'Rechercher (nom, email, matricule)…',
                   onSearchChange: (_) => setState(() {}),
-                  onRole:         (v) => setState(() => _roleFilter   = v),
-                  onSchool:       (v) => setState(() => _schoolFilter = v),
-                  onStatus:       (v) => setState(() => _statusFilter = v),
+                  isTableView:    _isTableView,
                   onToggleView:   ()  => setState(() => _isTableView  = !_isTableView),
+                  hasActiveFilters: _roleFilter != null ||
+                      _schoolFilter != null || _statusFilter != 'all',
                   onReset: () => setState(() {
                     _searchCtrl.clear();
                     _roleFilter = _schoolFilter = null;
                     _statusFilter = 'all';
                   }),
-                  onAdd: _openCreate,
+                  primaryAction: AnnuairePrimaryAction(
+                    icon: Icons.person_add_rounded,
+                    label: 'Nouvel utilisateur',
+                    onTap: _openCreate,
+                  ),
+                  filters: [
+                    AnnuaireDropdown<String?>(
+                      icon: Icons.badge_outlined, label: 'Rôle',
+                      value: _roleFilter, active: _roleFilter != null,
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('Tous les rôles')),
+                        ...roles.map((r) => DropdownMenuItem(
+                            value: r,
+                            child: Text(roleLabel(r), overflow: TextOverflow.ellipsis))),
+                      ],
+                      onChanged: (v) => setState(() => _roleFilter = v),
+                    ),
+                    AnnuaireDropdown<String?>(
+                      icon: Icons.account_balance_outlined, label: 'École',
+                      value: _schoolFilter, active: _schoolFilter != null,
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('Toutes les écoles')),
+                        ...data.schools.map((s) => DropdownMenuItem(
+                            value: s.id,
+                            child: Text(s.name, overflow: TextOverflow.ellipsis))),
+                      ],
+                      onChanged: (v) => setState(() => _schoolFilter = v),
+                    ),
+                    AnnuaireStatusSegment(
+                      value: _statusFilter,
+                      onChanged: (v) => setState(() => _statusFilter = v),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 // ── Résultat ──────────────────────────────────────────────────
-                _ResultHeader(total: data.users.length, filtered: filtered.length),
+                AnnuaireResultHeader(
+                    total: data.users.length, filtered: filtered.length),
                 const SizedBox(height: 12),
                 // ── Vue principale ───────────────────────────────────────────
                 if (data.users.isEmpty)
@@ -590,308 +621,6 @@ class _ShimmerSkeleton extends StatelessWidget {
       ]),
     ),
   );
-}
-
-// ─── Barre de filtres ─────────────────────────────────────────────────────────
-
-class _FilterBar extends StatelessWidget {
-  const _FilterBar({
-    required this.contentWidth,
-    required this.searchCtrl,
-    required this.roleFilter,
-    required this.schoolFilter,
-    required this.statusFilter,
-    required this.isTableView,
-    required this.rolesPresent,
-    required this.schools,
-    required this.onSearchChange,
-    required this.onRole,
-    required this.onSchool,
-    required this.onStatus,
-    required this.onToggleView,
-    required this.onReset,
-    required this.onAdd,
-  });
-
-  final double contentWidth;
-  final TextEditingController searchCtrl;
-  final String?  roleFilter, schoolFilter;
-  final String   statusFilter;
-  final bool     isTableView;
-  final List<String>      rolesPresent;
-  final List<SchoolOption> schools;
-  final ValueChanged<String>  onSearchChange;
-  final ValueChanged<String?> onRole, onSchool;
-  final ValueChanged<String>  onStatus;
-  final VoidCallback onToggleView, onReset, onAdd;
-
-  bool get _hasFilters =>
-      roleFilter != null || schoolFilter != null || statusFilter != 'all';
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: contentWidth,
-    child: Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: kCardBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: kBorder),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
-          Expanded(
-            flex: 3,
-            child: TextField(
-              controller: searchCtrl,
-              onChanged: onSearchChange,
-              decoration: InputDecoration(
-                hintText: 'Rechercher (nom, email, matricule)…',
-                hintStyle: TextStyle(color: kTextMuted, fontSize: 13),
-                prefixIcon: Icon(Icons.search_rounded, color: kTextMuted, size: 20),
-                suffixIcon: searchCtrl.text.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(Icons.close_rounded, size: 18, color: kTextMuted),
-                        onPressed: () { searchCtrl.clear(); onSearchChange(''); })
-                    : null,
-                filled: true,
-                fillColor: kSurface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          _ToggleViewBtn(isTable: isTableView, onToggle: onToggleView),
-          const SizedBox(width: 8),
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: Tooltip(
-              message: 'Réinitialiser les filtres',
-              child: InkWell(
-                onTap: onReset,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.all(9),
-                  decoration: BoxDecoration(
-                    color: kSurface,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: kBorder),
-                  ),
-                  child: Icon(Icons.refresh_rounded, size: 20, color: kTextMuted),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: onAdd,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [const Color(0xFF1A2F5A), kNavy],
-                    begin: Alignment.topLeft, end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [BoxShadow(
-                    color: kNavy.withValues(alpha: 0.25),
-                    blurRadius: 8, offset: const Offset(0, 3),
-                  )],
-                ),
-                child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.person_add_rounded, size: 15, color: Colors.white),
-                  SizedBox(width: 6),
-                  Text('Nouvel utilisateur', style: TextStyle(
-                    color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
-                  )),
-                ]),
-              ),
-            ),
-          ),
-        ]),
-        const SizedBox(height: 10),
-        Row(children: [
-          _FilterDropdown<String?>(
-            icon: Icons.badge_outlined, label: 'Rôle',
-            value: roleFilter,
-            items: [
-              const DropdownMenuItem(value: null, child: Text('Tous les rôles')),
-              ...rolesPresent.map((r) => DropdownMenuItem(
-                  value: r, child: Text(roleLabel(r), overflow: TextOverflow.ellipsis))),
-            ],
-            onChanged: onRole,
-            active: roleFilter != null,
-          ),
-          const SizedBox(width: 8),
-          _FilterDropdown<String?>(
-            icon: Icons.account_balance_outlined, label: 'École',
-            value: schoolFilter,
-            items: [
-              const DropdownMenuItem(value: null, child: Text('Toutes les écoles')),
-              ...schools.map((s) => DropdownMenuItem(
-                  value: s.id, child: Text(s.name, overflow: TextOverflow.ellipsis))),
-            ],
-            onChanged: onSchool,
-            active: schoolFilter != null,
-          ),
-          const SizedBox(width: 8),
-          _StatusSegment(value: statusFilter, onChanged: onStatus),
-          const Spacer(),
-          if (_hasFilters)
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: onReset,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: kRed.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: kRed.withValues(alpha: 0.25)),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.filter_alt_off_rounded, size: 13, color: kRed),
-                    const SizedBox(width: 4),
-                    Text('Réinitialiser', style: TextStyle(
-                      color: kRed, fontSize: 11.5, fontWeight: FontWeight.w600)),
-                  ]),
-                ),
-              ),
-            ),
-        ]),
-      ]),
-    ),
-  );
-}
-
-class _ToggleViewBtn extends StatelessWidget {
-  const _ToggleViewBtn({required this.isTable, required this.onToggle});
-  final bool isTable;
-  final VoidCallback onToggle;
-
-  @override
-  Widget build(BuildContext context) => MouseRegion(
-    cursor: SystemMouseCursors.click,
-    child: Tooltip(
-      message: isTable ? 'Vue en cartes' : 'Vue en tableau',
-      child: InkWell(
-        onTap: onToggle,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(9),
-          decoration: BoxDecoration(
-            color: kSurface, borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: kBorder),
-          ),
-          child: Icon(isTable ? Icons.grid_view_rounded : Icons.table_rows_rounded,
-              size: 18, color: kNavy),
-        ),
-      ),
-    ),
-  );
-}
-
-class _FilterDropdown<T> extends StatelessWidget {
-  const _FilterDropdown({
-    required this.icon, required this.label, required this.items,
-    required this.value, required this.onChanged, required this.active,
-  });
-  final IconData icon;
-  final String label;
-  final List<DropdownMenuItem<T>> items;
-  final T value;
-  final ValueChanged<T?> onChanged;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    height: 38,
-    constraints: const BoxConstraints(minWidth: 160, maxWidth: 220),
-    padding: const EdgeInsets.symmetric(horizontal: 10),
-    decoration: BoxDecoration(
-      color: active ? kNavy.withValues(alpha: 0.06) : kSurface,
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: active ? kNavy.withValues(alpha: 0.35) : kBorder),
-    ),
-    child: DropdownButtonHideUnderline(
-      child: DropdownButton<T>(
-        value: value,
-        icon: Icon(Icons.expand_more_rounded, size: 14,
-            color: active ? kNavy : kTextMuted),
-        isExpanded: true,
-        style: TextStyle(
-          color: active ? kNavy : kTextPrimary,
-          fontSize: 12.5,
-          fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-        ),
-        items: items,
-        onChanged: onChanged,
-      ),
-    ),
-  );
-}
-
-class _StatusSegment extends StatelessWidget {
-  const _StatusSegment({required this.value, required this.onChanged});
-  final String value;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget seg(String v, String label) {
-      final sel = value == v;
-      return GestureDetector(
-        onTap: () => onChanged(v),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: sel ? kNavy : Colors.transparent,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(label, style: TextStyle(
-            fontSize: 12, fontWeight: FontWeight.w600,
-            color: sel ? Colors.white : kTextMuted,
-          )),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: kSurface, borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: kBorder),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        seg('all', 'Tous'),
-        seg('active', 'Actifs'),
-        seg('inactive', 'Inactifs'),
-      ]),
-    );
-  }
-}
-
-class _ResultHeader extends StatelessWidget {
-  const _ResultHeader({required this.total, required this.filtered});
-  final int total, filtered;
-
-  @override
-  Widget build(BuildContext context) => Row(children: [
-    Text('$filtered résultat${filtered > 1 ? 's' : ''}',
-        style: TextStyle(color: kTextPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
-    if (filtered < total) ...[
-      const SizedBox(width: 8),
-      Text('sur $total', style: TextStyle(color: kTextMuted, fontSize: 13)),
-    ],
-  ]);
 }
 
 // ─── Vue Tableau ──────────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════════════
-//  L'ÉTABLISSEMENT OUVRE LES COMPTES DE SON PERSONNEL
+//  L'ÉCOLE CONSTATE UNE ARRIVÉE, ELLE NE LA DÉCIDE PAS
 //
 //  ── POURQUOI CE CHEMIN EXISTE ──────────────────────────────────────────────
 //  Créer un compte exigeait `admin_groupe`. Mille écoles, une vingtaine
@@ -7,19 +7,34 @@
 //  ni les noms ni les arrivées de septembre. Le déploiement par vagues ne passe
 //  pas ce goulot. Le chef d'établissement, lui, sait qui travaille chez lui.
 //
-//  ⚠️ CETTE OPÉRATION EST EN LIGNE, ET ELLE NE PEUT PAS ÊTRE AUTREMENT.
-//  Un compte de connexion vit dans `auth.users`, hors de PowerSync : il n'y a
-//  aucun moyen d'en créer un hors ligne, et un identifiant inventé localement
-//  ne permettrait de se connecter nulle part. C'est le seul geste de l'espace
-//  école dans ce cas — d'où le soin mis à le DIRE quand le réseau manque,
-//  plutôt qu'à échouer sans explication.
+//  ── MAIS L'ÉCOLE NE CHOISIT PAS SON PERSONNEL ──────────────────────────────
+//  Dans le public, un enseignant n'est pas recruté par son lycée : il y est
+//  AFFECTÉ par une note de l'autorité de tutelle. L'école reçoit, elle ne
+//  décide pas. D'où la règle posée par la migration 0091 :
+//
+//    • à l'entrée : le motif d'arrivée et la référence de l'acte sont
+//      OBLIGATOIRES dans le public, et « recrutement » y est interdit ;
+//      dans le privé la direction est l'employeur, « recrutement » est vrai ;
+//    • après : l'école CORRIGE une fiche (nom mal orthographié, téléphone,
+//      matricule, photo). Elle ne mute pas, ne transfère pas, ne désactive pas
+//      et ne change pas la fonction — la fonction EST l'affectation ;
+//    • l'erreur de saisie s'ANNULE tant qu'elle n'a rien produit ; au-delà,
+//      c'est un acte de l'autorité.
+//
+//  ⚠️ CES OPÉRATIONS SONT EN LIGNE, ET ELLES NE PEUVENT PAS ÊTRE AUTREMENT.
+//  Un compte de connexion vit dans `auth.users`, hors de PowerSync. Et la RLS
+//  `profiles_update` interdit à une direction d'écrire dans la fiche d'un autre
+//  agent : un UPDATE passé par PowerSync serait rejeté par le serveur et
+//  emporterait le LOT ENTIER, silencieusement. Ce sont les seuls gestes de
+//  l'espace école dans ce cas — d'où le soin mis à le DIRE quand le réseau
+//  manque, plutôt qu'à échouer sans explication.
 //
 //  ── LES GARDE-FOUS SONT CÔTÉ SERVEUR ───────────────────────────────────────
-//  Rôle de l'appelant, fonctions attribuables, profil d'accès obligatoire,
-//  quota d'abonnement : tout est vérifié par `creer_agent_ecole` (migration
-//  0088). Ce fichier les rappelle à l'écran pour éviter un aller-retour inutile,
-//  il ne les remplace pas — un garde-fou qui vit dans l'interface n'en est pas
-//  un.
+//  Rôle de l'appelant, fonctions attribuables, motifs recevables, obligation
+//  d'acte, profil d'accès, quota : tout est vérifié par `creer_agent_ecole`,
+//  `corriger_fiche_agent` et `annuler_enregistrement_agent` (migration 0091).
+//  Ce fichier les rappelle à l'écran pour éviter un aller-retour inutile, il ne
+//  les remplace pas — un garde-fou qui vit dans l'interface n'en est pas un.
 // ════════════════════════════════════════════════════════════════════════════
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,6 +57,40 @@ const List<({String value, String label})> kRolesProvisionnablesParEcole = [
   (value: 'responsable_cantine', label: 'Responsable cantine'),
 ];
 
+/// Les motifs d'arrivée qu'une ÉCOLE peut constater.
+///
+/// ⚠️ Tenu identique à `motifs_arrivee_constatables()` (migration 0091). La
+/// liste effective vient du SERVEUR (`contexte_creation_agent`), qui connaît le
+/// secteur ; celle-ci ne sert qu'à mettre un libellé lisible sur une clé.
+const Map<String, ({String label, String aide})> kMotifsArrivee = {
+  'mutation': (
+    label: 'Mutation',
+    aide: 'L\'agent arrive d\'un autre établissement par note d\'affectation.',
+  ),
+  'detachement': (
+    label: 'Détachement',
+    aide: 'Mis à disposition par une autre administration, pour une durée fixée.',
+  ),
+  'mise_a_disposition': (
+    label: 'Mise à disposition',
+    aide: 'Affecté sans quitter son administration d\'origine.',
+  ),
+  'interim': (
+    label: 'Intérim',
+    aide: 'Remplace un agent absent, le temps de son absence.',
+  ),
+  'reintegration': (
+    label: 'Réintégration',
+    aide: 'Reprend son service après une interruption (disponibilité, congé long).',
+  ),
+  'recrutement': (
+    label: 'Recrutement',
+    aide: 'L\'établissement embauche par contrat — secteur privé uniquement.',
+  ),
+};
+
+String motifArriveeLabel(String key) => kMotifsArrivee[key]?.label ?? key;
+
 /// Un profil d'accès du réseau — ce qui décide de ce que l'agent verra.
 class ProfilAcces {
   const ProfilAcces(this.id, this.name);
@@ -53,6 +102,9 @@ class ContexteCreationAgent {
   const ContexteCreationAgent({
     required this.autorise,
     required this.profils,
+    this.motifsArrivee = const [],
+    this.secteurPublic = true,
+    this.acteObligatoire = true,
     this.maxStaff,
     this.agentsActuels = 0,
     this.illimite = true,
@@ -62,6 +114,12 @@ class ContexteCreationAgent {
   factory ContexteCreationAgent.fromMap(Map<String, dynamic> m) =>
       ContexteCreationAgent(
         autorise: m['autorise'] as bool? ?? false,
+        secteurPublic: m['secteur_public'] as bool? ?? true,
+        acteObligatoire: m['acte_obligatoire'] as bool? ?? true,
+        motifsArrivee: [
+          for (final v in (m['motifs_arrivee'] as List? ?? const []))
+            v as String,
+        ],
         maxStaff: (m['max_staff'] as num?)?.toInt(),
         agentsActuels: (m['agents_actuels'] as num?)?.toInt() ?? 0,
         illimite: m['illimite'] as bool? ?? true,
@@ -77,6 +135,16 @@ class ContexteCreationAgent {
   /// L'appelant dirige un établissement.
   final bool autorise;
   final List<ProfilAcces> profils;
+
+  /// Les motifs recevables ici — le serveur les choisit selon le secteur.
+  final List<String> motifsArrivee;
+
+  /// Réseau public : l'agent arrive par acte, l'école ne recrute pas.
+  final bool secteurPublic;
+
+  /// Référence et date de l'acte exigées.
+  final bool acteObligatoire;
+
   final int? maxStaff;
   final int agentsActuels;
   final bool illimite;
@@ -134,6 +202,10 @@ class AgentCreationService {
     required String nom,
     required String role,
     required String profilAccesId,
+    required String motifArrivee,
+    String? acteReference,
+    DateTime? acteDate,
+    DateTime? priseDeService,
     String? telephone,
     String? matricule,
     String? genre,
@@ -149,10 +221,14 @@ class AgentCreationService {
         'p_last_name':         nom.trim(),
         'p_role':              role,
         'p_access_profile_id': profilAccesId,
+        'p_arrival_motif':     motifArrivee,
+        'p_acte_reference':    _nz(acteReference),
+        'p_acte_date':         _jour(acteDate),
+        'p_start_date':        _jour(priseDeService),
         'p_phone':             _nz(telephone),
         'p_employee_number':   _nz(matricule),
         'p_gender':            _nz(genre),
-        'p_date_of_birth':     dateNaissance?.toIso8601String().substring(0, 10),
+        'p_date_of_birth':     _jour(dateNaissance),
         'p_birth_place':       _nz(lieuNaissance),
       });
       _ref.invalidate(contexteCreationAgentProvider);
@@ -162,8 +238,66 @@ class AgentCreationService {
     }
   }
 
+  /// Corrige une fiche — liste blanche côté serveur (migration 0091).
+  ///
+  /// Ni fonction, ni activation, ni établissement : ce sont des actes de
+  /// l'autorité de tutelle, et il n'existe aucun paramètre pour les porter.
+  Future<void> corriger({
+    required String profileId,
+    String? prenom,
+    String? nom,
+    String? telephone,
+    String? matricule,
+    String? genre,
+    DateTime? dateNaissance,
+    String? lieuNaissance,
+    String? photoUrl,
+    bool effacerPhoto = false,
+  }) async {
+    final client = _ref.read(supabaseClientProvider);
+    try {
+      await client.rpc('corriger_fiche_agent', params: {
+        'p_profile_id':      profileId,
+        'p_first_name':      _nz(prenom),
+        'p_last_name':       _nz(nom),
+        'p_phone':           _nz(telephone),
+        'p_employee_number': _nz(matricule),
+        'p_gender':          _nz(genre),
+        'p_date_of_birth':   _jour(dateNaissance),
+        'p_birth_place':     _nz(lieuNaissance),
+        'p_avatar_url':      _nz(photoUrl),
+        'p_effacer_photo':   effacerPhoto,
+      });
+    } catch (e) {
+      throw EchecCreationAgent(_lisible(e));
+    }
+  }
+
+  /// Annule un enregistrement qui n'a rien produit.
+  ///
+  /// Retourne la liste de ce qui BLOQUE si l'agent porte déjà du travail —
+  /// vide si l'annulation a eu lieu. Un refus muet se contourne au hasard.
+  Future<List<String>> annulerEnregistrement(String profileId) async {
+    final client = _ref.read(supabaseClientProvider);
+    try {
+      final res = await client
+          .rpc('annuler_enregistrement_agent', params: {'p_profile_id': profileId});
+      if (res is Map && res['ok'] == false) {
+        return [
+          for (final b in (res['bloquants'] as List? ?? const [])) '$b',
+        ];
+      }
+      _ref.invalidate(contexteCreationAgentProvider);
+      return const [];
+    } catch (e) {
+      throw EchecCreationAgent(_lisible(e));
+    }
+  }
+
   static String? _nz(String? v) =>
       (v != null && v.trim().isNotEmpty) ? v.trim() : null;
+
+  static String? _jour(DateTime? d) => d?.toIso8601String().substring(0, 10);
 
   /// Les messages du serveur sont déjà écrits pour être lus ; on retire
   /// seulement l'habillage PostgREST qui les rend illisibles.
