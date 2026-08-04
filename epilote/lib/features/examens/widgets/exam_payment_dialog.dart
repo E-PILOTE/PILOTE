@@ -244,6 +244,7 @@ class _State extends ConsumerState<_ExamPaymentDialog> {
       await savePayment(
         groupId: groupId,
         schoolId: schoolId,
+        academicYearId: year.id,
         studentId: widget.studentId,
         enrollmentId: enrollmentId,
         feeStructureId: d.feeStructureId,

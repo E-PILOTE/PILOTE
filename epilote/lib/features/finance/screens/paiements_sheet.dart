@@ -338,14 +338,17 @@ class _PaymentFormState extends ConsumerState<_PaymentForm> {
       return;
     }
     final p = ref.read(authNotifierProvider).valueOrNull;
+    final yearId = ref.read(activeYearIdProvider);
 
-    // `enrollment_id` est NOT NULL en base. L'écrire vide ferait REFUSER la
-    // ligne par le serveur, ce qui abandonne le lot PowerSync entier et
-    // emporte le travail des autres modules — sans le moindre message.
+    // `enrollment_id` et `academic_year_id` sont NOT NULL en base. Les écrire
+    // vides ferait REFUSER la ligne par le serveur, ce qui abandonne le lot
+    // PowerSync entier et emporte le travail des autres modules — sans le
+    // moindre message.
     final missing = [
       ...missingWriteIds(
           groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id),
       if (!isUsableId(widget.row.enrollmentId)) 'inscription de l\'élève',
+      if (!isUsableId(yearId)) 'année scolaire active',
     ];
     if (missing.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -362,6 +365,7 @@ class _PaymentFormState extends ConsumerState<_PaymentForm> {
       () => savePayment(
         groupId: p!.groupId!,
         schoolId: p.schoolId!,
+        academicYearId: yearId!,
         studentId: widget.row.studentId,
         enrollmentId: widget.row.enrollmentId,
         feeStructureId: _feeId,

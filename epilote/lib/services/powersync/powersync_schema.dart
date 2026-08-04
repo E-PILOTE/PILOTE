@@ -823,6 +823,9 @@ const schema = Schema([
     Column.text('notes'),
     Column.text('created_at'),
     Column.text('updated_at'),
+    // ⚠️ NOT NULL en base (migration 0095). Une écriture locale sans année
+    // ferait rejeter le lot ENTIER (23502) et perdrait le paiement.
+    Column.text('academic_year_id'),
     // ── Annulation et remboursement (migration 0094) ─────────────────────────
     // Un paiement ne se supprime plus : il s'annule, et l'annulation porte son
     // auteur et son motif. Ces colonnes descendent par le `SELECT *` du bucket
