@@ -18,6 +18,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../classes/providers/class_provider.dart';
@@ -241,9 +242,39 @@ Future<BilanImport> executerImport({
   final echecs = <({int ligne, String nom, String cause})>[];
   var faites = 0;
 
+  // Les colonnes NOT NULL du serveur, vérifiées une dernière fois ici.
+  //
+  // L'invariant existe déjà : une ligne sans date, sans sexe ou sans classe
+  // porte un rejet, donc n'est pas « retenue ». Mais cet invariant se lit dans
+  // TROIS fichiers, et il suffit qu'un futur appelant construise une
+  // PreparationImport autrement pour qu'un NULL parte vers une colonne NOT
+  // NULL — et le refus serveur emporterait le lot PowerSync entier, pas la
+  // ligne. On le revérifie donc au bord de l'écriture, où la conséquence est.
+  if (!isUsableId(groupId) || !isUsableId(schoolId) || !isUsableId(yearId)) {
+    throw ArgumentError(writeIdentityMessage(missingWriteIds(
+      groupId: groupId,
+      schoolId: schoolId,
+      actorId: saisiPar,
+    )));
+  }
+
   for (final r in aFaire) {
     final l = r.ligne;
     try {
+      final date = l.dateNaissance;
+      final sexe = l.sexe;
+      final classe = r.classeId;
+      if (date == null || sexe == null || classe == null) {
+        echecs.add((
+          ligne: l.numero,
+          nom: l.nomAffiche,
+          cause: 'Ligne incomplète — non enregistrée',
+        ));
+        faites++;
+        progression?.call(faites, aFaire.length);
+        continue;
+      }
+
       // ⚠️ L'INE du fichier n'est PAS repris. Il sert à repérer les doublons,
       // rien de plus : c'est le serveur qui attribue l'identifiant national
       // (migration 0080), et un numéro recopié d'un ancien cahier
@@ -253,8 +284,8 @@ Future<BilanImport> executerImport({
         groupId: groupId,
         firstName: l.prenom,
         lastName: l.nom,
-        dateOfBirth: l.dateNaissance,
-        gender: l.sexe,
+        dateOfBirth: date,
+        gender: sexe,
         placeOfBirth: l.lieuNaissance,
         nationality: l.nationalite,
         address: l.adresse,
@@ -265,7 +296,7 @@ Future<BilanImport> executerImport({
         groupId: groupId,
         schoolId: schoolId,
         studentId: studentId,
-        classId: r.classeId!,
+        classId: classe,
         academicYearId: yearId,
         isRepeating: l.redoublant,
         inscriptionType: 'new',

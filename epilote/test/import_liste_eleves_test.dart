@@ -10,6 +10,7 @@ import 'dart:convert';
 
 import 'package:epilote/features/students/providers/import_eleves_provider.dart'
     show cleClasse;
+import 'package:epilote/core/utils/write_identity.dart';
 import 'package:epilote/features/students/services/import_liste_eleves.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -311,6 +312,41 @@ void main() {
       // « 6 E » désigne la section E, pas « sixième ». L'effacer la
       // confondrait avec toutes les autres sixièmes.
       expect(cleClasse('6 E') == cleClasse('6 A'), isFalse);
+    });
+  });
+  group('Le garde-fou d\'écriture', () {
+    test('une identité incomplète est une ABSENCE, jamais une chaîne vide', () {
+      // `group_id` et `school_id` sont uuid NOT NULL côté serveur. Écrire ''
+      // passe en SQLite, l'écran annonce « 300 élèves inscrits », puis
+      // PostgreSQL répond 22P02 à la remontée — et un refus abandonne le LOT
+      // PowerSync ENTIER : les notes et les paiements de la même fenêtre
+      // partent avec, sans message.
+      expect(isUsableId(''), isFalse);
+      expect(isUsableId('   '), isFalse);
+      expect(isUsableId(null), isFalse);
+      expect(isUsableId('a6000000-0000-0000-0000-000000000006'), isTrue);
+    });
+
+    test('le message nomme ce qui manque, pas « erreur »', () {
+      // « Erreur d'enregistrement » n'aide personne. La secrétaire doit savoir
+      // que son compte n'est rattaché à aucune école, et la direction quoi
+      // corriger.
+      final m = missingWriteIds(groupId: null, schoolId: 'x', actorId: 'y');
+      expect(m, ['groupe']);
+      final msg = writeIdentityMessage(m);
+      expect(msg, contains('groupe'));
+      expect(msg.toLowerCase(), contains('perdue'));
+    });
+
+    test('une identité complète ne bloque rien', () {
+      expect(
+        buildWriteIdentity(groupId: 'g', schoolId: 's', actorId: 'a'),
+        isNotNull,
+      );
+      expect(
+        buildWriteIdentity(groupId: 'g', schoolId: '', actorId: 'a'),
+        isNull,
+      );
     });
   });
 }

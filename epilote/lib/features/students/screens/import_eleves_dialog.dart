@@ -17,6 +17,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
@@ -130,20 +131,41 @@ class _ImportState extends ConsumerState<_ImportElevesDialog> {
     final prep = _prep;
     final profile = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
-    if (prep == null || profile?.schoolId == null || yearId == null) return;
+    if (prep == null || yearId == null) return;
+
+    // ⚠️ `groupId ?? ''` ferait entrer une chaîne vide dans `students.group_id`,
+    // qui est `uuid NOT NULL` côté serveur. SQLite l'accepterait, l'écran
+    // annoncerait « 300 élèves inscrits », puis PostgreSQL répondrait 22P02 à
+    // la remontée — et un refus abandonne le LOT PowerSync ENTIER, emportant
+    // aussi les notes et les paiements saisis dans la même fenêtre. Sur trois
+    // cents lignes, la perte est massive et muette.
+    final identite = buildWriteIdentity(
+      groupId: profile?.groupId,
+      schoolId: profile?.schoolId,
+      actorId: profile?.id,
+    );
+    if (identite == null) {
+      setState(() => _erreur = writeIdentityMessage(missingWriteIds(
+            groupId: profile?.groupId,
+            schoolId: profile?.schoolId,
+            actorId: profile?.id,
+          )));
+      return;
+    }
 
     setState(() {
       _travaille = true;
+      _erreur = null;
       _faites = 0;
       _total = prep.retenues.length;
     });
     try {
       final bilan = await executerImport(
         preparation: prep,
-        schoolId: profile!.schoolId!,
-        groupId: profile.groupId ?? '',
+        schoolId: identite.schoolId,
+        groupId: identite.groupId,
         yearId: yearId,
-        saisiPar: profile.id,
+        saisiPar: identite.actorId,
         progression: (f, t) {
           if (mounted) setState(() { _faites = f; _total = t; });
         },
