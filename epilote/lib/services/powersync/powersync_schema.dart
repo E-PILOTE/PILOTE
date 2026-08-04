@@ -823,6 +823,19 @@ const schema = Schema([
     Column.text('notes'),
     Column.text('created_at'),
     Column.text('updated_at'),
+    // ── Annulation et remboursement (migration 0094) ─────────────────────────
+    // Un paiement ne se supprime plus : il s'annule, et l'annulation porte son
+    // auteur et son motif. Ces colonnes descendent par le `SELECT *` du bucket
+    // by_school — aucune modification de sync-rules n'est requise.
+    Column.text('cancelled_at'),
+    Column.text('cancelled_by'),
+    Column.text('cancellation_reason'),
+    // ⚠️ `integer` local pour un `integer` serveur : un `real` ferait rejeter
+    // le lot ENTIER (22P02) et perdrait le paiement, comme pour `amount_xaf`.
+    Column.integer('refunded_amount_xaf'),
+    Column.text('refunded_at'),
+    Column.text('refunded_by'),
+    Column.text('refund_reason'),
   ]),
 
   Table('budget_lines', [
