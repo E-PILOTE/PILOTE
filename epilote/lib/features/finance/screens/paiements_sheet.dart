@@ -20,28 +20,63 @@ class _StudentPaymentsSheet extends ConsumerWidget {
         _ => kTextMuted,
       };
 
-  Future<void> _delete(BuildContext context, WidgetRef ref, PaymentRow p) async {
-    final ok = await showDialog<bool>(
+  /// Annuler, jamais effacer : sur de l'argent public, une ligne qui disparaît
+  /// laisse une caisse fausse que plus personne ne sait expliquer.
+  Future<void> _annuler(
+      BuildContext context, WidgetRef ref, PaymentRow p) async {
+    final motif = TextEditingController();
+    final saisi = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: const Text('Supprimer ce paiement ?'),
-        content: Text('${fmtXaf(p.amount)} du ${p.date ?? '—'} sera supprimé.'),
+        title: const Text('Annuler ce paiement ?'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(
+            '${fmtXaf(p.amount)} du ${p.date ?? '—'} sera marqué ANNULÉ. '
+            'La ligne et son reçu restent au dossier — rien n\'est effacé.',
+            style: TextStyle(fontSize: 13, color: kTextMuted),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: motif,
+            autofocus: true,
+            maxLines: 2,
+            decoration: adminFilledInput('Motif de l\'annulation',
+                icon: Icons.edit_note_rounded),
+          ),
+        ]),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Annuler')),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Renoncer')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: kRed),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Supprimer'),
+            onPressed: () => Navigator.pop(ctx, motif.text),
+            child: const Text('Annuler le paiement'),
           ),
         ],
       ),
     );
-    if (ok != true || !context.mounted) return;
-    await runModuleWrite(context, () => deletePayment(p.id),
-        success: 'Paiement supprimé');
+    // Le contrôleur est libéré APRÈS la fermeture complète de la boîte : le
+    // libérer plus tôt déclenche « _dependents.isEmpty is not true » pendant
+    // l'animation de sortie.
+    motif.dispose();
+    if (saisi == null || !context.mounted) return;
+
+    final probleme = motifAnnulationInvalide(saisi);
+    if (probleme != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(probleme), backgroundColor: kRed));
+      return;
+    }
+    final actor = ref.read(authNotifierProvider).valueOrNull?.id;
+    if (actor == null) return;
+
+    await runModuleWrite(
+      context,
+      () => cancelPayment(id: p.id, motif: saisi, actorId: actor),
+      success: 'Paiement annulé',
+    );
     onChanged();
   }
 
@@ -172,13 +207,26 @@ class _StudentPaymentsSheet extends ConsumerWidget {
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                         fontSize: 11.5, color: kTextMuted)),
+                                if (p.cancellationReason != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 3),
+                                    child: Text(
+                                        'Annulé — ${p.cancellationReason}',
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                            fontSize: 11,
+                                            fontStyle: FontStyle.italic,
+                                            color: kRed)),
+                                  ),
                               ]),
                         ),
-                        if (canEdit)
+                        if (canEdit && peutAnnulerPaiement(p.status))
                           IconButton(
-                            icon: Icon(Icons.delete_outline_rounded,
+                            tooltip: 'Annuler ce paiement',
+                            icon: Icon(Icons.block_rounded,
                                 size: 18, color: kTextMuted),
-                            onPressed: () => _delete(context, ref, p),
+                            onPressed: () => _annuler(context, ref, p),
                           ),
                       ]),
                     );

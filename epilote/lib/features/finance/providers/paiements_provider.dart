@@ -5,6 +5,8 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../classes/providers/class_provider.dart';
 import '../../vie_scolaire/widgets/vs_kit.dart';
+import '../services/poste_tag.dart';
+import '../services/receipt_number.dart';
 
 const _uuid = Uuid();
 
@@ -176,10 +178,15 @@ class PaymentRow {
     required this.status,
     required this.feeName,
     required this.receipt,
+    this.cancellationReason,
   });
   final String id;
   final int amount;
   final String? date, method, status, feeName, receipt;
+
+  /// Renseigné dès qu'un encaissement a été annulé : c'est ce qui rend
+  /// l'annulation lisible au dossier au lieu d'un simple statut muet.
+  final String? cancellationReason;
 }
 
 final studentPaymentsProvider = StreamProvider.autoDispose
@@ -203,9 +210,72 @@ final studentPaymentsProvider = StreamProvider.autoDispose
             status: r['status'] as String?,
             feeName: r['fee_name'] as String?,
             receipt: r['receipt_number'] as String?,
+            cancellationReason: r['cancellation_reason'] as String?,
           ),
       ]);
 });
+
+// ─── Annulation ──────────────────────────────────────────────────────────────
+
+/// Statuts depuis lesquels une annulation a un sens.
+///
+/// Ni `cancelled` (déjà fait) ni `refunded` : rembourser puis annuler ferait
+/// disparaître la trace de la restitution, et la caisse mentirait deux fois.
+const _kAnnulables = {'confirmed', 'pending'};
+
+bool peutAnnulerPaiement(String? status) => _kAnnulables.contains(status);
+
+/// Longueur en deçà de laquelle un motif n'explique rien.
+const int kMotifAnnulationMin = 5;
+
+/// `null` si le motif convient, sinon le message à montrer à l'utilisateur.
+String? motifAnnulationInvalide(String motif) {
+  final m = motif.trim();
+  if (m.isEmpty) return 'Le motif de l\'annulation est obligatoire';
+  if (m.length < kMotifAnnulationMin) {
+    return 'Motif trop court — expliquez ce qui s\'est passé';
+  }
+  return null;
+}
+
+// ─── Numérotation des reçus ──────────────────────────────────────────────────
+
+/// Le prochain numéro libre pour CE poste, dans CETTE école, pour CETTE année.
+///
+/// La séquence est relue dans la base locale à chaque encaissement plutôt que
+/// tenue dans un compteur : après une purge du poste les paiements redescendent
+/// par la synchro, et un compteur reparti à zéro rééditerait des numéros déjà
+/// émis — chaque doublon coûtant un paiement (cf. `receipt_number.dart`).
+///
+/// Le code de l'école est relu ici, et non passé par l'appelant : l'écran est
+/// un fichier `part` où `db` n'est pas en portée, et le numéroteur est de toute
+/// façon le seul à en avoir besoin.
+Future<String> genererNumeroRecu({
+  required String schoolId,
+  required DateTime quand,
+}) async {
+  final tag = await posteTag();
+  final ecole = await db.getOptional(
+      'SELECT school_code FROM schools WHERE id = ?', [schoolId]);
+  final schoolCode = ecole?['school_code'] as String?;
+  final prefixe =
+      prefixeRecu(schoolCode: schoolCode, year: quand.year, posteTag: tag);
+  final rows = await db.getAll(
+    'SELECT receipt_number FROM student_payments '
+    'WHERE school_id = ? AND receipt_number LIKE ?',
+    [schoolId, '$prefixe%'],
+  );
+  final seq = prochaineSequence(
+    rows.map((r) => r['receipt_number'] as String?),
+    prefixe: prefixe,
+  );
+  return formatReceiptNumber(
+    schoolCode: schoolCode,
+    year: quand.year,
+    posteTag: tag,
+    sequence: seq,
+  );
+}
 
 // ─── Mutations ───────────────────────────────────────────────────────────────
 Future<void> savePayment({
@@ -233,7 +303,7 @@ Future<void> savePayment({
        now, id],
     );
   } else {
-    final receipt = 'REC-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+    final receipt = await genererNumeroRecu(schoolId: schoolId, quand: d);
     await db.execute(
       '''
       INSERT INTO student_payments (
@@ -249,6 +319,21 @@ Future<void> savePayment({
   }
 }
 
-Future<void> deletePayment(String id) async {
-  await db.execute('DELETE FROM student_payments WHERE id = ?', [id]);
+/// Annule un encaissement SANS l'effacer : la ligne reste, son auteur et son
+/// motif avec elle. Un CHECK serveur (migration 0094) refuse une annulation
+/// muette — la validation locale est là pour que l'utilisateur le sache avant
+/// la synchro, pas à la place du serveur.
+Future<void> cancelPayment({
+  required String id,
+  required String motif,
+  required String actorId,
+}) async {
+  final probleme = motifAnnulationInvalide(motif);
+  if (probleme != null) throw ArgumentError(probleme);
+  final now = DateTime.now().toIso8601String();
+  await db.execute(
+    'UPDATE student_payments SET status = ?, cancelled_at = ?, '
+    'cancelled_by = ?, cancellation_reason = ?, updated_at = ? WHERE id = ?',
+    ['cancelled', now, actorId, motif.trim(), now, id],
+  );
 }
