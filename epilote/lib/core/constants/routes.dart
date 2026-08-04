@@ -8,6 +8,11 @@ class Routes {
   static const String profilePending = '/profile-pending';
   static const String forgotPassword = '/forgot-password';
 
+  /// Le poste a perdu sa session serveur mais se reconnaît et tient encore les
+  /// données de son école. Prend la place de l'écran de connexion, qui serait
+  /// un mur : sur place, personne ne connaît le mot de passe du compte.
+  static const String reprisePoste   = '/reprise-poste';
+
   // ── Super Admin ─────────────────────────────────────────────────────────
   static const String superDashboard       = '/super/dashboard';
   static const String superGroupes         = '/super/groupes';

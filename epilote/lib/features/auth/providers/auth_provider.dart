@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/supabase_constants.dart';
 import '../../../data/models/profile_model.dart';
 import '../../../services/powersync/powersync_service.dart' show db;
+import '../services/session_keeper.dart';
 
 // ─── Client Supabase ───────────────────────────────────────────────────────
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
@@ -41,18 +44,47 @@ final currentProfileProvider = FutureProvider<ProfileModel?>((ref) async {
   }
 });
 
+// ─── Reprise du poste ──────────────────────────────────────────────────────
+
+/// Renseigné quand le poste n'a plus de session serveur MAIS se reconnaît et
+/// tient encore les données de son école. L'écran « Reprise du poste » prend
+/// alors la place de l'écran de connexion. Cf. [SessionKeeper].
+final repriseProposeeProvider = StateProvider<IdentitePoste?>((_) => null);
+
+/// Le poste travaille sur sa base locale sans session serveur : tout se lit et
+/// s'écrit normalement, mais rien ne remonte tant que la connexion n'est pas
+/// rétablie. Pilote la bannière permanente.
+final modeHorsLigneProvider = StateProvider<bool>((_) => false);
+
 // ─── AuthNotifier ─────────────────────────────────────────────────────────
 class AuthNotifier extends StateNotifier<AsyncValue<ProfileModel?>> {
-  AuthNotifier(this._client) : super(const AsyncValue.loading()) {
+  AuthNotifier(this._client, this._ref) : super(const AsyncValue.loading()) {
     _init();
   }
 
   final SupabaseClient _client;
+  final Ref _ref;
+  StreamSubscription<AuthState>? _abonnementAuth;
+
+  @override
+  void dispose() {
+    _abonnementAuth?.cancel();
+    super.dispose();
+  }
 
   Future<void> _init() async {
     // Le splash s'affiche TOUJOURS au moins 3.2 secondes,
     // même si l'utilisateur est déjà connecté.
     final minSplash = Future.delayed(const Duration(milliseconds: 3200));
+
+    // ── PORTE 0 : rejouer le jeton miroir ──────────────────────────────────
+    // Avant de conclure que personne n'est connecté, on donne sa chance au
+    // jeton gardé au coffre. Quand il vaut encore, l'école ne voit rien : ni
+    // écran de mot de passe, ni retéléchargement. Le splash dure de toute
+    // façon 3,2 s ; cette tentative tient dans ce temps-là.
+    if (_client.auth.currentSession == null) {
+      await sessionKeeper.tenterRepriseSilencieuse(_client);
+    }
 
     // `currentUser` est restauré depuis la session locale persistée — AUCUN
     // appel réseau. C'est la clé de l'offline-first : on sait qui est connecté
@@ -72,11 +104,79 @@ class AuthNotifier extends StateNotifier<AsyncValue<ProfileModel?>> {
       // ligne sans profil local → on reste simplement déconnecté (→ login),
       // on n'éjecte pas un membre dont les données sont pourtant en local.
       loadedProfile ??= await _fetchRemoteProfile(user.id);
+
+      // Mémoriser MAINTENANT, sans attendre un événement d'authentification :
+      // une session restaurée du disque n'en émet pas forcément un que l'on
+      // soit encore là pour entendre. Un poste qui fonctionne des mois sans
+      // jamais se reconnecter doit quand même savoir qui il est le jour où sa
+      // session meurt — c'est précisément ce jour-là qu'on en a besoin.
+      final session = _client.auth.currentSession;
+      if (session != null) {
+        await sessionKeeper.memoriser(session,
+            role: loadedProfile?.role,
+            schoolId: loadedProfile?.schoolId,
+            groupId: loadedProfile?.groupId);
+      }
+    } else {
+      // ── PORTE 1 : le poste se souvient-il de lui-même ? ──────────────────
+      await _preparerReprise();
     }
+
+    _ecouterLesSessions();
 
     // Attendre TOUJOURS la durée minimale du splash
     await minSplash;
     state = AsyncValue.data(loadedProfile); // null si pas connecté
+  }
+
+  /// Aucune session : le poste peut-il quand même rouvrir le travail ?
+  ///
+  /// Deux conditions cumulatives — il doit se RECONNAÎTRE (une session valide
+  /// a été mémorisée un jour) et TENIR encore les données. Se souvenir d'une
+  /// école sans ses données ouvrirait une application vide, qui aurait l'air
+  /// cassée : dans ce cas l'écran de connexion habituel est la bonne réponse.
+  Future<void> _preparerReprise() async {
+    final identite = await sessionKeeper.identite();
+    final local =
+        identite == null ? null : await _loadLocalProfile(identite.userId);
+    final porte = porteDeReprise(
+      sessionOuverte: false,
+      posteConnu: identite != null,
+      donneesLocalesPresentes: local != null,
+    );
+    _ref.read(repriseProposeeProvider.notifier).state =
+        porte == PorteDeReprise.reprisePossible ? identite : null;
+  }
+
+  /// Tient à jour la mémoire du poste à chaque session constatée valide —
+  /// connexion comme simple renouvellement de jeton. C'est ce qui permet de
+  /// dire plus tard « ce poste travaille hors ligne depuis onze jours », et
+  /// c'est ce qui garde le jeton miroir frais.
+  void _ecouterLesSessions() {
+    _abonnementAuth ??= _client.auth.onAuthStateChange.listen((data) {
+      final session = data.session;
+      if (session == null) return;
+      final p = state.valueOrNull;
+      unawaited(sessionKeeper.memoriser(session,
+          role: p?.role, schoolId: p?.schoolId, groupId: p?.groupId));
+    });
+  }
+
+  /// Rouvre le travail sur la base locale, sans session serveur.
+  ///
+  /// L'appelant (écran « Reprise du poste ») a déjà vérifié ce qu'il pouvait
+  /// vérifier hors ligne : le code PIN d'un agent enrôlé. Rien de neuf n'est
+  /// ouvert ici — les données sont déjà sur la machine, et aucune écriture ne
+  /// franchira la RLS sans jeton valide. Elles s'empilent dans `ps_crud` et
+  /// partiront à la prochaine connexion.
+  Future<bool> reprendreHorsLigne() async {
+    final identite = _ref.read(repriseProposeeProvider);
+    if (identite == null) return false;
+    final profil = await _loadLocalProfile(identite.userId);
+    if (profil == null) return false;
+    _ref.read(modeHorsLigneProvider.notifier).state = true;
+    state = AsyncValue.data(profil);
+    return true;
   }
 
   /// Lit le profil dans le SQLite local PowerSync. Hors-ligne par nature,
@@ -116,6 +216,15 @@ class AuthNotifier extends StateNotifier<AsyncValue<ProfileModel?>> {
     final remote = await _fetchRemoteProfile(userId);
     final profile = remote ?? await _loadLocalProfile(userId);
     if (profile != null) {
+      // Le poste apprend ici son école et sa fonction — la seule occasion sûre,
+      // puisqu'un événement d'authentification arrive souvent avant le profil.
+      final session = _client.auth.currentSession;
+      if (session != null) {
+        await sessionKeeper.memoriser(session,
+            role: profile.role,
+            schoolId: profile.schoolId,
+            groupId: profile.groupId);
+      }
       state = AsyncValue.data(profile);
     } else {
       state = AsyncValue.error(
@@ -166,6 +275,10 @@ class AuthNotifier extends StateNotifier<AsyncValue<ProfileModel?>> {
         password: password,
       );
       if (response.user != null) {
+        // La session est revenue : on n'est plus en reprise hors ligne, et le
+        // poste n'a plus rien à proposer.
+        _ref.read(modeHorsLigneProvider.notifier).state = false;
+        _ref.read(repriseProposeeProvider.notifier).state = null;
         await _loadProfile(response.user!.id, setLoading: false);
       }
     } on AuthException catch (e, st) {
@@ -196,6 +309,12 @@ class AuthNotifier extends StateNotifier<AsyncValue<ProfileModel?>> {
       // Session locale déjà supprimée par gotrue → la déconnexion a bien eu
       // lieu du point de vue de l'appareil. Ne pas bloquer l'utilisateur.
     }
+    // Déconnexion VOLONTAIRE : quelqu'un a dit « ce poste n'est plus le
+    // nôtre ». C'est le seul moment où la mémoire du poste s'efface — une
+    // session qui expire, elle, ne doit rien effacer (cf. [SessionKeeper]).
+    await sessionKeeper.oublier();
+    _ref.read(modeHorsLigneProvider.notifier).state = false;
+    _ref.read(repriseProposeeProvider.notifier).state = null;
     state = const AsyncValue.data(null);
   }
 
@@ -207,7 +326,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<ProfileModel?>> {
 final authNotifierProvider =
     StateNotifierProvider<AuthNotifier, AsyncValue<ProfileModel?>>((ref) {
   final client = ref.watch(supabaseClientProvider);
-  return AuthNotifier(client);
+  return AuthNotifier(client, ref);
 });
 
 // ─── Classification des échecs d'authentification ───────────────────────────

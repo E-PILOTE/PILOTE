@@ -7,6 +7,8 @@ import '../admin_ui.dart' show kGreen, kAccent;
 import '../../constants/app_constants.dart';
 import '../../../data/models/profile_model.dart';
 import '../../../features/auth/providers/active_agent_provider.dart';
+import '../../../features/auth/providers/auth_provider.dart'
+    show modeHorsLigneProvider;
 import '../../../features/navigation/providers/module_navigation_provider.dart'
     show syncIndicatorProvider;
 import '../../../services/powersync/powersync_service.dart' show SyncUiState;
@@ -29,8 +31,14 @@ class SidebarFooter extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Offline-first : « synchronisé » dès qu'une synchro a réussi, pas seulement
-    // quand la connexion live est active.
-    final isSynced =
+    // quand la connexion live est active — une coupure d'une minute ne doit pas
+    // affoler une école.
+    //
+    // ⚠️ SAUF en reprise du poste : là, il n'y a plus de session serveur DU
+    // TOUT, et plus rien ne remontera avant une reconnexion. Afficher
+    // « Synchronisé » sous la bannière qui dit le contraire ferait douter de
+    // celle des deux qui dit vrai.
+    final isSynced = !ref.watch(modeHorsLigneProvider) &&
         ref.watch(syncIndicatorProvider) == SyncUiState.synced;
 
     return Container(

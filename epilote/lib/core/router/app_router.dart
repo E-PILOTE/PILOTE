@@ -9,6 +9,7 @@ import '../../core/constants/routes.dart';
 import '../../data/models/profile_model.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/screens/login_screen.dart';
+import '../../features/auth/screens/reprise_poste_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/super_admin/screens/super_dashboard_screen.dart';
 import '../../features/super_admin/screens/school_groups_screen.dart';
@@ -223,13 +224,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isOnAuth =
           loc == Routes.login ||
           loc == Routes.splash ||
-          loc == Routes.forgotPassword;
+          loc == Routes.forgotPassword ||
+          loc == Routes.reprisePoste;
 
       if (isLoading) {
         return loc == Routes.splash ? null : Routes.splash;
       }
-      if (!isLoggedIn && !isOnAuth) return Routes.login;
-      if (!isLoggedIn && loc == Routes.splash) return Routes.login;
+
+      // ── Sans session, deux écrans possibles ────────────────────────────
+      // Si le poste se reconnaît ET tient encore les données de son école, le
+      // renvoyer à l'écran de connexion serait l'enfermer dehors : sur place,
+      // personne ne connaît le mot de passe du compte de l'établissement. On
+      // lui propose la reprise. Cf. `session_keeper.dart`.
+      final porteSansSession = ref.read(repriseProposeeProvider) != null
+          ? Routes.reprisePoste
+          : Routes.login;
+      if (!isLoggedIn && !isOnAuth) return porteSansSession;
+      if (!isLoggedIn && loc == Routes.splash) return porteSansSession;
+      // On ne renvoie JAMAIS de force vers la reprise quelqu'un qui est déjà
+      // sur l'écran de connexion : il y est peut-être allé exprès, et une
+      // redirection en boucle serait pire que le mur qu'on corrige.
       if (isLoggedIn && isOnAuth) return _dashboardForRole(profile);
       if (isLoggedIn && profile.hasPendingProfile) {
         if (loc != Routes.profilePending) return Routes.profilePending;
@@ -303,6 +317,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // ── Auth ──────────────────────────────────────────────────────────
       GoRoute(path: Routes.splash, builder: (_, _) => const SplashScreen()),
       GoRoute(path: Routes.login, builder: (_, _) => const LoginScreen()),
+      GoRoute(
+          path: Routes.reprisePoste,
+          builder: (_, _) => const ReprisePosteScreen()),
       _placeholder(Routes.forgotPassword, 'Mot de passe oublié'),
       _placeholder(Routes.profilePending, 'Compte en attente'),
 

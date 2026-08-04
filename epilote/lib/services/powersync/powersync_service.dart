@@ -180,11 +180,7 @@ Future<void> initPowerSync() async {
           }
           if (uid != null) await _writeLastDeviceUser(uid);
 
-          final role = await _resolveRole(supabase);
-          if (_isStaffRole(role)) {
-            _syncEnabled = true;
-            db.connect(connector: connector);
-          }
+          await _connecterSiPersonnel(supabase, connector);
         });
       case AuthChangeEvent.signedOut:
         _enqueueAuth(() async {
@@ -221,14 +217,34 @@ Future<void> initPowerSync() async {
           await db.disconnect();
         });
       case AuthChangeEvent.tokenRefreshed:
-        // Renouveler les credentials uniquement si déjà connecté (utilisateur)
         if (db.currentStatus.connected) {
           connector.prefetchCredentials();
+        } else {
+          // ⚠️ Un jeton peut revenir SANS `signedIn`. C'est exactement ce que
+          // fait la reprise silencieuse au démarrage (`setSession`, cf.
+          // session_keeper.dart) : la session persistée avait disparu, donc
+          // `initPowerSync` n'a pas connecté, et gotrue n'émet ici qu'un
+          // `tokenRefreshed`. Sans cette branche le poste retrouve son compte
+          // mais reste DÉSYNCHRONISÉ jusqu'au prochain redémarrage — une
+          // journée entière de saisies qui ne remontent pas, sans que rien ne
+          // le signale. Constaté à l'écran le 2026-08-04.
+          _enqueueAuth(() => _connecterSiPersonnel(supabase, connector));
         }
       default:
         break;
     }
   });
+}
+
+/// Active la synchro si le compte est celui du personnel scolaire.
+/// Idempotent : rappeler alors que la connexion est déjà en place ne coûte rien.
+Future<void> _connecterSiPersonnel(
+    SupabaseClient supabase, PowerSyncBackendConnector connector) async {
+  final role = await _resolveRole(supabase);
+  if (_isStaffRole(role)) {
+    _syncEnabled = true;
+    db.connect(connector: connector);
+  }
 }
 
 /// Résout le rôle de l'utilisateur connecté.
