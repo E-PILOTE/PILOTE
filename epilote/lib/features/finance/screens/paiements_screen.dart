@@ -13,17 +13,24 @@ import '../../vie_scolaire/widgets/vs_form_chrome.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../providers/frais_provider.dart';
 import '../providers/paiements_provider.dart';
+import '../services/obligation.dart';
 import '../services/recu_pdf_service.dart';
+import 'paiements_remboursement.dart';
 
 part 'paiements_sheet.dart';
+part 'paiements_form.dart';
 
 const _kSlug = 'paiements-eleves';
 
 // ════════════════════════════════════════════════════════════════════════════
-//  PAIEMENTS ÉLÈVES — encaissements. KPI hero (encaissé, paiements, en attente,
-//  élèves payeurs) → panneau Cycle ▸ Niveau ▸ Classe (recouvrement = élèves
-//  ayant payé) → couverture par classe ; ouvrir = liste élèves (total payé) →
-//  fiche élève (historique + nouveau paiement). 100% offline.
+//  PAIEMENTS ÉLÈVES — encaissements. KPI hero (encaissé, paiements, reste dû,
+//  élèves à jour) → panneau Cycle ▸ Niveau ▸ Classe → couverture par classe ;
+//  ouvrir = liste élèves (état + reste dû) → fiche élève (historique, nouveau
+//  paiement, reçu, annulation). 100% offline.
+//
+//  ⚠️ « À jour » signifie « a SOLDÉ son dû », pas « a versé quelque chose ».
+//  Sans aucun barème applicable, aucun taux n'est calculable : l'écran affiche
+//  « Barème non défini » plutôt que 0 %.
 // ════════════════════════════════════════════════════════════════════════════
 class PaiementsScreen extends ConsumerWidget {
   const PaiementsScreen({super.key});
@@ -100,23 +107,35 @@ class _BodyState extends ConsumerState<_Body> {
         ),
       );
     }
-    final rate = ov.students == 0 ? 0 : ov.payers * 100 ~/ ov.students;
+    // ⚠️ « À jour » = a soldé son dû, PAS « a versé quelque chose ». Sans
+    // barème, aucun taux n'est calculable : l'annoncer à 0 % accuserait d'un
+    // échec de collecte une école qui n'a rien à collecter (cf. spec §6.5).
+    final rate = ov.students == 0 ? 0 : ov.aJour * 100 ~/ ov.students;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       VsHeroKpis(cards: [
         (Icons.account_balance_wallet_rounded, 'Encaissé',
             fmtCompact(ov.collected), kGreen, 'FCFA confirmés'),
         (Icons.receipt_long_rounded, 'Paiements', '${ov.confirmedCount}', kNavy,
             'confirmés'),
-        (Icons.hourglass_bottom_rounded, 'En attente', '${ov.pendingCount}',
-            ov.pendingCount == 0 ? kTextMuted : const Color(0xFFF59E0B),
-            'à confirmer'),
-        (Icons.groups_2_rounded, 'Élèves à jour', '${ov.payers}/${ov.students}',
-            const Color(0xFF0EA5E9), '$rate% ont payé'),
+        if (ov.sansBareme)
+          (Icons.request_quote_outlined, 'Reste dû', '—', kTextMuted,
+              libelleEtat(EtatObligation.sansBareme))
+        else
+          (Icons.request_quote_rounded, 'Reste dû', fmtCompact(ov.resteDu),
+              ov.resteDu == 0 ? kGreen : const Color(0xFFF59E0B),
+              'sur ${fmtCompact(ov.duTotal)} FCFA'),
+        if (ov.sansBareme)
+          (Icons.groups_2_rounded, 'Élèves à jour', '—', kTextMuted,
+              libelleEtat(EtatObligation.sansBareme))
+        else
+          (Icons.groups_2_rounded, 'Élèves à jour',
+              '${ov.aJour}/${ov.students}',
+              const Color(0xFF0EA5E9), '$rate% ont soldé'),
       ]),
       const SizedBox(height: 16),
       ScopeDrilldownPanel(
         title: 'Recouvrement',
-        metricLabel: 'Ont payé',
+        metricLabel: 'À jour',
         unitNoun: 'élèves',
         selected: _scope,
         onSelect: (s) => setState(() {
@@ -152,7 +171,7 @@ class _BodyState extends ConsumerState<_Body> {
         const SizedBox(height: 12),
         VsCoverageList(
           rows: vsFilterScope(ov.rows, _scope),
-          metricLabel: 'ont payé',
+          metricLabel: 'à jour',
           openLabel: 'Ouvrir',
           onOpen: (r) => setState(() => _openClassId = r.classId),
         ),
@@ -291,6 +310,23 @@ class _ClassPaymentsState extends ConsumerState<_ClassPayments> {
     );
   }
 
+  /// L'ambre de l'avance partielle est délibéré : ni le vert du soldé, ni le
+  /// rouge de l'impayé. Un parent qui a versé la moitié n'est pas un mauvais
+  /// payeur, et l'écran ne doit pas le désigner comme tel.
+  Color _etatColor(EtatObligation e) => switch (e) {
+        EtatObligation.aJour => kGreen,
+        EtatObligation.partiel => const Color(0xFFF59E0B),
+        EtatObligation.impaye => kRed,
+        EtatObligation.sansBareme => kTextMuted,
+      };
+
+  IconData _etatIcon(EtatObligation e) => switch (e) {
+        EtatObligation.aJour => Icons.check_circle_rounded,
+        EtatObligation.partiel => Icons.timelapse_rounded,
+        EtatObligation.impaye => Icons.error_outline_rounded,
+        EtatObligation.sansBareme => Icons.circle_outlined,
+      };
+
   Widget _row(StudentPayRow r) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -309,12 +345,9 @@ class _ClassPaymentsState extends ConsumerState<_ClassPayments> {
               width: 34,
               height: 34,
               decoration: BoxDecoration(
-                  color: (r.hasPaid ? kGreen : kTextMuted).withValues(alpha: 0.10),
+                  color: _etatColor(r.etat).withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(8)),
-              child: Icon(
-                  r.hasPaid ? Icons.check_circle_rounded : Icons.circle_outlined,
-                  size: 17,
-                  color: r.hasPaid ? kGreen : kTextMuted),
+              child: Icon(_etatIcon(r.etat), size: 17, color: _etatColor(r.etat)),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -327,11 +360,16 @@ class _ClassPaymentsState extends ConsumerState<_ClassPayments> {
                         style: const TextStyle(
                             fontSize: 13.5, fontWeight: FontWeight.w700)),
                     Text(
-                        r.count == 0
-                            ? 'Aucun paiement'
-                            : '${r.count} paiement${r.count > 1 ? 's' : ''}'
-                                '${r.lastDate != null ? ' · dernier ${r.lastDate}' : ''}',
-                        style: TextStyle(fontSize: 11.5, color: kTextMuted)),
+                        r.etat == EtatObligation.sansBareme
+                            ? (r.count == 0
+                                ? 'Aucun paiement'
+                                : '${r.count} paiement${r.count > 1 ? 's' : ''}')
+                            : '${libelleEtat(r.etat)}'
+                                '${r.reste > 0 ? ' · reste ${fmtXaf(r.reste)}' : ''}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 11.5, color: _etatColor(r.etat))),
                   ]),
             ),
             Text(r.paid == 0 ? '—' : fmtXaf(r.paid),

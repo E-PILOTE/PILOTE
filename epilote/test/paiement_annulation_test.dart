@@ -49,4 +49,28 @@ void main() {
       expect(motifAnnulationInvalide('Erreur de saisie du montant'), isNull);
     });
   });
+
+  group('remboursement', () {
+    test('seul un paiement confirmé se rembourse', () {
+      expect(peutRembourserPaiement('confirmed'), isTrue);
+      // On ne rend pas un argent qu'on n'a pas encore confirmé avoir reçu.
+      expect(peutRembourserPaiement('pending'), isFalse);
+      expect(peutRembourserPaiement('cancelled'), isFalse);
+      expect(peutRembourserPaiement('refunded'), isFalse);
+      expect(peutRembourserPaiement(null), isFalse);
+    });
+
+    test('on ne rembourse jamais plus qu\'on n\'a encaissé', () {
+      // Le CHECK serveur (0094) le refuse : le dire AVANT la synchro évite de
+      // perdre la transaction dans le journal d'échecs.
+      expect(montantRemboursementInvalide(6000, 5000), isNotNull);
+      expect(montantRemboursementInvalide(0, 5000), isNotNull);
+      expect(montantRemboursementInvalide(-1, 5000), isNotNull);
+    });
+
+    test('un remboursement partiel ou total passe', () {
+      expect(montantRemboursementInvalide(5000, 5000), isNull);
+      expect(montantRemboursementInvalide(2000, 5000), isNull);
+    });
+  });
 }

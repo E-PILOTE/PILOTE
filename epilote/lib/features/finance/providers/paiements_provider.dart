@@ -6,6 +6,8 @@ import '../../../services/powersync/powersync_service.dart';
 import '../../classes/providers/class_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
 import '../../vie_scolaire/widgets/vs_kit.dart';
+import '../services/obligation.dart';
+import 'obligation_provider.dart';
 import '../services/poste_tag.dart';
 import '../services/receipt_number.dart';
 
@@ -46,17 +48,30 @@ class PaymentsOverview {
     required this.pendingCount,
     required this.payers,
     required this.students,
+    this.duTotal = 0,
+    this.aJour = 0,
   });
   final List<VsCoverageRow> rows;
   final int collected, confirmedCount, pendingCount, payers, students;
+
+  /// Somme de ce que l'école devrait avoir encaissé à ce jour, et nombre
+  /// d'élèves qui ont soldé leur dû. `duTotal == 0` ⇒ aucun barème applicable :
+  /// afficher un taux serait mentir (cf. `EtatObligation.sansBareme`).
+  final int duTotal, aJour;
+
+  bool get sansBareme => duTotal <= 0;
+  int get resteDu => (duTotal - collected).clamp(0, duTotal);
   int get classesTotal => rows.length;
 }
+
 
 final paymentsOverviewProvider =
     FutureProvider.autoDispose<PaymentsOverview>((ref) async {
   ref.keepAlive();
   final classes = ref.watch(classesProvider).valueOrNull;
   final yearId = ref.watch(activeYearIdProvider);
+  final baremes = ref.watch(baremesApplicablesProvider).valueOrNull ?? const [];
+  final mois = ref.watch(moisEcoulesProvider);
   if (classes == null || classes.isEmpty || yearId == null) {
     return const PaymentsOverview(
         rows: [], collected: 0, confirmedCount: 0, pendingCount: 0,
@@ -77,6 +92,7 @@ final paymentsOverviewProvider =
   );
   final payersByClass = <String, Set<String>>{};
   final collectedByClass = <String, int>{};
+  final verseParEleve = <String, int>{};
   var collected = 0, confirmedCount = 0, pendingCount = 0;
   final allPayers = <String>{};
   for (final r in rows) {
@@ -87,11 +103,38 @@ final paymentsOverviewProvider =
       final amt = (r['amt'] as num?)?.round() ?? 0;
       collected += amt;
       collectedByClass[cid] = (collectedByClass[cid] ?? 0) + amt;
+      verseParEleve[sid] = (verseParEleve[sid] ?? 0) + amt;
       confirmedCount++;
       (payersByClass[cid] ??= {}).add(sid);
       allPayers.add(sid);
     } else if (st == 'pending') {
       pendingCount++;
+    }
+  }
+
+  // Le dû se calcule par NIVEAU (un barème peut ne viser qu'un niveau), donc
+  // par classe. Les élèves d'une classe partagent le même dû ; ce qui les
+  // distingue est ce qu'ils ont versé.
+  final duParClasse = {
+    for (final c in classes) c.id: duPourNiveau(baremes, c.levelId, mois),
+  };
+
+  // Qui a soldé : il faut le versement de CHAQUE élève, pas seulement de ceux
+  // qui ont payé — un élève absent de `verseParEleve` a versé zéro.
+  final aJourParClasse = <String, int>{};
+  if (baremes.isNotEmpty) {
+    final inscrits = await db.getAll(
+      'SELECT class_id AS cid, student_id AS sid FROM class_enrollments '
+      "WHERE class_id IN ($ph) AND status = 'active'",
+      ids,
+    );
+    for (final e in inscrits) {
+      final cid = e['cid'] as String;
+      final du = duParClasse[cid] ?? 0;
+      final verse = verseParEleve[e['sid'] as String] ?? 0;
+      if (etatObligation(du: du, verse: verse) == EtatObligation.aJour) {
+        aJourParClasse[cid] = (aJourParClasse[cid] ?? 0) + 1;
+      }
     }
   }
 
@@ -104,7 +147,7 @@ final paymentsOverviewProvider =
         levelCode: c.levelCode,
         levelOrder: c.levelOrder ?? 999,
         total: c.studentCount ?? 0,
-        ok: payersByClass[c.id]?.length ?? 0,
+        ok: aJourParClasse[c.id] ?? 0,
         note: collectedByClass[c.id] != null
             ? fmtCompact(collectedByClass[c.id]!)
             : null,
@@ -121,6 +164,10 @@ final paymentsOverviewProvider =
     pendingCount: pendingCount,
     payers: allPayers.length,
     students: cov.fold(0, (a, c) => a + c.total),
+    duTotal: [
+      for (final c in classes) (duParClasse[c.id] ?? 0) * (c.studentCount ?? 0),
+    ].fold(0, (a, b) => a + b),
+    aJour: aJourParClasse.values.fold(0, (a, b) => a + b),
   );
 });
 
@@ -134,16 +181,35 @@ class StudentPayRow {
     required this.paid,
     required this.count,
     required this.lastDate,
+    this.du = 0,
   });
   final String studentId, studentName;
   final String? enrollmentId, matricule, lastDate;
   final int paid, count;
+
+  /// Ce que cet élève doit à ce jour, tous barèmes applicables confondus.
+  final int du;
+
+  int get reste => (du - paid).clamp(0, du);
+  EtatObligation get etat => etatObligation(du: du, verse: paid);
+
+  /// ⚠️ « a versé quelque chose » — ce n'est PAS « à jour ». Conservé pour les
+  /// usages qui veulent seulement savoir si un mouvement existe.
   bool get hasPaid => paid > 0;
 }
 
 final classPaymentsProvider = StreamProvider.autoDispose
     .family<List<StudentPayRow>, String>((ref, classId) {
   final yearId = ref.watch(activeYearIdProvider);
+  final baremes = ref.watch(baremesApplicablesProvider).valueOrNull ?? const [];
+  final mois = ref.watch(moisEcoulesProvider);
+  final niveau = ref
+      .watch(classesProvider)
+      .valueOrNull
+      ?.where((c) => c.id == classId)
+      .firstOrNull
+      ?.levelId;
+  final du = duPourNiveau(baremes, niveau, mois);
   if (yearId == null) return Stream.value(const []);
   return db.watch(
     '''
@@ -173,6 +239,7 @@ final classPaymentsProvider = StreamProvider.autoDispose
             paid: (r['paid'] as num?)?.round() ?? 0,
             count: (r['cnt'] as num?)?.round() ?? 0,
             lastDate: r['last_d'] as String?,
+            du: du,
           ),
       ]);
 });
@@ -246,6 +313,46 @@ String? motifAnnulationInvalide(String motif) {
     return 'Motif trop court — expliquez ce qui s\'est passé';
   }
   return null;
+}
+
+// ─── Remboursement ───────────────────────────────────────────────────────────
+
+/// On ne rend que ce qu'on a confirmé avoir reçu. Un paiement `pending` n'est
+/// pas encore de l'argent en caisse ; un paiement annulé ou déjà remboursé
+/// n'en est plus.
+bool peutRembourserPaiement(String? status) => status == 'confirmed';
+
+/// `null` si le montant convient, sinon le message à montrer.
+///
+/// Le `CHECK` serveur de la migration 0094 refuse déjà un remboursement
+/// supérieur à l'encaissé — mais un refus serveur arrive APRÈS la synchro, et
+/// coûte la transaction. Le dire ici, c'est le dire à temps.
+String? montantRemboursementInvalide(int montant, int encaisse) {
+  if (montant <= 0) return 'Le montant remboursé doit être supérieur à zéro';
+  if (montant > encaisse) {
+    return 'On ne rembourse pas plus que les ${encaisse.toString()} F encaissés';
+  }
+  return null;
+}
+
+Future<void> refundPayment({
+  required String id,
+  required int montant,
+  required int encaisse,
+  required String motif,
+  required String actorId,
+}) async {
+  final probleme = montantRemboursementInvalide(montant, encaisse);
+  if (probleme != null) throw ArgumentError(probleme);
+  final m = motif.trim();
+  if (m.isEmpty) throw ArgumentError('Le motif du remboursement est obligatoire');
+  final now = DateTime.now().toIso8601String();
+  await db.execute(
+    'UPDATE student_payments SET status = ?, refunded_amount_xaf = ?, '
+    'refunded_at = ?, refunded_by = ?, refund_reason = ?, updated_at = ? '
+    'WHERE id = ?',
+    ['refunded', montant, now, actorId, m, now, id],
+  );
 }
 
 // ─── Numérotation des reçus ──────────────────────────────────────────────────

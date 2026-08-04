@@ -51,7 +51,11 @@ final feeStructuresProvider =
     SELECT f.*, sl.name AS level_name
     FROM fee_structures f
     LEFT JOIN school_levels sl ON sl.id = f.applies_to_level_id
-    WHERE f.school_id = ? AND f.academic_year_id = ? AND f.is_active = 1
+    -- ⚠️ `is_active = 1` rate les lignes écrites par l'application : la vue
+    -- PowerSync ne garantit pas l'entier 1. COALESCE(...) <> 0 est la forme
+    -- sûre (cf. [[powersync-is-active-egalite-stricte]]).
+    WHERE f.school_id = ? AND f.academic_year_id = ?
+      AND COALESCE(f.is_active, 1) <> 0
     ORDER BY f.fee_type, f.amount_xaf DESC
     ''',
     parameters: [schoolId, yearId ?? ''],
