@@ -1,5 +1,7 @@
+import 'package:epilote/features/finance/services/poste_tag.dart';
 import 'package:epilote/features/finance/services/receipt_number.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LE NUMÉRO DE REÇU (spec §6.1)
@@ -132,6 +134,31 @@ void main() {
     test('refuse l\'ancien format horodaté', () {
       expect(sequenceDansRecu('REC-482913', prefixe: 'REC-KIN01-26-A3F19C-'),
           isNull);
+    });
+  });
+
+  group('étiquette du poste', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      resetPosteTagCache();
+    });
+
+    test('fait 6 caractères hexadécimaux', () async {
+      final t = await posteTag();
+      expect(t, matches(RegExp(r'^[0-9a-f]{6}$')));
+    });
+
+    test('ne change pas d\'un appel à l\'autre', () async {
+      // Si l'étiquette bougeait, la séquence repartirait à 1 sur un préfixe
+      // neuf à chaque redémarrage — sans collision, mais avec une numérotation
+      // illisible pour un contrôleur.
+      expect(await posteTag(), await posteTag());
+    });
+
+    test('survit à un redémarrage de l\'application', () async {
+      final premier = await posteTag();
+      resetPosteTagCache();
+      expect(await posteTag(), premier);
     });
   });
 }
