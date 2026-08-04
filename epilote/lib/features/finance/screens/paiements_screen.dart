@@ -10,8 +10,10 @@ import '../../structure/providers/academic_year_context.dart';
 import '../../students/widgets/scope_drilldown_panel.dart';
 import '../../vie_scolaire/widgets/vs_kit.dart';
 import '../../vie_scolaire/widgets/vs_form_chrome.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../providers/frais_provider.dart';
 import '../providers/paiements_provider.dart';
+import '../services/recu_pdf_service.dart';
 
 part 'paiements_sheet.dart';
 
@@ -45,7 +47,7 @@ class _BodyState extends ConsumerState<_Body> {
 
   String? get _activeClassId => _openClassId ?? _scope.classId;
 
-  void _openStudent(StudentPayRow r) {
+  void _openStudent(StudentPayRow r, String className) {
     final readOnly = ref.read(yearReadOnlyProvider);
     final canEdit =
         ref.read(canProvider((slug: _kSlug, action: 'update'))) && !readOnly;
@@ -55,6 +57,7 @@ class _BodyState extends ConsumerState<_Body> {
       backgroundColor: Colors.transparent,
       builder: (_) => _StudentPaymentsSheet(
         row: r,
+        className: className,
         canEdit: canEdit,
         onChanged: () => ref.invalidate(paymentsOverviewProvider),
       ),
@@ -177,7 +180,9 @@ class _ClassPayments extends ConsumerStatefulWidget {
     required this.onOpen,
   });
   final String classId, className, breadcrumb;
-  final ValueChanged<StudentPayRow> onOpen;
+  /// Le nom de la classe voyage avec l'élève : le reçu doit le porter, et la
+  /// fiche seule ne le connaît pas.
+  final void Function(StudentPayRow row, String className) onOpen;
   @override
   ConsumerState<_ClassPayments> createState() => _ClassPaymentsState();
 }
@@ -295,7 +300,7 @@ class _ClassPaymentsState extends ConsumerState<_ClassPayments> {
         border: Border.all(color: kBorder),
       ),
       child: InkWell(
-        onTap: () => widget.onOpen(r),
+        onTap: () => widget.onOpen(r, widget.className),
         borderRadius: BorderRadius.circular(10),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),

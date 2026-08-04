@@ -6,12 +6,42 @@ part of 'paiements_screen.dart';
 class _StudentPaymentsSheet extends ConsumerWidget {
   const _StudentPaymentsSheet({
     required this.row,
+    required this.className,
     required this.canEdit,
     required this.onChanged,
   });
   final StudentPayRow row;
+  final String className;
   final bool canEdit;
   final VoidCallback onChanged;
+
+  /// Ouvre l'aperçu du reçu. Un paiement annulé imprime son annulation plutôt
+  /// que de se taire : c'est ce qui rend le papier opposable dans les deux sens.
+  void _recu(BuildContext context, WidgetRef ref, PaymentRow p) {
+    final acteur =
+        ref.read(authNotifierProvider).valueOrNull?.fullName ?? 'Le caissier';
+    showPdfPreviewDialog(
+      context,
+      title: 'Reçu de paiement',
+      subtitle: p.receipt,
+      pdfFileName: '${p.receipt ?? 'recu'}.pdf',
+      build: (_) => construireRecuPaiement(
+        recu: RecuPaiement(
+          numero: p.receipt ?? '—',
+          eleve: row.studentName,
+          matricule: row.matricule,
+          classe: className,
+          montant: p.amount,
+          date: DateTime.tryParse(p.date ?? '') ?? DateTime.now(),
+          methode: paymentMethodLabel(p.method),
+          encaissePar: acteur,
+          motifFrais: p.feeName,
+          annuleLe: p.status == 'cancelled' ? p.date : null,
+          motifAnnulation: p.cancellationReason,
+        ),
+      ),
+    );
+  }
 
   Color _statusColor(String? s) => switch (s) {
         'confirmed' => kGreen,
@@ -24,43 +54,10 @@ class _StudentPaymentsSheet extends ConsumerWidget {
   /// laisse une caisse fausse que plus personne ne sait expliquer.
   Future<void> _annuler(
       BuildContext context, WidgetRef ref, PaymentRow p) async {
-    final motif = TextEditingController();
     final saisi = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: const Text('Annuler ce paiement ?'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(
-            '${fmtXaf(p.amount)} du ${p.date ?? '—'} sera marqué ANNULÉ. '
-            'La ligne et son reçu restent au dossier — rien n\'est effacé.',
-            style: TextStyle(fontSize: 13, color: kTextMuted),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: motif,
-            autofocus: true,
-            maxLines: 2,
-            decoration: adminFilledInput('Motif de l\'annulation',
-                icon: Icons.edit_note_rounded),
-          ),
-        ]),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Renoncer')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: kRed),
-            onPressed: () => Navigator.pop(ctx, motif.text),
-            child: const Text('Annuler le paiement'),
-          ),
-        ],
-      ),
+      builder: (_) => _MotifAnnulationDialog(paiement: p),
     );
-    // Le contrôleur est libéré APRÈS la fermeture complète de la boîte : le
-    // libérer plus tôt déclenche « _dependents.isEmpty is not true » pendant
-    // l'animation de sortie.
-    motif.dispose();
     if (saisi == null || !context.mounted) return;
 
     final probleme = motifAnnulationInvalide(saisi);
@@ -221,6 +218,12 @@ class _StudentPaymentsSheet extends ConsumerWidget {
                                   ),
                               ]),
                         ),
+                        IconButton(
+                          tooltip: 'Imprimer le reçu',
+                          icon: Icon(Icons.receipt_long_rounded,
+                              size: 18, color: kNavy),
+                          onPressed: () => _recu(context, ref, p),
+                        ),
                         if (canEdit && peutAnnulerPaiement(p.status))
                           IconButton(
                             tooltip: 'Annuler ce paiement',
@@ -237,6 +240,66 @@ class _StudentPaymentsSheet extends ConsumerWidget {
           ),
         ]),
       ),
+    );
+  }
+}
+
+// ─── Motif d'annulation ──────────────────────────────────────────────────────
+//
+// ⚠️ La boîte POSSÈDE son contrôleur et le libère elle-même.
+//
+// `await showDialog` rend la main dès le `Navigator.pop`, PAS à la fin de
+// l'animation de sortie : libérer le contrôleur depuis l'appelant juste après
+// l'attente le détruit pendant que le TextField en dépend encore, et l'écran
+// vire au rouge sur « _dependents.isEmpty is not true ». Constaté à l'écran le
+// 2026-08-04, comme sur la boîte de reconnexion la semaine d'avant.
+class _MotifAnnulationDialog extends StatefulWidget {
+  const _MotifAnnulationDialog({required this.paiement});
+  final PaymentRow paiement;
+  @override
+  State<_MotifAnnulationDialog> createState() => _MotifAnnulationDialogState();
+}
+
+class _MotifAnnulationDialogState extends State<_MotifAnnulationDialog> {
+  final _motif = TextEditingController();
+
+  @override
+  void dispose() {
+    _motif.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.paiement;
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      title: const Text('Annuler ce paiement ?'),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(
+          '${fmtXaf(p.amount)} du ${p.date ?? '—'} sera marqué ANNULÉ. '
+          'La ligne et son reçu restent au dossier — rien n\'est effacé.',
+          style: TextStyle(fontSize: 13, color: kTextMuted),
+        ),
+        const SizedBox(height: 14),
+        TextField(
+          controller: _motif,
+          autofocus: true,
+          maxLines: 2,
+          decoration: adminFilledInput('Motif de l\'annulation',
+              icon: Icons.edit_note_rounded),
+        ),
+      ]),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Renoncer')),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: kRed),
+          onPressed: () => Navigator.pop(context, _motif.text),
+          child: const Text('Annuler le paiement'),
+        ),
+      ],
     );
   }
 }
