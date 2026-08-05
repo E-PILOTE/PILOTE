@@ -133,6 +133,33 @@ class _BodyState extends ConsumerState<_Body> {
               const Color(0xFF0EA5E9), '$rate% ont soldé'),
       ]),
       const SizedBox(height: 16),
+      // Sans barème, le panneau de recouvrement affiche « 0 à jour · 0 % » en
+      // rouge et contredit l'en-tête. Ce bandeau lève l'ambiguïté et désigne
+      // qui doit agir — l'école ne peut rien y faire, les barèmes appartiennent
+      // au groupe (cf. spec D2).
+      if (ov.sansBareme) ...[
+        Container(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          decoration: BoxDecoration(
+            color: kAccent.withValues(alpha: 0.07),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: kAccent.withValues(alpha: 0.25)),
+          ),
+          child: Row(children: [
+            Icon(Icons.info_outline_rounded, size: 18, color: kAccent),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Aucun barème de frais n\'est défini pour cette année. Tant '
+                'qu\'il n\'y en a pas, aucun montant n\'est dû : les taux de '
+                'recouvrement ci-dessous ne veulent rien dire.',
+                style: TextStyle(fontSize: 12.5, color: kTextMuted),
+              ),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 14),
+      ],
       ScopeDrilldownPanel(
         title: 'Recouvrement',
         metricLabel: 'À jour',
