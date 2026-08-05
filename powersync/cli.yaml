@@ -1,0 +1,13 @@
+# ⚠️ instance_id = PRODUCTION (…66759), celle que vise l'application depuis le
+# 2026-08-04 (`kPowerSyncProduction` dans powersync_connector.dart). Ce fichier
+# pointait encore sur « Development » (…66757) : un `deploy sync-config` aurait
+# publié la règle sur l'instance que personne n'utilise, en laissant la
+# production sur l'ancienne — une modification en apparence appliquée, et une
+# panne muette sur tout le parc.
+#
+# Pour viser Development volontairement (recette), basculer l'id le temps du
+# déploiement et le remettre ensuite.
+type: cloud
+instance_id: 6a185943234fa2bf51a66759
+org_id: 6a1858e9ec3f4400078f635f
+project_id: 6a18593de63d960007e81e7b

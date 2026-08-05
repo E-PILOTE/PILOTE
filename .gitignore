@@ -59,6 +59,14 @@ powersynck-Token
 # Jeton PowerSync local (ne jamais committer)
 powersynchToken
 
+# ⚠️ `powersync/cli.yaml` N'EST PLUS ignoré : il ne contient que des
+# identifiants d'instance, déjà présents en clair dans
+# `epilote/lib/services/powersync/powersync_connector.dart` depuis le
+# 2026-08-04. Les cacher ici ne protégeait rien et faisait perdre, à chaque
+# changement de machine, l'information « quelle instance vise-t-on ». Le
+# secret réel (jeton d'administration) est demandé par `powersync login` et
+# ne touche jamais le disque du dépôt.
+
 # Temp CLI supabase
 supabase/.temp/
 
