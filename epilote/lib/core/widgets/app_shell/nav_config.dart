@@ -164,6 +164,13 @@ List<NavSection> _adminGroupeSections(WidgetRef ref) {
         label: 'Années scolaires',
         route: Routes.adminAnnees,
       ),
+      // Juste après l'année : un tarif s'attache à une année, et sans tarif
+      // publié aucune école du réseau ne peut encaisser.
+      NavEntry.item(
+        icon: Icons.request_quote_rounded,
+        label: 'Frais & tarifs',
+        route: Routes.adminFrais,
+      ),
       NavEntry.item(
         icon: Icons.lock_rounded,
         label: "Profils d'accès",

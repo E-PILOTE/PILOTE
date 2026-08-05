@@ -33,6 +33,7 @@ import '../../features/super_admin/screens/platform_partners_screen.dart';
 import '../../features/super_admin/screens/national_map_screen.dart';
 import '../../features/super_admin/screens/profile_screen.dart';
 import '../../features/admin_groupe/screens/admin_academic_years_screen.dart';
+import '../../features/admin_groupe/screens/admin_fees_screen.dart';
 import '../../features/admin_groupe/screens/admin_dashboard_screen.dart';
 import '../../features/admin_groupe/screens/admin_schools_screen.dart';
 import '../../features/admin_groupe/screens/admin_users_screen.dart';
@@ -421,6 +422,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.adminAnnees,
         builder: (_, _) => const AdminAcademicYearsScreen(),
+      ),
+      GoRoute(
+        path: Routes.adminFrais,
+        builder: (_, _) => const AdminFeesScreen(),
       ),
       GoRoute(
         path: Routes.adminUtilisateurs,

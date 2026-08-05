@@ -46,6 +46,9 @@ class Routes {
   static const String adminUtilisateurs = '/admin/utilisateurs';
   static const String adminEleves       = '/admin/eleves';
   static const String adminProfils      = '/admin/profils';
+  // Le SEUL endroit de la plateforme où un montant se crée. L'école reçoit et
+  // applique — elle n'a plus aucun écran d'écriture (migration 0096, D2).
+  static const String adminFrais        = '/admin/frais';
   static const String adminExamens      = '/admin/examens';
   // Le référentiel national et son calendrier appartiennent au MINISTÈRE, pas
   // à l'opérateur de la plateforme : c'est lui qui connaît les examens et

@@ -253,9 +253,9 @@ class ListFilterBar extends StatelessWidget {
     super.key,
     required this.searchCtrl,
     required this.searchHint,
-    required this.isTableView,
+    this.isTableView = true,
     required this.onSearchChange,
-    required this.onToggleView,
+    this.onToggleView,
     required this.onReset,
     required this.onAdd,
     required this.addLabel,
@@ -267,7 +267,10 @@ class ListFilterBar extends StatelessWidget {
   final String searchHint;
   final bool isTableView;
   final ValueChanged<String> onSearchChange;
-  final VoidCallback onToggleView;
+
+  /// `null` masque la bascule : un écran qui n'a qu'une seule vue ne doit pas
+  /// afficher un bouton qui ne fait rien.
+  final VoidCallback? onToggleView;
   final VoidCallback onReset;
 
   /// `null` masque le bouton — un rôle sans droit de créer ne doit pas le voir.
@@ -322,15 +325,17 @@ class ListFilterBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              _SquareBtn(
-                icon: isTableView
-                    ? Icons.grid_view_rounded
-                    : Icons.table_rows_rounded,
-                tooltip: isTableView ? 'Vue en cartes' : 'Vue en tableau',
-                color: kNavy,
-                onTap: onToggleView,
-              ),
-              const SizedBox(width: 8),
+              if (onToggleView != null) ...[
+                _SquareBtn(
+                  icon: isTableView
+                      ? Icons.grid_view_rounded
+                      : Icons.table_rows_rounded,
+                  tooltip: isTableView ? 'Vue en cartes' : 'Vue en tableau',
+                  color: kNavy,
+                  onTap: onToggleView!,
+                ),
+                const SizedBox(width: 8),
+              ],
               _SquareBtn(
                 icon: Icons.refresh_rounded,
                 tooltip: 'Réinitialiser les filtres',
