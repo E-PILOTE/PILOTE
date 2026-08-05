@@ -139,6 +139,14 @@ bucket_definitions:
       - SELECT * FROM internship_companies WHERE group_id = bucket.gid AND is_active = true
       # Programmes officiels du GROUPE (school_id NULL = curriculum partagé)
       - SELECT * FROM school_programs WHERE group_id = bucket.gid AND school_id IS NULL
+      # Barèmes de frais du GROUPE (migration 0096) — school_id NULL = tarif
+      # valable pour TOUTES ses écoles. Le bucket by_school ne projette que
+      # `school_id = bucket.sid` : sans cette ligne, un tarif fixé par le
+      # ministère serait écrit en base, visible depuis son espace, et INVISIBLE
+      # sur les postes. Panne muette, et « pas de barème, pas d'encaissement »
+      # fermerait la caisse de tout le réseau sans que personne comprenne.
+      - SELECT * FROM fee_structures
+        WHERE group_id = bucket.gid AND school_id IS NULL AND is_active = true
       # Catalogue de niveaux du groupe (rattachés à un cycle) → structure scolaire
       - SELECT * FROM school_levels WHERE group_id = bucket.gid AND is_active = true
       # Variantes niveaux/filières PROPRES au groupe (référentiel global = global_catalog)
