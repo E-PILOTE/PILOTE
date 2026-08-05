@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../services/powersync/powersync_service.dart';
 import '../models/exam_fee.dart';
@@ -19,15 +18,13 @@ import '../models/exam_fee.dart';
 //  manque : mieux vaut une erreur affichée qu'un travail perdu sans bruit.
 // ════════════════════════════════════════════════════════════════════════════
 
-const _uuid = Uuid();
-
 class ExamFeeData {
   const ExamFeeData({
     required this.summary,
     required this.paidByStudent,
     required this.feeStructureId,
     required this.amountPerCandidate,
-    required this.isSchoolScale,
+    required this.baremePublie,
   });
 
   final ExamFeeSummary summary;
@@ -35,14 +32,17 @@ class ExamFeeData {
   /// Total confirmé encaissé par élève (XAF).
   final Map<String, int> paidByStudent;
 
-  /// `null` tant que l'école n'a pas de barème pour cette session.
+  /// `null` tant que le ministère n'a pas publié le barème de cette session.
+  /// Sans lui, aucun encaissement n'est rattachable.
   final String? feeStructureId;
 
   final int amountPerCandidate;
 
-  /// Vrai si le montant vient du barème de l'ÉCOLE ; faux s'il est repris du
-  /// montant national de la session (aucun barème local encore créé).
-  final bool isSchoolScale;
+  /// Vrai si le ministère a publié le barème de la session. Faux quand le
+  /// montant affiché n'est que celui porté par la session nationale — la
+  /// question n'est plus « l'école a-t-elle son propre tarif » (elle n'en a
+  /// plus le droit) mais « les frais sont-ils ouverts ».
+  final bool baremePublie;
 
   int paidFor(String studentId) => paidByStudent[studentId] ?? 0;
 
@@ -53,12 +53,20 @@ class ExamFeeData {
 /// Le recouvrement de la session, dérivé de l'état réel.
 final examFeesProvider =
     FutureProvider.autoDispose.family<ExamFeeData, String>((ref, sessionId) async {
-  // Le montant de référence : celui du barème de l'école s'il existe, sinon
-  // celui fixé nationalement pour la session. Afficher « 0 attendu » alors que
-  // le ministère a fixé des frais tromperait l'école sur ce qu'elle doit lever.
+  // Le barème d'examen est posé par le MINISTÈRE pour la session. L'école ne le
+  // crée pas : `ensureExamFeeStructure` a été retirée le 5 août 2026, elle
+  // fabriquait une surcouche établissement par-dessus le tarif national —
+  // c'est-à-dire la surfacturation, livrée comme une fonctionnalité.
+  //
+  // À défaut de barème publié, on affiche quand même le montant porté par la
+  // session : dire « 0 attendu » alors que la DEC a fixé des frais tromperait
+  // l'école sur ce qu'elle doit lever.
+  //
+  // ⚠️ `is_active = 1` rate les lignes écrites par l'application (vue
+  // PowerSync) — cf. [[powersync-is-active-egalite-stricte]].
   final fee = await db.getOptional(
     'SELECT id, amount_xaf FROM fee_structures '
-    'WHERE exam_session_id = ? AND is_active = 1 LIMIT 1',
+    'WHERE exam_session_id = ? AND COALESCE(is_active, 1) <> 0 LIMIT 1',
     [sessionId],
   );
   final session = await db.getOptional(
@@ -67,9 +75,9 @@ final examFeesProvider =
   );
 
   final feeStructureId = fee?['id'] as String?;
-  final schoolAmount = (fee?['amount_xaf'] as num?)?.round();
+  final baremeAmount = (fee?['amount_xaf'] as num?)?.round();
   final nationalAmount = (session?['fee_amount'] as num?)?.round() ?? 0;
-  final amount = schoolAmount ?? nationalAmount;
+  final amount = baremeAmount ?? nationalAmount;
 
   final countRow = await db.getOptional(
     'SELECT COUNT(*) AS n FROM exam_candidates WHERE session_id = ?',
@@ -100,48 +108,19 @@ final examFeesProvider =
     paidByStudent: paid,
     feeStructureId: feeStructureId,
     amountPerCandidate: amount,
-    isSchoolScale: schoolAmount != null,
+    baremePublie: feeStructureId != null,
   );
 });
 
-/// Crée le barème de l'école pour cette session s'il n'existe pas, et renvoie
-/// son identifiant. Idempotent : l'index unique (school_id, exam_session_id)
-/// garantit qu'il n'y en aura jamais deux — deux barèmes concurrents feraient
-/// diverger l'attendu et le recouvrement.
-Future<String> ensureExamFeeStructure({
-  required String sessionId,
-  required String groupId,
-  required String schoolId,
-  required String academicYearId,
-  required int amountXaf,
-  required String label,
-}) async {
-  final existing = await db.getOptional(
-    'SELECT id FROM fee_structures WHERE exam_session_id = ? LIMIT 1',
-    [sessionId],
-  );
-  if (existing != null) return existing['id'] as String;
-
-  final id = _uuid.v4();
-  final now = DateTime.now().toIso8601String();
-  await db.execute(
-    '''
-    INSERT INTO fee_structures
-      (id, group_id, school_id, academic_year_id, name, fee_type, amount_xaf,
-       exam_session_id, is_active, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
-    ''',
-    [id, groupId, schoolId, academicYearId, label, 'frais_examens', amountXaf,
-      sessionId, now, now],
-  );
-  return id;
-}
-
-/// Met à jour le montant du barème (exonération globale, révision ministérielle).
-Future<void> setExamFeeAmount(String feeStructureId, int amountXaf) => db.execute(
-      'UPDATE fee_structures SET amount_xaf = ?, updated_at = ? WHERE id = ?',
-      [amountXaf, DateTime.now().toIso8601String(), feeStructureId],
-    );
+// ─── Aucune création de barème ici ───────────────────────────────────────────
+//
+// `ensureExamFeeStructure` et `setExamFeeAmount` ont été retirées le 5 août
+// 2026. Elles laissaient l'ÉTABLISSEMENT fixer des frais que la DEC fixe
+// nationalement : la surfacturation, livrée comme une fonctionnalité, et le
+// défaut le plus net de l'audit du module Finance.
+//
+// Le barème d'une session est désormais publié par le ministère depuis son
+// écran « Frais & tarifs », en portée groupe (`school_id IS NULL`).
 
 /// L'inscription ACTIVE de l'élève pour l'année — obligatoire pour écrire un
 /// paiement (`enrollment_id` est NOT NULL). `null` si l'élève n'en a aucune.

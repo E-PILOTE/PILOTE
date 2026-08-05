@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
+import '../services/bareme_applicable.dart';
 import '../services/obligation.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -13,42 +14,50 @@ import '../services/obligation.dart';
 //  `paiements_provider.dart`, où l'état de chaque élève se calcule.
 // ════════════════════════════════════════════════════════════════════════════
 
-typedef Bareme = ({String feeType, int montant, String? levelId});
-
-/// Barèmes actifs de l'année, école ET groupe.
+/// Barèmes visibles sur le poste : ceux du GROUPE (`school_id IS NULL`, posés
+/// par le ministère pour tout le réseau) et ceux posés pour cette école.
 ///
-/// ⚠️ `school_id IS NULL` est déjà pris en compte : le lot 2 fera remonter les
-/// barèmes au groupe, et cette requête doit les voir sans être réécrite. Le
-/// piège est le même que dans les sync-rules — une égalité stricte sur
-/// `school_id` rend un barème de groupe invisible.
+/// ⚠️ Une égalité stricte sur `school_id` rendrait un barème de groupe
+/// invisible — le même piège que dans les sync-rules, une couche plus haut.
+/// Le `group_id` explicite évite qu'un barème d'un autre groupe, resté en base
+/// après une mutation d'appareil, ne remonte
+/// (cf. `[[licence-coffre-appareil-cross-groupe]]`).
 final baremesApplicablesProvider =
-    StreamProvider.autoDispose<List<Bareme>>((ref) {
+    StreamProvider.autoDispose<List<LigneBareme>>((ref) {
   final profile = ref.watch(authNotifierProvider).valueOrNull;
   final schoolId = profile?.schoolId;
+  final groupId = profile?.groupId;
   final yearId = ref.watch(activeYearIdProvider);
-  if (schoolId == null || schoolId.isEmpty || yearId == null) {
+  if (schoolId == null || schoolId.isEmpty || groupId == null || yearId == null) {
     return Stream.value(const []);
   }
   return db.watch(
-    'SELECT fee_type, amount_xaf, applies_to_level_id FROM fee_structures '
-    'WHERE (school_id = ? OR school_id IS NULL) AND academic_year_id = ? '
-    'AND COALESCE(is_active, 1) <> 0',
-    parameters: [schoolId, yearId],
+    'SELECT id, fee_type, amount_xaf, school_id, applies_to_level_id '
+    'FROM fee_structures '
+    'WHERE group_id = ? AND (school_id = ? OR school_id IS NULL) '
+    'AND academic_year_id = ? AND COALESCE(is_active, 1) <> 0',
+    parameters: [groupId, schoolId, yearId],
   ).map((rows) => [
         for (final r in rows)
           (
+            id: r['id'] as String,
             feeType: (r['fee_type'] as String?) ?? 'autre',
             montant: (r['amount_xaf'] as num?)?.round() ?? 0,
+            schoolId: r['school_id'] as String?,
             levelId: r['applies_to_level_id'] as String?,
           ),
       ]);
 });
 
-/// Ce qu'un élève de ce niveau doit à cette date, tous barèmes confondus.
-int duPourNiveau(List<Bareme> baremes, String? levelId, int mois) {
+/// Ce qu'un élève de ce niveau doit à cette date.
+///
+/// ⚠️ Passe d'abord par `baremesApplicables` : depuis que les deux portées
+/// cohabitent, un même frais peut apparaître jusqu'à quatre fois (réseau,
+/// école, niveau, école+niveau). Les additionner ferait payer l'élève quatre
+/// fois — on ne retient que la ligne la plus proche de lui.
+int duPourNiveau(List<LigneBareme> visibles, String? levelId, int mois) {
   var total = 0;
-  for (final b in baremes) {
-    if (b.levelId != null && b.levelId != levelId) continue;
+  for (final b in baremesApplicables(visibles, levelId: levelId)) {
     total += duPourBareme(
         feeType: b.feeType, montant: b.montant, moisEcoules: mois);
   }

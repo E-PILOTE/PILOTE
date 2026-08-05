@@ -3,9 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/widgets/admin_ui.dart';
-import '../../auth/providers/auth_provider.dart';
-import '../../navigation/providers/permissions_provider.dart';
-import '../../structure/providers/academic_year_provider.dart';
 import '../providers/exam_fees_provider.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -36,18 +33,17 @@ class ExamFeesPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(examFeesProvider(sessionId));
-    final canManage =
-        ref.watch(canProvider((slug: 'examens', action: 'update')));
 
+    // Plus de permission à tester ici : ce panneau ne fait plus qu'AFFICHER.
+    // Il n'y a plus rien à « gérer » — le montant appartient au ministère.
     return async.when(
       loading: () => const SizedBox(height: 96),
       error: (e, _) => const SizedBox.shrink(),
-      data: (d) => _card(context, ref, d, canManage),
+      data: (d) => _card(d),
     );
   }
 
-  Widget _card(
-      BuildContext context, WidgetRef ref, ExamFeeData d, bool canManage) {
+  Widget _card(ExamFeeData d) {
     final s = d.summary;
     final tone = s.expected == 0
         ? kTextMuted
@@ -73,34 +69,31 @@ class ExamFeesPanel extends ConsumerWidget {
                       fontWeight: FontWeight.w800,
                       color: kTextPrimary)),
             ),
-            if (canManage)
-              TextButton.icon(
-                onPressed: () => _defineAmount(context, ref, d),
-                icon: const Icon(Icons.tune_rounded, size: 15),
-                label: Text(
-                    d.amountPerCandidate == 0
-                        ? 'Définir le montant'
-                        : '${formatXaf(d.amountPerCandidate)} / candidat',
-                    style: const TextStyle(fontSize: 11.5)),
-                style: TextButton.styleFrom(foregroundColor: kNavy),
-              ),
+            if (d.amountPerCandidate > 0)
+              Text('${formatXaf(d.amountPerCandidate)} / candidat',
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: kNavy)),
           ]),
           if (d.amountPerCandidate == 0) ...[
             const SizedBox(height: 8),
             _hint(
-              'Aucun montant fixé pour cette session. Tant qu\'il vaut zéro, '
-              'aucun recouvrement n\'est attendu et aucun encaissement n\'est '
-              'possible.',
+              'Aucun montant fixé pour cette session. Les frais d\'examen sont '
+              'fixés par le ministère : tant qu\'il n\'a rien publié, aucun '
+              'recouvrement n\'est attendu et aucun encaissement n\'est possible.',
               kTextMuted,
             ),
-          ] else if (!d.isSchoolScale) ...[
+          ] else if (!d.baremePublie) ...[
             const SizedBox(height: 8),
-            // Le montant national est une valeur par défaut visible, pas un
-            // barème : tant que l'école ne l'a pas repris à son compte, aucun
-            // encaissement ne peut être rattaché.
+            // ⚠️ Ce panneau laissait l'école FIXER elle-même le montant, par
+            // « Définir le montant » puis `setExamFeeAmount`. C'était la
+            // surfacturation livrée comme une fonctionnalité : la DEC fixe ces
+            // frais nationalement. Retiré le 5 août 2026.
             _hint(
-              'Montant repris du barème national de la session. Confirmez-le '
-              'pour ouvrir les encaissements de votre établissement.',
+              'Montant porté par la session nationale. Le ministère n\'a pas '
+              'encore publié le barème de cette session : aucun encaissement '
+              'ne peut y être rattaché.',
               kAccent,
             ),
           ],
@@ -153,96 +146,6 @@ class ExamFeesPanel extends ConsumerWidget {
           ),
         ],
       );
-
-  Future<void> _defineAmount(
-      BuildContext context, WidgetRef ref, ExamFeeData d) async {
-    final controller =
-        TextEditingController(text: d.amountPerCandidate.toString());
-
-    final value = await showDialog<int>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: kCardBg,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text('Frais de $examShortName',
-            style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: kTextPrimary)),
-        content: SizedBox(
-          width: 380,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(
-              'Montant dû par candidat pour la session '
-              '${yearLabel ?? ''}. Il sert de base au recouvrement et alimente '
-              'le revenu de l\'établissement.',
-              style: TextStyle(fontSize: 12, color: kTextMuted, height: 1.4),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              autofocus: true,
-              style: TextStyle(fontSize: 14, color: kTextPrimary),
-              decoration: InputDecoration(
-                labelText: 'Montant en FCFA',
-                border: const OutlineInputBorder(),
-                isDense: true,
-                labelStyle: TextStyle(color: kTextMuted),
-              ),
-            ),
-          ]),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('Annuler', style: TextStyle(color: kTextMuted)),
-          ),
-          FilledButton(
-            onPressed: () {
-              final v = int.tryParse(controller.text.trim().replaceAll(' ', ''));
-              if (v != null && v >= 0) Navigator.of(ctx).pop(v);
-            },
-            style: FilledButton.styleFrom(backgroundColor: kNavy),
-            child: const Text('Enregistrer'),
-          ),
-        ],
-      ),
-    );
-    if (value == null) return;
-
-    final profile = ref.read(authNotifierProvider).valueOrNull;
-    final year = ref.read(currentAcademicYearProvider).valueOrNull;
-    final groupId = profile?.groupId ?? '';
-    final schoolId = profile?.schoolId ?? '';
-
-    // Sans année courante, `fee_structures.academic_year_id` (NOT NULL) serait
-    // vide : le serveur rejetterait la ligne et le lot PowerSync entier serait
-    // abandonné. On refuse franchement plutôt que de perdre du travail.
-    if (year == null || groupId.isEmpty || schoolId.isEmpty) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: const Text(
-              'Aucune année scolaire courante : impossible de créer le barème.'),
-          backgroundColor: kRed,
-        ));
-      }
-      return;
-    }
-
-    final id = d.feeStructureId ??
-        await ensureExamFeeStructure(
-          sessionId: sessionId,
-          groupId: groupId,
-          schoolId: schoolId,
-          academicYearId: year.id,
-          amountXaf: value,
-          label: 'Frais $examShortName ${yearLabel ?? ''}'.trim(),
-        );
-    if (d.feeStructureId != null) await setExamFeeAmount(id, value);
-
-    ref.invalidate(examFeesProvider(sessionId));
-  }
 }
 
 class _Stat extends StatelessWidget {
