@@ -10,13 +10,35 @@ GitHub rapporte, **ce qu'il ne rapporte pas**, et dans quel ordre remonter.
 Ces éléments sont volontairement gitignorés. Ils doivent voyager **autrement**
 (clé USB, gestionnaire de mots de passe) — pas par le dépôt, même privé.
 
+### La mémoire du projet, elle, EST dans le dépôt
+
+Les 121 fiches de contexte (décisions gelées, pièges déjà payés, état réel de
+la base) sont désormais versionnées dans **`docs/memoire/`** — voir le
+`README.md` de ce dossier pour les remettre en service. C'était le seul élément
+dont la perte aurait vraiment coûté quelque chose.
+
+### Ce qui ne peut pas suivre
+
 | Chemin | Contenu | Comment le récupérer |
 |---|---|---|
-| `powersync/.env` | `SUPABASE_DB_PASSWORD`, `SUPABASE_JWT_SECRET`, `STORAGE_DB_PASSWORD` | recopier depuis l'ancien poste ; gabarit dans `powersync/.env.example` |
-| `powersync/cli.yaml` | identifiants d'instance PowerSync Cloud | recopier ; **`instance_id` doit valoir `6a185943234fa2bf51a66759` (Production)** |
-| `backups/` | 9,2 Mo de CSV — **données scolaires réelles** (élèves, personnels, paiements) | clé USB. Ne jamais committer. |
-| `.claude/`, `.remember/` | mémoire projet et historique de session | clé USB si l'on veut garder le contexte |
-| `epilote/.env` | clés Supabase locales | gabarit dans `epilote/.env.example` |
+| `powersync/.env` | trois clés, dont **une seule** est un vrai secret — voir §2 bis | gestionnaire de mots de passe |
+| `backups/` | 9,2 Mo de CSV — **données personnelles réelles** (élèves mineurs, personnels, paiements) | clé USB. Jamais dans un dépôt : un historique git ne s'efface pas. |
+| `.remember/` | journal de sessions brut (3,4 Mo) | inutile — son contenu utile est distillé dans `docs/memoire/` et l'historique git |
+
+`powersync/cli.yaml` **est maintenant versionné** : il ne portait que des
+identifiants d'instance, déjà en clair dans `powersync_connector.dart`.
+
+## 2 bis. Reconstituer `powersync/.env` — une seule valeur à transporter
+
+```bash
+cp powersync/.env.example powersync/.env
+```
+
+| Clé | Où la reprendre |
+|---|---|
+| `STORAGE_DB_PASSWORD` | **rien à faire** : c'est la valeur par défaut du gabarit (base PostgreSQL locale du conteneur, sans enjeu) |
+| `SUPABASE_JWT_SECRET` | **se relit** au dashboard : Supabase → Settings → API → JWT Settings |
+| `SUPABASE_DB_PASSWORD` | mot de passe du rôle `powersync_role`. **Le seul à transporter** — gestionnaire de mots de passe. Perdu, il se réinitialise : `ALTER ROLE powersync_role WITH PASSWORD '…';` puis mettre la nouvelle valeur dans la connexion du dashboard PowerSync, sinon la réplication s'arrête. |
 
 ⚠️ **Le jeton PowerSync (PAT) collé dans une session précédente est à
 considérer comme compromis.** Ne pas le réutiliser sur le nouveau poste : en
