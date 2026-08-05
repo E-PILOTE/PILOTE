@@ -779,6 +779,10 @@ const schema = Schema([
     Column.text('updated_at'),
       // Barème des frais d'une session d'examen. Cf. migration 0058.
     Column.text('exam_session_id'),
+    // Le texte qui fonde le tarif (arrêté, note de service, délibération
+    // d'assemblée APE). Un montant sans texte fondateur n'est pas un tarif,
+    // c'est un chiffre. Cf. migration 0096.
+    Column.text('source_reference'),
   ]),
 
   // api_key et api_secret exclus intentionnellement (données sensibles)
