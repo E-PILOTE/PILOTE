@@ -69,10 +69,21 @@ class _Body extends ConsumerStatefulWidget {
 
 class _BodyState extends ConsumerState<_Body> {
   // ── L'état de filtrage, entier ────────────────────────────────────────────
-  // Un seul jeu de filtres : la barre de segments POSE le filtre de son axe au
-  // lieu d'en tenir un second en parallèle. Deux filtres pour une même
-  // dimension donnent des listes qu'on ne sait plus expliquer.
-  StaffAxis _axis = StaffAxis.categorie;
+  // Un seul jeu de filtres : chaque bloc POSE le filtre correspondant au lieu
+  // d'en tenir un second en parallèle. Deux filtres pour une même dimension
+  // donnent des listes qu'on ne sait plus expliquer.
+  //
+  // ⚠️ LA BARRE DE SEGMENTS NE PORTE PLUS QU'UN AXE, ET C'EST VOLONTAIRE.
+  // Elle était pilotée par une bascule « Répartir par : Catégorie · Statut ·
+  // Cycle ». Or le statut est déjà montré par les cartes « Personnel par
+  // statut » ET filtré par le menu Statut de la barre d'outils ; le cycle de
+  // même. La page posait donc TROIS fois la même question, et cliquer une
+  // carte faisait basculer la bascule — le même choix apparaissait
+  // sélectionné à deux endroits, sans qu'on sache lequel commandait.
+  //
+  // Reste la CATÉGORIE (direction, enseignement, administratif…), la seule
+  // dimension qui n'existe nulle part ailleurs : la barre s'y tient.
+  static const _axis = StaffAxis.categorie;
   final _search = TextEditingController();
   String _q = '';
   StaffCategory? _categorie;
@@ -109,26 +120,15 @@ class _BodyState extends ConsumerState<_Body> {
   String? get _schoolName =>
       ref.read(currentSchoolProvider).valueOrNull?['name'] as String?;
 
-  /// La clé de segment actuellement posée sur l'axe affiché — pour que la
-  /// barre de segments montre la même chose que les déroulants.
-  String? get _segmentActif => switch (_axis) {
-        StaffAxis.categorie => _categorie?.name,
-        StaffAxis.statut => _statutEmploi,
-        StaffAxis.cycle => _cycle,
-      };
+  /// La catégorie posée — pour que la barre de segments montre la même chose
+  /// que la liste en dessous.
+  String? get _segmentActif => _categorie?.name;
 
   void _poserSegment(String? key) => setState(() {
-        switch (_axis) {
-          case StaffAxis.categorie:
-            _categorie = key == null
-                ? null
-                : StaffCategory.values.firstWhere((c) => c.name == key,
-                    orElse: () => StaffCategory.autres);
-          case StaffAxis.statut:
-            _statutEmploi = key;
-          case StaffAxis.cycle:
-            _cycle = key;
-        }
+        _categorie = key == null
+            ? null
+            : StaffCategory.values.firstWhere((c) => c.name == key,
+                orElse: () => StaffCategory.autres);
       });
 
   List<StaffMember> _appliquer(List<StaffMember> all) {
@@ -185,8 +185,6 @@ class _BodyState extends ConsumerState<_Body> {
 
         final actifs = all.where((a) => a.isActive).length;
         final enseignants = all.where((a) => a.role == 'enseignant').length;
-        final fonctionnaires =
-            all.where((a) => a.employmentStatus == 'fonctionnaire').length;
         // ⚠️ « 0 fonctionnaire » et « on ne sait pas » ne sont pas la même
         // chose. Les agents repris de l'existant n'ont aucun statut : afficher
         // zéro titulaire dans un lycée d'État serait un contresens, et le
@@ -230,21 +228,19 @@ class _BodyState extends ConsumerState<_Body> {
                   '${all.length - actifs} inactifs'),
               (Icons.school_rounded, 'Enseignants', '$enseignants',
                   const Color(0xFF0EA5E9), 'corps enseignant'),
+              // ⚠️ Une TÂCHE, pas un compteur : « combien de fonctionnaires »
+              // est déjà répondu par les cartes « Personnel par statut » juste
+              // en dessous. Cette carte ne paraît que tant qu'il reste des
+              // statuts à saisir, et disparaît le travail fini.
               if (sansStatut > 0)
                 (Icons.badge_outlined, 'Statut à renseigner', '$sansStatut',
-                    kAccent, 'sur ${all.length} agents')
-              else
-                (Icons.badge_rounded, 'Fonctionnaires', '$fonctionnaires',
-                    const Color(0xFF7C3AED), 'titulaires'),
+                    kAccent, 'sur ${all.length} agents'),
             ]),
             const SizedBox(height: 18),
             _EnseignantsParCycle(
               agents: all,
               selected: _cycle,
-              onSelect: (c) => setState(() {
-                _cycle = _cycle == c ? null : c;
-                if (_cycle != null) _axis = StaffAxis.cycle;
-              }),
+              onSelect: (c) => setState(() => _cycle = _cycle == c ? null : c),
             ),
             const SizedBox(height: 18),
             // Qui est fonctionnaire, qui ne l'est pas : la question que le
@@ -252,22 +248,12 @@ class _BodyState extends ConsumerState<_Body> {
             _PersonnelParStatut(
               agents: all,
               selected: _statutEmploi,
-              onSelect: (s) => setState(() {
-                _statutEmploi = _statutEmploi == s ? null : s;
-                if (_statutEmploi != null) _axis = StaffAxis.statut;
-              }),
+              onSelect: (s) =>
+                  setState(() => _statutEmploi = _statutEmploi == s ? null : s),
             ),
             const SizedBox(height: 18),
-            Row(children: [
-              Text('Répartir par',
-                  style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: kTextMuted)),
-              const SizedBox(width: 10),
-              StaffAxisToggle(
-                  axis: _axis, onChanged: (a) => setState(() => _axis = a)),
-            ]),
+            const VsSectionLabel(
+                icon: Icons.category_rounded, text: 'Personnel par catégorie'),
             const SizedBox(height: 12),
             StaffSegmentBar(
               segments: segs,
