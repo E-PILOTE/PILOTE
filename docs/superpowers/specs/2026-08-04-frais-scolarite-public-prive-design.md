@@ -74,6 +74,18 @@ Conséquences, sur 30 écoles publiques :
 | D6 | Les montants réels sont saisis par le ministère. Nous livrons la table vide. | Ministère |
 | D7 | Un paiement est un **versement sur une obligation**, pas une transaction autonome. Le montant se **choisit** dans les barèmes du groupe ; l'élève peut **avancer une partie** de la somme. | Ministère |
 | D8 | **Pas de barème, pas d'encaissement.** Le module Paiements reste fermé tant que le groupe n'a rien défini. La saisie des tarifs devient un **prérequis bloquant du déploiement**. | Ministère |
+| D9 | **Aucune exception à D2 — la cotisation APE comprise.** Un seul régime : le groupe crée, l'école sélectionne. Si une APE vote un montant différent, l'école le **demande** au groupe qui l'inscrit ; l'école n'écrit jamais un montant. | Ministère (5 août) |
+| D10 | Le **budget de fonctionnement reste hors périmètre** de ce chantier, bien que porteur du même défaut (l'école se vote son budget). Traité plus tard, pas de code aujourd'hui. | Ministère (5 août) |
+
+### Ce que D9 écarte, et pourquoi c'est assumé
+
+J'avais proposé un attribut `amount_source` laissant l'école **constater** une
+cotisation votée en assemblée d'APE, sous plafond du groupe. Le ministère a
+tranché l'inverse : régime unique. Le risque assumé est qu'une APE vote un
+montant que le référentiel ignore, et que l'école encaisse hors système plutôt
+que de ne pas encaisser. Le contre-feu est le **circuit de demande** : l'écran
+école affiche « demander un tarif au ministère » plutôt qu'un cul-de-sac.
+Ce contre-feu appartient au lot 3, pas au lot 2.
 
 ## 5. Le modèle
 
@@ -88,6 +100,14 @@ groupe quand il crée ses barèmes.
 - `school_id` devient **NULLABLE**. `NULL` = barème du groupe, applicable à toutes ses
   écoles. Renseigné = barème d'un établissement précis (cas d'un groupe privé qui
   module par école).
+
+  ⚠️ **`school_id` change de sens : il dit « s'applique à », plus jamais « créé par ».**
+  C'est le point qui rend le modèle tenable. La variance est réelle — un groupe
+  privé n'a pas le même tarif à Brazzaville et à Dolisie, le ministère peut
+  tarifer par niveau — mais elle n'autorise personne à écrire : **l'auteur est
+  imposé par la RLS** (écriture `admin_groupe`, lecture ouverte au périmètre),
+  pas par le périmètre de la ligne. Un tarif propre à une école reste un acte du
+  groupe **pour** cette école.
 - `fee_type` gagne la valeur `cotisation_ape`, et **perd son défaut** `'mensualite'` :
   rien ne doit devenir une mensualité par omission, surtout dans le public.
 - Nouvelle colonne `source_reference text NULL` — le texte fondateur (note de service,
@@ -312,6 +332,13 @@ L'APEEC réclame ce chiffre publiquement et personne ne l'a.
 Seul le lot 3 dépend techniquement d'un autre. L'ordre 0 → 1 → 2 est un ordre de
 livraison : le lot 0 passe devant parce qu'il arrête une perte d'argent.
 
+**⚠️ La recette du lot 1 est reportée à la fin du lot 2** (constaté le 5 août).
+Le code du lot 1 tient debout seul, mais le vérifier à l'écran demande un barème,
+et le seul geste qui en produit un aujourd'hui est celui que le lot 2 supprime :
+la création depuis l'espace école. Recetter contre ce geste, c'est valider un
+parcours qui n'existera plus. Les états **impayé → avance partielle → à jour** se
+constatent donc avec un barème réellement descendu du ministère.
+
 Migrations à partir de **0094** (dernière appliquée : 0093).
 
 ## 9. Hors périmètre
@@ -345,3 +372,10 @@ doit avoir saisi ses tarifs avant que ses écoles n'ouvrent le module Paiements*
 À porter au parcours de démarrage ([[premiere-heure-etablissement]]) et à la
 check-list du 2 octobre — sinon trente écoles encaisseront hors système le temps
 que Brazzaville renseigne sa grille.
+
+**Écran de préparation, côté groupe (lot 2).** La conséquence ne se découvre pas
+le matin du déploiement : l'espace ministère porte un état des lieux
+« niveaux et types de frais sans tarif », qui doit être au vert avant d'ouvrir
+une vague. Sans lui, D8 fait de la centralisation un risque d'arrêt national :
+si le ministère n'a rien saisi le 2 octobre, **mille écoles ne peuvent rien
+encaisser**, et personne ne l'aura vu venir.
