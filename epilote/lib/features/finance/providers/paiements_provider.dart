@@ -84,7 +84,7 @@ final paymentsOverviewProvider =
   // l'année précédente compteraient comme payés à la rentrée suivante.
   final rows = await db.getAll(
     'SELECT ce.class_id AS cid, sp.student_id AS sid, sp.amount_xaf AS amt, '
-    'sp.status AS st '
+    'sp.refunded_amount_xaf AS remb, sp.status AS st '
     'FROM student_payments sp '
     "JOIN class_enrollments ce ON ce.student_id = sp.student_id AND ce.status = 'active' "
     'WHERE ce.class_id IN ($ph) AND sp.academic_year_id = ?',
@@ -99,11 +99,15 @@ final paymentsOverviewProvider =
     final st = r['st'] as String?;
     final cid = r['cid'] as String;
     final sid = r['sid'] as String;
-    if (st == 'confirmed') {
-      final amt = (r['amt'] as num?)?.round() ?? 0;
-      collected += amt;
-      collectedByClass[cid] = (collectedByClass[cid] ?? 0) + amt;
-      verseParEleve[sid] = (verseParEleve[sid] ?? 0) + amt;
+    final net = montantNet(
+      status: st,
+      montant: (r['amt'] as num?)?.round() ?? 0,
+      rembourse: (r['remb'] as num?)?.round(),
+    );
+    if (net > 0) {
+      collected += net;
+      collectedByClass[cid] = (collectedByClass[cid] ?? 0) + net;
+      verseParEleve[sid] = (verseParEleve[sid] ?? 0) + net;
       confirmedCount++;
       (payersByClass[cid] ??= {}).add(sid);
       allPayers.add(sid);
@@ -214,8 +218,13 @@ final classPaymentsProvider = StreamProvider.autoDispose
   return db.watch(
     '''
     SELECT s.id AS sid, ce.id AS enr, s.first_name, s.last_name, s.matricule,
-      (SELECT COALESCE(SUM(amount_xaf),0) FROM student_payments p
-        WHERE p.student_id = s.id AND p.status = 'confirmed'
+      -- Net encaissé : un remboursement PARTIEL laisse la ligne `confirmed`
+      -- mais n'a plus rapporté que la différence ; un remboursement TOTAL
+      -- passe en `refunded` et ne rapporte rien (cf. `montantNet`).
+      (SELECT COALESCE(SUM(p.amount_xaf - COALESCE(p.refunded_amount_xaf, 0)), 0)
+         FROM student_payments p
+        WHERE p.student_id = s.id
+          AND p.status IN ('confirmed', 'refunded')
           AND p.academic_year_id = ?1) AS paid,
       (SELECT COUNT(*) FROM student_payments p
         WHERE p.student_id = s.id AND p.academic_year_id = ?1) AS cnt,
@@ -335,6 +344,26 @@ String? montantRemboursementInvalide(int montant, int encaisse) {
   return null;
 }
 
+/// Ce qu'un encaissement rapporte RÉELLEMENT à la caisse.
+///
+/// ⚠️ Un remboursement PARTIEL bascule la ligne en `refunded` alors qu'une part
+/// de l'argent est restée. Compter les seules lignes `confirmed` retirait donc
+/// la totalité de l'encaissement — 2 000 F disparaissaient de la recette pour
+/// 1 000 F rendus, et l'élève repassait « impayé ». Constaté à l'écran le
+/// 2026-08-05.
+///
+/// Un paiement annulé ou en attente ne rapporte rien : dans un cas l'argent
+/// n'est plus là, dans l'autre il n'y est pas encore.
+int montantNet({
+  required String? status,
+  required int montant,
+  required int? rembourse,
+}) {
+  if (status != 'confirmed' && status != 'refunded') return 0;
+  final net = montant - (rembourse ?? 0);
+  return net > 0 ? net : 0;
+}
+
 Future<void> refundPayment({
   required String id,
   required int montant,
@@ -347,11 +376,15 @@ Future<void> refundPayment({
   final m = motif.trim();
   if (m.isEmpty) throw ArgumentError('Le motif du remboursement est obligatoire');
   final now = DateTime.now().toIso8601String();
+  // ⚠️ `refunded` ne se pose que sur un remboursement TOTAL. Le poser sur un
+  // remboursement partiel ferait mentir l'étiquette — et, tant que les lecteurs
+  // s'y fiaient, faisait disparaître la part conservée (cf. `montantNet`).
+  final statut = montant >= encaisse ? 'refunded' : 'confirmed';
   await db.execute(
     'UPDATE student_payments SET status = ?, refunded_amount_xaf = ?, '
     'refunded_at = ?, refunded_by = ?, refund_reason = ?, updated_at = ? '
     'WHERE id = ?',
-    ['refunded', montant, now, actorId, m, now, id],
+    [statut, montant, now, actorId, m, now, id],
   );
 }
 

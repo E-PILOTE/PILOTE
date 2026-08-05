@@ -85,14 +85,20 @@ final examFeesProvider =
   );
   final candidates = (countRow?['n'] as num?)?.toInt() ?? 0;
 
-  // Seuls les paiements CONFIRMÉS comptent : un paiement annulé ou remboursé
-  // n'est pas un revenu.
+  // Un paiement annulé n'est pas un revenu, et un paiement remboursé ne l'est
+  // plus — mais un remboursement PARTIEL a laissé sa différence en caisse.
   final paid = <String, int>{};
   if (feeStructureId != null) {
+    // Net encaissé : un remboursement partiel laisse la ligne `confirmed` mais
+    // n'a plus rapporté que la différence ; un remboursement total passe en
+    // `refunded` et ne rapporte rien (cf. `montantNet`).
     final rows = await db.getAll(
-      'SELECT student_id, SUM(amount_xaf) AS total FROM student_payments '
-      'WHERE fee_structure_id = ? AND status = ? GROUP BY student_id',
-      [feeStructureId, 'confirmed'],
+      'SELECT student_id, '
+      'SUM(MAX(amount_xaf - COALESCE(refunded_amount_xaf, 0), 0)) AS total '
+      'FROM student_payments '
+      "WHERE fee_structure_id = ? AND status IN ('confirmed', 'refunded') "
+      'GROUP BY student_id',
+      [feeStructureId],
     );
     for (final r in rows) {
       paid[r['student_id'] as String] = (r['total'] as num?)?.round() ?? 0;

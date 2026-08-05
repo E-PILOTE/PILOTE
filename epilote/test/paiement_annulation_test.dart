@@ -50,6 +50,42 @@ void main() {
     });
   });
 
+  group('ce qu\'un paiement rapporte vraiment à la caisse', () {
+    test('un encaissement confirmé rapporte son montant', () {
+      expect(montantNet(status: 'confirmed', montant: 5000, rembourse: null),
+          5000);
+    });
+
+    test('un remboursement PARTIEL ne retire que ce qui a été rendu', () {
+      // ⚠️ Le défaut constaté à l'écran : la ligne basculait en `refunded` et
+      // les lecteurs, qui ne comptaient que `confirmed`, retiraient les 2 000 F
+      // entiers de la recette. L'école perdait 1 000 F qu'elle avait bien
+      // encaissés.
+      expect(montantNet(status: 'refunded', montant: 2000, rembourse: 1000),
+          1000);
+      expect(montantNet(status: 'confirmed', montant: 2000, rembourse: 1000),
+          1000);
+    });
+
+    test('un remboursement TOTAL ne laisse rien', () {
+      expect(montantNet(status: 'refunded', montant: 2000, rembourse: 2000), 0);
+    });
+
+    test('un paiement annulé ne rapporte rien, quoi qu\'il porte', () {
+      expect(montantNet(status: 'cancelled', montant: 5000, rembourse: null), 0);
+    });
+
+    test('un paiement en attente n\'est pas encore de l\'argent en caisse', () {
+      expect(montantNet(status: 'pending', montant: 5000, rembourse: null), 0);
+    });
+
+    test('un net ne descend jamais sous zéro', () {
+      // Ceinture : le CHECK serveur l'interdit, mais une donnée héritée d'avant
+      // la migration 0094 ne doit pas produire une recette négative.
+      expect(montantNet(status: 'refunded', montant: 2000, rembourse: 9999), 0);
+    });
+  });
+
   group('remboursement', () {
     test('seul un paiement confirmé se rembourse', () {
       expect(peutRembourserPaiement('confirmed'), isTrue);
@@ -74,3 +110,13 @@ void main() {
     });
   });
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+//  LE REMBOURSEMENT PARTIEL NE DOIT PAS EFFACER TOUT L'ENCAISSEMENT
+//
+//  Constaté à l'écran le 5 août 2026 : rembourser 1 000 F sur 2 000 encaissés
+//  basculait la ligne en `refunded`. Or tous les lecteurs de recette ne
+//  comptaient que `confirmed` — les 2 000 F entiers quittaient donc la caisse,
+//  alors que l'école n'avait rendu que 1 000. L'élève repassait « impayé » et
+//  l'établissement perdait 1 000 F de recette enregistrée.
+// ════════════════════════════════════════════════════════════════════════════

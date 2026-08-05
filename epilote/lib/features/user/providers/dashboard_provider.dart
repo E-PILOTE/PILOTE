@@ -115,7 +115,14 @@ final paymentsSummaryProvider =
       .watch(
         '''
         SELECT
-          COALESCE(SUM(CASE WHEN status = 'confirmed' THEN amount_xaf ELSE 0 END), 0) AS enc,
+          -- Net encaissé : un remboursement PARTIEL laisse la ligne
+          -- `confirmed` mais n'a plus rapporté que la différence ; un
+          -- remboursement TOTAL passe en `refunded` et ne rapporte rien.
+          -- Compter les seules lignes `confirmed` faisait disparaître la part
+          -- conservée d'un remboursement partiel (cf. `montantNet`).
+          COALESCE(SUM(CASE WHEN status IN ('confirmed', 'refunded')
+                            THEN MAX(amount_xaf - COALESCE(refunded_amount_xaf, 0), 0)
+                            ELSE 0 END), 0) AS enc,
           COALESCE(SUM(CASE WHEN status = 'pending'   THEN amount_xaf ELSE 0 END), 0) AS att
         FROM student_payments
         WHERE school_id = ? AND academic_year_id = ?
