@@ -98,8 +98,7 @@ class _SubscriptionBannerState extends ConsumerState<SubscriptionBanner>
           _kWarnFg,
           Icons.schedule_rounded,
           _kWarnIcon,
-          'Votre abonnement expire dans ${access.daysLeft} jour'
-              "${(access.daysLeft ?? 0) > 1 ? 's' : ''}.",
+          _activeMessage(access.daysLeft),
         ),
     };
 
@@ -144,6 +143,15 @@ class _SubscriptionBannerState extends ConsumerState<SubscriptionBanner>
         ),
       ),
     );
+  }
+
+  /// Échéance encore devant : le dernier jour se dit « aujourd'hui », pas
+  /// « dans 0 jour » — c'est le jour où le message compte le plus.
+  String _activeMessage(int? daysLeft) {
+    if (daysLeft == null) return 'Votre abonnement arrive à échéance.';
+    if (daysLeft == 0) return "Votre abonnement expire aujourd'hui.";
+    return 'Votre abonnement expire dans $daysLeft jour'
+        '${daysLeft > 1 ? 's' : ''}.';
   }
 
   String _graceMessage(int? daysLeft) {

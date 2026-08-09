@@ -50,7 +50,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   final _invoicePrefixCtrl = TextEditingController(text: 'INV');
   final _receiptPrefixCtrl = TextEditingController(text: 'REC');
   final _dueDaysCtrl       = TextEditingController(text: '30');
-  final _graceCtrl         = TextEditingController(text: '7');
+  // Les valeurs pré-remplies doivent être celles que `get_subscription_settings`
+  // applique quand le réglage est absent — sinon l'écran affiche 7 pendant que
+  // la base en applique 15, et on « enregistre » un changement sans le savoir.
+  final _graceCtrl         = TextEditingController(text: '15');
+  final _alertDaysCtrl     = TextEditingController(text: '7');
   final _trialDaysCtrl     = TextEditingController(text: '3');
   final _companyNameCtrl   = TextEditingController(text: 'E-PILOTE CONGO SARL');
   final _companyRccCtrl    = TextEditingController(text: 'RC-BZV-2024-B-0001');
@@ -71,7 +75,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   bool _notifEmailEnabled      = true;
   bool _notifSmsEnabled        = false;
   final _notifEmailCtrl        = TextEditingController(text: 'admin@epilote.cg');
-  final _notifReminderCtrl     = TextEditingController(text: '30,15,7,1,0');
+  final _notifReminderCtrl     = TextEditingController(text: '7,1,0');
 
   // ── Sécurité ──────────────────────────────────────────────────────────────────
   bool _mfaRequired            = false;
@@ -156,6 +160,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     txt(_receiptPrefixCtrl, 'receipt_prefix');
     txt(_dueDaysCtrl,       'due_days');
     txt(_graceCtrl,         'grace_days');
+    txt(_alertDaysCtrl,     'subscription_alert_days');
     txt(_trialDaysCtrl,     'trial_days');
     txt(_companyNameCtrl,   'company_name');
     txt(_companyRccCtrl,    'company_rcc');
@@ -221,6 +226,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     'receipt_prefix':  _receiptPrefixCtrl.text.trim(),
     'due_days':        _dueDaysCtrl.text.trim(),
     'grace_days':      _graceCtrl.text.trim(),
+    'subscription_alert_days': _alertDaysCtrl.text.trim(),
     'trial_days':      _trialDaysCtrl.text.trim(),
     'company_name':    _companyNameCtrl.text.trim(),
     'company_rcc':     _companyRccCtrl.text.trim(),
@@ -271,7 +277,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       _platformNameCtrl, _platformDescCtrl, _supportEmailCtrl, _supportPhoneCtrl,
       _websiteCtrl, _maxGroupsCtrl, _maxSchoolsCtrl,
       _taxRateCtrl, _invoicePrefixCtrl, _receiptPrefixCtrl, _dueDaysCtrl,
-      _graceCtrl, _trialDaysCtrl, _companyNameCtrl, _companyRccCtrl, _companyTaxCtrl,
+      _graceCtrl, _alertDaysCtrl, _trialDaysCtrl,
+      _companyNameCtrl, _companyRccCtrl, _companyTaxCtrl,
       _bankNameCtrl, _bankIbanCtrl,
       _notifEmailCtrl, _notifReminderCtrl,
       _sessionDurationCtrl, _maxLoginAttemptsCtrl, _lockoutDurationCtrl, _ipWhitelistCtrl,
@@ -700,6 +707,13 @@ class _TabFacturationState extends State<_TabFacturation> {
                 _FieldRow(label: 'Délai de grâce', ctrl: s._graceCtrl, numeric: true, suffix: 'jours après échéance'),
                 _FieldRow(label: "Durée d'essai", ctrl: s._trialDaysCtrl, numeric: true, suffix: 'jours (nouveaux groupes)'),
               ),
+              _FieldRow(
+                label: "Alerte d'échéance",
+                ctrl: s._alertDaysCtrl,
+                numeric: true,
+                hint: '7',
+                suffix: 'jours avant échéance — allume le bandeau admin groupe',
+              ),
               _SwitchRow(
                 label: 'Facturation automatique',
                 sub: 'Génère les factures automatiquement à la date de renouvellement',
@@ -832,8 +846,9 @@ class _TabNotificationsState extends State<_TabNotifications> {
                 label: 'Jours de rappel avant échéance',
                 ctrl: s._notifReminderCtrl,
                 csv: true,
-                hint: '30, 15, 7, 1, 0',
-                suffix: 'jours (liste séparée par des virgules)',
+                hint: '7, 1, 0',
+                suffix: 'jours (liste séparée par des virgules) — cloche et '
+                    "notifications, indépendant de l'alerte ci-dessus",
               ),
             ],
           ),

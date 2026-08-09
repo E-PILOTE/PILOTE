@@ -5,8 +5,11 @@ import 'package:realtime_client/realtime_client.dart';
 
 import '../../../core/utils/paged_fetch.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
+import '../../../core/utils/subscription_days.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
+import 'subscription_access_provider.dart'
+    show kSubscriptionAlertDays, subscriptionSettingsProvider;
 
 // ─── Point mensuel (sparklines / courbes) ───────────────────────────────────
 class MonthlyPoint {
@@ -85,6 +88,7 @@ class AdminDashboardData {
     required this.staffByContract,
     required this.staffByDept,
     required this.hireTrend,
+    this.alertDays = kSubscriptionAlertDays,
   });
 
   final String  groupName;
@@ -92,6 +96,10 @@ class AdminDashboardData {
   final String  planSlug;
   final String  subscriptionStatus;
   final DateTime? subscriptionEnd;
+
+  /// Fenêtre d'alerte avant échéance (réglage plateforme), partagée avec le
+  /// bandeau et la carte du plan — les trois doivent dire la même chose.
+  final int     alertDays;
   final int     maxSchools, maxStudents, maxStaff, moduleCount;
   final int     ecolesTotal, ecolesActives, elevesTotal, personnelTotal, classesTotal;
   final double  revenusMois;
@@ -154,9 +162,8 @@ class AdminDashboardData {
       maxStudents <= 0 ? 0 : (elevesTotal / maxStudents * 100).clamp(0, 999);
 
   bool get expireBientot {
-    if (subscriptionEnd == null) return false;
-    final d = subscriptionEnd!.difference(DateTime.now()).inDays;
-    return d >= 0 && d <= 30;
+    final d = daysUntilDate(subscriptionEnd);
+    return d != null && d >= 0 && d <= alertDays;
   }
 
   static const empty = AdminDashboardData(
@@ -202,6 +209,10 @@ final adminDashboardProvider =
   final profile = ref.watch(authNotifierProvider).valueOrNull;
   final groupId = profile?.groupId;
   if (groupId == null) return AdminDashboardData.empty;
+
+  // Fenêtre d'alerte réglable par le super_admin — partagée avec le bandeau.
+  final alertDays =
+      (await ref.watch(subscriptionSettingsProvider.future)).alertDays;
 
   // ── Realtime : invalidation silencieuse sur changements du groupe ─────────
   Timer? debounce;
@@ -486,6 +497,7 @@ final adminDashboardProvider =
     planSlug:           planSlug,
     subscriptionStatus: subStatus,
     subscriptionEnd:    subEnd,
+    alertDays:          alertDays,
     maxSchools:         maxSchools,
     maxStudents:        maxStudents,
     maxStaff:           maxStaff,

@@ -6,8 +6,11 @@ import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 
 import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
+import '../../../core/utils/subscription_days.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../super_admin/providers/invoices_provider.dart' show InvoiceDetail;
+import 'subscription_access_provider.dart'
+    show kSubscriptionAlertDays, subscriptionSettingsProvider;
 
 // ─── Modèles ────────────────────────────────────────────────────────────────
 class GroupSubscription {
@@ -29,6 +32,7 @@ class GroupSubscription {
     required this.studentsUsed,
     required this.staffUsed,
     this.description,
+    this.alertDays = kSubscriptionAlertDays,
   });
   final String groupName;
   final String? planId;
@@ -43,17 +47,26 @@ class GroupSubscription {
   final int schoolsUsed, studentsUsed, staffUsed;
   final String? description;
 
+  /// Fenêtre d'alerte avant échéance (réglage plateforme) — la MÊME que celle
+  /// du bandeau, sinon la carte et le bandeau se contredisent à l'écran.
+  final int alertDays;
+
   /// Durée couverte par `priceXaf` — « Annuel », « Trimestriel »…
   String get periodLabel => billingPeriodLabel(billingPeriod);
 
   /// Suffixe à accoler au montant : « / an », « / mois ».
   String get periodSuffix => billingPeriodSuffix(billingPeriod);
 
-  int? get daysLeft => end?.difference(DateTime.now()).inDays;
+  /// Jours civils restants — `daysUntilDate`, jamais `difference(now)` : la
+  /// soustraction brute tronquait 21,6 j à 21 alors que le bandeau, lui,
+  /// affichait 22 sur la même page.
+  int? get daysLeft => daysUntilDate(end);
+
   bool get expireSoon {
     final d = daysLeft;
-    return d != null && d >= 0 && d <= 30;
+    return d != null && d >= 0 && d <= alertDays;
   }
+
   bool get expired {
     final d = daysLeft;
     return d != null && d < 0;
@@ -215,6 +228,9 @@ final adminSubscriptionProvider =
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
   if (groupId == null) return AdminSubscriptionData.empty;
 
+  // Fenêtre d'alerte réglable par le super_admin — partagée avec le bandeau.
+  final settings = await ref.watch(subscriptionSettingsProvider.future);
+
   // Realtime : groupe + tickets
   Timer? debounce;
   void onChange(_) {
@@ -318,6 +334,7 @@ final adminSubscriptionProvider =
         schoolsUsed:  schoolsUsed,
         studentsUsed: studentsUsed,
         staffUsed:    staffUsed,
+        alertDays:    settings.alertDays,
       );
     }
   } catch (_) {}

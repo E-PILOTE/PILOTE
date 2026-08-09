@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/utils/subscription_days.dart';
 import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
@@ -20,12 +21,27 @@ enum SubscriptionPhase { active, grace, readOnly }
 /// Nombre de jours de grâce après la date de fin avant de passer en lecture seule.
 const int kSubscriptionGraceDays = 15;
 
+/// Fenêtre d'alerte AVANT l'échéance : le bandeau ne s'allume qu'à moins de
+/// [kSubscriptionAlertDays] jours de la fin.
+///
+/// Valait 30 en dur — le bandeau criait un mois entier à l'avance, tous les
+/// jours, sur toutes les pages. Une alerte permanente n'est plus une alerte :
+/// on la lit une fois puis on cesse de la voir, y compris la veille de la
+/// coupure. Une semaine, c'est court assez pour rester crédible et long assez
+/// pour émettre et payer une facture.
+///
+/// Réglable par le super_admin (`platform_settings.subscription_alert_days`,
+/// lu via `subscriptionSettingsProvider`) ; cette constante n'est que le
+/// filet de sécurité quand le réglage est absent ou injoignable.
+const int kSubscriptionAlertDays = 7;
+
 class SubscriptionAccess {
   const SubscriptionAccess({
     required this.phase,
     required this.status,
     required this.end,
     required this.daysLeft,
+    this.alertDays = kSubscriptionAlertDays,
   });
 
   /// État « inconnu » = fail-soft : on n'a pas pu déterminer l'abonnement
@@ -42,16 +58,19 @@ class SubscriptionAccess {
   final DateTime? end;
   final int? daysLeft; // >=0 : jours restants ; <0 : jours de dépassement
 
+  /// Fenêtre d'alerte effectivement appliquée (réglage plateforme).
+  final int alertDays;
+
   /// Verrou d'écriture (2ᵉ verrou « plan », version online admin_groupe).
   bool get canWrite => phase != SubscriptionPhase.readOnly;
   bool get isActive => phase == SubscriptionPhase.active;
 
-  /// Alerte de fin proche (dans les 30 j) alors que l'abonnement est encore actif.
+  /// Alerte de fin proche alors que l'abonnement est encore actif.
   bool get expiresSoon =>
       phase == SubscriptionPhase.active &&
       daysLeft != null &&
       daysLeft! >= 0 &&
-      daysLeft! <= 30;
+      daysLeft! <= alertDays;
 }
 
 /// Calcul pur (testable) de la phase à partir du statut brut + date de fin.
@@ -61,36 +80,37 @@ SubscriptionAccess computeSubscriptionAccess({
   required DateTime? end,
   DateTime? today,
   int graceDays = kSubscriptionGraceDays,
+  int alertDays = kSubscriptionAlertDays,
 }) {
-  final now = today ?? DateTime.now();
   // Comparaison au jour près (les dates de fin sont des DATE, sans heure).
-  final int? daysLeft = end == null
-      ? null
-      : DateTime(end.year, end.month, end.day)
-          .difference(DateTime(now.year, now.month, now.day))
-          .inDays;
+  final int? daysLeft = daysUntilDate(end, today);
 
-  final entitling = status == 'active' || status == 'trial';
   final dateOk = daysLeft == null || daysLeft >= 0;
 
   // Toujours entitlé : statut porteur ET date non dépassée.
-  if (entitling && dateOk) {
+  if (isEntitlingStatus(status) && dateOk) {
     return SubscriptionAccess(
-        phase: SubscriptionPhase.active, status: status, end: end, daysLeft: daysLeft);
+      phase: SubscriptionPhase.active,
+      status: status,
+      end: end,
+      daysLeft: daysLeft,
+      alertDays: alertDays,
+    );
   }
 
   // Échu. La grâce ne s'applique qu'à une expiration NATURELLE et récente ;
   // 'suspended' (impayé, posé par le super_admin) et 'cancelled' (résilié)
   // passent directement en lecture seule.
-  final naturalExpiry = status != 'suspended' && status != 'cancelled';
   final overdueDays = daysLeft == null ? 1 << 30 : -daysLeft;
-  final inGrace = naturalExpiry && daysLeft != null && overdueDays <= graceDays;
+  final inGrace =
+      isNaturalExpiry(status) && daysLeft != null && overdueDays <= graceDays;
 
   return SubscriptionAccess(
     phase: inGrace ? SubscriptionPhase.grace : SubscriptionPhase.readOnly,
     status: status,
     end: end,
     daysLeft: daysLeft,
+    alertDays: alertDays,
   );
 }
 
@@ -113,23 +133,53 @@ bool ensureSubscriptionWritable(WidgetRef ref, BuildContext context) {
   return true;
 }
 
-/// Délai de grâce (jours) piloté par le super_admin depuis le dashboard, lu via
-/// la RPC curée `get_subscription_settings` (RLS-safe : n'expose que grace_days /
-/// reminder_days). Remplace la constante codée en dur `kSubscriptionGraceDays`.
-/// Fail-soft : au doute (réseau, RPC absente) → défaut historique 15 j.
-/// Online — partagé par l'espace admin_groupe ET la vue recouvrement super_admin.
-final subscriptionGraceDaysProvider =
-    FutureProvider.autoDispose<int>((ref) async {
+/// Réglages d'abonnement pilotés par le super_admin (écran Paramètres), lus via
+/// la RPC curée `get_subscription_settings` — RLS-safe : elle n'expose que ces
+/// deux nombres, jamais le reste de `platform_settings`.
+class SubscriptionSettings {
+  const SubscriptionSettings({required this.graceDays, required this.alertDays});
+
+  /// Défauts codés en dur : le filet quand la RPC est injoignable (terrain).
+  static const fallback = SubscriptionSettings(
+    graceDays: kSubscriptionGraceDays,
+    alertDays: kSubscriptionAlertDays,
+  );
+
+  final int graceDays; // jours APRÈS échéance avant la lecture seule
+  final int alertDays; // jours AVANT échéance où le bandeau s'allume
+}
+
+/// Réglages d'abonnement, rafraîchis à chaque ouverture de session.
+///
+/// `alert_days` était le trou : la RPC le renvoyait déjà, le client ne lisait
+/// que `grace_days` et retombait sur un `<= 30` codé en dur. Le super_admin
+/// pouvait donc régler la fenêtre d'alerte sans qu'aucun bandeau ne bouge.
+///
+/// Fail-soft : au doute (réseau, RPC absente) → défauts. Online — partagé par
+/// l'espace admin_groupe ET la vue recouvrement super_admin.
+final subscriptionSettingsProvider =
+    FutureProvider.autoDispose<SubscriptionSettings>((ref) async {
   ref.keepAlive();
   final client = ref.watch(supabaseClientProvider);
+
+  int readDays(Map map, String key, int fallback) {
+    final v = map[key];
+    if (v is int) return v > 0 ? v : fallback;
+    final parsed = int.tryParse('$v');
+    // 0 ou négatif = réglage vide/aberrant → on garde le défaut plutôt que
+    // d'éteindre l'alerte (ou la grâce) sans que personne l'ait demandé.
+    return (parsed != null && parsed > 0) ? parsed : fallback;
+  }
+
   try {
     final r = await client.rpc('get_subscription_settings');
     final map = r is Map ? r : const <String, dynamic>{};
-    final g = map['grace_days'];
-    if (g is int) return g;
-    return int.tryParse('$g') ?? kSubscriptionGraceDays;
+    return SubscriptionSettings(
+      graceDays: readDays(map, 'grace_days', kSubscriptionGraceDays),
+      alertDays: readDays(map, 'alert_days', kSubscriptionAlertDays),
+    );
   } catch (_) {
-    return kSubscriptionGraceDays;
+    return SubscriptionSettings.fallback;
   }
 });
 
@@ -168,8 +218,8 @@ final subscriptionAccessProvider =
     });
   } catch (_) {}
 
-  // Grâce réglable (fail-soft 15 j) — plus de valeur codée en dur.
-  final graceDays = await ref.watch(subscriptionGraceDaysProvider.future);
+  // Grâce ET fenêtre d'alerte réglables — plus de valeur codée en dur.
+  final settings = await ref.watch(subscriptionSettingsProvider.future);
   try {
     final row = await client
         .from('school_groups')
@@ -181,7 +231,12 @@ final subscriptionAccessProvider =
     final status = (row['subscription_status'] as String?) ?? 'active';
     final endRaw = row['subscription_end'] as String?;
     final end = endRaw != null ? DateTime.tryParse(endRaw) : null;
-    return computeSubscriptionAccess(status: status, end: end, graceDays: graceDays);
+    return computeSubscriptionAccess(
+      status: status,
+      end: end,
+      graceDays: settings.graceDays,
+      alertDays: settings.alertDays,
+    );
   } catch (_) {
     // Fail-soft absolu : on ne verrouille jamais sur une incertitude.
     return SubscriptionAccess.unknown();
