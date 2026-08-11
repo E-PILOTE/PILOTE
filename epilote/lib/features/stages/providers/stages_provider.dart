@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../services/powersync/powersync_service.dart';
+import '../../structure/providers/academic_year_context.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  STAGES — espace école, 100 % offline.
@@ -116,6 +117,17 @@ final stagesOverviewProvider =
     FutureProvider.autoDispose<StagesOverview>((ref) async {
   ref.keepAlive();
 
+  // Le module vit dans l'année AFFICHÉE, comme le reste de l'espace école.
+  // Sans ce filtre, les inscriptions ne changeant pas de statut au passage
+  // d'année (elles restent `active` indéfiniment), la promotion 2025-2026
+  // serait venue s'empiler sur celle de 2026-2027 : liste de stagiaires
+  // mélangée et, plus grave, des élèves partis depuis un an comptés comme
+  // « bloqués pour le bac ».
+  final yearId = ref.watch(activeYearIdProvider);
+  if (yearId == null) {
+    return const StagesOverview(internships: [], blocked: []);
+  }
+
   final rows = await db.getAll(
     'SELECT i.id, i.title, i.start_date, i.end_date, i.status, '
     '       i.attestation_issued_at, i.convention_signed_at, '
@@ -126,11 +138,18 @@ final stagesOverviewProvider =
     '  LEFT JOIN students s ON s.id = i.student_id '
     '  LEFT JOIN classes c ON c.id = i.class_id '
     '  LEFT JOIN internship_companies co ON co.id = i.company_id '
+    ' WHERE i.academic_year_id = ? '
     ' ORDER BY i.start_date DESC',
+    [yearId],
   );
 
   // Le croisement qui fait le module : élèves en classe de bac technique/pro
   // SANS attestation de stage délivrée.
+  //
+  // L'inscription est scopée à l'année (qui est en classe d'examen CETTE
+  // année) ; le `NOT EXISTS` sur l'attestation ne l'est délibérément PAS : une
+  // attestation délivrée l'an dernier reste acquise, la redemander serait une
+  // erreur administrative.
   final ph = List.filled(kExamsRequiringInternship.length, '?').join(',');
   final blockedRows = await db.getAll(
     'SELECT s.first_name, s.last_name, c.name AS class_name, e.short_name, '
@@ -139,13 +158,15 @@ final stagesOverviewProvider =
     '  JOIN students s ON s.id = ce.student_id '
     '  JOIN classes c ON c.id = ce.class_id '
     '  JOIN national_exams e ON e.id = COALESCE(c.exam_override_id, c.exam_id) '
-    ' WHERE ce.status = ? AND c.exam_status = ? AND e.code IN ($ph) '
+    ' WHERE ce.status = ? AND ce.academic_year_id = ? '
+    '   AND c.exam_status = ? AND e.code IN ($ph) '
     '   AND NOT EXISTS ( '
     '     SELECT 1 FROM internships i '
     '      WHERE i.student_id = s.id AND i.attestation_issued_at IS NOT NULL '
     '        AND i.status IN (?, ?) ) '
     ' ORDER BY c.name, s.last_name',
-    ['active', 'examen', ...kExamsRequiringInternship, 'termine', 'valide'],
+    ['active', yearId, 'examen', ...kExamsRequiringInternship, 'termine',
+     'valide'],
   );
 
   return StagesOverview(

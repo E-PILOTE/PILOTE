@@ -42,6 +42,8 @@ class _YearDetail extends ConsumerWidget {
               style: TextStyle(fontSize: 13, color: kTextMuted)),
           const SizedBox(height: 12),
           _YearProgress(year: year),
+          const SizedBox(height: 10),
+          _CurrentPeriodStrip(year: year),
         ]),
       ),
       Divider(height: 1, color: kBorder),
@@ -49,26 +51,35 @@ class _YearDetail extends ConsumerWidget {
         child: trimAsync.when(
           loading: () => Center(child: CircularProgressIndicator(color: kNavy)),
           error: (e, _) =>
-              Center(child: Text('Erreur : $e', style: TextStyle(color: kRed))),
+              Center(child: Text(messageErreur(e), style: TextStyle(color: kRed))),
           data: (trims) {
             if (trims.isEmpty) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: AdminEmptyState(
+              // Le découpage en trimestres appartient au groupe, mais les
+              // vacances appartiennent à l'école : elle peut les saisir sans
+              // attendre que le ministère ait publié son calendrier.
+              return ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  const AdminEmptyState(
                     icon: Icons.event_busy_rounded,
-                    title: 'Calendrier non défini',
+                    title: 'Trimestres non définis',
                     message:
                         'Les trimestres et séquences de cette année seront '
-                        'définis par le groupe puis hérités par votre école.',
+                        'définis par le groupe puis hérités par votre école. '
+                        'Vos jours non ouvrés, eux, se saisissent dès à '
+                        'présent.',
                   ),
-                ),
+                  const SizedBox(height: 18),
+                  _HolidaysCard(year: year, trims: const []),
+                ],
               );
             }
             return ListView(
               padding: const EdgeInsets.all(24),
               children: [
                 _YearTimeline(year: year, trims: trims),
+                const SizedBox(height: 16),
+                _HolidaysCard(year: year, trims: trims),
                 const SizedBox(height: 18),
                 const AdminSectionTitle('Trimestres & séquences',
                     icon: Icons.view_timeline_rounded),
@@ -123,6 +134,101 @@ class _YearProgress extends StatelessWidget {
       ]),
     ]);
   }
+}
+
+// ─── « Où en sommes-nous ? » ──────────────────────────────────────────────────
+//  Trimestre et séquence courants, en une ligne, en haut de l'écran.
+//  L'information existait — mais il fallait dérouler toute la page et repérer
+//  deux pastilles vertes pour la reconstituer. Or c'est la première question
+//  qu'on pose à un calendrier scolaire : dans quelle période saisit-on les
+//  notes aujourd'hui ?
+//
+//  `is_current` est posé par le GROUPE et ne suit pas forcément le calendrier
+//  réel (un ministère peut oublier de basculer le trimestre). On affiche donc
+//  ce que la base déclare, et on signale l'écart quand les dates le
+//  contredisent, plutôt que d'inventer une vérité concurrente.
+class _CurrentPeriodStrip extends ConsumerWidget {
+  const _CurrentPeriodStrip({required this.year});
+  final AcademicYearModel year;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final trims = ref.watch(trimestersProvider(year.id)).valueOrNull;
+    if (trims == null || trims.isEmpty) return const SizedBox.shrink();
+
+    TrimesterModel? declared;
+    for (final t in trims) {
+      if (t.isCurrent) {
+        declared = t;
+        break;
+      }
+    }
+
+    final now = DateTime.now();
+    TrimesterModel? byDate;
+    for (final t in trims) {
+      if (!now.isBefore(t.startDate) && !now.isAfter(t.endDate)) {
+        byDate = t;
+        break;
+      }
+    }
+
+    final seq = declared == null
+        ? null
+        : ref.watch(currentSequenceProvider(declared.id)).valueOrNull;
+
+    if (declared == null) {
+      return _PeriodChip(
+        icon: Icons.help_outline_rounded,
+        color: kAccent,
+        text: byDate == null
+            ? 'Aucun trimestre en cours déclaré par le groupe.'
+            : 'Aucun trimestre déclaré courant — d\'après les dates, nous '
+                'sommes dans ${byDate.label}.',
+      );
+    }
+
+    final drifted = byDate != null && byDate.id != declared.id;
+    return _PeriodChip(
+      icon: drifted ? Icons.warning_amber_rounded : Icons.play_circle_rounded,
+      color: drifted ? kAccent : kGreen,
+      text: drifted
+          ? 'Le groupe déclare ${declared.label} courant, mais les dates '
+              'placent aujourd\'hui dans ${byDate.label}.'
+          : 'En cours : ${declared.label}'
+              '${seq == null ? '' : ' · ${seq.label}'}',
+    );
+  }
+}
+
+class _PeriodChip extends StatelessWidget {
+  const _PeriodChip(
+      {required this.icon, required this.color, required this.text});
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.09),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withValues(alpha: 0.28)),
+        ),
+        child: Row(children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text,
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                    height: 1.35)),
+          ),
+        ]),
+      );
 }
 
 // ─── Timeline visuelle proportionnelle des trimestres ─────────────────────────

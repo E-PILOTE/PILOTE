@@ -14,6 +14,7 @@ import '../providers/rooms_provider.dart';
 import '../providers/school_holidays_provider.dart';
 import '../providers/school_periods_provider.dart';
 import '../providers/teacher_availability_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'edt_rooms_tab.dart';
 part 'edt_periods_tab.dart';
@@ -28,16 +29,20 @@ const _kSlug = 'emploi-du-temps';
 ///  • Trame horaire : la grille de créneaux de l'école (séances/récré/pause) ;
 ///  • Disponibilités : indispos/préférences enseignant (construit en Vague 3).
 /// Le commutateur est un SEGMENT (cohérent avec la page parente sans onglets).
-void openEdtSettingsDrawer(BuildContext context) {
+///
+/// [initialSegment] ouvre directement la bonne section — cf. [kEdtSegCalendar].
+/// Un appelant qui vient consulter les vacances ne doit pas retomber sur les
+/// salles et devoir chercher.
+void openEdtSettingsDrawer(BuildContext context, {int initialSegment = 0}) {
   showGeneralDialog(
     context: context,
     barrierLabel: 'Paramètres de l\'emploi du temps',
     barrierDismissible: true,
     barrierColor: Colors.black.withValues(alpha: 0.45),
     transitionDuration: const Duration(milliseconds: 240),
-    pageBuilder: (ctx, _, _) => const Align(
+    pageBuilder: (ctx, _, _) => Align(
       alignment: Alignment.centerRight,
-      child: EdtSettingsView(),
+      child: EdtSettingsView(initialSegment: initialSegment),
     ),
     transitionBuilder: (ctx, anim, _, child) => SlideTransition(
       position: Tween(begin: const Offset(1, 0), end: Offset.zero)
@@ -51,14 +56,19 @@ void openEdtSettingsDrawer(BuildContext context) {
 //  PARAMÈTRES EMPLOI DU TEMPS — panneau de tiroir : en-tête + segment +
 //  contenu (IndexedStack pour préserver l'état entre les sections).
 // ════════════════════════════════════════════════════════════════════════════
+/// Index du segment « Calendrier » (vacances et jours fériés) dans le tiroir.
+/// Nommé pour que les appelants n'aient pas à coder un 3 en dur.
+const int kEdtSegCalendar = 3;
+
 class EdtSettingsView extends StatefulWidget {
-  const EdtSettingsView({super.key});
+  const EdtSettingsView({super.key, this.initialSegment = 0});
+  final int initialSegment;
   @override
   State<EdtSettingsView> createState() => _EdtSettingsViewState();
 }
 
 class _EdtSettingsViewState extends State<EdtSettingsView> {
-  int _seg = 0;
+  late int _seg = widget.initialSegment;
 
   @override
   Widget build(BuildContext context) {

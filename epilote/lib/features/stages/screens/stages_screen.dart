@@ -9,6 +9,8 @@ import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../examens/widgets/examens_widgets.dart' show ExamErrorCard;
 import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
+import '../../structure/providers/academic_year_context.dart'
+    show yearReadOnlyProvider;
 import '../../structure/providers/academic_year_provider.dart'
     show currentSchoolProvider;
 import '../providers/stage_actions.dart' show issueAttestation;
@@ -89,7 +91,12 @@ class _BodyState extends ConsumerState<_Body> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(stagesOverviewProvider);
-    final canEdit = ref.watch(canProvider((slug: _kSlug, action: 'create')));
+    // Une année archivée se consulte, ne s'écrit pas — même règle que les
+    // 26 autres écrans de l'espace école. Le module stages en était le seul
+    // absent : on pouvait enregistrer un stage dans une année close.
+    final readOnly = ref.watch(yearReadOnlyProvider);
+    final canEdit =
+        ref.watch(canProvider((slug: _kSlug, action: 'create'))) && !readOnly;
     // KPI selon le profil d'accès (capacité brute, indépendante de l'abonnement) :
     // les KPI d'ACTION ne ressortent que pour qui peut agir sur les stages.
     final perm = ref.watch(modulePermissionProvider(_kSlug));

@@ -38,7 +38,7 @@ class YearSelector extends ConsumerWidget {
       offset: const Offset(0, 46),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       onSelected: (id) =>
-          ref.read(selectedYearIdProvider.notifier).state = id,
+          ref.read(selectedYearIdProvider.notifier).select(id),
       itemBuilder: (_) => [
         for (final y in live) _item(y, active),
         if (archived.isNotEmpty && live.isNotEmpty)

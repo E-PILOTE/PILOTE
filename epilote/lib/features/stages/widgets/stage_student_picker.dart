@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../../../services/powersync/powersync_service.dart';
+import '../../structure/providers/academic_year_context.dart';
 import '../providers/stages_provider.dart' show kExamsRequiringInternship;
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -39,6 +40,13 @@ class StagiaireCandidate {
 
 final stagiaireCandidatesProvider =
     FutureProvider.autoDispose<List<StagiaireCandidate>>((ref) async {
+  // Même lentille que le reste de l'espace école : on ne propose comme
+  // stagiaire que les élèves inscrits sur l'année AFFICHÉE. Les inscriptions
+  // restent `active` d'une année sur l'autre — sans ce filtre, la liste
+  // grossirait d'une promotion par rentrée.
+  final yearId = ref.watch(activeYearIdProvider);
+  if (yearId == null) return const <StagiaireCandidate>[];
+
   final ph = List.filled(kExamsRequiringInternship.length, '?').join(',');
   final rows = await db.getAll(
     '''
@@ -52,10 +60,10 @@ final stagiaireCandidatesProvider =
       JOIN classes  c ON c.id = ce.class_id
       LEFT JOIN national_exams e
              ON e.id = COALESCE(c.exam_override_id, c.exam_id)
-     WHERE ce.status = 'active'
+     WHERE ce.status = 'active' AND ce.academic_year_id = ?
      ORDER BY needs DESC, c.name, s.last_name, s.first_name
     ''',
-    [...kExamsRequiringInternship],
+    [...kExamsRequiringInternship, yearId],
   );
 
   return [
