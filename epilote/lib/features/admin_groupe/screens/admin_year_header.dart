@@ -111,7 +111,22 @@ class _RefreshButton extends ConsumerWidget {
 // ─── Exports : le document ET la matière première ──────────────────────────────
 //  Le PDF se signe et se dépose ; le CSV se recroise dans un tableur. La
 //  direction des statistiques réclamait le second, la hiérarchie le premier.
-enum _ExportKind { pdfBilan, csvBilan, csvComparatif }
+//
+//  ⚠️ ENREGISTRER ET IMPRIMER SONT DEUX ACTIONS DISTINCTES.
+//  Le menu n'offrait qu'« Enregistrer » en apparence : l'entrée « Bilan de
+//  l'année (PDF) », sous-titrée « Document officiel », appelait en réalité
+//  `printReport()` — donc `Printing.layoutPdf`, qui sous Windows ouvre
+//  `PrintDlg`, la boîte de CHOIX D'IMPRIMANTE. Trois conséquences, toutes
+//  vécues comme « l'export ne marche pas » :
+//    • aucun fichier n'est jamais écrit, quoi qu'on fasse dans la boîte ;
+//    • `PrintDlg` est ouverte avec `hwndOwner = nullptr` (printing 5.14.3,
+//      windows/print_job.cpp) : sans fenêtre propriétaire, elle peut s'afficher
+//      DERRIÈRE l'application, qui paraît alors figée sur « Génération… » ;
+//    • fermée ou annulée — ou faute d'imprimante installée — le plugin rend
+//      « non imprimé » sans erreur : l'application ne dit donc rien du tout.
+//  `AcademicYearPdfService.downloadReport()` existait déjà, écrite et jamais
+//  appelée. C'est elle que veut l'agent qui cherche à déposer un bilan.
+enum _ExportKind { pdfEnregistrer, pdfImprimer, csvBilan, csvComparatif }
 
 class _ExportMenu extends ConsumerStatefulWidget {
   const _ExportMenu({required this.year, required this.years});
@@ -126,28 +141,50 @@ class _ExportMenuState extends ConsumerState<_ExportMenu> {
 
   Future<void> _export(_ExportKind kind) async {
     setState(() => _busy = true);
+    final messenger = ScaffoldMessenger.of(context);
     try {
       // Analytics fraîches garanties : un export ne doit jamais figer un cache.
       final analytics =
           await ref.read(adminYearAnalyticsProvider(widget.year.id).future);
+
+      // `null` = l'agent a fermé la boîte d'enregistrement. Ce n'est pas une
+      // erreur, et ce n'est pas non plus un succès : on se tait.
+      String? chemin;
       switch (kind) {
-        case _ExportKind.pdfBilan:
+        case _ExportKind.pdfEnregistrer:
+          chemin = await AcademicYearPdfService.downloadReport(
+            year: widget.year,
+            analytics: analytics,
+            allYears: widget.years,
+          );
+        case _ExportKind.pdfImprimer:
           await AcademicYearPdfService.printReport(
             year: widget.year,
             analytics: analytics,
             allYears: widget.years,
           );
         case _ExportKind.csvBilan:
-          await AcademicYearCsvService.downloadYearReport(
+          chemin = await AcademicYearCsvService.downloadYearReport(
             year: widget.year,
             analytics: analytics,
           );
         case _ExportKind.csvComparatif:
-          await AcademicYearCsvService.downloadYearsOverview(widget.years);
+          chemin =
+              await AcademicYearCsvService.downloadYearsOverview(widget.years);
+      }
+
+      // Dire OÙ le fichier est parti. Un export muet est indiscernable d'un
+      // export raté : l'agent rouvre le menu et recommence.
+      if (mounted && chemin != null) {
+        messenger.showSnackBar(SnackBar(
+          backgroundColor: kGreen,
+          duration: const Duration(seconds: 6),
+          content: Text('Enregistré : $chemin'),
+        ));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        messenger.showSnackBar(SnackBar(
             backgroundColor: kRed,
             content: Text(messageErreur(e, contexte: 'Export'))));
       }
@@ -165,13 +202,23 @@ class _ExportMenuState extends ConsumerState<_ExportMenu> {
       position: PopupMenuPosition.under,
       itemBuilder: (_) => const [
         PopupMenuItem(
-          value: _ExportKind.pdfBilan,
+          value: _ExportKind.pdfEnregistrer,
           child: ListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
             leading: Icon(Icons.picture_as_pdf_rounded, size: 19),
             title: Text('Bilan de l\'année (PDF)'),
-            subtitle: Text('Document officiel, en-tête République'),
+            subtitle: Text('Document officiel — enregistrer le fichier'),
+          ),
+        ),
+        PopupMenuItem(
+          value: _ExportKind.pdfImprimer,
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.print_rounded, size: 19),
+            title: Text('Imprimer le bilan'),
+            subtitle: Text('Ouvre le choix de l\'imprimante'),
           ),
         ),
         PopupMenuItem(

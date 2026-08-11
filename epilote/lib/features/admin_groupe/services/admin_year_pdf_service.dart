@@ -10,6 +10,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../../core/services/official_pdf_kit.dart';
+
 import '../providers/admin_academic_year_provider.dart';
 import '../providers/admin_year_analytics_provider.dart';
 
@@ -36,9 +38,15 @@ class AcademicYearPdfService {
     required AdminYearAnalytics analytics,
     required List<AdminYear> allYears,
   }) async {
-    final fontRegular = await PdfGoogleFonts.notoSansRegular();
-    final fontBold = await PdfGoogleFonts.notoSansBold();
-    final fontMedium = await PdfGoogleFonts.notoSansMedium();
+    // Polices EMBARQUÉES (assets/fonts) — cf. OfficialPdfKit.loadFonts().
+    // `PdfGoogleFonts` allait les chercher sur fonts.gstatic.com et, en cas
+    // d'échec, retombait SANS BRUIT sur Helvetica : sur un poste hors ligne —
+    // le cas normal d'une école congolaise — le document officiel sortait dans
+    // une police de secours sans Unicode, et nul ne le voyait avant impression.
+    final polices = await OfficialPdfKit.loadFonts();
+    final fontRegular = polices.regular;
+    final fontBold = polices.bold;
+    final fontMedium = polices.medium;
 
     pw.MemoryImage? logoImage;
     final logoBytes = await _rasterizeSvg('assets/icons/logo.svg', 320);
@@ -72,11 +80,11 @@ class AcademicYearPdfService {
         pw.SizedBox(height: 16),
         _evolutionSection(allYears, fontBold, fontMedium, fontRegular),
         pw.SizedBox(height: 14),
-        _deptSection(analytics, fontBold, fontMedium, fontRegular),
+        ..._deptSection(analytics, fontBold, fontMedium, fontRegular),
         pw.SizedBox(height: 14),
         _typeSection(analytics, fontBold, fontMedium, fontRegular),
         pw.SizedBox(height: 14),
-        _schoolsSection(analytics, fontBold, fontMedium, fontRegular),
+        ..._schoolsSection(analytics, fontBold, fontMedium, fontRegular),
         pw.SizedBox(height: 20),
       ],
     ));
@@ -251,17 +259,20 @@ class AcademicYearPdfService {
     final adopt = year.schoolsTotal == 0
         ? 0
         : (year.schoolsAdopted / year.schoolsTotal * 100).round();
+    // Les compteurs viennent de `year`, c'est-à-dire d'un GROUP BY Postgres
+    // rendu en UNE ligne — et non de la somme de `a.bySchool`, qui en compte
+    // une par établissement et que PostgREST tronque SANS ERREUR au-delà de
+    // `max-rows`. Sommer la liste ferait diverger le document officiel de
+    // l'écran qui l'a commandé, lequel lit déjà `year`. Un bilan national qui
+    // se contredit lui-même vaut moins que pas de bilan du tout.
+    final moyenne = year.classes == 0 ? 0.0 : year.eleves / year.classes;
     final cells = <List<dynamic>>[
-      ['Élèves inscrits', '${a.eleves}', _green],
-      ['Classes ouvertes', '${a.classes}', _navy],
+      ['Élèves inscrits', '${year.eleves}', _green],
+      ['Classes ouvertes', '${year.classes}', _navy],
       ['Écoles préparées', '${year.schoolsAdopted}/${year.schoolsTotal}', _gold],
       ["Taux d'adoption", '$adopt %', _navy],
       ['Départements couverts', '${a.departementsCouverts}', _purple],
-      [
-        'Moy. élèves / classe',
-        a.moyenneElevesParClasse.toStringAsFixed(1),
-        _green
-      ],
+      ['Moy. élèves / classe', moyenne.toStringAsFixed(1), _green],
     ];
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 28),
@@ -323,35 +334,99 @@ class AcademicYearPdfService {
     );
   }
 
+  // ── Pagination des listes longues ────────────────────────────────────────────
+  //  ⚠️ `_frame()` enveloppe son contenu dans un `Padding`, et un `Padding` ne
+  //  sait PAS se scinder entre deux pages. Confier à un seul cadre un tableau
+  //  plus haut qu'une feuille fait boucler `MultiPage` jusqu'à
+  //  `TooManyPagesException` : le document ne sort alors pas du tout — pas
+  //  « mal paginé », pas « tronqué » : absent, avec un message d'erreur.
+  //
+  //  Mesuré : le bilan cessait de se générer à partir de 31 établissements.
+  //  Les deux plus gros groupes en comptent 14 et 12 aujourd'hui, donc le
+  //  défaut ne s'était encore jamais montré ; à la cible de 1 000 écoles, il
+  //  aurait rendu le bilan national impossible à éditer. Tout tableau dont le
+  //  nombre de lignes n'est pas borné à vue d'œil passe donc par ici et sort en
+  //  un cadre par bloc.
+  //
+  //  28 lignes : la hauteur utile d'une A4 en tient ~32 (ligne ≈ 22,6 pt,
+  //  en-tête de tableau et titre de cadre déduits). La marge absorbe les
+  //  arrondis de rendu.
+  static const int _lignesParBloc = 28;
+
+  static List<List<T>> _paginer<T>(List<T> rows) {
+    final out = <List<T>>[];
+    for (var i = 0; i < rows.length; i += _lignesParBloc) {
+      out.add(rows.sublist(i, (i + _lignesParBloc).clamp(0, rows.length)));
+    }
+    return out;
+  }
+
+  /// Un cadre par bloc. Le titre porte « (2/4) » dès qu'il y en a plusieurs :
+  /// une page détachée doit dire de quelle partie du tableau elle vient.
+  static List<pw.Widget> _sectionPaginee({
+    required String title,
+    required PdfColor color,
+    required List<String> headers,
+    required List<int> flex,
+    required List<List<String>> rows,
+    required String vide,
+    required pw.Font bold,
+    required pw.Font medium,
+    required pw.Font regular,
+  }) {
+    if (rows.isEmpty) {
+      return [
+        _frame(
+            title: title,
+            color: color,
+            bold: bold,
+            child: _empty(vide, regular)),
+      ];
+    }
+    final blocs = _paginer(rows);
+    return [
+      for (var i = 0; i < blocs.length; i++) ...[
+        if (i > 0) pw.SizedBox(height: 10),
+        _frame(
+          title: blocs.length == 1 ? title : '$title (${i + 1}/${blocs.length})',
+          color: color,
+          bold: bold,
+          child: _table(
+            headers: headers,
+            rows: blocs[i],
+            bold: bold,
+            medium: medium,
+            regular: regular,
+            flex: flex,
+          ),
+        ),
+      ],
+    ];
+  }
+
   // ── Répartition par département ──────────────────────────────────────────────
-  static pw.Widget _deptSection(AdminYearAnalytics a, pw.Font bold,
+  //  Le Congo compte 12 départements : le cas normal tient sur un bloc. La
+  //  pagination couvre le cas sale — `schools.department` est du texte libre, et
+  //  une poignée de saisies fautives suffirait à en faire lever cinquante.
+  static List<pw.Widget> _deptSection(AdminYearAnalytics a, pw.Font bold,
       pw.Font medium, pw.Font regular) {
-    return _frame(
+    return _sectionPaginee(
       title: 'RÉPARTITION PAR DÉPARTEMENT',
       color: _green,
+      headers: const ['Département', 'Écoles préparées', 'Classes', 'Élèves'],
+      flex: const [4, 3, 2, 2],
+      rows: a.byDepartment
+          .map((d) => [
+                d.department,
+                '${d.ecolesPreparees}/${d.ecoles}',
+                '${d.classes}',
+                '${d.eleves}',
+              ])
+          .toList(),
+      vide: 'Aucune donnée par département.',
       bold: bold,
-      child: a.byDepartment.isEmpty
-          ? _empty('Aucune donnée par département.', regular)
-          : _table(
-              headers: const [
-                'Département',
-                'Écoles préparées',
-                'Classes',
-                'Élèves'
-              ],
-              rows: a.byDepartment
-                  .map((d) => [
-                        d.department,
-                        '${d.ecolesPreparees}/${d.ecoles}',
-                        '${d.classes}',
-                        '${d.eleves}',
-                      ])
-                  .toList(),
-              bold: bold,
-              medium: medium,
-              regular: regular,
-              flex: const [4, 3, 2, 2],
-            ),
+      medium: medium,
+      regular: regular,
     );
   }
 
@@ -388,36 +463,34 @@ class AcademicYearPdfService {
   }
 
   // ── Préparation par école ────────────────────────────────────────────────────
-  static pw.Widget _schoolsSection(AdminYearAnalytics a, pw.Font bold,
+  //  La liste qui dicte la taille du document : une ligne par établissement du
+  //  groupe, donc jusqu'à 1 000 à la cible nationale.
+  static List<pw.Widget> _schoolsSection(AdminYearAnalytics a, pw.Font bold,
       pw.Font medium, pw.Font regular) {
-    return _frame(
+    return _sectionPaginee(
       title: 'PRÉPARATION PAR ÉTABLISSEMENT',
       color: _purple,
+      headers: const [
+        'Établissement',
+        'Département',
+        'Classes',
+        'Élèves',
+        'État',
+      ],
+      flex: const [5, 4, 2, 2, 3],
+      rows: a.bySchool
+          .map((s) => [
+                s.name,
+                s.department,
+                '${s.classes}',
+                '${s.eleves}',
+                s.adopted ? 'Préparée' : 'En attente',
+              ])
+          .toList(),
+      vide: 'Aucune école active.',
       bold: bold,
-      child: a.bySchool.isEmpty
-          ? _empty('Aucune école active.', regular)
-          : _table(
-              headers: const [
-                'Établissement',
-                'Département',
-                'Classes',
-                'Élèves',
-                'État'
-              ],
-              rows: a.bySchool
-                  .map((s) => [
-                        s.name,
-                        s.department,
-                        '${s.classes}',
-                        '${s.eleves}',
-                        s.adopted ? 'Préparée' : 'En attente',
-                      ])
-                  .toList(),
-              bold: bold,
-              medium: medium,
-              regular: regular,
-              flex: const [5, 4, 2, 2, 3],
-            ),
+      medium: medium,
+      regular: regular,
     );
   }
 
@@ -465,13 +538,29 @@ class AcademicYearPdfService {
     required pw.Font medium,
     required pw.Font regular,
   }) {
-    pw.Widget cell(String t, int f, pw.Font font,
+    pw.Widget cell(String t, int f, pw.Font font, int i, int n,
         {PdfColor color = _text, pw.TextAlign align = pw.TextAlign.left}) {
       return pw.Expanded(
         flex: f,
-        child: pw.Text(t,
-            textAlign: align,
-            style: pw.TextStyle(font: font, fontSize: 8.5, color: color)),
+        child: pw.Padding(
+          // Gouttière entre colonnes. Sans elle, une valeur qui remplit sa
+          // colonne vient coller à la suivante et les deux se lisent comme un
+          // seul mot. Rien après la dernière, qui longe déjà le bord du cadre.
+          padding: pw.EdgeInsets.only(right: i == n - 1 ? 0 : 6),
+          // `maxLines: 1` n'est pas cosmétique. « Complexe Scolaire
+          // Départemental Étoile du Nord de Ouesso » ne tient pas dans sa
+          // colonne : sans écrêtage il passe sur deux lignes, la ligne du
+          // tableau grandit, le bloc dépasse la hauteur d'une page — et comme
+          // `_frame()` l'enveloppe dans un `Padding` incapable de se scinder,
+          // `MultiPage` boucle jusqu'à `TooManyPagesException`. Le document ne
+          // sort alors PAS. Une ligne du tableau = une ligne de hauteur, quel
+          // que soit le contenu : c'est ce qui rend la pagination calculable.
+          child: pw.Text(t,
+              textAlign: align,
+              maxLines: 1,
+              overflow: pw.TextOverflow.clip,
+              style: pw.TextStyle(font: font, fontSize: 8.5, color: color)),
+        ),
       );
     }
 
@@ -482,7 +571,8 @@ class AcademicYearPdfService {
             color: _surface, borderRadius: pw.BorderRadius.circular(4)),
         child: pw.Row(
           children: List.generate(headers.length, (i) {
-            return cell(headers[i].toUpperCase(), flex[i], medium,
+            return cell(headers[i].toUpperCase(), flex[i], medium, i,
+                headers.length,
                 color: _muted,
                 align: i == 0 ? pw.TextAlign.left : pw.TextAlign.center);
           }),
@@ -496,7 +586,7 @@ class AcademicYearPdfService {
             ),
             child: pw.Row(
               children: List.generate(r.length, (i) {
-                return cell(r[i], flex[i], i == 0 ? medium : regular,
+                return cell(r[i], flex[i], i == 0 ? medium : regular, i, r.length,
                     color: i == 0 ? _text : _muted,
                     align: i == 0 ? pw.TextAlign.left : pw.TextAlign.center);
               }),
