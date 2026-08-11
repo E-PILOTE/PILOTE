@@ -266,15 +266,36 @@ class OfficialPdfKit {
         pw.Expanded(
           // L'émetteur est en tête ; E-PILOTE reste ici, à sa place : l'outil
           // qui a produit le document, pas celui qui le délivre.
-          child: pw.Text(
-            // « de ${nom} » produisait « de Ministère de l'Enseignement… ».
-            // L'article correct dépend du nom, qui varie d'un établissement à
-            // l'autre : on emploie donc une formule qui n'en demande aucun.
-            _issuer == null
-                ? 'Document officiel généré le $now  •  $_kDefaultName  •  Réf. $ref'
-                : 'Document officiel — ${_issuer!.name}  •  Généré le $now '
-                    'via $_kDefaultName  •  Réf. $ref',
-            style: pw.TextStyle(font: f.regular, fontSize: 7.5, color: kPdfMuted),
+          //
+          // Deux lignes explicites plutôt qu'une phrase qu'on laisse se replier.
+          // « Ministère de l'Enseignement Technique et Professionnel » à lui
+          // seul dépasse la largeur utile : la phrase unique se coupait où elle
+          // pouvait et abandonnait « Réf. 20260811-1622 », seul, sur la seconde
+          // ligne — sous un badge de pagination resté en haut.
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            mainAxisAlignment: pw.MainAxisAlignment.center,
+            children: [
+              pw.Text(
+                // « de ${nom} » produirait « de Ministère de l'Enseignement… ».
+                // L'article correct dépend du nom, qui varie d'un établissement
+                // à l'autre : on emploie une formule qui n'en demande aucun.
+                _issuer == null
+                    ? 'Document officiel'
+                    : 'Document officiel — ${_issuer!.name}',
+                maxLines: 1,
+                overflow: pw.TextOverflow.clip,
+                style: pw.TextStyle(
+                    font: f.medium, fontSize: 7.5, color: kPdfMuted),
+              ),
+              pw.Text(
+                'Généré le $now via $_kDefaultName  •  Réf. $ref',
+                maxLines: 1,
+                overflow: pw.TextOverflow.clip,
+                style: pw.TextStyle(
+                    font: f.regular, fontSize: 7.5, color: kPdfMuted),
+              ),
+            ],
           ),
         ),
         pw.Container(
@@ -474,19 +495,31 @@ class OfficialPdfKit {
   // ── Table générique ──────────────────────────────────────────────────────────
   // [leftAlignCols] : indices de colonnes alignées à gauche (sinon centrées) ;
   // la colonne 0 est toujours à gauche et en medium.
+  /// [maxLines] > 1 EXIGE [rowHeight] : c'est la hauteur fixe qui rend la
+  /// pagination calculable. Écrêter à une ligne garde les lignes égales mais
+  /// ampute les libellés — sur une liste d'établissements congolais, « Collège
+  /// d'Enseignement Technique de Ouésso », « … de Sibiti » et « … de Nkayi »
+  /// deviennent alors trois lignes identiques, distinguables seulement par leur
+  /// département. Deux lignes dans une boîte de hauteur constante rendent le
+  /// nom entier SANS rendre la hauteur du tableau imprévisible.
   static pw.Widget table({
     required List<String> headers,
     required List<List<String>> rows,
     required List<int> flex,
     required PdfFonts fonts,
     Set<int> leftAlignCols = const {},
+    int maxLines = 1,
+    double? rowHeight,
   }) {
+    assert(maxLines == 1 || rowHeight != null,
+        'maxLines > 1 sans rowHeight rend la hauteur des lignes variable, '
+        'donc la pagination incalculable.');
     pw.TextAlign alignOf(int i, int n) =>
         (i == 0 || leftAlignCols.contains(i))
             ? pw.TextAlign.left
             : pw.TextAlign.center;
     pw.Widget cell(String t, int f, pw.Font font, int i, int n,
-        {PdfColor color = kPdfText}) {
+        {PdfColor color = kPdfText, int lignes = 1}) {
       return pw.Expanded(
         flex: f,
         child: pw.Padding(
@@ -503,40 +536,53 @@ class OfficialPdfKit {
           // ligne de hauteur, quel que soit le contenu.
           child: pw.Text(t,
               textAlign: alignOf(i, n),
-              maxLines: 1,
+              maxLines: lignes,
               overflow: pw.TextOverflow.clip,
               style: pw.TextStyle(font: font, fontSize: 8.5, color: color)),
         ),
       );
     }
 
-    return pw.Column(children: [
-      pw.Container(
+    // Les cellules sont centrées verticalement quand la ligne a une hauteur
+    // fixe : un nom sur une seule ligne resterait sinon collé en haut de sa
+    // boîte, à côté d'un voisin sur deux lignes.
+    pw.Widget ligne(List<pw.Widget> cellules, {bool entete = false}) {
+      final contenu = pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: cellules,
+      );
+      return pw.Container(
+        height: entete ? null : rowHeight,
+        alignment: rowHeight == null ? null : pw.Alignment.centerLeft,
         padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: pw.BoxDecoration(
-            color: kPdfSurface, borderRadius: pw.BorderRadius.circular(4)),
-        child: pw.Row(
-          children: List.generate(
-              headers.length,
-              (i) => cell(headers[i].toUpperCase(), flex[i], fonts.medium, i,
-                  headers.length,
-                  color: kPdfMuted)),
-        ),
+        decoration: entete
+            ? pw.BoxDecoration(
+                color: kPdfSurface, borderRadius: pw.BorderRadius.circular(4))
+            : const pw.BoxDecoration(
+                border: pw.Border(
+                    bottom: pw.BorderSide(color: kPdfBorder, width: 0.6)),
+              ),
+        child: contenu,
+      );
+    }
+
+    return pw.Column(children: [
+      ligne(
+        List.generate(
+            headers.length,
+            (i) => cell(headers[i].toUpperCase(), flex[i], fonts.medium, i,
+                headers.length,
+                color: kPdfMuted)),
+        entete: true,
       ),
-      ...rows.map((r) => pw.Container(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            decoration: const pw.BoxDecoration(
-              border: pw.Border(
-                  bottom: pw.BorderSide(color: kPdfBorder, width: 0.6)),
-            ),
-            child: pw.Row(
-              children: List.generate(
-                  r.length,
-                  (i) => cell(r[i], flex[i], i == 0 ? fonts.medium : fonts.regular,
-                      i, r.length,
-                      color: i == 0 ? kPdfText : kPdfMuted)),
-            ),
-          )),
+      ...rows.map((r) => ligne(List.generate(
+          r.length,
+          (i) => cell(r[i], flex[i], i == 0 ? fonts.medium : fonts.regular, i,
+              r.length,
+              color: i == 0 ? kPdfText : kPdfMuted,
+              // Seule la première colonne — le libellé — a droit à plusieurs
+              // lignes. Un nombre qui passerait à la ligne ne se lit plus.
+              lignes: i == 0 ? maxLines : 1)))),
     ]);
   }
 

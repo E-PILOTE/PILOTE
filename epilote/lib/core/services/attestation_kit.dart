@@ -103,7 +103,14 @@ class AttestationKit {
   /// Sans cet espace, le document n'a aucune valeur au guichet.
   static pw.Widget signature(PdfFonts f, String? city, DateTime quand,
       String? signataire, String? fonction) {
-    final lieu = (city == null || city.trim().isEmpty) ? '' : '${city.trim()}, ';
+    // Sans ville, « Fait à  le 11 août 2026 » : un « à » suspendu et une double
+    // espace, en bas d'un document officiel. La formule sans lieu est « Fait
+    // le … », pas « Fait à le … ». Le cas se produit dès qu'un document est
+    // édité au niveau du groupe, qui n'a pas de commune.
+    final ville = city?.trim() ?? '';
+    final faitLe = ville.isEmpty
+        ? 'Fait le ${jourLong.format(quand)}'
+        : 'Fait à $ville, le ${jourLong.format(quand)}';
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 28),
       child: pw.Row(children: [
@@ -113,7 +120,7 @@ class AttestationKit {
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.center,
             children: [
-              pw.Text('Fait à $lieu le ${jourLong.format(quand)}',
+              pw.Text(faitLe,
                   style: pw.TextStyle(
                       font: f.regular, fontSize: 10, color: kPdfText)),
               pw.SizedBox(height: 6),

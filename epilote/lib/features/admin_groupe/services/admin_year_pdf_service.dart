@@ -1,90 +1,103 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../../core/services/attestation_kit.dart';
 import '../../../core/services/official_pdf_kit.dart';
-
 import '../providers/admin_academic_year_provider.dart';
 import '../providers/admin_year_analytics_provider.dart';
 
-// ─── Couleurs PDF (alignées sur les autres documents officiels) ───────────────
-const _navy = PdfColor.fromInt(0xFF1E3A5F);
-const _navyL = PdfColor.fromInt(0xFF2A4E7A);
-const _green = PdfColor.fromInt(0xFF009A44);
-const _gold = PdfColor.fromInt(0xFFFBBC04);
-const _red = PdfColor.fromInt(0xFFDC143C);
-const _purple = PdfColor.fromInt(0xFF7C3AED);
-const _muted = PdfColor.fromInt(0xFF64748B);
-const _border = PdfColor.fromInt(0xFFE2E8F0);
-const _surface = PdfColor.fromInt(0xFFF0F4F8);
-const _text = PdfColor.fromInt(0xFF0F172A);
-
 // ══════════════════════════════════════════════════════════════════════════════
-//  Service : BILAN OFFICIEL d'une année scolaire (groupe).
-//  Synthèse + évolution pluriannuelle + ventilations département / type / école.
-//  Style officiel : bandeau tricolore, emblème, en-tête « RÉPUBLIQUE DU CONGO ».
+//  BILAN OFFICIEL D'UNE ANNÉE SCOLAIRE (niveau groupe).
+//
+//  ⚠️ CE DOCUMENT EST ÉMIS PAR LE MINISTÈRE, PAS PAR NOUS.
+//  Ce service portait sa PROPRE copie de l'en-tête officiel, laquelle écrivait
+//  « E-PILOTE CONGO / Plateforme Nationale de Gestion Scolaire » sous les
+//  armoiries. Le bilan du METP déposé au ministère était donc signé du nom du
+//  fournisseur du logiciel. `OfficialPdfKit` + `PdfIssuer` traitent exactement
+//  ce problème — vingt-sept services les utilisent — et ce service ne leur
+//  était jamais passé. En les adoptant, l'en-tête prend le nom du groupe
+//  connecté et E-PILOTE retourne à sa place : le pied de page, comme outil qui
+//  a produit le document et non comme auteur.
+//
+//  L'émetteur est posé une fois par session par `pdfIssuerProvider`, surveillé
+//  depuis `AppShell` : aucun service d'export n'a à s'en occuper.
 // ══════════════════════════════════════════════════════════════════════════════
 class AcademicYearPdfService {
+  /// Hauteur d'une ligne du tableau des établissements.
+  ///
+  /// Fixe, et c'est tout l'intérêt : elle autorise deux lignes de libellé — donc
+  /// « Collège d'Enseignement Technique de Ouésso » en entier — sans rendre la
+  /// hauteur du tableau imprévisible. Écrêter à une ligne rendait trois collèges
+  /// rigoureusement identiques à l'écran, seul le département les distinguant.
+  static const double _hauteurLigneEcole = 30;
+
+  /// Lignes par bloc de tableau. Une A4 offre ~774 pt utiles hors en-tête de
+  /// continuation et pied de page ; on retire le titre de cadre et la ligne
+  /// d'en-tête, puis on garde une marge pour les arrondis de rendu.
+  static const int _blocEcoles = 20; // lignes de 30 pt
+  static const int _blocSimple = 28; // lignes d'une seule ligne de texte
+
   static Future<Uint8List> buildPdf({
     required AdminYear year,
     required AdminYearAnalytics analytics,
     required List<AdminYear> allYears,
+    String? signataire,
+    String? fonctionSignataire,
   }) async {
-    // Polices EMBARQUÉES (assets/fonts) — cf. OfficialPdfKit.loadFonts().
-    // `PdfGoogleFonts` allait les chercher sur fonts.gstatic.com et, en cas
-    // d'échec, retombait SANS BRUIT sur Helvetica : sur un poste hors ligne —
-    // le cas normal d'une école congolaise — le document officiel sortait dans
-    // une police de secours sans Unicode, et nul ne le voyait avant impression.
-    final polices = await OfficialPdfKit.loadFonts();
-    final fontRegular = polices.regular;
-    final fontBold = polices.bold;
-    final fontMedium = polices.medium;
-
-    pw.MemoryImage? logoImage;
-    final logoBytes = await _rasterizeSvg('assets/icons/logo.svg', 320);
-    if (logoBytes != null) logoImage = pw.MemoryImage(logoBytes);
+    final f = await OfficialPdfKit.loadFonts();
+    final logo = await OfficialPdfKit.loadLogo();
 
     final fmtDateL = DateFormat('dd MMMM yyyy', 'fr');
-    final now = DateFormat('dd/MM/yyyy • HH:mm', 'fr').format(DateTime.now());
-    final ref_ = DateFormat('yyyyMMdd-HHmm').format(DateTime.now());
-    final range =
+    final maintenant = DateTime.now();
+    final now = DateFormat('dd/MM/yyyy • HH:mm', 'fr').format(maintenant);
+    final ref = DateFormat('yyyyMMdd-HHmm').format(maintenant);
+    final periode =
         '${fmtDateL.format(year.startDate)} au ${fmtDateL.format(year.endDate)}';
+    final titre = "Bilan de l'année scolaire ${year.label}";
 
     final doc = pw.Document(
       title: 'Bilan ${year.label}',
-      author: 'E-PILOTE CONGO',
+      author: OfficialPdfKit.issuer?.name ?? 'E-PILOTE CONGO',
       creator: 'E-PILOTE CONGO',
-      subject: "Bilan de l'année scolaire ${year.label}",
+      subject: titre,
     );
 
     doc.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
       margin: pw.EdgeInsets.zero,
-      header: (ctx) =>
-          _header(logoImage, fontBold, fontMedium, fontRegular),
-      footer: (ctx) => _footer(ctx, fontRegular, fontMedium, now, ref_),
+      header: (ctx) => OfficialPdfKit.headerFor(ctx, logo, f,
+          badge: 'BILAN\nANNÉE SCOLAIRE', title: titre),
+      footer: (ctx) => OfficialPdfKit.footer(ctx, f, now, ref),
       build: (ctx) => [
         pw.SizedBox(height: 14),
-        _titleBlock(year, range, fmtDateL.format(DateTime.now()), fontBold,
-            fontMedium, fontRegular),
+        OfficialPdfKit.titleBlock(f,
+            kicker: "BILAN DE L'ANNÉE SCOLAIRE",
+            title: year.label,
+            line1: 'Période : $periode',
+            line2: 'Édité le ${fmtDateL.format(maintenant)}',
+            statusBadge: _statut(year)),
         pw.SizedBox(height: 16),
-        _kpiGrid(year, analytics, fontBold, fontRegular),
-        pw.SizedBox(height: 16),
-        _evolutionSection(allYears, fontBold, fontMedium, fontRegular),
+        _kpis(year, analytics, f),
+        pw.SizedBox(height: 18),
+        ..._evolution(allYears, year, f),
         pw.SizedBox(height: 14),
-        ..._deptSection(analytics, fontBold, fontMedium, fontRegular),
+        ..._parDepartement(analytics, f),
         pw.SizedBox(height: 14),
-        _typeSection(analytics, fontBold, fontMedium, fontRegular),
+        ..._parType(analytics, f),
         pw.SizedBox(height: 14),
-        ..._schoolsSection(analytics, fontBold, fontMedium, fontRegular),
+        ..._parEtablissement(analytics, f),
+        pw.SizedBox(height: 26),
+        // La signature vient APRÈS ce qu'elle authentifie — un bilan signé au
+        // milieu du document n'engage rien. `MultiPage` la reporte d'elle-même
+        // sur la page suivante si elle ne tient pas ici.
+        AttestationKit.signature(
+            f, null, maintenant, signataire, fonctionSignataire ?? _kFonction),
         pw.SizedBox(height: 20),
       ],
     ));
@@ -92,277 +105,241 @@ class AcademicYearPdfService {
     return doc.save();
   }
 
-  // ── En-tête officiel ───────────────────────────────────────────────────────
-  static pw.Widget _header(pw.ImageProvider? logo, pw.Font bold, pw.Font medium,
-      pw.Font regular) {
-    return pw.Column(children: [
-      pw.Row(children: [
-        pw.Expanded(child: pw.Container(height: 5, color: _green)),
-        pw.Expanded(child: pw.Container(height: 5, color: _gold)),
-        pw.Expanded(child: pw.Container(height: 5, color: _red)),
-      ]),
-      pw.Container(
-        padding: const pw.EdgeInsets.fromLTRB(28, 16, 28, 14),
-        color: PdfColors.white,
-        child: pw.Row(children: [
-          logo != null
-              ? pw.SizedBox(width: 54, height: 54, child: pw.Image(logo))
-              : pw.Container(
-                  width: 50,
-                  height: 50,
-                  decoration: pw.BoxDecoration(
-                      color: _navy,
-                      borderRadius: pw.BorderRadius.circular(10)),
-                  alignment: pw.Alignment.center,
-                  child: pw.Text('EP',
-                      style: pw.TextStyle(
-                          font: bold, fontSize: 18, color: PdfColors.white)),
-                ),
-          pw.SizedBox(width: 14),
-          pw.Expanded(
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text('RÉPUBLIQUE DU CONGO',
-                    style: pw.TextStyle(
-                        font: medium,
-                        fontSize: 7.5,
-                        color: _muted,
-                        letterSpacing: 1.5)),
-                pw.SizedBox(height: 2),
-                pw.Text('E-PILOTE CONGO',
-                    style:
-                        pw.TextStyle(font: bold, fontSize: 16, color: _navy)),
-                pw.Text('Plateforme Nationale de Gestion Scolaire',
-                    style: pw.TextStyle(
-                        font: regular, fontSize: 9, color: _muted)),
-              ],
-            ),
-          ),
-          pw.Container(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: pw.BoxDecoration(
-              color: _surface,
-              border: pw.Border.all(color: _border),
-              borderRadius: pw.BorderRadius.circular(6),
-            ),
-            child: pw.Text('BILAN\nANNÉE SCOLAIRE',
-                textAlign: pw.TextAlign.center,
-                style: pw.TextStyle(
-                    font: bold,
-                    fontSize: 8,
-                    color: _navy,
-                    letterSpacing: 0.8)),
-          ),
-        ]),
-      ),
-      pw.Container(
-        height: 2,
-        decoration: const pw.BoxDecoration(
-          gradient: pw.LinearGradient(colors: [_navy, _navyL, PdfColors.white]),
-        ),
-      ),
-      pw.SizedBox(height: 8),
-    ]);
-  }
+  /// Qualité du signataire. Neutre à dessein : l'émetteur peut être un ministère
+  /// comme un réseau privé, et « Le chef d'établissement » — le défaut du kit —
+  /// serait faux dans les deux cas pour un document de niveau groupe.
+  /// À terme, ce libellé a sa place dans les paramètres du groupe.
+  static const _kFonction = 'Le responsable du groupe scolaire';
 
-  static pw.Widget _footer(pw.Context ctx, pw.Font regular, pw.Font medium,
-      String now, String ref_) {
-    return pw.Container(
-      padding: const pw.EdgeInsets.fromLTRB(28, 8, 28, 12),
-      decoration: const pw.BoxDecoration(
-        border: pw.Border(top: pw.BorderSide(color: _border, width: 0.8)),
-      ),
-      child: pw.Row(children: [
-        pw.Expanded(
-          child: pw.Text(
-            'Document officiel généré le $now  •  E-PILOTE CONGO  •  Réf. $ref_',
-            style: pw.TextStyle(font: regular, fontSize: 7.5, color: _muted),
-          ),
-        ),
-        pw.Container(
-          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: pw.BoxDecoration(
-              color: _navy, borderRadius: pw.BorderRadius.circular(4)),
-          child: pw.Text('Page ${ctx.pageNumber} / ${ctx.pagesCount}',
-              style: pw.TextStyle(
-                  font: medium, fontSize: 7.5, color: PdfColors.white)),
-        ),
-      ]),
-    );
-  }
+  static String _statut(AdminYear y) => y.isLocked
+      ? 'Archivée'
+      : y.isCurrent
+          ? 'En cours'
+          : y.startDate.isAfter(DateTime.now())
+              ? 'À venir'
+              : 'Passée';
 
-  // ── Bloc titre ───────────────────────────────────────────────────────────────
-  static pw.Widget _titleBlock(AdminYear year, String range, String genDate,
-      pw.Font bold, pw.Font medium, pw.Font regular) {
-    final status = year.isLocked
-        ? 'Archivée'
-        : year.isCurrent
-            ? 'En cours'
-            : year.startDate.isAfter(DateTime.now())
-                ? 'À venir'
-                : 'Passée';
-    return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 28),
-      child: pw.Container(
-        padding: const pw.EdgeInsets.all(16),
-        decoration: pw.BoxDecoration(
-          color: _surface,
-          borderRadius: pw.BorderRadius.circular(8),
-          border: pw.Border.all(color: _border),
-        ),
-        child: pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Expanded(
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text("BILAN DE L'ANNÉE SCOLAIRE",
-                      style: pw.TextStyle(
-                          font: medium,
-                          fontSize: 8,
-                          color: _muted,
-                          letterSpacing: 1)),
-                  pw.SizedBox(height: 3),
-                  pw.Text(year.label,
-                      style: pw.TextStyle(
-                          font: bold, fontSize: 20, color: _navy)),
-                  pw.SizedBox(height: 4),
-                  pw.Text('Période : $range',
-                      style: pw.TextStyle(
-                          font: regular, fontSize: 9.5, color: _text)),
-                  pw.Text('Édité le $genDate',
-                      style: pw.TextStyle(
-                          font: regular, fontSize: 8.5, color: _muted)),
-                ],
-              ),
-            ),
-            pw.Container(
-              padding:
-                  const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              decoration: pw.BoxDecoration(
-                  color: _navy, borderRadius: pw.BorderRadius.circular(20)),
-              child: pw.Text(status,
-                  style: pw.TextStyle(
-                      font: bold, fontSize: 9, color: PdfColors.white)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── Grille KPI ─────────────────────────────────────────────────────────────
-  static pw.Widget _kpiGrid(AdminYear year, AdminYearAnalytics a, pw.Font bold,
-      pw.Font regular) {
+  // ── Indicateurs ─────────────────────────────────────────────────────────────
+  //  Les compteurs viennent de `year`, c'est-à-dire d'un GROUP BY Postgres rendu
+  //  en UNE ligne — et non de la somme de `a.bySchool`, qui en compte une par
+  //  établissement et que PostgREST tronque SANS ERREUR au-delà de `max-rows`.
+  //  Sommer la liste ferait diverger le document officiel de l'écran qui l'a
+  //  commandé, lequel lit déjà `year`.
+  static pw.Widget _kpis(AdminYear year, AdminYearAnalytics a, PdfFonts f) {
     final adopt = year.schoolsTotal == 0
         ? 0
         : (year.schoolsAdopted / year.schoolsTotal * 100).round();
-    // Les compteurs viennent de `year`, c'est-à-dire d'un GROUP BY Postgres
-    // rendu en UNE ligne — et non de la somme de `a.bySchool`, qui en compte
-    // une par établissement et que PostgREST tronque SANS ERREUR au-delà de
-    // `max-rows`. Sommer la liste ferait diverger le document officiel de
-    // l'écran qui l'a commandé, lequel lit déjà `year`. Un bilan national qui
-    // se contredit lui-même vaut moins que pas de bilan du tout.
     final moyenne = year.classes == 0 ? 0.0 : year.eleves / year.classes;
-    final cells = <List<dynamic>>[
-      ['Élèves inscrits', '${year.eleves}', _green],
-      ['Classes ouvertes', '${year.classes}', _navy],
-      ['Écoles préparées', '${year.schoolsAdopted}/${year.schoolsTotal}', _gold],
-      ["Taux d'adoption", '$adopt %', _navy],
-      ['Départements couverts', '${a.departementsCouverts}', _purple],
-      ['Moy. élèves / classe', moyenne.toStringAsFixed(1), _green],
-    ];
-    return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 28),
-      child: pw.Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: cells.map((c) {
-          return pw.Container(
-            width: 167,
-            padding: const pw.EdgeInsets.all(11),
-            decoration: pw.BoxDecoration(
-              color: PdfColors.white,
-              border: pw.Border.all(color: _border),
-              borderRadius: pw.BorderRadius.circular(8),
-            ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Container(width: 22, height: 3, color: c[2] as PdfColor),
-                pw.SizedBox(height: 8),
-                pw.Text(c[1] as String,
-                    style: pw.TextStyle(
-                        font: bold, fontSize: 18, color: c[2] as PdfColor)),
-                pw.SizedBox(height: 2),
-                pw.Text(c[0] as String,
-                    style: pw.TextStyle(
-                        font: regular, fontSize: 8.5, color: _muted)),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
+
+    // 173 pt × 3 + 2 gouttières de 10 = 539 pt, la largeur utile exacte d'une
+    // A4 à marges de 28. Deux rangées de trois qui touchent les deux bords :
+    // une largeur choisie au hasard laissait une bande blanche à droite.
+    return OfficialPdfKit.kpiGrid(
+      f,
+      [
+        PdfKpi('Élèves inscrits', '${year.eleves}', kPdfGreen),
+        PdfKpi('Classes ouvertes', '${year.classes}', kPdfNavy),
+        PdfKpi('Écoles préparées',
+            '${year.schoolsAdopted}/${year.schoolsTotal}', kPdfGold),
+        PdfKpi("Taux d'adoption", '$adopt %', kPdfNavy),
+        PdfKpi('Départements couverts', '${a.departementsCouverts}',
+            const PdfColor.fromInt(0xFF7C3AED)),
+        PdfKpi('Moy. élèves / classe', moyenne.toStringAsFixed(1), kPdfGreen),
+      ],
+      width: 173,
     );
   }
 
-  // ── Évolution pluriannuelle ──────────────────────────────────────────────────
-  static pw.Widget _evolutionSection(
-      List<AdminYear> years, pw.Font bold, pw.Font medium, pw.Font regular) {
+  // ── Évolution pluriannuelle : une figure, pas seulement des chiffres ────────
+  //  « 1612 puis 1773 » est une trajectoire ; alignée en colonnes, elle se lit
+  //  comme deux nombres sans rapport. Des barres proportionnelles la rendent
+  //  saisissable d'un coup d'œil — ce qu'attend un cabinet ministériel d'un
+  //  bilan. Barres dessinées à la main plutôt qu'un moteur de graphes : trois à
+  //  dix années tiennent en quelques rectangles, et rien ne peut déborder.
+  static List<pw.Widget> _evolution(
+      List<AdminYear> years, AdminYear courante, PdfFonts f) {
     final chrono = years.reversed.toList();
-    return _frame(
-      title: 'ÉVOLUTION PLURIANNUELLE',
-      color: _navy,
-      bold: bold,
-      child: _table(
-        headers: const ['Année', 'Élèves', 'Classes', 'Écoles préparées'],
-        rows: chrono
-            .map((y) => [
-                  y.label,
-                  '${y.eleves}',
-                  '${y.classes}',
-                  '${y.schoolsAdopted}/${y.schoolsTotal}',
+    if (chrono.isEmpty) return const [];
+
+    final maxEleves =
+        chrono.map((y) => y.eleves).fold<int>(0, (a, b) => a > b ? a : b);
+
+    pw.Widget barre(AdminYear y) {
+      final part = maxEleves == 0 ? 0.0 : y.eleves / maxEleves;
+      final actuelle = y.id == courante.id;
+      // Une année à venir n'a pas encore d'inscrits : la montrer comme une barre
+      // à zéro se lit comme un effondrement. On la nomme pour ce qu'elle est.
+      final aVenir = y.eleves == 0 && y.startDate.isAfter(DateTime.now());
+      return pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 7),
+        child: pw.Row(children: [
+          pw.SizedBox(
+            width: 62,
+            child: pw.Text(y.label,
+                maxLines: 1,
+                style: pw.TextStyle(
+                    font: actuelle ? f.bold : f.regular,
+                    fontSize: 8.5,
+                    color: kPdfText)),
+          ),
+          // Proportion par deux `Expanded` à flex entiers : le paquet `pdf` n'a
+          // pas de `FractionallySizedBox`, et la répartition par flex donne le
+          // même résultat au pixel près sans dépendre de la largeur disponible,
+          // inconnue ici puisqu'elle varie avec le format de page.
+          pw.Expanded(
+            child: pw.Container(
+              height: 14,
+              decoration: pw.BoxDecoration(
+                  color: kPdfSurface,
+                  borderRadius: pw.BorderRadius.circular(3)),
+              child: aVenir
+                  ? null
+                  : pw.Row(children: [
+                      pw.Expanded(
+                        // Au moins 1/1000 : une année à un seul élève doit
+                        // rester visible, pas disparaître dans le fond.
+                        flex: (part * 1000).round().clamp(1, 1000),
+                        child: pw.Container(
+                          decoration: pw.BoxDecoration(
+                              color: actuelle
+                                  ? kPdfGreen
+                                  : pdfTint(kPdfNavy, 0.55),
+                              borderRadius: pw.BorderRadius.circular(3)),
+                        ),
+                      ),
+                      if ((part * 1000).round().clamp(1, 1000) < 1000)
+                        pw.Expanded(
+                          flex: 1000 - (part * 1000).round().clamp(1, 1000),
+                          child: pw.SizedBox(),
+                        ),
+                    ]),
+            ),
+          ),
+          pw.SizedBox(width: 8),
+          pw.SizedBox(
+            width: 92,
+            child: pw.Text(
+                aVenir
+                    ? 'à venir'
+                    : '${y.eleves} élèves · ${y.classes} cl.',
+                maxLines: 1,
+                textAlign: pw.TextAlign.right,
+                style: pw.TextStyle(
+                    font: actuelle ? f.medium : f.regular,
+                    fontSize: 8.5,
+                    color: aVenir ? kPdfMuted : kPdfText)),
+          ),
+        ]),
+      );
+    }
+
+    return [
+      OfficialPdfKit.frame(
+        title: 'ÉVOLUTION PLURIANNUELLE',
+        color: kPdfNavy,
+        fonts: f,
+        child: pw.Column(children: chrono.map(barre).toList()),
+      ),
+    ];
+  }
+
+  // ── Répartition par département ─────────────────────────────────────────────
+  //  Le Congo compte douze départements : le cas normal tient sur un bloc. La
+  //  pagination couvre le cas sale — `schools.department` est du texte libre, et
+  //  quelques saisies fautives suffiraient à en faire lever cinquante.
+  static List<pw.Widget> _parDepartement(AdminYearAnalytics a, PdfFonts f) =>
+      _sectionPaginee(
+        title: 'RÉPARTITION PAR DÉPARTEMENT',
+        color: kPdfGreen,
+        headers: const [
+          'Département',
+          'Écoles préparées',
+          'Classes',
+          'Élèves',
+        ],
+        flex: const [4, 3, 2, 2],
+        rows: a.byDepartment
+            .map((d) => [
+                  d.department,
+                  '${d.ecolesPreparees}/${d.ecoles}',
+                  '${d.classes}',
+                  '${d.eleves}',
                 ])
             .toList(),
-        bold: bold,
-        medium: medium,
-        regular: regular,
-        flex: const [3, 2, 2, 3],
-      ),
+        vide: 'Aucune donnée par département.',
+        parBloc: _blocSimple,
+        fonts: f,
+      );
+
+  static List<pw.Widget> _parType(AdminYearAnalytics a, PdfFonts f) {
+    String label(String t) => switch (t) {
+          'public' => 'Public',
+          'prive' => 'Privé',
+          _ => t.isEmpty ? 'Autre' : t,
+        };
+    return _sectionPaginee(
+      title: "TYPE D'ÉTABLISSEMENT",
+      color: kPdfGold,
+      headers: const ['Type', 'Écoles', 'Classes', 'Élèves'],
+      flex: const [4, 2, 2, 2],
+      rows: a.byType
+          .map((t) => [
+                label(t.type),
+                '${t.ecoles}',
+                '${t.classes}',
+                '${t.eleves}',
+              ])
+          .toList(),
+      vide: 'Aucune donnée par type.',
+      parBloc: _blocSimple,
+      fonts: f,
     );
   }
 
-  // ── Pagination des listes longues ────────────────────────────────────────────
-  //  ⚠️ `_frame()` enveloppe son contenu dans un `Padding`, et un `Padding` ne
-  //  sait PAS se scinder entre deux pages. Confier à un seul cadre un tableau
-  //  plus haut qu'une feuille fait boucler `MultiPage` jusqu'à
-  //  `TooManyPagesException` : le document ne sort alors pas du tout — pas
-  //  « mal paginé », pas « tronqué » : absent, avec un message d'erreur.
+  // ── Préparation par établissement ───────────────────────────────────────────
+  //  La liste qui dicte la taille du document : une ligne par établissement du
+  //  groupe, donc jusqu'à 1 000 à la cible nationale.
   //
-  //  Mesuré : le bilan cessait de se générer à partir de 31 établissements.
-  //  Les deux plus gros groupes en comptent 14 et 12 aujourd'hui, donc le
-  //  défaut ne s'était encore jamais montré ; à la cible de 1 000 écoles, il
-  //  aurait rendu le bilan national impossible à éditer. Tout tableau dont le
-  //  nombre de lignes n'est pas borné à vue d'œil passe donc par ici et sort en
-  //  un cadre par bloc.
-  //
-  //  28 lignes : la hauteur utile d'une A4 en tient ~32 (ligne ≈ 22,6 pt,
-  //  en-tête de tableau et titre de cadre déduits). La marge absorbe les
-  //  arrondis de rendu.
-  static const int _lignesParBloc = 28;
+  //  Colonne des noms très large (9/20 de la page) et deux lignes autorisées :
+  //  les intitulés congolais sont longs — « Collège d'Enseignement Technique
+  //  de … » fait à lui seul trente-cinq caractères avant la commune. Écrêtés,
+  //  trois établissements devenaient indiscernables.
+  static List<pw.Widget> _parEtablissement(
+          AdminYearAnalytics a, PdfFonts f) =>
+      _sectionPaginee(
+        title: 'PRÉPARATION PAR ÉTABLISSEMENT',
+        color: const PdfColor.fromInt(0xFF7C3AED),
+        headers: const [
+          'Établissement',
+          'Département',
+          'Classes',
+          'Élèves',
+          'État',
+        ],
+        flex: const [9, 4, 2, 2, 3],
+        rows: a.bySchool
+            .map((s) => [
+                  s.name,
+                  s.department,
+                  '${s.classes}',
+                  '${s.eleves}',
+                  s.adopted ? 'Préparée' : 'En attente',
+                ])
+            .toList(),
+        vide: 'Aucune école active.',
+        parBloc: _blocEcoles,
+        maxLines: 2,
+        rowHeight: _hauteurLigneEcole,
+        fonts: f,
+      );
 
-  static List<List<T>> _paginer<T>(List<T> rows) {
-    final out = <List<T>>[];
-    for (var i = 0; i < rows.length; i += _lignesParBloc) {
-      out.add(rows.sublist(i, (i + _lignesParBloc).clamp(0, rows.length)));
-    }
-    return out;
-  }
-
-  /// Un cadre par bloc. Le titre porte « (2/4) » dès qu'il y en a plusieurs :
-  /// une page détachée doit dire de quelle partie du tableau elle vient.
+  // ── Pagination des listes longues ───────────────────────────────────────────
+  //  ⚠️ `frame()` enveloppe son contenu dans un `Padding`, qui ne sait pas se
+  //  scinder entre deux pages. Confier à un seul cadre un tableau plus haut
+  //  qu'une feuille fait boucler `MultiPage` jusqu'à `TooManyPagesException` :
+  //  le document ne sort alors pas du tout — pas « mal paginé », pas
+  //  « tronqué » : absent, avec un message d'erreur. Mesuré avant correction :
+  //  le bilan cessait de se générer à 31 établissements.
   static List<pw.Widget> _sectionPaginee({
     required String title,
     required PdfColor color,
@@ -370,262 +347,52 @@ class AcademicYearPdfService {
     required List<int> flex,
     required List<List<String>> rows,
     required String vide,
-    required pw.Font bold,
-    required pw.Font medium,
-    required pw.Font regular,
+    required int parBloc,
+    required PdfFonts fonts,
+    int maxLines = 1,
+    double? rowHeight,
   }) {
     if (rows.isEmpty) {
       return [
-        _frame(
+        OfficialPdfKit.frame(
             title: title,
             color: color,
-            bold: bold,
-            child: _empty(vide, regular)),
+            fonts: fonts,
+            child: OfficialPdfKit.empty(vide, fonts.regular)),
       ];
     }
-    final blocs = _paginer(rows);
+
+    final blocs = <List<List<String>>>[];
+    for (var i = 0; i < rows.length; i += parBloc) {
+      blocs.add(rows.sublist(i, (i + parBloc).clamp(0, rows.length)));
+    }
+
     return [
       for (var i = 0; i < blocs.length; i++) ...[
         if (i > 0) pw.SizedBox(height: 10),
-        _frame(
-          title: blocs.length == 1 ? title : '$title (${i + 1}/${blocs.length})',
+        OfficialPdfKit.frame(
+          // Une page détachée doit dire de quelle partie du tableau elle vient.
+          title:
+              blocs.length == 1 ? title : '$title (${i + 1}/${blocs.length})',
           color: color,
-          bold: bold,
-          child: _table(
+          fonts: fonts,
+          child: OfficialPdfKit.table(
             headers: headers,
             rows: blocs[i],
-            bold: bold,
-            medium: medium,
-            regular: regular,
             flex: flex,
+            fonts: fonts,
+            maxLines: maxLines,
+            rowHeight: rowHeight,
           ),
         ),
       ],
     ];
   }
 
-  // ── Répartition par département ──────────────────────────────────────────────
-  //  Le Congo compte 12 départements : le cas normal tient sur un bloc. La
-  //  pagination couvre le cas sale — `schools.department` est du texte libre, et
-  //  une poignée de saisies fautives suffirait à en faire lever cinquante.
-  static List<pw.Widget> _deptSection(AdminYearAnalytics a, pw.Font bold,
-      pw.Font medium, pw.Font regular) {
-    return _sectionPaginee(
-      title: 'RÉPARTITION PAR DÉPARTEMENT',
-      color: _green,
-      headers: const ['Département', 'Écoles préparées', 'Classes', 'Élèves'],
-      flex: const [4, 3, 2, 2],
-      rows: a.byDepartment
-          .map((d) => [
-                d.department,
-                '${d.ecolesPreparees}/${d.ecoles}',
-                '${d.classes}',
-                '${d.eleves}',
-              ])
-          .toList(),
-      vide: 'Aucune donnée par département.',
-      bold: bold,
-      medium: medium,
-      regular: regular,
-    );
-  }
-
-  // ── Type d'établissement ─────────────────────────────────────────────────────
-  static pw.Widget _typeSection(AdminYearAnalytics a, pw.Font bold,
-      pw.Font medium, pw.Font regular) {
-    String label(String t) => switch (t) {
-          'public' => 'Public',
-          'prive' => 'Privé',
-          _ => t.isEmpty ? 'Autre' : t,
-        };
-    return _frame(
-      title: "TYPE D'ÉTABLISSEMENT",
-      color: _gold,
-      bold: bold,
-      child: a.byType.isEmpty
-          ? _empty('Aucune donnée par type.', regular)
-          : _table(
-              headers: const ['Type', 'Écoles', 'Classes', 'Élèves'],
-              rows: a.byType
-                  .map((t) => [
-                        label(t.type),
-                        '${t.ecoles}',
-                        '${t.classes}',
-                        '${t.eleves}',
-                      ])
-                  .toList(),
-              bold: bold,
-              medium: medium,
-              regular: regular,
-              flex: const [4, 2, 2, 2],
-            ),
-    );
-  }
-
-  // ── Préparation par école ────────────────────────────────────────────────────
-  //  La liste qui dicte la taille du document : une ligne par établissement du
-  //  groupe, donc jusqu'à 1 000 à la cible nationale.
-  static List<pw.Widget> _schoolsSection(AdminYearAnalytics a, pw.Font bold,
-      pw.Font medium, pw.Font regular) {
-    return _sectionPaginee(
-      title: 'PRÉPARATION PAR ÉTABLISSEMENT',
-      color: _purple,
-      headers: const [
-        'Établissement',
-        'Département',
-        'Classes',
-        'Élèves',
-        'État',
-      ],
-      flex: const [5, 4, 2, 2, 3],
-      rows: a.bySchool
-          .map((s) => [
-                s.name,
-                s.department,
-                '${s.classes}',
-                '${s.eleves}',
-                s.adopted ? 'Préparée' : 'En attente',
-              ])
-          .toList(),
-      vide: 'Aucune école active.',
-      bold: bold,
-      medium: medium,
-      regular: regular,
-    );
-  }
-
-  // ── Helpers de mise en page ──────────────────────────────────────────────────
-  static pw.Widget _frame({
-    required String title,
-    required PdfColor color,
-    required pw.Font bold,
-    required pw.Widget child,
-  }) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 28),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Container(
-            padding: const pw.EdgeInsets.fromLTRB(2, 0, 2, 6),
-            child: pw.Row(children: [
-              pw.Container(
-                  width: 4,
-                  height: 13,
-                  decoration: pw.BoxDecoration(
-                      color: color,
-                      borderRadius: pw.BorderRadius.circular(2))),
-              pw.SizedBox(width: 7),
-              pw.Text(title,
-                  style: pw.TextStyle(
-                      font: bold,
-                      fontSize: 11,
-                      color: _text,
-                      letterSpacing: 0.5)),
-            ]),
-          ),
-          child,
-        ],
-      ),
-    );
-  }
-
-  static pw.Widget _table({
-    required List<String> headers,
-    required List<List<String>> rows,
-    required List<int> flex,
-    required pw.Font bold,
-    required pw.Font medium,
-    required pw.Font regular,
-  }) {
-    pw.Widget cell(String t, int f, pw.Font font, int i, int n,
-        {PdfColor color = _text, pw.TextAlign align = pw.TextAlign.left}) {
-      return pw.Expanded(
-        flex: f,
-        child: pw.Padding(
-          // Gouttière entre colonnes. Sans elle, une valeur qui remplit sa
-          // colonne vient coller à la suivante et les deux se lisent comme un
-          // seul mot. Rien après la dernière, qui longe déjà le bord du cadre.
-          padding: pw.EdgeInsets.only(right: i == n - 1 ? 0 : 6),
-          // `maxLines: 1` n'est pas cosmétique. « Complexe Scolaire
-          // Départemental Étoile du Nord de Ouesso » ne tient pas dans sa
-          // colonne : sans écrêtage il passe sur deux lignes, la ligne du
-          // tableau grandit, le bloc dépasse la hauteur d'une page — et comme
-          // `_frame()` l'enveloppe dans un `Padding` incapable de se scinder,
-          // `MultiPage` boucle jusqu'à `TooManyPagesException`. Le document ne
-          // sort alors PAS. Une ligne du tableau = une ligne de hauteur, quel
-          // que soit le contenu : c'est ce qui rend la pagination calculable.
-          child: pw.Text(t,
-              textAlign: align,
-              maxLines: 1,
-              overflow: pw.TextOverflow.clip,
-              style: pw.TextStyle(font: font, fontSize: 8.5, color: color)),
-        ),
-      );
-    }
-
-    return pw.Column(children: [
-      pw.Container(
-        padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: pw.BoxDecoration(
-            color: _surface, borderRadius: pw.BorderRadius.circular(4)),
-        child: pw.Row(
-          children: List.generate(headers.length, (i) {
-            return cell(headers[i].toUpperCase(), flex[i], medium, i,
-                headers.length,
-                color: _muted,
-                align: i == 0 ? pw.TextAlign.left : pw.TextAlign.center);
-          }),
-        ),
-      ),
-      ...rows.map((r) => pw.Container(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            decoration: const pw.BoxDecoration(
-              border:
-                  pw.Border(bottom: pw.BorderSide(color: _border, width: 0.6)),
-            ),
-            child: pw.Row(
-              children: List.generate(r.length, (i) {
-                return cell(r[i], flex[i], i == 0 ? medium : regular, i, r.length,
-                    color: i == 0 ? _text : _muted,
-                    align: i == 0 ? pw.TextAlign.left : pw.TextAlign.center);
-              }),
-            ),
-          )),
-    ]);
-  }
-
-  static pw.Widget _empty(String text, pw.Font font) => pw.Container(
-        padding: const pw.EdgeInsets.all(12),
-        decoration: pw.BoxDecoration(
-            color: _surface, borderRadius: pw.BorderRadius.circular(6)),
-        child: pw.Text(text,
-            style: pw.TextStyle(font: font, fontSize: 9, color: _muted)),
-      );
-
-  static Future<Uint8List?> _rasterizeSvg(String asset, double size) async {
-    try {
-      final raw = await rootBundle.loadString(asset);
-      final info = await vg.loadPicture(SvgStringLoader(raw), null);
-      final recorder = ui.PictureRecorder();
-      final canvas = ui.Canvas(recorder);
-      canvas.scale(size / info.size.width);
-      canvas.drawPicture(info.picture);
-      final image =
-          await recorder.endRecording().toImage(size.toInt(), size.toInt());
-      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-      info.picture.dispose();
-      image.dispose();
-      return bytes?.buffer.asUint8List();
-    } catch (_) {
-      return null;
-    }
-  }
-
   static String _slug(String s) =>
       s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
 
-  // ── Impression / téléchargement ────────────────────────────────────────────
+  // ── Impression / enregistrement ─────────────────────────────────────────────
   static Future<void> printReport({
     required AdminYear year,
     required AdminYearAnalytics analytics,
@@ -642,8 +409,12 @@ class AcademicYearPdfService {
     required AdminYear year,
     required AdminYearAnalytics analytics,
     required List<AdminYear> allYears,
+    Uint8List? bytes,
   }) async {
-    final bytes =
+    // `bytes` permet d'enregistrer un document DÉJÀ construit — celui que
+    // l'aperçu affiche. Sans cela, valider l'aperçu regénérerait le PDF, et
+    // l'agent enregistrerait un document qu'il n'a, à la lettre, pas vu.
+    final octets = bytes ??
         await buildPdf(year: year, analytics: analytics, allYears: allYears);
     final fileName = 'Bilan_${_slug(year.label)}'
         '_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf';
@@ -652,11 +423,13 @@ class AcademicYearPdfService {
       fileName: fileName,
       type: FileType.custom,
       allowedExtensions: ['pdf'],
-      bytes: bytes,
+      bytes: octets,
     );
     if (savePath != null) {
-      final f = File(savePath);
-      if (!await f.exists() || await f.length() == 0) await f.writeAsBytes(bytes);
+      final file = File(savePath);
+      if (!await file.exists() || await file.length() == 0) {
+        await file.writeAsBytes(octets);
+      }
     }
     return savePath;
   }
