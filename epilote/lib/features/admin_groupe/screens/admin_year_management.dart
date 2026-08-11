@@ -173,6 +173,46 @@ class _YearCard extends ConsumerWidget {
         'Rentrée basculée sur ${year.label}');
   }
 
+  /// Publier = diffuser à tout le réseau. Le geste qui fait sortir l'année de
+  /// l'espace groupe : jusque-là, ses dates se corrigent sans conséquence.
+  Future<void> _confirmerPublication(BuildContext context, WidgetRef ref) async {
+    final svc = ref.read(adminCalendarServiceProvider);
+    final ok = await showAdminConfirm(
+      context,
+      title: 'Publier ${year.label}',
+      icon: Icons.campaign_rounded,
+      confirmLabel: 'Publier aux écoles',
+      confirmIcon: Icons.send_rounded,
+      message:
+          "L'année ${year.label} et son calendrier descendront sur les postes "
+          'de toutes les écoles du groupe à leur prochaine synchronisation, et '
+          "les chefs d'établissement en seront notifiés.\n\n"
+          "Tant qu'une année est en brouillon, ses dates se corrigent sans "
+          'conséquence. Après publication, une correction atteint tout le '
+          'réseau.\n\n'
+          "L'opération est tracée dans le journal d'audit.",
+    );
+    if (!ok || !context.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final n = await svc.publishYear(year.id);
+      ref.invalidate(adminAcademicYearsProvider);
+      messenger.showSnackBar(SnackBar(
+        backgroundColor: kGreen,
+        content: Text(n == 0
+            ? '${year.label} publiée. Aucun chef d\'établissement enregistré '
+                'à notifier.'
+            : '${year.label} publiée — $n chef${n > 1 ? 's' : ''} '
+                "d'établissement notifié${n > 1 ? 's' : ''}."),
+      ));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+          backgroundColor: kRed,
+          content: Text(messageErreur(e, contexte: 'Publication'))));
+    }
+  }
+
   Future<void> _confirmerArchivage(BuildContext context, WidgetRef ref) async {
     final svc = ref.read(adminCalendarServiceProvider);
     final verrouiller = !year.isLocked;
@@ -224,6 +264,13 @@ class _YearCard extends ConsumerWidget {
                       color: kTextPrimary)),
               const SizedBox(width: 10),
               AdminBadge(st.label, color: st.color),
+              // Un brouillon ne ressemble à rien de particulier une fois créé :
+              // sans marque explicite, l'agent le croit diffusé et s'étonne que
+              // les écoles ne le voient pas.
+              if (year.isDraft) ...[
+                const SizedBox(width: 6),
+                AdminBadge('Brouillon — non diffusée', color: kAccent),
+              ],
               const Spacer(),
               Text('${_fmtShort.format(year.startDate)} → '
                   '${_fmtShort.format(year.endDate)}',
@@ -312,7 +359,17 @@ class _YearCard extends ConsumerWidget {
                   style: TextButton.styleFrom(foregroundColor: kNavy),
                 ),
               const SizedBox(width: 4),
-              if (!year.isCurrent && !year.isLocked)
+              // Publier passe AVANT « définir courante » : la base refuse de
+              // rendre courante une année que les écoles ne reçoivent pas, et
+              // proposer les deux à la fois inviterait à se heurter au refus.
+              if (year.isDraft && !year.isLocked)
+                FilledButton.icon(
+                  onPressed: () => _confirmerPublication(context, ref),
+                  icon: const Icon(Icons.campaign_rounded, size: 17),
+                  label: const Text('Publier aux écoles'),
+                  style: FilledButton.styleFrom(backgroundColor: kAccent),
+                )
+              else if (!year.isCurrent && !year.isLocked)
                 TextButton.icon(
                   onPressed: () => _confirmerCourante(context, ref),
                   icon: const Icon(Icons.check_circle_outline_rounded, size: 17),

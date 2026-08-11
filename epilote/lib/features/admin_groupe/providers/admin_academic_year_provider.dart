@@ -34,6 +34,7 @@ class AdminYear {
     required this.eleves,
     required this.schoolsAdopted,
     required this.schoolsTotal,
+    this.publishedAt,
   });
 
   final String id;
@@ -42,6 +43,15 @@ class AdminYear {
   final DateTime endDate;
   final bool isCurrent;
   final bool isLocked;
+
+  /// Date de diffusion aux écoles. `null` = brouillon.
+  ///
+  /// Un brouillon vit dans le seul espace groupe : la règle `by_group` des
+  /// sync-rules ne descend que les années publiées. C'est ce qui permet de
+  /// corriger une date de rentrée avant qu'elle n'atteigne mille écoles.
+  final DateTime? publishedAt;
+
+  bool get isDraft => publishedAt == null;
   final int classes; // classes du groupe sur cette année
   final int eleves; // inscriptions actives du groupe
   final int schoolsAdopted; // écoles ayant ≥1 classe sur cette année
@@ -114,7 +124,8 @@ final adminAcademicYearsProvider =
 
   final years = await client
       .from('academic_years')
-      .select('id, label, start_date, end_date, is_current, is_locked')
+      .select(
+          'id, label, start_date, end_date, is_current, is_locked, published_at')
       .eq('group_id', groupId)
       .isFilter('school_id', null)
       .order('start_date', ascending: false) as List;
@@ -138,6 +149,9 @@ final adminAcademicYearsProvider =
       endDate: DateTime.parse(y['end_date'] as String),
       isCurrent: y['is_current'] == true,
       isLocked: y['is_locked'] == true,
+      publishedAt: y['published_at'] == null
+          ? null
+          : DateTime.parse(y['published_at'] as String),
       classes: n(s, 'classes'),
       eleves: n(s, 'eleves'),
       schoolsAdopted: n(s, 'schools_adopted'),

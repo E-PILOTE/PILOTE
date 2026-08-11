@@ -148,7 +148,22 @@ bucket_definitions:
       # TOUTES les autres. `academicYearsProvider` la masquait à l'écran, mais
       # elle restait sur leur disque — une exception locale n'a pas à voyager.
       # Les variantes propres à un établissement descendent par `by_school`.
-      - SELECT * FROM academic_years WHERE group_id = bucket.gid AND school_id IS NULL
+      #
+      # `published_at IS NOT NULL` = seules les années DIFFUSÉES descendent. Une
+      # année en préparation reste dans l'espace groupe, où ses dates peuvent
+      # encore être corrigées ; sans ce filtre, une rentrée mal saisie atteignait
+      # mille écoles avant d'avoir été relue.
+      # ⚠️ La migration `annee_scolaire_brouillon_puis_publiee` marque publiées
+      # TOUTES les années existantes. Déployer cette règle sans elle retirerait
+      # son calendrier à tout le parc.
+      # Les trimestres, séquences et fermetures d'un brouillon descendent encore
+      # — ils ne portent pas la colonne, et PowerSync n'accepte pas de JOIN.
+      # C'est sans effet : tout écran d'école se cadre sur une année, et un
+      # brouillon n'apparaît nulle part ; `set_current_academic_year` refuse par
+      # ailleurs d'en faire l'année courante.
+      - SELECT * FROM academic_years
+          WHERE group_id = bucket.gid AND school_id IS NULL
+            AND published_at IS NOT NULL
       - SELECT * FROM trimesters WHERE group_id = bucket.gid AND school_id IS NULL
       - SELECT * FROM sequences WHERE group_id = bucket.gid AND school_id IS NULL
       # Jours non ouvrés NATIONAUX (school_id NULL) : fériés légaux et vacances
