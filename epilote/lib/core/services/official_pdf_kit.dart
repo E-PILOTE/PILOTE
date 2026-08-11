@@ -362,7 +362,14 @@ class OfficialPdfKit {
                     const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                 decoration: pw.BoxDecoration(
                     color: kPdfNavy,
-                    borderRadius: pw.BorderRadius.circular(20)),
+                    // ⚠️ 11 et non 20 : la pastille fait ~25 pt de haut, et un
+                    // rayon supérieur à la DEMI-HAUTEUR fait dégénérer le tracé
+                    // d'arrondi du paquet `pdf` — deux ergots sombres
+                    // apparaissent à gauche et à droite, à mi-hauteur. Le défaut
+                    // était invisible à la lecture du code et parfaitement
+                    // visible sur chaque document officiel portant un badge
+                    // d'état (« En cours », « Département prêt », « Archivée »).
+                    borderRadius: pw.BorderRadius.circular(11)),
                 child: pw.Text(statusBadge,
                     style: pw.TextStyle(
                         font: f.bold, fontSize: 9, color: PdfColors.white)),
@@ -690,6 +697,38 @@ class OfficialPdfKit {
               lignes: i == 0 ? maxLines : 1)))),
     ]);
   }
+
+  // ── Ligne « pastille · libellé · valeur » ───────────────────────────────────
+  //  La forme d'un indicateur isolé, par opposition à une ligne de tableau : un
+  //  libellé qui peut respirer et une valeur colorée en bout de ligne. Trois
+  //  services en avaient chacun leur copie.
+  static pw.Widget statLine(
+    PdfFonts f,
+    String label,
+    String value, {
+    PdfColor color = kPdfNavy,
+  }) =>
+      pw.Container(
+        padding: const pw.EdgeInsets.symmetric(vertical: 5),
+        child: pw.Row(children: [
+          pw.Container(
+              width: 7,
+              height: 7,
+              decoration:
+                  pw.BoxDecoration(color: color, shape: pw.BoxShape.circle)),
+          pw.SizedBox(width: 8),
+          pw.Expanded(
+            child: pw.Text(label,
+                maxLines: 1,
+                overflow: pw.TextOverflow.clip,
+                style: pw.TextStyle(
+                    font: f.regular, fontSize: 9.5, color: kPdfText)),
+          ),
+          pw.Text(value,
+              style:
+                  pw.TextStyle(font: f.medium, fontSize: 9.5, color: color)),
+        ]),
+      );
 
   static pw.Widget empty(String text, pw.Font font) => pw.Padding(
         padding: const pw.EdgeInsets.symmetric(horizontal: 28),

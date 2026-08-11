@@ -283,7 +283,11 @@ class SubscriptionPdfService {
               decoration: pw.BoxDecoration(
                 color: _alpha(sc, 0.12),
                 border: pw.Border.all(color: _alpha(sc, 0.4), width: 1),
-                borderRadius: pw.BorderRadius.circular(20),
+                // 9 et non 20 : la pastille fait ~18 pt de haut, et un rayon
+                // supérieur à la DEMI-HAUTEUR fait dégénérer le tracé d'arrondi
+                // du paquet `pdf` — deux ergots sombres apparaissent à gauche
+                // et à droite, à mi-hauteur.
+                borderRadius: pw.BorderRadius.circular(9),
               ),
               child: pw.Row(children: [
                 pw.Container(width: 7, height: 7,

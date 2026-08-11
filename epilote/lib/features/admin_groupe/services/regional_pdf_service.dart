@@ -242,18 +242,18 @@ class RegionalPdfService {
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          _ligne('Écoles sans coordonnées GPS',
+          OfficialPdfKit.statLine(f, 'Écoles sans coordonnées GPS',
               '${d.noGpsCount} / ${d.totalSchools}',
-              d.noGpsCount == 0 ? kPdfGreen : _kOrange, f),
-          _ligne('Taux de géolocalisation', '$pct %',
-              pct >= 80 ? kPdfGreen : (pct >= 40 ? _kOrange : kPdfRed), f),
-          _ligne(
+              color: d.noGpsCount == 0 ? kPdfGreen : _kOrange),
+          OfficialPdfKit.statLine(f, 'Taux de géolocalisation', '$pct %',
+              color: pct >= 80 ? kPdfGreen : (pct >= 40 ? _kOrange : kPdfRed)),
+          OfficialPdfKit.statLine(
+              f,
               'Départements sans établissement',
               nonCouverts.isEmpty
                   ? 'Aucun — couverture complète'
                   : '${nonCouverts.length}',
-              nonCouverts.isEmpty ? kPdfGreen : kPdfMuted,
-              f),
+              color: nonCouverts.isEmpty ? kPdfGreen : kPdfMuted),
           if (nonCouverts.isNotEmpty) ...[
             pw.SizedBox(height: 8),
             pw.Container(
@@ -272,30 +272,6 @@ class RegionalPdfService {
       ),
     );
   }
-
-  static pw.Widget _ligne(
-          String label, String valeur, PdfColor color, PdfFonts f) =>
-      pw.Container(
-        padding: const pw.EdgeInsets.symmetric(vertical: 5),
-        child: pw.Row(children: [
-          pw.Container(
-              width: 7,
-              height: 7,
-              decoration:
-                  pw.BoxDecoration(color: color, shape: pw.BoxShape.circle)),
-          pw.SizedBox(width: 8),
-          pw.Expanded(
-            child: pw.Text(label,
-                maxLines: 1,
-                overflow: pw.TextOverflow.clip,
-                style: pw.TextStyle(
-                    font: f.regular, fontSize: 9.5, color: kPdfText)),
-          ),
-          pw.Text(valeur,
-              style:
-                  pw.TextStyle(font: f.medium, fontSize: 9.5, color: color)),
-        ]),
-      );
 
   // ── Enregistrement ─────────────────────────────────────────────────────────
   //  ⚠️ Pas de `printReport` ici — et c'est une correction, pas un oubli.

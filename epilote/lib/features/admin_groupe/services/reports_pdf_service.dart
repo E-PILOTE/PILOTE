@@ -265,7 +265,7 @@ class ReportsPdfService {
               if (l == null)
                 pw.Divider(color: kPdfBorder, thickness: 0.5)
               else
-                _ligne(l.$1, l.$2, l.$3, fonts),
+                OfficialPdfKit.statLine(fonts, l.$1, l.$2, color: l.$3),
           if (note != null) ...[
             pw.SizedBox(height: 6),
             pw.Text(note,
@@ -276,30 +276,6 @@ class ReportsPdfService {
       ),
     );
   }
-
-  static pw.Widget _ligne(
-          String label, String valeur, PdfColor color, PdfFonts f) =>
-      pw.Container(
-        padding: const pw.EdgeInsets.symmetric(vertical: 5),
-        child: pw.Row(children: [
-          pw.Container(
-              width: 7,
-              height: 7,
-              decoration:
-                  pw.BoxDecoration(color: color, shape: pw.BoxShape.circle)),
-          pw.SizedBox(width: 8),
-          pw.Expanded(
-            child: pw.Text(label,
-                maxLines: 1,
-                overflow: pw.TextOverflow.clip,
-                style: pw.TextStyle(
-                    font: f.regular, fontSize: 9.5, color: kPdfText)),
-          ),
-          pw.Text(valeur,
-              style:
-                  pw.TextStyle(font: f.medium, fontSize: 9.5, color: color)),
-        ]),
-      );
 
   // ── Enregistrement ─────────────────────────────────────────────────────────
   //  ⚠️ Pas de `printReport` ici. `Printing.layoutPdf` ouvre sous Windows la
