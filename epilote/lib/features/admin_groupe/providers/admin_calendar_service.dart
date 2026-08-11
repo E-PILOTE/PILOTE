@@ -35,18 +35,39 @@ class RolloverOutcome {
     required this.label,
     required this.trimesters,
     required this.sequences,
+    required this.vacances,
+    required this.feries,
   });
   final String yearId;
   final String label;
   final int trimesters;
   final int sequences;
 
+  /// Congés scolaires REPORTÉS depuis l'année source, dates décalées.
+  final int vacances;
+
+  /// Fériés légaux RECALCULÉS pour la nouvelle année — pas reportés. Pâques est
+  /// mobile : décaler la date de l'an passé la placerait à côté, et l'Ascension
+  /// comme la Pentecôte, qui en dérivent, suivraient l'erreur.
+  final int feries;
+
   String get resume {
-    if (trimesters == 0) return 'Année « $label » créée.';
-    final t = '$trimesters trimestre${trimesters > 1 ? 's' : ''}';
-    if (sequences == 0) return 'Année « $label » créée, $t reporté${trimesters > 1 ? 's' : ''}.';
-    final s = '$sequences séquence${sequences > 1 ? 's' : ''}';
-    return 'Année « $label » créée, $t et $s reportés.';
+    final parts = <String>[
+      if (trimesters > 0) '$trimesters trimestre${trimesters > 1 ? 's' : ''}',
+      if (sequences > 0) '$sequences séquence${sequences > 1 ? 's' : ''}',
+      if (vacances > 0) '$vacances période${vacances > 1 ? 's' : ''} de vacances',
+    ];
+    // L'accord suit le NOMBRE D'ÉLÉMENTS, pas le nombre de catégories : « 3
+    // trimestres reporté » sur une seule catégorie était faux.
+    final total = trimesters + sequences + vacances;
+    final base = parts.isEmpty
+        ? 'Année « $label » créée.'
+        : 'Année « $label » créée, ${parts.join(', ')} '
+            '${total > 1 ? 'reportés' : 'reporté'}.';
+    if (feries == 0) return base;
+    return '$base $feries jour${feries > 1 ? 's' : ''} '
+        'férié${feries > 1 ? 's' : ''} calculé${feries > 1 ? 's' : ''} '
+        'pour la nouvelle année.';
   }
 }
 
@@ -107,6 +128,18 @@ class AdminCalendarService {
     await client.rpc('set_current_academic_year', params: {'p_year_id': id});
   }
 
+  /// Diffuse l'année aux écoles du groupe et notifie leurs chefs
+  /// d'établissement. Renvoie le nombre de destinataires touchés.
+  ///
+  /// Tant qu'elle n'est pas publiée, l'année n'existe que dans l'espace groupe :
+  /// la règle `by_group` des sync-rules filtre sur `published_at IS NOT NULL`.
+  Future<int> publishYear(String id) async {
+    final client = _ref.read(supabaseClientProvider);
+    final res =
+        await client.rpc('publish_academic_year', params: {'p_year_id': id});
+    return (res as num?)?.toInt() ?? 0;
+  }
+
   /// Archive / déverrouille. Refuse d'archiver l'année en cours.
   Future<void> setLocked(String id, bool locked) async {
     final client = _ref.read(supabaseClientProvider);
@@ -136,6 +169,8 @@ class AdminCalendarService {
       label: m['label'] as String,
       trimesters: (m['trimesters'] as num?)?.toInt() ?? 0,
       sequences: (m['sequences'] as num?)?.toInt() ?? 0,
+      vacances: (m['vacances'] as num?)?.toInt() ?? 0,
+      feries: (m['feries'] as num?)?.toInt() ?? 0,
     );
   }
 

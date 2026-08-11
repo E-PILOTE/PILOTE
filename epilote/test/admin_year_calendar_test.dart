@@ -309,8 +309,14 @@ void main() {
 
   // ────────────────────────────────────────────────────────────────────────────
   group('RolloverOutcome — le compte rendu du passage d\'année', () {
-    RolloverOutcome o(int t, int s) =>
-        RolloverOutcome(yearId: 'x', label: '2027-2028', trimesters: t, sequences: s);
+    RolloverOutcome o(int t, int s, {int vacances = 0, int feries = 0}) =>
+        RolloverOutcome(
+            yearId: 'x',
+            label: '2027-2028',
+            trimesters: t,
+            sequences: s,
+            vacances: vacances,
+            feries: feries);
 
     test('sans calendrier reporté', () {
       expect(o(0, 0).resume, 'Année « 2027-2028 » créée.');
@@ -325,6 +331,24 @@ void main() {
       final r = o(3, 6).resume;
       expect(r, contains('3 trimestres'));
       expect(r, contains('6 séquences'));
+    });
+
+    // Les fériés ne sont pas « reportés » mais CALCULÉS : le comput pascal
+    // interdit de décaler la date de l'an passé. Le compte rendu doit le dire,
+    // sans quoi l'agent croit à un report et s'étonne d'un nombre différent.
+    test('les vacances se reportent, les fériés se calculent', () {
+      final r = o(3, 6, vacances: 4, feries: 9).resume;
+      expect(r, contains('4 périodes de vacances'));
+      expect(r, contains('reportés'));
+      expect(r, contains('9 jours fériés calculés'));
+      expect(r, isNot(contains('9 jours fériés reportés')));
+    });
+
+    test('une année sans vacances ne mentionne que ce qui existe', () {
+      final r = o(3, 0, feries: 9).resume;
+      expect(r, isNot(contains('vacances')));
+      expect(r, contains('3 trimestres reporté'));
+      expect(r, contains('9 jours fériés calculés'));
     });
   });
 }

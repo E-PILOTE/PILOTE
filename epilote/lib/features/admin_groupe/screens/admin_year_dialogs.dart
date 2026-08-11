@@ -384,13 +384,28 @@ class _RolloverDialogState extends ConsumerState<_RolloverDialog> {
                     size: 18, color: _copyCalendar ? kGreen : kTextMuted),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    'Reporter le calendrier (trimestres & séquences, décalés '
-                    'sur les nouvelles dates)',
-                    style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: kNavy),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Reporter le calendrier (trimestres, séquences et '
+                        'vacances, décalés sur les nouvelles dates)',
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: kNavy),
+                      ),
+                      const SizedBox(height: 2),
+                      // Dire que les fériés ne sont PAS reportés évite la
+                      // question — et surtout le doute de l'agent qui compte
+                      // les lignes et n'en retrouve pas le même nombre.
+                      Text(
+                        'Les jours fériés légaux sont recalculés pour la '
+                        'nouvelle année, pas recopiés : Pâques se déplace.',
+                        style: TextStyle(fontSize: 11.5, color: kTextMuted),
+                      ),
+                    ],
                   ),
                 ),
                 Checkbox(
