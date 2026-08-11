@@ -4,18 +4,25 @@ import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
+import '../../../core/utils/jours_non_ouvres.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../providers/admin_academic_year_provider.dart';
+import '../providers/admin_calendar_service.dart';
 import '../providers/admin_year_analytics_provider.dart';
 import '../providers/school_year_defaults.dart';
+import '../services/admin_year_csv_service.dart';
 import '../services/admin_year_pdf_service.dart';
 import 'admin_year_calendar_dialog.dart';
+import '../../../core/utils/message_erreur.dart';
 
+part 'admin_year_adoption.dart';
 part 'admin_year_analytics.dart';
 part 'admin_year_management.dart';
 part 'admin_year_dialogs.dart';
+part 'admin_year_header.dart';
 part 'admin_year_skeleton.dart';
+part 'admin_year_timeline.dart';
 
 final _fmt = DateFormat('d MMM yyyy', 'fr_FR');
 final _fmtShort = DateFormat('dd/MM/yy', 'fr_FR');
@@ -126,23 +133,34 @@ class _Body extends ConsumerWidget {
         final prev = idx + 1 < years.length ? years[idx + 1] : null;
 
         // Pleine largeur (pas de ConstrainedBox) → s'étend sur les 27 pouces.
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(24, 22, 24, 90),
-          children: [
-            _Header(years: years, selected: selected),
-            const SizedBox(height: 18),
-            _StatsSelectorBar(years: years, selectedId: selected.id),
-            const SizedBox(height: 18),
-            _KpiRow(selected: selected, prev: prev),
-            const SizedBox(height: 22),
-            _EvolutionCard(years: years),
-            const SizedBox(height: 16),
-            _AnalyticsRow(year: selected),
-            const SizedBox(height: 16),
-            _SchoolAdoptionCard(year: selected),
-            const SizedBox(height: 26),
-            _ManagementSection(years: years),
-          ],
+        return RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(adminAcademicYearsProvider);
+            ref.invalidate(adminYearAnalyticsProvider(selected.id));
+            ref.invalidate(adminYearCalendarProvider(selected.id));
+            ref.invalidate(adminYearHolidaysProvider(selected.id));
+            await ref.read(adminAcademicYearsProvider.future);
+          },
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(24, 22, 24, 90),
+            children: [
+              _Header(years: years, selected: selected),
+              const SizedBox(height: 18),
+              _StatsSelectorBar(years: years, selectedId: selected.id),
+              const SizedBox(height: 18),
+              _KpiRow(selected: selected, prev: prev),
+              const SizedBox(height: 22),
+              _YearTimelineCard(year: selected),
+              const SizedBox(height: 16),
+              _EvolutionCard(years: years),
+              const SizedBox(height: 16),
+              _AnalyticsRow(year: selected),
+              const SizedBox(height: 16),
+              _SchoolAdoptionCard(year: selected),
+              const SizedBox(height: 26),
+              _ManagementSection(years: years),
+            ],
+          ),
         );
       },
     );
@@ -175,130 +193,6 @@ class _EmptyState extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-// ─── En-tête + actions ─────────────────────────────────────────────────────────
-class _Header extends StatelessWidget {
-  const _Header({required this.years, this.selected});
-  final List<AdminYear> years;
-  final AdminYear? selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(
-            color: kNavy.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(Icons.event_note_rounded, color: kNavy, size: 24),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Années scolaires du groupe',
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: kTextPrimary)),
-              const SizedBox(height: 3),
-              Text(
-                "Pilotage national du calendrier : l'année est définie ici puis "
-                'héritée par toutes les écoles (synchro progressive).',
-                style: TextStyle(fontSize: 12.5, color: kTextMuted),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 16),
-        if (selected != null) ...[
-          _ExportYearButton(year: selected!, years: years),
-          const SizedBox(width: 10),
-        ],
-        if (years.isNotEmpty) ...[
-          AdminActionButton(
-            label: "Passage d'année",
-            icon: Icons.move_up_rounded,
-            color: kGreen,
-            onPressed: () => showDialog<void>(
-              context: context,
-              builder: (_) => _RolloverDialog(years: years),
-            ),
-          ),
-          const SizedBox(width: 10),
-        ],
-        AdminActionButton(
-          label: 'Nouvelle année',
-          icon: Icons.add_rounded,
-          onPressed: () => showDialog<void>(
-            context: context,
-            builder: (_) => const _YearDialog(),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─── Bouton export PDF (bilan de l'année sélectionnée) ─────────────────────────
-class _ExportYearButton extends ConsumerStatefulWidget {
-  const _ExportYearButton({required this.year, required this.years});
-  final AdminYear year;
-  final List<AdminYear> years;
-  @override
-  ConsumerState<_ExportYearButton> createState() => _ExportYearButtonState();
-}
-
-class _ExportYearButtonState extends ConsumerState<_ExportYearButton> {
-  bool _busy = false;
-
-  Future<void> _export() async {
-    setState(() => _busy = true);
-    try {
-      // Garantit des analytics fraîches pour le PDF.
-      final analytics = await ref
-          .read(adminYearAnalyticsProvider(widget.year.id).future);
-      await AcademicYearPdfService.printReport(
-        year: widget.year,
-        analytics: analytics,
-        allYears: widget.years,
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(backgroundColor: kRed, content: Text('Erreur PDF : $e')));
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: _busy ? null : _export,
-      icon: _busy
-          ? SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2, color: kNavy))
-          : const Icon(Icons.picture_as_pdf_rounded, size: 18),
-      label: Text(_busy ? 'Génération…' : 'Exporter le bilan'),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: kNavy,
-        side: BorderSide(color: kBorder),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
     );
   }
 }

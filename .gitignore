@@ -70,6 +70,15 @@ powersynchToken
 # Temp CLI supabase
 supabase/.temp/
 
+# ─── CLI PowerSync installée dans le projet ───────────────────────────────────
+# `npm install -g --prefix .tools powersync` (296 paquets, à ne pas committer).
+# Pourquoi ici plutôt qu'en global : l'application Claude est un paquet Windows
+# à système de fichiers redirigé — ce qu'elle écrit dans %APPDATA% atterrit
+# sous AppData\Local\Packages\Claude_…\LocalCache\Roaming\. Une CLI installée
+# depuis l'assistant est donc INVISIBLE depuis un vrai terminal, et l'inverse
+# est vrai aussi. `.tools\` n'est redirigé pour personne.
+.tools/
+
 # Compagnon visuel brainstorming (superpowers)
 .superpowers/
 

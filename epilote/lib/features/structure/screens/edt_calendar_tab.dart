@@ -3,8 +3,12 @@ part of 'edt_settings_screen.dart';
 // ════════════════════════════════════════════════════════════════════════════
 //  ONGLET CALENDRIER SCOLAIRE — jours NON OUVRÉS de l'année (vacances + fériés).
 //  Socle des futures vues calendaires (mois/trimestre/annuel) de l'EDT : la
-//  trame hebdomadaire ne sera projetée QUE sur les jours ouvrés. Bouton « charger
-//  les fériés congolais » pour amorcer, puis saisie libre des vacances. Offline.
+//  trame hebdomadaire ne sera projetée QUE sur les jours ouvrés.
+//
+//  Les fériés LÉGAUX descendent du groupe (`school_id IS NULL`) et sont ici en
+//  lecture seule ; l'école ne saisit que ses propres fermetures. Le bouton
+//  « Fériés du Congo » qui recalculait la liste sur le poste a été retiré :
+//  la règle vit désormais uniquement en base. Offline-first.
 // ════════════════════════════════════════════════════════════════════════════
 class _CalendarTab extends ConsumerWidget {
   const _CalendarTab();
@@ -14,46 +18,6 @@ class _CalendarTab extends ConsumerWidget {
         barrierDismissible: false,
         builder: (_) => const _HolidayForm(),
       );
-
-  Future<void> _seed(BuildContext context, WidgetRef ref,
-      List<SchoolHoliday> existing) async {
-    final profile = ref.read(authNotifierProvider).valueOrNull;
-    final year = ref.read(activeYearProvider);
-    final yearId = ref.read(activeYearIdProvider);
-    if (year == null || yearId == null) return;
-    final missing = missingWriteIds(
-        groupId: profile?.groupId,
-        schoolId: profile?.schoolId,
-        actorId: profile?.id);
-    if (missing.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
-      return;
-    }
-    try {
-      final added = await seedCongoHolidays(
-        groupId: profile!.groupId!,
-        schoolId: profile.schoolId!,
-        academicYearId: yearId,
-        yearStart: year.startDate,
-        yearEnd: year.endDate,
-        existing: existing,
-      );
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        backgroundColor: added == 0 ? null : kGreen,
-        content: Text(added == 0
-            ? 'Tous les fériés nationaux sont déjà présents.'
-            : '$added férié${added > 1 ? 's' : ''} national'
-                '${added > 1 ? 'aux' : ''} ajouté${added > 1 ? 's' : ''}.'),
-      ));
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur : $e'), backgroundColor: kRed));
-      }
-    }
-  }
 
   Future<void> _delete(BuildContext context, SchoolHoliday h) async {
     final ok = await showDialog<bool>(
@@ -89,10 +53,11 @@ class _CalendarTab extends ConsumerWidget {
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (items) {
         final feries = [for (final h in items) if (h.isFerie) h];
         final vacances = [for (final h in items) if (!h.isFerie) h];
+        final nationaux = [for (final h in items) if (h.isNational) h];
         final offDays = items.fold<int>(0, (s, h) => s + h.dayCount);
 
         return ListView(
@@ -105,31 +70,16 @@ class _CalendarTab extends ConsumerWidget {
                         'Les cours ne seront pas projetés sur ces jours.',
                 style: TextStyle(fontSize: 12, color: kTextMuted)),
             const SizedBox(height: 14),
-            if (canCreate)
-              Row(children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: year == null
-                        ? null
-                        : () => _seed(context, ref, items),
-                    style: OutlinedButton.styleFrom(
-                        foregroundColor: kNavy,
-                        side: BorderSide(color: kNavy.withValues(alpha: 0.4)),
-                        padding: const EdgeInsets.symmetric(vertical: 12)),
-                    icon: const Icon(Icons.flag_outlined, size: 16),
-                    label: const Text('Fériés du Congo'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: AdminPrimaryButton(
-                    label: 'Ajouter',
-                    icon: Icons.add_rounded,
-                    color: kNavy,
-                    onTap: () => _openForm(context),
-                  ),
-                ),
-              ]),
+            if (year != null) _NationalNote(count: nationaux.length),
+            if (canCreate) ...[
+              const SizedBox(height: 12),
+              AdminPrimaryButton(
+                label: 'Ajouter une fermeture',
+                icon: Icons.add_rounded,
+                color: kNavy,
+                onTap: () => _openForm(context),
+              ),
+            ],
             const SizedBox(height: 16),
             if (items.isEmpty)
               const Padding(
@@ -138,8 +88,8 @@ class _CalendarTab extends ConsumerWidget {
                   icon: Icons.event_available_outlined,
                   title: 'Calendrier vide',
                   message:
-                      'Chargez les fériés nationaux, puis ajoutez les vacances '
-                      'scolaires de votre établissement.',
+                      'Les fériés légaux sont installés par le groupe. Ajoutez '
+                      'ici les vacances propres à votre établissement.',
                 ),
               )
             else ...[
@@ -173,6 +123,47 @@ class _CalendarTab extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+// ─── D'où viennent les fériés ────────────────────────────────────────────────
+//  Sans cette ligne, une école qui ne voit aucun férié n'a aucun moyen de
+//  savoir s'il faut les saisir à la main ou attendre le groupe. Le message
+//  distingue les deux cas au lieu de laisser deviner.
+class _NationalNote extends StatelessWidget {
+  const _NationalNote({required this.count});
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final ok = count > 0;
+    final c = ok ? kNavy : const Color(0xFFB45309);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: c.withValues(alpha: 0.22)),
+      ),
+      child: Row(children: [
+        Icon(ok ? Icons.verified_outlined : Icons.info_outline_rounded,
+            size: 16, color: c),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Text(
+            ok
+                ? '$count jour${count > 1 ? 's' : ''} férié'
+                    '${count > 1 ? 's' : ''} légal${count > 1 ? 'aux' : ''} '
+                    'reçu${count > 1 ? 's' : ''} du groupe. '
+                    'Ils ne se modifient pas ici.'
+                : 'Aucun férié légal reçu pour cette année : le groupe ne les a '
+                    'pas encore installés. Signalez-le plutôt que de les saisir '
+                    'à la main — ils arriveront en double.',
+            style: TextStyle(fontSize: 11.5, height: 1.35, color: kTextMuted),
+          ),
+        ),
+      ]),
     );
   }
 }
@@ -271,7 +262,21 @@ class _HolidayRow extends StatelessWidget {
                     style: TextStyle(fontSize: 11.5, color: kTextMuted)),
               ]),
         ),
-        if (canDelete)
+        // Une ligne nationale (`school_id IS NULL`) est en LECTURE SEULE ici :
+        // la politique `school_holidays_tenant` exige `school_id =
+        // auth_school_id()` en écriture. Offrir la croix faisait réussir la
+        // suppression en local, échouer la remontée, et revenir la ligne à la
+        // synchro suivante — « je l'ai supprimé et il est revenu ».
+        if (holiday.isNational)
+          Tooltip(
+            message: 'Férié légal fixé par le groupe',
+            child: Padding(
+              padding: const EdgeInsets.all(5),
+              child: Icon(Icons.lock_outline_rounded,
+                  size: 15, color: kTextMuted),
+            ),
+          )
+        else if (canDelete)
           InkWell(
             onTap: onDelete,
             borderRadius: BorderRadius.circular(20),

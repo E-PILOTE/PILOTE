@@ -18,16 +18,10 @@ class _ManagementSection extends ConsumerWidget {
     final activeCount = years.where((y) => !y.isLocked).length;
     final archivedCount = years.where((y) => y.isLocked).length;
 
-    final shown = switch (filter) {
-      'active' => years.where((y) => !y.isLocked).toList(),
-      'archived' => years.where((y) => y.isLocked).toList(),
-      _ => years,
-    }
-      // courante d'abord, puis par date décroissante.
-      ..sort((a, b) {
-        if (a.isCurrent != b.isCurrent) return a.isCurrent ? -1 : 1;
-        return b.startDate.compareTo(a.startDate);
-      });
+    // Le tri vit dans `filterAndSortYears` (provider) : fonction pure, qui
+    // renvoie une liste NEUVE. Il triait auparavant la liste du provider en
+    // place, ce qui faussait le graphe d'évolution et la variation « vs N-1 ».
+    final shown = filterAndSortYears(years, filter);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -142,6 +136,7 @@ class _YearCard extends ConsumerWidget {
       await op();
       ref.invalidate(adminAcademicYearsProvider);
       ref.invalidate(adminYearAnalyticsProvider(year.id));
+      ref.invalidate(adminYearCalendarProvider(year.id));
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(backgroundColor: kGreen, content: Text(success)));
@@ -149,15 +144,66 @@ class _YearCard extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(backgroundColor: kRed, content: Text('Erreur : $e')));
+            SnackBar(backgroundColor: kRed, content: Text(messageErreur(e))));
       }
     }
+  }
+
+  // ── Confirmations ─────────────────────────────────────────────────────────
+  //  Ces deux gestes portent sur TOUT le réseau et ne se rattrapent pas d'un
+  //  Ctrl+Z. Ils partaient pourtant au premier clic, sans un mot.
+
+  Future<void> _confirmerCourante(BuildContext context, WidgetRef ref) async {
+    final svc = ref.read(adminCalendarServiceProvider);
+    final ok = await showAdminConfirm(
+      context,
+      title: 'Basculer la rentrée sur ${year.label}',
+      icon: Icons.move_up_rounded,
+      confirmLabel: 'Basculer la rentrée',
+      confirmIcon: Icons.check_circle_outline_rounded,
+      message: '${year.label} deviendra l\'année courante du groupe.\n\n'
+          'Toutes les écoles la reprendront à leur prochaine synchronisation : '
+          'inscriptions, bulletins, notes et emplois du temps s\'y '
+          'rattacheront. Assurez-vous que le calendrier de ${year.label} est '
+          'défini avant de basculer.\n\n'
+          "L'opération est tracée dans le journal d'audit.",
+    );
+    if (!ok || !context.mounted) return;
+    await _run(context, ref, () => svc.setCurrentYear(year.id),
+        'Rentrée basculée sur ${year.label}');
+  }
+
+  Future<void> _confirmerArchivage(BuildContext context, WidgetRef ref) async {
+    final svc = ref.read(adminCalendarServiceProvider);
+    final verrouiller = !year.isLocked;
+    final ok = await showAdminConfirm(
+      context,
+      danger: verrouiller,
+      title: verrouiller
+          ? 'Archiver ${year.label}'
+          : 'Déverrouiller ${year.label}',
+      icon: verrouiller ? Icons.archive_outlined : Icons.lock_open_rounded,
+      confirmLabel: verrouiller ? 'Archiver' : 'Déverrouiller',
+      confirmIcon: verrouiller ? Icons.archive_rounded : Icons.lock_open_rounded,
+      message: verrouiller
+          ? "L'année ${year.label} sera gelée : son calendrier — trimestres et "
+              'séquences — ne pourra plus être modifié, et elle ne pourra plus '
+              'devenir année courante.\n\n'
+              'Ses données (${year.eleves} élèves, ${year.classes} classes) '
+              'restent consultables et exportables. L\'archivage est '
+              'réversible.'
+          : "L'année ${year.label} redeviendra modifiable. À n'utiliser que "
+              'pour corriger une erreur : les bulletins déjà édités sur cette '
+              'année ne seront pas régénérés automatiquement.',
+    );
+    if (!ok || !context.mounted) return;
+    await _run(context, ref, () => svc.setLocked(year.id, verrouiller),
+        verrouiller ? 'Année archivée' : 'Année déverrouillée');
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final st = _status(year);
-    final svc = ref.read(adminCalendarServiceProvider);
     final pct = year.schoolsTotal == 0
         ? 0.0
         : year.schoolsAdopted / year.schoolsTotal;
@@ -237,14 +283,21 @@ class _YearCard extends ConsumerWidget {
           const SizedBox(height: 8),
           Row(
             children: [
+              // Le calendrier d'une année archivée reste CONSULTABLE, mais le
+              // dialogue s'ouvre en lecture seule : l'ancienne version laissait
+              // ce bouton actif et permettait d'y créer des trimestres — le
+              // verrou n'était qu'un décor.
               TextButton.icon(
                 onPressed: () => showDialog<void>(
                   context: context,
-                  builder: (_) => AdminYearCalendarDialog(
-                      yearId: year.id, yearLabel: year.label),
+                  builder: (_) => AdminYearCalendarDialog(year: year),
                 ),
-                icon: const Icon(Icons.event_note_rounded, size: 17),
-                label: const Text('Calendrier'),
+                icon: Icon(
+                    year.isLocked
+                        ? Icons.event_available_rounded
+                        : Icons.event_note_rounded,
+                    size: 17),
+                label: Text(year.isLocked ? 'Calendrier (lecture)' : 'Calendrier'),
                 style: TextButton.styleFrom(foregroundColor: kNavy),
               ),
               const SizedBox(width: 4),
@@ -261,29 +314,41 @@ class _YearCard extends ConsumerWidget {
               const SizedBox(width: 4),
               if (!year.isCurrent && !year.isLocked)
                 TextButton.icon(
-                  onPressed: () => _run(context, ref,
-                      () => svc.setCurrentYear(year.id),
-                      'Année courante mise à jour'),
+                  onPressed: () => _confirmerCourante(context, ref),
                   icon: const Icon(Icons.check_circle_outline_rounded, size: 17),
                   label: const Text('Définir courante'),
                   style: TextButton.styleFrom(foregroundColor: kGreen),
                 ),
               const Spacer(),
-              TextButton.icon(
-                onPressed: () => _run(
-                    context,
-                    ref,
-                    () => svc.setLocked(year.id, !year.isLocked),
-                    year.isLocked ? 'Année déverrouillée' : 'Année archivée'),
-                icon: Icon(
-                    year.isLocked
-                        ? Icons.lock_open_rounded
-                        : Icons.archive_outlined,
-                    size: 17),
-                label: Text(year.isLocked ? 'Déverrouiller' : 'Archiver'),
-                style: TextButton.styleFrom(
-                    foregroundColor: year.isLocked ? kAccent : kTextMuted),
-              ),
+              // L'année en cours ne s'archive pas : le refus vient aussi de la
+              // base, mais autant ne pas proposer un geste voué à échouer.
+              if (!year.isCurrent)
+                TextButton.icon(
+                  onPressed: () => _confirmerArchivage(context, ref),
+                  icon: Icon(
+                      year.isLocked
+                          ? Icons.lock_open_rounded
+                          : Icons.archive_outlined,
+                      size: 17),
+                  label: Text(year.isLocked ? 'Déverrouiller' : 'Archiver'),
+                  style: TextButton.styleFrom(
+                      foregroundColor: year.isLocked ? kAccent : kTextMuted),
+                )
+              else
+                Tooltip(
+                  message: "L'année en cours ne peut pas être archivée.\n"
+                      "Basculez d'abord la rentrée sur une autre année.",
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.lock_outline_rounded,
+                          size: 15, color: kTextMuted),
+                      const SizedBox(width: 6),
+                      Text('Année en cours',
+                          style: TextStyle(fontSize: 12.5, color: kTextMuted)),
+                    ]),
+                  ),
+                ),
             ],
           ),
         ],

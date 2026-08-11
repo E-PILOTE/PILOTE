@@ -1,6 +1,17 @@
 # E-PILOTE CONGO — Règles de synchronisation PowerSync
 # https://docs.powersync.com/usage/sync-rules
-# Déployer via le dashboard PowerSync Cloud après chaque modification.
+#
+# ⚠️ DÉPLOIEMENT — rien n'est actif tant que ce fichier n'est pas PUBLIÉ.
+# Méthode retenue (cf. journal du 2026-06-28) : la CLI, pas le dashboard.
+#
+#     powersync deploy sync-config --sync-config-file-path=powersync/config/sync-rules.yaml
+#
+# Elle lit `powersync/cli.yaml`, qui doit viser l'instance de PRODUCTION
+# (…66759) — celle que l'application cible depuis le 2026-08-04. Déployer sur
+# « Development » (…66757) publie la règle sur une instance que personne
+# n'utilise : la modification paraît appliquée et le parc reste en panne muette.
+# Vérifier ensuite avec `fetch config` que le live correspond au fichier.
+# La CLI est un paquet Node : elle exige Node.js et un jeton d'accès PowerSync.
 #
 # ⚠️ MOTIF « bucket_definitions » (paramètres + data) — PAS de JOIN.
 # PowerSync NE SUPPORTE PAS les JOIN dans les data queries : chaque data query
@@ -131,9 +142,24 @@ bucket_definitions:
       # Profils d'accès + permissions de tout le groupe (bascule d'agent offline)
       - SELECT * FROM access_profiles WHERE group_id = bucket.gid
       - SELECT * FROM profile_permissions WHERE group_id = bucket.gid
-      - SELECT * FROM academic_years WHERE group_id = bucket.gid
-      - SELECT * FROM trimesters WHERE group_id = bucket.gid
-      - SELECT * FROM sequences WHERE group_id = bucket.gid
+      # Calendrier NATIONAL du groupe (school_id NULL = hérité par toutes les
+      # écoles). Le `school_id IS NULL` n'est pas cosmétique : sans lui, une
+      # année dérogatoire accordée à UNE école descendait sur les postes de
+      # TOUTES les autres. `academicYearsProvider` la masquait à l'écran, mais
+      # elle restait sur leur disque — une exception locale n'a pas à voyager.
+      # Les variantes propres à un établissement descendent par `by_school`.
+      - SELECT * FROM academic_years WHERE group_id = bucket.gid AND school_id IS NULL
+      - SELECT * FROM trimesters WHERE group_id = bucket.gid AND school_id IS NULL
+      - SELECT * FROM sequences WHERE group_id = bucket.gid AND school_id IS NULL
+      # Jours non ouvrés NATIONAUX (school_id NULL) : fériés légaux et vacances
+      # fixés au niveau du ministère, hérités par toutes les écoles. Même motif
+      # — et même piège — que `fee_structures` ci-dessous : `by_school` ne
+      # projette que `school_id = bucket.sid`, donc sans cette ligne la Toussaint
+      # saisie une fois par le groupe serait écrite en base, visible depuis
+      # l'espace groupe, et INVISIBLE sur les postes. Les vues calendaires de
+      # l'emploi du temps compteraient alors le 25 décembre comme un jour de
+      # classe. Les jours propres à un établissement descendent par `by_school`.
+      - SELECT * FROM school_holidays WHERE group_id = bucket.gid AND school_id IS NULL
       # Entreprises d'accueil des stagiaires (0048) : portée GROUPE, pas école —
       # un partenaire sert souvent plusieurs écoles (school_id NULL = partagée).
       - SELECT * FROM internship_companies WHERE group_id = bucket.gid AND is_active = true
@@ -164,7 +190,6 @@ bucket_definitions:
       - SELECT * FROM story_views WHERE group_id = bucket.gid
       - SELECT * FROM student_transfers WHERE group_id = bucket.gid
       - SELECT * FROM student_tutors WHERE group_id = bucket.gid
-      - SELECT * FROM bulletin_subject_lines WHERE group_id = bucket.gid
       # payment_configs : api_key / api_secret JAMAIS exposés (liste explicite)
       - SELECT id, group_id, provider, display_name, merchant_id, webhook_url,
           is_active, is_test_mode, configured_by, configured_at, notes,
@@ -234,6 +259,18 @@ bucket_definitions:
       - SELECT * FROM grades WHERE school_id = bucket.sid
       - SELECT * FROM competence_grades WHERE school_id = bucket.sid
       - SELECT * FROM bulletins WHERE school_id = bucket.sid
+      # Détail matière par matière du bulletin (migration 0098). Était filtré au
+      # GROUPE faute de colonne `school_id` sur la table — PowerSync interdit
+      # les JOIN, donc l'école était inatteignable. Mesuré avant correction :
+      # 55 886 lignes sur chaque poste du groupe MEPSA, dont ~97 % appartenant à
+      # d'autres établissements. C'est la table la plus volumineuse du schéma :
+      # elle grossit de ~56 000 lignes par année et par groupe de 14 écoles.
+      - SELECT * FROM bulletin_subject_lines WHERE school_id = bucket.sid
+      # Calendrier DÉROGATOIRE propre à l'établissement (school_id NON NULL).
+      # Le cas normal est le calendrier national, qui descend par `by_group`.
+      - SELECT * FROM academic_years WHERE school_id = bucket.sid
+      - SELECT * FROM trimesters WHERE school_id = bucket.sid
+      - SELECT * FROM sequences WHERE school_id = bucket.sid
       # Finance non sensible (frais + paiements élèves)
       - SELECT * FROM fee_structures WHERE school_id = bucket.sid AND is_active = true
       - SELECT * FROM student_payments WHERE school_id = bucket.sid

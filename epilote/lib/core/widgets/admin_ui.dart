@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'admin_tokens.dart';
 
+export 'admin_date_field.dart';
 export 'admin_dialog_legacy.dart';
 export 'admin_modal.dart';
 export 'admin_modal_shapes.dart';
