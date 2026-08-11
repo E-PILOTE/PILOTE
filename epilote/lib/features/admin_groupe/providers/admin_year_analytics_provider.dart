@@ -98,6 +98,79 @@ class AdminYearAnalytics {
   );
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+//  UN ÉTABLISSEMENT DANS SON DÉPARTEMENT
+//
+//  La table « Préparation par école » nommait un problème sans jamais le situer.
+//  « Lycée de Sibiti — 0 classe, en attente » : reste à savoir si tout le Niari
+//  est en retard, ou si ce lycée est le seul de son département à ne pas avoir
+//  ouvert. Les deux situations appellent des gestes opposés — relancer un
+//  établissement, ou appeler une direction départementale.
+//
+//  Aucune requête : tout se déduit de `bySchool`, déjà en mémoire. C'est aussi
+//  ce qui rend le calcul testable sans base ni réseau.
+// ══════════════════════════════════════════════════════════════════════════════
+class YearDepartmentDetail {
+  const YearDepartmentDetail({
+    required this.department,
+    required this.ecoles,
+    required this.ecolesPreparees,
+    required this.classes,
+    required this.eleves,
+    required this.groupeEcoles,
+    required this.groupeClasses,
+    required this.groupeEleves,
+  });
+
+  final String department;
+
+  /// Les établissements du département, effectif décroissant.
+  final List<YearSchoolStat> ecoles;
+  final int ecolesPreparees, classes, eleves;
+
+  /// Totaux du groupe — sans eux, « 430 élèves » ne veut rien dire.
+  final int groupeEcoles, groupeClasses, groupeEleves;
+
+  int get ecolesTotal => ecoles.length;
+  int get ecolesEnAttente => ecolesTotal - ecolesPreparees;
+
+  double get tauxPreparation =>
+      ecolesTotal == 0 ? 0 : ecolesPreparees / ecolesTotal;
+  double get moyenneElevesParClasse => classes == 0 ? 0 : eleves / classes;
+
+  double get partEleves => groupeEleves == 0 ? 0 : eleves / groupeEleves;
+  double get partClasses => groupeClasses == 0 ? 0 : classes / groupeClasses;
+  double get partEcoles => groupeEcoles == 0 ? 0 : ecolesTotal / groupeEcoles;
+
+  /// Rang d'un établissement dans son département, par effectif décroissant.
+  /// 1 = le plus grand ; `null` si l'école n'est pas de ce département.
+  ///
+  /// Rang de compétition : deux écoles à effectif égal partagent le même rang.
+  /// Les départager par leur position dans la liste inventerait un classement
+  /// que les données ne portent pas.
+  int? rangDe(String schoolId) {
+    final cible = ecoles.where((e) => e.id == schoolId).firstOrNull;
+    if (cible == null) return null;
+    return 1 + ecoles.where((e) => e.eleves > cible.eleves).length;
+  }
+
+  /// Extrait un département d'une ventilation d'année.
+  static YearDepartmentDetail of(AdminYearAnalytics a, String department) {
+    final ecoles = a.bySchool.where((s) => s.department == department).toList()
+      ..sort((x, y) => y.eleves.compareTo(x.eleves));
+    return YearDepartmentDetail(
+      department: department,
+      ecoles: ecoles,
+      ecolesPreparees: ecoles.where((s) => s.adopted).length,
+      classes: ecoles.fold(0, (acc, s) => acc + s.classes),
+      eleves: ecoles.fold(0, (acc, s) => acc + s.eleves),
+      groupeEcoles: a.ecolesTotal,
+      groupeClasses: a.classes,
+      groupeEleves: a.eleves,
+    );
+  }
+}
+
 /// Ventilation d'une année par département / type d'établissement / école.
 final adminYearAnalyticsProvider = FutureProvider.autoDispose
     .family<AdminYearAnalytics, String>((ref, yearId) async {

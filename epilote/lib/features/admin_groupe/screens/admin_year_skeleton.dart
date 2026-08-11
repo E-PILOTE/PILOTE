@@ -22,33 +22,65 @@ class _YearsSkeleton extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(24, 22, 24, 90),
         children: [
-          // En-tête : icône + titres + 3 boutons
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _box(46, 46),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _box(260, 18, r: 8),
-                    const SizedBox(height: 8),
-                    _box(420, 12, r: 6),
-                  ],
+          // En-tête : icône + titres + commandes.
+          //
+          // Le seuil est celui de `_Header` : sous 1 000 px, les commandes y
+          // descendent d'une ligne. Un squelette qui ne suivrait pas ferait
+          // sauter la page au moment où les données arrivent — c'est justement
+          // ce qu'un squelette existe pour éviter.
+          LayoutBuilder(builder: (context, c) {
+            final titre = Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _box(46, 46),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _box(260, 18, r: 8),
+                      const SizedBox(height: 8),
+                      _box(420, 12, r: 6),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              _box(150, 44, r: 8),
-              const SizedBox(width: 10),
-              _box(150, 44, r: 8),
-              const SizedBox(width: 10),
+              ],
+            );
+            final boutons = [
+              _box(44, 44, r: 8),
               _box(140, 44, r: 8),
-            ],
-          ),
+              _box(160, 44, r: 8),
+              _box(150, 44, r: 8),
+            ];
+            if (c.maxWidth >= 1000) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: titre),
+                  const SizedBox(width: 16),
+                  for (final (i, b) in boutons.indexed) ...[
+                    if (i > 0) const SizedBox(width: 10),
+                    b,
+                  ],
+                ],
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                titre,
+                const SizedBox(height: 14),
+                Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    alignment: WrapAlignment.end,
+                    children: boutons),
+              ],
+            );
+          }),
           const SizedBox(height: 18),
           // Sélecteur d'année
-          _box(double.infinity, 104, r: 14),
+          _box(double.infinity, 118, r: 14),
           const SizedBox(height: 18),
           // KPI grid (responsive)
           LayoutBuilder(

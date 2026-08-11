@@ -10,9 +10,13 @@ class _Header extends StatelessWidget {
   final List<AdminYear> years;
   final AdminYear? selected;
 
+  /// En dessous de cette largeur, les quatre commandes ne tiennent plus à côté
+  /// du titre sans l'écraser.
+  static const double _seuilLigneUnique = 1000;
+
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final identite = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
@@ -43,35 +47,68 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(width: 16),
-        const _RefreshButton(),
-        const SizedBox(width: 8),
-        if (selected != null) ...[
-          _ExportMenu(year: selected!, years: years),
-          const SizedBox(width: 10),
-        ],
-        if (years.isNotEmpty) ...[
-          AdminActionButton(
-            label: "Passage d'année",
-            icon: Icons.move_up_rounded,
-            color: kGreen,
-            onPressed: () => showDialog<void>(
-              context: context,
-              builder: (_) => _RolloverDialog(years: years),
-            ),
-          ),
-          const SizedBox(width: 10),
-        ],
-        AdminActionButton(
-          label: 'Nouvelle année',
-          icon: Icons.add_rounded,
-          onPressed: () => showDialog<void>(
-            context: context,
-            builder: (_) => const _YearDialog(),
-          ),
-        ),
       ],
     );
+
+    List<Widget> commandes() => [
+          _RefreshButton(selected: selected),
+          if (selected != null) _ExportMenu(year: selected!, years: years),
+          if (years.isNotEmpty)
+            AdminActionButton(
+              label: "Passage d'année",
+              icon: Icons.move_up_rounded,
+              color: kGreen,
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (_) => _RolloverDialog(years: years),
+              ),
+            ),
+          AdminActionButton(
+            label: 'Nouvelle année',
+            icon: Icons.add_rounded,
+            onPressed: () => showDialog<void>(
+              context: context,
+              builder: (_) => const _YearDialog(),
+            ),
+          ),
+        ];
+
+    // ⚠️ QUATRE COMMANDES ET UN TITRE NE TIENNENT PAS TOUJOURS SUR UNE LIGNE.
+    //
+    //  Les boutons prennent leur largeur naturelle, le titre se contente du
+    //  reste : sur un portable, « Années scolaires du groupe » passait sur deux
+    //  lignes et sa description sur quatre, dans une colonne étroite — pendant
+    //  qu'une large bande restait vide à droite des boutons. Sous le seuil, les
+    //  commandes descendent d'une ligne et le titre reprend toute la largeur.
+    return LayoutBuilder(builder: (context, c) {
+      if (c.maxWidth >= _seuilLigneUnique) {
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: identite),
+            const SizedBox(width: 16),
+            for (final (i, w) in commandes().indexed) ...[
+              if (i > 0) const SizedBox(width: 10),
+              w,
+            ],
+          ],
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          identite,
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: commandes(),
+          ),
+        ],
+      );
+    });
   }
 }
 
@@ -80,7 +117,17 @@ class _Header extends StatelessWidget {
 //  changement fait depuis un autre poste. Un bouton explicite reste le seul
 //  moyen honnête de dire « ce que je vois date de quand ? ».
 class _RefreshButton extends ConsumerWidget {
-  const _RefreshButton();
+  const _RefreshButton({this.selected});
+
+  /// L'année RÉELLEMENT affichée — pas seulement celle qu'on aurait cliquée.
+  ///
+  /// Le bouton ne rafraîchissait que `selectedAdminYearIdProvider`, lequel reste
+  /// `null` tant qu'aucune pastille n'a été touchée : à l'ouverture de la page,
+  /// c'est l'année COURANTE qui s'affiche sans que ce provider soit renseigné.
+  /// « Actualiser » rechargeait donc la liste des années, mais laissait intacts
+  /// les KPI, la frise et la table de préparation — exactement ce qu'on venait
+  /// de demander à revoir.
+  final AdminYear? selected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -91,11 +138,11 @@ class _RefreshButton extends ConsumerWidget {
           ? null
           : () {
               ref.invalidate(adminAcademicYearsProvider);
-              final sel = ref.read(selectedAdminYearIdProvider);
-              if (sel != null) {
-                ref.invalidate(adminYearAnalyticsProvider(sel));
-                ref.invalidate(adminYearCalendarProvider(sel));
-                ref.invalidate(adminYearHolidaysProvider(sel));
+              final id = ref.read(selectedAdminYearIdProvider) ?? selected?.id;
+              if (id != null) {
+                ref.invalidate(adminYearAnalyticsProvider(id));
+                ref.invalidate(adminYearCalendarProvider(id));
+                ref.invalidate(adminYearHolidaysProvider(id));
               }
             },
       icon: chargement

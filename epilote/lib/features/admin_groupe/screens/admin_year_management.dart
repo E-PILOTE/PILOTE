@@ -122,30 +122,43 @@ class _SegFilter extends StatelessWidget {
   }
 }
 
-class _YearCard extends ConsumerWidget {
+class _YearCard extends ConsumerStatefulWidget {
   const _YearCard({required this.year});
   final AdminYear year;
 
-  Future<void> _run(
-    BuildContext context,
-    WidgetRef ref,
-    Future<void> Function() op,
-    String success,
-  ) async {
+  @override
+  ConsumerState<_YearCard> createState() => _YearCardState();
+}
+
+class _YearCardState extends ConsumerState<_YearCard> {
+  // ⚠️ CES TROIS GESTES PORTENT SUR TOUT LE RÉSEAU et durent le temps d'une RPC.
+  //
+  //  La carte restait pleinement cliquable pendant ce temps, sans rien indiquer :
+  //  sur une liaison congolaise lente, on confirme « Basculer la rentrée », il ne
+  //  se passe visiblement rien, on reclique — et deux bascules partent. Le verrou
+  //  vaut pour TOUTE la carte, pas seulement pour le bouton pressé : publier
+  //  pendant qu'une archive est en vol produirait deux écritures concurrentes sur
+  //  la même ligne.
+  bool _busy = false;
+
+  AdminYear get year => widget.year;
+
+  Future<void> _run(Future<void> Function() op, String success) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final messenger = ScaffoldMessenger.of(context);
     try {
       await op();
       ref.invalidate(adminAcademicYearsProvider);
       ref.invalidate(adminYearAnalyticsProvider(year.id));
       ref.invalidate(adminYearCalendarProvider(year.id));
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(backgroundColor: kGreen, content: Text(success)));
-      }
+      messenger.showSnackBar(
+          SnackBar(backgroundColor: kGreen, content: Text(success)));
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(backgroundColor: kRed, content: Text(messageErreur(e))));
-      }
+      messenger.showSnackBar(
+          SnackBar(backgroundColor: kRed, content: Text(messageErreur(e))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -153,7 +166,7 @@ class _YearCard extends ConsumerWidget {
   //  Ces deux gestes portent sur TOUT le réseau et ne se rattrapent pas d'un
   //  Ctrl+Z. Ils partaient pourtant au premier clic, sans un mot.
 
-  Future<void> _confirmerCourante(BuildContext context, WidgetRef ref) async {
+  Future<void> _confirmerCourante() async {
     final svc = ref.read(adminCalendarServiceProvider);
     final ok = await showAdminConfirm(
       context,
@@ -168,14 +181,14 @@ class _YearCard extends ConsumerWidget {
           'défini avant de basculer.\n\n'
           "L'opération est tracée dans le journal d'audit.",
     );
-    if (!ok || !context.mounted) return;
-    await _run(context, ref, () => svc.setCurrentYear(year.id),
+    if (!ok || !mounted) return;
+    await _run(() => svc.setCurrentYear(year.id),
         'Rentrée basculée sur ${year.label}');
   }
 
   /// Publier = diffuser à tout le réseau. Le geste qui fait sortir l'année de
   /// l'espace groupe : jusque-là, ses dates se corrigent sans conséquence.
-  Future<void> _confirmerPublication(BuildContext context, WidgetRef ref) async {
+  Future<void> _confirmerPublication() async {
     final svc = ref.read(adminCalendarServiceProvider);
     final ok = await showAdminConfirm(
       context,
@@ -192,8 +205,9 @@ class _YearCard extends ConsumerWidget {
           'réseau.\n\n'
           "L'opération est tracée dans le journal d'audit.",
     );
-    if (!ok || !context.mounted) return;
+    if (!ok || !mounted || _busy) return;
 
+    setState(() => _busy = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
       final n = await svc.publishYear(year.id);
@@ -210,10 +224,12 @@ class _YearCard extends ConsumerWidget {
       messenger.showSnackBar(SnackBar(
           backgroundColor: kRed,
           content: Text(messageErreur(e, contexte: 'Publication'))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<void> _confirmerArchivage(BuildContext context, WidgetRef ref) async {
+  Future<void> _confirmerArchivage() async {
     final svc = ref.read(adminCalendarServiceProvider);
     final verrouiller = !year.isLocked;
     final ok = await showAdminConfirm(
@@ -236,13 +252,13 @@ class _YearCard extends ConsumerWidget {
               'pour corriger une erreur : les bulletins déjà édités sur cette '
               'année ne seront pas régénérés automatiquement.',
     );
-    if (!ok || !context.mounted) return;
-    await _run(context, ref, () => svc.setLocked(year.id, verrouiller),
+    if (!ok || !mounted) return;
+    await _run(() => svc.setLocked(year.id, verrouiller),
         verrouiller ? 'Année archivée' : 'Année déverrouillée');
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final st = _status(year);
     final pct = year.schoolsTotal == 0
         ? 0.0
@@ -335,10 +351,12 @@ class _YearCard extends ConsumerWidget {
               // ce bouton actif et permettait d'y créer des trimestres — le
               // verrou n'était qu'un décor.
               TextButton.icon(
-                onPressed: () => showDialog<void>(
-                  context: context,
-                  builder: (_) => AdminYearCalendarDialog(year: year),
-                ),
+                onPressed: _busy
+                    ? null
+                    : () => showDialog<void>(
+                          context: context,
+                          builder: (_) => AdminYearCalendarDialog(year: year),
+                        ),
                 icon: Icon(
                     year.isLocked
                         ? Icons.event_available_rounded
@@ -350,10 +368,12 @@ class _YearCard extends ConsumerWidget {
               const SizedBox(width: 4),
               if (!year.isLocked)
                 TextButton.icon(
-                  onPressed: () => showDialog<void>(
-                    context: context,
-                    builder: (_) => _YearDialog(existing: year),
-                  ),
+                  onPressed: _busy
+                      ? null
+                      : () => showDialog<void>(
+                            context: context,
+                            builder: (_) => _YearDialog(existing: year),
+                          ),
                   icon: const Icon(Icons.edit_outlined, size: 17),
                   label: const Text('Modifier'),
                   style: TextButton.styleFrom(foregroundColor: kNavy),
@@ -364,16 +384,28 @@ class _YearCard extends ConsumerWidget {
               // proposer les deux à la fois inviterait à se heurter au refus.
               if (year.isDraft && !year.isLocked)
                 FilledButton.icon(
-                  onPressed: () => _confirmerPublication(context, ref),
-                  icon: const Icon(Icons.campaign_rounded, size: 17),
-                  label: const Text('Publier aux écoles'),
+                  onPressed: _busy ? null : _confirmerPublication,
+                  icon: _busy
+                      ? const SizedBox(
+                          width: 15,
+                          height: 15,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.campaign_rounded, size: 17),
+                  label: Text(_busy ? 'En cours…' : 'Publier aux écoles'),
                   style: FilledButton.styleFrom(backgroundColor: kAccent),
                 )
               else if (!year.isCurrent && !year.isLocked)
                 TextButton.icon(
-                  onPressed: () => _confirmerCourante(context, ref),
-                  icon: const Icon(Icons.check_circle_outline_rounded, size: 17),
-                  label: const Text('Définir courante'),
+                  onPressed: _busy ? null : _confirmerCourante,
+                  icon: _busy
+                      ? SizedBox(
+                          width: 15,
+                          height: 15,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: kGreen))
+                      : const Icon(Icons.check_circle_outline_rounded, size: 17),
+                  label: Text(_busy ? 'En cours…' : 'Définir courante'),
                   style: TextButton.styleFrom(foregroundColor: kGreen),
                 ),
               const Spacer(),
@@ -381,7 +413,7 @@ class _YearCard extends ConsumerWidget {
               // base, mais autant ne pas proposer un geste voué à échouer.
               if (!year.isCurrent)
                 TextButton.icon(
-                  onPressed: () => _confirmerArchivage(context, ref),
+                  onPressed: _busy ? null : _confirmerArchivage,
                   icon: Icon(
                       year.isLocked
                           ? Icons.lock_open_rounded

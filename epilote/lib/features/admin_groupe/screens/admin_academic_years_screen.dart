@@ -13,12 +13,14 @@ import '../providers/admin_calendar_service.dart';
 import '../providers/admin_year_analytics_provider.dart';
 import '../providers/school_year_defaults.dart';
 import '../services/admin_year_csv_service.dart';
+import '../services/admin_year_department_pdf_service.dart';
 import '../services/admin_year_pdf_service.dart';
 import 'admin_year_calendar_dialog.dart';
 import '../../../core/utils/message_erreur.dart';
 
 part 'admin_year_adoption.dart';
 part 'admin_year_analytics.dart';
+part 'admin_year_department_sheet.dart';
 part 'admin_year_management.dart';
 part 'admin_year_dialogs.dart';
 part 'admin_year_header.dart';
@@ -240,17 +242,40 @@ class _StatsSelectorBar extends ConsumerWidget {
   }
 }
 
-class _YearChips extends ConsumerWidget {
+class _YearChips extends ConsumerStatefulWidget {
   const _YearChips({required this.years, required this.selectedId});
   final List<AdminYear> years;
   final String selectedId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_YearChips> createState() => _YearChipsState();
+}
+
+class _YearChipsState extends ConsumerState<_YearChips> {
+  // Une liste horizontale sans ascenseur ne se découvre qu'en tâtonnant : dix
+  // années de calendrier national tiennent rarement dans la largeur, et rien
+  // n'indiquait qu'il y en avait d'autres à droite.
+  final _defilement = ScrollController();
+
+  @override
+  void dispose() {
+    _defilement.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final years = widget.years;
+    final selectedId = widget.selectedId;
     return SizedBox(
-      height: 64,
-      child: ListView.separated(
+      height: 78,
+      child: Scrollbar(
+        controller: _defilement,
+        thumbVisibility: years.length > 3,
+        child: ListView.separated(
+        controller: _defilement,
         scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.only(bottom: 12),
         itemCount: years.length,
         separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (_, i) {
@@ -300,17 +325,28 @@ class _YearChips extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 3),
-                  Text('${y.eleves} élèves · ${y.classes} classes',
+                  Text(
+                      // Un brouillon n'a par construction ni élève ni classe :
+                      // « 0 élèves · 0 classes » se lirait comme un échec, alors
+                      // que les écoles ne l'ont tout simplement pas encore reçu.
+                      y.isDraft
+                          ? 'Brouillon — non diffusée'
+                          : '${y.eleves} élèves · ${y.classes} classes',
                       style: TextStyle(
                           fontSize: 11,
+                          fontStyle:
+                              y.isDraft ? FontStyle.italic : FontStyle.normal,
                           color: on
                               ? Colors.white.withValues(alpha: 0.8)
-                              : kTextMuted)),
+                              : y.isDraft
+                                  ? kAccent
+                                  : kTextMuted)),
                 ],
               ),
             ),
           );
         },
+        ),
       ),
     );
   }

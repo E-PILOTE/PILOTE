@@ -58,8 +58,8 @@ class _SchoolAdoptionCard extends ConsumerWidget {
           AdminSectionTitle(
             'Préparation par école',
             icon: Icons.account_tree_rounded,
-            subtitle:
-                "État d'adoption de l'année ${year.label} par établissement",
+            subtitle: "État d'adoption de l'année ${year.label} — "
+                'cliquez une ligne pour ouvrir son département',
             trailing: a == null
                 ? null
                 : AdminBadge('${a.ecolesPreparees}/${a.ecolesTotal} prêtes',
@@ -72,6 +72,19 @@ class _SchoolAdoptionCard extends ConsumerWidget {
             const Padding(
               padding: EdgeInsets.all(24),
               child: Center(child: CircularProgressIndicator()),
+            )
+          // ⚠️ L'ERREUR AVANT LE VIDE. Cette carte affichait « Aucune école
+          // active dans le groupe » dès que `valueOrNull` valait `null` — donc
+          // aussi quand la RPC avait échoué. Sur un réseau congolais coupé, la
+          // page annonçait au ministère que son réseau était vide.
+          else if (async.hasError)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: _ChartError(
+                quoi: "l'état de préparation des écoles",
+                onRetry: () =>
+                    ref.invalidate(adminYearAnalyticsProvider(year.id)),
+              ),
             )
           else if (a == null || a.bySchool.isEmpty)
             const Padding(
@@ -94,13 +107,34 @@ class _SchoolAdoptionCard extends ConsumerWidget {
             else
               // Hauteur bornée + ListView.builder : seules les lignes visibles
               // sont construites. Indispensable à 1 000 écoles.
+              //
+              // La barre de défilement est TOUJOURS visible quand la liste
+              // dépasse : sans elle, une table écrêtée à 520 px ressemble à une
+              // table complète, et personne ne devine qu'il reste neuf cents
+              // établissements en dessous.
               SizedBox(
                 height: (filtres.length * 38.0).clamp(38.0, 520.0),
-                child: ListView.builder(
-                  padding: EdgeInsets.zero,
-                  itemCount: filtres.length,
-                  itemExtent: 38,
-                  itemBuilder: (_, i) => _AdoptionRow(school: filtres[i]),
+                child: Scrollbar(
+                  thumbVisibility: filtres.length * 38.0 > 520,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.only(right: 8),
+                    itemCount: filtres.length,
+                    itemExtent: 38,
+                    itemBuilder: (_, i) => _AdoptionRow(
+                      school: filtres[i],
+                      // Chaque ligne ouvre le DÉPARTEMENT de l'établissement :
+                      // « 0 classe, en attente » ne dit pas s'il est seul en
+                      // retard ou si tout son département l'est — deux
+                      // situations, deux gestes opposés.
+                      onTap: () => showYearDepartmentSheet(
+                        context,
+                        year: year,
+                        analytics: a,
+                        department: filtres[i].department,
+                        focusSchoolId: filtres[i].id,
+                      ),
+                    ),
+                  ),
                 ),
               ),
           ],
@@ -111,7 +145,7 @@ class _SchoolAdoptionCard extends ConsumerWidget {
 }
 
 // ─── Barre d'outils : recherche + relance ─────────────────────────────────────
-class _AdoptionToolbar extends ConsumerWidget {
+class _AdoptionToolbar extends ConsumerStatefulWidget {
   const _AdoptionToolbar({
     required this.year,
     required this.analytics,
@@ -122,27 +156,64 @@ class _AdoptionToolbar extends ConsumerWidget {
   final int affiche;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final retard = analytics.ecolesEnRetard.length;
+  ConsumerState<_AdoptionToolbar> createState() => _AdoptionToolbarState();
+}
+
+class _AdoptionToolbarState extends ConsumerState<_AdoptionToolbar> {
+  // Un contrôleur, et non un champ libre : sans lui, la croix d'effacement ne
+  // peut pas vider ce que l'agent a tapé — elle remettrait le filtre à zéro en
+  // laissant le texte affiché, et la table cesserait de correspondre au champ.
+  final _recherche = TextEditingController();
+
+  @override
+  void dispose() {
+    _recherche.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final retard = widget.analytics.ecolesEnRetard.length;
+    final q = ref.watch(_adoptQueryProvider);
+    final affiche = widget.affiche;
 
     return Row(
       children: [
         SizedBox(
           width: 300,
           child: TextField(
+            controller: _recherche,
             onChanged: (v) =>
                 ref.read(_adoptQueryProvider.notifier).state = v,
-            decoration: adminFilledInput('Rechercher une école, un département',
-                icon: Icons.search_rounded),
+            decoration: adminFilledInput(
+              'Rechercher une école, un département',
+              icon: Icons.search_rounded,
+            ).copyWith(
+              suffixIcon: q.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: 'Effacer',
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(Icons.close_rounded,
+                          size: 16, color: kTextMuted),
+                      onPressed: () {
+                        _recherche.clear();
+                        ref.read(_adoptQueryProvider.notifier).state = '';
+                      },
+                    ),
+            ),
             style: const TextStyle(fontSize: 13),
           ),
         ),
         const SizedBox(width: 12),
-        Text('$affiche affiché${affiche > 1 ? 's' : ''}',
+        Text(
+            q.trim().isEmpty
+                ? '$affiche établissement${affiche > 1 ? 's' : ''}'
+                : '$affiche sur ${widget.analytics.ecolesTotal}',
             style: TextStyle(fontSize: 12, color: kTextMuted)),
         const Spacer(),
-        if (retard > 0 && !year.isLocked)
-          _RelanceButton(year: year, nbEnRetard: retard),
+        if (retard > 0 && !widget.year.isLocked)
+          _RelanceButton(year: widget.year, nbEnRetard: retard),
       ],
     );
   }
@@ -280,84 +351,145 @@ class _AdoptionHeaderRow extends ConsumerWidget {
       );
     }
 
-    return Row(
-      children: [
-        col('Établissement', _AdoptTri.nom, 4),
-        col('Département', _AdoptTri.departement, 3),
-        col('Classes', _AdoptTri.classes, 2, align: TextAlign.center),
-        col('Élèves', _AdoptTri.eleves, 2, align: TextAlign.center),
-        col('État', _AdoptTri.etat, 2, align: TextAlign.right),
-      ],
+    // Le retrait de 6 et la réserve de 18 reproduisent EXACTEMENT la géométrie
+    // d'une ligne de données (marge du fond de survol + colonne du chevron).
+    // Sans eux, les en-têtes glissent de trente pixels par rapport aux valeurs
+    // qu'ils nomment.
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Row(
+        children: [
+          col('Établissement', _AdoptTri.nom, 4),
+          col('Département', _AdoptTri.departement, 3),
+          col('Classes', _AdoptTri.classes, 2, align: TextAlign.center),
+          col('Élèves', _AdoptTri.eleves, 2, align: TextAlign.center),
+          col('État', _AdoptTri.etat, 2, align: TextAlign.right),
+          const SizedBox(width: 18),
+        ],
+      ),
     );
   }
 }
 
-class _AdoptionRow extends StatelessWidget {
-  const _AdoptionRow({required this.school});
+/// Une ligne de la table — cliquable, et qui le MONTRE.
+///
+/// Une ligne qui réagit au clic sans rien laisser paraître ne se découvre que
+/// par accident : le survol pose un fond et un chevron, le curseur devient une
+/// main. Sans ces trois signes, la fonction existe pour qui la connaît déjà.
+class _AdoptionRow extends StatefulWidget {
+  const _AdoptionRow({required this.school, required this.onTap});
   final YearSchoolStat school;
+  final VoidCallback onTap;
+
+  @override
+  State<_AdoptionRow> createState() => _AdoptionRowState();
+}
+
+class _AdoptionRowState extends State<_AdoptionRow> {
+  bool _survol = false;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          flex: 4,
+    final school = widget.school;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _survol = true),
+      onExit: (_) => setState(() => _survol = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        // Opaque : la zone cliquable couvre toute la ligne, y compris les vides
+        // entre colonnes — pas seulement les pixels du texte.
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          margin: const EdgeInsets.symmetric(vertical: 1),
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          decoration: BoxDecoration(
+            color: _survol ? kSurface : Colors.transparent,
+            borderRadius: BorderRadius.circular(7),
+          ),
           child: Row(
             children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                    color: school.adopted ? kGreen : kBorder,
-                    shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 9),
               Expanded(
-                child: Text(school.name,
+                flex: 4,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                          color: school.adopted ? kGreen : kBorder,
+                          shape: BoxShape.circle),
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      // Gouttière à droite : sans elle, un nom écrêté vient
+                      // coller au département et les deux se lisent d'un seul
+                      // tenant — « Lycée Technique Industriel Th…Brazzaville ».
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 14),
+                        child: Text(school.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: kTextPrimary)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(school.department,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: kTextMuted)),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text('${school.classes}',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                         fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         color: kTextPrimary)),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text('${school.eleves}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: kTextPrimary)),
+              ),
+              Expanded(
+                flex: 2,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: AdminBadge(
+                      school.adopted ? 'Préparée' : 'En attente',
+                      color: school.adopted ? kGreen : kTextMuted),
+                ),
+              ),
+              // Le chevron n'apparaît qu'au survol : affiché en permanence sur
+              // mille lignes, il ferait un mur de flèches ; absent, rien ne dit
+              // que la ligne mène quelque part.
+              SizedBox(
+                width: 18,
+                child: AnimatedOpacity(
+                  opacity: _survol ? 1 : 0,
+                  duration: const Duration(milliseconds: 120),
+                  child: Icon(Icons.chevron_right_rounded,
+                      size: 18, color: kTextMuted),
+                ),
               ),
             ],
           ),
         ),
-        Expanded(
-          flex: 3,
-          child: Text(school.department,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, color: kTextMuted)),
-        ),
-        Expanded(
-          flex: 2,
-          child: Text('${school.classes}',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: kTextPrimary)),
-        ),
-        Expanded(
-          flex: 2,
-          child: Text('${school.eleves}',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: kTextPrimary)),
-        ),
-        Expanded(
-          flex: 2,
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: AdminBadge(school.adopted ? 'Préparée' : 'En attente',
-                color: school.adopted ? kGreen : kTextMuted),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

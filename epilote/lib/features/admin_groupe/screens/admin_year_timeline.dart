@@ -55,12 +55,30 @@ class _YearTimelineCard extends ConsumerWidget {
               height: 84,
               child: Center(child: CircularProgressIndicator()),
             )
+          // ⚠️ L'ERREUR AVANT LE VIDE. Sur échec, `trims` était vide et la carte
+          // annonçait « Aucun trimestre défini pour 2025-2026 : sans découpage,
+          // ni bulletins ni conseils de classe ne peuvent être générés » — une
+          // alerte grave, fabriquée par une coupure réseau, sur un calendrier
+          // qui existe.
+          else if (calAsync.hasError)
+            SizedBox(
+              height: 150,
+              child: _ChartError(
+                quoi: "le calendrier de l'année",
+                onRetry: () =>
+                    ref.invalidate(adminYearCalendarProvider(year.id)),
+              ),
+            )
           else if (trims.isEmpty)
             _TimelineEmpty(year: year)
           else ...[
             _TimelineBar(year: year, trimesters: trims, holidays: jours),
             const SizedBox(height: 14),
-            _TimelineLegend(year: year, trimesters: trims, holidays: jours),
+            _TimelineLegend(
+                year: year,
+                trimesters: trims,
+                holidays: jours,
+                joursInconnus: holAsync.hasError),
           ],
         ],
       ),
@@ -273,10 +291,15 @@ class _TimelineLegend extends StatelessWidget {
     required this.year,
     required this.trimesters,
     required this.holidays,
+    this.joursInconnus = false,
   });
   final AdminYear year;
   final List<AdminTrimester> trimesters;
   final List<AdminHoliday> holidays;
+
+  /// La liste des jours non ouvrés n'a pas pu être chargée. À distinguer d'une
+  /// liste vide : dans un cas on ne sait pas, dans l'autre rien n'est saisi.
+  final bool joursInconnus;
 
   @override
   Widget build(BuildContext context) {
@@ -326,9 +349,10 @@ class _TimelineLegend extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Row(children: [
-          Icon(Icons.school_rounded, size: 16, color: kGreen),
+          Icon(joursInconnus ? Icons.help_outline_rounded : Icons.school_rounded,
+              size: 16, color: joursInconnus ? kAccent : kGreen),
           const SizedBox(width: 7),
-          Text('$ouvres jours de classe',
+          Text(joursInconnus ? '$ouvres jours (approximatif)' : '$ouvres jours de classe',
               style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
@@ -336,13 +360,19 @@ class _TimelineLegend extends StatelessWidget {
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              holidays.isEmpty
-                  ? '— aucun jour non ouvré saisi : week-ends déduits seulement, '
-                      'les fériés manquent'
-                  : '— week-ends, ${holidays.where((h) => h.isFerie).length} '
-                      'férié(s) et '
-                      '${holidays.where((h) => !h.isFerie).length} période(s) '
-                      'de vacances déduits',
+              // Un décompte fondé sur une liste qu'on n'a PAS pu charger est
+              // faux, pas vide : le dire, plutôt que de laisser croire que le
+              // calendrier ne porte aucun férié.
+              joursInconnus
+                  ? '— les jours non ouvrés n\'ont pas pu être chargés : '
+                      'seuls les week-ends sont déduits, ce total est trop haut'
+                  : holidays.isEmpty
+                      ? '— aucun jour non ouvré saisi : week-ends déduits '
+                          'seulement, les fériés manquent'
+                      : '— week-ends, '
+                          '${holidays.where((h) => h.isFerie).length} férié(s) '
+                          'et ${holidays.where((h) => !h.isFerie).length} '
+                          'période(s) de vacances déduits',
               style: TextStyle(fontSize: 11.5, color: kTextMuted),
             ),
           ),
