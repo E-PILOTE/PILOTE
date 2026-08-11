@@ -7,6 +7,8 @@ import '../../../core/widgets/app_shell.dart';
 import '../providers/admin_reports_provider.dart';
 import '../services/reports_pdf_service.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Accents locaux (complètent la palette admin_ui) ────────────────────────
 const Color _kPurple = Color(0xFF7C3AED);
@@ -199,6 +201,11 @@ class _ControlBarState extends ConsumerState<_ControlBar> {
 
   void _setSchool(String? id) => _set(_filter.copyWith(schoolId: id));
 
+  // « Imprimer » passe par l'APERÇU PARTAGÉ, pas par `Printing.layoutPdf`.
+  //  Ce dernier ouvre sous Windows la boîte de choix d'imprimante (`PrintDlg`)
+  //  avec `hwndOwner = nullptr` : elle peut s'afficher DERRIÈRE l'application,
+  //  et son annulation ne remonte aucune erreur — l'agent voit un bouton qui ne
+  //  fait rien. L'aperçu montre le document, puis laisse imprimer ou enregistrer.
   Future<void> _export({required bool download}) async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -213,11 +220,25 @@ class _ControlBarState extends ConsumerState<_ControlBar> {
               : 'PDF enregistré : $path'),
         ));
       } else {
-        await ReportsPdfService.printReport(data: widget.data);
+        // Construit UNE FOIS : les octets affichés sont ceux qu'on enregistre,
+        // donc avec la même heure d'édition et la même référence.
+        final octets = await ReportsPdfService.buildPdf(data: widget.data);
+        if (!mounted) return;
+        await showPdfPreviewDialog(
+          context,
+          title: 'Rapport analytique',
+          subtitle: '${widget.data.groupName} · ${widget.data.periodLabel} · '
+              '${widget.data.scopeLabel}',
+          pdfFileName: 'Rapport_analytique.pdf',
+          build: (_) async => octets,
+          onDownload: () => ReportsPdfService.downloadReport(
+              data: widget.data, bytes: octets),
+        );
       }
     } catch (e) {
       messenger.showSnackBar(SnackBar(
-          content: Text('Export impossible : $e'), backgroundColor: kRed));
+          content: Text(messageErreur(e, contexte: 'Export')),
+          backgroundColor: kRed));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

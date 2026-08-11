@@ -1,40 +1,42 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 
 import '../../../core/services/official_pdf_kit.dart';
-
 import '../providers/admin_regional_provider.dart';
 
-// ─── Couleurs PDF ─────────────────────────────────────────────────────────────
-const _navy    = PdfColor.fromInt(0xFF1E3A5F);
-const _navyL   = PdfColor.fromInt(0xFF2A4E7A);
-const _green   = PdfColor.fromInt(0xFF009A44);
-const _gold    = PdfColor.fromInt(0xFFFBBC04);
-const _red     = PdfColor.fromInt(0xFFDC143C);
-const _orange  = PdfColor.fromInt(0xFFFF6B35);
-const _purple  = PdfColor.fromInt(0xFF7C3AED);
-const _blue    = PdfColor.fromInt(0xFF0EA5E9);
-const _muted   = PdfColor.fromInt(0xFF64748B);
-const _border  = PdfColor.fromInt(0xFFE2E8F0);
-const _surface = PdfColor.fromInt(0xFFF0F4F8);
-const _text    = PdfColor.fromInt(0xFF0F172A);
-
-// ─── Service : rapport territorial officiel ──────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+//  RAPPORT TERRITORIAL RÉGIONAL (niveau groupe).
 //
-// Génère le PDF officiel de la vue régionale (synthèse + répartition par
-// département + établissements géolocalisés + projets + qualité des données).
-// Style aligné sur les autres documents officiels (subscription_pdf_service) :
-// bandeau tricolore, emblème, en-tête « RÉPUBLIQUE DU CONGO », pied paginé.
+//  Mêmes deux défauts que le rapport analytique, en trois exemplaires.
+//
+//  ── 1. TROIS TABLES NON PAGINÉES ────────────────────────────────────────────
+//  Départements, établissements géolocalisés et projets étaient posés chacun
+//  dans UN cadre — lequel enveloppe son contenu dans un `Padding`, incapable de
+//  se scinder entre deux pages. Passé une trentaine de lignes, `MultiPage`
+//  boucle jusqu'à `TooManyPagesException` et le rapport ne sort pas du tout.
+//  `gpsSchools` compte une ligne par école géolocalisée : à la cible nationale,
+//  mille. La table des projets n'a, elle, aucune borne d'aucune sorte.
+//
+//  ── 2. LE DOCUMENT ÉTAIT SIGNÉ DU NOM DU FOURNISSEUR ────────────────────────
+//  En-tête recopié en local annonçant « E-PILOTE CONGO » sous les armoiries :
+//  un rapport territorial remis à une préfecture portait le nom de l'éditeur du
+//  logiciel au lieu de celui du réseau qui le remet. Cf. `PdfIssuer`.
+//
+//  ── Ce que le groupe apporte encore ─────────────────────────────────────────
+//  `groupName` reste un paramètre : il alimente le titre et le nom de fichier.
+//  L'EN-TÊTE, lui, vient de l'émetteur de session — c'est la même identité, mais
+//  résolue une fois pour tous les documents plutôt que passée de main en main.
+// ══════════════════════════════════════════════════════════════════════════════
+
+const _kOrange = PdfColor.fromInt(0xFFFF6B35);
+const _kPurple = PdfColor.fromInt(0xFF7C3AED);
+const _kBlue = PdfColor.fromInt(0xFF0EA5E9);
 
 class RegionalPdfService {
   static Future<Uint8List> buildPdf({
@@ -43,43 +45,34 @@ class RegionalPdfService {
     required List<AdminProjectPin> projects,
   }) async {
     // Polices EMBARQUÉES (assets/fonts) — cf. OfficialPdfKit.loadFonts().
-    // `PdfGoogleFonts` allait les chercher sur fonts.gstatic.com et, en cas
-    // d'échec, retombait SANS BRUIT sur Helvetica : sur un poste hors ligne —
-    // le cas normal d'une école congolaise — le document officiel sortait dans
-    // une police de secours sans Unicode, et nul ne le voyait avant impression.
-    final polices = await OfficialPdfKit.loadFonts();
-    final fontRegular = polices.regular;
-    final fontBold = polices.bold;
-    final fontMedium = polices.medium;
-
-    pw.MemoryImage? logoImage;
-    final logoBytes = await _rasterizeSvg('assets/icons/logo.svg', 320);
-    if (logoBytes != null) logoImage = pw.MemoryImage(logoBytes);
+    final f = await OfficialPdfKit.loadFonts();
+    final logo = await OfficialPdfKit.loadLogo();
 
     final fmtDateL = DateFormat('dd MMMM yyyy', 'fr');
-    final now      = DateFormat('dd/MM/yyyy • HH:mm', 'fr').format(DateTime.now());
-    final ref_     = DateFormat('yyyyMMdd-HHmm').format(DateTime.now());
+    final maintenant = DateTime.now();
+    final now = DateFormat('dd/MM/yyyy • HH:mm', 'fr').format(maintenant);
+    final ref = DateFormat('yyyyMMdd-HHmm').format(maintenant);
+    final titre = 'Rapport territorial — $groupName';
 
     // 15 départements officiels (réforme oct. 2024) — source unique partagée.
-    final officialDepts = adminMajorAgglomerations.keys.toList();
-    final coveredNorm = <String>{
+    final officiels = adminMajorAgglomerations.keys.toList();
+    final couverts = <String>{
       ...data.allDepts.map((d) => _norm(d.dept)),
       ...data.gpsSchools
           .map((s) => s.department)
           .whereType<String>()
           .map(_norm),
     };
-    final nonCovered = officialDepts
-        .where((d) => !coveredNorm.contains(_norm(d)))
-        .toList();
+    final nonCouverts =
+        officiels.where((d) => !couverts.contains(_norm(d))).toList();
 
-    final budgetTotal = projects.fold<int>(0, (a, p) => a + (p.budgetXaf ?? 0));
-    final beneficiaries =
+    final budget = projects.fold<int>(0, (a, p) => a + (p.budgetXaf ?? 0));
+    final beneficiaires =
         projects.fold<int>(0, (a, p) => a + (p.beneficiariesEst ?? 0));
 
     final doc = pw.Document(
-      title: 'Rapport territorial — $groupName',
-      author: 'E-PILOTE CONGO',
+      title: titre,
+      author: OfficialPdfKit.issuer?.name ?? 'E-PILOTE CONGO',
       creator: 'E-PILOTE CONGO',
       subject: 'Rapport territorial régional',
     );
@@ -87,27 +80,31 @@ class RegionalPdfService {
     doc.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
       margin: pw.EdgeInsets.zero,
-      header: (ctx) => _buildHeader(logoImage, fontBold, fontMedium, fontRegular),
-      footer: (ctx) => _buildFooter(ctx, fontRegular, fontMedium, now, ref_),
+      header: (ctx) => OfficialPdfKit.headerFor(ctx, logo, f,
+          badge: 'RAPPORT\nTERRITORIAL', title: titre),
+      footer: (ctx) => OfficialPdfKit.footer(ctx, f, now, ref),
       build: (ctx) => [
         pw.SizedBox(height: 14),
-        _titleBlock(groupName, fmtDateL.format(DateTime.now()),
-            fontBold, fontMedium, fontRegular),
+        OfficialPdfKit.titleBlock(f,
+            kicker: 'RAPPORT TERRITORIAL RÉGIONAL',
+            title: groupName,
+            line1: 'Situation arrêtée au ${fmtDateL.format(maintenant)}',
+            line2: '${data.totalSchools} établissement(s)  •  '
+                '${data.coveredDepts} département(s) couvert(s) sur 15'),
         pw.SizedBox(height: 16),
-        _kpiGrid(data, projects.length, fontBold, fontRegular),
-        pw.SizedBox(height: 16),
-        _deptSection(data, fontBold, fontMedium, fontRegular),
+        _kpis(data, projects.length, f),
+        pw.SizedBox(height: 18),
+        ..._departements(data, f),
         if (data.gpsSchools.isNotEmpty) ...[
           pw.SizedBox(height: 14),
-          _gpsSection(data, fontBold, fontMedium, fontRegular),
+          ..._geolocalises(data, f),
         ],
         if (projects.isNotEmpty) ...[
           pw.SizedBox(height: 14),
-          _projectsSection(projects, budgetTotal, beneficiaries,
-              fontBold, fontMedium, fontRegular),
+          ..._projets(projects, budget, beneficiaires, f),
         ],
         pw.SizedBox(height: 14),
-        _dataQualitySection(data, nonCovered, fontBold, fontMedium, fontRegular),
+        _qualite(data, nonCouverts, f),
         pw.SizedBox(height: 20),
       ],
     ));
@@ -115,498 +112,210 @@ class RegionalPdfService {
     return doc.save();
   }
 
-  // ── En-tête officiel ───────────────────────────────────────────────────────
-  static pw.Widget _buildHeader(
-    pw.ImageProvider? logoImage,
-    pw.Font fontBold,
-    pw.Font fontMedium,
-    pw.Font fontRegular,
-  ) {
-    return pw.Column(children: [
-      pw.Row(children: [
-        pw.Expanded(child: pw.Container(height: 5, color: _green)),
-        pw.Expanded(child: pw.Container(height: 5, color: _gold)),
-        pw.Expanded(child: pw.Container(height: 5, color: _red)),
-      ]),
-      pw.Container(
-        padding: const pw.EdgeInsets.fromLTRB(28, 16, 28, 14),
-        color: PdfColors.white,
-        child: pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.center,
-          children: [
-            logoImage != null
-                ? pw.SizedBox(width: 54, height: 54, child: pw.Image(logoImage))
-                : pw.Container(
-                    width: 50, height: 50,
-                    decoration: pw.BoxDecoration(
-                      color: _navy, borderRadius: pw.BorderRadius.circular(10)),
-                    alignment: pw.Alignment.center,
-                    child: pw.Text('EP',
-                        style: pw.TextStyle(
-                            font: fontBold, fontSize: 18, color: PdfColors.white)),
-                  ),
-            pw.SizedBox(width: 14),
-            pw.Expanded(child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text('RÉPUBLIQUE DU CONGO',
-                    style: pw.TextStyle(
-                        font: fontMedium, fontSize: 7.5,
-                        color: _muted, letterSpacing: 1.5)),
-                pw.SizedBox(height: 2),
-                pw.Text('E-PILOTE CONGO',
-                    style: pw.TextStyle(font: fontBold, fontSize: 16, color: _navy)),
-                pw.Text('Plateforme Nationale de Gestion Scolaire',
-                    style: pw.TextStyle(font: fontRegular, fontSize: 9, color: _muted)),
-              ],
-            )),
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.center,
-              children: [
-                pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 6),
-                  decoration: pw.BoxDecoration(
-                    color: _surface,
-                    border: pw.Border.all(color: _border, width: 1),
-                    borderRadius: pw.BorderRadius.circular(6),
-                  ),
-                  child: pw.Text('RAPPORT\nTERRITORIAL',
-                      textAlign: pw.TextAlign.center,
-                      style: pw.TextStyle(
-                          font: fontBold, fontSize: 8,
-                          color: _navy, letterSpacing: 0.8)),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-      pw.Container(
-        height: 2,
-        decoration: const pw.BoxDecoration(
-          gradient: pw.LinearGradient(colors: [_navy, _navyL, PdfColors.white]),
-        ),
-      ),
-      pw.SizedBox(height: 8),
-    ]);
-  }
-
-  static pw.Widget _buildFooter(
-    pw.Context ctx,
-    pw.Font fontRegular,
-    pw.Font fontMedium,
-    String now,
-    String ref_,
-  ) {
-    return pw.Container(
-      padding: const pw.EdgeInsets.fromLTRB(28, 8, 28, 12),
-      decoration: const pw.BoxDecoration(
-        border: pw.Border(top: pw.BorderSide(color: _border, width: 0.8)),
-      ),
-      child: pw.Row(children: [
-        pw.Expanded(child: pw.Text(
-          'Document officiel généré le $now  •  E-PILOTE CONGO  •  Réf. $ref_',
-          style: pw.TextStyle(font: fontRegular, fontSize: 7.5, color: _muted),
-        )),
-        pw.Container(
-          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: pw.BoxDecoration(
-            color: _navy, borderRadius: pw.BorderRadius.circular(4)),
-          child: pw.Text('Page ${ctx.pageNumber} / ${ctx.pagesCount}',
-              style: pw.TextStyle(
-                  font: fontMedium, fontSize: 7.5, color: PdfColors.white)),
-        ),
-      ]),
-    );
-  }
-
-  // ── Bloc titre ───────────────────────────────────────────────────────────────
-  static pw.Widget _titleBlock(
-    String groupName,
-    String dateLong,
-    pw.Font fontBold,
-    pw.Font fontMedium,
-    pw.Font fontRegular,
-  ) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 28),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Text('RAPPORT TERRITORIAL RÉGIONAL',
-              style: pw.TextStyle(font: fontBold, fontSize: 20, color: _text)),
-          pw.SizedBox(height: 4),
-          pw.Text(groupName.toUpperCase(),
-              style: pw.TextStyle(font: fontMedium, fontSize: 12, color: _navy)),
-          pw.SizedBox(height: 6),
-          pw.Text('Situation arrêtée au $dateLong',
-              style: pw.TextStyle(font: fontRegular, fontSize: 9.5, color: _muted)),
-          pw.SizedBox(height: 12),
-          pw.Divider(color: _border, thickness: 0.8),
+  // ── Indicateurs ─────────────────────────────────────────────────────────────
+  //  173 pt × 3 + 2 gouttières de 10 = 539 pt : la largeur utile exacte d'une A4
+  //  à marges de 28, donc deux rangées de trois qui touchent les deux bords.
+  static pw.Widget _kpis(AdminRegionalData d, int projets, PdfFonts f) =>
+      OfficialPdfKit.kpiGrid(
+        f,
+        [
+          PdfKpi('Établissements', '${d.totalSchools}', kPdfNavy),
+          PdfKpi('Élèves actifs', '${d.totalStudents}', kPdfGreen),
+          PdfKpi('Écoles actives', '${d.activeSchools}', _kBlue),
+          PdfKpi('Départements couverts', '${d.coveredDepts} / 15', kPdfGold),
+          PdfKpi('Géolocalisées', '${d.gpsCount}', _kPurple),
+          PdfKpi('Projets scolaires', '$projets', _kOrange),
         ],
-      ),
-    );
-  }
-
-  // ── Synthèse KPI ─────────────────────────────────────────────────────────────
-  static pw.Widget _kpiGrid(
-    AdminRegionalData data,
-    int projectCount,
-    pw.Font fontBold,
-    pw.Font fontRegular,
-  ) {
-    final cells = <List<dynamic>>[
-      ['${data.totalSchools}', 'Établissements', _navy],
-      ['${data.totalStudents}', 'Élèves actifs', _green],
-      ['${data.activeSchools}', 'Écoles actives', _blue],
-      ['${data.coveredDepts} / 15', 'Départements couverts', _gold],
-      ['${data.gpsCount}', 'Géolocalisées', _purple],
-      ['$projectCount', 'Projets scolaires', _orange],
-    ];
-    return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 28),
-      child: pw.Wrap(
-        spacing: 10, runSpacing: 10,
-        children: cells.map((c) {
-          final color = c[2] as PdfColor;
-          return pw.Container(
-            width: 165,
-            padding: const pw.EdgeInsets.fromLTRB(12, 10, 12, 10),
-            decoration: pw.BoxDecoration(
-              color: _alpha(color, 0.06),
-              border: pw.Border.all(color: _alpha(color, 0.25), width: 0.8),
-              borderRadius: pw.BorderRadius.circular(8),
-            ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(c[0] as String,
-                    style: pw.TextStyle(
-                        font: fontBold, fontSize: 20, color: color)),
-                pw.SizedBox(height: 2),
-                pw.Text(c[1] as String,
-                    style: pw.TextStyle(
-                        font: fontRegular, fontSize: 9, color: _muted)),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  // ── Répartition par département ───────────────────────────────────────────────
-  static pw.Widget _deptSection(
-    AdminRegionalData data,
-    pw.Font fontBold,
-    pw.Font fontMedium,
-    pw.Font fontRegular,
-  ) {
-    final rows = data.allDepts.map((d) {
-      final rate =
-          d.schoolCount > 0 ? (d.activeCount / d.schoolCount * 100).round() : 0;
-      return [
-        d.dept,
-        '${d.schoolCount}',
-        '${d.studentCount}',
-        '${d.activeCount}',
-        '$rate %',
-      ];
-    }).toList();
-
-    return _sectionFrame(
-      title: 'RÉPARTITION PAR DÉPARTEMENT',
-      color: _navy,
-      fontBold: fontBold,
-      child: rows.isEmpty
-          ? _emptyNote('Aucune école rattachée à un département.', fontRegular)
-          : pw.TableHelper.fromTextArray(
-              headers: const [
-                'Département', 'Écoles', 'Élèves', 'Actives', 'Taux'
-              ],
-              data: rows,
-              border: null,
-              headerStyle: pw.TextStyle(
-                  font: fontBold, fontSize: 8.5, color: PdfColors.white),
-              headerDecoration: const pw.BoxDecoration(color: _navy),
-              cellStyle: pw.TextStyle(
-                  font: fontRegular, fontSize: 9, color: _text),
-              cellHeight: 20,
-              oddRowDecoration: const pw.BoxDecoration(color: _surface),
-              cellAlignments: {
-                0: pw.Alignment.centerLeft,
-                1: pw.Alignment.center,
-                2: pw.Alignment.center,
-                3: pw.Alignment.center,
-                4: pw.Alignment.centerRight,
-              },
-              headerAlignments: {
-                0: pw.Alignment.centerLeft,
-                1: pw.Alignment.center,
-                2: pw.Alignment.center,
-                3: pw.Alignment.center,
-                4: pw.Alignment.centerRight,
-              },
-              columnWidths: {
-                0: const pw.FlexColumnWidth(3),
-                1: const pw.FlexColumnWidth(1),
-                2: const pw.FlexColumnWidth(1.3),
-                3: const pw.FlexColumnWidth(1),
-                4: const pw.FlexColumnWidth(1.2),
-              },
-            ),
-    );
-  }
-
-  // ── Établissements géolocalisés ───────────────────────────────────────────────
-  static pw.Widget _gpsSection(
-    AdminRegionalData data,
-    pw.Font fontBold,
-    pw.Font fontMedium,
-    pw.Font fontRegular,
-  ) {
-    final rows = data.gpsSchools.map((s) {
-      return [
-        s.name,
-        _typeLabel(s.type),
-        s.department ?? '—',
-        '${s.students}',
-        _sourceLabel(s.locationSource),
-      ];
-    }).toList();
-
-    return _sectionFrame(
-      title: 'ÉTABLISSEMENTS GÉOLOCALISÉS (${data.gpsCount})',
-      color: _purple,
-      fontBold: fontBold,
-      child: pw.TableHelper.fromTextArray(
-        headers: const ['Établissement', 'Type', 'Département', 'Élèves', 'Source'],
-        data: rows,
-        border: null,
-        headerStyle: pw.TextStyle(
-            font: fontBold, fontSize: 8.5, color: PdfColors.white),
-        headerDecoration: const pw.BoxDecoration(color: _purple),
-        cellStyle: pw.TextStyle(font: fontRegular, fontSize: 9, color: _text),
-        cellHeight: 20,
-        oddRowDecoration: const pw.BoxDecoration(color: _surface),
-        cellAlignments: {
-          0: pw.Alignment.centerLeft,
-          1: pw.Alignment.center,
-          2: pw.Alignment.centerLeft,
-          3: pw.Alignment.center,
-          4: pw.Alignment.center,
-        },
-        columnWidths: {
-          0: const pw.FlexColumnWidth(3),
-          1: const pw.FlexColumnWidth(1),
-          2: const pw.FlexColumnWidth(1.6),
-          3: const pw.FlexColumnWidth(1),
-          4: const pw.FlexColumnWidth(1.2),
-        },
-      ),
-    );
-  }
-
-  // ── Projets scolaires ─────────────────────────────────────────────────────────
-  static pw.Widget _projectsSection(
-    List<AdminProjectPin> projects,
-    int budgetTotal,
-    int beneficiaries,
-    pw.Font fontBold,
-    pw.Font fontMedium,
-    pw.Font fontRegular,
-  ) {
-    final rows = projects.map((p) {
-      return [
-        p.name,
-        _projectStatusLabel(p.status),
-        p.department ?? p.city ?? '—',
-        p.budgetXaf != null ? '${_money(p.budgetXaf!)} F' : '—',
-        p.beneficiariesEst != null ? '${p.beneficiariesEst}' : '—',
-      ];
-    }).toList();
-
-    return _sectionFrame(
-      title: 'PROJETS SCOLAIRES (${projects.length})',
-      color: _orange,
-      fontBold: fontBold,
-      footer: 'Budget cumulé : ${_money(budgetTotal)} FCFA'
-          '   •   Bénéficiaires estimés : $beneficiaries',
-      fontFooter: fontMedium,
-      child: pw.TableHelper.fromTextArray(
-        headers: const ['Projet', 'Statut', 'Localisation', 'Budget', 'Bénéf.'],
-        data: rows,
-        border: null,
-        headerStyle: pw.TextStyle(
-            font: fontBold, fontSize: 8.5, color: PdfColors.white),
-        headerDecoration: const pw.BoxDecoration(color: _orange),
-        cellStyle: pw.TextStyle(font: fontRegular, fontSize: 9, color: _text),
-        cellHeight: 20,
-        oddRowDecoration: const pw.BoxDecoration(color: _surface),
-        cellAlignments: {
-          0: pw.Alignment.centerLeft,
-          1: pw.Alignment.center,
-          2: pw.Alignment.centerLeft,
-          3: pw.Alignment.centerRight,
-          4: pw.Alignment.center,
-        },
-        columnWidths: {
-          0: const pw.FlexColumnWidth(2.6),
-          1: const pw.FlexColumnWidth(1.4),
-          2: const pw.FlexColumnWidth(1.6),
-          3: const pw.FlexColumnWidth(1.6),
-          4: const pw.FlexColumnWidth(1),
-        },
-      ),
-    );
-  }
-
-  // ── Qualité des données ───────────────────────────────────────────────────────
-  static pw.Widget _dataQualitySection(
-    AdminRegionalData data,
-    List<String> nonCovered,
-    pw.Font fontBold,
-    pw.Font fontMedium,
-    pw.Font fontRegular,
-  ) {
-    final gpsPct = data.totalSchools > 0
-        ? (data.gpsCount / data.totalSchools * 100).round()
-        : 0;
-    final items = <pw.Widget>[
-      _qualityLine(
-        'Écoles sans coordonnées GPS',
-        '${data.noGpsCount} / ${data.totalSchools}',
-        data.noGpsCount == 0 ? _green : _orange,
-        fontMedium, fontRegular,
-      ),
-      _qualityLine(
-        'Taux de géolocalisation',
-        '$gpsPct %',
-        gpsPct >= 80 ? _green : (gpsPct >= 40 ? _orange : _red),
-        fontMedium, fontRegular,
-      ),
-      _qualityLine(
-        'Départements sans établissement',
-        nonCovered.isEmpty ? 'Aucun — couverture complète' : '${nonCovered.length}',
-        nonCovered.isEmpty ? _green : _muted,
-        fontMedium, fontRegular,
-      ),
-    ];
-
-    return _sectionFrame(
-      title: 'QUALITÉ DES DONNÉES',
-      color: _green,
-      fontBold: fontBold,
-      child: pw.Column(children: [
-        ...items,
-        if (nonCovered.isNotEmpty) ...[
-          pw.SizedBox(height: 8),
-          pw.Container(
-            width: double.infinity,
-            padding: const pw.EdgeInsets.all(8),
-            decoration: pw.BoxDecoration(
-              color: _surface,
-              borderRadius: pw.BorderRadius.circular(6),
-            ),
-            child: pw.Text(
-                'Départements non couverts : ${nonCovered.join(', ')}',
-                style: pw.TextStyle(
-                    font: fontRegular, fontSize: 8.5, color: _muted)),
-          ),
-        ],
-      ]),
-    );
-  }
-
-  static pw.Widget _qualityLine(
-    String label,
-    String value,
-    PdfColor color,
-    pw.Font fontMedium,
-    pw.Font fontRegular,
-  ) {
-    return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(vertical: 5),
-      child: pw.Row(children: [
-        pw.Container(width: 7, height: 7,
-            decoration: pw.BoxDecoration(color: color, shape: pw.BoxShape.circle)),
-        pw.SizedBox(width: 8),
-        pw.Expanded(child: pw.Text(label,
-            style: pw.TextStyle(font: fontRegular, fontSize: 9.5, color: _text))),
-        pw.Text(value,
-            style: pw.TextStyle(font: fontMedium, fontSize: 9.5, color: color)),
-      ]),
-    );
-  }
-
-  // ── Cadre de section réutilisable ─────────────────────────────────────────────
-  static pw.Widget _sectionFrame({
-    required String title,
-    required PdfColor color,
-    required pw.Font fontBold,
-    required pw.Widget child,
-    String? footer,
-    pw.Font? fontFooter,
-  }) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 28),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Container(
-            padding: const pw.EdgeInsets.fromLTRB(2, 0, 2, 6),
-            child: pw.Row(children: [
-              pw.Container(width: 4, height: 13,
-                  decoration: pw.BoxDecoration(
-                      color: color,
-                      borderRadius: pw.BorderRadius.circular(2))),
-              pw.SizedBox(width: 7),
-              pw.Text(title,
-                  style: pw.TextStyle(
-                      font: fontBold, fontSize: 11,
-                      color: _text, letterSpacing: 0.5)),
-            ]),
-          ),
-          child,
-          if (footer != null) ...[
-            pw.SizedBox(height: 6),
-            pw.Text(footer,
-                style: pw.TextStyle(
-                    font: fontFooter ?? fontBold, fontSize: 9, color: _muted)),
-          ],
-        ],
-      ),
-    );
-  }
-
-  static pw.Widget _emptyNote(String text, pw.Font font) => pw.Container(
-        padding: const pw.EdgeInsets.all(12),
-        decoration: pw.BoxDecoration(
-          color: _surface, borderRadius: pw.BorderRadius.circular(6)),
-        child: pw.Text(text,
-            style: pw.TextStyle(font: font, fontSize: 9, color: _muted)),
+        width: 173,
       );
 
-  // ── Impression / téléchargement ────────────────────────────────────────────
-  static Future<void> printReport({
-    required String groupName,
-    required AdminRegionalData data,
-    required List<AdminProjectPin> projects,
-  }) async {
-    await Printing.layoutPdf(
-      onLayout: (_) =>
-          buildPdf(groupName: groupName, data: data, projects: projects),
-      name: 'Rapport_territorial_${_slug(groupName)}.pdf',
+  // ── Répartition par département ─────────────────────────────────────────────
+  //  Le Congo en compte quinze : le cas normal tient sur un bloc. La pagination
+  //  couvre le cas sale — `schools.department` est du texte libre, et quelques
+  //  saisies fautives suffiraient à en faire lever cinquante.
+  static List<pw.Widget> _departements(AdminRegionalData d, PdfFonts f) =>
+      OfficialPdfKit.tableSection(
+        title: 'RÉPARTITION PAR DÉPARTEMENT',
+        color: kPdfNavy,
+        fonts: f,
+        headers: const ['Département', 'Écoles', 'Élèves', 'Actives', 'Taux'],
+        flex: const [6, 2, 3, 2, 2],
+        rows: d.allDepts.map((x) {
+          final taux =
+              x.schoolCount > 0 ? (x.activeCount / x.schoolCount * 100).round() : 0;
+          return [
+            x.dept,
+            '${x.schoolCount}',
+            '${x.studentCount}',
+            '${x.activeCount}',
+            '$taux %',
+          ];
+        }).toList(),
+        emptyLabel: 'Aucune école rattachée à un département.',
+      );
+
+  // ── Établissements géolocalisés — une ligne par école ───────────────────────
+  //  La table qui dicte la taille du document : jusqu'à mille lignes à la cible
+  //  nationale. Deux lignes de libellé à hauteur fixe, car « Complexe Scolaire
+  //  Départemental … » écrêté rend trois établissements identiques.
+  static List<pw.Widget> _geolocalises(AdminRegionalData d, PdfFonts f) =>
+      OfficialPdfKit.tableSection(
+        title: 'ÉTABLISSEMENTS GÉOLOCALISÉS (${d.gpsCount})',
+        color: _kPurple,
+        fonts: f,
+        headers: const [
+          'Établissement',
+          'Type',
+          'Département',
+          'Élèves',
+          'Source',
+        ],
+        flex: const [9, 3, 5, 2, 4],
+        leftAlignCols: const {2},
+        rows: d.gpsSchools
+            .map((s) => [
+                  s.name,
+                  _type(s.type),
+                  s.department ?? '—',
+                  '${s.students}',
+                  _source(s.locationSource),
+                ])
+            .toList(),
+        emptyLabel: 'Aucun établissement géolocalisé.',
+        perBlock: OfficialPdfKit.kTallRowsPerBlock,
+        maxLines: 2,
+        rowHeight: OfficialPdfKit.kTallRowHeight,
+      );
+
+  // ── Projets scolaires ───────────────────────────────────────────────────────
+  //  Aucune borne : un plan quinquennal de constructions en aligne autant qu'il
+  //  veut. Le total est porté par la note du dernier bloc, où il se lit — pas
+  //  répété sous chacun d'eux, ce qui laisserait croire à un sous-total.
+  static List<pw.Widget> _projets(
+    List<AdminProjectPin> projets,
+    int budget,
+    int beneficiaires,
+    PdfFonts f,
+  ) =>
+      OfficialPdfKit.tableSection(
+        title: 'PROJETS SCOLAIRES (${projets.length})',
+        color: _kOrange,
+        fonts: f,
+        headers: const [
+          'Projet',
+          'Statut',
+          'Localisation',
+          'Budget',
+          'Bénéf.',
+        ],
+        flex: const [8, 4, 5, 5, 3],
+        leftAlignCols: const {2},
+        rows: projets
+            .map((p) => [
+                  p.name,
+                  _statutProjet(p.status),
+                  p.department ?? p.city ?? '—',
+                  p.budgetXaf != null ? '${_n(p.budgetXaf!)} F' : '—',
+                  p.beneficiariesEst != null ? '${p.beneficiariesEst}' : '—',
+                ])
+            .toList(),
+        emptyLabel: 'Aucun projet enregistré.',
+        perBlock: OfficialPdfKit.kTallRowsPerBlock,
+        maxLines: 2,
+        rowHeight: OfficialPdfKit.kTallRowHeight,
+        note: 'Budget cumulé : ${_n(budget)} FCFA'
+            '   •   Bénéficiaires estimés : $beneficiaires',
+      );
+
+  // ── Qualité des données ─────────────────────────────────────────────────────
+  //  Trois lignes, toujours : rien n'y grandit avec le parc. La liste des
+  //  départements non couverts en est une aussi — quinze noms au plus, sur une
+  //  seule ligne de texte.
+  static pw.Widget _qualite(
+      AdminRegionalData d, List<String> nonCouverts, PdfFonts f) {
+    final pct =
+        d.totalSchools > 0 ? (d.gpsCount / d.totalSchools * 100).round() : 0;
+    return OfficialPdfKit.frame(
+      title: 'QUALITÉ DES DONNÉES',
+      color: kPdfGreen,
+      fonts: f,
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          _ligne('Écoles sans coordonnées GPS',
+              '${d.noGpsCount} / ${d.totalSchools}',
+              d.noGpsCount == 0 ? kPdfGreen : _kOrange, f),
+          _ligne('Taux de géolocalisation', '$pct %',
+              pct >= 80 ? kPdfGreen : (pct >= 40 ? _kOrange : kPdfRed), f),
+          _ligne(
+              'Départements sans établissement',
+              nonCouverts.isEmpty
+                  ? 'Aucun — couverture complète'
+                  : '${nonCouverts.length}',
+              nonCouverts.isEmpty ? kPdfGreen : kPdfMuted,
+              f),
+          if (nonCouverts.isNotEmpty) ...[
+            pw.SizedBox(height: 8),
+            pw.Container(
+              width: double.infinity,
+              padding: const pw.EdgeInsets.all(8),
+              decoration: pw.BoxDecoration(
+                  color: kPdfSurface,
+                  borderRadius: pw.BorderRadius.circular(6)),
+              child: pw.Text(
+                  'Départements non couverts : ${nonCouverts.join(', ')}',
+                  style: pw.TextStyle(
+                      font: f.regular, fontSize: 8.5, color: kPdfMuted)),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
+  static pw.Widget _ligne(
+          String label, String valeur, PdfColor color, PdfFonts f) =>
+      pw.Container(
+        padding: const pw.EdgeInsets.symmetric(vertical: 5),
+        child: pw.Row(children: [
+          pw.Container(
+              width: 7,
+              height: 7,
+              decoration:
+                  pw.BoxDecoration(color: color, shape: pw.BoxShape.circle)),
+          pw.SizedBox(width: 8),
+          pw.Expanded(
+            child: pw.Text(label,
+                maxLines: 1,
+                overflow: pw.TextOverflow.clip,
+                style: pw.TextStyle(
+                    font: f.regular, fontSize: 9.5, color: kPdfText)),
+          ),
+          pw.Text(valeur,
+              style:
+                  pw.TextStyle(font: f.medium, fontSize: 9.5, color: color)),
+        ]),
+      );
+
+  // ── Enregistrement ─────────────────────────────────────────────────────────
+  //  ⚠️ Pas de `printReport` ici — et c'est une correction, pas un oubli.
+  //  L'écran de la vue régionale n'offrait QUE ce chemin : `Printing.layoutPdf`,
+  //  donc sous Windows la boîte de CHOIX D'IMPRIMANTE (`PrintDlg`), ouverte avec
+  //  `hwndOwner = nullptr` — elle peut s'afficher DERRIÈRE l'application, et
+  //  n'écrit jamais de fichier. Le « Rapport territorial (PDF) » ne pouvait donc
+  //  pas être enregistré, quoi qu'on fasse. L'écran passe désormais par
+  //  `showPdfPreviewDialog` : on voit le document, puis on l'enregistre ou on
+  //  l'imprime.
   static Future<String?> downloadReport({
     required String groupName,
     required AdminRegionalData data,
     required List<AdminProjectPin> projects,
+    Uint8List? bytes,
   }) async {
-    final bytes =
+    // `bytes` : enregistrer LE document que l'aperçu vient de montrer. Le
+    // reconstruire donnerait au fichier déposé une autre heure d'édition et un
+    // autre numéro de référence que ceux lus à l'écran.
+    final octets = bytes ??
         await buildPdf(groupName: groupName, data: data, projects: projects);
     final fileName = 'Rapport_territorial_${_slug(groupName)}'
         '_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf';
@@ -617,21 +326,22 @@ class RegionalPdfService {
         fileName: fileName,
         type: FileType.custom,
         allowedExtensions: ['pdf'],
-        bytes: bytes,
+        bytes: octets,
       );
       if (savePath != null) {
+        // Sous Windows, `file_picker` IGNORE `bytes` : il ne rend qu'un chemin.
         final f = File(savePath);
         if (!await f.exists() || await f.length() == 0) {
-          await f.writeAsBytes(bytes);
+          await f.writeAsBytes(octets);
         }
         return savePath;
       }
     } catch (_) {}
 
     try {
-      final dir  = await getApplicationDocumentsDirectory();
+      final dir = await getApplicationDocumentsDirectory();
       final file = File('${dir.path}/$fileName');
-      await file.writeAsBytes(bytes);
+      await file.writeAsBytes(octets);
       return file.path;
     } catch (_) {
       return null;
@@ -641,31 +351,10 @@ class RegionalPdfService {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-Future<Uint8List?> _rasterizeSvg(String assetPath, double size) async {
-  try {
-    final raw = await rootBundle.loadString(assetPath);
-    final info = await vg.loadPicture(SvgStringLoader(raw), null);
-    final recorder = ui.PictureRecorder();
-    final canvas = ui.Canvas(recorder);
-    final scale = size / info.size.width;
-    canvas.scale(scale);
-    canvas.drawPicture(info.picture);
-    final image = await recorder.endRecording().toImage(size.toInt(), size.toInt());
-    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-    info.picture.dispose();
-    image.dispose();
-    return bytes?.buffer.asUint8List();
-  } catch (_) {
-    return null;
-  }
-}
-
-PdfColor _alpha(PdfColor c, double a) => PdfColor(c.red, c.green, c.blue, a);
-
-String _money(int v) {
+String _n(int v) {
   final s = v.abs().toString();
   final buf = StringBuffer();
-  for (int i = 0; i < s.length; i++) {
+  for (var i = 0; i < s.length; i++) {
     if (i > 0 && (s.length - i) % 3 == 0) buf.write(' ');
     buf.write(s[i]);
   }
@@ -687,24 +376,24 @@ String _norm(String s) {
   return r;
 }
 
-String _typeLabel(String t) => switch (t) {
+String _type(String t) => switch (t) {
       'public' => 'Public',
-      'prive'  => 'Privé',
-      _        => t,
+      'prive' => 'Privé',
+      _ => t,
     };
 
-String _projectStatusLabel(String s) => switch (s) {
-      'etude'         => 'Étude',
-      'validation'    => 'Validation',
+String _statutProjet(String s) => switch (s) {
+      'etude' => 'Étude',
+      'validation' => 'Validation',
       'budgetisation' => 'Budgétisation',
-      'construction'  => 'Construction',
-      'acheve'        => 'Achevé',
-      _               => s,
+      'construction' => 'Construction',
+      'acheve' => 'Achevé',
+      _ => s,
     };
 
-String _sourceLabel(String? s) => switch (s) {
-      'gps'      => 'GPS terrain',
+String _source(String? s) => switch (s) {
+      'gps' => 'GPS terrain',
       'geocoded' => 'Géocodé',
-      'manual'   => 'Manuel',
-      _          => 'Inconnue',
+      'manual' => 'Manuel',
+      _ => 'Inconnue',
     };

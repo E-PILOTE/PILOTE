@@ -457,6 +457,111 @@ class OfficialPdfKit {
     return out;
   }
 
+  // ── Combien de lignes tiennent sur une feuille ──────────────────────────────
+  //  Une A4 fait 841,9 pt. Le filet de continuation en mange ~35, le pied ~41 :
+  //  il reste ~765 pt utiles. Un titre de cadre coûte 19 pt, la ligne d'en-tête
+  //  du tableau ~22. Restent ~724 pt pour les lignes.
+  //
+  //  Ces valeurs sont VOLONTAIREMENT en dessous du maximum théorique (31 et 23).
+  //  Le calcul dépend de la police, et une ligne de trop ne coûte pas une ligne
+  //  perdue : elle fait boucler `MultiPage` jusqu'à `TooManyPagesException`,
+  //  c'est-à-dire un document qui ne sort pas du tout.
+
+  /// Hauteur d'une ligne autorisant deux lignes de libellé.
+  static const double kTallRowHeight = 30;
+
+  /// Lignes par bloc — cellules d'une seule ligne de texte (~22,8 pt).
+  static const int kRowsPerBlock = 28;
+
+  /// Lignes par bloc — cellules de [kTallRowHeight].
+  static const int kTallRowsPerBlock = 20;
+
+  // ── Section = cadre + tableau, paginés ensemble ─────────────────────────────
+  //  LE POINT D'ENTRÉE À UTILISER pour toute liste dont la longueur suit les
+  //  données. Trois services avaient chacun leur découpe ; deux ne l'avaient
+  //  pas du tout, et leurs rapports cessaient de se générer passé une trentaine
+  //  de lignes. Une seule implémentation, un seul endroit où se tromper.
+  //
+  //  [note] : une ligne de commentaire sous le DERNIER bloc (un total, une
+  //  moyenne). Elle appartient à la fin du tableau, pas à chacun de ses morceaux.
+  static List<pw.Widget> tableSection({
+    required String title,
+    required PdfColor color,
+    required PdfFonts fonts,
+    required List<String> headers,
+    required List<List<String>> rows,
+    required List<int> flex,
+    required String emptyLabel,
+    int perBlock = kRowsPerBlock,
+    Set<int> leftAlignCols = const {},
+    int maxLines = 1,
+    double? rowHeight,
+    String? note,
+  }) {
+    pw.Widget noteWidget() => pw.Padding(
+          padding: const pw.EdgeInsets.only(top: 6),
+          child: pw.Text(note!,
+              style: pw.TextStyle(
+                  font: fonts.medium, fontSize: 9, color: kPdfMuted)),
+        );
+
+    if (rows.isEmpty) {
+      return [
+        frame(
+          title: title,
+          color: color,
+          fonts: fonts,
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Container(
+                padding: const pw.EdgeInsets.all(12),
+                decoration: pw.BoxDecoration(
+                    color: kPdfSurface,
+                    borderRadius: pw.BorderRadius.circular(6)),
+                child: pw.Text(emptyLabel,
+                    style: pw.TextStyle(
+                        font: fonts.regular, fontSize: 9, color: kPdfMuted)),
+              ),
+              if (note != null) noteWidget(),
+            ],
+          ),
+        ),
+      ];
+    }
+
+    final blocs = paginate(rows, first: perBlock, next: perBlock);
+
+    return [
+      for (var i = 0; i < blocs.length; i++) ...[
+        if (i > 0) pw.SizedBox(height: 10),
+        frame(
+          // Une page détachée du reste doit dire de quelle partie du tableau
+          // elle vient — sinon « RÉPARTITION PAR ÉTABLISSEMENT » se répète
+          // douze fois sans qu'on sache où l'on en est.
+          title: blocs.length == 1 ? title : '$title (${i + 1}/${blocs.length})',
+          color: color,
+          fonts: fonts,
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              table(
+                headers: headers,
+                rows: blocs[i],
+                flex: flex,
+                fonts: fonts,
+                leftAlignCols: leftAlignCols,
+                maxLines: maxLines,
+                rowHeight: rowHeight,
+              ),
+              if (note != null && i == blocs.length - 1) noteWidget(),
+            ],
+          ),
+        ),
+      ],
+    ];
+  }
+
   // ── Cadre de section (filet coloré + titre) ─────────────────────────────────
   static pw.Widget frame(
       {required String title,

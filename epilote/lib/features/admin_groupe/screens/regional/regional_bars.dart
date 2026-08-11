@@ -347,6 +347,22 @@ class _RegionalExportBar extends ConsumerStatefulWidget {
 class _RegionalExportBarState extends ConsumerState<_RegionalExportBar> {
   bool _busy = false;
 
+  // ⚠️ APERÇU, PUIS ENREGISTRER OU IMPRIMER — comme les vingt autres exports.
+  //
+  //  Ce bouton appelait `printReport()`, donc `Printing.layoutPdf`, qui sous
+  //  Windows ouvre `PrintDlg` : la boîte de CHOIX D'IMPRIMANTE. Trois
+  //  conséquences, toutes vécues comme « l'export ne marche pas » :
+  //    • aucun fichier n'était jamais écrit, quoi qu'on fasse dans la boîte —
+  //      or c'était le SEUL chemin d'export de la vue régionale ;
+  //    • `PrintDlg` est ouverte avec `hwndOwner = nullptr` (printing 5.14.3,
+  //      windows/print_job.cpp) : sans fenêtre propriétaire, elle peut
+  //      s'afficher DERRIÈRE l'application, qui paraît figée sur « Génération… » ;
+  //    • annulée — ou faute d'imprimante installée — le plugin rend « non
+  //      imprimé » sans erreur : l'application ne disait donc rien du tout.
+  //
+  //  Le document est construit UNE FOIS, avant d'ouvrir l'aperçu, et les mêmes
+  //  octets servent à l'affichage et à l'enregistrement : le fichier déposé
+  //  porte la référence et l'heure d'édition lues à l'écran.
   Future<void> _export() async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -355,16 +371,33 @@ class _RegionalExportBarState extends ConsumerState<_RegionalExportBar> {
       // .future : on s'assure d'avoir les projets (et pas un instantané vide)
       // même si l'utilisateur exporte avant la fin du 1er chargement.
       final projects = await ref.read(adminProjectsProvider.future);
-      final groupName = ref.read(adminDashboardProvider).valueOrNull?.groupName ??
-          'Groupe scolaire';
-      await RegionalPdfService.printReport(
+      final groupName =
+          ref.read(adminDashboardProvider).valueOrNull?.groupName ??
+              'Groupe scolaire';
+      final octets = await RegionalPdfService.buildPdf(
         groupName: groupName,
         data: widget.data,
         projects: projects,
       );
+      if (!mounted) return;
+      await showPdfPreviewDialog(
+        context,
+        title: 'Rapport territorial',
+        subtitle: '$groupName · ${widget.data.totalSchools} établissements · '
+            '${widget.data.coveredDepts}/15 départements',
+        pdfFileName: 'Rapport_territorial.pdf',
+        build: (_) async => octets,
+        onDownload: () => RegionalPdfService.downloadReport(
+          groupName: groupName,
+          data: widget.data,
+          projects: projects,
+          bytes: octets,
+        ),
+      );
     } catch (e) {
       messenger.showSnackBar(SnackBar(
-          content: Text('Export impossible : $e'), backgroundColor: kRed));
+          content: Text(messageErreur(e, contexte: 'Export')),
+          backgroundColor: kRed));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

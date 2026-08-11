@@ -29,20 +29,6 @@ import '../providers/admin_year_analytics_provider.dart';
 //  depuis `AppShell` : aucun service d'export n'a à s'en occuper.
 // ══════════════════════════════════════════════════════════════════════════════
 class AcademicYearPdfService {
-  /// Hauteur d'une ligne du tableau des établissements.
-  ///
-  /// Fixe, et c'est tout l'intérêt : elle autorise deux lignes de libellé — donc
-  /// « Collège d'Enseignement Technique de Ouésso » en entier — sans rendre la
-  /// hauteur du tableau imprévisible. Écrêter à une ligne rendait trois collèges
-  /// rigoureusement identiques à l'écran, seul le département les distinguant.
-  static const double _hauteurLigneEcole = 30;
-
-  /// Lignes par bloc de tableau. Une A4 offre ~774 pt utiles hors en-tête de
-  /// continuation et pied de page ; on retire le titre de cadre et la ligne
-  /// d'en-tête, puis on garde une marge pour les arrondis de rendu.
-  static const int _blocEcoles = 20; // lignes de 30 pt
-  static const int _blocSimple = 28; // lignes d'une seule ligne de texte
-
   static Future<Uint8List> buildPdf({
     required AdminYear year,
     required AdminYearAnalytics analytics,
@@ -248,9 +234,10 @@ class AcademicYearPdfService {
   //  pagination couvre le cas sale — `schools.department` est du texte libre, et
   //  quelques saisies fautives suffiraient à en faire lever cinquante.
   static List<pw.Widget> _parDepartement(AdminYearAnalytics a, PdfFonts f) =>
-      _sectionPaginee(
+      OfficialPdfKit.tableSection(
         title: 'RÉPARTITION PAR DÉPARTEMENT',
         color: kPdfGreen,
+        fonts: f,
         headers: const [
           'Département',
           'Écoles préparées',
@@ -266,9 +253,7 @@ class AcademicYearPdfService {
                   '${d.eleves}',
                 ])
             .toList(),
-        vide: 'Aucune donnée par département.',
-        parBloc: _blocSimple,
-        fonts: f,
+        emptyLabel: 'Aucune donnée par département.',
       );
 
   static List<pw.Widget> _parType(AdminYearAnalytics a, PdfFonts f) {
@@ -277,9 +262,10 @@ class AcademicYearPdfService {
           'prive' => 'Privé',
           _ => t.isEmpty ? 'Autre' : t,
         };
-    return _sectionPaginee(
+    return OfficialPdfKit.tableSection(
       title: "TYPE D'ÉTABLISSEMENT",
       color: kPdfGold,
+      fonts: f,
       headers: const ['Type', 'Écoles', 'Classes', 'Élèves'],
       flex: const [4, 2, 2, 2],
       rows: a.byType
@@ -290,9 +276,7 @@ class AcademicYearPdfService {
                 '${t.eleves}',
               ])
           .toList(),
-      vide: 'Aucune donnée par type.',
-      parBloc: _blocSimple,
-      fonts: f,
+      emptyLabel: 'Aucune donnée par type.',
     );
   }
 
@@ -304,11 +288,19 @@ class AcademicYearPdfService {
   //  les intitulés congolais sont longs — « Collège d'Enseignement Technique
   //  de … » fait à lui seul trente-cinq caractères avant la commune. Écrêtés,
   //  trois établissements devenaient indiscernables.
+  //
+  //  ⚠️ La pagination n'est pas cosmétique : `OfficialPdfKit.frame()` enveloppe
+  //  son contenu dans un `Padding`, qui ne sait pas se scinder entre deux pages.
+  //  Confier à un seul cadre un tableau plus haut qu'une feuille fait boucler
+  //  `MultiPage` jusqu'à `TooManyPagesException` : le document ne sort alors pas
+  //  du tout — pas « mal paginé », pas « tronqué » : absent. Mesuré avant
+  //  correction : le bilan cessait de se générer à 31 établissements.
   static List<pw.Widget> _parEtablissement(
           AdminYearAnalytics a, PdfFonts f) =>
-      _sectionPaginee(
+      OfficialPdfKit.tableSection(
         title: 'PRÉPARATION PAR ÉTABLISSEMENT',
         color: const PdfColor.fromInt(0xFF7C3AED),
+        fonts: f,
         headers: const [
           'Établissement',
           'Département',
@@ -326,68 +318,11 @@ class AcademicYearPdfService {
                   s.adopted ? 'Préparée' : 'En attente',
                 ])
             .toList(),
-        vide: 'Aucune école active.',
-        parBloc: _blocEcoles,
+        emptyLabel: 'Aucune école active.',
+        perBlock: OfficialPdfKit.kTallRowsPerBlock,
         maxLines: 2,
-        rowHeight: _hauteurLigneEcole,
-        fonts: f,
+        rowHeight: OfficialPdfKit.kTallRowHeight,
       );
-
-  // ── Pagination des listes longues ───────────────────────────────────────────
-  //  ⚠️ `frame()` enveloppe son contenu dans un `Padding`, qui ne sait pas se
-  //  scinder entre deux pages. Confier à un seul cadre un tableau plus haut
-  //  qu'une feuille fait boucler `MultiPage` jusqu'à `TooManyPagesException` :
-  //  le document ne sort alors pas du tout — pas « mal paginé », pas
-  //  « tronqué » : absent, avec un message d'erreur. Mesuré avant correction :
-  //  le bilan cessait de se générer à 31 établissements.
-  static List<pw.Widget> _sectionPaginee({
-    required String title,
-    required PdfColor color,
-    required List<String> headers,
-    required List<int> flex,
-    required List<List<String>> rows,
-    required String vide,
-    required int parBloc,
-    required PdfFonts fonts,
-    int maxLines = 1,
-    double? rowHeight,
-  }) {
-    if (rows.isEmpty) {
-      return [
-        OfficialPdfKit.frame(
-            title: title,
-            color: color,
-            fonts: fonts,
-            child: OfficialPdfKit.empty(vide, fonts.regular)),
-      ];
-    }
-
-    final blocs = <List<List<String>>>[];
-    for (var i = 0; i < rows.length; i += parBloc) {
-      blocs.add(rows.sublist(i, (i + parBloc).clamp(0, rows.length)));
-    }
-
-    return [
-      for (var i = 0; i < blocs.length; i++) ...[
-        if (i > 0) pw.SizedBox(height: 10),
-        OfficialPdfKit.frame(
-          // Une page détachée doit dire de quelle partie du tableau elle vient.
-          title:
-              blocs.length == 1 ? title : '$title (${i + 1}/${blocs.length})',
-          color: color,
-          fonts: fonts,
-          child: OfficialPdfKit.table(
-            headers: headers,
-            rows: blocs[i],
-            flex: flex,
-            fonts: fonts,
-            maxLines: maxLines,
-            rowHeight: rowHeight,
-          ),
-        ),
-      ],
-    ];
-  }
 
   static String _slug(String s) =>
       s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');

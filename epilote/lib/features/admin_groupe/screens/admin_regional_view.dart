@@ -24,6 +24,7 @@ import '../providers/regional_table_provider.dart';
 import '../../examens/models/exam_stats.dart' show ExamStatLine;
 import '../services/regional_pdf_service.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../widgets/esri_tile_provider.dart';
 import '../widgets/mapillary_viewer.dart';
 import '../widgets/school_satellite_view.dart';
