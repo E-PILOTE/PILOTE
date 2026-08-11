@@ -8,6 +8,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../../core/services/official_pdf_kit.dart';
+
 import '../providers/school_groups_provider.dart';
 
 // ─── Couleurs PDF ──────────────────────────────────────────────────────────────
@@ -28,9 +30,15 @@ const _text    = PdfColor.fromInt(0xFF0F172A);
 class GroupPdfService {
   static Future<Uint8List> buildPdf(GroupDetail g) async {
     // ── Polices ──────────────────────────────────────────────────────────────
-    final fontRegular = await PdfGoogleFonts.notoSansRegular();
-    final fontBold    = await PdfGoogleFonts.notoSansBold();
-    final fontMedium  = await PdfGoogleFonts.notoSansMedium();
+    // Polices EMBARQUÉES (assets/fonts) — cf. OfficialPdfKit.loadFonts().
+    // `PdfGoogleFonts` allait les chercher sur fonts.gstatic.com et, en cas
+    // d'échec, retombait SANS BRUIT sur Helvetica : sur un poste hors ligne —
+    // le cas normal d'une école congolaise — le document officiel sortait dans
+    // une police de secours sans Unicode, et nul ne le voyait avant impression.
+    final polices = await OfficialPdfKit.loadFonts();
+    final fontRegular = polices.regular;
+    final fontBold = polices.bold;
+    final fontMedium = polices.medium;
 
     // Logo plateforme : SVG non chargeable dans un service isolé → bloc "EP"
 
