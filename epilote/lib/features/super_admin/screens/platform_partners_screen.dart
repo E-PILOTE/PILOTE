@@ -7,6 +7,7 @@ import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../providers/platform_partners_provider.dart';
 import 'platform_partner_form_dialog.dart';
+import '../../../core/utils/message_erreur.dart';
 
 final _fmt = DateFormat('dd/MM/yyyy', 'fr_FR');
 
@@ -28,7 +29,7 @@ class PlatformPartnersScreen extends ConsumerWidget {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.error_outline_rounded, color: kRed, size: 40),
             const SizedBox(height: 12),
-            Text('Erreur : $e',
+            Text(messageErreur(e),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: kTextMuted)),
             const SizedBox(height: 12),

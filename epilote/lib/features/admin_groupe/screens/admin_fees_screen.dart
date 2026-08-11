@@ -8,6 +8,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../providers/admin_academic_year_provider.dart';
 import '../providers/admin_fees_provider.dart';
 import 'admin_fee_form_dialog.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  FRAIS & TARIFS — le seul endroit de la plateforme où un montant se crée.
@@ -103,7 +104,7 @@ class _BodyState extends ConsumerState<_Body> {
 
     return annees.when(
       loading: () => const ListShimmer(),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (years) {
         if (years.isEmpty) {
           return const Center(
@@ -127,7 +128,7 @@ class _BodyState extends ConsumerState<_Body> {
         return ref.watch(adminFeesProvider(yearId)).when(
               skipLoadingOnReload: true,
               loading: () => const ListShimmer(),
-              error: (e, _) => Center(child: Text('Erreur : $e')),
+              error: (e, _) => Center(child: Text(messageErreur(e))),
               data: (rows) => _content(rows, years, yearId),
             );
       },

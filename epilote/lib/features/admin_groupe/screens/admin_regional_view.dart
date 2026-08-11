@@ -29,6 +29,7 @@ import '../widgets/mapillary_viewer.dart';
 import '../widgets/school_satellite_view.dart';
 import 'admin_schools_screen.dart' show openSchoolDetailDialog;
 import 'regional_table_mode.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'regional/regional_state.dart';
 part 'regional/regional_bars.dart';

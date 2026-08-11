@@ -9,6 +9,7 @@ import '../providers/messages_provider.dart'
     show RecipientOption, scopedRecipientsProvider;
 import '../widgets/comm_attachments.dart';
 import '../widgets/staff_feed_ui.dart' show roleColor, roleLabelFr;
+import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  Paramètres d'une conversation de groupe (style WhatsApp « Infos du groupe ») :
@@ -84,7 +85,7 @@ class _GroupSettingsDialogState extends ConsumerState<GroupSettingsDialog> {
       widget.onChanged();
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      _toast('Erreur : $e', error: true);
+      _toast(messageErreur(e), error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -111,7 +112,7 @@ class _GroupSettingsDialogState extends ConsumerState<GroupSettingsDialog> {
     } on AttachmentUploadException catch (e) {
       _toast(e.message, error: true);
     } catch (e) {
-      _toast('Erreur : $e', error: true);
+      _toast(messageErreur(e), error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -165,7 +166,7 @@ class _GroupSettingsDialogState extends ConsumerState<GroupSettingsDialog> {
         _addSelected.clear();
       });
     } catch (e) {
-      _toast('Erreur : $e', error: true);
+      _toast(messageErreur(e), error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -558,7 +559,7 @@ class _AddMembersPanel extends ConsumerWidget {
           loading: () =>
               const Center(child: CircularProgressIndicator(strokeWidth: 2)),
           error: (e, _) => Center(
-              child: Text('Erreur : $e',
+              child: Text(messageErreur(e),
                   style: TextStyle(color: kTextMuted, fontSize: 12))),
           data: (all) {
             final list = all

@@ -14,6 +14,7 @@ import '../../../features/auth/providers/auth_provider.dart';
 import '../../../core/utils/media_compression.dart';
 import '../providers/administrators_provider.dart';
 import '../services/admin_pdf_service.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Design tokens (identiques à school_groups_screen) ───────────────────────
 Color get _kNavy => kNavy;
@@ -140,7 +141,7 @@ class _AdminsBodyState extends ConsumerState<_AdminsBody> {
           .eq('id', a.id);
       ref.invalidate(administratorsProvider);
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError(messageErreur(e));
     }
   }
 
@@ -150,7 +151,7 @@ class _AdminsBodyState extends ConsumerState<_AdminsBody> {
       await client.auth.resetPasswordForEmail(a.email);
       if (mounted) _showSuccess('Email de réinitialisation envoyé à ${a.email}');
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError(messageErreur(e));
     }
   }
 
@@ -167,7 +168,7 @@ class _AdminsBodyState extends ConsumerState<_AdminsBody> {
       ref.invalidate(administratorsProvider);
       if (mounted) _showSuccess('Compte "${a.fullName}" supprimé définitivement.');
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError(messageErreur(e));
     }
   }
 
@@ -191,7 +192,7 @@ class _AdminsBodyState extends ConsumerState<_AdminsBody> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
           const SizedBox(height: 12),
-          Text('Erreur : $e', style: TextStyle(color: _kMuted)),
+          Text(messageErreur(e), style: TextStyle(color: _kMuted)),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => ref.invalidate(administratorsProvider),
@@ -1596,7 +1597,7 @@ class _AdminFormModalState extends ConsumerState<_AdminFormModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Erreur upload : $e'),
+          content: Text(messageErreur(e, contexte: 'Envoi du fichier')),
           backgroundColor: _kRed,
           behavior: SnackBarBehavior.floating,
         ));
@@ -1639,7 +1640,7 @@ class _AdminFormModalState extends ConsumerState<_AdminFormModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur : $e'),
+        content: Text(messageErreur(e)),
         backgroundColor: _kRed,
         behavior: SnackBarBehavior.floating,
       ));
@@ -2602,7 +2603,7 @@ class _AdminPrintPreviewModalState extends State<_AdminPrintPreviewModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur impression : $e'),
+        content: Text(messageErreur(e, contexte: 'Impression')),
         backgroundColor: _kRed, behavior: SnackBarBehavior.floating,
       ));
       }
@@ -2633,7 +2634,7 @@ class _AdminPrintPreviewModalState extends State<_AdminPrintPreviewModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur téléchargement : $e'),
+        content: Text(messageErreur(e, contexte: 'Téléchargement')),
         backgroundColor: _kRed, behavior: SnackBarBehavior.floating,
       ));
       }

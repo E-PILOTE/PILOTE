@@ -12,6 +12,7 @@ import '../../super_admin/services/financial_pdf_service.dart';
 import '../providers/admin_subscription_provider.dart';
 import 'admin_subscription_renew_dialog.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/utils/message_erreur.dart';
 
 class AdminSubscriptionScreen extends ConsumerWidget {
   const AdminSubscriptionScreen({super.key});
@@ -24,7 +25,7 @@ class AdminSubscriptionScreen extends ConsumerWidget {
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,
         loading: () => const _SubscriptionSkeleton(),
-        error: (e, _) => Center(child: Text('Erreur : $e', style: TextStyle(color: kTextMuted))),
+        error: (e, _) => Center(child: Text(messageErreur(e), style: TextStyle(color: kTextMuted))),
         data: (d) => _Body(data: d),
       ),
     );

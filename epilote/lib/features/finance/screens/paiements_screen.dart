@@ -16,6 +16,7 @@ import '../providers/paiements_provider.dart';
 import '../services/obligation.dart';
 import '../services/recu_pdf_service.dart';
 import 'paiements_remboursement.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'paiements_sheet.dart';
 part 'paiements_form.dart';
@@ -88,7 +89,7 @@ class _BodyState extends ConsumerState<_Body> {
               child: Center(child: CircularProgressIndicator())),
           error: (e, _) => Padding(
               padding: const EdgeInsets.only(top: 40),
-              child: Center(child: Text('Erreur : $e'))),
+              child: Center(child: Text(messageErreur(e)))),
           data: _content,
         ),
         const SizedBox(height: 24),
@@ -275,7 +276,7 @@ class _ClassPaymentsState extends ConsumerState<_ClassPayments> {
           loading: () => const Padding(
               padding: EdgeInsets.symmetric(vertical: 30),
               child: Center(child: CircularProgressIndicator())),
-          error: (e, _) => Center(child: Text('Erreur : $e')),
+          error: (e, _) => Center(child: Text(messageErreur(e))),
           data: (rows) {
             if (rows.isEmpty) {
               return const Padding(

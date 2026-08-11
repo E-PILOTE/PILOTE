@@ -421,7 +421,7 @@ class _SchoolEducationSectionState
       if (!mounted) return;
       setState(() { _programIds.add(id); _cycleIds.add(c.id); });
     } catch (e) {
-      if (mounted) _eduSnack('Erreur : $e', error: true);
+      if (mounted) _eduSnack(messageErreur(e), error: true);
     }
   }
 
@@ -441,7 +441,7 @@ class _SchoolEducationSectionState
         if (program != null) _programIds.add(program.id);
       });
     } catch (e) {
-      if (mounted) _eduSnack('Erreur : $e', error: true);
+      if (mounted) _eduSnack(messageErreur(e), error: true);
     }
   }
 
@@ -454,7 +454,7 @@ class _SchoolEducationSectionState
             id: p.id, name: name.trim(), description: p.description);
         if (mounted) _eduSnack('Filière renommée');
       } catch (e) {
-        if (mounted) _eduSnack('Erreur : $e', error: true);
+        if (mounted) _eduSnack(messageErreur(e), error: true);
       }
     } else if (action == 'disable') {
       try {
@@ -463,7 +463,7 @@ class _SchoolEducationSectionState
         setState(() => _programIds.remove(p.id));
         _eduSnack('Filière désactivée');
       } catch (e) {
-        if (mounted) _eduSnack('Erreur : $e', error: true);
+        if (mounted) _eduSnack(messageErreur(e), error: true);
       }
     }
   }

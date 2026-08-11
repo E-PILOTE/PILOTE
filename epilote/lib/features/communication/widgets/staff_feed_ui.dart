@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // Helpers texte/dates/rôles et grille média : extraits (règle ≤ 500 lignes)
 // et ré-exportés ici — les imports existants restent valides.
@@ -56,7 +57,7 @@ Future<bool> runFeedAction(
       content: Row(children: [
         const Icon(Icons.error_outline_rounded, color: Colors.white, size: 18),
         const SizedBox(width: 10),
-        Expanded(child: Text('Échec : $e')),
+        Expanded(child: Text(messageErreur(e))),
       ]),
     ));
     return false;

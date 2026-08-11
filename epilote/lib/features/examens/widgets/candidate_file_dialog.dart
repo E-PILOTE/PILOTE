@@ -12,6 +12,7 @@ import '../services/exam_export_service.dart';
 import 'dossier_piece_tile.dart' show kListAmber, pieceVisual;
 import 'exam_dossier_dialog.dart';
 import 'student_history_dialog.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LA FICHE D'INSCRIPTION — la candidature vue ENTIÈRE, d'un seul endroit.
@@ -56,7 +57,7 @@ class _CandidateFileDialog extends ConsumerWidget {
           ),
           error: (e, _) => Padding(
             padding: const EdgeInsets.all(24),
-            child: Text('Erreur : $e', style: TextStyle(color: kRed)),
+            child: Text(messageErreur(e), style: TextStyle(color: kRed)),
           ),
           data: (c) => c == null
               ? const Padding(

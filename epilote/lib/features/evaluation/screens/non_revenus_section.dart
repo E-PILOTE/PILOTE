@@ -22,6 +22,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/ine.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../providers/non_revenus_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 class NonRevenusSection extends ConsumerStatefulWidget {
   const NonRevenusSection({
@@ -91,7 +92,7 @@ class _NonRevenusSectionState extends ConsumerState<NonRevenusSection> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(backgroundColor: kRed, content: Text('Erreur : $e')));
+            SnackBar(backgroundColor: kRed, content: Text(messageErreur(e))));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -107,7 +108,7 @@ class _NonRevenusSectionState extends ConsumerState<NonRevenusSection> {
           child: Center(child: CircularProgressIndicator())),
       error: (e, _) => Padding(
           padding: const EdgeInsets.only(top: 40),
-          child: Center(child: Text('Erreur : $e'))),
+          child: Center(child: Text(messageErreur(e)))),
       data: (bilan) {
         if (!bilan.aUnPasse) {
           return const AdminEmptyState(

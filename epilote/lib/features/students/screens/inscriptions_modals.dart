@@ -91,7 +91,7 @@ class _InscriptionDetailModal extends ConsumerWidget {
               error: (e, _) => Padding(
                   padding: const EdgeInsets.all(24),
                   child:
-                      Text('Erreur : $e', style: TextStyle(color: kRed))),
+                      Text(messageErreur(e), style: TextStyle(color: kRed))),
               data: (d) => _DossierBody(row: row, d: d),
             ),
           ),
@@ -820,7 +820,7 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
-        _snack('Erreur : $e', kRed);
+        _snack(messageErreur(e), kRed);
       }
     }
   }
@@ -844,7 +844,7 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
             height: 240,
             child: Center(
                 child:
-                    Text('Erreur : $e', style: TextStyle(color: kRed)))),
+                    Text(messageErreur(e), style: TextStyle(color: kRed)))),
         data: (d) {
           if (!_primed) _prime(d);
           final em = ref.watch(enrollmentDetailProvider(widget.row.id)).valueOrNull;
@@ -1011,7 +1011,7 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
         classesAsync.when(
           loading: () => const LinearProgressIndicator(),
           error: (e, _) =>
-              Text('Erreur : $e', style: TextStyle(color: kRed)),
+              Text(messageErreur(e), style: TextStyle(color: kRed)),
           data: (classes) {
             if (classes.isEmpty) {
               return Text('Aucune classe disponible.',

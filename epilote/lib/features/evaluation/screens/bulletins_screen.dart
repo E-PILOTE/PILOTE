@@ -15,6 +15,7 @@ import '../providers/conseils_provider.dart' show awardFor;
 import '../providers/evaluation_overview_provider.dart';
 import '../services/bulletin_pdf_service.dart';
 import 'evaluation_overview_widgets.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'bulletins_parts.dart';
 part 'bulletins_detail.dart';
@@ -170,7 +171,7 @@ class _BodyState extends ConsumerState<_Body> {
               child: Center(child: CircularProgressIndicator())),
           error: (e, _) => Padding(
               padding: const EdgeInsets.only(top: 40),
-              child: Center(child: Text('Erreur : $e'))),
+              child: Center(child: Text(messageErreur(e)))),
           data: (ov) => _content(ov, canCreate, canUpdate, readOnly),
         ),
         const SizedBox(height: 24),

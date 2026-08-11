@@ -10,6 +10,7 @@ import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/structure/providers/academic_year_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../widgets/staff_account_widgets.dart';
+import '../../../core/utils/message_erreur.dart';
 
 /// Page « Mon profil » du personnel scolaire — identité, informations
 /// personnelles éditables, détails du compte et sécurité.
@@ -35,7 +36,7 @@ class _Body extends ConsumerWidget {
     return rowAsync.when(
       loading: () =>
           const FormSkeleton(sections: 3, maxWidth: double.infinity),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (profile) {
         if (profile == null) {
           return const AdminEmptyState(

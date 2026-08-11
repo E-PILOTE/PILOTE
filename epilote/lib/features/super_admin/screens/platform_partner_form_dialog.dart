@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/platform_partners_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 final _fmt = DateFormat('dd/MM/yyyy', 'fr_FR');
 
@@ -57,7 +58,7 @@ class _PartnerFormDialogState extends ConsumerState<PartnerFormDialog> {
           .uploadLogo(f.bytes!, f.extension ?? 'png');
       if (mounted) setState(() => _logoUrl = url);
     } catch (e) {
-      if (mounted) setState(() => _error = 'Erreur upload : $e');
+      if (mounted) setState(() => _error = messageErreur(e, contexte: 'Envoi du fichier'));
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
@@ -121,7 +122,7 @@ class _PartnerFormDialogState extends ConsumerState<PartnerFormDialog> {
       if (mounted) {
         setState(() {
           _busy = false;
-          _error = 'Erreur : $e';
+          _error = messageErreur(e);
         });
       }
     }

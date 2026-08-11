@@ -22,6 +22,7 @@ import '../widgets/staff_feed_ui.dart' show roleColor, roleLabelFr;
 import '../widgets/user_avatar.dart';
 import 'group_create_dialog.dart';
 import 'group_settings_dialog.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'messagerie_staff_inbox.dart';
 part 'messagerie_staff_thread.dart';
@@ -287,7 +288,7 @@ class _StaffMessagesScreenState extends ConsumerState<StaffMessagesScreen> {
         loading: () => const SplitSkeleton(),
         error: (e, _) => Center(
             child:
-                Text('Erreur : $e', style: TextStyle(color: kTextMuted))),
+                Text(messageErreur(e), style: TextStyle(color: kTextMuted))),
         data: (data) {
           final direct   = _group(data.messages, uid);
           final groups   = _groupThreads(groupConvs, data.messages, uid, reads);

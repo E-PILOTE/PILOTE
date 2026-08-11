@@ -11,6 +11,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../../features/user/widgets/user_settings_cards.dart' show ThemePicker;
 import '../providers/admin_settings_provider.dart';
 import '../widgets/partner_opt_in_tile.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PARAMÈTRES — espace admin_groupe (online, scope group_id)
@@ -331,7 +332,7 @@ class _GeneralTab extends ConsumerWidget {
           skipLoadingOnReload: true,
           skipLoadingOnRefresh: true,
           loading: () => const _CardLoader(),
-          error: (e, _) => AdminCard(child: AdminErrorBanner(message: 'Erreur : $e')),
+          error: (e, _) => AdminCard(child: AdminErrorBanner(message: messageErreur(e))),
           data: (g) => _GroupInfoCard(group: g),
         ),
         const SizedBox(height: 20),
@@ -345,7 +346,7 @@ class _GeneralTab extends ConsumerWidget {
           skipLoadingOnReload: true,
           skipLoadingOnRefresh: true,
           loading: () => const _CardLoader(),
-          error: (e, _) => AdminCard(child: AdminErrorBanner(message: 'Erreur : $e')),
+          error: (e, _) => AdminCard(child: AdminErrorBanner(message: messageErreur(e))),
           data: (s) => _GeneralPrefsCard(initial: s.general),
         ),
         const SizedBox(height: 20),
@@ -355,7 +356,7 @@ class _GeneralTab extends ConsumerWidget {
           skipLoadingOnReload: true,
           skipLoadingOnRefresh: true,
           loading: () => const _CardLoader(),
-          error: (e, _) => AdminCard(child: AdminErrorBanner(message: 'Erreur : $e')),
+          error: (e, _) => AdminCard(child: AdminErrorBanner(message: messageErreur(e))),
           data: (s) => _PedagogyCard(initial: s.general),
         ),
         const SizedBox(height: 20),
@@ -1010,7 +1011,7 @@ class _BillingTab extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(vertical: 40),
                 child: Center(child: CircularProgressIndicator(color: kNavy)),
               ),
-              error: (e, _) => AdminErrorBanner(message: 'Erreur : $e'),
+              error: (e, _) => AdminErrorBanner(message: messageErreur(e)),
               data: (list) => list.isEmpty
                   ? const Padding(
                       padding: EdgeInsets.symmetric(vertical: 24),
@@ -1054,7 +1055,7 @@ class _BillingTab extends ConsumerWidget {
           skipLoadingOnReload: true,
           skipLoadingOnRefresh: true,
           loading: () => const _CardLoader(),
-          error: (e, _) => AdminCard(child: AdminErrorBanner(message: 'Erreur : $e')),
+          error: (e, _) => AdminCard(child: AdminErrorBanner(message: messageErreur(e))),
           data: (s) => _FeePolicyCard(initial: s.general),
         ),
         const SizedBox(height: 24),
@@ -1197,7 +1198,7 @@ class _PaymentTileState extends ConsumerState<_PaymentTile> {
     try {
       await ref.read(adminSettingsServiceProvider).setPaymentActive(c.id!, v);
     } catch (e) {
-      if (mounted) _toast(context, 'Échec : $e', ok: false);
+      if (mounted) _toast(context, messageErreur(e), ok: false);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -1233,7 +1234,7 @@ class _PaymentTileState extends ConsumerState<_PaymentTile> {
     } catch (e) {
       if (mounted) {
         setState(() => _busy = false);
-        _toast(context, 'Échec : $e', ok: false);
+        _toast(context, messageErreur(e), ok: false);
       }
     }
   }
@@ -1526,7 +1527,7 @@ class _NotificationsTab extends ConsumerWidget {
           skipLoadingOnReload: true,
           skipLoadingOnRefresh: true,
           loading: () => const _CardLoader(),
-          error: (e, _) => AdminCard(child: AdminErrorBanner(message: 'Erreur : $e')),
+          error: (e, _) => AdminCard(child: AdminErrorBanner(message: messageErreur(e))),
           data: (s) => _NotificationsCard(initial: s.notifications),
         ),
         const SizedBox(height: 24),
@@ -1810,7 +1811,7 @@ class _SecurityTab extends ConsumerWidget {
           skipLoadingOnReload: true,
           skipLoadingOnRefresh: true,
           loading: () => const _CardLoader(),
-          error: (e, _) => AdminCard(child: AdminErrorBanner(message: 'Erreur : $e')),
+          error: (e, _) => AdminCard(child: AdminErrorBanner(message: messageErreur(e))),
           data: (s) => _SecurityCard(initial: s.security),
         ),
         const SizedBox(height: 20),

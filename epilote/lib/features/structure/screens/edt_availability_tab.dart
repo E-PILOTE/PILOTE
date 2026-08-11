@@ -60,7 +60,7 @@ class _AvailabilityTab extends ConsumerWidget {
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (items) {
         // Regroupé par enseignant.
         final byStaff = <String, List<TeacherAvailability>>{};

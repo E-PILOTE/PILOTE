@@ -10,6 +10,7 @@ import 'candidate_file_dialog.dart';
 import 'exam_dossier_dialog.dart';
 import 'exam_payment_dialog.dart';
 import 'exam_register_dialog.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LES INSCRITS D'UNE CLASSE — consultation, pas sélection.
@@ -75,7 +76,7 @@ class _State extends ConsumerState<_ClassCandidatesDialog> {
           ),
           error: (e, _) => Padding(
             padding: const EdgeInsets.all(24),
-            child: Text('Erreur : $e', style: TextStyle(color: kRed)),
+            child: Text(messageErreur(e), style: TextStyle(color: kRed)),
           ),
           data: (reg) => _content(reg, canEdit),
         ),

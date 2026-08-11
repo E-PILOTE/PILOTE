@@ -18,6 +18,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../providers/releases_provider.dart';
 import 'release_form_dialog.dart';
+import '../../../core/utils/message_erreur.dart';
 
 class ReleasesScreen extends ConsumerWidget {
   const ReleasesScreen({super.key});
@@ -274,7 +275,7 @@ class _Carte extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(backgroundColor: kRed, content: Text('Erreur : $e')));
+            SnackBar(backgroundColor: kRed, content: Text(messageErreur(e))));
       }
     }
   }

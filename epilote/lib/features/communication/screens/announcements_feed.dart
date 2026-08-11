@@ -19,6 +19,7 @@ import 'announcements_feed_cards.dart';
 import 'announcements_feed_form.dart';
 import 'events_feed.dart';
 import 'events_feed_form.dart';
+import '../../../core/utils/message_erreur.dart';
 
 class StaffAnnouncementsScreen extends StatefulWidget {
   const StaffAnnouncementsScreen({super.key, this.initialTab = 0});
@@ -221,7 +222,7 @@ class _FeedState extends ConsumerState<_Feed> {
       skipLoadingOnReload: true,
       loading: () => const FeedSkeleton(cards: 4, maxWidth: double.infinity),
       error: (e, _) =>
-          Center(child: Text('Erreur : $e', style: TextStyle(color: kTextMuted))),
+          Center(child: Text(messageErreur(e), style: TextStyle(color: kTextMuted))),
       data: (anns) => _buildBody(context, anns),
     );
   }

@@ -10,6 +10,7 @@ import '../providers/admin_access_provider.dart'
 import '../providers/admin_module_provider.dart';
 import '../providers/admin_nav_provider.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Palette catégorie (8 teintes, ADN plateforme) ───────────────────────────
 const List<Color> _kCatPalette = [
@@ -236,7 +237,7 @@ class _AdminModulesScreenState extends ConsumerState<AdminModulesScreen>
                   Center(child: CircularProgressIndicator(color: kNavy)),
               error: (e, _) => ListView(children: [
                 const SizedBox(height: 120),
-                Center(child: AdminErrorBanner(message: 'Erreur : $e')),
+                Center(child: AdminErrorBanner(message: messageErreur(e))),
               ]),
               data: (catalog) => _CatalogBody(
                 catalog: catalog,
@@ -799,7 +800,7 @@ class _ModuleAdoptionChart extends ConsumerWidget {
               ),
               error: (e, _) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text('Erreur : $e',
+                child: Text(messageErreur(e),
                     style: TextStyle(color: kRed, fontSize: 12)),
               ),
               data: _buildData,
@@ -2211,7 +2212,7 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
       ));
     } catch (e) {
       messenger.showSnackBar(SnackBar(
-        content: Text('Erreur : $e'),
+        content: Text(messageErreur(e)),
         backgroundColor: kRed,
         behavior: SnackBarBehavior.floating,
       ));
@@ -2334,7 +2335,7 @@ class _ModulePanelState extends ConsumerState<_ModulePanel>
                   error: (e, _) => Padding(
                     padding: const EdgeInsets.all(24),
                     child: Center(
-                      child: Text('Erreur : $e',
+                      child: Text(messageErreur(e),
                           style: TextStyle(color: kTextMuted, fontSize: 13)),
                     ),
                   ),

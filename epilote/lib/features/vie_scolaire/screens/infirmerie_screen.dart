@@ -13,6 +13,7 @@ import '../providers/vs_students_provider.dart';
 import '../widgets/vs_kit.dart';
 import '../widgets/vs_form_chrome.dart';
 import '../widgets/vs_student_field.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'infirmerie_form.dart';
 
@@ -104,7 +105,7 @@ class _BodyState extends ConsumerState<_Body> {
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (all) {
         final filtered = _apply(all);
         final todayCount = all.where((v) => v.date == today).length;

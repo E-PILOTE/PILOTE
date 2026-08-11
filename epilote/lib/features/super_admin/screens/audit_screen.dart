@@ -8,6 +8,7 @@ import 'package:shimmer/shimmer.dart';
 
 import '../../../core/widgets/app_shell.dart';
 import '../providers/audit_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
 Color get _kNavy => kNavy;
@@ -123,7 +124,7 @@ class _AuditBodyState extends ConsumerState<_AuditBody> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
           const SizedBox(height: 12),
-          Text('Erreur : $e', style: TextStyle(color: _kMuted)),
+          Text(messageErreur(e), style: TextStyle(color: _kMuted)),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => ref.invalidate(auditLogsProvider),

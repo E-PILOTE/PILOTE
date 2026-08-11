@@ -11,6 +11,7 @@ import '../providers/academic_year_context.dart';
 import '../providers/subjects_provider.dart';
 import '../services/subjects_pdf_service.dart';
 import 'subject_detail_dialog.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'subjects_parts.dart';
 
@@ -132,7 +133,7 @@ class _BodyState extends ConsumerState<_Body> {
       final path = await exportSubjectsCsv(list);
       _snack('Export CSV : ${list.length} ligne(s) → $path', kGreen);
     } catch (e) {
-      _snack('Erreur export : $e', kRed);
+      _snack(messageErreur(e, contexte: 'Export'), kRed);
     }
   }
 
@@ -189,7 +190,7 @@ class _BodyState extends ConsumerState<_Body> {
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('Erreur : $e', style: TextStyle(color: kRed)),
+          child: Text(messageErreur(e), style: TextStyle(color: kRed)),
         ),
       ),
       data: (all) {

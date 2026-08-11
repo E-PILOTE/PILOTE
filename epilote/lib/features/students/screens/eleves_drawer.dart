@@ -32,7 +32,7 @@ class _StudentDrawer extends ConsumerWidget {
                     const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Padding(
                   padding: const EdgeInsets.all(24),
-                  child: Text('Erreur : $e',
+                  child: Text(messageErreur(e),
                       style: TextStyle(color: kRed)),
                 ),
                 data: (d) => SingleChildScrollView(

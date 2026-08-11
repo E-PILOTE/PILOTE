@@ -10,6 +10,7 @@ import '../../structure/providers/academic_year_context.dart';
 import '../../vie_scolaire/widgets/vs_kit.dart';
 import '../../vie_scolaire/widgets/vs_form_chrome.dart';
 import '../providers/budget_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'budget_form.dart';
 
@@ -77,7 +78,7 @@ class _BodyState extends ConsumerState<_Body> {
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (all) {
         final budgeted = all.fold(0, (a, l) => a + l.budgeted);
         final actual = all.fold(0, (a, l) => a + l.actual);

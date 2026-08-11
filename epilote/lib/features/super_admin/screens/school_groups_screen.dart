@@ -17,6 +17,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_animated_button/flutter_animated_button.dart';
 import '../services/group_pdf_service.dart';
 import '../widgets/plan_change_notice.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 Color get _kNavy => kNavy;
@@ -164,7 +165,7 @@ class _GroupsBodyState extends ConsumerState<_GroupsBody> {
           .update({'is_active': !g.isActive}).eq('id', g.id);
       ref.invalidate(schoolGroupsProvider);
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError(messageErreur(e));
     }
   }
 
@@ -181,7 +182,7 @@ class _GroupsBodyState extends ConsumerState<_GroupsBody> {
       ref.invalidate(schoolGroupsProvider);
       if (mounted) _showSuccess('Groupe "${g.name}" supprimé définitivement.');
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError(messageErreur(e));
     }
   }
 
@@ -212,7 +213,7 @@ class _GroupsBodyState extends ConsumerState<_GroupsBody> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
           const SizedBox(height: 12),
-          Text('Erreur : $e', style: TextStyle(color: _kMuted)),
+          Text(messageErreur(e), style: TextStyle(color: _kMuted)),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => ref.invalidate(schoolGroupsProvider),
@@ -1781,7 +1782,7 @@ class _SubscriptionTab extends ConsumerWidget {
             padding: EdgeInsets.all(16),
             child: CircularProgressIndicator(strokeWidth: 2),
           )),
-          error: (e, _) => Text('Erreur: $e',
+          error: (e, _) => Text(messageErreur(e),
               style: const TextStyle(color: _kRed, fontSize: 12)),
           data: (modules) {
             if (modules.isEmpty) {
@@ -2235,7 +2236,7 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Erreur upload : $e'),
+          content: Text(messageErreur(e, contexte: 'Envoi du fichier')),
           backgroundColor: _kRed,
           behavior: SnackBarBehavior.floating,
         ));
@@ -2286,7 +2287,7 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Erreur : $e'),
+          content: Text(messageErreur(e)),
           backgroundColor: _kRed,
           behavior: SnackBarBehavior.floating,
         ));
@@ -2897,7 +2898,7 @@ class _PrintPreviewModalState extends State<_PrintPreviewModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur impression : $e'),
+        content: Text(messageErreur(e, contexte: 'Impression')),
         backgroundColor: _kRed, behavior: SnackBarBehavior.floating,
       ));
       }
@@ -2928,7 +2929,7 @@ class _PrintPreviewModalState extends State<_PrintPreviewModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur téléchargement : $e'),
+        content: Text(messageErreur(e, contexte: 'Téléchargement')),
         backgroundColor: _kRed, behavior: SnackBarBehavior.floating,
       ));
       }

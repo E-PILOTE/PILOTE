@@ -12,6 +12,7 @@ import '../widgets/agent_carriere_panel.dart';
 import 'agent_mouvement_dialogs.dart';
 import '../providers/subscription_access_provider.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Couleurs locales ─────────────────────────────────────────────────────────
 const _kOrange = Color(0xFFFF6B35);
@@ -35,7 +36,7 @@ class AdminUsersScreen extends ConsumerWidget {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.cloud_off_rounded, size: 48, color: kTextMuted),
             const SizedBox(height: 12),
-            Text('Erreur : $e', style: TextStyle(color: kTextMuted)),
+            Text(messageErreur(e), style: TextStyle(color: kTextMuted)),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () => ref.invalidate(adminUsersProvider),
@@ -146,7 +147,7 @@ class _UsersBodyState extends ConsumerState<_UsersBody> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(backgroundColor: kRed, content: Text('Erreur : $e')));
+            SnackBar(backgroundColor: kRed, content: Text(messageErreur(e))));
       }
     }
   }

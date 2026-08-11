@@ -116,7 +116,7 @@ class _PeriodsTabState extends ConsumerState<_PeriodsTab> {
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (allPeriods) {
         // Trame du cycle sélectionné uniquement.
         final periods =

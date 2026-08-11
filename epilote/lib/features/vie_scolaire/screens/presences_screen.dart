@@ -10,6 +10,7 @@ import '../../structure/providers/academic_year_context.dart';
 import '../../students/widgets/scope_drilldown_panel.dart';
 import '../providers/presences_provider.dart';
 import '../widgets/vs_kit.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'presences_roll.dart';
 
@@ -128,7 +129,7 @@ class _BodyState extends ConsumerState<_Body> {
               child: Center(child: CircularProgressIndicator())),
           error: (e, _) => Padding(
               padding: const EdgeInsets.only(top: 40),
-              child: Center(child: Text('Erreur : $e'))),
+              child: Center(child: Text(messageErreur(e)))),
           data: _content,
         ),
         const SizedBox(height: 24),

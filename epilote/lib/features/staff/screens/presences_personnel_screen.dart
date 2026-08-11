@@ -10,6 +10,7 @@ import '../../vie_scolaire/widgets/vs_kit.dart';
 import '../providers/staff_attendance_provider.dart';
 import '../providers/staff_directory_provider.dart';
 import '../widgets/staff_kit.dart';
+import '../../../core/utils/message_erreur.dart';
 
 const _kSlug = 'presences-personnel';
 
@@ -136,7 +137,7 @@ class _BodyState extends ConsumerState<_Body> {
               child: Center(child: CircularProgressIndicator())),
           error: (e, _) => Padding(
               padding: const EdgeInsets.only(top: 40),
-              child: Center(child: Text('Erreur : $e'))),
+              child: Center(child: Text(messageErreur(e)))),
           data: (agents) =>
               _content(agents, marks.valueOrNull ?? const {}, canMark),
         ),

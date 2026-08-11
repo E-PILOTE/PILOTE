@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../providers/edt_audit_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  HISTORIQUE DE L'EMPLOI DU TEMPS — tiroir latéral droit listant « qui a modifié
@@ -87,7 +88,7 @@ class _EdtHistoryView extends ConsumerWidget {
             child: async.when(
               skipLoadingOnReload: true,
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Erreur : $e')),
+              error: (e, _) => Center(child: Text(messageErreur(e))),
               data: (entries) {
                 if (entries.isEmpty) {
                   return const Center(

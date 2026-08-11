@@ -8,6 +8,7 @@ import '../providers/events_provider.dart';
 import '../providers/messages_provider.dart' show MessageAttachment;
 import '../widgets/comm_attachments.dart';
 import '../widgets/staff_feed_ui.dart';
+import '../../../core/utils/message_erreur.dart';
 
 /// Formulaire d'événement SCOPE-AWARE — un seul dialogue pour tous les espaces.
 /// • Direction école → écriture locale (offline-first).
@@ -156,7 +157,7 @@ class _StaffEventFormDialogState extends ConsumerState<StaffEventFormDialog> {
                     : 'Événement créé.')));
       }
     } catch (e) {
-      if (mounted) setState(() => _error = 'Erreur : $e');
+      if (mounted) setState(() => _error = messageErreur(e));
     } finally {
       if (mounted) setState(() => _saving = false);
     }

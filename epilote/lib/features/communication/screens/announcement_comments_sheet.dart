@@ -5,6 +5,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../providers/announcement_interactions_provider.dart';
 import '../widgets/staff_feed_ui.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 /// Dialogue de commentaires pour une annonce.
 /// Affiche le fil de commentaires + zone de saisie.
@@ -122,7 +123,7 @@ class _StaffCommentsSheetState extends ConsumerState<StaffCommentsSheet> {
               child: async.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Center(
-                  child: Text('Erreur : $e',
+                  child: Text(messageErreur(e),
                       style: TextStyle(color: kTextMuted))),
                 data: (comments) {
                   if (comments.isEmpty) {

@@ -17,6 +17,7 @@ import '../services/passage_pdf_service.dart';
 import 'cloture_examen_section.dart';
 import 'non_revenus_section.dart';
 import 'evaluation_overview_widgets.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'passage_parts.dart';
 
@@ -274,7 +275,7 @@ class _BodyState extends ConsumerState<_Body> {
                 child: Center(child: CircularProgressIndicator())),
             error: (e, _) => Padding(
                 padding: const EdgeInsets.only(top: 40),
-                child: Center(child: Text('Erreur : $e'))),
+                child: Center(child: Text(messageErreur(e)))),
             data: (rows) =>
                 _content(rows, yearId, year?.label ?? '', next, canEdit),
           ),
@@ -426,7 +427,7 @@ class _ClassDeliberation extends ConsumerWidget {
           child: Center(child: CircularProgressIndicator())),
       error: (e, _) => Padding(
           padding: const EdgeInsets.only(top: 40),
-          child: Center(child: Text('Erreur : $e'))),
+          child: Center(child: Text(messageErreur(e)))),
       data: (s) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

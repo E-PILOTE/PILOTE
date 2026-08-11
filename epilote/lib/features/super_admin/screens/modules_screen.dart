@@ -11,6 +11,7 @@ import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../providers/modules_provider.dart';
 import '../services/module_pdf_service.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Design tokens (identiques à administrators_screen) ──────────────────────
 Color get _kNavy => kNavy;
@@ -156,7 +157,7 @@ class _ModulesBodyState extends ConsumerState<_ModulesBody> {
           .eq('id', m.id);
       ref.invalidate(modulesProvider);
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError(messageErreur(e));
     }
   }
 
@@ -183,7 +184,7 @@ class _ModulesBodyState extends ConsumerState<_ModulesBody> {
       ref.invalidate(modulesProvider);
       if (mounted) _showSuccess('Module "${m.name}" supprimé définitivement.');
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError(messageErreur(e));
     }
   }
 
@@ -214,7 +215,7 @@ class _ModulesBodyState extends ConsumerState<_ModulesBody> {
       ref.invalidate(modulesProvider);
       if (mounted) _showSuccess('Catégorie "${c.name}" supprimée.');
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError(messageErreur(e));
     }
   }
 
@@ -238,7 +239,7 @@ class _ModulesBodyState extends ConsumerState<_ModulesBody> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
           const SizedBox(height: 12),
-          Text('Erreur : $e', style: TextStyle(color: _kMuted)),
+          Text(messageErreur(e), style: TextStyle(color: _kMuted)),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => ref.invalidate(modulesProvider),
@@ -1707,7 +1708,7 @@ class _ModuleFormModalState extends ConsumerState<_ModuleFormModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur : $e'),
+        content: Text(messageErreur(e)),
         backgroundColor: _kRed, behavior: SnackBarBehavior.floating));
       }
     } finally {
@@ -1917,7 +1918,7 @@ class _CategoryFormModalState extends ConsumerState<_CategoryFormModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur : $e'),
+        content: Text(messageErreur(e)),
         backgroundColor: _kRed, behavior: SnackBarBehavior.floating));
       }
     } finally {
@@ -2741,7 +2742,7 @@ class _ModulePrintPreviewModalState extends State<_ModulePrintPreviewModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur impression : $e'),
+        content: Text(messageErreur(e, contexte: 'Impression')),
         backgroundColor: _kRed, behavior: SnackBarBehavior.floating,
       ));
       }
@@ -2772,7 +2773,7 @@ class _ModulePrintPreviewModalState extends State<_ModulePrintPreviewModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur téléchargement : $e'),
+        content: Text(messageErreur(e, contexte: 'Téléchargement')),
         backgroundColor: _kRed, behavior: SnackBarBehavior.floating,
       ));
       }

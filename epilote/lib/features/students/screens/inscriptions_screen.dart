@@ -30,6 +30,7 @@ import '../services/inscription_fiche_service.dart';
 import '../services/inscriptions_pdf_service.dart';
 import 'add_inscription_screen.dart';
 import 'import_eleves_dialog.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'inscriptions_list_parts.dart';
 part 'inscriptions_page_parts.dart';
@@ -224,7 +225,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
       await changeEnrollmentClass(enrollmentId: r.id, newClassId: picked.id);
       _snack('Élève réaffecté dans ${picked.name}', kGreen);
     } catch (e) {
-      _snack('Erreur : $e', kRed);
+      _snack(messageErreur(e), kRed);
     }
   }
 
@@ -286,7 +287,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
       );
       _snack('Élève retiré de la classe', kTextMuted);
     } catch (e) {
-      _snack('Erreur : $e', kRed);
+      _snack(messageErreur(e), kRed);
     }
     ctrl.dispose();
   }
@@ -318,7 +319,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
       await deleteEnrollment(r.id);
       _snack('Inscription supprimée', kTextMuted);
     } catch (e) {
-      _snack('Erreur : $e', kRed);
+      _snack(messageErreur(e), kRed);
     }
   }
 
@@ -399,7 +400,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
       await validateEnrollment(enrollmentId: r.id, validatedBy: me);
       _snack('Inscription validée', kGreen);
     } catch (e) {
-      _snack('Erreur : $e', kRed);
+      _snack(messageErreur(e), kRed);
     }
   }
 
@@ -443,7 +444,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
       );
       _snack('Inscription rejetée', kTextMuted);
     } catch (e) {
-      _snack('Erreur : $e', kRed);
+      _snack(messageErreur(e), kRed);
     }
     ctrl.dispose();
   }
@@ -454,7 +455,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
       final path = await exportInscriptionsCsv(rows);
       _snack('Export CSV : ${rows.length} ligne(s) → $path', kGreen);
     } catch (e) {
-      _snack('Erreur export : $e', kRed);
+      _snack(messageErreur(e, contexte: 'Export'), kRed);
     }
   }
 
@@ -621,7 +622,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('Erreur : $e', style: TextStyle(color: kRed)),
+          child: Text(messageErreur(e), style: TextStyle(color: kRed)),
         ),
       ),
       data: (all) {

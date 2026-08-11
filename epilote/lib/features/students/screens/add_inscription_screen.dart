@@ -20,6 +20,7 @@ import '../providers/student_tutors_provider.dart';
 import '../providers/student_match_provider.dart';
 import '../providers/students_provider.dart';
 import '../../../services/powersync/powersync_service.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'add_inscription_steps_1_2.dart';
 part 'add_inscription_steps_3_5.dart';

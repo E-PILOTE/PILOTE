@@ -7,6 +7,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
 import '../providers/cloture_examen_provider.dart';
 import 'evaluation_overview_widgets.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  CLÔTURE DES CLASSES D'EXAMEN — l'écran qui tire les conséquences.
@@ -265,7 +266,7 @@ class _ExamClosureSectionState extends ConsumerState<ExamClosureSection> {
           child: Center(child: CircularProgressIndicator())),
       error: (e, _) => Padding(
           padding: const EdgeInsets.only(top: 40),
-          child: Center(child: Text('Erreur : $e'))),
+          child: Center(child: Text(messageErreur(e)))),
       data: _content,
     );
   }
@@ -484,7 +485,7 @@ class _ClassClosure extends ConsumerWidget {
           child: Center(child: CircularProgressIndicator())),
       error: (e, _) => Padding(
           padding: const EdgeInsets.only(top: 40),
-          child: Center(child: Text('Erreur : $e'))),
+          child: Center(child: Text(messageErreur(e)))),
       data: (s) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

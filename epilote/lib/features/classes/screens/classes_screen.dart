@@ -12,6 +12,7 @@ import '../../navigation/widgets/module_scaffold.dart';
 import '../../structure/providers/academic_structure_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
 import '../providers/class_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'classes_parts.dart';
 
@@ -159,7 +160,7 @@ class _BodyState extends ConsumerState<_Body> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur export : $e'), backgroundColor: kRed));
+            SnackBar(content: Text(messageErreur(e, contexte: 'Export')), backgroundColor: kRed));
       }
     }
   }
@@ -210,7 +211,7 @@ class _BodyState extends ConsumerState<_Body> {
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('Erreur : $e', style: TextStyle(color: kRed)),
+          child: Text(messageErreur(e), style: TextStyle(color: kRed)),
         ),
       ),
       data: (all) {

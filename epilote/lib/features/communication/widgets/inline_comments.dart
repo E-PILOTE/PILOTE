@@ -7,6 +7,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../providers/announcement_interactions_provider.dart';
 import 'staff_feed_ui.dart';
 import 'user_avatar.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  Fil de commentaires INLINE (jamais de modal) — s'ouvre sous la publication
@@ -129,7 +130,7 @@ class _InlineCommentsState extends ConsumerState<InlineComments> {
             ),
             error: (e, _) => Padding(
               padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Text('Erreur : $e',
+              child: Text(messageErreur(e),
                   style: TextStyle(fontSize: 12, color: kTextMuted)),
             ),
             data: (comments) => _list(comments, me?.id ?? ''),

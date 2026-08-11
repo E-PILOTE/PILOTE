@@ -5,6 +5,7 @@ import 'package:pdf/pdf.dart' show PdfPageFormat;
 import 'package:printing/printing.dart';
 
 import 'admin_ui.dart';
+import '../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  APERÇU PDF PARTAGÉ — fenêtre in-app (widget `PdfPreview`) réutilisée par tous
@@ -167,7 +168,7 @@ class _PdfPreviewDialog extends StatelessWidget {
                       } catch (e) {
                         messenger.showSnackBar(SnackBar(
                             backgroundColor: kRed,
-                            content: Text('Erreur enregistrement : $e')));
+                            content: Text(messageErreur(e, contexte: 'Enregistrement'))));
                       }
                     },
                   ),

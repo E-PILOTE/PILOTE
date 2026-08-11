@@ -12,6 +12,7 @@ import '../../../core/constants/routes.dart';
 import '../../../core/utils/billing_period.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 Color get _kNavy => kNavy;
@@ -1093,7 +1094,7 @@ class _ErrorView extends StatelessWidget {
   Widget build(BuildContext context) => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
     const Icon(Icons.error_outline_rounded, size: 48, color: _kRed),
     const SizedBox(height: 12),
-    Text('Erreur : $error', style: TextStyle(fontSize: 12, color: _kSub), textAlign: TextAlign.center),
+    Text(messageErreur(error), style: TextStyle(fontSize: 12, color: _kSub), textAlign: TextAlign.center),
     const SizedBox(height: 16),
     ElevatedButton.icon(onPressed: onRetry,
         icon: const Icon(Icons.refresh_rounded, size: 16), label: const Text('Réessayer')),

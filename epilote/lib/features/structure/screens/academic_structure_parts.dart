@@ -880,7 +880,7 @@ class _ClassFormModalState extends ConsumerState<_ClassFormModal> {
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
-        _snack('Erreur : $e', kRed);
+        _snack(messageErreur(e), kRed);
       }
     }
   }
@@ -917,7 +917,7 @@ class _ClassFormModalState extends ConsumerState<_ClassFormModal> {
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
-        _snack('Erreur : $e', kRed);
+        _snack(messageErreur(e), kRed);
       }
     }
   }

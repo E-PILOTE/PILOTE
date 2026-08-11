@@ -6,6 +6,7 @@ import '../models/exam_dossier_piece.dart';
 import '../providers/exam_registration_provider.dart';
 import '../providers/examens_provider.dart';
 import 'examens_widgets.dart' show formatDate;
+import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  Inscrire une classe à une session d'examen.
@@ -71,7 +72,7 @@ class _State extends ConsumerState<_ExamRegisterDialog> {
           ),
           error: (e, _) => Padding(
             padding: const EdgeInsets.all(24),
-            child: Text('Erreur : $e', style: TextStyle(color: kRed)),
+            child: Text(messageErreur(e), style: TextStyle(color: kRed)),
           ),
           data: (reg) {
             // Pré-cocher les non-inscrits une seule fois (sinon on écraserait

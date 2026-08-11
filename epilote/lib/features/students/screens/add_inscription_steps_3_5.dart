@@ -92,7 +92,7 @@ class _Step3ScolariteState extends ConsumerState<_Step3Scolarite> {
           // l'écran Passage.)
           yearsAsync.when(
             loading: () => const LinearProgressIndicator(),
-            error:   (e, _) => Text('Erreur : $e', style: TextStyle(color: _kRed)),
+            error:   (e, _) => Text(messageErreur(e), style: TextStyle(color: _kRed)),
             data:    (years) {
               final active = ref.watch(activeYearProvider);
               if (years.isEmpty || active == null) {
@@ -136,7 +136,7 @@ class _Step3ScolariteState extends ConsumerState<_Step3Scolarite> {
           ),
           classesAsync.when(
             loading: () => const LinearProgressIndicator(),
-            error:   (e, _) => Text('Erreur : $e', style: TextStyle(color: _kRed)),
+            error:   (e, _) => Text(messageErreur(e), style: TextStyle(color: _kRed)),
             data:    (classes) {
               if (classes.isEmpty) {
                 return Text(

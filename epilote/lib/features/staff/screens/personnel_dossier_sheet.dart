@@ -14,6 +14,7 @@ import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../structure/providers/academic_year_provider.dart';
 import '../providers/staff_dossier_provider.dart';
 import '../services/attestation_travail_pdf_service.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'personnel_dossier_forms.dart';
 
@@ -110,7 +111,7 @@ class StaffDossierSheet extends ConsumerWidget {
         ),
         child: async.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Erreur : $e')),
+          error: (e, _) => Center(child: Text(messageErreur(e))),
           data: (d) {
             if (d == null) {
               return const Center(child: Text('Agent introuvable'));
@@ -307,7 +308,7 @@ class _CareerSection extends ConsumerWidget {
           : null,
       child: async.when(
         loading: () => const _Loading(),
-        error: (e, _) => Text('Erreur : $e'),
+        error: (e, _) => Text(messageErreur(e)),
         data: (rows) {
           if (rows.isEmpty) return const _Empty('Aucun poste enregistré');
           return Column(
@@ -400,7 +401,7 @@ class _DiplomaSection extends ConsumerWidget {
           : null,
       child: async.when(
         loading: () => const _Loading(),
-        error: (e, _) => Text('Erreur : $e'),
+        error: (e, _) => Text(messageErreur(e)),
         data: (rows) {
           if (rows.isEmpty) return const _Empty('Aucun diplôme enregistré');
           return Column(

@@ -20,6 +20,7 @@ import '../widgets/staff_kit.dart';
 import 'agent_creation_dialog.dart';
 import 'agent_fiche_dialog.dart';
 import 'personnel_dossier_sheet.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'personnel_views.dart';
 part 'personnel_cycle_kpis.dart';
@@ -178,7 +179,7 @@ class _BodyState extends ConsumerState<_Body> {
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (all) {
         final segs = staffSegments(all, _axis, okOf: (a) => a.isActive);
         final agents = _appliquer(all);

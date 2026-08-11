@@ -265,7 +265,7 @@ class _GeocodeButtonState extends ConsumerState<_GeocodeButton> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(backgroundColor: kRed, content: Text('Erreur : $e')));
+          SnackBar(backgroundColor: kRed, content: Text(messageErreur(e))));
     } finally {
       if (mounted) setState(() => _running = false);
     }

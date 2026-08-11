@@ -60,7 +60,7 @@ class _RoomsTab extends ConsumerWidget {
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (rooms) {
         // Regroupement par type, dans l'ordre du catalogue.
         final byType = <String, List<Room>>{};

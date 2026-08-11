@@ -5,6 +5,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../navigation/widgets/module_scaffold.dart';
 import '../../vie_scolaire/widgets/vs_kit.dart';
 import '../providers/frais_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 const _kSlug = 'frais-scolarite';
 
@@ -45,7 +46,7 @@ class _Body extends ConsumerWidget {
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (all) {
         return SingleChildScrollView(
           padding: const EdgeInsets.all(24),

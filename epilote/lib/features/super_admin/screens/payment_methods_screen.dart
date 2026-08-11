@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/payment_methods_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 Color get _kNavy => kNavy;
@@ -606,7 +607,7 @@ class _PaymentConfigDialogState extends ConsumerState<_PaymentConfigDialog> {
       if (!mounted) return;
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Échec : $e')));
+          SnackBar(content: Text(messageErreur(e))));
     }
   }
 
@@ -653,7 +654,7 @@ class _PaymentConfigDialogState extends ConsumerState<_PaymentConfigDialog> {
                         padding: EdgeInsets.symmetric(vertical: 8),
                         child: LinearProgressIndicator(),
                       ),
-                      error: (e, _) => Text('Erreur chargement groupes : $e',
+                      error: (e, _) => Text(messageErreur(e, contexte: 'Chargement des groupes'),
                           style: const TextStyle(fontSize: 12, color: _kOrange)),
                       data: (groups) => DropdownButtonFormField<String>(
                         initialValue: _groupId,
@@ -781,7 +782,7 @@ class _ErrorView extends StatelessWidget {
   Widget build(BuildContext context) => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
     const Icon(Icons.error_outline_rounded, size: 48, color: Color(0xFFEF4444)),
     const SizedBox(height: 12),
-    Text('Erreur : $error', style: TextStyle(fontSize: 12, color: _kSub), textAlign: TextAlign.center),
+    Text(messageErreur(error), style: TextStyle(fontSize: 12, color: _kSub), textAlign: TextAlign.center),
     const SizedBox(height: 16),
     ElevatedButton.icon(onPressed: onRetry,
         icon: const Icon(Icons.refresh_rounded, size: 16), label: const Text('Réessayer')),

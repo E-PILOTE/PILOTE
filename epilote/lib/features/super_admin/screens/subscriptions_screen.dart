@@ -12,6 +12,7 @@ import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../providers/subscriptions_provider.dart';
 import '../services/subscription_pdf_service.dart';
+import '../../../core/utils/message_erreur.dart';
 
 /// Message lisible d'une erreur base : un garde-fou métier (ex. « Activation
 /// refusée : aucun reçu payé… ») remonte via PostgrestException.message — on
@@ -188,7 +189,7 @@ class _SubsBodyState extends ConsumerState<_SubsBody> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
           const SizedBox(height: 12),
-          Text('Erreur : $e', style: TextStyle(color: _kMuted)),
+          Text(messageErreur(e), style: TextStyle(color: _kMuted)),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => ref.invalidate(subscriptionsProvider),
@@ -2259,7 +2260,7 @@ class _SubPrintPreviewModalState extends State<_SubPrintPreviewModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur impression : $e'),
+        content: Text(messageErreur(e, contexte: 'Impression')),
         backgroundColor: _kRed, behavior: SnackBarBehavior.floating,
       ));
       }
@@ -2290,7 +2291,7 @@ class _SubPrintPreviewModalState extends State<_SubPrintPreviewModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur téléchargement : $e'),
+        content: Text(messageErreur(e, contexte: 'Téléchargement')),
         backgroundColor: _kRed, behavior: SnackBarBehavior.floating,
       ));
       }

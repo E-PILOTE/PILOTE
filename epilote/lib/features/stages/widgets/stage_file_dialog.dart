@@ -14,6 +14,7 @@ import '../models/stage_detail.dart';
 import '../providers/stage_actions.dart';
 import '../providers/stage_documents.dart';
 import '../services/stage_export_service.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LA FICHE D'UN STAGE — le stage vu entier, et ses pièces réelles.
@@ -65,7 +66,7 @@ class _State extends ConsumerState<_StageFileDialog> {
           ),
           error: (e, _) => Padding(
             padding: const EdgeInsets.all(24),
-            child: Text('Erreur : $e', style: TextStyle(color: kRed)),
+            child: Text(messageErreur(e), style: TextStyle(color: kRed)),
           ),
           data: (s) => s == null
               ? const Padding(

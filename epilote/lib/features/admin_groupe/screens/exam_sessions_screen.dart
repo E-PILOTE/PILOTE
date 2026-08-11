@@ -9,6 +9,7 @@ import '../providers/exam_sessions_admin_provider.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../widgets/exam_sessions_views.dart';
 import 'exam_session_form_dialog.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  CALENDRIER NATIONAL DES EXAMENS — administration super_admin.
@@ -83,7 +84,7 @@ class _BodyState extends ConsumerState<_Body> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.error_outline_rounded, color: kRed, size: 40),
           const SizedBox(height: 12),
-          Text('Erreur : $e',
+          Text(messageErreur(e),
               textAlign: TextAlign.center, style: TextStyle(color: kTextMuted)),
           const SizedBox(height: 12),
           FilledButton.icon(

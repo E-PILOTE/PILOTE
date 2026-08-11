@@ -16,6 +16,7 @@ import '../providers/eval_grades_provider.dart';
 import '../providers/evaluation_overview_provider.dart';
 import '../providers/evaluations_provider.dart';
 import 'evaluation_overview_widgets.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'notes_parts.dart';
 part 'notes_list.dart';
@@ -180,7 +181,7 @@ class _BodyState extends ConsumerState<_Body> {
               child: Center(child: CircularProgressIndicator())),
           error: (e, _) => Padding(
               padding: const EdgeInsets.only(top: 40),
-              child: Center(child: Text('Erreur : $e'))),
+              child: Center(child: Text(messageErreur(e)))),
           data: (all) => overview.maybeWhen(
             data: (ov) => _content(ov, _trimEvals(all)),
             orElse: () => const Padding(

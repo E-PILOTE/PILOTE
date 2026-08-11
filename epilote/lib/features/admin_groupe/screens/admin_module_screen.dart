@@ -9,6 +9,7 @@ import '../providers/admin_access_provider.dart'
 import '../providers/admin_module_provider.dart';
 import '../providers/admin_nav_provider.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Design tokens locaux ─────────────────────────────────────────────────────
 const Color _kPurple = Color(0xFF7C3AED);
@@ -96,7 +97,7 @@ class AdminModuleScreen extends ConsumerWidget {
           skipLoadingOnRefresh: true,
           loading: () => Center(child: CircularProgressIndicator(color: kNavy)),
           error: (e, _) => Center(
-            child: Text('Erreur : $e',
+            child: Text(messageErreur(e),
                 style: TextStyle(color: kTextMuted)),
           ),
           data: (m) => m == null ? const _NotFound() : _Body(module: m),
@@ -536,7 +537,7 @@ class _BulkActionsCardState extends ConsumerState<_BulkActionsCard> {
       ));
     } catch (e) {
       messenger.showSnackBar(SnackBar(
-        content: Text('Erreur : $e'),
+        content: Text(messageErreur(e)),
         backgroundColor: kRed,
         behavior: SnackBarBehavior.floating,
       ));

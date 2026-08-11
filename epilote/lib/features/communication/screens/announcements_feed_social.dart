@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../providers/announcement_interactions_provider.dart';
 import '../widgets/staff_feed_ui.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Widgets SOCIAUX du fil d'annonces — réactions, commentaires, partage.
@@ -61,7 +62,7 @@ class ReactionPeopleDialog extends ConsumerWidget {
               ),
               error: (e, _) => Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text('Erreur : $e',
+                child: Text(messageErreur(e),
                     style: TextStyle(color: kTextMuted, fontSize: 12)),
               ),
               data: (people) => people.isEmpty

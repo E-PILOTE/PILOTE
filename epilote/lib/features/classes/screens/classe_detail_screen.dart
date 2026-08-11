@@ -8,6 +8,7 @@ import '../../navigation/widgets/module_scaffold.dart';
 import '../../../data/models/class_model.dart';
 import '../../../features/structure/providers/academic_year_provider.dart';
 import '../providers/class_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 Color get _kNavy => kNavy;
@@ -46,7 +47,7 @@ class _DetailBody extends ConsumerWidget {
 
     return classAsync.when(
       loading: () => const LoadingWidget(),
-      error:   (e, _) => Center(child: Text('Erreur : $e')),
+      error:   (e, _) => Center(child: Text(messageErreur(e))),
       data:    (classe) {
         if (classe == null) {
           return const Center(child: Text('Classe introuvable'));
@@ -124,7 +125,7 @@ class _ClassContent extends StatelessWidget {
         Expanded(
           child: enrollmentsAsync.when(
             loading: () => const LoadingWidget(),
-            error:   (e, _) => Center(child: Text('Erreur : $e')),
+            error:   (e, _) => Center(child: Text(messageErreur(e))),
             data:    (enrollments) => enrollments.isEmpty
                 ? const _EmptyEnrollments()
                 : ListView.builder(

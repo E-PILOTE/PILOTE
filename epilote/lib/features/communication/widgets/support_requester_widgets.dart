@@ -7,6 +7,7 @@ import '../providers/communication_scope.dart';
 import '../providers/messages_provider.dart' show MessageAttachment;
 import '../providers/support_requester_provider.dart';
 import 'comm_attachments.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Helpers d'affichage statut / priorité ────────────────────────────────────
 ({String label, Color color}) requesterStatusInfo(String s) => switch (s) {
@@ -233,7 +234,7 @@ class _RequesterCreateDialogState extends ConsumerState<RequesterCreateDialog> {
             ok: true);
       }
     } catch (e) {
-      if (mounted) _toast('Erreur : $e');
+      if (mounted) _toast(messageErreur(e));
     } finally {
       if (mounted) setState(() => _saving = false);
     }

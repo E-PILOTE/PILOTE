@@ -13,6 +13,7 @@ import '../providers/academic_year_context.dart';
 import '../providers/lesson_log_provider.dart';
 import '../providers/subjects_provider.dart';
 import '../providers/timetable_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'cahier_textes_parts.dart';
 part 'cahier_textes_form.dart';
@@ -135,7 +136,7 @@ class _BodyState extends ConsumerState<_Body> {
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (all) {
         final filtered = _apply(all);
         final subjects = ref.watch(subjectsProvider).valueOrNull ?? const [];

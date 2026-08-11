@@ -194,7 +194,7 @@ class _RollSheetState extends ConsumerState<_RollSheet> {
             child: async.when(
               loading: () =>
                   const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Erreur : $e')),
+              error: (e, _) => Center(child: Text(messageErreur(e))),
               data: (roll) {
                 _recordId ??= roll.recordId;
                 if (roll.rows.isEmpty) {

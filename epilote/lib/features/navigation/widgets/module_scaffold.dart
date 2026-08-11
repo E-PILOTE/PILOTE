@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../licensing/domain/entitlement.dart';
 import '../providers/permissions_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  Kit de page module — applique le verrou 3 (profil) côté écran :
@@ -186,7 +187,7 @@ Future<bool> runModuleWrite(
   } catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur : $e'), backgroundColor: _kRed));
+          SnackBar(content: Text(messageErreur(e)), backgroundColor: _kRed));
     }
     return false;
   }

@@ -132,7 +132,7 @@ class _GradeSheetState extends ConsumerState<_GradeSheet> {
             child: async.when(
               loading: () =>
                   const Center(child: CircularProgressIndicator()),
-              error: (err, _) => Center(child: Text('Erreur : $err')),
+              error: (err, _) => Center(child: Text(messageErreur(err))),
               data: (rows) {
                 if (rows.isEmpty) {
                   return const Center(

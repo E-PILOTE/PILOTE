@@ -19,6 +19,7 @@ import '../providers/education_provider.dart';
 import '../providers/structure_modeles.dart';
 import '../widgets/school_location_picker.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'schools/schools_kpi.dart';
 part 'schools/schools_filters.dart';
@@ -100,7 +101,7 @@ class AdminSchoolsScreen extends ConsumerWidget {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.cloud_off_rounded, size: 48, color: kTextMuted),
             const SizedBox(height: 12),
-            Text('Erreur : $e', style: TextStyle(color: kTextMuted)),
+            Text(messageErreur(e), style: TextStyle(color: kTextMuted)),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () => ref.invalidate(adminSchoolsProvider),
@@ -207,7 +208,7 @@ class _SchoolsBodyState extends ConsumerState<_SchoolsBody> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(backgroundColor: kRed, content: Text('Erreur : $e')));
+            SnackBar(backgroundColor: kRed, content: Text(messageErreur(e))));
       }
     }
   }
@@ -231,7 +232,7 @@ class _SchoolsBodyState extends ConsumerState<_SchoolsBody> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(backgroundColor: kRed, content: Text('Erreur : $e')));
+            SnackBar(backgroundColor: kRed, content: Text(messageErreur(e))));
       }
     }
   }

@@ -9,6 +9,7 @@ import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../providers/receipts_provider.dart';
 import '../services/financial_pdf_service.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 Color get _kNavy => kNavy;
@@ -931,7 +932,7 @@ class _NewReceiptDialogState extends ConsumerState<_NewReceiptDialog> {
                     height: 42,
                     child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
                   ),
-                  error: (e, _) => Text('Erreur : $e', style: const TextStyle(fontSize: 11, color: Colors.red)),
+                  error: (e, _) => Text(messageErreur(e), style: const TextStyle(fontSize: 11, color: Colors.red)),
                   data: (invoices) {
                     if (invoices.isEmpty) {
                       return Container(
@@ -1049,7 +1050,7 @@ class _NewReceiptDialogState extends ConsumerState<_NewReceiptDialog> {
                       } catch (e) {
                         if (mounted) setState(() => _sending = false);
                         messenger.showSnackBar(
-                            SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red));
+                            SnackBar(content: Text(messageErreur(e)), backgroundColor: Colors.red));
                       }
                     },
                     icon: _sending
@@ -1138,7 +1139,7 @@ class _ErrorView extends StatelessWidget {
     child: Column(mainAxisSize: MainAxisSize.min, children: [
       const Icon(Icons.error_outline_rounded, size: 48, color: Color(0xFFEF4444)),
       const SizedBox(height: 12),
-      Text('Erreur : $error', style: TextStyle(fontSize: 12, color: _kSub), textAlign: TextAlign.center),
+      Text(messageErreur(error), style: TextStyle(fontSize: 12, color: _kSub), textAlign: TextAlign.center),
       const SizedBox(height: 16),
       ElevatedButton.icon(onPressed: onRetry,
           icon: const Icon(Icons.refresh_rounded, size: 16), label: const Text('Réessayer')),

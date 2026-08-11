@@ -4,6 +4,7 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../../core/widgets/admin_ui.dart';
 import '../../providers/audit_data.dart';
+import '../../../../core/utils/message_erreur.dart';
 
 /// Onglet « Graphiques » : timeline 30 j, répartition par action, top entités,
 /// et — périmètre groupe uniquement — top écoles + top acteurs.
@@ -25,7 +26,7 @@ class AuditChartsTab extends ConsumerWidget {
         ),
       ),
       error: (e, _) =>
-          Center(child: AdminErrorBanner(message: 'Erreur graphiques : $e')),
+          Center(child: AdminErrorBanner(message: messageErreur(e, contexte: 'Graphiques'))),
       data: (timeline) {
         if (timeline.buckets.every((b) => b.total == 0)) {
           return const Padding(

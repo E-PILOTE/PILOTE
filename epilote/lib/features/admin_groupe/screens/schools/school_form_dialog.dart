@@ -140,7 +140,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
     } catch (e) {
       if (mounted) {
         setState(() => _logoPreviewBytes = null);
-        _eduSnack('Erreur upload logo : $e', error: true);
+        _eduSnack(messageErreur(e, contexte: 'Envoi du logo'), error: true);
       }
     } finally {
       if (mounted) setState(() => _uploadingLogo = false);

@@ -719,7 +719,7 @@ class _ClassChooserDialogState extends ConsumerState<_ClassChooserDialog> {
             padding: EdgeInsets.all(20),
             child: Center(child: CircularProgressIndicator())),
         error: (e, _) =>
-            Text('Erreur : $e', style: TextStyle(color: kRed)),
+            Text(messageErreur(e), style: TextStyle(color: kRed)),
         data: (classes) {
           if (classes.isEmpty) {
             return Text('Aucune classe disponible.',

@@ -51,7 +51,7 @@ class _CouncilBody extends ConsumerWidget {
               child: Center(child: CircularProgressIndicator())),
           error: (e, _) => Padding(
               padding: const EdgeInsets.only(top: 20),
-              child: Center(child: Text('Erreur : $e'))),
+              child: Center(child: Text(messageErreur(e)))),
           data: (s) {
         if (s.evaluationCount == 0) {
           return const Padding(

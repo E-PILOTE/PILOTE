@@ -8,6 +8,7 @@ import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
 import '../providers/academic_structure_provider.dart';
 import '../providers/class_subjects_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 const _kSlug = 'matieres';
 
@@ -62,7 +63,7 @@ class _SubjectDetailDialog extends ConsumerWidget {
               ),
               error: (e, _) => Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text('Erreur : $e', style: TextStyle(color: kRed)),
+                child: Text(messageErreur(e), style: TextStyle(color: kRed)),
               ),
               data: (rows) =>
                   _Body(subject: subject, rows: rows, canEdit: canEdit),

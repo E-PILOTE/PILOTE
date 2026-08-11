@@ -75,7 +75,7 @@ class _SchoolGpsDialogState extends ConsumerState<_SchoolGpsDialog> {
       if (mounted) {
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur : $e'), backgroundColor: kRed),
+          SnackBar(content: Text(messageErreur(e)), backgroundColor: kRed),
         );
       }
     }

@@ -8,6 +8,7 @@ import '../providers/communication_scope.dart';
 import '../providers/messages_provider.dart' show MessageAttachment;
 import '../widgets/comm_attachments.dart';
 import '../widgets/staff_feed_ui.dart';
+import '../../../core/utils/message_erreur.dart';
 
 /// Formulaire de publication SCOPE-AWARE — UN seul dialogue pour tous les espaces.
 /// • Direction école → écriture locale (offline-first), pièces jointes = internet.
@@ -157,7 +158,7 @@ class _StaffAnnouncementFormDialogState
                         : 'Annonce publiée.')));
       }
     } catch (e) {
-      if (mounted) setState(() => _error = 'Erreur : $e');
+      if (mounted) setState(() => _error = messageErreur(e));
     } finally {
       if (mounted) setState(() => _saving = false);
     }

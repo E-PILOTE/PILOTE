@@ -10,6 +10,7 @@ import '../providers/support_requester_provider.dart';
 import '../providers/ticket_thread_provider.dart';
 import '../widgets/support_requester_widgets.dart';
 import '../widgets/ticket_thread_view.dart';
+import '../../../core/utils/message_erreur.dart';
 
 /// Espace Tickets — côté DEMANDEUR, partagé admin_groupe + personnel école.
 /// Mise en page maître-détail (liste à gauche, conversation inline à droite),
@@ -28,7 +29,7 @@ class SupportRequesterScreen extends ConsumerWidget {
         skipLoadingOnRefresh: true,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
-          child: Text('Erreur : $e', style: TextStyle(color: kTextMuted)),
+          child: Text(messageErreur(e), style: TextStyle(color: kTextMuted)),
         ),
         data: (data) => _MasterDetail(data: data),
       ),

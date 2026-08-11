@@ -6,6 +6,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../providers/messages_provider.dart' show MessageAttachment;
 import '../providers/stories_provider.dart';
 import 'comm_attachments.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  Composer de Story — deux modes : Média (photo/vidéo téléversés) ou Texte
@@ -114,7 +115,7 @@ class _StoryComposerDialogState extends ConsumerState<StoryComposerDialog> {
         _toast('Story publiée — visible 24 h', ok: true);
       }
     } catch (e) {
-      _toast('Erreur : $e');
+      _toast(messageErreur(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

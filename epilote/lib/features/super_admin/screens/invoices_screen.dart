@@ -13,10 +13,11 @@ import '../providers/school_groups_provider.dart';
 import '../widgets/dunning_panel.dart';
 import '../../communication/providers/notifications_provider.dart';
 import '../services/financial_pdf_service.dart';
+import '../../../core/utils/message_erreur.dart';
 
 /// Message lisible d'une erreur base (garde-fou métier via .message).
 String cleanInvoiceError(Object e) =>
-    e is PostgrestException ? e.message : 'Erreur : $e';
+    e is PostgrestException ? e.message : messageErreur(e);
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 Color get _kNavy => kNavy;
@@ -290,7 +291,7 @@ class _InvoicesBodyState extends ConsumerState<_InvoicesBody> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
           const SizedBox(height: 12),
-          Text('Erreur : $e', style: TextStyle(color: _kMuted)),
+          Text(messageErreur(e), style: TextStyle(color: _kMuted)),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => ref.invalidate(invoicesProvider),

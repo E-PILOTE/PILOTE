@@ -10,6 +10,7 @@ import '../../../../core/widgets/admin_ui.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../providers/audit_data.dart';
 import 'audit_export_parts.dart';
+import '../../../../core/utils/message_erreur.dart';
 
 enum _ExportScope { currentPage, allFiltered }
 
@@ -75,7 +76,7 @@ class _AuditExportDialogState extends ConsumerState<AuditExportDialog> {
         if (mounted) {
           setState(() {
             _loading = false;
-            _errorMsg = 'Erreur de récupération : $e';
+            _errorMsg = messageErreur(e, contexte: 'Récupération');
           });
         }
         return;
@@ -146,7 +147,7 @@ class _AuditExportDialogState extends ConsumerState<AuditExportDialog> {
       if (mounted) {
         setState(() {
           _loading = false;
-          _errorMsg = 'Erreur écriture fichier : $e';
+          _errorMsg = messageErreur(e, contexte: 'Écriture du fichier');
         });
       }
     }

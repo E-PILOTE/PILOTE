@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/notifications_provider.dart';
 import 'notification_timeline.dart';
 import 'notification_types.dart';
+import '../../../core/utils/message_erreur.dart';
 
 /// Drawer latéral « Centre de notifications » (style Windows).
 /// Surface **en lecture seule** : les notifications sont émises par le système
@@ -182,7 +183,7 @@ class _NotificationsDrawerState extends ConsumerState<NotificationsDrawer> {
                 error: (e, _) => Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
-                    child: Text('Erreur : $e',
+                    child: Text(messageErreur(e),
                         textAlign: TextAlign.center,
                         style: TextStyle(color: kCommSub, fontSize: 12)),
                   ),

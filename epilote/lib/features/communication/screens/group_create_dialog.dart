@@ -5,6 +5,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../providers/group_chat_provider.dart';
 import '../providers/messages_provider.dart' show RecipientOption, scopedRecipientsProvider;
 import '../widgets/staff_feed_ui.dart' show roleColor, roleLabelFr;
+import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  Création d'une conversation de groupe — nom + sélection multi-membres depuis
@@ -54,7 +55,7 @@ class _GroupCreateDialogState extends ConsumerState<GroupCreateDialog> {
         widget.onCreated(convId);
       }
     } catch (e) {
-      _toast('Erreur : $e');
+      _toast(messageErreur(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -168,7 +169,7 @@ class _GroupCreateDialogState extends ConsumerState<GroupCreateDialog> {
               ),
               error: (e, _) => Padding(
                 padding: const EdgeInsets.all(20),
-                child: Text('Erreur : $e',
+                child: Text(messageErreur(e),
                     style: TextStyle(color: kTextMuted, fontSize: 12)),
               ),
               data: (all) {

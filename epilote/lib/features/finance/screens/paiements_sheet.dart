@@ -168,7 +168,7 @@ class _StudentPaymentsSheet extends ConsumerWidget {
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Erreur : $e')),
+              error: (e, _) => Center(child: Text(messageErreur(e))),
               data: (payments) {
                 if (payments.isEmpty) {
                   return const Center(

@@ -108,7 +108,7 @@ class _OsmMapState extends ConsumerState<_OsmMap> {
       ));
     } catch (e) {
       messenger?.showSnackBar(SnackBar(
-        content: Text('Échec de l’export : $e'),
+        content: Text(messageErreur(e, contexte: 'Export')),
         backgroundColor: kRed,
       ));
     }

@@ -6,6 +6,7 @@ import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/platform_service_messages_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 final _fmt = DateFormat('dd/MM/yyyy', 'fr_FR');
 
@@ -29,7 +30,7 @@ class PlatformServiceMessagesScreen extends ConsumerWidget {
             children: [
               Icon(Icons.error_outline_rounded, color: kRed, size: 40),
               const SizedBox(height: 12),
-              Text('Erreur : $e',
+              Text(messageErreur(e),
                   textAlign: TextAlign.center,
                   style: TextStyle(color: kTextMuted)),
               const SizedBox(height: 12),
@@ -325,7 +326,7 @@ class _MessageFormDialogState extends ConsumerState<_MessageFormDialog> {
       if (mounted) {
         setState(() {
           _busy = false;
-          _error = 'Erreur : $e';
+          _error = messageErreur(e);
         });
       }
     }

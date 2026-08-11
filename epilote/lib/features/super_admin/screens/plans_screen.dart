@@ -12,6 +12,7 @@ import '../../../features/auth/providers/auth_provider.dart';
 import '../providers/plans_provider.dart';
 import '../services/plan_pdf_service.dart';
 import '../widgets/plan_period_fields.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
 Color get _kNavy => kNavy;
@@ -150,7 +151,7 @@ class _PlansBodyState extends ConsumerState<_PlansBody> {
           .eq('id', p.id);
       ref.invalidate(plansProvider);
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError(messageErreur(e));
     }
   }
 
@@ -172,7 +173,7 @@ class _PlansBodyState extends ConsumerState<_PlansBody> {
       ref.invalidate(plansProvider);
       if (mounted) _showSuccess('Plan "${p.name}" supprimé.');
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError(messageErreur(e));
     }
   }
 
@@ -196,7 +197,7 @@ class _PlansBodyState extends ConsumerState<_PlansBody> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
           const SizedBox(height: 12),
-          Text('Erreur : $e', style: TextStyle(color: _kMuted)),
+          Text(messageErreur(e), style: TextStyle(color: _kMuted)),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => ref.invalidate(plansProvider),
@@ -1512,7 +1513,7 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur : $e'),
+        content: Text(messageErreur(e)),
         backgroundColor: _kRed,
         behavior: SnackBarBehavior.floating,
       ));
@@ -2440,7 +2441,7 @@ class _PlanPrintPreviewModalState extends State<_PlanPrintPreviewModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur impression : $e'),
+        content: Text(messageErreur(e, contexte: 'Impression')),
         backgroundColor: _kRed, behavior: SnackBarBehavior.floating,
       ));
       }
@@ -2471,7 +2472,7 @@ class _PlanPrintPreviewModalState extends State<_PlanPrintPreviewModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur téléchargement : $e'),
+        content: Text(messageErreur(e, contexte: 'Téléchargement')),
         backgroundColor: _kRed, behavior: SnackBarBehavior.floating,
       ));
       }

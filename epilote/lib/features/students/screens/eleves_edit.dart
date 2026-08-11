@@ -232,7 +232,7 @@ class _StudentEditModalState extends ConsumerState<_StudentEditModal> {
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
-        _snack('Erreur : $e', kRed);
+        _snack(messageErreur(e), kRed);
       }
     }
   }
@@ -255,7 +255,7 @@ class _StudentEditModalState extends ConsumerState<_StudentEditModal> {
             height: 240,
             child: Center(
                 child:
-                    Text('Erreur : $e', style: TextStyle(color: kRed)))),
+                    Text(messageErreur(e), style: TextStyle(color: kRed)))),
         data: (d) {
           if (!_primed) _prime(d);
           return Column(mainAxisSize: MainAxisSize.min, children: [

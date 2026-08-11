@@ -7,6 +7,7 @@ import '../../../core/widgets/list_chrome.dart';
 import '../providers/admin_exams_provider.dart';
 import '../providers/ministry_exam_rows.dart';
 import 'admin_exam_school_modal.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  VUES DE « EXAMENS NATIONAUX » — graphique, tableau, cartes, états vides.
@@ -451,7 +452,7 @@ class ExamsErrorView extends StatelessWidget {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.error_outline_rounded, color: kRed, size: 40),
           const SizedBox(height: 12),
-          Text('Erreur : $message',
+          Text(messageErreur(message),
               textAlign: TextAlign.center,
               style: TextStyle(color: kTextMuted)),
           const SizedBox(height: 12),

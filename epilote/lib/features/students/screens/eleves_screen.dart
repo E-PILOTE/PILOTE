@@ -30,6 +30,7 @@ import '../widgets/inscription_form_kit.dart';
 import 'add_inscription_screen.dart';
 import '../../../core/utils/ine.dart';
 import '../../../core/utils/sortie_motif.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'eleves_parts.dart';
 part 'eleves_drawer.dart';
@@ -225,7 +226,7 @@ class _BodyState extends ConsumerState<_Body> {
       final path = await exportStudentsCsv(list);
       _snack('Export CSV : ${list.length} ligne(s) → $path', kGreen);
     } catch (e) {
-      _snack('Erreur export : $e', kRed);
+      _snack(messageErreur(e, contexte: 'Export'), kRed);
     }
   }
 
@@ -283,7 +284,7 @@ class _BodyState extends ConsumerState<_Body> {
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('Erreur : $e', style: TextStyle(color: kRed)),
+          child: Text(messageErreur(e), style: TextStyle(color: kRed)),
         ),
       ),
       data: (all) {

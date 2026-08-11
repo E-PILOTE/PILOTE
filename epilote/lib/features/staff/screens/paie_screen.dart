@@ -14,6 +14,7 @@ import '../providers/payroll_provider.dart';
 import '../providers/staff_directory_provider.dart';
 import '../services/payroll_pdf_service.dart';
 import '../widgets/staff_kit.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'paie_form.dart';
 
@@ -183,7 +184,7 @@ class _BodyState extends ConsumerState<_Body> {
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (lines) {
         final mass = lines.fold(0, (a, l) => a + l.net);
         final paid = lines.where((l) => l.status == 'confirmed').toList();

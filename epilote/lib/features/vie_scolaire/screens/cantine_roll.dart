@@ -104,7 +104,7 @@ class _MealSheetState extends ConsumerState<_MealSheet> {
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Erreur : $e')),
+              error: (e, _) => Center(child: Text(messageErreur(e))),
               data: (rows) {
                 if (rows.isEmpty) {
                   return const Center(

@@ -8,6 +8,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../providers/regional_table_provider.dart';
 import 'admin_schools_screen.dart'
     show openSchoolDetailDialog, schoolTypeColor, schoolTypeLabel;
+import '../../../core/utils/message_erreur.dart';
 
 // Largeurs fixes des colonnes (la colonne « École » absorbe l'espace restant).
 const double _wLoc = 150, _wCyc = 96, _wStu = 74, _wSta = 84;
@@ -37,7 +38,7 @@ class RegionalTableMode extends ConsumerWidget {
           loading: () => Center(
               child: CircularProgressIndicator(color: kNavy, strokeWidth: 2.5)),
           error: (e, _) => Center(
-            child: Text('Erreur de chargement\n$e',
+            child: Text(messageErreur(e),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: kRed)),
           ),

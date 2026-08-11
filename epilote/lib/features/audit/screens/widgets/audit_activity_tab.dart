@@ -6,6 +6,7 @@ import '../../providers/audit_data.dart';
 import 'audit_detail_dialog.dart';
 import 'audit_filter_bar.dart';
 import 'audit_row.dart';
+import '../../../../core/utils/message_erreur.dart';
 
 /// Onglet « Activité » : barre de filtres + liste paginée du journal.
 class AuditActivityTab extends ConsumerWidget {
@@ -39,7 +40,7 @@ class AuditActivityTab extends ConsumerWidget {
           ),
           error: (e, _) => Padding(
             padding: const EdgeInsets.only(top: 24),
-            child: AdminErrorBanner(message: 'Erreur de chargement : $e'),
+            child: AdminErrorBanner(message: messageErreur(e)),
           ),
           data: (page) => _AuditList(filters: filters, page: page, scope: scope),
         ),

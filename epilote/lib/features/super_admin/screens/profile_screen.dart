@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show UserAttributes, Sig
 
 import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 Color get _kNavy => kNavy;
@@ -78,7 +79,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       child: async.when(
         skipLoadingOnReload: true, skipLoadingOnRefresh: true,
         loading: () => Center(child: CircularProgressIndicator(color: _kNavy)),
-        error:   (e, _) => Center(child: Text('Erreur : $e', style: TextStyle(color: _kSub))),
+        error:   (e, _) => Center(child: Text(messageErreur(e), style: TextStyle(color: _kSub))),
         data:    (profile) {
           // Populate controllers once
           if (_firstNameCtrl.text.isEmpty && profile != null) {
@@ -135,7 +136,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       setState(() => _saving = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red));
+        SnackBar(content: Text(messageErreur(e)), backgroundColor: Colors.red));
       }
     }
   }
@@ -163,7 +164,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red));
+        SnackBar(content: Text(messageErreur(e)), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _pwdSaving = false);
@@ -198,7 +199,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red));
+        SnackBar(content: Text(messageErreur(e)), backgroundColor: Colors.red));
       }
     }
   }
