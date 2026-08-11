@@ -751,6 +751,7 @@ const schema = Schema([
     Column.text('bulletin_id'),
     Column.text('subject_id'),
     Column.text('group_id'),
+    Column.text('school_id'),
     Column.real('average'),
     Column.real('class_average'),
     Column.integer('rank'),

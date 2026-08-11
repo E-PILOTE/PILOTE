@@ -382,11 +382,12 @@ Future<int> generateBulletins({
       await db.execute(
         '''
         INSERT INTO bulletin_subject_lines (
-          id, bulletin_id, subject_id, group_id, average, class_average, rank,
-          coefficient, weighted_average, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          id, bulletin_id, subject_id, group_id, school_id, average,
+          class_average, rank, coefficient, weighted_average,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''',
-        [_uuid.v4(), bulletinId, l.subjectId, groupId, l.average,
+        [_uuid.v4(), bulletinId, l.subjectId, groupId, schoolId, l.average,
          l.classAverage, l.rank, l.coefficient, l.weighted, now, now],
       );
     }
