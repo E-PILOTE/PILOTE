@@ -7,6 +7,7 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 import '../../../core/utils/jours_non_ouvres.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../providers/admin_academic_year_provider.dart';
 import '../providers/admin_calendar_service.dart';
 import '../providers/admin_year_analytics_provider.dart';

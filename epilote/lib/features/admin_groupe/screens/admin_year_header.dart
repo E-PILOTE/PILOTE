@@ -112,21 +112,27 @@ class _RefreshButton extends ConsumerWidget {
 //  Le PDF se signe et se dépose ; le CSV se recroise dans un tableur. La
 //  direction des statistiques réclamait le second, la hiérarchie le premier.
 //
-//  ⚠️ ENREGISTRER ET IMPRIMER SONT DEUX ACTIONS DISTINCTES.
-//  Le menu n'offrait qu'« Enregistrer » en apparence : l'entrée « Bilan de
-//  l'année (PDF) », sous-titrée « Document officiel », appelait en réalité
-//  `printReport()` — donc `Printing.layoutPdf`, qui sous Windows ouvre
-//  `PrintDlg`, la boîte de CHOIX D'IMPRIMANTE. Trois conséquences, toutes
-//  vécues comme « l'export ne marche pas » :
-//    • aucun fichier n'est jamais écrit, quoi qu'on fasse dans la boîte ;
+//  ⚠️ LE PDF PASSE PAR L'APERÇU PARTAGÉ, COMME PARTOUT AILLEURS.
+//  Vingt écrans de l'application ouvrent `showPdfPreviewDialog` : on voit le
+//  document, PUIS on l'enregistre ou on l'imprime. Cette page était la seule à
+//  ne pas le faire — et ce qu'elle faisait à la place était pire qu'une
+//  omission. L'entrée « Bilan de l'année (PDF) », sous-titrée « Document
+//  officiel », appelait `printReport()`, donc `Printing.layoutPdf`, qui sous
+//  Windows ouvre `PrintDlg` : la boîte de CHOIX D'IMPRIMANTE. Trois
+//  conséquences, toutes vécues comme « l'export ne marche pas » :
+//    • aucun fichier n'était jamais écrit, quoi qu'on fasse dans la boîte ;
 //    • `PrintDlg` est ouverte avec `hwndOwner = nullptr` (printing 5.14.3,
 //      windows/print_job.cpp) : sans fenêtre propriétaire, elle peut s'afficher
 //      DERRIÈRE l'application, qui paraît alors figée sur « Génération… » ;
 //    • fermée ou annulée — ou faute d'imprimante installée — le plugin rend
-//      « non imprimé » sans erreur : l'application ne dit donc rien du tout.
-//  `AcademicYearPdfService.downloadReport()` existait déjà, écrite et jamais
-//  appelée. C'est elle que veut l'agent qui cherche à déposer un bilan.
-enum _ExportKind { pdfEnregistrer, pdfImprimer, csvBilan, csvComparatif }
+//      « non imprimé » sans erreur : l'application ne disait donc rien du tout.
+//
+//  Le document est construit UNE FOIS, avant d'ouvrir l'aperçu, puis les mêmes
+//  octets servent à l'affichage et à l'enregistrement. Laisser `PdfPreview` le
+//  reconstruire ferait porter au fichier déposé une référence et une heure
+//  d'édition différentes de celles que l'agent vient de lire à l'écran — sur un
+//  document dont le numéro de référence est justement ce qui l'identifie.
+enum _ExportKind { pdfBilan, csvBilan, csvComparatif }
 
 class _ExportMenu extends ConsumerStatefulWidget {
   const _ExportMenu({required this.year, required this.years});
@@ -151,17 +157,26 @@ class _ExportMenuState extends ConsumerState<_ExportMenu> {
       // erreur, et ce n'est pas non plus un succès : on se tait.
       String? chemin;
       switch (kind) {
-        case _ExportKind.pdfEnregistrer:
-          chemin = await AcademicYearPdfService.downloadReport(
+        case _ExportKind.pdfBilan:
+          final octets = await AcademicYearPdfService.buildPdf(
             year: widget.year,
             analytics: analytics,
             allYears: widget.years,
           );
-        case _ExportKind.pdfImprimer:
-          await AcademicYearPdfService.printReport(
-            year: widget.year,
-            analytics: analytics,
-            allYears: widget.years,
+          if (!mounted) return;
+          await showPdfPreviewDialog(
+            context,
+            title: "Bilan de l'année ${widget.year.label}",
+            subtitle: '${analytics.ecolesPreparees}/${analytics.ecolesTotal} '
+                'établissements préparés · ${widget.year.eleves} élèves',
+            pdfFileName: 'Bilan_${widget.year.label}.pdf',
+            build: (_) async => octets,
+            onDownload: () => AcademicYearPdfService.downloadReport(
+              year: widget.year,
+              analytics: analytics,
+              allYears: widget.years,
+              bytes: octets,
+            ),
           );
         case _ExportKind.csvBilan:
           chemin = await AcademicYearCsvService.downloadYearReport(
@@ -202,23 +217,13 @@ class _ExportMenuState extends ConsumerState<_ExportMenu> {
       position: PopupMenuPosition.under,
       itemBuilder: (_) => const [
         PopupMenuItem(
-          value: _ExportKind.pdfEnregistrer,
+          value: _ExportKind.pdfBilan,
           child: ListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
             leading: Icon(Icons.picture_as_pdf_rounded, size: 19),
             title: Text('Bilan de l\'année (PDF)'),
-            subtitle: Text('Document officiel — enregistrer le fichier'),
-          ),
-        ),
-        PopupMenuItem(
-          value: _ExportKind.pdfImprimer,
-          child: ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.print_rounded, size: 19),
-            title: Text('Imprimer le bilan'),
-            subtitle: Text('Ouvre le choix de l\'imprimante'),
+            subtitle: Text('Aperçu, puis enregistrer ou imprimer'),
           ),
         ),
         PopupMenuItem(
