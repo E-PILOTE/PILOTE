@@ -10,6 +10,7 @@ import 'package:pdfrx/pdfrx.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/auth/session_morte.dart';
 import 'core/constants/supabase_constants.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
@@ -59,6 +60,10 @@ Future<void> main() async {
 
   runApp(
     const ProviderScope(
+      // Reprise globale sur jeton Supabase mort : sans cet observateur, une
+      // expiration fige TOUT l'espace en ligne (super_admin, admin_groupe)
+      // sur « JWT expired », sans issue autre que redémarrer l'application.
+      observers: [ObservateurSessionMorte()],
       child: EpiloteApp(),
     ),
   );
