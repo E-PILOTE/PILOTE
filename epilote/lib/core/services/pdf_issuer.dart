@@ -104,6 +104,52 @@ final pdfIssuerProvider = FutureProvider.autoDispose<PdfIssuer?>((ref) async {
     return null;
   }
 
+  // ⚠️ admin_groupe NE CONNECTE JAMAIS POWERSYNC.
+  //
+  // C'est la règle centrale du projet : son espace travaille en ligne, sur
+  // Supabase direct (`_isStaffRole` l'exclut de `db.connect()`). Sa base SQLite
+  // locale est donc VIDE, et son profil n'a pas de `school_id` — les deux
+  // raisons pour lesquelles `currentSchoolProvider`, puis `currentGroupProvider`
+  // qui en dérive, ne rendent rien pour lui.
+  //
+  // Faute de ce cas, l'émetteur restait null et TOUS les documents de l'espace
+  // groupe repartaient sous l'identité par défaut : un bilan du ministère
+  // déposé au ministère, signé « E-PILOTE CONGO ». `super_admin` était exclu
+  // explicitement, et l'on croyait donc le reste couvert ; admin_groupe passait
+  // par le trou du filet, sans erreur ni journal.
+  if (profile.role == 'admin_groupe') {
+    final gid = profile.groupId;
+    if (gid == null || gid.isEmpty) {
+      OfficialPdfKit.setIssuer(null);
+      return null;
+    }
+    try {
+      final row = await ref
+          .watch(supabaseClientProvider)
+          .from('school_groups')
+          .select('name, logo_url')
+          .eq('id', gid)
+          .maybeSingle();
+      final nom = (row?['name'] as String?)?.trim() ?? '';
+      if (nom.isEmpty) {
+        OfficialPdfKit.setIssuer(null);
+        return null;
+      }
+      final issuer = PdfIssuer(
+        name: nom,
+        logo: await _logoImage(row?['logo_url'] as String?),
+      );
+      OfficialPdfKit.setIssuer(issuer);
+      return issuer;
+    } catch (e) {
+      // Réseau absent au moment de la résolution : le document sort sous
+      // l'identité par défaut plutôt que de ne pas sortir du tout.
+      debugPrint('ℹ️ Émetteur du groupe non résolu ($e) — identité par défaut.');
+      OfficialPdfKit.setIssuer(null);
+      return null;
+    }
+  }
+
   final group = ref.watch(currentGroupProvider).valueOrNull;
   final school = ref.watch(currentSchoolProvider).valueOrNull;
 
