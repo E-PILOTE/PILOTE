@@ -1,4 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
+
+import '../../../core/utils/paged_fetch.dart';
 
 import '../../auth/providers/auth_provider.dart';
 
@@ -72,16 +75,24 @@ final superExamsProvider =
   ref.keepAlive();
   final client = ref.watch(supabaseClientProvider);
 
-  final rows = await client.from('exam_candidates').select(
+  // ⚠️ PAGINATION OBLIGATOIRE — voir `core/utils/paged_fetch.dart`.
+  //  Ces trois lectures alimentent TOUS les chiffres de la page examens de la
+  //  plateforme : candidats, sessions, ventilation par examen, blocages du
+  //  baccalauréat. Sans pagination, PostgREST rend les 1 000 premières lignes
+  //  et se tait — à l'échelle nationale, aucun de ces nombres n'aurait été
+  //  celui du pays. Les ventilations exigent les lignes ; le seul compteur
+  //  isolé, celui des transmissions, passe par un `count` serveur.
+  final rows = await fetchAllRows(() => client.from('exam_candidates').select(
       'group_id, school_id, student_id, dossier_status, '
-      'exam_sessions!inner(id, national_exams!inner(code, short_name, tutelle))');
+      'exam_sessions!inner(id, national_exams!inner(code, short_name, tutelle))'));
 
-  final trRows = await client.from('transmissions').select('id');
+  final transmissionCount =
+      await client.from('transmissions').count(CountOption.exact);
 
-  final internRows = await client
+  final internRows = await fetchAllRows(() => client
       .from('internships')
-      .select('student_id, attestation_issued_at');
-  final internshipsTotal = (internRows as List).length;
+      .select('student_id, attestation_issued_at'));
+  final internshipsTotal = internRows.length;
   var attestationsTotal = 0;
   final studentsWithAttestation = <String>{};
   for (final i in internRows) {
@@ -137,7 +148,7 @@ final superExamsProvider =
     totalCandidates: totalCandidates,
     totalComplete: totalComplete,
     sessionCount: sessions.length,
-    transmissionCount: (trRows as List).length,
+    transmissionCount: transmissionCount,
     internshipsTotal: internshipsTotal,
     attestationsTotal: attestationsTotal,
     bacBlocked: bacBlocked,

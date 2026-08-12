@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import 'admin_dashboard_provider.dart';
@@ -132,61 +134,69 @@ final adminSchoolsProvider =
   } catch (_) {}
 
   // Plan / quotas
+  //  Pas de `catch` muet ici : un quota qu'on n'a pas pu lire s'affichait
+  //  « Illimité », c'est-à-dire l'inverse de ce qu'il faut croire sur une
+  //  plateforme vendue par paliers. Un groupe SANS plan rend légitimement
+  //  `null` (`maybeSingle`) et garde les valeurs par défaut ; une requête qui
+  //  ÉCHOUE, elle, doit faire échouer la page — l'écran sait le dire.
   int maxSchools = 0, maxStudents = 0;
   String planName = '—';
   String groupType = 'prive';
-  try {
-    final g = await client
-        .from('school_groups')
-        .select('group_type, subscription_plans!plan_id(name, max_schools, max_students)')
-        .eq('id', groupId)
-        .maybeSingle();
-    groupType = g?['group_type'] as String? ?? 'prive';
-    final plan = g?['subscription_plans'] as Map<String, dynamic>?;
-    planName    = plan?['name'] as String? ?? '—';
-    maxSchools  = (plan?['max_schools']  as int?) ?? 0;
-    maxStudents = (plan?['max_students'] as int?) ?? 0;
-  } catch (_) {}
+  final g = await client
+      .from('school_groups')
+      .select('group_type, subscription_plans!plan_id(name, max_schools, max_students)')
+      .eq('id', groupId)
+      .maybeSingle();
+  groupType = g?['group_type'] as String? ?? 'prive';
+  final plan = g?['subscription_plans'] as Map<String, dynamic>?;
+  planName    = plan?['name'] as String? ?? '—';
+  maxSchools  = (plan?['max_schools']  as int?) ?? 0;
+  maxStudents = (plan?['max_students'] as int?) ?? 0;
 
-  // Comptages
+  // ── Comptages : AGRÉGATION SERVEUR ────────────────────────────────────────
+  //
+  //  ⚠️ POSTGREST TRONQUE UNE LECTURE DE TABLE À 1 000 LIGNES, SANS RIEN DIRE.
+  //
+  //  La version précédente rapatriait une ligne par élève, par agent et par
+  //  classe du groupe pour les compter en Dart. Mesuré sur la base réelle
+  //  portée à 1 010 écoles et 1 775 élèves : la page annonçait « 1000 écoles »
+  //  et « 1000 élèves ». Ni erreur, ni avertissement — deux chiffres faux
+  //  affichés comme justes, sur la page qui sert à piloter le groupe.
+  //
+  //  Les RPC échappent à ce plafond (mesuré : 1 010 lignes rendues). Les
+  //  comptes viennent donc d'un GROUP BY Postgres, et le total d'un `count`
+  //  exact côté serveur — lequel reste juste même si la réponse était bornée,
+  //  puisqu'il est lu dans l'en-tête Content-Range et non compté en Dart.
   final Map<String, int> stu = {}, sta = {}, cls = {};
-  int totalStudents = 0;
-  try {
-    final rows = await client.from('students').select('school_id')
-        .eq('group_id', groupId).eq('is_active', true) as List;
-    totalStudents = rows.length;
-    for (final r in rows) {
-      final k = r['school_id'] as String? ?? '';
-      stu[k] = (stu[k] ?? 0) + 1;
-    }
-  } catch (_) {}
-  try {
-    final rows = await client.from('staff_members').select('school_id')
-        .eq('group_id', groupId).eq('is_active', true) as List;
-    for (final r in rows) {
-      final k = r['school_id'] as String? ?? '';
-      sta[k] = (sta[k] ?? 0) + 1;
-    }
-  } catch (_) {}
-  try {
-    final rows = await client.from('classes').select('school_id')
-        .eq('group_id', groupId).eq('is_active', true) as List;
-    for (final r in rows) {
-      final k = r['school_id'] as String? ?? '';
-      cls[k] = (cls[k] ?? 0) + 1;
-    }
-  } catch (_) {}
+  final counts = await client
+      .rpc('group_school_counts', params: {'p_group_id': groupId}) as List;
+  for (final r in counts) {
+    final k = r['school_id'] as String? ?? '';
+    stu[k] = (r['students'] as num?)?.toInt() ?? 0;
+    sta[k] = (r['staff'] as num?)?.toInt() ?? 0;
+    cls[k] = (r['classes'] as num?)?.toInt() ?? 0;
+  }
+  final totalStudents = (await client
+          .from('students')
+          .select('id')
+          .eq('group_id', groupId)
+          .eq('is_active', true)
+          .count(CountOption.exact))
+      .count;
 
-  // Écoles
+  // ── Écoles ────────────────────────────────────────────────────────────────
+  //  Même plafond, même remède : `fetchAllRows` pagine jusqu'à épuisement.
+  //  Une page pleine ne prouve pas qu'il n'y a plus rien après elle — c'est
+  //  exactement ainsi que 1 010 écoles devenaient 1 000.
   final List<SchoolDetail> schools = [];
-  try {
-    final rows = await client.from('schools').select(
+  {
+    final rows = await fetchAllRows(() => client.from('schools').select(
             'id, name, school_type, school_code, address, city, province, '
             'arrondissement, department, phone, email, website, motto, '
             'founded_year, director_id, logo_url, is_active, capacity, '
             'latitude, longitude, location_source')
         .eq('group_id', groupId)
-        .order('name', ascending: true) as List;
+        .order('name', ascending: true));
     for (final s in rows) {
       final id = s['id'] as String;
       schools.add(SchoolDetail(
@@ -216,7 +226,7 @@ final adminSchoolsProvider =
         classes:        cls[id] ?? 0,
       ));
     }
-  } catch (_) {}
+  }
 
   return AdminSchoolsData(
     schools: schools,
