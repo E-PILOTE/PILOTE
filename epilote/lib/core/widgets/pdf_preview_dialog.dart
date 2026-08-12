@@ -134,6 +134,32 @@ class _PdfPreviewDialog extends StatelessWidget {
               canDebug: false,
               pdfFileName: pdfFileName,
               previewPageMargin: const EdgeInsets.all(12),
+              // ⚠️ SANS `maxPageWidth`, LE RASTÉRISEUR DIMENSIONNE LES PAGES
+              //    POUR LA FENÊTRE ENTIÈRE, PAS POUR CETTE BOÎTE.
+              //
+              //  `printing` calcule son dpi ainsi (5.14.3, preview/raster.dart) :
+              //      min(largeurÉcran - 16, maxPageWidth ?? ∞) × dpr
+              //          ÷ format.largeur × 72
+              //  Le paramètre laissé nul, `maxPageWidth` vaut l'infini : sur une
+              //  fenêtre de 1 650 px, une A4 était rendue à ~200 dpi, soit
+              //  1 654 × 2 339 pixels — puis encodée en PNG — alors que la
+              //  colonne d'aperçu ne fait jamais plus de 900 px de large. Trois
+              //  fois trop de pixels par page, à chaque page.
+              //
+              //  Sur le bilan d'un groupe de 1 000 établissements — 52 pages,
+              //  mesurées — l'aperçu mettait entre 18 et 45 secondes à afficher
+              //  quoi que ce soit. Le document, lui, était déjà construit : tout
+              //  ce temps était de la rastérisation inutile.
+              //
+              //  On borne donc à la largeur réellement affichée. Rien n'est
+              //  tronqué ni dégradé : le PDF enregistré ou imprimé est le même
+              //  fichier, seul l'aperçu cesse de rendre ce que l'écran ne
+              //  montrera pas.
+              maxPageWidth: w - 24,
+              // Les octets sont constants et le format ne peut pas changer
+              // (`canChangePageFormat: false`) : reconstruire à chaque
+              // changement de disposition ne ferait que rejouer le build.
+              dynamicLayout: false,
               scrollViewDecoration: BoxDecoration(color: kSurface),
               pdfPreviewPageDecoration: BoxDecoration(
                 color: kCardBg,

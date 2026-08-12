@@ -115,6 +115,12 @@ void main() {
     };
   }
 
+  /// Les objets page d'un PDF ne sont pas compressés : `/Type /Page` s'y compte
+  /// à vue. Le `(?![s])` écarte `/Type /Pages`, qui est le nœud d'arborescence.
+  int pagesDe(List<int> pdf) => RegExp(r'/Type\s*/Page(?![s])')
+      .allMatches(latin1.decode(pdf, allowInvalid: true))
+      .length;
+
   group('le document sort', () {
     test('avec une seule école', () async {
       expect((await bilan([school(0)])).length, greaterThan(0));
@@ -124,21 +130,37 @@ void main() {
       expect((await bilan(const [])).length, greaterThan(0));
     });
 
+    // ⚠️ « LE DOCUMENT SORT » NE PROUVE RIEN SUR CE QU'IL CONTIENT.
+    //
+    //  Ces deux cas se contentaient de `length > 0`. Un bilan qui aurait
+    //  silencieusement perdu 970 établissements sur 1 000 les aurait passés
+    //  aussi bien : il « sort », il est simplement faux. On compte donc les
+    //  pages, seule grandeur qui bouge avec le nombre de lignes réellement
+    //  écrites — `perBlock` vaut 20 pour la table des établissements, donc
+    //  1 000 écoles imposent 50 blocs, et un bloc ne tient pas à deux par page.
     test('avec 1 000 écoles, la cible nationale', () async {
       // `OfficialPdfKit.frame()` enveloppe son contenu dans un `Padding`, qui ne
       // se scinde pas entre deux pages : un tableau non paginé fait boucler
       // `MultiPage` jusqu'à `TooManyPagesException` et le document ne sort pas
       // du tout. À 1 000 écoles, c'est le cas nominal, pas le cas extrême.
-      expect((await bilan([for (var i = 0; i < 1000; i++) school(i)])).length,
-          greaterThan(0));
+      final gros = await bilan([for (var i = 0; i < 1000; i++) school(i)]);
+      expect(gros.length, greaterThan(0));
+      // Mesuré : 52 pages — 50 blocs de tableau, plus les deux pages de
+      // synthèse (KPI, évolution, départements, types, signature).
+      expect(pagesDe(gros), greaterThanOrEqualTo(50),
+          reason: '1 000 écoles à 20 par bloc = 50 blocs minimum ; '
+              'moins de 50 pages signifie des lignes perdues en route.');
+
+      // Et la comparaison qui rend la troncature impossible à masquer.
+      expect(pagesDe(gros),
+          greaterThan(pagesDe(await bilan([school(0)])) + 45));
     });
 
     test('avec 1 000 écoles aux libellés à rallonge', () async {
-      expect(
-        (await bilan([for (var i = 0; i < 1000; i++) school(i, long: true)]))
-            .length,
-        greaterThan(0),
-      );
+      final gros =
+          await bilan([for (var i = 0; i < 1000; i++) school(i, long: true)]);
+      expect(gros.length, greaterThan(0));
+      expect(pagesDe(gros), greaterThanOrEqualTo(50));
     });
   });
 
