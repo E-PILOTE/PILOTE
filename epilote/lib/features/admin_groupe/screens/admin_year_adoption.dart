@@ -55,9 +55,10 @@ class _SchoolAdoptionCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AdminSectionTitle(
+          _CardHead(
             'Préparation par école',
             icon: Icons.account_tree_rounded,
+            tint: kNavy,
             subtitle: "État d'adoption de l'année ${year.label} — "
                 'cliquez une ligne pour ouvrir son département',
             trailing: a == null

@@ -26,29 +26,29 @@ class _ManagementSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Expanded(
-              child: AdminSectionTitle('Gestion & archivage des années',
-                  icon: Icons.settings_suggest_rounded,
-                  subtitle:
-                      'Créer, basculer la rentrée, archiver — toutes les écoles '
-                      'héritent par synchro.'),
-            ),
-            _SegFilter(
-              current: filter,
-              segments: [
-                (key: 'all', label: 'Toutes', count: years.length),
-                (key: 'active', label: 'Actives', count: activeCount),
-                (key: 'archived', label: 'Archivées', count: archivedCount),
-              ],
-              onSelect: (k) =>
-                  ref.read(_yearFilterProvider.notifier).state = k,
-            ),
-          ],
+        // Troisième chapitre de la page : même filet, même graisse de titre que
+        // « Vue d'ensemble » et « Analyses ». Le filtre se loge dans le filet
+        // plutôt qu'au-dessus, ce qui rend la ligne au titre.
+        _ChapterTitle(
+          'Gestion & archivage',
+          icon: Icons.settings_suggest_rounded,
+          trailing: _SegFilter(
+            current: filter,
+            segments: [
+              (key: 'all', label: 'Toutes', count: years.length),
+              (key: 'active', label: 'Actives', count: activeCount),
+              (key: 'archived', label: 'Archivées', count: archivedCount),
+            ],
+            onSelect: (k) => ref.read(_yearFilterProvider.notifier).state = k,
+          ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
+        Text(
+          'Créer, basculer la rentrée, archiver — toutes les écoles héritent '
+          'par synchro.',
+          style: TextStyle(fontSize: 12, color: kTextMuted),
+        ),
+        const SizedBox(height: _kGapTitre),
         if (shown.isEmpty)
           AdminCard(
             child: Padding(
@@ -266,6 +266,7 @@ class _YearCardState extends ConsumerState<_YearCard> {
 
     return AdminCard(
       accent: year.isCurrent ? kGreen : null,
+      hoverable: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

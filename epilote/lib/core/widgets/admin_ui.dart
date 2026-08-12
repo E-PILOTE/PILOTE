@@ -18,54 +18,103 @@ export 'admin_tokens.dart';
 // ════════════════════════════════════════════════════════════════════════════
 
 // ─── Carte conteneur ────────────────────────────────────────────────────────
-class AdminCard extends StatelessWidget {
+class AdminCard extends StatefulWidget {
   const AdminCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(20),
     this.onTap,
     this.accent,
+    this.hoverable = false,
   });
   final Widget child;
   final EdgeInsetsGeometry padding;
   final VoidCallback? onTap;
   final Color? accent;
 
+  /// Léger relief au survol (ombre portée plus ample, liseré teinté).
+  ///
+  /// STRICTEMENT OPTIONNEL : les 170 cartes existantes gardent exactement leur
+  /// rendu et leur coût — sans ce drapeau, aucun `MouseRegion`, aucune
+  /// animation implicite, aucun `AnimatedContainer` n'est construit.
+  final bool hoverable;
+
+  @override
+  State<AdminCard> createState() => _AdminCardState();
+}
+
+class _AdminCardState extends State<AdminCard> {
+  bool _survol = false;
+
   @override
   Widget build(BuildContext context) {
-    final card = Container(
+    final contenu = widget.accent != null
+        ? Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  color: widget.accent,
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(12)),
+                ),
+              ),
+              Padding(padding: widget.padding, child: widget.child),
+            ],
+          )
+        : Padding(padding: widget.padding, child: widget.child);
+
+    if (!widget.hoverable) {
+      final card = Container(
+        decoration: BoxDecoration(
+          color: kCardBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: kBorder),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: contenu,
+      );
+      if (widget.onTap == null) return card;
+      return MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(onTap: widget.onTap, child: card),
+      );
+    }
+
+    final card = AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
       decoration: BoxDecoration(
         color: kCardBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBorder),
+        border: Border.all(
+          color: _survol ? kNavy.withValues(alpha: 0.30) : kBorder,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(alpha: _survol ? 0.10 : 0.04),
+            blurRadius: _survol ? 18 : 10,
+            offset: Offset(0, _survol ? 6 : 3),
           ),
         ],
       ),
-      child: accent != null
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: accent,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                  ),
-                ),
-                Padding(padding: padding, child: child),
-              ],
-            )
-          : Padding(padding: padding, child: child),
+      child: contenu,
     );
-    if (onTap == null) return card;
     return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(onTap: onTap, child: card),
+      cursor:
+          widget.onTap == null ? MouseCursor.defer : SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _survol = true),
+      onExit: (_) => setState(() => _survol = false),
+      child: widget.onTap == null
+          ? card
+          : GestureDetector(onTap: widget.onTap, child: card),
     );
   }
 }

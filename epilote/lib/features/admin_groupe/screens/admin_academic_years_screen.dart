@@ -1,4 +1,6 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
@@ -23,12 +25,21 @@ part 'admin_year_analytics.dart';
 part 'admin_year_department_sheet.dart';
 part 'admin_year_management.dart';
 part 'admin_year_dialogs.dart';
+part 'admin_year_evolution.dart';
 part 'admin_year_header.dart';
+part 'admin_year_kpi.dart';
+part 'admin_year_rail.dart';
+part 'admin_year_rail_pieces.dart';
 part 'admin_year_skeleton.dart';
 part 'admin_year_timeline.dart';
 
 final _fmt = DateFormat('d MMM yyyy', 'fr_FR');
 final _fmtShort = DateFormat('dd/MM/yy', 'fr_FR');
+
+// ─── Rythme vertical de la page (cf. `_Body`) ────────────────────────────────
+const double _kGapCarte = 16;
+const double _kGapTitre = 14;
+const double _kGapChapitre = 30;
 
 // ─── Helpers de présentation partagés (toute la library) ───────────────────────
 ({String label, Color color, IconData icon}) _status(AdminYear y) {
@@ -136,6 +147,14 @@ class _Body extends ConsumerWidget {
         final prev = idx + 1 < years.length ? years[idx + 1] : null;
 
         // Pleine largeur (pas de ConstrainedBox) → s'étend sur les 27 pouces.
+        //
+        // ⚠️ RYTHME VERTICAL — trois valeurs, et trois seulement.
+        //  `_kGapCarte` entre deux cartes d'un même chapitre, `_kGapChapitre`
+        //  entre deux chapitres, `_kGapTitre` entre un titre et son contenu.
+        //  La page mélangeait auparavant 18, 22, 16 et 26 px sans règle : rien
+        //  n'indiquait à l'œil où un sujet s'arrêtait et où le suivant
+        //  commençait, et douze cartes identiques se lisaient comme une seule
+        //  liste indifférenciée.
         return RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(adminAcademicYearsProvider);
@@ -149,18 +168,22 @@ class _Body extends ConsumerWidget {
             children: [
               _Header(years: years, selected: selected),
               const SizedBox(height: 18),
-              _StatsSelectorBar(years: years, selectedId: selected.id),
-              const SizedBox(height: 18),
+              _YearLens(years: years, selected: selected),
+              const SizedBox(height: _kGapChapitre),
+              const _ChapterTitle("Vue d'ensemble", icon: Icons.speed_rounded),
+              const SizedBox(height: _kGapTitre),
               _KpiRow(selected: selected, prev: prev),
-              const SizedBox(height: 22),
+              const SizedBox(height: _kGapCarte),
               _YearTimelineCard(year: selected),
-              const SizedBox(height: 16),
+              const SizedBox(height: _kGapChapitre),
+              const _ChapterTitle('Analyses', icon: Icons.insights_rounded),
+              const SizedBox(height: _kGapTitre),
               _EvolutionCard(years: years),
-              const SizedBox(height: 16),
+              const SizedBox(height: _kGapCarte),
               _AnalyticsRow(year: selected),
-              const SizedBox(height: 16),
+              const SizedBox(height: _kGapCarte),
               _SchoolAdoptionCard(year: selected),
-              const SizedBox(height: 26),
+              const SizedBox(height: _kGapChapitre),
               _ManagementSection(years: years),
             ],
           ),
@@ -196,234 +219,6 @@ class _EmptyState extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-// ─── Sélecteur d'année (pilote TOUTES les statistiques de la page) ─────────────
-class _StatsSelectorBar extends ConsumerWidget {
-  const _StatsSelectorBar({required this.years, required this.selectedId});
-  final List<AdminYear> years;
-  final String selectedId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return AdminCard(
-      padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.insights_rounded, size: 18, color: kNavy),
-              const SizedBox(width: 8),
-              Text('Statistiques par année',
-                  style: TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w800,
-                      color: kTextPrimary)),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  "— sélectionnez l'année à analyser ; KPI et graphiques "
-                  'ci-dessous se mettent à jour.',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11.5, color: kTextMuted),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _YearChips(years: years, selectedId: selectedId),
-        ],
-      ),
-    );
-  }
-}
-
-class _YearChips extends ConsumerStatefulWidget {
-  const _YearChips({required this.years, required this.selectedId});
-  final List<AdminYear> years;
-  final String selectedId;
-
-  @override
-  ConsumerState<_YearChips> createState() => _YearChipsState();
-}
-
-class _YearChipsState extends ConsumerState<_YearChips> {
-  // Une liste horizontale sans ascenseur ne se découvre qu'en tâtonnant : dix
-  // années de calendrier national tiennent rarement dans la largeur, et rien
-  // n'indiquait qu'il y en avait d'autres à droite.
-  final _defilement = ScrollController();
-
-  @override
-  void dispose() {
-    _defilement.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final years = widget.years;
-    final selectedId = widget.selectedId;
-    return SizedBox(
-      height: 78,
-      child: Scrollbar(
-        controller: _defilement,
-        thumbVisibility: years.length > 3,
-        child: ListView.separated(
-        controller: _defilement,
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.only(bottom: 12),
-        itemCount: years.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 10),
-        itemBuilder: (_, i) {
-          final y = years[i];
-          final st = _status(y);
-          final on = y.id == selectedId;
-          return InkWell(
-            onTap: () =>
-                ref.read(selectedAdminYearIdProvider.notifier).state = y.id,
-            borderRadius: BorderRadius.circular(12),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-              decoration: BoxDecoration(
-                color: on ? kNavy : kCardBg,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: on ? kNavy : kBorder),
-                boxShadow: on
-                    ? [
-                        BoxShadow(
-                          color: kNavy.withValues(alpha: 0.18),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                            color: st.color, shape: BoxShape.circle),
-                      ),
-                      const SizedBox(width: 7),
-                      Text(y.label,
-                          style: TextStyle(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w800,
-                              color: on ? Colors.white : kTextPrimary)),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                      // Un brouillon n'a par construction ni élève ni classe :
-                      // « 0 élèves · 0 classes » se lirait comme un échec, alors
-                      // que les écoles ne l'ont tout simplement pas encore reçu.
-                      y.isDraft
-                          ? 'Brouillon — non diffusée'
-                          : '${y.eleves} élèves · ${y.classes} classes',
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontStyle:
-                              y.isDraft ? FontStyle.italic : FontStyle.normal,
-                          color: on
-                              ? Colors.white.withValues(alpha: 0.8)
-                              : y.isDraft
-                                  ? kAccent
-                                  : kTextMuted)),
-                ],
-              ),
-            ),
-          );
-        },
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Ligne de KPI (année sélectionnée + variation N-1) ─────────────────────────
-class _KpiRow extends ConsumerWidget {
-  const _KpiRow({required this.selected, required this.prev});
-  final AdminYear selected;
-  final AdminYear? prev;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final analytics =
-        ref.watch(adminYearAnalyticsProvider(selected.id)).valueOrNull;
-    final st = _status(selected);
-    final dEleves = _delta(selected.eleves, prev?.eleves);
-    final dClasses = _delta(selected.classes, prev?.classes);
-    final adoptPct = selected.schoolsTotal == 0
-        ? 0
-        : (selected.schoolsAdopted / selected.schoolsTotal * 100).round();
-    final moy = analytics?.moyenneElevesParClasse ?? 0;
-
-    final cards = <Widget>[
-      AdminStatCard(
-        label: 'Élèves inscrits',
-        value: '${selected.eleves}',
-        icon: Icons.people_rounded,
-        color: kGreen,
-        subtitle: dEleves?.text ?? 'Année ${st.label.toLowerCase()}',
-      ),
-      AdminStatCard(
-        label: 'Classes ouvertes',
-        value: '${selected.classes}',
-        icon: Icons.class_rounded,
-        color: kNavy,
-        subtitle: dClasses?.text ??
-            (moy > 0 ? '${moy.toStringAsFixed(1)} élèves/classe' : '—'),
-      ),
-      AdminStatCard(
-        label: 'Écoles préparées',
-        value: '${selected.schoolsAdopted}/${selected.schoolsTotal}',
-        icon: Icons.account_balance_rounded,
-        color: kAccent,
-        subtitle: "$adoptPct % d'adoption",
-      ),
-      AdminStatCard(
-        label: 'Départements couverts',
-        value: '${analytics?.departementsCouverts ?? 0}',
-        icon: Icons.map_rounded,
-        color: const Color(0xFF7C3AED),
-        subtitle: analytics == null
-            ? '…'
-            : 'sur ${analytics.byDepartment.length} présents',
-      ),
-    ];
-
-    return LayoutBuilder(
-      builder: (context, c) {
-        final cols = c.maxWidth >= 900 ? 4 : (c.maxWidth >= 560 ? 2 : 1);
-        // Hauteur FIXE (mainAxisExtent) plutôt qu'un childAspectRatio : la carte
-        // a un contenu de hauteur constante, l'aspectRatio débordait selon la
-        // largeur (overflow 19px en 4 colonnes). 190px couvre un sous-titre/label
-        // sur 2 lignes sans débordement.
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: cards.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: cols,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            mainAxisExtent: 196,
-          ),
-          itemBuilder: (_, i) => cards[i],
-        );
-      },
     );
   }
 }

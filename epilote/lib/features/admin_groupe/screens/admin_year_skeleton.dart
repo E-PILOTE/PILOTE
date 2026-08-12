@@ -2,6 +2,12 @@ part of 'admin_academic_years_screen.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  SKELETON — chargement (shimmer) calqué sur la vraie disposition de la page.
+//
+//  ⚠️ Les couleurs viennent des JETONS, pas de deux hex figés. La version
+//  précédente clignotait en `#E8ECF0` → `#F5F7FA` : sur les thèmes Sombre et
+//  Melack, dont le fond est presque noir, l'écran de chargement était un éclair
+//  blanc avant que la page ne s'affiche en sombre. `kBorder` → `kSurface` suit
+//  la palette active, comme le fait déjà `ShimmerPanel` (staff_ui.dart).
 // ════════════════════════════════════════════════════════════════════════════
 
 class _YearsSkeleton extends StatelessWidget {
@@ -14,11 +20,20 @@ class _YearsSkeleton extends StatelessWidget {
             color: kCardBg, borderRadius: BorderRadius.circular(r)),
       );
 
+  /// Filet de chapitre : la ligne qui sépare « Vue d'ensemble » d'« Analyses ».
+  Widget _chapitre() => Row(
+        children: [
+          _box(150, 13, r: 6),
+          const SizedBox(width: 14),
+          Expanded(child: _box(double.infinity, 1, r: 1)),
+        ],
+      );
+
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: const Color(0xFFE8ECF0),
-      highlightColor: const Color(0xFFF5F7FA),
+      baseColor: kBorder,
+      highlightColor: kSurface,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(24, 22, 24, 90),
         children: [
@@ -79,36 +94,45 @@ class _YearsSkeleton extends StatelessWidget {
             );
           }),
           const SizedBox(height: 18),
-          // Sélecteur d'année
-          _box(double.infinity, 118, r: 14),
-          const SizedBox(height: 18),
-          // KPI grid (responsive)
+          // Lentille d'année : identité (46 + marges) + filet + rail (56 + marges).
+          _box(double.infinity, 161, r: 14),
+          const SizedBox(height: _kGapChapitre),
+          _chapitre(),
+          const SizedBox(height: _kGapTitre),
+          // KPI grid — seuils et `mainAxisExtent` STRICTEMENT ceux de `_KpiRow`.
+          // Deux colonnes ici et quatre là-bas, et la page saute d'un demi-écran
+          // à l'instant précis où les données arrivent.
           LayoutBuilder(
             builder: (context, c) {
-              final cols = c.maxWidth >= 900 ? 4 : (c.maxWidth >= 560 ? 2 : 1);
+              final cols = c.maxWidth >= 740 ? 4 : (c.maxWidth >= 470 ? 2 : 1);
               return GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: 4,
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: cols,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  mainAxisExtent: 196,
+                  mainAxisSpacing: 14,
+                  crossAxisSpacing: 14,
+                  mainAxisExtent: 190,
                 ),
                 itemBuilder: (_, _) =>
                     _box(double.infinity, double.infinity, r: 16),
               );
             },
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: _kGapCarte),
+          // Frise
+          _box(double.infinity, 250, r: 16),
+          const SizedBox(height: _kGapChapitre),
+          _chapitre(),
+          const SizedBox(height: _kGapTitre),
           // Évolution
           _box(double.infinity, 330, r: 16),
-          const SizedBox(height: 16),
-          // Analytics row (dept + donut)
+          const SizedBox(height: _kGapCarte),
+          // Analytics row (dept + donut) — même seuil que `_AnalyticsRow`.
           LayoutBuilder(
             builder: (context, c) {
-              if (c.maxWidth >= 820) {
+              if (c.maxWidth >= 720) {
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -127,7 +151,7 @@ class _YearsSkeleton extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: _kGapCarte),
           // Table adoption
           _box(double.infinity, 300, r: 16),
         ],

@@ -42,9 +42,10 @@ class _YearTimelineCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AdminSectionTitle(
+          _CardHead(
             "Déroulé de l'année ${year.label}",
             icon: Icons.timeline_rounded,
+            tint: kNavy,
             subtitle: '${_fmt.format(year.startDate)} → '
                 '${_fmt.format(year.endDate)}',
             trailing: _YearPhaseBadge(year: year, trimesters: trims),
@@ -104,6 +105,19 @@ class _YearPhaseBadge extends StatelessWidget {
       );
     }
     if (year.endDate.isBefore(now)) {
+      // ⚠️ UNE ANNÉE CLOSE QUI RESTE « COURANTE » EN BASE EST UN OUBLI, PAS UN
+      // ÉTAT. Tant que la rentrée n'a pas basculé, toute écriture du réseau —
+      // inscription, note, bulletin — continue de se rattacher à une année
+      // terminée. Le badge disait « Année terminée » d'un gris neutre, pendant
+      // que le reste de la page affichait « En cours » : deux vérités sur le
+      // même écran, et aucune ne disait quoi faire.
+      if (year.isCurrent) {
+        return AdminBadge(
+          'Terminée — rentrée non basculée',
+          color: kAccent,
+          icon: Icons.warning_amber_rounded,
+        );
+      }
       return AdminBadge('Année terminée', color: kTextMuted);
     }
 
