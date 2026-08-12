@@ -143,60 +143,74 @@ class _AppShellState extends ConsumerState<AppShell> {
     return Scaffold(
       backgroundColor: kSurface,
       endDrawer: profile != null ? const NotificationsDrawer() : null,
-      body: Row(
-        children: [
-          AnimatedContainer(
-            duration: _widthAnim,
-            curve: Curves.easeOut,
-            width: _sidebarWidth,
-            child: AppSidebar(
-              sections: sections,
-              expanded: expanded,
-              currentLocation: currentLoc,
-              messageBadge: msgUnread,
-              profile: activeProfile,
-              onNavigate: (route) => context.go(route),
-            ),
-          ),
-          SidebarResizeHandle(onDrag: _onSidebarDrag),
-          Expanded(
-            child: Column(
-              children: [
-                AppHeader(
-                  title: widget.title,
+      // ⚠️ SUR UNE FENÊTRE ÉTROITE, LA BARRE LATÉRALE MANGEAIT LE CONTENU.
+      //  268 px de navigation déployée sur 420 px de fenêtre, et il ne restait
+      //  plus de quoi loger l'en-tête : Flutter peignait « RIGHT OVERFLOWED »
+      //  par-dessus le compte, sur tous les écrans de l'application. Le repli
+      //  d'office est une contrainte d'affichage, pas une préférence : la
+      //  largeur choisie (`_sidebarWidth`) n'est PAS écrasée, elle revient dès
+      //  que la fenêtre s'élargit.
+      body: LayoutBuilder(
+        builder: (context, contraintes) {
+          final etroit = contraintes.maxWidth < kShellNarrowWidth;
+          final largeurBarre = etroit ? kSidebarCollapsedWidth : _sidebarWidth;
+          final deploye = expanded && !etroit;
+          return Row(
+            children: [
+              AnimatedContainer(
+                duration: _widthAnim,
+                curve: Curves.easeOut,
+                width: largeurBarre,
+                child: AppSidebar(
+                  sections: sections,
+                  expanded: deploye,
+                  currentLocation: currentLoc,
+                  messageBadge: msgUnread,
                   profile: activeProfile,
-                  isStaff: isStaff,
-                  sidebarExpanded: expanded,
-                  actions: widget.actions,
-                  onBack: widget.onBack,
-                  onToggleSidebar: _toggleSidebar,
+                  onNavigate: (route) => context.go(route),
                 ),
-                // En tête des bannières : un poste sans session ne remonte
-                // RIEN. C'est la condition qui explique toutes les autres.
-                if (isStaff) const RepriseBanner(),
-                if (isStaff) const ReadOnlyYearBanner(),
-                if (isStaff) const SyncFailureBanner(),
-                if (isStaff) const PendingUploadsBanner(),
-                if (isStaff) const LicenseBanner(),
-                if (profile?.role == AppConstants.roleAdminGroupe)
-                  const SubscriptionBanner(),
-                // En dernier, sous les bannières d'état : une mise à jour est
-                // une information, pas une urgence. Elle ne doit jamais passer
-                // devant un échec de synchronisation ou une licence expirée.
-                const UpdateBanner(),
-                Expanded(
-                  child: Stack(
-                    children: [
-                      Positioned.fill(child: widget.child),
-                      if (contentOverlay != null)
-                        Positioned.fill(child: contentOverlay),
-                    ],
-                  ),
+              ),
+              SidebarResizeHandle(onDrag: _onSidebarDrag),
+              Expanded(
+                child: Column(
+                  children: [
+                    AppHeader(
+                      title: widget.title,
+                      profile: activeProfile,
+                      isStaff: isStaff,
+                      sidebarExpanded: deploye,
+                      actions: widget.actions,
+                      onBack: widget.onBack,
+                      onToggleSidebar: _toggleSidebar,
+                    ),
+                    // En tête des bannières : un poste sans session ne remonte
+                    // RIEN. C'est la condition qui explique toutes les autres.
+                    if (isStaff) const RepriseBanner(),
+                    if (isStaff) const ReadOnlyYearBanner(),
+                    if (isStaff) const SyncFailureBanner(),
+                    if (isStaff) const PendingUploadsBanner(),
+                    if (isStaff) const LicenseBanner(),
+                    if (profile?.role == AppConstants.roleAdminGroupe)
+                      const SubscriptionBanner(),
+                    // En dernier, sous les bannières d'état : une mise à jour est
+                    // une information, pas une urgence. Elle ne doit jamais passer
+                    // devant un échec de synchronisation ou une licence expirée.
+                    const UpdateBanner(),
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          Positioned.fill(child: widget.child),
+                          if (contentOverlay != null)
+                            Positioned.fill(child: contentOverlay),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-        ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -65,8 +65,12 @@ class _DashTabs extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-      child: Align(
-        alignment: Alignment.centerLeft,
+      // Les deux pastilles ont une largeur incompressible : sur une fenêtre
+      // réduite, elles débordaient de la colonne (bande jaune sur « Vue
+      // régionale »). Un défilement horizontal remplace l'`Align` — qui ne
+      // servait qu'à coller le bloc à gauche, ce que le viewport fait déjà.
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
         child: Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(

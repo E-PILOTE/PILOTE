@@ -70,64 +70,101 @@ class AppHeader extends ConsumerWidget {
         ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(
-              sidebarExpanded ? Icons.menu_open_rounded : Icons.menu_rounded,
-              color: kNavy,
-              size: 22,
-            ),
-            onPressed: onToggleSidebar,
-            tooltip:
-                sidebarExpanded ? 'Réduire la navigation' : 'Ouvrir la navigation',
-          ),
-          const SizedBox(width: 8),
-          if (onBack != null) ...[
-            IconButton(
-              icon: Icon(Icons.arrow_back_rounded, color: kNavy, size: 20),
-              onPressed: onBack,
-              tooltip: 'Retour',
-            ),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            title,
-            style: TextStyle(
-              color: kTextPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const Spacer(),
-          if (isStaff) ...[const YearSelector(), const SizedBox(width: 10)],
-          ...?actions,
-          if (showComm) ...[
-            Builder(
-              builder: (context) => NotificationBell(
-                onSeeAll: () => Scaffold.of(context).openEndDrawer(),
+      // ⚠️ CETTE BARRE DÉBORDAIT, SUR TOUS LES ÉCRANS DE L'APPLICATION.
+      //
+      //  Le titre était un `Text` nu suivi d'un `Spacer` : largeur naturelle,
+      //  aucune capacité à céder. À droite, un bloc de commandes de largeur
+      //  fixe (cloche, thème, lanceur, compte avec nom et rôle). Dès que la
+      //  somme dépassait la place disponible — fenêtre étroite, ou simplement
+      //  Windows à 150 % d'agrandissement, où 1 650 px physiques ne font plus
+      //  que 1 100 px logiques — Flutter peignait la bande jaune « RIGHT
+      //  OVERFLOWED BY 12 PIXELS » par-dessus l'avatar. Le défaut n'était pas
+      //  propre à un écran : il vivait dans la coquille, donc partout.
+      //
+      //  Deux cessions, dans cet ordre :
+      //   1. le TITRE devient `Expanded` et se tronque — il occupe déjà la
+      //      place libre, le rendre flexible ne déplace rien tant qu'il y a de
+      //      la marge, et il est le seul élément qui ne porte aucune action ;
+      //   2. sous `_kSeuilCompact`, le NOM et le RÔLE à côté de l'avatar
+      //      s'effacent. Ce sont deux lignes de texte décoratives : le menu du
+      //      compte reste ouvrable par l'avatar, qui porte déjà les initiales.
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final compact = c.maxWidth < _kSeuilCompact;
+          return Row(
+            children: [
+              IconButton(
+                icon: Icon(
+                  sidebarExpanded ? Icons.menu_open_rounded : Icons.menu_rounded,
+                  color: kNavy,
+                  size: 22,
+                ),
+                onPressed: onToggleSidebar,
+                tooltip: sidebarExpanded
+                    ? 'Réduire la navigation'
+                    : 'Ouvrir la navigation',
               ),
-            ),
-            const SizedBox(width: 4),
-          ],
-          const _ThemeToggle(),
-          // Lanceur d'applications (« Accès rapide ») — personnel scolaire
-          // uniquement (jamais super admin / admin groupe, qui ont leur nav).
-          if (isStaff) ...[
-            const SizedBox(width: 2),
-            const _ModuleLauncher(),
-          ],
-          const SizedBox(width: 4),
-          _AccountMenu(
-            profile: profile,
-            displayName: displayName,
-            roleLabel: roleLabel,
-          ),
-        ],
+              const SizedBox(width: 8),
+              if (onBack != null) ...[
+                IconButton(
+                  icon: Icon(Icons.arrow_back_rounded, color: kNavy, size: 20),
+                  onPressed: onBack,
+                  tooltip: 'Retour',
+                ),
+                const SizedBox(width: 4),
+              ],
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: kTextPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              if (isStaff) ...[const YearSelector(), const SizedBox(width: 10)],
+              ...?actions,
+              if (showComm) ...[
+                Builder(
+                  builder: (context) => NotificationBell(
+                    onSeeAll: () => Scaffold.of(context).openEndDrawer(),
+                  ),
+                ),
+                const SizedBox(width: 4),
+              ],
+              const _ThemeToggle(),
+              // Lanceur d'applications (« Accès rapide ») — personnel scolaire
+              // uniquement (jamais super admin / admin groupe, qui ont leur nav).
+              if (isStaff) ...[
+                const SizedBox(width: 2),
+                const _ModuleLauncher(),
+              ],
+              const SizedBox(width: 4),
+              _AccountMenu(
+                profile: profile,
+                displayName: displayName,
+                roleLabel: roleLabel,
+                montrerNom: !compact,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 }
+
+/// Largeur de barre sous laquelle le nom et le rôle cèdent la place.
+///
+/// Mesuré, pas choisi : le bloc de droite pèse ~290 px avec le nom (cloche 48,
+/// thème 48, compte 186, écarts), ~164 sans lui ; le bouton de navigation et sa
+/// marge en prennent 56. À 720, le titre garde donc au moins 370 px — de quoi
+/// écrire « Journal d'audit » ou « Années scolaires » en entier.
+const double _kSeuilCompact = 720;
 
 /// Icône du thème [id] — également réutilisée par les écrans Paramètres.
 IconData themeIcon(EpiloteThemeId id) => switch (id) {
@@ -447,10 +484,14 @@ class _AccountMenu extends ConsumerWidget {
     required this.profile,
     required this.displayName,
     required this.roleLabel,
+    this.montrerNom = true,
   });
   final ProfileModel? profile;
   final String displayName;
   final String roleLabel;
+
+  /// Barre trop étroite : seul l'avatar reste, initiales comprises.
+  final bool montrerNom;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -575,8 +616,8 @@ class _AccountMenu extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(width: 6),
-          if (profile != null)
+          if (profile != null && montrerNom) ...[
+            const SizedBox(width: 6),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 120),
               child: Column(
@@ -599,6 +640,7 @@ class _AccountMenu extends ConsumerWidget {
                 ],
               ),
             ),
+          ],
           const SizedBox(width: 4),
           Icon(Icons.arrow_drop_down, color: kTextMuted, size: 20),
         ],
