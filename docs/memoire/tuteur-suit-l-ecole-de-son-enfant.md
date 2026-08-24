@@ -31,17 +31,27 @@ redondance : une fiche saisie hors ligne vit dans la SQLite du poste avant d'att
 le serveur, où aucun trigger ne tourne. Sans valeur locale, elle disparaîtrait de toute
 requête filtrant sur l'école jusqu'au retour du réseau — le piège `is_active` à nouveau.
 
-## ⚠️ RESTE À FAIRE — un geste humain
+## ✅ Sync-rules DÉPLOYÉES (2026-08-24)
 
-Les sync-rules sont modifiées dans le dépôt (`student_tutors` déplacé de `by_group`
-vers `by_school`) mais **PAS DÉPLOYÉES**. Tant qu'elles ne le sont pas, l'ancienne règle
-reste active et les coordonnées continuent de descendre par groupe.
+`npx powersync deploy sync-config --directory=powersync
+--sync-config-file-path=…/config/sync-rules.yaml` sur l'instance **Production**
+`6a185943234fa2bf51a66759`. Validation passée, `Initial replication done: true`,
+`Replication lag: 0 bytes`, `student_tutors` répliquée.
 
-> Dashboard PowerSync Cloud → coller `powersync/config/sync-rules.yaml` →
-> **Validate** → **Deploy**.
+Pré-vérification faite avant de pousser, et c'est elle qui compte : `fetch config`
+(lecture seule) pour garder une copie du live, puis diff des tables live↔dépôt. **Zéro
+table ajoutée, zéro retirée** — le seul écart sémantique était `student_tutors` passant
+de `WHERE group_id = bucket.gid` à `WHERE school_id = bucket.sid`. Le snapshot d'avant
+est le retour arrière.
 
-À la première synchro suivante, les tuteurs des autres écoles sont purgés de la SQLite
-locale de chaque poste.
+À la première synchro de chaque poste, les tuteurs des autres écoles sont purgés de la
+SQLite locale. Les écritures en attente ne sont pas touchées : la file CRUD est séparée
+des buckets.
+
+⚠️ **Les comptes `admin_groupe` n'ont pas de `school_id`** : `by_school` ne leur ouvre
+aucun bucket, ils ne reçoivent donc aucun tuteur par PowerSync. C'est déjà le cas pour
+`students`, et c'est cohérent — ils travaillent en ligne, sur Supabase direct. Ne pas
+lire ça comme une panne.
 
 `schoolTutorsProvider` garde volontairement sa jointure sur `students` : elle écarte les
 tuteurs hors école **même avant** ce déploiement.

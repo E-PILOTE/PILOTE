@@ -35,9 +35,17 @@ npx powersync status                 # « Initial replication done », lag 0
 ```
 Organisation E-PILOTE (6a1858e9ec3f4400078f635f)
 └── Projet EPILOTE (6a18593de63d960007e81e7b)
-    ├── Development  6a185941234fa2bf51a66757  provisionnée ✅
+    ├── Development  6a185941234fa2bf51a66757  has_config ✅  is_provisioned ❌
     └── Production   6a185943234fa2bf51a66759  provisionnée ✅  ← l'APP POINTE ICI
 ```
+
+⚠️ **Constaté le 2026-08-24 (`fetch instances`) : Development n'est PLUS
+provisionnée.** Elle l'était le 04/08 ; elle a été arrêtée depuis — la question
+de la double facturation évoquée plus bas a donc été tranchée. Conséquence
+pratique : **une seule instance vivante**, le déploiement n'a plus d'ambiguïté
+de cible, et `cli.yaml` pointe déjà dessus. Pour une recette sur Development,
+il faudra la re-provisionner d'abord (`powersync deploy`, pas seulement
+`deploy sync-config`).
 
 ✅ **Réglé le 2026-08-04.** Production a été provisionnée avec la config
 exacte de Development, puis `_powerSyncUrl` (`powersync_connector.dart` —
