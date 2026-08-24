@@ -1,4 +1,4 @@
-# 🔐 Deux verrous, et on n'en tournait qu'un (0111)
+# 🔐 Deux verrous, et on n'en tournait qu'un (0111 · 0112)
 
 Une table nominative a **deux** filtres d'école, pas un :
 
@@ -45,7 +45,7 @@ rendant des **agrégats**, jamais une réouverture de la lecture nominative.
 ⚠️ **La RLS ne concerne pas la synchro** : PowerSync réplique par le slot logique et
 évalue ses propres règles. Une migration RLS seule n'a rien à redéployer.
 
-## Le balayage — ce qui reste
+## Le balayage — et ce qu'il a donné
 
 Tables du bucket `by_school` dont la RLS ne mentionne pas `school_id` :
 
@@ -53,11 +53,22 @@ Tables du bucket `by_school` dont la RLS ne mentionne pas `school_id` :
   `school_cycles`. **Normal, pas un défaut** : le calendrier national vit en
   `school_id IS NULL` et doit être lisible par toutes les écoles du groupe ; l'écriture
   est déjà bornée à `is_admin_groupe()`.
-- **`exam_candidates` et `internships` — MÊME DÉFAUT, non corrigé.** Données
-  nominatives d'élèves (candidatures aux examens d'État, stages), `group_id` seul, en
-  **lecture ET en écriture**. À trancher : vérifier d'abord si un cockpit ministère /
-  DEC lit les candidatures au-delà de l'école avant de resserrer — `transmissions`, le
-  dépôt DEC, est déjà par école, ce qui plaide pour resserrer.
+- **`exam_candidates` et `internships` — corrigés par 0112.** Ils avaient le même
+  défaut, en lecture ET en écriture. Un agent d'école lisait **747** candidatures aux
+  examens d'État, il en lit **86** — l'effectif de la sienne ; le ministère garde ses
+  747. Écriture vérifiée : sa propre école modifiable, l'école voisine hors de portée.
+
+  ⚠️ **Chaque table portait DEUX politiques**, `_select` et `_write`, la seconde en
+  `FOR ALL`. Permissives, elles s'additionnent : ne resserrer que `_select` n'aurait
+  RIEN fermé. Toujours vérifier `pg_policy` en entier avant de conclure qu'une table
+  est protégée.
+
+  `is_super_admin()` est **conservé** ici, contrairement à `bulletin_subject_lines` :
+  `super_exams_provider.dart` lit vraiment les deux tables pour la page examens de la
+  plateforme, et **pseudonymement** (`student_id`, `school_id`, `dossier_status`,
+  `attestation_issued_at` — pas un nom, pas un INE). La minimisation tient au choix des
+  colonnes, pas à la fermeture du verrou. C'est le critère : *quelqu'un lit-il
+  réellement, et quoi ?* — pas *quelle forme ont les tables voisines*.
 
 ## Non fait, et pourquoi
 
