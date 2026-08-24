@@ -16,6 +16,23 @@
 //  On passe donc par `corriger_fiche_agent` (migration 0091), qui est la porte
 //  étroite et nommée. Hors réseau, on le DIT.
 //
+//  ── POURQUOI LA FILE D'ENVOI NE RÈGLE PAS CE CAS ───────────────────────────
+//  `queueAvatarUpload` (`services/powersync/avatar_upload.dart`) rend la photo
+//  d'ÉLÈVE déposable hors ligne, et porte même un paramètre `folder` qui
+//  servirait `staff/` sans une ligne de plus. La tentation est donc réelle —
+//  d'où cette note, pour qu'on ne refasse pas le raisonnement à l'envers.
+//
+//  Mettre les octets en file ne débloquerait RIEN. Ce qui manque hors ligne,
+//  ce n'est pas le fichier : c'est l'écriture de `avatar_url`, qui ne peut
+//  passer que par la RPC ci-dessus (raison 1). On aurait une photo sur le
+//  disque, aucune fiche modifiée, et l'occasion d'inscrire dans un dossier
+//  l'adresse d'un fichier pas encore arrivé — exactement ce que la séparation
+//  octets/fiche interdit plus bas.
+//
+//  Le rendre vraiment hors ligne demanderait un autre chemin d'écriture pour
+//  `profiles` — une table tampon synchronisée, appliquée côté serveur par
+//  trigger. C'est un chantier, pas un branchement.
+//
 //  ── L'ADRESSE EST VÉRIFIÉE CÔTÉ SERVEUR ────────────────────────────────────
 //  `avatar_url` s'affiche sur tous les écrans qui montrent cet agent. Accepter
 //  une adresse quelconque reviendrait à laisser poser un mouchard sur chacun
@@ -93,9 +110,19 @@ Future<String> televerserPhotoAgent({
   } catch (e) {
     final s = e.toString();
     if (s.contains('SocketException') || s.contains('Failed host lookup')) {
+      // ⚠️ CE MESSAGE NE PARLE PAS QUE DE LA PHOTO, et c'est délibéré.
+      // Il disait « une photo doit atteindre le serveur […] : elle ne peut pas
+      // être ajoutée hors ligne » — vrai, mais trompeur par omission : il
+      // désignait la photo comme l'exception d'un écran qui, sans réseau, ne
+      // sait RIEN enregistrer. `corriger_fiche_agent` est une RPC.
+      //
+      // L'agent renonçait donc à la photo, remplissait le reste, appuyait sur
+      // « Enregistrer » — et se heurtait à un second échec, formulé autrement.
+      // Autant le dire une fois, complètement.
       throw const EchecPhotoAgent(
-          'Aucune connexion. Une photo doit atteindre le serveur pour que les '
-          'autres postes la voient : elle ne peut pas être ajoutée hors ligne.');
+          'Aucune connexion. La fiche d\'un agent se corrige sur le serveur — '
+          'ni la photo ni le reste ne peuvent être enregistrés hors ligne. '
+          'Reprenez cette fiche une fois connecté.');
     }
     throw EchecPhotoAgent('Envoi impossible : $e');
   }

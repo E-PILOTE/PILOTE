@@ -55,15 +55,38 @@ cassé et croit son geste raté. C'est pour cette raison que les quatre copies p
 
 Garde : `test/dossier_eleve_offline_test.dart` (12 tests).
 
-## ⚠️ Reste en ligne seulement : la photo d'AGENT
+## ⚠️ La photo d'AGENT reste en ligne — et ce n'est PAS un oubli
 
-`features/staff/services/agent_photo_service.dart` refuse encore explicitement le
-hors-ligne : « Une photo doit atteindre le serveur pour que les autres postes la
-voient : elle ne peut pas être ajoutée hors ligne. »
+J'ai d'abord cru le contraire, en lisant le message affiché à l'agent (« une photo doit
+atteindre le serveur… ») sans lire l'en-tête du service. La vraie raison tient, et elle
+est vérifiée en base :
 
-Le raisonnement ne tient plus — la file **la fait** atteindre le serveur. Et
-`queueAvatarUpload` a été écrite avec un paramètre `folder` précisément pour servir
-`staff/` aussi. Non basculé faute de demande : c'est un message produit délibéré, pas un
-oubli technique. Une ligne à changer le jour où on le décide.
+> `profiles_update` n'autorise que `is_super_admin()`, `is_admin_groupe()` du groupe, ou
+> `id = auth.uid()`.
+
+**Un directeur qui corrige la fiche d'un AUTRE agent n'entre dans aucune des trois.** Un
+UPDATE de `avatar_url` poussé par PowerSync reviendrait en `42501` — code fatal pour le
+connecteur — et emporterait le LOT ENTIER : notes et paiements écrits dans la même
+fenêtre. D'où la RPC `corriger_fiche_agent` (migration 0091), en ligne par construction.
+
+⇒ **Mettre les octets en file ne débloquerait rien** : ce qui manque hors ligne n'est pas
+le fichier, c'est l'écriture de `avatar_url`. On aurait une photo sur le disque, aucune
+fiche modifiée, et l'occasion d'inscrire dans un dossier l'adresse d'un fichier pas
+encore arrivé — ce que la séparation octets/fiche interdit précisément.
+
+Le rendre vraiment hors ligne demanderait un autre chemin d'écriture pour `profiles` —
+table tampon synchronisée, appliquée côté serveur par trigger. C'est un chantier, pas un
+branchement. La note est désormais dans `agent_photo_service.dart` pour qu'on ne refasse
+pas le raisonnement à l'envers.
+
+### Deux messages qui mentaient, corrigés au passage
+
+- `_lisible` servait les QUATRE gestes du provider avec une seule phrase hors ligne :
+  « la création d'un compte exige le réseau ». Un chef qui corrigeait un numéro de
+  téléphone lisait donc qu'il ne pouvait pas créer de compte — il n'en créait aucun. Le
+  geste est maintenant nommé par l'appelant.
+- Le message de la photo la désignait comme l'exception d'un écran qui, sans réseau, ne
+  sait RIEN enregistrer. L'agent renonçait à la photo, remplissait le reste, et se
+  heurtait à un second échec formulé autrement. Il dit maintenant les deux d'un coup.
 
 Voir aussi [[communication-media-compression]], [[webp-impossible-cote-client]].

@@ -316,7 +316,7 @@ class AgentCreationService {
       _ref.invalidate(contexteCreationAgentProvider);
       return id as String;
     } catch (e) {
-      throw EchecCreationAgent(_lisible(e));
+      throw EchecCreationAgent(_lisible(e, "La création d'un compte d'agent"));
     }
   }
 
@@ -351,7 +351,7 @@ class AgentCreationService {
         'p_effacer_photo':   effacerPhoto,
       });
     } catch (e) {
-      throw EchecCreationAgent(_lisible(e));
+      throw EchecCreationAgent(_lisible(e, "La correction d'une fiche d'agent"));
     }
   }
 
@@ -371,7 +371,7 @@ class AgentCreationService {
         'p_employment_status': statutEmploi,
       });
     } catch (e) {
-      throw EchecCreationAgent(_lisible(e));
+      throw EchecCreationAgent(_lisible(e, "L'enregistrement d'un statut d'emploi"));
     }
   }
 
@@ -392,7 +392,7 @@ class AgentCreationService {
       _ref.invalidate(contexteCreationAgentProvider);
       return const [];
     } catch (e) {
-      throw EchecCreationAgent(_lisible(e));
+      throw EchecCreationAgent(_lisible(e, "L'annulation d'un enregistrement d'agent"));
     }
   }
 
@@ -403,13 +403,22 @@ class AgentCreationService {
 
   /// Les messages du serveur sont déjà écrits pour être lus ; on retire
   /// seulement l'habillage PostgREST qui les rend illisibles.
-  static String _lisible(Object e) {
+  /// Le message d'échec, dit dans les termes du GESTE qui a échoué.
+  ///
+  /// ⚠️ [geste] n'est pas un ornement. Les quatre appels de ce fichier
+  /// partagent ce traducteur, et il ne connaissait qu'une phrase : « la
+  /// création d'un compte exige le réseau : un identifiant de connexion ne peut
+  /// pas être créé hors ligne ». Un chef d'établissement qui corrigeait un
+  /// numéro de téléphone sans connexion lisait donc qu'il ne pouvait pas créer
+  /// de compte — alors qu'il n'en créait aucun. Le message décrivait le geste
+  /// voisin, et envoyait chercher la panne au mauvais endroit.
+  static String _lisible(Object e, String geste) {
     final s = e.toString();
     final m = RegExp(r'message:\s*([^,\)]+)').firstMatch(s);
     if (m != null) return m.group(1)!.trim();
     if (s.contains('SocketException') || s.contains('Failed host lookup')) {
-      return 'Aucune connexion. La création d\'un compte exige le réseau : '
-          'un identifiant de connexion ne peut pas être créé hors ligne.';
+      return 'Aucune connexion. $geste passe par le serveur : ce geste ne peut '
+          'pas se faire hors ligne.';
     }
     return s;
   }
