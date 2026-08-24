@@ -35,9 +35,14 @@ Future<void> _pump(WidgetTester tester, Entitlement e) async {
 void main() {
   final now = DateTime.now().toUtc();
 
-  testWidgets('phase active + échéance J-5 → bandeau compte à rebours', (tester) async {
+  testWidgets('phase active + échéance J-5 → ce bandeau se tait', (tester) async {
+    // Le compte à rebours d'avant-échéance a quitté ce widget : il dépendait
+    // de `license.validTo`, donc d'une licence émise, que la quasi-totalité
+    // des groupes n'a pas. Il vit dans `SchoolSubscriptionBanner`, branché sur
+    // la date synchronisée du groupe (voir school_subscription_banner_test).
+    // Ici, phase active = rien à signaler.
     await _pump(tester, _ent(validTo: now.add(const Duration(days: 5)), offlineWindow: const Duration(days: 30)));
-    expect(find.textContaining('expire dans 5 jours'), findsOneWidget);
+    expect(find.byType(Text), findsNothing);
   });
 
   testWidgets('phase active + échéance lointaine → aucun bandeau', (tester) async {

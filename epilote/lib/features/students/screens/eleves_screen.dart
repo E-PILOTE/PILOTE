@@ -17,24 +17,34 @@ import '../providers/inscriptions_data_provider.dart';
 import '../providers/student_documents_provider.dart';
 import '../providers/student_tutors_provider.dart';
 import '../providers/students_provider.dart';
+import '../models/eleve_libelles.dart';
 import '../models/tutor_draft.dart';
 import '../providers/students_registry_provider.dart';
 import '../providers/transfers_provider.dart';
+import '../../structure/providers/academic_year_provider.dart';
 import '../services/attestation_actions.dart';
+import '../services/capacite_classe.dart';
+import '../services/filtre_eleves.dart';
+import '../services/edition_eleve_garde.dart';
 import '../services/attestations_pdf_service.dart';
 import '../services/students_pdf_service.dart';
 import '../widgets/monthly_evolution_card.dart';
 import '../widgets/scope_drilldown_panel.dart';
 import '../widgets/transfer_destination_picker.dart';
 import '../widgets/inscription_form_kit.dart';
+import '../widgets/tuteur_edit_card.dart';
 import 'add_inscription_screen.dart';
 import '../../../core/utils/ine.dart';
+import '../../../core/utils/write_identity.dart';
 import '../../../core/utils/sortie_motif.dart';
 import '../../../core/utils/message_erreur.dart';
 
 part 'eleves_parts.dart';
+part 'eleves_liste_parts.dart';
 part 'eleves_drawer.dart';
+part 'eleves_actions_parts.dart';
 part 'eleves_edit.dart';
+part 'eleves_kpi_parts.dart';
 
 // ─── Référentiel cycles (couleur / nom / ordre) ──────────────────────────────
 Map<String, Color> get _cycleColors => <String, Color>{
@@ -84,6 +94,7 @@ class _Body extends ConsumerStatefulWidget {
 class _BodyState extends ConsumerState<_Body> {
   final _search = TextEditingController();
   String? _gender; // M | F
+  String? _particularite; // interne | affecte | boursier | aide_sociale | …
   ScopeSel _scope = const ScopeSel(); // cycle/niveau/classe (panneau répartition)
   bool _isTable = true;
   bool _sortAsc = true;
@@ -98,31 +109,24 @@ class _BodyState extends ConsumerState<_Body> {
   void _resetFilters() => setState(() {
         _search.clear();
         _gender = null;
+        _particularite = null;
         _scope = const ScopeSel();
       });
 
-  List<StudentRow> _apply(List<StudentRow> all) {
-    final q = _search.text.trim().toLowerCase();
-    final out = all.where((s) {
-      if (_gender != null && s.gender != _gender) return false;
-      if (_scope.cycle != null && (s.cycleCode ?? '') != _scope.cycle) {
-        return false;
-      }
-      if (_scope.level != null && (s.levelCode ?? '') != _scope.level) {
-        return false;
-      }
-      if (_scope.classId != null && s.classId != _scope.classId) return false;
-      if (q.isEmpty) return true;
-      return s.fullName.toLowerCase().contains(q) ||
-          s.matricule.toLowerCase().contains(q) ||
-          (s.className ?? '').toLowerCase().contains(q);
-    }).toList()
-      ..sort((a, b) {
-        final c = a.lastFirst.toLowerCase().compareTo(b.lastFirst.toLowerCase());
-        return _sortAsc ? c : -c;
-      });
-    return out;
-  }
+  /// Le tri et les filtres vivent dans `services/filtre_eleves.dart` — c'est là
+  /// qu'ils se testent, et c'est là qu'on a ajouté ce qui manquait : le filtre
+  /// par particularité (la page annonçait « 42 internes » sans jamais pouvoir
+  /// en donner la liste) et la recherche par identifiant national.
+  List<StudentRow> _apply(List<StudentRow> all) => filtrerEleves(
+        all,
+        recherche: _search.text,
+        sexe: _gender,
+        particularite: _particularite,
+        cycle: _scope.cycle,
+        niveau: _scope.level,
+        classeId: _scope.classId,
+        triAscendant: _sortAsc,
+      );
 
   // ── Sélection ──────────────────────────────────────────────────────────────
   void _toggle(String id, bool sel) => setState(() {
@@ -169,6 +173,24 @@ class _BodyState extends ConsumerState<_Body> {
       );
 
   // ── Actions groupées ───────────────────────────────────────────────────────
+  /// Rend compte d'une action groupée SANS mentir.
+  ///
+  /// ⚠️ Les deux boucles ci-dessous avalaient chaque exception dans un
+  /// `catch (_) {}` puis affichaient « n élève(s) réaffecté(s) » en VERT. Sur
+  /// vingt élèves dont aucun ne passait, l'agent lisait « 0 élève(s)
+  /// réaffecté(s) » sur fond vert, sans un mot sur la cause, et n'avait aucune
+  /// raison de recommencer. Un échec total se présentait comme un succès.
+  void _rendreCompte(int reussites, int total, String verbe, String? erreur) {
+    if (erreur != null && reussites == 0) {
+      _snack('Aucun élève $verbe — $erreur', kRed);
+    } else if (erreur != null) {
+      _snack('$reussites / $total élève(s) $verbe. '
+          'Les autres ont échoué — $erreur', kAccent);
+    } else {
+      _snack('$reussites élève(s) $verbe', kGreen);
+    }
+  }
+
   Future<void> _bulkChangeClass(List<StudentRow> rows) async {
     final targets =
         rows.where((r) => _selected.contains(r.enrollmentId)).toList();
@@ -181,17 +203,48 @@ class _BodyState extends ConsumerState<_Body> {
           subtitle: '${targets.length} élève(s) sélectionné(s)'),
     );
     if (classId == null || !mounted) return;
+    if (!await _confirmeDebordement(classId, targets.length)) return;
     var n = 0;
+    String? erreur;
     for (final r in targets) {
       try {
         await changeEnrollmentClass(
             enrollmentId: r.enrollmentId!, newClassId: classId);
         n++;
-      } catch (_) {}
+      } catch (e) {
+        erreur ??= messageErreur(e);
+      }
     }
     ref.invalidate(studentsRegistryProvider);
     _clearSel();
-    _snack('$n élève(s) réaffecté(s)', kGreen);
+    _rendreCompte(n, targets.length, 'réaffecté(s)', erreur);
+  }
+
+  /// Prévient si la classe visée débordera, et laisse l'école trancher.
+  ///
+  /// Le sélecteur affiche « 6e A (24/25) » — l'état AVANT. Déplacer trente
+  /// élèves la portait à cinquante-quatre sans un mot, et la surcharge se
+  /// découvrait dans la salle le jour de la rentrée.
+  Future<bool> _confirmeDebordement(String classId, int aDeplacer) async {
+    final classes = ref.read(classesProvider).valueOrNull;
+    final cible = classes?.where((c) => c.id == classId).firstOrNull;
+    if (cible == null) return true;
+    final d = debordementApresDeplacement(
+      className: cible.name,
+      effectifActuel: cible.studentCount ?? 0,
+      capacite: cible.capacity,
+      aDeplacer: aDeplacer,
+    );
+    if (d == null) return true;
+    if (!mounted) return false;
+    final ok = await _confirm(
+      'Cette classe va déborder',
+      '${d.message}\n\nC\'est possible, et fréquent. Confirmez si c\'est '
+          'bien ce que vous voulez faire.',
+      'Déplacer quand même',
+      kAccent,
+    );
+    return ok == true;
   }
 
   Future<void> _bulkRevert(List<StudentRow> rows) async {
@@ -206,15 +259,18 @@ class _BodyState extends ConsumerState<_Body> {
     );
     if (ok != true) return;
     var n = 0;
+    String? erreur;
     for (final r in targets) {
       try {
         await revertEnrollmentToValidation(r.enrollmentId!);
         n++;
-      } catch (_) {}
+      } catch (e) {
+        erreur ??= messageErreur(e);
+      }
     }
     ref.invalidate(studentsRegistryProvider);
     _clearSel();
-    _snack('$n inscription(s) renvoyée(s) au pipeline', kAccent);
+    _rendreCompte(n, targets.length, 'renvoyé(s) au pipeline', erreur);
   }
 
   Future<void> _bulkExport(List<StudentRow> rows) async {
@@ -233,16 +289,23 @@ class _BodyState extends ConsumerState<_Body> {
   void _previewPdf(List<StudentRow> rows) {
     if (rows.isEmpty) return;
     final year = ref.read(activeYearProvider)?.label;
+    // ⚠️ LE NOM DE L'ÉCOLE MANQUAIT. Le service l'attend, personne ne le
+    // passait : la liste officielle des effectifs — celle qui part au
+    // ministère, celle qu'on archive — s'intitulait « Liste des élèves par
+    // classe », sans dire de quel établissement. Le seul document de cette page
+    // destiné à sortir de l'école ne la nommait pas.
+    final school = ref.read(currentSchoolProvider).valueOrNull;
+    final schoolName = (school?['name'] as String?)?.trim();
     showPdfPreviewDialog(
       context,
       title: 'Effectif élèves',
       subtitle: '${rows.length} élève${rows.length > 1 ? 's' : ''}'
           '${year != null ? ' · $year' : ''}',
       pdfFileName: 'Eleves.pdf',
-      build: (format) =>
-          StudentsPdfService.buildPdf(rows: rows, yearLabel: year),
-      onDownload: () =>
-          StudentsPdfService.downloadDoc(rows: rows, yearLabel: year),
+      build: (format) => StudentsPdfService.buildPdf(
+          rows: rows, yearLabel: year, schoolName: schoolName),
+      onDownload: () => StudentsPdfService.downloadDoc(
+          rows: rows, yearLabel: year, schoolName: schoolName),
     );
   }
 
@@ -295,7 +358,15 @@ class _BodyState extends ConsumerState<_Body> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _Kpis(students: all),
+              _Kpis(
+                students: all,
+                active: _particularite,
+                // Le chiffre annonce, la liste répond : cliquer sur « Internes »
+                // restreint l'effectif aux 42 que la carte compte. Sans cela, la
+                // page affichait un nombre dont elle refusait de donner les noms.
+                onSelect: (code) => setState(
+                    () => _particularite = _particularite == code ? null : code),
+              ),
               if (all.isNotEmpty) ...[
                 const SizedBox(height: 22),
                 ScopeDrilldownPanel(
@@ -311,7 +382,7 @@ class _BodyState extends ConsumerState<_Body> {
                         levelOrder: s.levelOrder,
                         classId: s.classId,
                         className: s.className,
-                        ok: false,
+                        ok: s.hasPrimaryTutor,
                       ),
                   ],
                 ),
@@ -329,10 +400,12 @@ class _BodyState extends ConsumerState<_Body> {
               _ElevesFilterBar(
                 searchCtrl: _search,
                 gender: _gender,
+                particularite: _particularite,
                 isTable: _isTable,
                 readOnly: readOnly,
                 onSearch: (_) => setState(() {}),
                 onGender: (v) => setState(() => _gender = v),
+                onParticularite: (v) => setState(() => _particularite = v),
                 onToggleView: () => setState(() => _isTable = !_isTable),
                 onReset: _resetFilters,
                 onAdd: _openAdd,
@@ -408,53 +481,5 @@ class _BodyState extends ConsumerState<_Body> {
         );
       },
     );
-  }
-}
-
-// ─── KPIs (démographie de l'effectif) ────────────────────────────────────────
-class _Kpis extends StatelessWidget {
-  const _Kpis({required this.students});
-  final List<StudentRow> students;
-  @override
-  Widget build(BuildContext context) {
-    final filles = students.where((s) => s.gender == 'F').length;
-    final garcons = students.where((s) => s.gender == 'M').length;
-    final internes = students.where((s) => s.isBoarder).length;
-    final boursiers =
-        students.where((s) => s.hasScholarship || s.hasSocialAid).length;
-    final items = <(IconData, String, String, Color, String?)>[
-      (Icons.groups_rounded, 'Effectif', '${students.length}', kNavy,
-          'élèves validés'),
-      (Icons.female_rounded, 'Filles', '$filles', const Color(0xFFEC4899), null),
-      (Icons.male_rounded, 'Garçons', '$garcons', const Color(0xFF0EA5E9), null),
-      (Icons.night_shelter_outlined, 'Internes', '$internes',
-          const Color(0xFF8B5CF6), null),
-      (Icons.volunteer_activism_outlined, 'Boursiers / aidés', '$boursiers',
-          const Color(0xFFF59E0B), null),
-    ];
-    return LayoutBuilder(builder: (ctx, cns) {
-      final w = cns.maxWidth;
-      final cols = w >= 1100 ? 5 : (w >= 720 ? 3 : (w >= 460 ? 2 : 1));
-      return GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: cols,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          mainAxisExtent: 176,
-        ),
-        itemCount: items.length,
-        itemBuilder: (ctx, i) {
-          final (icon, label, value, color, sub) = items[i];
-          return AdminStatCard(
-              label: label,
-              value: value,
-              icon: icon,
-              color: color,
-              subtitle: sub);
-        },
-      );
-    });
   }
 }

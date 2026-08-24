@@ -188,7 +188,8 @@ final yearContentCountProvider = StreamProvider.autoDispose
         '''
         SELECT
           (SELECT COUNT(*) FROM classes
-             WHERE academic_year_id = ?1 AND is_active = 1)               AS classes,
+             WHERE academic_year_id = ?1
+               AND COALESCE(is_active, 1) <> 0)                          AS classes,
           (SELECT COUNT(*) FROM class_enrollments
              WHERE academic_year_id = ?1 AND status = 'active')           AS eleves
         ''',
@@ -222,7 +223,7 @@ Future<int> copySchoolClassesToYear({
       existing.map((r) => (r['name'] as String).toLowerCase().trim()).toSet();
   final src = await db.getAll(
     'SELECT name, capacity, room, level_id, main_teacher_id FROM classes '
-    'WHERE academic_year_id = ? AND school_id = ? AND is_active = 1',
+    'WHERE academic_year_id = ? AND school_id = ? AND COALESCE(is_active, 1) <> 0',
     [sourceYearId, schoolId],
   );
   var created = 0;

@@ -3,14 +3,26 @@ part of 'inscriptions_screen.dart';
 // ─── Barre d'actions groupées ────────────────────────────────────────────────
 class _BulkBar extends StatelessWidget {
   const _BulkBar({
+    super.key,
     required this.count,
     required this.onValidate,
     required this.onReject,
     required this.onExport,
+    required this.onFiches,
     required this.onClear,
+    required this.readOnly,
   });
   final int count;
-  final VoidCallback onValidate, onReject, onExport, onClear;
+  final VoidCallback onValidate, onReject, onExport, onFiches, onClear;
+
+  /// Année clôturée : plus aucune écriture. Les boutons de LECTURE (export,
+  /// fiches, désélection) restent, ceux qui écrivent disparaissent.
+  ///
+  /// ⚠️ Les actions de ligne et la fiche détail respectaient déjà `readOnly` ;
+  /// la barre groupée, non. Sur une année verrouillée, cocher trente lignes et
+  /// cliquer « Valider » lançait trente écritures que seule la base pouvait
+  /// encore refuser — un chemin d'écriture ouvert sans bouton visible ailleurs.
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -36,16 +48,26 @@ class _BulkBar extends StatelessWidget {
                 fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary)),
         const Spacer(),
         Wrap(spacing: 8, children: [
+          if (!readOnly) ...[
+            _BulkBtn(
+                icon: Icons.check_rounded,
+                label: 'Valider',
+                color: kGreen,
+                onTap: onValidate),
+            _BulkBtn(
+                icon: Icons.close_rounded,
+                label: 'Rejeter',
+                color: kRed,
+                onTap: onReject),
+          ],
+          // Le geste de la rentrée : quarante familles au guichet, quarante
+          // récépissés à remettre. Sans lui, la fiche ne s'obtenait qu'un
+          // dossier à la fois — et le secrétariat renonçait.
           _BulkBtn(
-              icon: Icons.check_rounded,
-              label: 'Valider',
-              color: kGreen,
-              onTap: onValidate),
-          _BulkBtn(
-              icon: Icons.close_rounded,
-              label: 'Rejeter',
-              color: kRed,
-              onTap: onReject),
+              icon: Icons.print_rounded,
+              label: 'Imprimer les fiches',
+              color: kNavy,
+              onTap: onFiches),
           _BulkBtn(
               icon: Icons.download_rounded,
               label: 'Exporter',
@@ -109,6 +131,7 @@ class _InscritsTable extends StatelessWidget {
     required this.onView,
     required this.onValidate,
     required this.onReject,
+    required this.onReopen,
     required this.readOnly,
   });
   final List<InscriptionRow> rows;
@@ -121,6 +144,7 @@ class _InscritsTable extends StatelessWidget {
   final ValueChanged<InscriptionRow> onView;
   final Future<void> Function(InscriptionRow) onValidate;
   final Future<void> Function(InscriptionRow) onReject;
+  final Future<void> Function(InscriptionRow) onReopen;
 
   int? get _sortIdx => switch (sort) {
         _SortBy.nom => 0,
@@ -228,6 +252,7 @@ class _InscritsTable extends StatelessWidget {
                         onView: () => onView(r),
                         onValidate: () => onValidate(r),
                         onReject: () => onReject(r),
+                        onReopen: () => onReopen(r),
                       )),
                     ],
                   ),
@@ -248,14 +273,16 @@ class _RowActions extends StatelessWidget {
     required this.onView,
     required this.onValidate,
     required this.onReject,
+    required this.onReopen,
   });
   final InscriptionRow row;
   final bool readOnly;
-  final VoidCallback onView, onValidate, onReject;
+  final VoidCallback onView, onValidate, onReject, onReopen;
 
   @override
   Widget build(BuildContext context) {
     final pending = row.status == 'pending_validation';
+    final rejected = row.status == 'rejected';
     return Row(mainAxisSize: MainAxisSize.min, children: [
       if (pending && !readOnly) ...[
         AdminModalIconBtn(
@@ -269,6 +296,17 @@ class _RowActions extends StatelessWidget {
             color: kRed,
             tooltip: 'Rejeter',
             onTap: onReject),
+        const SizedBox(width: 6),
+      ],
+      // Un dossier rejeté n'était pas une impasse par hasard : la contrainte
+      // UNIQUE(élève, année) empêche d'en resaisir un second, et la seule
+      // sortie proposée était la suppression — donc l'effacement du rejet.
+      if (rejected && !readOnly) ...[
+        AdminModalIconBtn(
+            icon: Icons.restart_alt_rounded,
+            color: kAccent,
+            tooltip: 'Reprendre le dossier',
+            onTap: onReopen),
         const SizedBox(width: 6),
       ],
       AdminModalIconBtn(

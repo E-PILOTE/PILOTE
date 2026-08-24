@@ -65,7 +65,7 @@ class ExamPublication {
   final String filePath;
   final DateTime receivedAt;
 
-  /// Code de l'examen (`BAC_T`, `BET`…) — c'est par lui que le cockpit
+  /// Code de l'examen (`BAC`, `BET`…) — c'est par lui que le cockpit
   /// rapproche un chiffre officiel du périmètre affiché ; le sigle, lui, peut
   /// changer d'orthographe sans que la clé de rapprochement bouge.
   final String? examCode;
@@ -127,7 +127,7 @@ class OfficialFigure {
   final String? publicationId;
   final String? sourceLabel;
   final DateTime? publishedAt;
-  /// Code de l'examen (`BAC_T`, `BET`…) — c'est par lui que le cockpit
+  /// Code de l'examen (`BAC`, `BET`…) — c'est par lui que le cockpit
   /// rapproche un chiffre officiel du périmètre affiché ; le sigle, lui, peut
   /// changer d'orthographe sans que la clé de rapprochement bouge.
   final String? examCode;

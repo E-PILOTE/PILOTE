@@ -58,6 +58,15 @@ class TutorDraft {
   }
 }
 
+/// Les liens de parenté proposés à la saisie — source unique des listes
+/// déroulantes, alignée sur [tutorRelationshipLabel] juste en dessous.
+const Map<String, String> kLiensParente = {
+  'pere': 'Père',
+  'mere': 'Mère',
+  'tuteur': 'Tuteur légal',
+  'autre': 'Autre',
+};
+
 /// Libellé lisible d'un lien de parenté (`mere` → « Mère »).
 ///
 /// Source unique : la même correspondance existait en trois exemplaires (le

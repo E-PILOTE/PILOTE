@@ -10,7 +10,9 @@ import 'package:flutter_test/flutter_test.dart';
 //
 //  Le bandeau s'allumait à 30 jours de l'échéance : un mois d'alerte quotidienne
 //  sur toutes les pages, qu'on cesse de lire bien avant qu'elle devienne vraie.
-//  Fenêtre ramenée à 7 j, et réglable (`platform_settings.subscription_alert_days`).
+//  Fenêtre ramenée à 7 j, puis à 5 j le 2026-08-14, et réglable
+//  (`platform_settings.subscription_alert_days`). Prévenir tôt est le rôle de
+//  la cloche, pas du bandeau.
 //
 //  Cas de référence : le groupe METP de la capture du 2026-08-09 — échéance au
 //  31/08, soit 22 jours restants. Le bandeau annonçait « expire dans 22 jours ».
@@ -31,7 +33,8 @@ Future<void> _pump(WidgetTester tester, SubscriptionAccess access) async {
   await tester.pumpAndSettle();
 }
 
-SubscriptionAccess _access(int daysLeft, {int alertDays = 7}) =>
+SubscriptionAccess _access(int daysLeft,
+        {int alertDays = kSubscriptionAlertDays}) =>
     computeSubscriptionAccess(
       status: 'active',
       end: DateTime(2026, 8, 9).add(Duration(days: daysLeft)),
@@ -51,15 +54,24 @@ void main() {
       expect(tester.getSize(find.byType(SubscriptionBanner)), Size.zero);
     });
 
-    testWidgets('à 8 j : toujours éteint (hors fenêtre)', (tester) async {
-      await _pump(tester, _access(8));
+    testWidgets('à 6 j : toujours éteint (hors fenêtre)', (tester) async {
+      await _pump(tester, _access(6));
       expect(find.textContaining('expire dans'), findsNothing);
     });
 
-    testWidgets('à 7 j : le bandeau s\'allume, au pluriel', (tester) async {
-      await _pump(tester, _access(7));
-      expect(find.text('Votre abonnement expire dans 7 jours.'), findsOneWidget);
+    testWidgets('à 5 j : le bandeau s\'allume, au pluriel', (tester) async {
+      await _pump(tester, _access(5));
+      expect(find.text('Votre abonnement expire dans 5 jours.'), findsOneWidget);
       expect(find.text('Renouveler'), findsOneWidget);
+    });
+
+    testWidgets('à 7 j : la cloche a déjà sonné, le bandeau attend son tour',
+        (tester) async {
+      // Le rappel J-7 existe (notif_reminder_days = 30,15,7,1,0) : c'est une
+      // information datée, pas une alerte permanente. Les deux canaux ne
+      // s'allument PAS au même moment, et c'est voulu.
+      await _pump(tester, _access(7));
+      expect(find.textContaining('expire dans'), findsNothing);
     });
 
     testWidgets('à 1 j : singulier, pas « 1 jours »', (tester) async {

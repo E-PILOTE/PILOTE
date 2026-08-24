@@ -70,7 +70,8 @@ final staffSummaryProvider = StreamProvider.autoDispose<StaffSummary>((ref) {
         SELECT
           COUNT(*) AS total,
           COALESCE(SUM(CASE WHEN role = 'enseignant' THEN 1 ELSE 0 END), 0) AS teachers,
-          COALESCE(SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END), 0) AS active
+          COALESCE(SUM(CASE WHEN COALESCE(is_active, 1) <> 0
+                            THEN 1 ELSE 0 END), 0)                    AS active
         FROM profiles
         WHERE school_id = ? AND role NOT IN ('eleve', 'parent')
         ''',

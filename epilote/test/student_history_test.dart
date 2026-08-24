@@ -107,6 +107,15 @@ void main() {
       }
     });
 
+    test('BAC (code fusionné, mig. 0105) garde les prérequis du BAC_T', () {
+      // Le référentiel METP ne porte plus qu'un baccalauréat. Si la clé `BAC`
+      // manquait, l'écran n'annoncerait AUCUN prérequis à un candidat au bac —
+      // la pire des régressions silencieuses ici.
+      expect(kPrerequisites['BAC'], kPrerequisites['BAC_T']);
+      final h = _history(exams: [_exam('BET')]);
+      expect(h.diplomaAmong(kPrerequisites['BAC']!)?.examCode, 'BET');
+    });
+
     test('le BET n\'exige AUCUN prérequis (il suit la 3e technique)', () {
       // Absent de la table = rien à vérifier. C'est la note officielle METP :
       // le BET est le seul examen sans diplôme antérieur au dossier.

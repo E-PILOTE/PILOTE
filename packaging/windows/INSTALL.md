@@ -62,7 +62,7 @@ succèdent sur la même machine.
 Pour un service informatique déployant sur plusieurs postes :
 
 ```bat
-E-PILOTE-3.1.7-installateur.exe /VERYSILENT /NORESTART /SUPPRESSMSGBOXES
+E-PILOTE-<version>-installateur.exe /VERYSILENT /NORESTART /SUPPRESSMSGBOXES
 ```
 
 Options utiles :
@@ -116,10 +116,21 @@ Sur une machine Windows disposant de Flutter et d'Inno Setup 6 :
 cd epilote
 flutter build windows --release
 cd ..
-"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=3.1.7 packaging\windows\epilote.iss
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=<version> packaging\windows\epilote.iss
 ```
 
-Le résultat sort dans `dist\`.
+Le résultat sort dans `dist\`. La `<version>` est celle de `epilote/pubspec.yaml`,
+**sans** le `+build` — Inno Setup refuse le `+`. C'est ce que fait la CI
+(`.github/workflows/windows.yml`), et il n'y a pas d'autre source : `Runner.rc`
+tire lui aussi son `FILEVERSION` de `pubspec.yaml`.
+
+> Installé par winget, Inno Setup atterrit dans
+> `%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe` et non sous `Program Files`.
+
+⚠️ **Ne jamais reconstruire deux binaires différents sous le même `+build`.**
+Le canal de mise à jour compare `build_number`, un entier, et lui seul : deux
+livraisons partageant le même numéro sont indistinguables pour le parc, et la
+seconde correction reste invisible sur les mille postes.
 
 En temps normal, ce n'est pas nécessaire : l'intégration continue le fait à
 chaque poussée, et c'est **elle** qui fait foi — la construction manuelle sur

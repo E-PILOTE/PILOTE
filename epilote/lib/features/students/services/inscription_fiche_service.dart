@@ -5,6 +5,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/services/official_pdf_kit.dart';
+import '../../finance/providers/decompte_du_provider.dart';
 import '../providers/inscriptions_data_provider.dart';
 import '../models/tutor_draft.dart';
 import '../../../core/utils/ine.dart';
@@ -28,12 +29,55 @@ import '../../../core/utils/ine.dart';
 //  en toutes lettres et son bandeau change : on ne remet pas à une famille un
 //  papier qui laisserait croire que l'enfant est scolarisé alors que la
 //  direction n'a pas encore statué.
+//
+//  ── ET ELLE PORTE L'ARGENT ─────────────────────────────────────────────────
+//  Elle ne le portait pas. Une famille repartait avec un papier qui disait la
+//  classe et le matricule, et pas un mot de ce qu'elle devait — alors que
+//  c'est la première question posée au guichet. Le décompte y figure donc
+//  ligne par ligne (`DecompteDu`) : ce qui est dû, ce qui a été versé, ce qui
+//  reste, et la remise s'il y en a une.
+//
+//  ⚠️ Le bloc est OMIS quand aucun barème n'est publié, jamais rempli de zéros.
+//  « 0 F » se lirait « scolarité gratuite », et trente écoles publiques du
+//  réseau n'ont aucun tarif posé : elles délivreraient toutes une fiche
+//  affirmant la gratuité.
 // ════════════════════════════════════════════════════════════════════════════
+
+/// Un dossier à imprimer — l'unité d'un tirage groupé.
+typedef FicheEntree = ({
+  InscriptionRow row,
+  StudentDossier dossier,
+  DecompteDu? frais,
+});
 
 class InscriptionFicheService {
   static Future<Uint8List> buildPdf({
     required InscriptionRow row,
     required StudentDossier dossier,
+    String? schoolName,
+    String? yearLabel,
+    DecompteDu? frais,
+  }) =>
+      buildLot(
+        [(row: row, dossier: dossier, frais: frais)],
+        schoolName: schoolName,
+        yearLabel: yearLabel,
+      );
+
+  /// Un seul document, une fiche par dossier.
+  ///
+  /// ── POURQUOI CE TIRAGE GROUPÉ ──────────────────────────────────────────────
+  /// Une rentrée congolaise, c'est quarante familles au guichet le même matin.
+  /// La fiche ne s'obtenait qu'en ouvrant un dossier, en cliquant, en attendant
+  /// l'aperçu, en imprimant, en fermant — quarante fois. Le secrétariat
+  /// renonçait, et les familles repartaient sans papier : le document existait
+  /// et ne sortait pas.
+  ///
+  /// ⚠️ Les polices et l'emblème sont chargés UNE fois pour tout le lot. Les
+  /// recharger par fiche multipliait le coût par quarante sur des postes que
+  /// l'on sait lents.
+  static Future<Uint8List> buildLot(
+    List<FicheEntree> entrees, {
     String? schoolName,
     String? yearLabel,
   }) async {
@@ -43,23 +87,68 @@ class InscriptionFicheService {
     final ref = DateFormat('yyyyMMdd-HHmm').format(DateTime.now());
     final genDate = DateFormat('dd MMMM yyyy', 'fr').format(DateTime.now());
 
-    final validated = row.status == 'active';
-    final pending = row.status == 'pending_validation';
-
     final doc = pw.Document(
-      title: 'Fiche d\'inscription — ${row.fullName}',
+      title: entrees.length == 1
+          ? 'Fiche d\'inscription — ${entrees.first.row.fullName}'
+          : 'Fiches d\'inscription (${entrees.length})',
       author: 'E-PILOTE CONGO',
       creator: 'E-PILOTE CONGO',
       subject: 'Fiche d\'inscription',
     );
 
-    doc.addPage(pw.Page(
+    for (final e in entrees) {
+      _addFiche(doc, e,
+          fonts: f,
+          logo: logo,
+          now: now,
+          ref: ref,
+          genDate: genDate,
+          schoolName: schoolName,
+          yearLabel: yearLabel);
+    }
+
+    return doc.save();
+  }
+
+  static void _addFiche(
+    pw.Document doc,
+    FicheEntree e, {
+    required PdfFonts fonts,
+    required dynamic logo,
+    required String now,
+    required String ref,
+    required String genDate,
+    String? schoolName,
+    String? yearLabel,
+  }) {
+    final f = fonts;
+    final row = e.row;
+    final dossier = e.dossier;
+    final frais = e.frais;
+    final validated = row.status == 'active';
+    final pending = row.status == 'pending_validation';
+
+    // ⚠️ `MultiPage` et non `Page`, DEPUIS QUE LE BLOC FRAIS EXISTE.
+    //
+    // Sans frais, la fiche mesurait environ 690 pt sur les 842 d'une A4 : elle
+    // tenait, et une page fixe suffisait. Le décompte ajoute jusqu'à huit
+    // lignes de tableau et deux mentions — de quoi franchir le bord. Une école
+    // privée avec inscription + APE + mensualité + cantine + transport + tenue,
+    // sur un dossier à trois tuteurs, dépasse la page ; les signatures et le
+    // pied seraient sortis du papier sans qu'aucune erreur ne le dise.
+    //
+    // C'est exactement le piège déjà rencontré sur l'export des inscriptions
+    // (cf. `enrollment_pdf_shared.dart`) : ce qui déborde ne prévient pas.
+    doc.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
       margin: pw.EdgeInsets.zero,
-      build: (ctx) => pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          OfficialPdfKit.header(logo, f, badge: 'FICHE\nD\'INSCRIPTION'),
+      // L'emblème et le bandeau tricolore ne s'impriment qu'en première page ;
+      // une éventuelle seconde reçoit le bandeau de continuation.
+      header: (ctx) => OfficialPdfKit.headerFor(ctx, logo, f,
+          badge: 'FICHE\nD\'INSCRIPTION',
+          title: 'Fiche d\'inscription — ${row.fullName}'),
+      footer: (ctx) => OfficialPdfKit.footer(ctx, f, now, ref),
+      build: (ctx) => [
           pw.SizedBox(height: 14),
           OfficialPdfKit.titleBlock(
             f,
@@ -86,9 +175,17 @@ class InscriptionFicheService {
           _schooling(f, row, yearLabel),
           pw.SizedBox(height: 14),
           _family(f, dossier),
+          if (frais != null && !frais.vide) ...[
+            pw.SizedBox(height: 14),
+            _frais(f, frais),
+          ],
           pw.SizedBox(height: 14),
           _notice(f, pending: pending),
-          pw.Spacer(),
+          // `Spacer` ne peut plus pousser les signatures en bas : dans un
+          // `MultiPage`, la hauteur restante n'est pas connue à la construction.
+          // Un espace fixe suffit — et vaut mieux qu'un document qui ne sort
+          // pas du tout.
+          pw.SizedBox(height: 26),
           pw.Padding(
             padding: const pw.EdgeInsets.symmetric(horizontal: 28),
             child: pw.Row(
@@ -107,12 +204,8 @@ class InscriptionFicheService {
                     font: f.regular, fontSize: 8.5, color: kPdfMuted)),
           ),
           pw.SizedBox(height: 8),
-          OfficialPdfKit.footer(ctx, f, now, ref),
-        ],
-      ),
+      ],
     ));
-
-    return doc.save();
   }
 
   // ── Blocs ────────────────────────────────────────────────────────────────
@@ -204,6 +297,78 @@ class InscriptionFicheService {
         leftAlignCols: const {1},
       ),
     );
+  }
+
+  /// Le décompte, tel qu'on le lit sur un comptoir.
+  ///
+  /// ⚠️ Le tableau montre le tarif PLEIN puis la remise sur sa propre ligne,
+  /// plutôt que des montants déjà réduits. Une famille exonérée doit pouvoir
+  /// vérifier que la remise annoncée est bien celle qui a été appliquée — un
+  /// tarif silencieusement diminué ne se contrôle pas, et se conteste mal.
+  static pw.Widget _frais(PdfFonts f, DecompteDu d) {
+    final rows = <List<String>>[
+      for (final l in d.lignes)
+        [
+          l.feeType == 'mensualite' && d.mois > 1
+              ? '${l.libelle} (${d.mois} mois)'
+              : l.libelle,
+          _xaf(l.montant),
+        ],
+    ];
+    if (d.estExonere) {
+      rows.add(['Exonération de scolarité (${d.exoneration} %)',
+        '− ${_xaf(d.remise)}']);
+    }
+    rows.add(['TOTAL DÛ', _xaf(d.net)]);
+    rows.add(['Déjà versé', _xaf(d.verse)]);
+    rows.add(['RESTE À RÉGLER', _xaf(d.reste)]);
+
+    return pw.Column(children: [
+      OfficialPdfKit.frame(
+        title: 'FRAIS DE SCOLARITÉ',
+        color: kPdfNavy,
+        fonts: f,
+        child: OfficialPdfKit.table(
+          headers: const ['Désignation', 'Montant (FCFA)'],
+          rows: rows,
+          fonts: f,
+          flex: const [46, 18],
+          leftAlignCols: const {0},
+        ),
+      ),
+      if (d.estExonere && (d.motifExoneration ?? '').trim().isNotEmpty)
+        pw.Padding(
+          padding: const pw.EdgeInsets.only(left: 30, right: 30, top: 5),
+          child: pw.Text('Motif de l\'exonération : ${d.motifExoneration!.trim()}',
+              style: pw.TextStyle(
+                  font: f.regular, fontSize: 8.5, color: kPdfMuted)),
+        ),
+      // Les frais d'examen sont absents à dessein : ils ne concernent que les
+      // candidats inscrits à une session, et le module Examens les facture
+      // séparément. Le dire évite qu'une famille de terminale croie sa fiche
+      // incomplète — ou, pire, qu'elle croie n'avoir plus rien à payer.
+      pw.Padding(
+        padding: const pw.EdgeInsets.only(left: 30, right: 30, top: 5),
+        child: pw.Text(
+            'Les frais d\'examen ne figurent pas sur cette fiche : ils sont '
+            'réclamés séparément aux candidats inscrits à une session.',
+            style:
+                pw.TextStyle(font: f.regular, fontSize: 8.5, color: kPdfMuted)),
+      ),
+    ]);
+  }
+
+  /// Un montant que l'on peut recopier sur un reçu manuscrit : espace fine
+  /// tous les trois chiffres, jamais de séparateur décimal — le franc CFA n'a
+  /// pas de centime.
+  static String _xaf(int v) {
+    final s = v.abs().toString();
+    final b = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) b.write(' ');
+      b.write(s[i]);
+    }
+    return b.toString();
   }
 
   static pw.Widget _notice(PdfFonts f, {required bool pending}) => pw.Padding(

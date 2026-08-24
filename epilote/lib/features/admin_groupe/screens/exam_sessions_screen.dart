@@ -12,16 +12,21 @@ import 'exam_session_form_dialog.dart';
 import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
-//  CALENDRIER NATIONAL DES EXAMENS — administration super_admin.
+//  CALENDRIER DES SESSIONS D'EXAMEN — écran du MINISTÈRE (admin_groupe).
 //
 //  ── LE TROU QUE CET ÉCRAN COMBLE ───────────────────────────────────────────
 //  Les sessions 2025-2026 avaient été semées par une MIGRATION (0050) : à
 //  l'ouverture de 2026-2027, personne n'aurait pu en créer une sans écrire du
 //  SQL. Et sans session ouverte, AUCUNE école du pays n'inscrit de candidat.
 //
-//  ── POURQUOI SUPER_ADMIN ───────────────────────────────────────────────────
+//  ── QUI ÉCRIT ICI ──────────────────────────────────────────────────────────
 //  Le calendrier vient d'un ARRÊTÉ MINISTÉRIEL : une école n'invente pas la
-//  date du BET. La RLS le disait déjà (`exam_sessions_write = is_super_admin()`).
+//  date du BET. C'est donc le MINISTÈRE qui le saisit — pas l'opérateur SaaS,
+//  qui n'a ni les arrêtés ni la légitimité pour les transcrire (même décision
+//  que pour le référentiel d'examens). La RLS l'autorise aux deux :
+//  `exam_sessions_write = is_super_admin() OR is_admin_groupe()`.
+//  ⚠️ Cet en-tête a dit « administration super_admin » jusqu'au 2026-08-12,
+//  soit l'inverse de la règle en vigueur et de la place de la page dans le menu.
 //  Ce qu'on saisit ici est une COPIE DE RÉFÉRENCE — la DEC reste la source.
 //
 //  ── FORME ──────────────────────────────────────────────────────────────────
@@ -35,7 +40,7 @@ class ExamSessionsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) =>
-      const AppShell(title: 'Sessions d\'examen', child: _Body());
+      const AppShell(title: 'Calendrier des sessions', child: _Body());
 }
 
 class _Body extends ConsumerStatefulWidget {

@@ -18,6 +18,7 @@
 - [👤 User = fonctionnaire DSIC/METP](user-fonctionnaire-dsic-metp.md) — sa parole prime sur mes recherches web
 
 ## Abonnement / licence
+- [⏰ Alerte d'échéance : 5 j, et visible dans les écoles](alerte-echeance-cinq-jours-et-ecole.md) — mig 0106 ; cloche tôt (30,15,7,1,0) vs bandeau tard (5) ; miroir `school_groups.subscription_alert_days` pour l'offline ; ⚠️ le réglage existait mais n'avait jamais été posé
 - [Abonnement — architecture offline-first](abonnement-architecture-offline.md) — Abonnement(serveur) vs Licence(signée) ; 2 horloges
 - [Abonnement — audit PowerSync](abonnement-technique-powersync.md) — licence HORS PowerSync (coffre dédié) ; JWS Ed25519
 - [⚠️ Infra réelle + hard-lock ADR-0009](abonnement-infra-reelle-hardlock.md) — plans/modules/invoices EXISTENT ; hard-lock livré ; reste claim émetteur
@@ -41,6 +42,8 @@
 - [⚖️ L'école CONSTATE une arrivée, elle ne la décide pas](ecole-constate-une-arrivee.md) — mig 0091 ; ⚠️ la 0088 écrivait « recrutement » sans acte = carrière falsifiée ; acte obligatoire en public ; `audit_logs.action` = varchar(20)
 - [🔎 Kit d'annuaire partagé](annuaire-filtres-partages.md) — la barre d'outils se tient JUSTE AU-DESSUS de la liste ; ⚠️ KPI par cycle : nommer les enseignants sans classe affectée
 - [👔 Carrière de l'agent — mutation, radiation](carriere-agent-mutation.md) — migs 0083/0084 ; ⚠️ `staff_affectations` HORS PowerSync ; « mutation » n'est JAMAIS un motif de départ
+- [⚠️ Écrans jumeaux guichet ↔ registre](ecrans-jumeaux-guichet-registre.md) — Inscriptions et Élèves sont deux copies : corriger l'une ne corrige PAS l'autre
+- [⚠️ Un graphe et un KPI doivent dire le même nombre](graphe-effectif-vs-kpi.md) — `is_active` + périmètre de classes + mois creux comblés
 - [📜 Attestations émises par l'école](attestations-emises.md) — scolarité/radiation/travail ; `AttestationKit` ; ⚠️ `pw.Page` jamais `MultiPage` ; le REFUS est la fonctionnalité
 - [🔍 Non revenus + exclusion définitive](non-revenus-et-exclusion.md) — 3e onglet du Passage ; ⚠️ garde-fou 30 % ; ⚠️ `academic_years.school_id` est NULL (années portées par le GROUPE)
 - [🚪 Motifs de sortie d'élève](motifs-de-sortie-eleve.md) — mig 0082 ; abandon économique ≠ abandon familial ; ⚠️ liste à faire valider

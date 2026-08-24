@@ -114,7 +114,7 @@ final timetableSlotsProvider =
         LEFT JOIN rooms rm ON rm.id = t.room_id
         WHERE  t.school_id = ?
           AND  t.academic_year_id = ?
-          AND  t.is_active = 1
+          AND  COALESCE(t.is_active, 1) <> 0
         ORDER  BY t.day_of_week, t.start_time
         ''',
         parameters: [schoolId, yearId ?? ''],
@@ -173,7 +173,7 @@ final activeTimetableVersionProvider =
   return db.watch(
     '''
     SELECT id, status, label FROM timetable_versions
-    WHERE school_id = ? AND academic_year_id = ? AND is_active = 1
+    WHERE school_id = ? AND academic_year_id = ? AND COALESCE(is_active, 1) <> 0
     LIMIT 1
     ''',
     parameters: [schoolId, yearId ?? ''],
@@ -256,7 +256,7 @@ Future<int> clearClassTimetable({
 }) async {
   final rows = await db.getAll(
     'SELECT id FROM timetable_slots WHERE school_id = ? AND academic_year_id = ? '
-    'AND class_id = ? AND is_active = 1',
+    'AND class_id = ? AND COALESCE(is_active, 1) <> 0',
     [schoolId, academicYearId, classId],
   );
   for (final r in rows) {
@@ -281,7 +281,8 @@ Future<int> duplicateClassTimetable({
     '''
     SELECT subject_id, staff_id, day_of_week, start_time, end_time, room, room_id
     FROM   timetable_slots
-    WHERE  school_id = ? AND academic_year_id = ? AND class_id = ? AND is_active = 1
+    WHERE  school_id = ? AND academic_year_id = ? AND class_id = ?
+      AND  COALESCE(is_active, 1) <> 0
     ''',
     [schoolId, academicYearId, fromClassId],
   );
@@ -314,7 +315,7 @@ Future<String> ensureActiveVersionId({
 }) async {
   final existing = await db.getAll(
     'SELECT id FROM timetable_versions WHERE school_id = ? AND academic_year_id = ? '
-    'AND is_active = 1 LIMIT 1',
+    'AND COALESCE(is_active, 1) <> 0 LIMIT 1',
     [schoolId, academicYearId],
   );
   if (existing.isNotEmpty) return existing.first['id'] as String;

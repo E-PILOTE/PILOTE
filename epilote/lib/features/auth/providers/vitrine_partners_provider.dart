@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/booleen_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
 import 'auth_provider.dart';
 import 'vitrine_messages_provider.dart' show isMessageLive;
@@ -36,7 +37,9 @@ final vitrinePartnersProvider =
     final now = DateTime.now();
     final live = <PartnerVitrineItem>[];
     for (final r in rows) {
-      final active = (r['is_active'] as int? ?? 0) == 1;
+      // `?? 0` faisait disparaître de l'écran de connexion un partenaire dont
+      // la colonne n'était pas renseignée. `is_active` est par défaut VRAI.
+      final active = actifOffline(r['is_active']);
       final name = (r['name'] as String? ?? '').trim();
       if (name.isEmpty) continue;
       if (isPartnerLive(now, _parse(r['starts_at'] as String?),

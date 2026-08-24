@@ -122,7 +122,7 @@ final assignableClassesProvider = StreamProvider.autoDispose
     '''
     SELECT c.id, c.name, c.level_code, c.level_order, c.filiere_label
     FROM   classes c
-    WHERE  c.school_id = ? AND c.is_active = 1
+    WHERE  c.school_id = ? AND COALESCE(c.is_active, 1) <> 0
       AND  c.id NOT IN (SELECT class_id FROM class_subjects WHERE subject_id = ?)
     ORDER  BY c.level_order, c.name
     ''',

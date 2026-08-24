@@ -40,7 +40,7 @@ class _CampaignHeader extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 nextLabel == null
-                    ? '$yearLabel · aucune année suivante déclarée'
+                    ? '$yearLabel · aucune année suivante sur ce poste'
                     : '$yearLabel  →  $nextLabel',
                 style: TextStyle(fontSize: 12, color: kTextMuted),
               ),
@@ -64,14 +64,30 @@ class _CampaignHeader extends StatelessWidget {
               label: Text(busy ? 'Reconduction…' : 'Reconduire les classes'),
             ),
         ]),
+        // ⚠️ « L'année suivante n'existe pas » était une AFFIRMATION FAUSSE, et
+        // c'est la panne la plus coûteuse de juin : les sync-rules ne
+        // descendent une année du groupe que si elle est PUBLIÉE
+        // (`published_at IS NOT NULL`). Une année 2026-2027 créée en brouillon
+        // par le ministère existe donc bel et bien — le poste ne la voit
+        // simplement pas. L'école cherchait alors une année à créer qu'elle
+        // n'a pas le droit de créer, pendant que la vraie cause était à deux
+        // clics dans l'espace du groupe.
+        //
+        // Le poste ne PEUT PAS trancher entre les deux cas : la ligne absente
+        // est absente. Alors on ne tranche pas — on nomme les deux causes et on
+        // dit où regarder. Un message honnête vaut mieux qu'un diagnostic faux.
         if (nextLabel == null) ...[
           const SizedBox(height: 12),
           _Notice(
             color: kAccent,
             icon: Icons.event_busy_rounded,
-            text: 'L\'année scolaire suivante n\'existe pas encore. Le conseil '
-                'peut délibérer : les décisions sont enregistrées. La '
-                'réinscription attendra que l\'année soit ouverte.',
+            text: 'Aucune année suivante n\'est disponible sur ce poste. Deux '
+                'causes possibles : elle n\'a pas encore été créée, ou elle '
+                'l\'a été mais n\'est pas PUBLIÉE — une année en brouillon ne '
+                'descend pas sur les postes. Dans les deux cas cela se règle au '
+                'niveau du groupe (« Années scolaires »), pas ici. Le conseil '
+                'peut délibérer dès maintenant : les décisions sont '
+                'enregistrées, seule la réinscription attend.',
           ),
         ] else if (!structureReady) ...[
           const SizedBox(height: 12),
@@ -100,6 +116,134 @@ class _CampaignHeader extends StatelessWidget {
                 '(« Années scolaires ») : signalez-le à votre direction '
                 'générale.',
           ),
+        ],
+      ]),
+    );
+  }
+}
+
+/// Barre de campagne d'école : le barème en vigueur, l'avancement, et le geste
+/// qui propose les verdicts partout d'un coup.
+///
+/// ── Pourquoi le barème est ÉCRIT ICI ───────────────────────────────────────
+/// Parce qu'il est désormais réglable (migration 0107) et qu'une délibération
+/// dont on ignore la règle ne se relit pas. Un chef d'établissement qui voit
+/// « barre 10/20 » sait ce que la machine a proposé ; s'il voit « conseil entre
+/// 8,5 et 10 », il sait pourquoi douze élèves sont restés sans verdict.
+class _CampagneEcoleBar extends StatelessWidget {
+  const _CampagneEcoleBar({
+    required this.bareme,
+    required this.students,
+    required this.decided,
+    required this.canEdit,
+    required this.busy,
+    required this.progress,
+    required this.onRun,
+  });
+
+  final BaremePassage? bareme;
+  final int students, decided;
+  final bool canEdit, busy;
+
+  /// Classe en cours de traitement, pendant la campagne.
+  final String? progress;
+  final void Function(BaremePassage) onRun;
+
+  @override
+  Widget build(BuildContext context) {
+    final b = bareme;
+    final reste = students - decided;
+    final fini = students > 0 && reste == 0;
+
+    return AdminCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        LayoutBuilder(builder: (context, c) {
+          final serre = c.maxWidth < 620;
+          final texte = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Icon(Icons.rule_rounded, size: 18, color: kNavy),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      b == null
+                          ? 'Barème de passage'
+                          : 'Barème de passage · ${b.libelle}',
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: kTextPrimary),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 4),
+                Text(
+                  fini
+                      ? 'Les $students élèves de l\'école sont délibérés.'
+                      : '$reste élève(s) sans verdict sur $students. '
+                          'La proposition suit la moyenne des trois trimestres '
+                          '; elle ne remplace jamais une décision prise à la '
+                          'main.',
+                  style:
+                      TextStyle(fontSize: 12, color: kTextMuted, height: 1.45),
+                ),
+                if (b != null && b.aZoneDeliberation) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Les élèves situés dans la zone de délibération restent '
+                    'sans verdict : c\'est au conseil de les examiner.',
+                    style: TextStyle(
+                        fontSize: 11.5, color: kAccent, height: 1.45),
+                  ),
+                ],
+              ]);
+
+          final bouton = (!canEdit || b == null || students == 0)
+              ? const SizedBox.shrink()
+              : FilledButton.icon(
+                  onPressed: busy || fini ? null : () => onRun(b),
+                  style: FilledButton.styleFrom(
+                      backgroundColor: kNavy,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 18, vertical: 14)),
+                  icon: busy
+                      ? const SizedBox(
+                          width: 15,
+                          height: 15,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.auto_awesome_rounded, size: 16),
+                  label: Text(busy
+                      ? 'Proposition…'
+                      : fini
+                          ? 'Tout est délibéré'
+                          : 'Proposer pour toute l\'école'),
+                );
+
+          if (serre) {
+            return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [texte, const SizedBox(height: 12), bouton]);
+          }
+          return Row(children: [
+            Expanded(child: texte),
+            const SizedBox(width: 16),
+            bouton,
+          ]);
+        }),
+        if (progress != null) ...[
+          const SizedBox(height: 12),
+          Row(children: [
+            Icon(Icons.sync_rounded, size: 14, color: kNavy),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(progress!,
+                  style: TextStyle(fontSize: 12, color: kNavy)),
+            ),
+          ]),
+          const SizedBox(height: 6),
+          const LinearProgressIndicator(minHeight: 3),
         ],
       ]),
     );
@@ -208,10 +352,16 @@ class _StudentRow extends StatelessWidget {
   const _StudentRow({
     required this.entry,
     required this.trimesterCount,
+    required this.bareme,
     required this.canEdit,
     required this.onTap,
   });
   final PassageEntry entry;
+
+  /// Le barème de la classe. Il décide de la couleur de la moyenne ET de la
+  /// proposition affichée — les deux se lisaient auparavant sur un `>= 10`
+  /// écrit en dur ici, dans un fichier de widgets.
+  final BaremePassage bareme;
 
   /// Nombre de colonnes trimestrielles à afficher. Il vient de la SESSION, pas
   /// de l'élève : un élève sans note au 2ᵉ trimestre doit garder sa colonne, un
@@ -297,21 +447,31 @@ class _StudentRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: avg == null
-                    ? kTextMuted
-                    : (avg >= 10 ? kGreen : kRed),
+                color: switch (propositionPour(avg, bareme)) {
+                  PropositionPassage.passe => kGreen,
+                  PropositionPassage.redouble => kRed,
+                  PropositionPassage.deliberation => kAccent,
+                  PropositionPassage.sansMoyenne => kTextMuted,
+                },
               ),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             flex: 3,
+            // ── LE VERDICT PROPOSÉ SE VOIT SANS CLIQUER ────────────────────
+            // La colonne affichait « à délibérer » pour tout élève non
+            // tranché : la page connaissait la proposition et ne la montrait
+            // pas. Le conseil devait ouvrir chaque élève pour lire ce que le
+            // barème disait déjà.
+            //
+            // La proposition s'affiche donc en clair, en grisé et en italique
+            // — assez pour se lire, assez peu pour qu'on ne la confonde jamais
+            // avec une décision prise. Le libellé « proposé » l'écrit
+            // d'ailleurs noir sur blanc : le logiciel n'a délibéré de rien.
             child: v == null
-                ? Text('à délibérer',
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: kTextMuted,
-                        fontStyle: FontStyle.italic))
+                ? _PropositionFantome(
+                    proposition: propositionPour(entry.annualAverage, bareme))
                 : Row(children: [
                     Icon(v.icon, size: 15, color: v.color),
                     const SizedBox(width: 6),
@@ -350,16 +510,70 @@ class _StudentRow extends StatelessWidget {
   }
 }
 
+/// Ce que le barème propose, tant que personne n'a tranché.
+///
+/// ⚠️ Trois états, trois messages — et surtout, deux d'entre eux ne sont PAS
+/// des propositions. Un élève en zone de délibération et un élève sans note
+/// n'ont pas de verdict pour des raisons opposées : l'un attend un jugement,
+/// l'autre attend des notes. Les fondre dans un « à délibérer » commun, c'était
+/// cacher au conseil qu'il manque un bulletin.
+class _PropositionFantome extends StatelessWidget {
+  const _PropositionFantome({required this.proposition});
+  final PropositionPassage proposition;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, texte, couleur) = switch (proposition) {
+      PropositionPassage.passe => (
+          Icons.arrow_upward_rounded,
+          'Passe — proposé',
+          kGreen,
+        ),
+      PropositionPassage.redouble => (
+          Icons.replay_rounded,
+          'Redouble — proposé',
+          kRed,
+        ),
+      PropositionPassage.deliberation => (
+          Icons.balance_rounded,
+          'Au conseil de trancher',
+          kAccent,
+        ),
+      PropositionPassage.sansMoyenne => (
+          Icons.help_outline_rounded,
+          'Aucune note saisie',
+          kTextMuted,
+        ),
+    };
+    return Row(children: [
+      Icon(icon, size: 14, color: couleur.withValues(alpha: 0.55)),
+      const SizedBox(width: 6),
+      Expanded(
+        child: Text(texte,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                fontSize: 11.5,
+                fontStyle: FontStyle.italic,
+                fontWeight: FontWeight.w600,
+                color: couleur.withValues(alpha: 0.75))),
+      ),
+    ]);
+  }
+}
+
 /// Feuille de verdict : le conseil tranche pour un élève.
 class _VerdictSheet extends StatefulWidget {
   const _VerdictSheet({
     required this.entry,
     required this.trimesters,
+    required this.bareme,
     required this.upper,
     required this.repeat,
   });
   final PassageEntry entry;
   final List<PassageTrimester> trimesters;
+  final BaremePassage bareme;
   final TargetClass? upper, repeat;
 
   @override
@@ -420,6 +634,48 @@ class _VerdictSheetState extends State<_VerdictSheet> {
                       '· ${e.rank}ᵉ sur ${e.totalStudents}',
               style: TextStyle(fontSize: 12.5, color: kTextMuted),
             ),
+            const SizedBox(height: 3),
+            // La RÈGLE, sous la moyenne. Depuis que la barre se règle
+            // (migration 0107), « 9,50 » ne suffit plus à savoir si l'élève
+            // passe : encore faut-il savoir où est la barre ce jour-là, dans
+            // ce groupe, à ce niveau. Une délibération se relit des années
+            // après ; la règle doit être sous les yeux au moment du vote.
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.rule_rounded, size: 12, color: kTextMuted),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  'Barème en vigueur : ${widget.bareme.libelle}',
+                  style: TextStyle(fontSize: 11.5, color: kTextMuted),
+                ),
+              ),
+            ]),
+            if (propositionPour(e.annualAverage, widget.bareme) ==
+                PropositionPassage.deliberation) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+                decoration: BoxDecoration(
+                  color: kAccent.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: kAccent.withValues(alpha: 0.32)),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.balance_rounded, size: 15, color: kAccent),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'Cet élève est en zone de délibération : aucune '
+                      'proposition n\'a été faite, la décision vous revient '
+                      'entièrement.',
+                      style: TextStyle(
+                          fontSize: 11.5, color: kTextPrimary, height: 1.4),
+                    ),
+                  ),
+                ]),
+              ),
+            ],
           ]),
         ),
         // Le détail du calcul, sous les yeux du conseil : la moyenne annuelle

@@ -67,34 +67,43 @@ class _DashTabs extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
       // Les deux pastilles ont une largeur incompressible : sur une fenêtre
       // réduite, elles débordaient de la colonne (bande jaune sur « Vue
-      // régionale »). Un défilement horizontal remplace l'`Align` — qui ne
-      // servait qu'à coller le bloc à gauche, ce que le viewport fait déjà.
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: kCardBg,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: kBorder),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _TabChip(
-                label: "Vue d'ensemble",
-                icon: Icons.dashboard_rounded,
-                selected: tab == 0,
-                onTap: () => ref.read(_adminTabProv.notifier).state = 0,
-              ),
-              const SizedBox(width: 4),
-              _TabChip(
-                label: 'Vue régionale',
-                icon: Icons.map_rounded,
-                selected: tab == 1,
-                onTap: () => ref.read(_adminTabProv.notifier).state = 1,
-              ),
-            ],
+      // régionale »). D'où le défilement horizontal.
+      //
+      // ⚠️ L'`Align` est INDISPENSABLE et avait été retiré à tort : un
+      // `SingleChildScrollView` ne remplit PAS l'axe de défilement, il se
+      // dimensionne sur son enfant (`constraints.constrain(child.size)`). Dans
+      // une `Column` en `crossAxisAlignment.center`, le bloc d'onglets se
+      // retrouvait donc CENTRÉ. L'`Align` lui rend la largeur disponible et le
+      // colle à gauche, sans rien coûter au défilement.
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: kCardBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: kBorder),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _TabChip(
+                  label: "Vue d'ensemble",
+                  icon: Icons.dashboard_rounded,
+                  selected: tab == 0,
+                  onTap: () => ref.read(_adminTabProv.notifier).state = 0,
+                ),
+                const SizedBox(width: 4),
+                _TabChip(
+                  label: 'Vue régionale',
+                  icon: Icons.map_rounded,
+                  selected: tab == 1,
+                  onTap: () => ref.read(_adminTabProv.notifier).state = 1,
+                ),
+              ],
+            ),
           ),
         ),
       ),

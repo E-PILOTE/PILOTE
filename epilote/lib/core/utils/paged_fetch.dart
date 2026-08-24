@@ -30,6 +30,13 @@ const int kPageSize = 1000;
 /// [build] doit reconstruire la requête à chaque appel : un `PostgrestBuilder`
 /// ne se rejoue pas une fois exécuté.
 ///
+/// ⚠️ **La requête doit porter un ordre TOTAL.** Chaque page est une requête
+/// SÉPARÉE : rien n'oblige deux exécutions à rendre les ex æquo dans le même
+/// ordre. Trier sur `name` quand deux écoles sont homonymes, ou sur `fee_type`
+/// que des dizaines de lignes partagent, laisse une ligne se faire sauter à la
+/// frontière de deux pages — ou compter deux fois. Terminer le tri par une
+/// colonne unique (`.order('id')`) suffit et ne change pas l'ordre affiché.
+///
 /// ```dart
 /// final rows = await fetchAllRows(() => client
 ///     .from('students')

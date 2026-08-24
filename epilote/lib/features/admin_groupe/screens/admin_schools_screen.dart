@@ -17,6 +17,9 @@ import '../providers/school_geocoder_provider.dart';
 import '../providers/subscription_access_provider.dart';
 import '../providers/education_provider.dart';
 import '../providers/structure_modeles.dart';
+// Reconnaître qu'un niveau créé ici double une entrée nationale : « 6ème » et
+// « Sixième (6e) » ne se ressemblent pas mais désignent la même année.
+import '../services/rang_niveau.dart';
 import '../widgets/school_location_picker.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/utils/message_erreur.dart';

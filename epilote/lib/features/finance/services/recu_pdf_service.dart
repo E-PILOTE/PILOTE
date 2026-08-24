@@ -33,12 +33,25 @@ class RecuPaiement {
     this.motifFrais,
     this.annuleLe,
     this.motifAnnulation,
+    this.resteDu,
   });
 
   final String numero, eleve, classe, methode, encaissePar;
   final int montant;
   final DateTime date;
   final String? matricule, motifFrais, annuleLe, motifAnnulation;
+
+  /// Ce qu'il reste dû à l'élève À LA DATE D'ÉDITION, tous frais de scolarité
+  /// confondus. `null` = inconnu (aucun barème publié) — la ligne est OMISE.
+  ///
+  /// ⚠️ « À ce jour », et surtout pas « après ce versement » : un reçu se
+  /// réimprime, et trois mois plus tard le solde n'est plus celui du jour de
+  /// l'encaissement. Le libellé doit rester vrai à chaque réédition.
+  ///
+  /// ⚠️ Omise, jamais imprimée à « 0 F ». Un reçu qui annonce un solde nul à
+  /// une famille qui doit encore l'année entière est une reconnaissance de
+  /// dette éteinte, sur un papier signé de l'école.
+  final int? resteDu;
 
   bool get estAnnule => annuleLe != null;
 }
@@ -103,6 +116,17 @@ Future<Uint8List> construireRecuPaiement({required RecuPaiement recu}) async {
       ligne('Date', AttestationKit.jourLong.format(recu.date)),
       ligne('Mode de règlement', recu.methode),
       ligne('Encaissé par', recu.encaissePar),
+      // Le solde — la question que la famille pose toujours en rangeant le
+      // reçu. Sans elle, il faut revenir au guichet pour l'obtenir.
+      //
+      // ⚠️ Jamais sur un reçu annulé : le versement n'a pas eu lieu, et le
+      // solde imprimé serait faux dans le sens qui arrange l'école.
+      if (recu.resteDu != null && !recu.estAnnule)
+        ligne(
+            'Reste dû à ce jour',
+            recu.resteDu == 0
+                ? 'Soldé — plus rien à régler'
+                : _xaf(recu.resteDu!)),
       if (recu.estAnnule) ...[
         pw.SizedBox(height: 16),
         pw.Container(

@@ -139,10 +139,20 @@ void main() {
       // Note officielle METP : l'attestation est au dossier des baccalauréats.
       // Le BET, le BEP et le CAP n'en demandent pas (source non confirmée pour
       // BEP/BTF/CAP -> volontairement hors de la règle).
-      expect(kExamsRequiringInternship, {'BAC_T', 'BAC_P'});
+      // `BAC` est le code courant depuis la migration 0105 (un seul
+      // baccalauréat au METP) ; `BAC_T`/`BAC_P` restent acceptés pour les bases
+      // pas encore migrées, sans quoi une école perdrait son alerte du jour au
+      // lendemain.
+      expect(kExamsRequiringInternship, {'BAC', 'BAC_T', 'BAC_P'});
       for (final code in ['BET', 'BEP', 'CAP', 'BTF', 'BEPC', 'CEPE']) {
         expect(kExamsRequiringInternship.contains(code), isFalse, reason: code);
       }
+    });
+
+    test('le baccalauréat fusionné (BAC) exige toujours l\'attestation', () {
+      // Le renommage BAC_T -> BAC ne doit pas faire tomber l'alerte : c'est
+      // exactement le dossier irrecevable que le module sert à prévenir.
+      expect(kExamsRequiringInternship.contains('BAC'), isTrue);
     });
   });
 }

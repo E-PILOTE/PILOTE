@@ -6,6 +6,7 @@ import '../../../services/powersync/powersync_service.dart';
 import '../../classes/providers/class_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
 import '../../vie_scolaire/widgets/vs_kit.dart';
+import '../services/bareme_applicable.dart';
 import '../services/obligation.dart';
 import 'obligation_provider.dart';
 import '../services/poste_tag.dart';
@@ -18,6 +19,23 @@ const _uuid = Uuid();
 //  montant, méthode, statut). Recouvrement par classe + historique par élève.
 //  100% offline.
 // ════════════════════════════════════════════════════════════════════════════
+
+/// Écarte les versements rattachés à un frais d'EXAMEN du recouvrement de
+/// scolarité.
+///
+/// Contrepartie obligatoire de l'exclusion posée dans `duScolarite` : si le dû
+/// ne compte plus les frais d'examen mais que le versé les compte encore, un
+/// candidat ayant réglé ses 30 000 F d'examen paraît à jour d'une scolarité
+/// qu'il n'a pas payée. Les deux côtés doivent bouger ensemble.
+///
+/// ⚠️ `COALESCE(..., '')` : un versement sans barème rattaché reste compté —
+/// une comparaison à NULL l'aurait fait disparaître en silence.
+///
+/// L'historique des versements d'un élève, lui, n'est PAS filtré : c'est le
+/// registre des reçus, il doit tout montrer.
+String _horsFraisExamens(String alias) =>
+    'AND COALESCE((SELECT f.fee_type FROM fee_structures f '
+    "WHERE f.id = $alias.fee_structure_id), '') <> 'frais_examens'";
 
 const kPaymentMethods = <(String, String)>[
   ('especes', 'Espèces'),
@@ -50,6 +68,8 @@ class PaymentsOverview {
     required this.students,
     this.duTotal = 0,
     this.aJour = 0,
+    this.duParClasse = const {},
+    this.encaisseParClasse = const {},
   });
   final List<VsCoverageRow> rows;
   final int collected, confirmedCount, pendingCount, payers, students;
@@ -58,6 +78,13 @@ class PaymentsOverview {
   /// d'élèves qui ont soldé leur dû. `duTotal == 0` ⇒ aucun barème applicable :
   /// afficher un taux serait mentir (cf. `EtatObligation.sansBareme`).
   final int duTotal, aJour;
+
+  /// Le même dû et le même encaissé, ventilés par classe — indexés par
+  /// `classId`. L'état de recouvrement imprimé les réclame ligne par ligne, et
+  /// il doit se lire sur les MÊMES nombres que l'écran : un rapport officiel
+  /// qui ne retombe pas sur le total affiché n'est pas défendable devant une
+  /// direction départementale.
+  final Map<String, int> duParClasse, encaisseParClasse;
 
   bool get sansBareme => duTotal <= 0;
   int get resteDu => (duTotal - collected).clamp(0, duTotal);
@@ -71,7 +98,7 @@ final paymentsOverviewProvider =
   final classes = ref.watch(classesProvider).valueOrNull;
   final yearId = ref.watch(activeYearIdProvider);
   final baremes = ref.watch(baremesApplicablesProvider).valueOrNull ?? const [];
-  final mois = ref.watch(moisEcoulesProvider);
+  final calendrier = ref.watch(calendrierDuProvider);
   if (classes == null || classes.isEmpty || yearId == null) {
     return const PaymentsOverview(
         rows: [], collected: 0, confirmedCount: 0, pendingCount: 0,
@@ -87,7 +114,8 @@ final paymentsOverviewProvider =
     'sp.refunded_amount_xaf AS remb, sp.status AS st '
     'FROM student_payments sp '
     "JOIN class_enrollments ce ON ce.student_id = sp.student_id AND ce.status = 'active' "
-    'WHERE ce.class_id IN ($ph) AND sp.academic_year_id = ?',
+    'WHERE ce.class_id IN ($ph) AND sp.academic_year_id = ? '
+    '${_horsFraisExamens('sp')}',
     [...ids, yearId],
   );
   final payersByClass = <String, Set<String>>{};
@@ -116,27 +144,67 @@ final paymentsOverviewProvider =
     }
   }
 
-  // Le dû se calcule par NIVEAU (un barème peut ne viser qu'un niveau), donc
-  // par classe. Les élèves d'une classe partagent le même dû ; ce qui les
-  // distingue est ce qu'ils ont versé.
-  final duParClasse = {
-    for (final c in classes) c.id: duPourNiveau(baremes, c.levelId, mois),
-  };
+  // Le NIVEAU choisit les barèmes (un barème peut ne viser qu'un niveau), donc
+  // le tarif est bien celui de la classe. Mais le MONTANT dû ne l'est plus :
+  // il dépend du nombre de mois que chaque élève a réellement passés dans
+  // l'école (cf. `CalendrierDu`). Un élève arrivé en mars ne doit pas ce que
+  // doit son voisin présent depuis la rentrée.
+  final niveauParClasse = {for (final c in classes) c.id: c.levelId};
 
-  // Qui a soldé : il faut le versement de CHAQUE élève, pas seulement de ceux
-  // qui ont payé — un élève absent de `verseParEleve` a versé zéro.
+  // Qui a soldé, et combien l'école devrait avoir encaissé : les deux se
+  // comptent élève par élève. Il faut donc TOUS les inscrits, pas seulement
+  // ceux qui ont payé — un élève absent de `verseParEleve` a versé zéro.
+  //
+  // ⚠️ `duTotal` se sommait avant en `dû de la classe × c.studentCount`. Le
+  // défaut n'était PAS l'effectif — `student_count` est dérivé par
+  // `classesProvider` d'un `COUNT(*)` sur les inscriptions actives, il est
+  // juste. C'est le MULTIPLICANDE qui l'était devenu : depuis que le dû dépend
+  // de la fenêtre de présence et de l'exonération, il n'existe plus de « dû de
+  // la classe » à multiplier. Deux élèves du même rang doivent des sommes
+  // différentes, et c'est voulu.
   final aJourParClasse = <String, int>{};
-  if (baremes.isNotEmpty) {
+  final effectifParClasse = <String, int>{};
+  final duParClasse = <String, int>{};
+  var duTotal = 0;
+  {
+    // ⚠️ Cette lecture a lieu MÊME sans barème : elle sert aussi d'effectif.
+    // Une école publique sans tarif posé — il y en a une trentaine — verrait
+    // sinon ses classes à zéro élève sur la page Paiements.
+    //
+    // ⚠️ Le second filtre — `students.is_active` — n'est pas cosmétique : un
+    // élève retiré du registre continuait de DEVOIR de l'argent. L'école ne le
+    // voyait plus dans sa liste, ne pouvait donc plus le relancer, et son dû
+    // pesait indéfiniment sur le taux de recouvrement de l'établissement.
     final inscrits = await db.getAll(
-      'SELECT class_id AS cid, student_id AS sid FROM class_enrollments '
-      "WHERE class_id IN ($ph) AND status = 'active'",
+      'SELECT ce.class_id AS cid, ce.student_id AS sid, '
+      'ce.enrollment_date AS entree, ce.withdrawal_date AS sortie, '
+      'ce.exemption_rate AS exo '
+      'FROM class_enrollments ce '
+      'JOIN students s ON s.id = ce.student_id '
+      "WHERE ce.class_id IN ($ph) AND ce.status = 'active' "
+      'AND COALESCE(s.is_active, 1) <> 0',
       ids,
     );
     for (final e in inscrits) {
       final cid = e['cid'] as String;
-      final du = duParClasse[cid] ?? 0;
-      final verse = verseParEleve[e['sid'] as String] ?? 0;
-      if (etatObligation(du: du, verse: verse) == EtatObligation.aJour) {
+      effectifParClasse[cid] = (effectifParClasse[cid] ?? 0) + 1;
+      if (baremes.isEmpty) continue;
+      final mois = calendrier.moisPour(
+        entree: e['entree'] as String?,
+        sortie: e['sortie'] as String?,
+      );
+      // La décision — dû après remise, état, « compte parmi les à jour » —
+      // vit dans `recouvrementEleve`, verrouillée par `recouvrement_test.dart`.
+      final r = recouvrementEleve(
+        baremes,
+        levelId: niveauParClasse[cid],
+        mois: mois,
+        verse: verseParEleve[e['sid'] as String] ?? 0,
+        exoneration: (e['exo'] as num?)?.round(),
+      );
+      duTotal += r.du;
+      duParClasse[cid] = (duParClasse[cid] ?? 0) + r.du;
+      if (r.aJour) {
         aJourParClasse[cid] = (aJourParClasse[cid] ?? 0) + 1;
       }
     }
@@ -150,7 +218,15 @@ final paymentsOverviewProvider =
         cycleCode: c.cycleCode,
         levelCode: c.levelCode,
         levelOrder: c.levelOrder ?? 999,
-        total: c.studentCount ?? 0,
+        // Numérateur et dénominateur comptés sur la MÊME lecture.
+        //
+        // `c.studentCount` donnerait aujourd'hui le même nombre : il est dérivé
+        // du même `COUNT(*)` sur les inscriptions actives (`classesProvider`).
+        // Le prendre ici ferait pourtant dépendre le taux de recouvrement de
+        // deux requêtes que rien n'oblige à rester d'accord — et le jour où
+        // l'une des deux gagne un filtre, « 12 à jour sur 9 » devient
+        // affichable sans qu'aucun test ne le voie.
+        total: effectifParClasse[c.id] ?? 0,
         ok: aJourParClasse[c.id] ?? 0,
         note: collectedByClass[c.id] != null
             ? fmtCompact(collectedByClass[c.id]!)
@@ -168,10 +244,10 @@ final paymentsOverviewProvider =
     pendingCount: pendingCount,
     payers: allPayers.length,
     students: cov.fold(0, (a, c) => a + c.total),
-    duTotal: [
-      for (final c in classes) (duParClasse[c.id] ?? 0) * (c.studentCount ?? 0),
-    ].fold(0, (a, b) => a + b),
+    duTotal: duTotal,
     aJour: aJourParClasse.values.fold(0, (a, b) => a + b),
+    duParClasse: duParClasse,
+    encaisseParClasse: collectedByClass,
   );
 });
 
@@ -186,16 +262,41 @@ class StudentPayRow {
     required this.count,
     required this.lastDate,
     this.du = 0,
+    this.duAvantExoneration = 0,
+    this.exoneration,
+    this.motifExoneration,
   });
   final String studentId, studentName;
   final String? enrollmentId, matricule, lastDate;
   final int paid, count;
 
-  /// Ce que cet élève doit à ce jour, tous barèmes applicables confondus.
+  /// Ce que cet élève doit à ce jour, tous barèmes applicables confondus —
+  /// exonération DÉJÀ déduite.
   final int du;
 
+  /// Le taux d'exonération de scolarité accordé pour cette année (%), et sa
+  /// justification. `null` = aucune exonération.
+  ///
+  /// Portés jusqu'ici pour que l'écran puisse EXPLIQUER un dû réduit. Un
+  /// montant plus bas que celui du voisin, sans raison affichée, se lit comme
+  /// un bug — et se signale au support.
+  final int? exoneration;
+  final String? motifExoneration;
+
+  /// Le même dû AVANT remise. Sert à distinguer « aucun tarif publié » de
+  /// « tarif intégralement remis » — deux dûs nuls qui ne veulent pas dire la
+  /// même chose (cf. [EtatObligation.exonere]).
+  final int duAvantExoneration;
+
+  bool get estExonere => (exoneration ?? 0) > 0;
+  bool get baremeDefini => duAvantExoneration > 0;
+
   int get reste => (du - paid).clamp(0, du);
-  EtatObligation get etat => etatObligation(du: du, verse: paid);
+  EtatObligation get etat => etatObligation(
+        du: du,
+        verse: paid,
+        exonereTotal: baremeDefini && du <= 0,
+      );
 
   /// ⚠️ « a versé quelque chose » — ce n'est PAS « à jour ». Conservé pour les
   /// usages qui veulent seulement savoir si un mouvement existe.
@@ -206,52 +307,99 @@ final classPaymentsProvider = StreamProvider.autoDispose
     .family<List<StudentPayRow>, String>((ref, classId) {
   final yearId = ref.watch(activeYearIdProvider);
   final baremes = ref.watch(baremesApplicablesProvider).valueOrNull ?? const [];
-  final mois = ref.watch(moisEcoulesProvider);
+  final calendrier = ref.watch(calendrierDuProvider);
   final niveau = ref
       .watch(classesProvider)
       .valueOrNull
       ?.where((c) => c.id == classId)
       .firstOrNull
       ?.levelId;
-  final du = duPourNiveau(baremes, niveau, mois);
   if (yearId == null) return Stream.value(const []);
   return db.watch(
     '''
     SELECT s.id AS sid, ce.id AS enr, s.first_name, s.last_name, s.matricule,
+      ce.enrollment_date AS entree, ce.withdrawal_date AS sortie,
+      ce.exemption_rate AS exo, ce.exemption_motif AS exo_motif,
       -- Net encaissé : un remboursement PARTIEL laisse la ligne `confirmed`
       -- mais n'a plus rapporté que la différence ; un remboursement TOTAL
       -- passe en `refunded` et ne rapporte rien (cf. `montantNet`).
-      (SELECT COALESCE(SUM(p.amount_xaf - COALESCE(p.refunded_amount_xaf, 0)), 0)
+      -- Scolarité seule : les frais d'examen relèvent du module Examens, qui
+      -- connaît les candidats (cf. `_horsFraisExamens` et `duScolarite`).
+      -- ⚠️ Le `MAX(…, 0)` par ligne : le `CHECK` de la migration 0094 interdit
+      -- un remboursement supérieur à l'encaissé, mais SQLite local n'a pas ce
+      -- `CHECK`. Une saisie hors ligne aberrante rendrait ici un net négatif
+      -- qui viendrait manger un AUTRE versement du même élève. Les quatre
+      -- autres requêtes de la caisse portent déjà ce garde-fou.
+      (SELECT COALESCE(SUM(MAX(p.amount_xaf - COALESCE(p.refunded_amount_xaf, 0), 0)), 0)
          FROM student_payments p
         WHERE p.student_id = s.id
           AND p.status IN ('confirmed', 'refunded')
-          AND p.academic_year_id = ?1) AS paid,
+          AND p.academic_year_id = ?1
+          ${_horsFraisExamens('p')}) AS paid,
+      -- Le compte et la date suivent le même périmètre que le montant : sinon
+      -- un élève n'ayant réglé que ses frais d'examen afficherait « 1 versement
+      -- le 12/03 » en face de 0 F versé.
       (SELECT COUNT(*) FROM student_payments p
-        WHERE p.student_id = s.id AND p.academic_year_id = ?1) AS cnt,
+        WHERE p.student_id = s.id AND p.academic_year_id = ?1
+          ${_horsFraisExamens('p')}) AS cnt,
       (SELECT MAX(payment_date) FROM student_payments p
-        WHERE p.student_id = s.id AND p.academic_year_id = ?1) AS last_d
+        WHERE p.student_id = s.id AND p.academic_year_id = ?1
+          ${_horsFraisExamens('p')}) AS last_d
     FROM class_enrollments ce
     JOIN students s ON s.id = ce.student_id
+    -- ⚠️ Même règle que l'effectif : un élève retiré du registre actif ne
+    -- figure plus au guichet. Sans ce filtre, la caisse continuait de le
+    -- présenter comme débiteur d'une classe où il n'est plus compté.
     WHERE ce.class_id = ?2 AND ce.status = 'active'
+      AND COALESCE(s.is_active, 1) <> 0
     ORDER BY s.last_name, s.first_name
     ''',
     parameters: [yearId, classId],
   ).map((rows) => [
-        for (final r in rows)
-          StudentPayRow(
-            studentId: r['sid'] as String,
-            enrollmentId: r['enr'] as String?,
-            studentName: '${(r['last_name'] as String?) ?? ''} '
-                    '${(r['first_name'] as String?) ?? ''}'
-                .trim(),
-            matricule: r['matricule'] as String?,
-            paid: (r['paid'] as num?)?.round() ?? 0,
-            count: (r['cnt'] as num?)?.round() ?? 0,
-            lastDate: r['last_d'] as String?,
-            du: du,
-          ),
+        for (final r in rows) _ligneEleve(r, baremes, calendrier, niveau),
       ]);
 });
+
+/// ⚠️ Le dû se calcule ICI, élève par élève, et non une fois pour la classe :
+/// deux élèves du même rang — l'un présent depuis la rentrée, l'autre arrivé en
+/// mars ; l'un boursier, l'autre non — ne doivent pas la même somme.
+///
+/// Passe par `recouvrementEleve`, comme `paymentsOverviewProvider` : cet écran
+/// affiche le détail dont l'autre affiche le total. Deux calculs séparés
+/// auraient fini par se contredire à l'écran, et c'est exactement le défaut qui
+/// avait produit le bug des mentions.
+StudentPayRow _ligneEleve(
+  Map<String, dynamic> r,
+  List<LigneBareme> baremes,
+  CalendrierDu calendrier,
+  String? niveau,
+) {
+  final rec = recouvrementEleve(
+    baremes,
+    levelId: niveau,
+    mois: calendrier.moisPour(
+      entree: r['entree'] as String?,
+      sortie: r['sortie'] as String?,
+    ),
+    verse: (r['paid'] as num?)?.round() ?? 0,
+    exoneration: (r['exo'] as num?)?.round(),
+  );
+  return StudentPayRow(
+    studentId: r['sid'] as String,
+    enrollmentId: r['enr'] as String?,
+    studentName: '${(r['last_name'] as String?) ?? ''} '
+            '${(r['first_name'] as String?) ?? ''}'
+        .trim(),
+    matricule: r['matricule'] as String?,
+    paid: (r['paid'] as num?)?.round() ?? 0,
+    count: (r['cnt'] as num?)?.round() ?? 0,
+    lastDate: r['last_d'] as String?,
+    du: rec.du,
+    duAvantExoneration: rec.duBrut,
+    exoneration: (r['exo'] as num?)?.round(),
+    motifExoneration: r['exo_motif'] as String?,
+  );
+}
 
 class PaymentRow {
   const PaymentRow({
@@ -428,7 +576,15 @@ Future<String> genererNumeroRecu({
 }
 
 // ─── Mutations ───────────────────────────────────────────────────────────────
-Future<void> savePayment({
+/// Enregistre un encaissement et rend son NUMÉRO DE REÇU (`null` sur une
+/// modification, qui conserve le numéro d'origine).
+///
+/// ⚠️ Le numéro remonte parce que le reçu doit pouvoir s'imprimer dans la
+/// foulée, au guichet, devant la famille. Le garder à l'intérieur obligeait à
+/// ressortir de l'écran, ouvrir Paiements, retrouver l'élève — c'est-à-dire, en
+/// pratique, à ne pas remettre de reçu du tout. Or au Congo le reçu EST la
+/// preuve du paiement.
+Future<String?> savePayment({
   String? id,
   required String groupId,
   required String schoolId,
@@ -453,6 +609,7 @@ Future<void> savePayment({
       [feeStructureId, amount, date, method, status, notes, d.month, d.year,
        now, id],
     );
+    return null;
   } else {
     final receipt = await genererNumeroRecu(schoolId: schoolId, quand: d);
     await db.execute(
@@ -468,6 +625,7 @@ Future<void> savePayment({
        feeStructureId, amount, date, d.month, d.year, method, receipt,
        recordedBy, status, notes, now, now],
     );
+    return receipt;
   }
 }
 

@@ -49,6 +49,10 @@ class Routes {
   // Le SEUL endroit de la plateforme où un montant se crée. L'école reçoit et
   // applique — elle n'a plus aucun écran d'écriture (migration 0096, D2).
   static const String adminFrais        = '/admin/frais';
+  // Où pointe la 6e de chaque école. Un tarif réseau par niveau (mig. 0101)
+  // vise une entrée du référentiel ; toute la chaîne tient à ce rattachement,
+  // et rien ne le montrait — d'où cet écran de constat, en lecture seule.
+  static const String adminRattachement = '/admin/rattachement';
   static const String adminExamens      = '/admin/examens';
   // Le référentiel national et son calendrier appartiennent au MINISTÈRE, pas
   // à l'opérateur de la plateforme : c'est lui qui connaît les examens et

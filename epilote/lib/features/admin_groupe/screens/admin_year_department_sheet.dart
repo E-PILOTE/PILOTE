@@ -417,20 +417,27 @@ class _DeptHeaderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget h(String t, int flex, {TextAlign align = TextAlign.left}) => Expanded(
-          flex: flex,
-          child: Text(t.toUpperCase(),
-              textAlign: align,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
-                  color: kTextMuted)),
-        );
+    Widget txt(String t, TextAlign align) => Text(t.toUpperCase(),
+        textAlign: align,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.5,
+            color: kTextMuted));
+
+    Widget h(String t, int flex, {TextAlign align = TextAlign.left}) =>
+        Expanded(flex: flex, child: txt(t, align));
+
     return Row(children: [
-      SizedBox(width: 34, child: h('Rg', 1)),
+      // ⚠️ « Rg » est un TEXTE NU, pas un `h(...)`. Un `Expanded` n'a de sens
+      // que directement sous un `Flex` : le glisser dans ce `SizedBox` jetait
+      // « Incorrect use of ParentDataWidget » et virait la fiche au rouge dès
+      // son ouverture. La largeur vient du `SizedBox` — 34 = les 28 de la ligne
+      // de données + les 6 de padding horizontal de son conteneur, pour que les
+      // colonnes restent alignées — et non d'un flex.
+      SizedBox(width: 34, child: txt('Rg', TextAlign.left)),
       const SizedBox(width: 8),
       h('Établissement', 7),
       h('Type', 2, align: TextAlign.center),

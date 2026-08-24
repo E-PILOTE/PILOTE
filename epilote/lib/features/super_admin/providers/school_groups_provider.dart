@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
 import '../../../core/utils/billing_period.dart';
+import '../../../core/utils/booleen_en_ligne.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 
@@ -61,7 +62,7 @@ class GroupDetail {
       phone:      m['phone']       as String?,
       address:    m['address']     as String?,
       logoUrl:    m['logo_url']    as String?,
-      isActive:    m['is_active']    as bool? ?? true,
+      isActive:    actifEnLigne(m['is_active']),
       notes:       m['notes']        as String?,
       foundedYear: m['founded_year'] as int?,
       schoolCount: schoolCount,

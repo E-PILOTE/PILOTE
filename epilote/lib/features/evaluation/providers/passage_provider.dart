@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/utils/passage_bareme.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../services/powersync/powersync_service.dart';
+import '../../auth/providers/auth_provider.dart';
 import 'bulletins_provider.dart';
+
+export '../../../core/utils/passage_bareme.dart'
+    show BaremePassage, PropositionPassage, propositionPour, verdictPropose;
 
 // ════════════════════════════════════════════════════════════════════════════
 //  PASSAGE EN CLASSE SUPÉRIEURE — le verdict de fin d'année.
@@ -79,12 +84,55 @@ PassageVerdict? verdictFor(String? code) {
 
 /// Décision PROPOSÉE d'après la moyenne annuelle — toujours modifiable.
 ///
-/// La barre de passage est celle du système congolais : 10/20, la même que
-/// `mentionFor`. On ne propose jamais « réorienté » : c'est un choix
-/// d'orientation, pas un seuil de moyenne.
-String? suggestedVerdict(double? annualAverage) {
-  if (annualAverage == null) return null;
-  return annualAverage >= 10 ? 'passe' : 'redouble';
+/// ⚠️ La barre N'EST PLUS écrite ici. Elle était en dur (`>= 10`), et même pas
+/// via `kPassingMark` qui existait à côté : deux exemplaires du même nombre.
+/// Elle se règle désormais par groupe, avec dérogation par niveau (migration
+/// 0107), et la décision vit dans `core/utils/passage_bareme.dart` — un seul
+/// endroit, miroir de `verdict_passage()` en SQL.
+///
+/// On ne propose jamais « réorienté » : c'est un choix d'orientation, pas un
+/// seuil de moyenne.
+String? suggestedVerdict(double? annualAverage, BaremePassage bareme) =>
+    verdictPropose(annualAverage, bareme);
+
+/// Le barème d'une classe : celui du groupe, éventuellement dérogé par le
+/// niveau de la classe.
+///
+/// ⚠️ En l'absence de toute ligne — poste fraîchement purgé, groupe non
+/// synchronisé — on retombe sur le barème officiel (10/20, sans zone). Ne
+/// jamais rendre « aucun barème » : un écran de passage sans barre ne pourrait
+/// plus rien proposer, et l'école conclurait que la plateforme ne sait pas
+/// délibérer alors qu'il ne lui manque qu'un réglage facultatif.
+Future<BaremePassage> _baremeFor(String? groupId, String? levelId) async {
+  var bareme = BaremePassage.officiel;
+
+  if (groupId != null) {
+    final g = await db.getOptional(
+      'SELECT promotion_pass_mark, promotion_deliberation_floor '
+      'FROM school_groups WHERE id = ?',
+      [groupId],
+    );
+    final barre = (g?['promotion_pass_mark'] as num?)?.toDouble();
+    if (barre != null && barre > 0 && barre <= 20) {
+      bareme = BaremePassage(
+        barre: barre,
+        plancher: (g?['promotion_deliberation_floor'] as num?)?.toDouble(),
+      );
+    }
+  }
+
+  if (levelId != null) {
+    final l = await db.getOptional(
+      'SELECT pass_mark, deliberation_floor FROM school_levels WHERE id = ?',
+      [levelId],
+    );
+    bareme = bareme.avecDerogation(
+      barre: (l?['pass_mark'] as num?)?.toDouble(),
+      plancher: (l?['deliberation_floor'] as num?)?.toDouble(),
+    );
+  }
+
+  return bareme;
 }
 
 /// La moyenne annuelle : moyenne des moyennes trimestrielles RENSEIGNÉES.
@@ -185,8 +233,36 @@ class PassageSession {
     required this.nextYearLabel,
     required this.upperClass,
     required this.repeatClass,
+    this.bareme = BaremePassage.officiel,
   });
   final List<PassageEntry> entries;
+
+  /// La barre de passage applicable à CETTE classe : celle du groupe, dérogée
+  /// par le niveau s'il en porte une. Affichée à l'écran et imprimée sur le
+  /// procès-verbal — une délibération dont on ignore la règle ne se relit pas.
+  final BaremePassage bareme;
+
+  /// Ce que le barème dit de cet élève, sans rien écrire.
+  PropositionPassage propositionPourEleve(PassageEntry e) =>
+      propositionPour(e.annualAverage, bareme);
+
+  /// Élèves que le barème laisse au conseil : moyenne comprise entre le
+  /// plancher et la barre. Zéro quand aucune zone n'est réglée.
+  List<PassageEntry> get enDeliberation => [
+        for (final e in entries)
+          if (!e.decided &&
+              propositionPourEleve(e) == PropositionPassage.deliberation)
+            e
+      ];
+
+  /// Élèves sans la moindre moyenne : rien n'a été saisi pour eux. Le conseil
+  /// doit les voir — un élève sans note n'est pas un élève sans sort.
+  List<PassageEntry> get sansMoyenne => [
+        for (final e in entries)
+          if (!e.decided &&
+              propositionPourEleve(e) == PropositionPassage.sansMoyenne)
+            e
+      ];
 
   /// Les trimestres de l'année, dans l'ordre. Vide si l'établissement n'a pas
   /// découpé son année — la moyenne annuelle retombe alors sur l'ensemble des
@@ -219,6 +295,15 @@ class PassageSession {
   /// attend.
   bool get canReenroll => nextYearId != null && upperClass != null;
 }
+
+/// Le barème du GROUPE, sans dérogation de niveau — celui qu'on annonce en tête
+/// de campagne. Une classe peut porter un barème dérogatoire ; c'est la session
+/// de cette classe qui fait alors foi.
+final baremePassageEcoleProvider =
+    FutureProvider.autoDispose<BaremePassage>((ref) async {
+  final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
+  return _baremeFor(groupId, null);
+});
 
 /// Une classe de passage dans la liste de campagne.
 class PassageClass {
@@ -259,7 +344,7 @@ final passageClassesProvider = FutureProvider.autoDispose
       LEFT JOIN education_cycles ec ON ec.code = c.cycle_code
       LEFT JOIN class_enrollments e
              ON e.class_id = c.id AND e.status = 'active'
-     WHERE c.academic_year_id = ? AND c.is_active = 1
+     WHERE c.academic_year_id = ? AND COALESCE(c.is_active, 1) <> 0
        AND COALESCE(c.exam_status, 'passage') = 'passage'
      GROUP BY c.id, c.name, c.filiere_label, ec.name, ec.order_index
      ORDER BY cycle_order, c.level_order, c.name
@@ -343,7 +428,8 @@ final passageSessionProvider =
   ref.keepAlive();
 
   final cls = await db.getAll(
-    'SELECT school_id, academic_year_id, cycle_code, level_order, filiere_label '
+    'SELECT school_id, group_id, academic_year_id, cycle_code, level_order, '
+    '       level_id, filiere_label '
     'FROM classes WHERE id = ?',
     [classId],
   );
@@ -365,6 +451,8 @@ final passageSessionProvider =
   final cycle = c['cycle_code'] as String?;
   final levelOrder = (c['level_order'] as int?) ?? 0;
   final filiere = c['filiere_label'] as String?;
+  final bareme =
+      await _baremeFor(c['group_id'] as String?, c['level_id'] as String?);
 
   // ── Les trois moyennes trimestrielles, puis leur moyenne ──────────────────
   // Un calcul par trimestre, avec le moteur des bulletins : les nombres de
@@ -502,6 +590,7 @@ final passageSessionProvider =
     nextYearLabel: next?.$2,
     upperClass: upper,
     repeatClass: repeat,
+    bareme: bareme,
   );
 });
 
@@ -578,29 +667,165 @@ Future<void> savePassageDecision({
   );
 }
 
+/// Ce qu'une campagne de propositions a fait, et ce qu'elle n'a pas pu faire.
+///
+/// ⚠️ Le compte rendu n'est pas décoratif. Une campagne qui annonce « 412
+/// propositions inscrites » sur une école de 460 élèves laisse 48 enfants sans
+/// verdict, et personne ne saura lesquels avant le 30 juin. Nommer ce qui reste
+/// est la moitié du travail — c'est la règle « pas de plafond silencieux ».
+class BilanPropositions {
+  const BilanPropositions({
+    this.inscrites = 0,
+    this.dejaDecidees = 0,
+    this.enDeliberation = 0,
+    this.sansMoyenne = 0,
+    this.classes = 0,
+  });
+
+  /// Verdicts effectivement écrits.
+  final int inscrites;
+
+  /// Élèves déjà délibérés à la main : jamais écrasés.
+  final int dejaDecidees;
+
+  /// Élèves laissés au conseil par le barème (zone de délibération).
+  final int enDeliberation;
+
+  /// Élèves sans aucune note : rien à proposer.
+  final int sansMoyenne;
+
+  /// Classes parcourues.
+  final int classes;
+
+  int get restantes => enDeliberation + sansMoyenne;
+
+  BilanPropositions plus(BilanPropositions o) => BilanPropositions(
+        inscrites: inscrites + o.inscrites,
+        dejaDecidees: dejaDecidees + o.dejaDecidees,
+        enDeliberation: enDeliberation + o.enDeliberation,
+        sansMoyenne: sansMoyenne + o.sansMoyenne,
+        classes: classes + o.classes,
+      );
+
+  /// Le compte rendu tel qu'il se lit, en une phrase.
+  String get resume {
+    if (inscrites == 0 && restantes == 0) {
+      return dejaDecidees == 0
+          ? 'Aucun élève à délibérer.'
+          : 'Tous les élèves sont déjà délibérés.';
+    }
+    final b = StringBuffer();
+    b.write(inscrites == 0
+        ? 'Aucune nouvelle proposition'
+        : '$inscrites proposition(s) inscrite(s)');
+    if (classes > 1) b.write(' sur $classes classes');
+    final restes = <String>[
+      if (enDeliberation > 0) '$enDeliberation en délibération',
+      if (sansMoyenne > 0) '$sansMoyenne sans moyenne',
+      if (dejaDecidees > 0) '$dejaDecidees déjà décidé(s)',
+    ];
+    if (restes.isNotEmpty) b.write(' · ${restes.join(', ')}');
+    b.write('.');
+    return b.toString();
+  }
+}
+
 /// Pré-remplit les verdicts proposés pour les élèves non encore délibérés.
-/// N'écrase JAMAIS une décision déjà prise : le conseil garde le dernier mot.
-Future<int> autofillVerdicts({
+///
+/// N'écrase JAMAIS une décision déjà prise : le conseil garde le dernier mot,
+/// y compris contre la proposition du barème.
+///
+/// Deux catégories restent volontairement vides : les élèves de la ZONE DE
+/// DÉLIBÉRATION et ceux sans aucune moyenne. Dans les deux cas, l'absence de
+/// verdict est le message — un défaut prudent ferait redoubler des élèves que
+/// le conseil n'a pas examinés.
+Future<BilanPropositions> autofillVerdicts({
   required PassageSession session,
   required String? actorId,
 }) async {
-  var n = 0;
+  var inscrites = 0, deja = 0, delib = 0, sansMoy = 0;
+
   for (final e in session.entries) {
-    if (e.decided) continue;
-    final v = suggestedVerdict(e.annualAverage);
-    if (v == null) continue;
-    await savePassageDecision(
-      enrollmentId: e.enrollmentId,
-      decision: v,
-      average: e.annualAverage,
-      targetClassId: v == 'passe'
-          ? session.upperClass?.id
-          : (v == 'redouble' ? session.repeatClass?.id : null),
-      actorId: actorId,
-    );
-    n++;
+    if (e.decided) {
+      deja++;
+      continue;
+    }
+    switch (session.propositionPourEleve(e)) {
+      case PropositionPassage.deliberation:
+        delib++;
+      case PropositionPassage.sansMoyenne:
+        sansMoy++;
+      case PropositionPassage.passe:
+      case PropositionPassage.redouble:
+        final v = verdictPropose(e.annualAverage, session.bareme)!;
+        await savePassageDecision(
+          enrollmentId: e.enrollmentId,
+          decision: v,
+          average: e.annualAverage,
+          targetClassId: v == 'passe'
+              ? session.upperClass?.id
+              : session.repeatClass?.id,
+          actorId: actorId,
+        );
+        inscrites++;
+    }
   }
-  return n;
+
+  return BilanPropositions(
+    inscrites: inscrites,
+    dejaDecidees: deja,
+    enDeliberation: delib,
+    sansMoyenne: sansMoy,
+    classes: 1,
+  );
+}
+
+/// La campagne à l'échelle de l'ÉCOLE : un seul geste pour toutes les classes
+/// de passage de l'année.
+///
+/// ── Pourquoi ce provider et pas une boucle dans l'écran ────────────────────
+/// Une école de seize classes demandait seize ouvertures et seize clics, et
+/// rien ne disait où l'on en était. Le conseil de fin d'année se tient une fois
+/// et porte sur l'établissement entier : la commande doit avoir la même forme
+/// que la décision.
+///
+/// Les classes d'EXAMEN sont exclues à la source, comme partout ailleurs ici :
+/// la DEC proclame, l'école n'a pas à décider à sa place.
+///
+/// ⚠️ Séquentiel, et c'est voulu. Chaque classe recalcule trois bulletins
+/// complets ; les lancer toutes de front sur un poste de bureau congolais —
+/// souvent un cœur, souvent branché sur une base de 40 000 lignes — fige
+/// l'interface plusieurs secondes. Une campagne qui met dix secondes en
+/// affichant sa progression vaut mieux qu'une qui met huit secondes en
+/// paraissant plantée.
+Future<BilanPropositions> autofillEcole({
+  // `WidgetRef` et non `Ref` : la campagne est déclenchée par un geste
+  // d'écran, jamais par un provider qui se recalcule. C'est même une garantie
+  // utile — un provider qui écrirait des décisions en se reconstruisant
+  // délibérerait tout seul au moindre changement d'année.
+  required WidgetRef ref,
+  required String yearId,
+  required String? actorId,
+  void Function(int fait, int total, String classe)? onProgress,
+}) async {
+  final classes = await ref.read(passageClassesProvider(yearId).future);
+  var bilan = const BilanPropositions();
+
+  for (var i = 0; i < classes.length; i++) {
+    final c = classes[i];
+    onProgress?.call(i, classes.length, c.className);
+    final session = await ref.read(passageSessionProvider(c.classId).future);
+    bilan = bilan.plus(await autofillVerdicts(
+      session: session,
+      actorId: actorId,
+    ));
+    // La session vient d'être écrite : sans invalidation, la classe rouvrirait
+    // sur les décisions d'avant.
+    ref.invalidate(passageSessionProvider(c.classId));
+  }
+  ref.invalidate(passageClassesProvider(yearId));
+  onProgress?.call(classes.length, classes.length, '');
+  return bilan;
 }
 
 /// Réinscrit dans l'année suivante les élèves délibérés qui ne le sont pas

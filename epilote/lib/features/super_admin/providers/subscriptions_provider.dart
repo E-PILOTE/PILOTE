@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
 import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
+import '../../../core/utils/subscription_days.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import 'plans_provider.dart' show moneyXaf;
 
@@ -94,10 +95,12 @@ class SubscriptionDetail {
   String get groupTypeLabel => groupType == 'public' ? 'Public' : 'Privé';
 
   /// Jours restants avant la fin de l'abonnement (null si pas de date de fin).
-  int? get daysRemaining {
-    if (end == null) return null;
-    return end!.difference(DateTime.now()).inDays;
-  }
+  ///
+  /// Passe par `daysUntilDate` : `subscription_end` est un DATE (minuit) et
+  /// `DateTime.now()` porte l'heure, si bien que la soustraction brute
+  /// TRONQUAIT un jour dès que la journée avançait. Cet écran affichait donc
+  /// « 21 j » là où le bandeau du groupe annonçait « 22 jours », le même jour.
+  int? get daysRemaining => daysUntilDate(end);
 
   /// Abonnement payant qui expire dans 30 jours ou moins (et pas déjà expiré).
   bool get isExpiringSoon {

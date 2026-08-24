@@ -4,9 +4,11 @@ import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/subscription_days.dart' show kSubscriptionAlertDays;
 import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../providers/platform_settings_provider.dart';
+import '../widgets/subscription_cycle_section.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 Color get _kNavy => kNavy;
@@ -54,7 +56,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   // applique quand le réglage est absent — sinon l'écran affiche 7 pendant que
   // la base en applique 15, et on « enregistre » un changement sans le savoir.
   final _graceCtrl         = TextEditingController(text: '15');
-  final _alertDaysCtrl     = TextEditingController(text: '7');
+  // Défaut aligné sur la constante partagée : le champ ne peut plus annoncer
+  // une valeur que le reste de l'app n'applique pas.
+  final _alertDaysCtrl     = TextEditingController(text: '$kSubscriptionAlertDays');
   final _trialDaysCtrl     = TextEditingController(text: '3');
   final _companyNameCtrl   = TextEditingController(text: 'E-PILOTE CONGO SARL');
   final _companyRccCtrl    = TextEditingController(text: 'RC-BZV-2024-B-0001');
@@ -75,7 +79,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   bool _notifEmailEnabled      = true;
   bool _notifSmsEnabled        = false;
   final _notifEmailCtrl        = TextEditingController(text: 'admin@epilote.cg');
-  final _notifReminderCtrl     = TextEditingController(text: '7,1,0');
+  final _notifReminderCtrl     = TextEditingController(text: '30,15,7,1,0');
 
   // ── Sécurité ──────────────────────────────────────────────────────────────────
   bool _mfaRequired            = false;
@@ -466,9 +470,11 @@ class _Section extends StatelessWidget {
 }
 
 class _FieldRow extends StatelessWidget {
-  const _FieldRow({required this.label, required this.ctrl, this.hint = '', this.suffix, this.numeric = false, this.csv = false, this.lines = 1});
+  // `csv` a disparu avec le champ « jours de rappel », parti dans
+  // `SubscriptionCycleSection` (qui porte son propre champ CSV).
+  const _FieldRow({required this.label, required this.ctrl, this.hint = '', this.suffix, this.numeric = false, this.lines = 1});
   final String label; final TextEditingController ctrl; final String hint;
-  final String? suffix; final bool numeric; final bool csv; final int lines;
+  final String? suffix; final bool numeric; final int lines;
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: 12),
@@ -480,12 +486,9 @@ class _FieldRow extends StatelessWidget {
         TextField(
           controller: ctrl,
           maxLines: lines,
-          keyboardType: (numeric || csv) ? TextInputType.number : TextInputType.text,
-          inputFormatters: numeric
-              ? [FilteringTextInputFormatter.digitsOnly]
-              : csv
-                  ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9, ]'))]
-                  : null,
+          keyboardType: numeric ? TextInputType.number : TextInputType.text,
+          inputFormatters:
+              numeric ? [FilteringTextInputFormatter.digitsOnly] : null,
           style: const TextStyle(fontSize: 13),
           decoration: InputDecoration(
             hintText: hint,
@@ -692,6 +695,14 @@ class _TabFacturationState extends State<_TabFacturation> {
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
+          // En tête de l'onglet : c'est le réglage qui décide de ce que voient
+          // les 1000 écoles, il passe avant les préfixes de facture.
+          SubscriptionCycleSection(
+            alertCtrl:    s._alertDaysCtrl,
+            reminderCtrl: s._notifReminderCtrl,
+            graceCtrl:    s._graceCtrl,
+            trialCtrl:    s._trialDaysCtrl,
+          ),
           _Section(
             title: 'Configuration générale',
             children: [
@@ -702,17 +713,6 @@ class _TabFacturationState extends State<_TabFacturation> {
               _row2(
                 _FieldRow(label: 'Préfixe facture', ctrl: s._invoicePrefixCtrl, hint: 'INV'),
                 _FieldRow(label: 'Préfixe reçu', ctrl: s._receiptPrefixCtrl, hint: 'REC'),
-              ),
-              _row2(
-                _FieldRow(label: 'Délai de grâce', ctrl: s._graceCtrl, numeric: true, suffix: 'jours après échéance'),
-                _FieldRow(label: "Durée d'essai", ctrl: s._trialDaysCtrl, numeric: true, suffix: 'jours (nouveaux groupes)'),
-              ),
-              _FieldRow(
-                label: "Alerte d'échéance",
-                ctrl: s._alertDaysCtrl,
-                numeric: true,
-                hint: '7',
-                suffix: 'jours avant échéance — allume le bandeau admin groupe',
               ),
               _SwitchRow(
                 label: 'Facturation automatique',
@@ -842,13 +842,16 @@ class _TabNotificationsState extends State<_TabNotifications> {
           _Section(
             title: 'Rappels automatiques',
             children: [
-              _FieldRow(
-                label: 'Jours de rappel avant échéance',
-                ctrl: s._notifReminderCtrl,
-                csv: true,
-                hint: '7, 1, 0',
-                suffix: 'jours (liste séparée par des virgules) — cloche et '
-                    "notifications, indépendant de l'alerte ci-dessus",
+              // Le champ a déménagé : un seuil de rappel ne se règle pas sans
+              // voir la fenêtre du bandeau et le délai de grâce en face.
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Les jours de rappel se règlent avec le reste du cycle '
+                  "d'abonnement, onglet « Facturation » — l'interrupteur "
+                  'ci-dessus reste le seul moyen de tout couper.',
+                  style: TextStyle(fontSize: 12, color: _kSub, height: 1.4),
+                ),
               ),
             ],
           ),

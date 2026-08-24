@@ -7,6 +7,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/services/official_pdf_kit.dart';
+import '../../../core/utils/ine.dart';
 import '../providers/students_registry_provider.dart';
 import 'enrollment_pdf_shared.dart';
 
@@ -113,11 +114,21 @@ class StudentsPdfService {
         for (final e in byClass.entries)
           EnrollmentGroup(
             label: e.key,
-            headers: const ['Matricule', 'Nom & prénom', 'Sexe', 'Âge',
-              'Interne', 'Boursier'],
+            // ⚠️ L'IDENTIFIANT NATIONAL NE FIGURAIT PAS SUR CETTE LISTE.
+            // C'est pourtant le document qui sort de l'école — vers le
+            // ministère, vers l'archive — et l'INE est ce par quoi un enfant
+            // se retrouve d'un établissement à l'autre. Une liste nationale
+            // qui ne porte que le matricule interne de l'école n'est
+            // rapprochable de rien.
+            headers: const ['Matricule', 'Ident. national', 'Nom & prénom',
+              'Sexe', 'Âge', 'Interne', 'Boursier'],
             rows: e.value
                 .map((r) => [
                       r.matricule,
+                      // Un élève saisi hors ligne n'en a pas encore : le
+                      // serveur seul l'attribue. Un tiret se lirait comme un
+                      // oubli de saisie.
+                      r.ine == null ? 'en attente' : formatIne(r.ine),
                       r.lastFirst,
                       _sex(r.gender),
                       r.age?.toString() ?? '—',
@@ -125,8 +136,8 @@ class StudentsPdfService {
                       (r.hasScholarship || r.hasSocialAid) ? 'Oui' : '—',
                     ])
                 .toList(),
-            flex: const [3, 6, 2, 2, 2, 2],
-            leftAlignCols: const {1},
+            flex: const [3, 3, 6, 2, 2, 2, 2],
+            leftAlignCols: const {2},
           ),
       ],
     );

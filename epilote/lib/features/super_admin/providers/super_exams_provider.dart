@@ -26,7 +26,9 @@ class PlatformExamBar {
   final int candidates;
 }
 
-const _kBacProInternship = {'BAC_T', 'BAC_P'};
+/// `BAC` depuis la mig. 0105 (baccalauréat unique au METP) ; les codes hérités
+/// restent acceptés tant qu'une base peut encore les porter.
+const _kBacProInternship = {'BAC', 'BAC_T', 'BAC_P'};
 
 class PlatformExamsData {
   const PlatformExamsData({
@@ -82,16 +84,24 @@ final superExamsProvider =
   //  et se tait — à l'échelle nationale, aucun de ces nombres n'aurait été
   //  celui du pays. Les ventilations exigent les lignes ; le seul compteur
   //  isolé, celui des transmissions, passe par un `count` serveur.
-  final rows = await fetchAllRows(() => client.from('exam_candidates').select(
-      'group_id, school_id, student_id, dossier_status, '
-      'exam_sessions!inner(id, national_exams!inner(code, short_name, tutelle))'));
+  //  ⚠️ Et `fetchAllRows` exige un ordre TOTAL : sans `.order()`, rien n'oblige
+  //  deux pages successives à trier les lignes de la même façon, si bien qu'un
+  //  candidat se fait sauter à la frontière — ou compter deux fois. `id` suffit.
+  final rows = await fetchAllRows(() => client
+      .from('exam_candidates')
+      .select('group_id, school_id, student_id, dossier_status, '
+          'exam_sessions!inner(id, national_exams!inner(code, short_name, tutelle))')
+      .order('id'));
 
   final transmissionCount =
       await client.from('transmissions').count(CountOption.exact);
 
   final internRows = await fetchAllRows(() => client
       .from('internships')
-      .select('student_id, attestation_issued_at'));
+      .select('student_id, attestation_issued_at')
+      // Même règle : un ordre TOTAL, sinon la pagination perd ou double des
+      // stages — et le compteur d'attestations avec eux.
+      .order('id'));
   final internshipsTotal = internRows.length;
   var attestationsTotal = 0;
   final studentsWithAttestation = <String>{};

@@ -59,9 +59,13 @@ final feeStructuresProvider =
   }
   return db.watch(
     '''
-    SELECT f.*, sl.name AS level_name
+    SELECT f.*,
+           COALESCE(sl.name, el.name) AS level_name
     FROM fee_structures f
     LEFT JOIN school_levels sl ON sl.id = f.applies_to_level_id
+    -- Le niveau NATIONAL (migration 0101) : le ministère tarifie « la 6e » du
+    -- réseau entier, l'école n'a rien saisi et lit le même libellé.
+    LEFT JOIN education_levels el ON el.id = f.applies_to_education_level_id
     -- ⚠️ `f.school_id = ?` SEUL rendrait invisible tout tarif du ministère :
     -- depuis la migration 0096, un barème de portée réseau porte `school_id`
     -- NULL. C'est le même piège que dans les sync-rules, une couche plus haut.

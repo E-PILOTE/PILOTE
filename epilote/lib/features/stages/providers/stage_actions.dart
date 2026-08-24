@@ -75,7 +75,7 @@ class CompanyRow {
 final companiesProvider = FutureProvider.autoDispose<List<CompanyRow>>((ref) async {
   final rows = await db.getAll(
     'SELECT id, name, sector, school_id FROM internship_companies '
-    ' WHERE is_active = 1 ORDER BY name',
+    ' WHERE COALESCE(is_active, 1) <> 0 ORDER BY name',
   );
   return [
     for (final r in rows)

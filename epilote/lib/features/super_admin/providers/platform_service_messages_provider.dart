@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/booleen_en_ligne.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 
 /// Message de service diffusé sur la vitrine des postes (table
@@ -18,7 +19,7 @@ class ServiceMessageModel {
   factory ServiceMessageModel.fromRow(Map m) => ServiceMessageModel(
         id: m['id'] as String,
         body: m['body'] as String? ?? '',
-        isActive: m['is_active'] as bool? ?? false,
+        isActive: actifEnLigne(m['is_active']),
         startsAt: _p(m['starts_at']),
         endsAt: _p(m['ends_at']),
         createdAt: _p(m['created_at']),

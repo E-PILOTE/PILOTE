@@ -39,6 +39,14 @@ class _Body extends ConsumerWidget {
     return v.isEmpty ? 0 : v.reduce((a, b) => a > b ? a : b);
   }
 
+  /// Les frais annexes se CUMULENT — cantine, transport, tenue sont trois
+  /// choses, toutes dues (migration 0108). En afficher le maximum, comme pour
+  /// les autres types, annoncerait le plus cher des trois au lieu de leur
+  /// somme : le seul chiffre qui intéresse une famille du privé.
+  int _sommeAnnexes(List<FeeStructure> all) => all
+      .where((f) => f.feeType == 'autre')
+      .fold(0, (a, f) => a + f.amount);
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(feeStructuresProvider);
@@ -67,6 +75,12 @@ class _Body extends ConsumerWidget {
               (Icons.school_rounded, 'Examens',
                   fmtCompact(_maxOf(all, 'frais_examens')),
                   const Color(0xFF8B5CF6), 'FCFA'),
+              // Une carte de PLUS, jamais à la place d'une autre : masquer les
+              // examens dès qu'une école déclare une cantine lui retirerait un
+              // chiffre qu'elle lisait la veille.
+              if (_sommeAnnexes(all) > 0)
+                (Icons.local_dining_rounded, 'Frais annexes',
+                    fmtCompact(_sommeAnnexes(all)), kAccent, 'FCFA · total'),
             ]),
             const SizedBox(height: 18),
             if (all.isEmpty)

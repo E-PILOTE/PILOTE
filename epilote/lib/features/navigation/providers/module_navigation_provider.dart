@@ -66,7 +66,7 @@ final activeModulesProvider =
         JOIN    module_categories mc ON mc.id = m.category_id
         JOIN    plan_modules pm      ON pm.module_id = m.id
         WHERE   pm.plan_id = ?
-        AND     m.is_active = 1
+        AND     COALESCE(m.is_active, 1) <> 0
         ORDER BY mc.display_order, m.display_order
         ''',
         parameters: [planId],
@@ -112,7 +112,7 @@ final modulesGroupedByCategoryProvider =
         JOIN    modules m ON m.category_id = mc.id
         JOIN    plan_modules pm ON pm.module_id = m.id
         WHERE   pm.plan_id = ?
-        AND     m.is_active = 1
+        AND     COALESCE(m.is_active, 1) <> 0
         ORDER BY mc.display_order, m.display_order
         ''',
         parameters: [planId],
@@ -189,7 +189,8 @@ final allModulesProvider =
     StreamProvider.autoDispose<List<ModuleModel>>((ref) {
   return db
       .watch(
-        'SELECT * FROM modules WHERE is_active = 1 ORDER BY display_order',
+        'SELECT * FROM modules WHERE COALESCE(is_active, 1) <> 0 '
+        'ORDER BY display_order',
       )
       .map((rows) => rows.map(ModuleModel.fromMap).toList());
 });

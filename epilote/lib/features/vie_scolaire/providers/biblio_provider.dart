@@ -59,7 +59,8 @@ final libraryItemsProvider =
   final schoolId = profile?.schoolId;
   if (schoolId == null || schoolId.isEmpty) return Stream.value(const []);
   return db.watch(
-    'SELECT * FROM library_items WHERE school_id = ? AND is_active = 1 '
+    'SELECT * FROM library_items '
+    'WHERE school_id = ? AND COALESCE(is_active, 1) <> 0 '
     'ORDER BY title',
     parameters: [schoolId],
   ).map((rows) => [

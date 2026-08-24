@@ -1,11 +1,22 @@
-import 'dart:io';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../features/navigation/providers/permissions_provider.dart';
 import '../../../features/structure/providers/academic_year_context.dart';
 import '../../../services/powersync/powersync_service.dart';
+
+// Le dossier de l'élève a quitté ce fichier (règle des 500 lignes) mais reste
+// servi par lui : une quinzaine d'écrans importent `inscriptions_data_provider`
+// pour `studentDossierProvider`. Le ré-export garde leur import valide — la
+// coupe est interne, elle n'a pas à se propager.
+export 'student_dossier_provider.dart';
+
+// Même coupe, même raison : le BILAN DE L'ANNÉE (effectif, types, redoublants
+// et rythme mensuel) interroge toutes les inscriptions, pas seulement celles
+// restées au guichet — c'est une autre question posée à la même table, et elle
+// pèse deux cents lignes. La page et les tests continuent d'importer ce
+// fichier-ci.
+export 'inscriptions_rythme_provider.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  DONNÉES DE LA PAGE INSCRIPTIONS — 100% offline (db.watch local), année active.
@@ -91,6 +102,8 @@ class InscriptionRow {
     required this.gender,
     required this.dateOfBirth,
     required this.photoUrl,
+    this.placeOfBirth,
+    this.nationality,
     required this.classId,
     required this.className,
     required this.capacity,
@@ -117,6 +130,11 @@ class InscriptionRow {
   final String? gender;
   final DateTime? dateOfBirth;
   final String? photoUrl;
+
+  /// Portés pour l'EXPORT, pas pour l'affichage : une liste d'effectifs que
+  /// deux écoles s'échangent doit pouvoir être relue par l'import, qui sait
+  /// lire ces deux colonnes.
+  final String? placeOfBirth, nationality;
   final String? classId;
   final String className;
 
@@ -167,6 +185,18 @@ class InscriptionRow {
 }
 
 /// Toutes les inscriptions de l'année active (tous statuts) + élève + classe.
+///
+/// ── ⚠️ CE PROVIDER PORTE UN PÉRIMÈTRE ──────────────────────────────────────
+/// `inscriptions` est une entrée du profil d'accès comme les autres, et le
+/// profil « Enseignant » livré en base la règle sur `own_classes`. Le verrou
+/// n'était pourtant posé nulle part ici : un enseignant restreint à ses propres
+/// classes lisait TOUT le guichet de l'école — identité, date de naissance,
+/// classe et photo de chaque dossier en attente, et par la fiche détail les
+/// tuteurs et les frais.
+///
+/// C'est le même oubli que celui déjà réparé sur le registre des élèves puis
+/// sur le graphe d'effectif. Il ne se signalait pas : une requête sans
+/// restriction ne lève rien, elle rend simplement plus de lignes.
 final inscriptionsDataProvider =
     StreamProvider.autoDispose<List<InscriptionRow>>((ref) {
   ref.keepAlive();
@@ -175,219 +205,91 @@ final inscriptionsDataProvider =
   if (schoolId == null || schoolId.isEmpty || yearId == null) {
     return Stream.value(const []);
   }
+  // Tant que le profil d'accès n'est pas lu, on ne PUBLIE rien : la page garde
+  // son squelette. Émettre la liste complète, même une demi-seconde, c'est
+  // l'avoir affichée.
+  if (!permissionsLoaded(ref)) return const Stream.empty();
+  final scope = classScopeClause(ref, 'inscriptions', column: 'ce.class_id');
+
   return db
       .watch(
-        '''
+        '''$_kInscriptionSelect
+        WHERE  ce.school_id = ? AND ce.academic_year_id = ?
+        AND    ce.status != 'active'
+        ${scope?.clause ?? ''}
+        ORDER  BY s.last_name, s.first_name
+        ''',
+        parameters: [schoolId, yearId, ...?scope?.params],
+      )
+      .map((rows) => [for (final r in rows) inscriptionRowFrom(r)]);
+});
+
+/// Les colonnes que [inscriptionRowFrom] attend — partagées par la vue liste et
+/// par la lecture d'UN dossier, pour que les deux ne puissent pas diverger.
+const _kInscriptionSelect = '''
         SELECT ce.id, ce.student_id, ce.status, ce.inscription_type,
                ce.is_repeating, ce.enrollment_date, ce.validated_at,
                s.first_name, s.last_name, s.matricule, s.ine, s.gender,
                s.date_of_birth, s.photo_url,
+               s.place_of_birth, s.nationality,
                c.id AS class_id, c.name AS class_name, c.capacity AS capacity,
                c.cycle_code AS cycle_code, c.level_code AS level_code,
                c.level_order AS level_order, c.filiere_label AS filiere_label
         FROM   class_enrollments ce
         JOIN   students s ON s.id = ce.student_id
         LEFT JOIN classes c ON c.id = ce.class_id
-        WHERE  ce.school_id = ? AND ce.academic_year_id = ?
-        AND    ce.status != 'active'
-        ORDER  BY s.last_name, s.first_name
-        ''',
-        parameters: [schoolId, yearId],
-      )
-      .map((rows) => [
-            for (final r in rows)
-              InscriptionRow(
-                id: r['id'] as String,
-                studentId: r['student_id'] as String,
-                firstName: r['first_name'] as String? ?? '',
-                lastName: r['last_name'] as String? ?? '',
-                matricule: r['matricule'] as String? ?? '',
-                ine: r['ine'] as String?,
-                gender: r['gender'] as String?,
-                dateOfBirth: _d(r['date_of_birth']),
-                photoUrl: r['photo_url'] as String?,
-                classId: r['class_id'] as String?,
-                className: r['class_name'] as String? ?? '—',
-                capacity: (r['capacity'] as int?) ?? 0,
-                cycle: inscriptionCycleFromCode(
-                    r['cycle_code'] as String?, r['class_name'] as String?),
-                levelCode: r['level_code'] as String?,
-                levelOrder: (r['level_order'] as int?) ?? 999,
-                filiereLabel: (r['filiere_label'] as String?)?.trim().isEmpty ?? true
-                    ? null
-                    : (r['filiere_label'] as String).trim(),
-                inscriptionType: r['inscription_type'] as String? ?? 'new',
-                status: r['status'] as String? ?? 'active',
-                isRepeating: r['is_repeating'] == 1 || r['is_repeating'] == true,
-                enrollmentDate: _d(r['enrollment_date']),
-                validatedAt: _d(r['validated_at']),
-              ),
-          ]);
+''';
+
+/// Une ligne SQL → une ligne d'écran.
+InscriptionRow inscriptionRowFrom(Map<String, dynamic> r) => InscriptionRow(
+      id: r['id'] as String,
+      studentId: r['student_id'] as String,
+      firstName: r['first_name'] as String? ?? '',
+      lastName: r['last_name'] as String? ?? '',
+      matricule: r['matricule'] as String? ?? '',
+      ine: r['ine'] as String?,
+      gender: r['gender'] as String?,
+      dateOfBirth: _d(r['date_of_birth']),
+      photoUrl: r['photo_url'] as String?,
+      placeOfBirth: r['place_of_birth'] as String?,
+      nationality: r['nationality'] as String?,
+      classId: r['class_id'] as String?,
+      className: r['class_name'] as String? ?? '—',
+      capacity: (r['capacity'] as int?) ?? 0,
+      cycle: inscriptionCycleFromCode(
+          r['cycle_code'] as String?, r['class_name'] as String?),
+      levelCode: r['level_code'] as String?,
+      levelOrder: (r['level_order'] as int?) ?? 999,
+      filiereLabel: (r['filiere_label'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : (r['filiere_label'] as String).trim(),
+      inscriptionType: r['inscription_type'] as String? ?? 'new',
+      status: r['status'] as String? ?? 'active',
+      isRepeating: r['is_repeating'] == 1 || r['is_repeating'] == true,
+      enrollmentDate: _d(r['enrollment_date']),
+      validatedAt: _d(r['validated_at']),
+    );
+
+/// UN dossier, lu directement par son identifiant.
+///
+/// ⚠️ Ne PAS passer par [inscriptionsDataProvider] pour retrouver une ligne
+/// qu'on vient d'écrire : c'est un flux, et sa première émission peut précéder
+/// l'écriture. Au sortir de l'assistant, la fiche se serait imprimée sur un
+/// dossier introuvable — une fois sur cinq, et jamais sur le poste du
+/// développeur. La lecture directe n'a pas cette course.
+///
+/// Sans filtre de statut non plus : cette lecture sert notamment à imprimer la
+/// fiche d'un dossier VALIDÉ, que la vue liste écarte.
+final inscriptionRowProvider = FutureProvider.autoDispose
+    .family<InscriptionRow?, String>((ref, enrollmentId) async {
+  final r = await db.getOptional(
+      '$_kInscriptionSelect WHERE ce.id = ?', [enrollmentId]);
+  return r == null ? null : inscriptionRowFrom(r);
 });
 
 DateTime? _d(Object? v) =>
     (v is String && v.isNotEmpty) ? DateTime.tryParse(v) : null;
 
-// ─── Évolution du pipeline par dimension (cycle / niveau / classe) ───────────
-// Le pipeline = dossiers EN COURS (statut ≠ validé ; rejets exclus). Pour chaque
-// catégorie de la dimension choisie : total + arrivées par mois (rythme). Sert au
-// graphe d'évolution multi-séries ET aux compteurs par catégorie. 100% dérivé des
-// lignes déjà chargées — distinct de la page Élèves (effectif VALIDÉ).
-class PipelineCat {
-  const PipelineCat(this.key, this.label, this.cycleCode, this.order, this.total,
-      this.monthly);
-  final String key, label, cycleCode;
-  final int order, total;
-  final List<int> monthly; // aligné sur PipelineEvolution.months
-}
-
-class PipelineEvolution {
-  const PipelineEvolution(this.months, this.cats);
-  final List<String> months;     // « MM/yyyy » chronologique
-  final List<PipelineCat> cats;  // trié cycle → ordre niveau → total
-  int get grandTotal => cats.fold(0, (s, c) => s + c.total);
-  static const empty = PipelineEvolution([], []);
-}
-
-/// Évolution du pipeline pour la dimension [dim] = 'cycle' | 'niveau' | 'classe'.
-final pipelineEvolutionProvider =
-    Provider.autoDispose.family<PipelineEvolution, String>((ref, dim) {
-  final rows = ref.watch(inscriptionsDataProvider).valueOrNull ?? const [];
-
-  String monthKey(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}';
-
-  final monthsSet = <String>{};
-  for (final r in rows) {
-    if (r.status == 'rejected') continue;
-    final d = r.enrollmentDate;
-    if (d != null) monthsSet.add(monthKey(d));
-  }
-  final months = monthsSet.toList()..sort();
-  final monthIdx = {for (var i = 0; i < months.length; i++) months[i]: i};
-
-  final monthly = <String, List<int>>{};
-  final totals = <String, int>{};
-  final meta = <String, (String, String, int)>{}; // key → (label, cycle, order)
-
-  for (final r in rows) {
-    if (r.status == 'rejected') continue;
-    String key, label;
-    final cycle = r.cycle.code;
-    int order;
-    switch (dim) {
-      case 'niveau':
-        final lc = r.levelCode;
-        if (lc == null || lc.isEmpty) continue;
-        key = '$cycle/$lc';
-        label = lc;
-        order = r.levelOrder;
-      case 'classe':
-        if (r.className.isEmpty || r.className == '—') continue;
-        key = r.className;
-        label = r.className;
-        order = r.levelOrder;
-      default: // cycle
-        key = cycle;
-        label = r.cycle.label;
-        order = r.cycle.order;
-    }
-    monthly.putIfAbsent(key, () => List<int>.filled(months.length, 0));
-    meta[key] = (label, cycle, order);
-    totals[key] = (totals[key] ?? 0) + 1;
-    final d = r.enrollmentDate;
-    if (d != null) {
-      final mi = monthIdx[monthKey(d)];
-      if (mi != null) monthly[key]![mi]++;
-    }
-  }
-
-  final cats = <PipelineCat>[
-    for (final e in monthly.entries)
-      PipelineCat(e.key, meta[e.key]!.$1, meta[e.key]!.$2, meta[e.key]!.$3,
-          totals[e.key] ?? 0, e.value),
-  ]..sort((a, b) {
-      final c = cycleOrderOf(a.cycleCode).compareTo(cycleOrderOf(b.cycleCode));
-      if (c != 0) return c;
-      final o = a.order.compareTo(b.order);
-      return o != 0 ? o : b.total.compareTo(a.total);
-    });
-
-  return PipelineEvolution(months, cats);
-});
-
-// ─── Dossier complet d'un élève (détail / modification) ──────────────────────
-class StudentTutorInfo {
-  const StudentTutorInfo({
-    required this.id,
-    required this.firstName,
-    required this.lastName,
-    required this.relationship,
-    required this.phonePrimary,
-    required this.phoneSecondary,
-    required this.email,
-    required this.profession,
-    required this.address,
-    required this.isPrimary,
-    required this.isEmergency,
-  });
-  final String id, firstName, lastName, relationship;
-  final String? phonePrimary, phoneSecondary, email, profession, address;
-  final bool isPrimary, isEmergency;
-
-  String get fullName => '$firstName $lastName'.trim();
-}
-
-class StudentDossier {
-  const StudentDossier({required this.student, required this.tutors});
-  final Map<String, dynamic> student; // ligne students brute
-  final List<StudentTutorInfo> tutors;
-
-  String s(String k) => (student[k] as String?)?.trim() ?? '';
-  DateTime? get dob => _d(student['date_of_birth']);
-}
-
-/// Dossier élève (offline) : ligne students + tuteurs. Invalidé après édition.
-final studentDossierProvider =
-    FutureProvider.autoDispose.family<StudentDossier, String>((ref, id) async {
-  final s = await db.getOptional('SELECT * FROM students WHERE id = ?', [id]);
-  final tutors = await db.getAll(
-    'SELECT * FROM student_tutors WHERE student_id = ? '
-    'ORDER BY is_primary_contact DESC, last_name',
-    [id],
-  );
-  return StudentDossier(
-    student: s ?? const {},
-    tutors: [
-      for (final t in tutors)
-        StudentTutorInfo(
-          id: (t['id'] as String?) ?? '',
-          firstName: (t['first_name'] as String?) ?? '',
-          lastName: (t['last_name'] as String?) ?? '',
-          relationship: (t['relationship'] as String?) ?? '',
-          phonePrimary: t['phone_primary'] as String?,
-          phoneSecondary: t['phone_secondary'] as String?,
-          email: t['email'] as String?,
-          profession: t['profession'] as String?,
-          address: t['address'] as String?,
-          isPrimary: t['is_primary_contact'] == 1 ||
-              t['is_primary_contact'] == true,
-          isEmergency: t['is_emergency_contact'] == 1 ||
-              t['is_emergency_contact'] == true,
-        ),
-    ],
-  );
-});
-
-/// Ligne brute `class_enrollments` (champs scolarité non portés par la vue
-/// liste : école/classe d'origine, motif transfert, notes, rejet, retrait).
-/// Utilisée par la fiche détail et l'assistant de modification.
-final enrollmentDetailProvider = FutureProvider.autoDispose
-    .family<Map<String, dynamic>, String>((ref, enrollmentId) async {
-  final r = await db.getOptional(
-      'SELECT * FROM class_enrollments WHERE id = ?', [enrollmentId]);
-  return r ?? const <String, dynamic>{};
-});
 
 // ─── Structure académique RÉELLE de l'école (cycles / niveaux / classes) ─────
 // Dérivée 100% offline de la table `classes` (déjà synchronisée). Une classe
@@ -435,7 +337,8 @@ final schoolStructureProvider =
     '''
     SELECT name, cycle_code, level_code, level_order, capacity, filiere_label
     FROM   classes
-    WHERE  school_id = ? AND academic_year_id = ? AND is_active = 1
+    WHERE  school_id = ? AND academic_year_id = ?
+      AND  COALESCE(is_active, 1) <> 0
     ORDER  BY level_order, name
     ''',
     parameters: [schoolId, yearId],
@@ -474,354 +377,73 @@ final schoolStructureProvider =
   });
 });
 
+
 // ════════════════════════════════════════════════════════════════════════════
-//  BILAN DE L'ANNÉE — toutes les inscriptions, pas seulement celles qui restent
-//  au guichet.
+//  LES CHIFFRES DU GUICHET — et rien d'autre.
 //
-//  La liste de cette page est volontairement le PIPELINE : `inscriptionsDataProvider`
-//  écarte `status = 'active'`, parce qu'un dossier validé n'a plus rien à y
-//  faire — l'élève inscrit vit dans la page Élèves. C'est un bon découpage.
+//  ── CE QUI A ÉTÉ RETIRÉ, ET POURQUOI ───────────────────────────────────────
+//  Ce provider produisait quinze agrégats : répartition par cycle, par niveau,
+//  par classe, par filière, par sexe, capacité totale, taux de remplissage,
+//  compteurs par type. La page n'en lisait plus que quatre depuis sa refonte —
+//  les onze autres se recalculaient à chaque reconstruction pour personne.
 //
-//  Mais les compteurs, eux, en héritaient : sur une école qui avait inscrit
-//  trente élèves et en avait réinscrit trente et un, la carte « Nouvelles —
-//  premières inscriptions » affichait **0**, et « Réinscriptions » **1**. Non
-//  pas approximativement : le chiffre décrivait les deux dossiers non traités
-//  qui traînaient, pas le travail de l'année. Aucune ligne à l'écran ne
-//  permettait de s'en douter, et la question la plus simple qu'on pose à un
-//  module d'inscription — « combien d'élèves avez-vous inscrits ? » — n'avait
-//  aucune réponse dans la page qui porte ce nom.
+//  Deux d'entre eux étaient pires qu'inutiles : `active` ne POUVAIT PAS être
+//  différent de zéro, puisque la requête amont écarte précisément ce statut, et
+//  `fillRatio` en dérivait — il aurait affiché un taux de remplissage proche de
+//  0 % pour une école pleine. Invisible tant que rien ne les lisait, armé pour
+//  le premier qui rebrancherait la carte.
 //
-//  D'où cette agrégation distincte, sur TOUTES les inscriptions de l'année.
-//  Elle compte des lignes, pas des personnes : un élève réinscrit après un
-//  rejet a deux dossiers, et c'est bien deux dossiers qu'a traités le
-//  secrétariat. L'effectif, lui, se lit sur les inscriptions actives.
+//  Ce qui reste ici décrit le GUICHET, et le dit : les dossiers à traiter. Les
+//  chiffres de l'ANNÉE — effectif, types, redoublants, rythme — vivent dans
+//  `yearInscriptionTotalsProvider`, qui interroge toutes les inscriptions.
+//  Deux sources, deux questions, aucune ambiguïté.
 // ════════════════════════════════════════════════════════════════════════════
-class YearInscriptionTotals {
-  const YearInscriptionTotals({
-    this.enrolled = 0,
-    this.newCount = 0,
-    this.reinscription = 0,
-    this.transfer = 0,
-    this.repeating = 0,
-  });
-
-  /// Inscriptions ACTIVES : l'effectif réellement scolarisé cette année.
-  final int enrolled;
-
-  /// Dossiers de l'année par type, tous statuts confondus.
-  final int newCount, reinscription, transfer;
-
-  /// Dossiers portant la mention « redoublant ».
-  final int repeating;
-}
-
-final yearInscriptionTotalsProvider =
-    StreamProvider.autoDispose<YearInscriptionTotals>((ref) {
-  final schoolId = ref.watch(authNotifierProvider).valueOrNull?.schoolId;
-  final yearId = ref.watch(activeYearIdProvider);
-  if (schoolId == null || schoolId.isEmpty || yearId == null) {
-    return Stream.value(const YearInscriptionTotals());
-  }
-  return db
-      .watch(
-        '''
-        SELECT
-          SUM(CASE WHEN status = 'active'                THEN 1 ELSE 0 END) AS enrolled,
-          SUM(CASE WHEN inscription_type = 'reinscription' THEN 1 ELSE 0 END) AS re,
-          SUM(CASE WHEN inscription_type = 'transfer'      THEN 1 ELSE 0 END) AS tr,
-          SUM(CASE WHEN COALESCE(inscription_type, 'new') NOT IN
-                        ('reinscription', 'transfer')     THEN 1 ELSE 0 END) AS nw,
-          SUM(CASE WHEN is_repeating = 1                 THEN 1 ELSE 0 END) AS rep
-        FROM class_enrollments
-        WHERE school_id = ? AND academic_year_id = ?
-        ''',
-        parameters: [schoolId, yearId],
-      )
-      .map((rows) {
-        if (rows.isEmpty) return const YearInscriptionTotals();
-        int n(String k) => (rows.first[k] as int?) ?? 0;
-        return YearInscriptionTotals(
-          enrolled: n('enrolled'),
-          newCount: n('nw'),
-          reinscription: n('re'),
-          transfer: n('tr'),
-          repeating: n('rep'),
-        );
-      });
-});
-
-// ─── Export CSV ──────────────────────────────────────────────────────────────
-
-String _csvCell(String? v) {
-  final s = (v ?? '').replaceAll('"', '""');
-  return '"$s"';
-}
-
-/// Génère un CSV (séparateur `;` — compatible Excel FR) des inscriptions filtrées
-/// et l'écrit dans le dossier Documents de l'appareil. Retourne le chemin.
-Future<String> exportInscriptionsCsv(List<InscriptionRow> rows) async {
-  final b = StringBuffer();
-  b.writeln([
-    'Matricule', 'Nom', 'Prénom', 'Sexe', 'Classe', 'Cycle',
-    'Type', 'Statut', 'Redoublant', 'Date inscription',
-  ].map(_csvCell).join(';'));
-  for (final r in rows) {
-    b.writeln([
-      r.matricule, r.lastName, r.firstName,
-      r.gender ?? '', r.className, r.cycle.label,
-      r.typeLabel, r.statusLabel, r.isRepeating ? 'Oui' : 'Non',
-      r.enrollmentDate?.toIso8601String().substring(0, 10) ?? '',
-    ].map(_csvCell).join(';'));
-  }
-  final dir = await getApplicationDocumentsDirectory();
-  final ts = DateTime.now().toIso8601String().substring(0, 10);
-  final file = File('${dir.path}/inscriptions_$ts.csv');
-  // BOM UTF-8 pour qu'Excel lise correctement les accents.
-  await file.writeAsString('﻿${b.toString()}');
-  return file.path;
-}
-
-// ─── Agrégations dérivées (KPI / cycles / évolution) ─────────────────────────
-
-class CycleCount {
-  const CycleCount(this.cycle, this.total, this.boys, this.girls);
-  final InscriptionCycle cycle;
-  final int total, boys, girls;
-}
-
-class LevelCount {
-  const LevelCount(
-      this.code, this.cycleCode, this.order, this.total, this.boys, this.girls);
-  final String code;            // ex. « 6e », « CP1 », « Tle »
-  final String cycleCode;       // cycle parent (couleur d'accent)
-  final int order, total, boys, girls;
-}
-
-class ClassCount {
-  const ClassCount(this.name, this.cycleCode, this.levelCode, this.levelOrder,
-      this.capacity, this.total, this.boys, this.girls);
-  final String name;            // ex. « 6ème A »
-  final String cycleCode;       // pour la couleur d'accent
-  final String? levelCode;      // niveau parent (ex. « 6e ») → groupage par niveau
-  final int levelOrder, capacity, total, boys, girls;
-  double get fillRatio => capacity > 0 ? total / capacity : 0;
-}
-
-class ProgramCount {
-  const ProgramCount(this.label, this.total, this.boys, this.girls);
-  final String label;           // filière (lycée/FP) ex. « Série C »
-  final int total, boys, girls;
-}
-
-/// Un point d'évolution : nouvelles inscriptions du mois + cumul à ce mois.
-class EnrollPoint {
-  const EnrollPoint(this.label, this.count, this.cumul);
-  final String label;           // « MM/yyyy »
-  final int count;              // inscriptions DU mois (rythme)
-  final int cumul;              // effectif cumulé à la fin du mois
-}
-
 class InscriptionStats {
   const InscriptionStats({
-    required this.total,
-    required this.active,
-    required this.pending,
-    required this.rejected,
-    required this.boys,
-    required this.girls,
-    required this.typeNew,
-    required this.reinscription,
-    required this.transfer,
-    required this.repeating,
-    required this.byCycle,
-    required this.byLevel,
-    required this.byClass,
-    required this.byProgram,
-    required this.capacityTotal,
-    required this.evolution,
+    this.pending = 0,
+    this.rejected = 0,
+    this.filieres = const [],
   });
 
-  final int total, active, pending, rejected;
-  final int boys, girls;
-  final int typeNew, reinscription, transfer, repeating;
-  final int capacityTotal;               // somme des capacités des classes
-  double get fillRatio =>
-      capacityTotal > 0 ? total / capacityTotal : 0;
-  final List<CycleCount> byCycle;        // trié ordre pédagogique
-  final List<LevelCount> byLevel;        // par niveau (6e, 5e…), ordre pédagogique
-  final List<ClassCount> byClass;        // par classe (6ème A…), ordre niveau puis nom
-  final List<ProgramCount> byProgram;    // par filière (lycée/FP) — vide si aucune
-  final List<EnrollPoint> evolution;     // rythme + cumul par mois (croissant)
+  /// Dossiers en attente de validation.
+  final int pending;
+
+  /// Dossiers refusés, encore visibles au guichet.
+  final int rejected;
+
+  /// Filières OFFERTES par l'école, triées. Vient de la STRUCTURE, pas des
+  /// inscriptions : le filtre doit exister dès qu'un établissement technique a
+  /// créé ses classes, même avant d'avoir inscrit le premier élève.
+  final List<String> filieres;
+
+  int get aTraiter => pending + rejected;
 }
 
-/// Statistiques d'inscription dérivées (mêmes données, calculées côté client).
+/// Les compteurs du guichet, dérivés du pipeline déjà chargé.
 final inscriptionStatsProvider = Provider.autoDispose<InscriptionStats>((ref) {
   final rows = ref.watch(inscriptionsDataProvider).valueOrNull ?? const [];
   final structure =
       ref.watch(schoolStructureProvider).valueOrNull ?? SchoolStructure.empty;
 
-  var active = 0, pending = 0, rejected = 0, boys = 0, girls = 0;
-  var tNew = 0, tRe = 0, tTr = 0, repeating = 0;
-  final cycleMap = <String, List<int>>{}; // code → [total, boys, girls, order]
-  final cycleObj = <String, InscriptionCycle>{};
-  final levelMap = <String, List<int>>{}; // code niveau → [total, boys, girls, order]
-  final levelCycle = <String, String>{};  // code niveau → cycle code
-  final classMap = <String, List<int>>{}; // nom classe → [total, boys, girls, order, capacity]
-  final classCycle = <String, String>{};  // nom classe → cycle code
-  final classLevel = <String, String?>{}; // nom classe → code niveau (groupage)
-  final progMap = <String, List<int>>{};  // filière → [total, boys, girls]
-  final monthCount = <String, int>{};
-
-  // Amorçage à 0 depuis la structure RÉELLE de l'école : tous les cycles,
-  // niveaux et classes configurés apparaissent même sans inscrit (dynamique).
-  for (final c in structure.cycles) {
-    cycleMap.putIfAbsent(c.code, () => [0, 0, 0, c.order]);
-    cycleObj[c.code] = c;
-  }
-  for (final l in structure.levels) {
-    levelMap.putIfAbsent(l.code, () => [0, 0, 0, l.order]);
-    levelCycle[l.code] = l.cycleCode;
-  }
-  for (final cl in structure.classes) {
-    classMap.putIfAbsent(cl.name, () => [0, 0, 0, cl.levelOrder, cl.capacity]);
-    classCycle[cl.name] = cl.cycleCode;
-    classLevel[cl.name] = cl.levelCode;
-    if (cl.filiere != null) progMap.putIfAbsent(cl.filiere!, () => [0, 0, 0]);
-  }
-
+  var pending = 0, rejected = 0;
   for (final r in rows) {
     switch (r.status) {
-      case 'active': active++;
-      case 'pending_validation': pending++;
-      case 'rejected': rejected++;
-    }
-    // KPI cycle/genre/évolution : sur les inscriptions « réelles » (hors rejet).
-    if (r.status == 'rejected') continue;
-    if (r.gender == 'M') {
-      boys++;
-    } else if (r.gender == 'F') {
-      girls++;
-    }
-    switch (r.inscriptionType) {
-      case 'new': tNew++;
-      case 'reinscription': tRe++;
-      case 'transfer': tTr++;
-    }
-    if (r.isRepeating) repeating++;
-
-    final c = cycleMap.putIfAbsent(r.cycle.code, () => [0, 0, 0, r.cycle.order]);
-    cycleObj[r.cycle.code] = r.cycle;
-    c[0]++;
-    if (r.gender == 'M') {
-      c[1]++;
-    } else if (r.gender == 'F') {
-      c[2]++;
-    }
-
-    final lc = r.levelCode;
-    if (lc != null && lc.isNotEmpty) {
-      final lv = levelMap.putIfAbsent(lc, () => [0, 0, 0, r.levelOrder]);
-      levelCycle[lc] = r.cycle.code;
-      lv[0]++;
-      if (r.gender == 'M') {
-        lv[1]++;
-      } else if (r.gender == 'F') {
-        lv[2]++;
-      }
-    }
-
-    // Par classe (toujours disponible : nom de classe).
-    if (r.className.isNotEmpty && r.className != '—') {
-      final cl = classMap.putIfAbsent(
-          r.className, () => [0, 0, 0, r.levelOrder, r.capacity]);
-      classCycle[r.className] = r.cycle.code;
-      classLevel[r.className] = r.levelCode;
-      cl[0]++;
-      if (r.gender == 'M') {
-        cl[1]++;
-      } else if (r.gender == 'F') {
-        cl[2]++;
-      }
-    }
-
-    // Par filière (lycée/FP) — uniquement si la classe est reliée à une filière.
-    final fl = r.filiereLabel;
-    if (fl != null && fl.isNotEmpty) {
-      final pg = progMap.putIfAbsent(fl, () => [0, 0, 0]);
-      pg[0]++;
-      if (r.gender == 'M') {
-        pg[1]++;
-      } else if (r.gender == 'F') {
-        pg[2]++;
-      }
-    }
-
-    final d = r.enrollmentDate;
-    if (d != null) {
-      final key = '${d.year}-${d.month.toString().padLeft(2, '0')}';
-      monthCount[key] = (monthCount[key] ?? 0) + 1;
+      case 'pending_validation':
+        pending++;
+      case 'rejected':
+        rejected++;
     }
   }
 
-  final byCycle = cycleMap.entries
-      .map((e) => CycleCount(cycleObj[e.key]!, e.value[0], e.value[1], e.value[2]))
-      .toList()
-    ..sort((a, b) => a.cycle.order.compareTo(b.cycle.order));
-
-  final byLevel = levelMap.entries
-      .map((e) => LevelCount(e.key, levelCycle[e.key] ?? 'autre', e.value[3],
-          e.value[0], e.value[1], e.value[2]))
-      .toList()
-    ..sort((a, b) {
-      final c = cycleOrderOf(a.cycleCode).compareTo(cycleOrderOf(b.cycleCode));
-      return c != 0 ? c : a.order.compareTo(b.order);
-    });
-
-  final byClass = classMap.entries
-      .map((e) => ClassCount(e.key, classCycle[e.key] ?? 'autre',
-          classLevel[e.key], e.value[3], e.value[4], e.value[0], e.value[1],
-          e.value[2]))
-      .toList()
-    ..sort((a, b) {
-      final c = cycleOrderOf(a.cycleCode).compareTo(cycleOrderOf(b.cycleCode));
-      if (c != 0) return c;
-      final o = a.levelOrder.compareTo(b.levelOrder);
-      return o != 0 ? o : a.name.toLowerCase().compareTo(b.name.toLowerCase());
-    });
-
-  final byProgram = progMap.entries
-      .map((e) => ProgramCount(e.key, e.value[0], e.value[1], e.value[2]))
-      .toList()
-    ..sort((a, b) => b.total.compareTo(a.total));
-
-  // Évolution par mois (croissant) : rythme (du mois) + cumul.
-  final months = monthCount.keys.toList()..sort();
-  var cumul = 0;
-  final evolution = <EnrollPoint>[];
-  for (final m in months) {
-    final c = monthCount[m]!;
-    cumul += c;
-    final parts = m.split('-');
-    evolution.add(EnrollPoint('${parts[1]}/${parts[0]}', c, cumul));
-  }
+  final filieres = <String>{
+    for (final c in structure.classes)
+      if (c.filiere != null && c.filiere!.isNotEmpty) c.filiere!,
+  }.toList()
+    ..sort();
 
   return InscriptionStats(
-    total: active + pending, // dossiers vivants (hors rejet)
-    active: active,
     pending: pending,
     rejected: rejected,
-    boys: boys,
-    girls: girls,
-    typeNew: tNew,
-    reinscription: tRe,
-    transfer: tTr,
-    repeating: repeating,
-    byCycle: byCycle,
-    byLevel: byLevel,
-    byClass: byClass,
-    byProgram: byProgram,
-    capacityTotal:
-        structure.classes.fold<int>(0, (s, c) => s + c.capacity),
-    evolution: evolution,
+    filieres: filieres,
   );
 });

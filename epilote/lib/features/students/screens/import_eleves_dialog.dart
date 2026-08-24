@@ -23,7 +23,10 @@ import '../../auth/providers/auth_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
 import '../providers/import_eleves_provider.dart';
 import '../services/import_liste_eleves.dart';
+import '../services/modele_import_csv.dart';
+import 'import_correspondance_classes.dart';
 import 'import_eleves_parts.dart';
+import 'import_modele_panneau.dart';
 
 Future<bool> showImportElevesDialog(BuildContext context) async {
   final fait = await showDialog<bool>(
@@ -47,6 +50,15 @@ class _ImportState extends ConsumerState<_ImportElevesDialog> {
   String? _classeParDefaut;
   String? _erreur;
   bool _travaille = false;
+
+  /// Libellé de classe du fichier (forme normalisée) → classe de l'école qu'on
+  /// lui a désignée à la main. Vide tant que personne n'a rien aiguillé.
+  final Map<String, String> _correspondances = {};
+
+  /// Le modèle engendré, une fois écrit sur le disque. `null` tant que l'école
+  /// ne l'a pas demandé — le panneau de confirmation n'existe qu'après coup.
+  ModeleImport? _modele;
+  bool _modeleEnCours = false;
 
   // Écriture en cours
   int _faites = 0;
@@ -107,6 +119,7 @@ class _ImportState extends ConsumerState<_ImportElevesDialog> {
       schoolId: profile!.schoolId!,
       yearId: yearId,
       classeParDefaut: _classeParDefaut,
+      correspondances: _correspondances,
     );
     if (!mounted) return;
     setState(() {
@@ -117,6 +130,28 @@ class _ImportState extends ConsumerState<_ImportElevesDialog> {
 
   Future<void> _changerClasse(String? id) async {
     setState(() => _classeParDefaut = id);
+    await _rejouer();
+  }
+
+  /// Aiguille un libellé inconnu vers une classe réelle — ou retire l'aiguillage.
+  Future<void> _changerCorrespondance(String libelle, String? classeId) async {
+    final cle = cleClasse(libelle);
+    setState(() {
+      if (classeId == null) {
+        _correspondances.remove(cle);
+      } else {
+        _correspondances[cle] = classeId;
+      }
+    });
+    await _rejouer();
+  }
+
+  /// Relit le fichier avec les réglages courants.
+  ///
+  /// ⚠️ Toujours DEPUIS LES OCTETS, jamais en retouchant la préparation en
+  /// place : les motifs de rejet s'accumulent sur les lignes déjà lues, et une
+  /// ligne qu'on vient de débloquer resterait marquée « classe inconnue ».
+  Future<void> _rejouer() async {
     final o = _octets;
     if (o == null) return;
     setState(() => _travaille = true);
@@ -199,24 +234,68 @@ class _ImportState extends ConsumerState<_ImportElevesDialog> {
   }
 
   // ── Écran 1 : choisir le fichier ────────────────────────────────────────
-  Widget _accueil() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_erreur != null) ...[
-            AdminErrorBanner(message: _erreur!),
-            const SizedBox(height: 16),
-          ],
-          const ModeEmploiImport(),
-          const SizedBox(height: 20),
-          Center(
-            child: AdminPrimaryButton(
-              label: _travaille ? 'Lecture…' : 'Choisir un fichier',
-              icon: Icons.folder_open_outlined,
-              onTap: _travaille ? () {} : _choisirFichier,
-            ),
-          ),
+  //
+  // ⚠️ L'ordre des deux boutons est la fonctionnalité. « Choisir un fichier »
+  // est l'action principale parce que presque toutes les écoles tiennent DÉJÀ
+  // une liste : le modèle n'est là que pour celles qui n'en ont pas. Remonter
+  // le modèle au premier rang ferait retaper trois cents élèves à une école qui
+  // n'avait qu'à ouvrir son classeur.
+  Widget _accueil() {
+    final classes = ref.watch(classesImportProvider).valueOrNull ?? const [];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_erreur != null) ...[
+          AdminErrorBanner(message: _erreur!),
+          const SizedBox(height: 16),
         ],
-      );
+        const ModeEmploiImport(),
+        const SizedBox(height: 20),
+        Center(
+          child: AdminPrimaryButton(
+            label: _travaille ? 'Lecture…' : 'Choisir un fichier',
+            icon: Icons.folder_open_outlined,
+            onTap: _travaille ? () {} : _choisirFichier,
+          ),
+        ),
+        const SizedBox(height: 18),
+        // ⚠️ CE BLOC S'ADRESSE AUSSI AUX ÉCOLES QUI ONT DÉJÀ LEUR LISTE.
+        // Il était un simple lien « Pas encore de liste ? Télécharger un
+        // modèle » : une école qui AVAIT sa liste lisait la question, se
+        // reconnaissait dans le « non », et passait. Or le second fichier
+        // engendré — les libellés de classe réels de l'établissement — est
+        // précisément ce qui lui manque, puisque la première cause de rejet
+        // est un nom de classe qui ne correspond pas. La porte était fermée à
+        // ceux qui en avaient le plus besoin, par son seul intitulé.
+        OffreModele(
+          enCours: _modeleEnCours,
+          onTelecharger: _telechargerModele,
+          nbClasses: classes.length,
+          modele: _modele,
+        ),
+      ],
+    );
+  }
+
+  /// Écrit le modèle à remplir et la liste des classes de l'école.
+  Future<void> _telechargerModele() async {
+    setState(() {
+      _modeleEnCours = true;
+      _erreur = null;
+    });
+    try {
+      final classes = await ref.read(classesImportProvider.future);
+      final m = await genererModeleImport(classes);
+      if (mounted) setState(() { _modele = m; _modeleEnCours = false; });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _erreur = "Le modèle n'a pas pu être enregistré : $e";
+          _modeleEnCours = false;
+        });
+      }
+    }
+  }
 
   // ── Écran 2 : ce que la machine a compris ───────────────────────────────
   Widget _apercu(PreparationImport prep) {
@@ -227,6 +306,18 @@ class _ImportState extends ConsumerState<_ImportElevesDialog> {
         const SizedBox(height: 14),
       ],
       ResumeImport(prep: prep),
+      // Avant tout le reste : les libellés de classe que l'école ne connaît
+      // pas. C'est la seule cause de rejet qui se répare ICI, et elle emporte
+      // souvent des dizaines de lignes d'un coup.
+      if (prep.libellesInconnus.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        CorrespondanceClasses(
+          inconnus: prep.libellesInconnus,
+          classes: classes,
+          correspondances: _correspondances,
+          onChanged: _travaille ? null : _changerCorrespondance,
+        ),
+      ],
       const SizedBox(height: 16),
       ChoixClasseAccueil(
         classes: classes,

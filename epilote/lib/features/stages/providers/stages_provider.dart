@@ -15,7 +15,10 @@ import '../../structure/providers/academic_year_context.dart';
 
 /// Examens dont le dossier exige une attestation de stage (note METP 2025-2026 :
 /// « les baccalauréats demandent […] une attestation de stage »).
-const kExamsRequiringInternship = {'BAC_T', 'BAC_P'};
+///
+/// `BAC` est le code courant depuis la mig. 0105 (un seul baccalauréat au
+/// METP) ; `BAC_T`/`BAC_P` restent acceptés pour les bases pas encore migrées.
+const kExamsRequiringInternship = {'BAC', 'BAC_T', 'BAC_P'};
 
 enum InternshipStatus {
   prevu,

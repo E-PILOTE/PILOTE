@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../navigation/providers/permissions_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
 import '../../../services/powersync/powersync_service.dart';
 
@@ -73,12 +74,27 @@ DateTime? _d(Object? v) =>
     (v is String && v.isNotEmpty) ? DateTime.tryParse(v) : null;
 
 /// Transferts de l'école (année active ou pérennes). Réactif, local.
+///
+/// ── ⚠️ PÉRIMÈTRE ───────────────────────────────────────────────────────────
+/// `transferts` est réglable sur `own_classes` comme les autres modules, et le
+/// profil « Enseignant » l'est. Le registre des départs — nom, matricule,
+/// classe, école d'accueil et MOTIF de sortie de chaque élève — se lisait
+/// pourtant en entier. Le motif est la donnée la plus sensible du domaine :
+/// c'est lui qui porte la déperdition scolaire (grossesse, exclusion,
+/// difficulté économique).
+///
+/// La restriction passe par l'inscription de l'année (`ce.class_id`) : un
+/// transfert dont l'élève n'a plus d'inscription cette année sort du périmètre
+/// restreint, faute de quoi le rattacher au membre. En `own_school`, rien n'est
+/// ajouté.
 final transfersProvider = StreamProvider.autoDispose<List<TransferRow>>((ref) {
   ref.keepAlive();
   final profile = ref.watch(authNotifierProvider).valueOrNull;
   final schoolId = profile?.schoolId;
   final yearId = ref.watch(activeYearIdProvider);
   if (schoolId == null || schoolId.isEmpty) return Stream.value(const []);
+  if (!permissionsLoaded(ref)) return const Stream.empty();
+  final scope = classScopeClause(ref, 'transferts', column: 'ce.class_id');
 
   return db
       .watch(
@@ -101,9 +117,10 @@ final transfersProvider = StreamProvider.autoDispose<List<TransferRow>>((ref) {
         LEFT JOIN classes c ON c.id = ce.class_id
         WHERE  t.from_school_id = ?
           AND  (t.academic_year_id = ? OR t.academic_year_id IS NULL)
+        ${scope?.clause ?? ''}
         ORDER  BY t.transfer_date DESC, t.created_at DESC
         ''',
-        parameters: [yearId ?? '', schoolId, yearId],
+        parameters: [yearId ?? '', schoolId, yearId, ...?scope?.params],
       )
       .map((rows) => [
             for (final r in rows)
@@ -178,6 +195,11 @@ final transferCandidatesProvider =
   final schoolId = profile?.schoolId;
   final yearId = ref.watch(activeYearIdProvider);
   if (schoolId == null || schoolId.isEmpty) return Stream.value(const []);
+  // Le sélecteur d'élève du formulaire de transfert : sans périmètre, il
+  // rendait l'effectif entier de l'école — la liste des noms que la page
+  // elle-même refuse d'afficher.
+  if (!permissionsLoaded(ref)) return const Stream.empty();
+  final scope = classScopeClause(ref, 'transferts', column: 'ce.class_id');
 
   return db
       .watch(
@@ -189,15 +211,16 @@ final transferCandidatesProvider =
               AND ce.academic_year_id = ?
               AND ce.status = 'active'
         LEFT JOIN classes c ON c.id = ce.class_id
-        WHERE  s.school_id = ? AND s.is_active = 1
+        WHERE  s.school_id = ? AND COALESCE(s.is_active, 1) <> 0
           AND  NOT EXISTS (
                  SELECT 1 FROM student_transfers t
                  WHERE  t.student_id = s.id
                    AND  t.status IN ('pending','approved')
                )
+        ${scope?.clause ?? ''}
         ORDER  BY s.last_name, s.first_name
         ''',
-        parameters: [yearId ?? '', schoolId],
+        parameters: [yearId ?? '', schoolId, ...?scope?.params],
       )
       .map((rows) => [
             for (final r in rows)
@@ -239,7 +262,7 @@ final transferDestinationsProvider =
         FROM   school_groups g
         LEFT JOIN schools s
                ON s.group_id = g.id
-              AND s.is_active = 1
+              AND COALESCE(s.is_active, 1) <> 0
               AND s.id != ?
         ORDER  BY g.name, s.name
         ''',

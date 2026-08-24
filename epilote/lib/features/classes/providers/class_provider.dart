@@ -54,14 +54,22 @@ final classesProvider =
                COALESCE(ec.cnt, 0) AS student_count
         FROM   classes c
         LEFT JOIN (
-          SELECT class_id, COUNT(*) AS cnt
-          FROM   class_enrollments
-          WHERE  status = 'active'
-          GROUP  BY class_id
+          -- ⚠️ `status = 'active'` ne suffit PAS. `deactivateStudent` retire
+          -- l'élève du registre (`students.is_active = 0`) SANS toucher au
+          -- statut de son inscription — à dessein : une sortie de classe exige
+          -- un motif normalisé (déperdition scolaire), qu'une désactivation
+          -- administrative n'a pas. Sans ce second filtre, l'élève disparaît de
+          -- la liste Élèves mais continue d'occuper une place ici, et l'écran
+          -- Classes annonce un effectif que la liste ne montre plus.
+          SELECT ce.class_id, COUNT(*) AS cnt
+          FROM   class_enrollments ce
+          JOIN   students s ON s.id = ce.student_id
+          WHERE  ce.status = 'active' AND COALESCE(s.is_active, 1) <> 0
+          GROUP  BY ce.class_id
         ) ec ON ec.class_id = c.id
         WHERE  c.school_id = ?
         AND    c.academic_year_id = ?
-        AND    c.is_active  = 1
+        AND    COALESCE(c.is_active, 1) <> 0
         $scopeClause
         ORDER  BY c.name
         ''',
@@ -81,10 +89,18 @@ final classByIdProvider =
                COALESCE(ec.cnt, 0) AS student_count
         FROM   classes c
         LEFT JOIN (
-          SELECT class_id, COUNT(*) AS cnt
-          FROM   class_enrollments
-          WHERE  status = 'active'
-          GROUP  BY class_id
+          -- ⚠️ `status = 'active'` ne suffit PAS. `deactivateStudent` retire
+          -- l'élève du registre (`students.is_active = 0`) SANS toucher au
+          -- statut de son inscription — à dessein : une sortie de classe exige
+          -- un motif normalisé (déperdition scolaire), qu'une désactivation
+          -- administrative n'a pas. Sans ce second filtre, l'élève disparaît de
+          -- la liste Élèves mais continue d'occuper une place ici, et l'écran
+          -- Classes annonce un effectif que la liste ne montre plus.
+          SELECT ce.class_id, COUNT(*) AS cnt
+          FROM   class_enrollments ce
+          JOIN   students s ON s.id = ce.student_id
+          WHERE  ce.status = 'active' AND COALESCE(s.is_active, 1) <> 0
+          GROUP  BY ce.class_id
         ) ec ON ec.class_id = c.id
         WHERE  c.id = ?
         LIMIT  1
@@ -135,7 +151,8 @@ final classCountProvider = StreamProvider.autoDispose<int>((ref) {
   return db
       .watch(
         'SELECT COUNT(*) AS cnt FROM classes '
-        'WHERE school_id = ? AND academic_year_id = ? AND is_active = 1 $scopeClause',
+        'WHERE school_id = ? AND academic_year_id = ? '
+        'AND COALESCE(is_active, 1) <> 0 $scopeClause',
         parameters: [profile.schoolId, yearId, ...?scopeIds],
       )
       .map((rows) => rows.isEmpty ? 0 : (rows.first['cnt'] as int? ?? 0));
@@ -429,6 +446,120 @@ Future<void> rejectEnrollment({
     WHERE  id = ?
     ''',
     [rejectionReason, now, validatedBy, now, enrollmentId],
+  );
+}
+
+/// Remet un dossier REJETÉ dans le circuit de validation.
+///
+/// ── Pourquoi cette fonction existe ──────────────────────────────────────────
+/// `class_enrollments` porte `UNIQUE (student_id, academic_year_id)` SANS
+/// condition de statut. Une fois l'inscription rejetée, la ligne occupe la
+/// place : `enrollStudent` refuse toute nouvelle saisie pour cet élève et cette
+/// année. La seule sortie offerte était « Supprimer l'inscription », un DELETE
+/// sec — c'est-à-dire la disparition du motif de rejet et de son auteur.
+///
+/// Or un rejet est un acte d'établissement. Le secrétariat qui corrige une
+/// pièce manquante et resoumet le dossier ne doit pas, ce faisant, effacer la
+/// trace de la décision du chef.
+///
+/// ── Où va le motif ─────────────────────────────────────────────────────────
+/// Il descend dans les notes internes, daté, et `rejection_reason` est libéré.
+/// Le garder en place afficherait « Motif du rejet » sur un dossier redevenu
+/// « en attente » — deux états contradictoires sur la même fiche. L'historique
+/// appartient aux notes ; le champ de rejet décrit l'état courant.
+Future<void> reopenRejectedEnrollment({
+  required String enrollmentId,
+  required String actorName,
+}) async {
+  final now = DateTime.now();
+  final row = await db.getOptional(
+    'SELECT notes, rejection_reason FROM class_enrollments WHERE id = ?',
+    [enrollmentId],
+  );
+  final motif = (row?['rejection_reason'] as String?)?.trim() ?? '';
+  final notes = (row?['notes'] as String?)?.trim() ?? '';
+
+  final d = '${now.day.toString().padLeft(2, '0')}/'
+      '${now.month.toString().padLeft(2, '0')}/${now.year}';
+  final trace = motif.isEmpty
+      ? 'Dossier rejeté puis repris le $d par $actorName.'
+      : 'Rejeté le $d — motif : $motif. Dossier repris par $actorName.';
+  final fusion = notes.isEmpty ? trace : '$notes\n$trace';
+
+  await db.execute(
+    '''
+    UPDATE class_enrollments
+    SET    status           = 'pending_validation',
+           rejection_reason = NULL,
+           validated_at     = NULL,
+           validated_by     = NULL,
+           notes            = ?,
+           updated_at       = ?
+    WHERE  id = ?
+    ''',
+    [fusion, now.toIso8601String(), enrollmentId],
+  );
+}
+
+/// Accorde, modifie ou retire l'exonération de scolarité d'une inscription.
+///
+/// [taux] est un pourcentage 1–100, ou `null` pour retirer l'exonération.
+/// [motif] est OBLIGATOIRE dès qu'un taux est posé — la contrainte
+/// `class_enrollments_exoneration_justifiee` (migration 0109) le refuse
+/// autrement, et un refus serveur fait abandonner à PowerSync le LOT ENTIER
+/// des écritures de la fenêtre, en silence. On valide donc AVANT d'écrire.
+///
+/// ⚠️ Zéro n'est pas une exonération : la base le refuse, et « exonéré de
+/// rien » n'a pas de sens. Un taux ≤ 0 vaut retrait.
+///
+/// La décision descend dans les notes internes, datée et signée : une remise
+/// de scolarité est de l'argent auquel l'école renonce, elle doit rester
+/// lisible six mois plus tard sans consulter l'audit.
+Future<void> setEnrollmentExemption({
+  required String enrollmentId,
+  required int? taux,
+  required String motif,
+  required String actorName,
+}) async {
+  final accorde = taux != null && taux > 0;
+  final m = motif.trim();
+  if (accorde && m.isEmpty) {
+    throw ArgumentError('Une exonération sans motif est refusée par la base.');
+  }
+  if (accorde && taux > 100) {
+    throw ArgumentError('Le taux d\'exonération ne peut pas dépasser 100 %.');
+  }
+
+  final now = DateTime.now();
+  final d = '${now.day.toString().padLeft(2, '0')}/'
+      '${now.month.toString().padLeft(2, '0')}/${now.year}';
+  final row = await db.getOptional(
+    'SELECT notes FROM class_enrollments WHERE id = ?',
+    [enrollmentId],
+  );
+  final notes = (row?['notes'] as String?)?.trim() ?? '';
+  final trace = accorde
+      ? 'Exonération de scolarité de $taux % accordée le $d par $actorName — '
+          'motif : $m.'
+      : 'Exonération de scolarité retirée le $d par $actorName.';
+  final fusion = notes.isEmpty ? trace : '$notes\n$trace';
+
+  await db.execute(
+    '''
+    UPDATE class_enrollments
+    SET    exemption_rate  = ?,
+           exemption_motif = ?,
+           notes           = ?,
+           updated_at      = ?
+    WHERE  id = ?
+    ''',
+    [
+      accorde ? taux : null,
+      accorde ? m : null,
+      fusion,
+      now.toIso8601String(),
+      enrollmentId,
+    ],
   );
 }
 

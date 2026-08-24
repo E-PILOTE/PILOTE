@@ -93,7 +93,7 @@ final switchableAgentsProvider =
         SELECT id, first_name, last_name, role, access_profile_id, avatar_url,
                phone, date_of_birth, employee_number, pin_reset_requested_at
         FROM   profiles
-        WHERE  school_id = ? AND is_active = 1
+        WHERE  school_id = ? AND COALESCE(is_active, 1) <> 0
         ORDER  BY last_name, first_name
         ''',
         parameters: [schoolId],

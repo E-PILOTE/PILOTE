@@ -99,7 +99,7 @@ final schoolPeopleProvider =
       .watch(
         '''SELECT id, first_name, last_name, role, avatar_url, last_login
            FROM profiles
-           WHERE school_id = ? AND id != ? AND is_active = 1
+           WHERE school_id = ? AND id != ? AND COALESCE(is_active, 1) <> 0
            ORDER BY last_name, first_name''',
         parameters: [school, uid],
       )

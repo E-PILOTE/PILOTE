@@ -20,6 +20,12 @@ class _StudentPaymentsSheet extends ConsumerWidget {
   void _recu(BuildContext context, WidgetRef ref, PaymentRow p) {
     final acteur =
         ref.read(authNotifierProvider).valueOrNull?.fullName ?? 'Le caissier';
+    // Le solde à ce jour, s'il est connu. `valueOrNull` et non `.future` : un
+    // reçu doit sortir même si le décompte n'a pas encore chargé — la ligne
+    // manquera, le papier existera.
+    final d = row.enrollmentId == null
+        ? null
+        : ref.read(decompteDuProvider(row.enrollmentId!)).valueOrNull;
     showPdfPreviewDialog(
       context,
       title: 'Reçu de paiement',
@@ -38,6 +44,9 @@ class _StudentPaymentsSheet extends ConsumerWidget {
           motifFrais: p.feeName,
           annuleLe: p.status == 'cancelled' ? p.date : null,
           motifAnnulation: p.cancellationReason,
+          // `vide` ⇒ aucun barème publié : on ne sait rien du solde, et la
+          // ligne est omise plutôt qu'imprimée à zéro.
+          resteDu: (d == null || d.vide) ? null : d.reste,
         ),
       ),
     );
@@ -135,11 +144,10 @@ class _StudentPaymentsSheet extends ConsumerWidget {
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
-                      Text('Total réglé : ${fmtXaf(row.paid)}',
-                          style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              color: kGreen)),
+                      Text(
+                          '$className'
+                          '${row.matricule == null ? '' : ' · ${row.matricule}'}',
+                          style: TextStyle(fontSize: 12, color: kTextMuted)),
                     ]),
               ),
               IconButton(
@@ -170,24 +178,49 @@ class _StudentPaymentsSheet extends ConsumerWidget {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text(messageErreur(e))),
               data: (payments) {
+                // ── CE QU'IL DOIT, AVANT CE QU'IL A VERSÉ ──────────────────
+                // L'en-tête n'annonçait que « Total réglé » : le caissier
+                // voyait ce qui était entré et jamais ce qui manquait — la
+                // seule question que pose la famille au guichet.
+                //
+                // ⚠️ DANS la zone défilante, et non en tête fixe. Un décompte
+                // à huit lignes fait 200 px ; ajouté aux 120 px d'en-tête et de
+                // bouton, il ne laissait plus rien à l'`Expanded` sur une
+                // feuille tirée à sa taille minimale — débordement garanti sur
+                // un téléphone.
+                final entete = row.enrollmentId == null
+                    ? const SizedBox.shrink()
+                    : Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: DecompteCard(enrollmentId: row.enrollmentId!),
+                      );
+
                 if (payments.isEmpty) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: AdminEmptyState(
-                        icon: Icons.receipt_long_outlined,
-                        title: 'Aucun paiement',
-                        message: 'Enregistrez le premier paiement de cet élève.',
+                  return ListView(
+                    controller: scroll,
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                    children: [
+                      entete,
+                      const Padding(
+                        padding: EdgeInsets.only(top: 16),
+                        child: AdminEmptyState(
+                          icon: Icons.receipt_long_outlined,
+                          title: 'Aucun paiement',
+                          message:
+                              'Enregistrez le premier paiement de cet élève.',
+                        ),
                       ),
-                    ),
+                    ],
                   );
                 }
                 return ListView.separated(
                   controller: scroll,
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                  itemCount: payments.length,
+                  itemCount: payments.length + 1,
                   separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (_, i) {
+                  itemBuilder: (_, index) {
+                    if (index == 0) return entete;
+                    final i = index - 1;
                     final p = payments[i];
                     final c = _statusColor(p.status);
                     return Container(

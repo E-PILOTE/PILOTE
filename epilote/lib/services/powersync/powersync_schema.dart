@@ -145,6 +145,22 @@ const schema = Schema([
     Column.integer('is_active'),
     // Opt-in affichage partenaires sur les postes du groupe (migration 0035)
     Column.integer('partner_display_enabled'),
+    // Fenêtre d'alerte d'échéance recopiée depuis platform_settings (mig 0106).
+    // Seul chemin par lequel un réglage de la PLATEFORME atteint un poste
+    // école hors ligne : platform_settings n'est pas synchronisée (RLS
+    // super_admin), school_groups descend en entier via `by_group`.
+    Column.integer('subscription_alert_days'),
+    // Barème de passage du GROUPE (migration 0107) — la barre au-dessus de
+    // laquelle l'élève passe, et le plancher sous lequel il redouble sans
+    // discussion. Entre les deux s'ouvre la zone de délibération : le logiciel
+    // ne propose rien et le conseil tranche.
+    //
+    // Le seuil descend par `school_groups` pour la même raison que la fenêtre
+    // d'alerte juste au-dessus : la table est synchronisée en entier par
+    // `by_group` (SELECT *), donc un réglage du ministère atteint les postes
+    // sans toucher aux sync-rules.
+    Column.real('promotion_pass_mark'),
+    Column.real('promotion_deliberation_floor'),
     Column.text('notes'),
     Column.text('created_at'),
     Column.text('updated_at'),
@@ -247,6 +263,20 @@ const schema = Schema([
     Column.integer('order_index'),
     Column.integer('display_order'),
     Column.text('notation_type'),
+    // Correspondance vers le NIVEAU NATIONAL du référentiel partagé.
+    //
+    // ⚠️ Sans cette colonne, `baremesApplicablesProvider` lève « no such
+    // column: sl.education_level_id » : sa jointure traduit le niveau national
+    // visé par un tarif du ministère (migration 0101) en niveau de l'école.
+    // La requête entière échoue, donc le dû de CHAQUE élève devient
+    // indéterminé et les écrans Frais et Paiements tombent en erreur — sur
+    // tous les postes à la fois. Une colonne absente du schéma local n'est pas
+    // « une donnée en moins » : c'est une requête qui ne s'exécute pas.
+    Column.text('education_level_id'),
+    // Barème de passage PROPRE à ce niveau — NULL = on hérite de celui du
+    // groupe (`school_groups.promotion_pass_mark`). Migration 0107.
+    Column.real('pass_mark'),
+    Column.real('deliberation_floor'),
     Column.text('group_id'),
     Column.text('school_id'),
     Column.integer('is_active'),
@@ -333,6 +363,13 @@ const schema = Schema([
     Column.text('rejection_reason'),
     Column.text('previous_school_name'),
     Column.text('previous_class_name'),
+    // Exonération de scolarité de CETTE année (migration 0109). Le taux vit
+    // sur l'inscription et non sur l'élève : une bourse se reconduit, elle ne
+    // se traîne pas. ⚠️ Sans ces deux colonnes ici, le dû d'un boursier serait
+    // calculé plein sur les postes — l'exonération existerait en base et
+    // n'existerait nulle part sur le terrain.
+    Column.integer('exemption_rate'),
+    Column.text('exemption_motif'),
     // Décision de fin d'année du conseil de classe (migration 0074).
     // `promotion_average` est un `numeric` en base : `real` est le bon miroir.
     Column.text('promotion_decision'),        // passe|redouble|reoriente
@@ -387,6 +424,16 @@ const schema = Schema([
   Table('student_tutors', [
     Column.text('student_id'),
     Column.text('group_id'),
+    // École de l'élève rattaché (migration 0110). C'est elle qui permet aux
+    // sync-rules de descendre les tuteurs PAR ÉCOLE : sans cette colonne, la
+    // seule clause possible était `group_id`, et chaque poste recevait les
+    // coordonnées des familles de toutes les écoles du groupe.
+    //
+    // ⚠️ Le serveur la recalcule par trigger, mais le client l'écrit AUSSI :
+    // une fiche saisie hors ligne vit dans cette base-ci avant d'atteindre le
+    // serveur, et une colonne locale vide ferait disparaître le tuteur de
+    // toute requête filtrant sur l'école jusqu'au retour du réseau.
+    Column.text('school_id'),
     Column.text('first_name'),
     Column.text('last_name'),
     Column.text('relationship'),    // pere|mere|tuteur|autre
@@ -775,11 +822,24 @@ const schema = Schema([
     Column.integer('amount_xaf'),
     Column.integer('due_day_of_month'),
     Column.text('applies_to_level_id'),
+    // Niveau du RÉFÉRENTIEL PARTAGÉ (migration 0101) : c'est ainsi que le
+    // ministère tarifie « la 6e » pour tout son réseau. `applies_to_level_id`
+    // ne désigne que le niveau d'UNE école et ne vaut que pour elle ; sans
+    // cette colonne sur le poste, un tarif national par niveau arriverait
+    // amputé de sa cible et serait réclamé à tous les élèves.
+    Column.text('applies_to_education_level_id'),
     Column.integer('is_active'),
     Column.text('created_at'),
     Column.text('updated_at'),
-      // Barème des frais d'une session d'examen. Cf. migration 0058.
+      // Barème des frais d'UNE session d'examen précise. Cf. migration 0058.
     Column.text('exam_session_id'),
+    // L'EXAMEN visé (migration 0103) — le ciblage courant. `exam_session_id`
+    // désigne une instance annuelle : il n'a jamais été renseigné une seule
+    // fois en production, parce qu'un ministère fixe ses frais AVANT d'ouvrir
+    // la session. Le poste résout ici la session de son année scolaire ; sans
+    // cette colonne, il ne trouverait aucun barème et la caisse de l'examen
+    // resterait fermée.
+    Column.text('applies_to_exam_id'),
     // Le texte qui fonde le tarif (arrêté, note de service, délibération
     // d'assemblée APE). Un montant sans texte fondateur n'est pas un tarif,
     // c'est un chiffre. Cf. migration 0096.

@@ -25,11 +25,6 @@ class _Step1EleveState extends ConsumerState<_Step1Eleve> {
   late final _siblingsCtrl        = TextEditingController(
       text: widget.state.nombreFreresSoeurs > 0 ? '${widget.state.nombreFreresSoeurs}' : '');
 
-  static const _bloodGroups = {
-    'A+': 'A+', 'A-': 'A-', 'B+': 'B+', 'B-': 'B-',
-    'AB+': 'AB+', 'AB-': 'AB-', 'O+': 'O+', 'O-': 'O-',
-  };
-
   @override
   void dispose() {
     _firstNameCtrl.dispose();
@@ -168,14 +163,10 @@ class _Step1EleveState extends ConsumerState<_Step1Eleve> {
           FormDropdown<String>(
             label: 'Situation familiale',
             value: s.situationFamiliale,
-            items: const {
-              'biparentale':        'Biparentale',
-              'monoparentale_pere': 'Monoparentale (père)',
-              'monoparentale_mere': 'Monoparentale (mère)',
-              'orphelin_partiel':   'Orphelin partiel',
-              'orphelin_total':     'Orphelin total',
-              'tuteur':             'Sous tutelle',
-            },
+            // Table partagée avec l'écran de modification et le récapitulatif :
+            // c'est sa présence en trois exemplaires qui avait laissé le
+            // récapitulatif afficher le code brut.
+            items: kSituationsFamiliales,
             onChanged: (v) { s.situationFamiliale = v; widget.onChanged(); },
           ),
           FormTextField(
@@ -226,7 +217,7 @@ class _Step1EleveState extends ConsumerState<_Step1Eleve> {
           FormDropdown<String>(
             label: 'Groupe sanguin',
             value: s.bloodGroup,
-            items: _bloodGroups,
+            items: kGroupesSanguins,
             onChanged: (v) { s.bloodGroup = v; widget.onChanged(); },
           ),
           FormTextField(
@@ -502,6 +493,18 @@ class _Step2ParentsState extends State<_Step2Parents> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ...widget.state.tutors.asMap().entries.map((e) => _TutorForm(
+            // ⚠️ SANS CETTE CLÉ, SUPPRIMER UN TUTEUR AFFICHE LES DONNÉES DU
+            // SUPPRIMÉ. `_TutorForm` garde ses contrôleurs dans son ÉTAT, remplis
+            // une seule fois depuis `widget.tutor`. Flutter réapparie les
+            // éléments d'une liste sans clé par leur POSITION : en retirant le
+            // deuxième de trois, l'état du deuxième reste en place et se voit
+            // confier la fiche du troisième — mais ses champs continuent
+            // d'afficher le texte du tuteur effacé, pendant que la frappe, elle,
+            // écrit dans la bonne fiche. Le secrétariat relit alors un nom qui
+            // n'est plus celui du dossier.
+            //
+            // `ObjectKey` attache l'état à la FICHE et non au rang.
+            key: ObjectKey(e.value),
             index: e.key,
             tutor: e.value,
             onChanged: () {
@@ -514,6 +517,21 @@ class _Step2ParentsState extends State<_Step2Parents> {
                     widget.onChanged();
                   }
                 : null,
+            onPromote: () {
+              // ⚠️ LE CONTACT PRINCIPAL EST UNIQUE — c'est le numéro que
+              // l'école compose en premier. La case se posait sur une seconde
+              // fiche sans retirer la première : deux tuteurs partaient en base
+              // avec `is_primary_contact`, et plus rien ne disait lequel
+              // appeler. Elle disparaissait ensuite de l'écran (rendue
+              // seulement `if (!t.isPrimary)`), donc le choix ne pouvait même
+              // plus être défait.
+              setState(() {
+                for (final t in widget.state.tutors) {
+                  t.isPrimary = identical(t, e.value);
+                }
+              });
+              widget.onChanged();
+            },
           )),
           const SizedBox(height: 8),
           if (widget.state.tutors.length < 3)
@@ -534,14 +552,20 @@ class _Step2ParentsState extends State<_Step2Parents> {
 
 class _TutorForm extends StatefulWidget {
   const _TutorForm({
+    super.key,
     required this.index,
     required this.tutor,
     required this.onChanged,
+    required this.onPromote,
     this.onRemove,
   });
   final int          index;
   final _TutorEntry  tutor;
   final VoidCallback onChanged;
+
+  /// Désigne CETTE fiche comme contact principal, et retire le titre aux
+  /// autres. La bascule appartient à la liste, seule à voir toutes les fiches.
+  final VoidCallback onPromote;
   final VoidCallback? onRemove;
 
   @override
@@ -665,12 +689,19 @@ class _TutorFormState extends State<_TutorForm> {
               value: t.isEmergency,
               onChanged: (v) { setState(() => t.isEmergency = v); widget.onChanged(); },
             ),
-            if (!t.isPrimary)
-              FormCheckTile(
-                label: 'Contact principal',
-                value: t.isPrimary,
-                onChanged: (v) { setState(() => t.isPrimary = v); widget.onChanged(); },
-              ),
+            // Toujours affichée, y compris sur la fiche déjà principale : une
+            // case qui s'efface une fois cochée ne se décoche jamais. Ici elle
+            // reste visible et montre l'état ; c'est en cocher une AUTRE qui
+            // déplace le titre.
+            FormCheckTile(
+              label: t.isPrimary
+                  ? 'Contact principal — c\'est ce numéro que l\'école appelle'
+                  : 'Faire de ce contact le principal',
+              value: t.isPrimary,
+              // Idempotent : promouvoir la fiche déjà principale la laisse
+              // principale et ne retire rien à personne.
+              onChanged: (_) => widget.onPromote(),
+            ),
           ],
         ),
       ),

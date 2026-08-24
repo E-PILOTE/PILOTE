@@ -15,10 +15,34 @@
 typedef LigneBareme = ({
   String id,
   String feeType,
+  String nom,
   int montant,
   String? schoolId,
   String? levelId,
 });
+
+/// Le type `autre` est la catégorie OUVERTE du barème : cantine, transport,
+/// tenue, fournitures, assurance. L'enum `fee_type` n'ayant que cinq valeurs,
+/// tout ce qu'une école privée facture en plus de la scolarité y atterrit.
+const kFeeTypeAnnexe = 'autre';
+
+/// Sous quelle clé une ligne se met en concurrence avec une autre.
+///
+/// Pour les types à instance unique, c'est le TYPE : deux tarifs d'inscription
+/// sont deux versions du même tarif, et une seule doit s'appliquer.
+///
+/// Pour `autre`, c'est le type ET l'intitulé : la cantine et le bus sont deux
+/// choses, toutes deux dues. Les mettre en concurrence — ce que faisait la
+/// version précédente — en faisait disparaître une : l'école enregistrait deux
+/// frais et n'en réclamait qu'un, sans que rien ne le signale.
+///
+/// L'intitulé est normalisé comme il l'est dans l'index
+/// `uniq_fee_structure_annexe_active` (migration 0108) : les deux doivent voir
+/// « Cantine » et « cantine  » comme une seule et même chose, sans quoi la base
+/// accepterait ce que le client dédoublerait.
+String _cle(LigneBareme b) => b.feeType == kFeeTypeAnnexe
+    ? '$kFeeTypeAnnexe|${b.nom.trim().toLowerCase()}'
+    : b.feeType;
 
 /// Score de spécificité : l'école (2) l'emporte sur le niveau (1), et les deux
 /// se cumulent. Plus haut = plus proche de l'élève.
@@ -29,11 +53,34 @@ typedef LigneBareme = ({
 int _specificite(LigneBareme b) =>
     (b.schoolId != null ? 2 : 0) + (b.levelId != null ? 1 : 0);
 
-/// Parmi les barèmes visibles sur le poste, ceux qui s'appliquent réellement à
-/// un élève du niveau [levelId] — au plus un par type de frais.
+/// [candidat] doit-il remplacer [tenant] ?
 ///
-/// Le résultat ne dépend pas de l'ordre d'arrivée : la liste vient d'un
-/// `ORDER BY` SQL, elle ne doit pas décider du tarif.
+/// ⚠️ La spécificité seule ne suffit pas : deux barèmes de MÊME portée peuvent
+/// coexister sur un poste. La migration 0099 les interdit désormais en base,
+/// mais un appareil hors ligne peut porter, le temps d'une synchro, l'ancien
+/// et le nouveau. Un `>` strict laissait alors gagner le PREMIER ARRIVÉ — et
+/// la requête amont n'a pas d'`ORDER BY`. Deux postes de la même école
+/// pouvaient réclamer deux sommes différentes au même élève.
+///
+/// D'où un ordre TOTAL, qui ne dépend d'aucune horloge ni d'aucun tri SQL :
+///   1. le plus spécifique ;
+///   2. à égalité, **le moins cher** — une famille ne doit jamais payer le
+///      supplément d'une hésitation administrative ;
+///   3. à égalité encore, le plus petit `id`, pour que deux appareils tombent
+///      sur la même ligne.
+bool _emporte(LigneBareme candidat, LigneBareme tenant) {
+  final ds = _specificite(candidat) - _specificite(tenant);
+  if (ds != 0) return ds > 0;
+  if (candidat.montant != tenant.montant) return candidat.montant < tenant.montant;
+  return candidat.id.compareTo(tenant.id) < 0;
+}
+
+/// Parmi les barèmes visibles sur le poste, ceux qui s'appliquent réellement à
+/// un élève du niveau [levelId] — au plus un par CLÉ de résolution (cf. [_cle] :
+/// un par type de frais, mais un par intitulé pour les frais annexes).
+///
+/// Le résultat ne dépend d'AUCUN ordre d'arrivée, y compris entre deux lignes
+/// de portée identique : `_emporte` définit un ordre total (cf. sa doc).
 List<LigneBareme> baremesApplicables(
   List<LigneBareme> visibles, {
   required String? levelId,
@@ -45,9 +92,10 @@ List<LigneBareme> baremesApplicables(
     // lui appliquer un tarif de niveau au hasard serait pire que rien.
     if (b.levelId != null && b.levelId != levelId) continue;
 
-    final actuel = retenu[b.feeType];
-    if (actuel == null || _specificite(b) > _specificite(actuel)) {
-      retenu[b.feeType] = b;
+    final cle = _cle(b);
+    final actuel = retenu[cle];
+    if (actuel == null || _emporte(b, actuel)) {
+      retenu[cle] = b;
     }
   }
   return retenu.values.toList();

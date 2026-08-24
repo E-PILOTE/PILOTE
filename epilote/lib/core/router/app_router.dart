@@ -34,6 +34,7 @@ import '../../features/super_admin/screens/national_map_screen.dart';
 import '../../features/super_admin/screens/profile_screen.dart';
 import '../../features/admin_groupe/screens/admin_academic_years_screen.dart';
 import '../../features/admin_groupe/screens/admin_fees_screen.dart';
+import '../../features/admin_groupe/screens/admin_rattachement_screen.dart';
 import '../../features/admin_groupe/screens/admin_dashboard_screen.dart';
 import '../../features/admin_groupe/screens/admin_schools_screen.dart';
 import '../../features/admin_groupe/screens/admin_users_screen.dart';
@@ -85,6 +86,7 @@ import '../../features/navigation/module_routes.dart';
 import '../../features/navigation/providers/permissions_provider.dart';
 import '../../licensing/presentation/license_providers.dart';
 import '../../features/navigation/widgets/module_coming_soon.dart';
+import '../../features/user/screens/rapports_screen.dart';
 import '../../features/user/screens/renewal_wall_screen.dart';
 import '../../features/user/screens/user_dashboard_screen.dart';
 import '../../features/user/screens/user_profile_screen.dart';
@@ -270,10 +272,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return _dashboardForRole(profile);
         }
 
-        // ── Calendrier scolaire : config NATIVE réservée à la direction ────
-        // (hors catalogue → pas géré par le verrou 3 modules). On garde la
-        // route au même titre que la sidebar la masque pour les autres rôles.
-        if (loc == Routes.calendrier) {
+        // ── Configs NATIVES réservées à la direction ───────────────────────
+        // (hors catalogue → pas gérées par le verrou 3 modules). On garde la
+        // route au même titre que la sidebar les masque pour les autres rôles.
+        //
+        // ⚠️ `userRapports` en fait partie POUR UNE RAISON DE FOND : ses états
+        // lisent l'école entière, hors du périmètre de classes de l'agent. Sans
+        // ce garde, un enseignant atteignant l'URL éditerait un « État des
+        // effectifs de l'établissement » portant sur toutes les classes.
+        if (loc == Routes.calendrier || loc == Routes.userRapports) {
           if (!AppConstants.directionRoles.contains(role)) {
             return Routes.userDashboard;
           }
@@ -428,6 +435,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const AdminFeesScreen(),
       ),
       GoRoute(
+        path: Routes.adminRattachement,
+        builder: (_, _) => const AdminRattachementScreen(),
+      ),
+      GoRoute(
         path: Routes.adminUtilisateurs,
         builder: (_, _) => const AdminUsersScreen(),
       ),
@@ -514,10 +525,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const UserDashboardScreen(),
       ),
       GoRoute(path: Routes.eleves, builder: (_, _) => const ElevesScreen()),
+      // ⚠️ ROUTE MORTE, conservée en REDIRECTION et non en écran.
+      //
+      //  `Routes.eleveDetail` n'était référencé que par sa propre déclaration :
+      //  aucun code de l'application ne navigue vers `/user/eleves/<id>`. Le
+      //  détail d'un élève se lit dans le tiroir d'`eleves_screen.dart`.
+      //
+      //  Elle affichait donc un placeholder « Élève · <uuid> » — un cul-de-sac
+      //  que seul un lien collé pouvait atteindre, et qui n'apprenait rien.
+      //  La supprimer ferait tomber une telle URL sur l'écran d'erreur ; la
+      //  rediriger la fait atterrir sur la liste, d'où l'élève s'ouvre.
+      //
+      //  À rebrancher sur un vrai lien profond LE JOUR où quelque chose en
+      //  produit (une notification, un partage) — pas avant : un lien que
+      //  personne n'émet est une fonctionnalité qu'on ne peut pas vérifier.
       GoRoute(
         path: Routes.eleveDetail,
-        builder: (_, state) =>
-            _PlaceholderScreen(title: 'Élève · ${state.pathParameters['id']}'),
+        redirect: (_, _) => Routes.eleves,
       ),
       GoRoute(
         path: Routes.inscriptions,
@@ -683,12 +707,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.userRapports,
-        builder: (_, _) => const StaffComingSoonScreen(
-          title: 'Rapports',
-          icon: Icons.bar_chart_rounded,
-          message:
-              'Vos rapports et statistiques seront bientôt disponibles ici.',
-        ),
+        builder: (_, _) => const RapportsScreen(),
       ),
       GoRoute(
         path: Routes.userAudit,

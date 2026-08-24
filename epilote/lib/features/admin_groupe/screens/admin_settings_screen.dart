@@ -10,6 +10,7 @@ import '../../../core/theme/theme_provider.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../features/user/widgets/user_settings_cards.dart' show ThemePicker;
 import '../providers/admin_settings_provider.dart';
+import '../widgets/bareme_passage_card.dart';
 import '../widgets/partner_opt_in_tile.dart';
 import '../../../core/utils/message_erreur.dart';
 
@@ -359,6 +360,14 @@ class _GeneralTab extends ConsumerWidget {
           error: (e, _) => AdminCard(child: AdminErrorBanner(message: messageErreur(e))),
           data: (s) => _PedagogyCard(initial: s.general),
         ),
+        const SizedBox(height: 20),
+
+        // ── Barème de passage (migration 0107) ──────────────────────────────
+        // Distinct des paramètres pédagogiques juste au-dessus, et pour une
+        // raison de fond : ceux-ci vivent dans `group_settings`, qui n'est PAS
+        // synchronisée sur les postes. Le barème, lui, doit atteindre chaque
+        // école hors ligne — il est donc écrit sur `school_groups`.
+        const BaremePassageCard(),
         const SizedBox(height: 20),
 
         // ── Apparence (local, non persisté côté DB) ─────────────────────────

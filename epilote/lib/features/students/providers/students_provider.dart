@@ -32,6 +32,16 @@ const _uuid = Uuid();
 
 // ─── Matricule ────────────────────────────────────────────────────────────────
 
+// ⚠️ `is_active = 1` est PROSCRIT dans ce fichier — et partout ailleurs.
+// Dans une vue PowerSync locale, l'égalité stricte retrouve les lignes venues
+// du serveur mais PAS celles que l'application vient d'insérer elle-même. Le
+// bug a été reproduit sur `classes` (l'écran Passage annonçait « les classes de
+// l'an prochain n'existent pas » juste après les avoir créées) ; ici il
+// signifierait qu'un élève inscrit hors ligne n'apparaît jamais dans la liste
+// des Élèves, alors que les compteurs — qui lisent `class_enrollments` — en
+// annoncent un de plus. Écrire `COALESCE(is_active, 1) <> 0`, toujours.
+// Vérifié par `test/offline_booleen_test.dart`.
+
 /// Génère un matricule collision-safe pour création offline.
 /// Format : {YEAR}-{8 premiers chars UUID} — ex. 2026-A3F7C2B1
 /// Le serveur peut normaliser/remplacer à la sync si besoin.
@@ -55,7 +65,7 @@ final studentsProvider = StreamProvider.autoDispose<List<StudentModel>>((ref) {
         '''
         SELECT * FROM students
         WHERE  school_id = ?
-        AND    is_active  = 1
+        AND    COALESCE(is_active, 1) <> 0
         ${scope?.clause ?? ''}
         ORDER  BY last_name, first_name
         ''',
@@ -89,7 +99,7 @@ final searchStudentsProvider =
         '''
         SELECT * FROM students
         WHERE  school_id = ?
-        AND    is_active  = 1
+        AND    COALESCE(is_active, 1) <> 0
         AND    (first_name LIKE ? OR last_name LIKE ? OR matricule LIKE ?)
         ${scope?.clause ?? ''}
         ORDER  BY last_name, first_name
@@ -110,7 +120,8 @@ final studentCountProvider = StreamProvider.autoDispose<int>((ref) {
   return db
       .watch(
         'SELECT COUNT(*) AS cnt FROM students '
-        'WHERE school_id = ? AND is_active = 1 ${scope?.clause ?? ''}',
+        'WHERE school_id = ? AND COALESCE(is_active, 1) <> 0 '
+        '${scope?.clause ?? ''}',
         parameters: [profile.schoolId, ...?scope?.params],
       )
       .map((rows) => rows.isEmpty ? 0 : (rows.first['cnt'] as int? ?? 0));

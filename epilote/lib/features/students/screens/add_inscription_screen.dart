@@ -11,11 +11,16 @@ import '../../../features/classes/providers/class_provider.dart';
 import '../../../features/structure/providers/academic_year_context.dart';
 import '../../../features/structure/providers/academic_year_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
+import '../models/eleve_libelles.dart';
 import '../models/tutor_draft.dart';
+import '../widgets/fiche_inscription_actions.dart';
 import '../widgets/inscription_form_kit.dart';
 import '../widgets/national_lookup_panel.dart';
+import '../providers/frais_inscription_provider.dart';
 import '../providers/inscriptions_data_provider.dart';
 import '../providers/student_documents_provider.dart';
+import '../../../services/powersync/student_document_upload.dart'
+    show queueStudentDocumentFile;
 import '../providers/student_tutors_provider.dart';
 import '../providers/student_match_provider.dart';
 import '../providers/students_provider.dart';
@@ -99,6 +104,25 @@ class _InscriptionState {
 
   // Étape 4 — Documents (pièces réellement téléversées du dossier élève)
   final Map<String, _DocEntry> uploadedDocs = {};
+
+  // ── CE QUI A DÉJÀ ÉTÉ ÉCRIT, SI UN ENREGISTREMENT A ÉCHOUÉ EN COURS ───────
+  //
+  // ⚠️ L'enregistrement écrit QUATRE choses à la suite : l'élève, ses tuteurs,
+  // l'inscription, ses pièces. Rien ne les réunit en transaction. Si la
+  // troisième échouait — classe supprimée entre-temps, quota, base verrouillée
+  // — l'élève et ses tuteurs étaient DÉJÀ écrits, et le bandeau invitait à
+  // réessayer. Le second essai rappelait `createStudent` avec le MÊME
+  // identifiant, généré à l'ouverture de l'assistant : violation de clé
+  // primaire, échec définitif. Le secrétariat n'avait plus qu'à fermer la
+  // fenêtre — en perdant toute la saisie — et l'école gardait un élève sans
+  // inscription, visible au registre et décompté du quota.
+  //
+  // On retient donc ce qui a abouti, pour que la reprise continue là où elle
+  // s'est arrêtée au lieu de tout rejouer.
+  bool studentWritten = false;
+  bool tutorsWritten = false;
+  String? enrollmentId;
+  final Set<String> docsWritten = {};
 }
 
 /// Une pièce du dossier téléversée (chemin Storage prêt à être persisté au submit).
@@ -312,8 +336,11 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
       // Créer l'élève (id généré en amont = chemin du dossier documentaire),
       // sauf s'il s'agit d'un élève déjà présent : son identité et ses tuteurs
       // existent, les réécrire créerait le doublon qu'on cherche à éviter.
-      final studentId = _state.reusesExistingStudent
-          ? _state.existingStudentId!
+      //
+      // `studentWritten` couvre la REPRISE après un échec plus loin : l'élève
+      // est déjà en base, le réécrire échouerait sur sa clé primaire.
+      final studentId = _state.reusesExistingStudent || _state.studentWritten
+          ? _state.effectiveStudentId
           : await createStudent(
         id:                 _state.studentId,
         schoolId:           profile.schoolId!,
@@ -341,16 +368,20 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
         socialAidType:      _state.socialAidType,
         isAffecte:          _state.isAffecte,
       );
+      _state.studentWritten = true;
 
       // Créer les tuteurs — l'élève déjà connu a les siens.
       // Seules les fiches JAMAIS remplies sont écartées : une fiche partielle
       // a déjà été refusée à l'étape 2, elle ne peut plus se perdre ici.
-      for (final t in _state.reusesExistingStudent
+      for (final t in _state.reusesExistingStudent || _state.tutorsWritten
           ? const <_TutorEntry>[]
           : tutorsToPersist(_state.tutors)) {
         await addTutor(
           studentId:         studentId,
           groupId:           profile.groupId!,
+          // Non-nuls par construction : `missingWriteIds` en tête de `_save`
+          // a refusé l'enregistrement si l'un des deux manquait.
+          schoolId:          profile.schoolId!,
           firstName:         t.firstName,
           lastName:          t.lastName,
           relationship:      t.relationship,
@@ -363,10 +394,14 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
           isEmergencyContact: t.isEmergency,
         );
       }
+      _state.tutorsWritten = true;
 
       // Créer l'inscription (pending_validation)
-      if (_state.classId != null && _state.academicYearId != null) {
-        await enrollStudent(
+      var enrollmentId = _state.enrollmentId;
+      if (enrollmentId == null &&
+          _state.classId != null &&
+          _state.academicYearId != null) {
+        enrollmentId = await enrollStudent(
           schoolId:           profile.schoolId!,
           groupId:            profile.groupId!,
           studentId:          studentId,
@@ -381,10 +416,15 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
           notes:              _state.notes,
           createdBy:          profile.id,
         );
+        _state.enrollmentId = enrollmentId;
       }
 
       // Persister les pièces du dossier déjà téléversées (offline-first).
+      // `docsWritten` évite qu'une reprise ne réinscrive en double les pièces
+      // déjà enregistrées — l'élève se retrouverait avec deux actes de
+      // naissance identiques dans son dossier.
       for (final d in _state.uploadedDocs.values) {
+        if (_state.docsWritten.contains(d.typeSlug)) continue;
         await insertStudentDocumentRow(
           groupId:      profile.groupId!,
           schoolId:     profile.schoolId!,
@@ -393,6 +433,21 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
           documentName: d.label,
           fileUrl:      d.path,
         );
+        _state.docsWritten.add(d.typeSlug);
+      }
+
+      // ── LA FAMILLE EST ENCORE DEVANT LE GUICHET ──────────────────────────
+      // L'assistant se refermait sur un message et rien d'autre. Pour obtenir
+      // le récépissé, il fallait retrouver le dossier dans la liste, l'ouvrir,
+      // cliquer — après le départ de la famille, le plus souvent. Le papier se
+      // propose donc AU MOMENT où il sert.
+      //
+      // ⚠️ AVANT la fermeture, et non par un bouton de bandeau : une fois
+      // l'assistant démonté, son `context` et son `ref` ne valent plus rien, et
+      // l'aperçu ne pourrait plus s'ouvrir. La proposition se refuse d'un clic ;
+      // c'est le prix d'un geste qui, lui, fonctionne.
+      if (mounted && enrollmentId != null) {
+        await _proposerFiche(enrollmentId);
       }
 
       if (mounted) {
@@ -407,9 +462,54 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
     } catch (e) {
       setState(() {
         _submitting = false;
-        _error      = e.toString();
+        // `e.toString()` mettait une erreur SQLite ou PostgREST brute sous les
+        // yeux d'une secrétaire — « SqliteException(2067): UNIQUE constraint
+        // failed ». `messageErreur` est déjà importé ici et utilisé par les
+        // étapes 3 et 5 du même assistant ; seul le chemin d'enregistrement,
+        // celui qui échoue vraiment, ne s'en servait pas.
+        _error = _state.studentWritten
+            // Une reprise ne recommencera pas ce qui a abouti : on le dit,
+            // sinon « réessayer » ressemble à « créer un second dossier ».
+            ? '${messageErreur(e)}\n\nRien n\'est perdu : réessayez, '
+                'l\'enregistrement reprendra où il s\'est arrêté.'
+            : messageErreur(e);
       });
     }
+  }
+
+  /// Propose le récépissé sans l'imposer.
+  ///
+  /// L'inscription est DÉJÀ enregistrée quand cette boîte s'ouvre : refuser,
+  /// fermer, ou une panne d'impression ne peuvent plus rien lui faire.
+  Future<void> _proposerFiche(String enrollmentId) async {
+    final imprimer = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        icon: Icon(Icons.check_circle_rounded, color: _kGreen, size: 38),
+        title: const Text('Inscription enregistrée'),
+        content: const Text(
+          'Remettre la fiche d\'inscription à la famille ? Elle porte '
+          'l\'identifiant national de l\'élève, sa classe et le détail des '
+          'frais.',
+          textAlign: TextAlign.center,
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Plus tard')),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: _kGreen),
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.print_rounded, size: 18),
+            label: const Text('Imprimer la fiche'),
+          ),
+        ],
+      ),
+    );
+    if (imprimer != true || !mounted) return;
+    await ouvrirFichePourInscription(context, ref, enrollmentId);
   }
 
   @override

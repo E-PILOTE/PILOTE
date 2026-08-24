@@ -1,5 +1,5 @@
-// Helper : accepte bool (Supabase) et int 0/1 (SQLite PowerSync)
-bool _b(dynamic v) => v == true || v == 1;
+import '../../core/utils/booleen_offline.dart';
+
 
 /// Table `module_categories` — données globales plateforme
 class ModuleCategoryModel {
@@ -63,7 +63,7 @@ class ModuleModel {
       description:  map['description']   as String?,
       icon:         map['icon']          as String?,
       displayOrder: map['display_order'] as int? ?? 0,
-      isActive:     _b(map['is_active']),
+      isActive:     actifOffline(map['is_active']), // défaut VRAI
       createdAt:    DateTime.parse(map['created_at'] as String),
       updatedAt:    DateTime.parse(map['updated_at'] as String),
       categoryName: map['category_name'] as String?,

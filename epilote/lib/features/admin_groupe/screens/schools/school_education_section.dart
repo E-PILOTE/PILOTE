@@ -412,9 +412,30 @@ class _SchoolEducationSectionState
   }
 
   // ── Gestion dynamique du référentiel (filières / niveaux du groupe) ─────
+  //
+  // Créer une entrée à soi est un DROIT (la RLS l'accorde explicitement à
+  // l'admin groupe) et c'est souvent légitime : une filière technique n'existe
+  // que chez le METP. Mais rien n'avertissait quand l'entrée créée doublait une
+  // entrée nationale, et la conséquence est invisible : les écoles se
+  // répartissent alors sur DEUX entrées pour la même année, et un tarif réseau
+  // posé sur l'une n'atteint pas les autres. C'est arrivé — trois collèges du
+  // METP sur « Sixième (6e) », un quatrième sur « 6ème ».
+  //
+  // D'où un avertissement, jamais un blocage : « 6e technique » peut très bien
+  // être une filière à part entière. Seul l'humain le sait.
+
   Future<void> _addProgram(EducationCycle c) async {
     final name = await _promptName('Nouvelle filière', hint: 'Nom de la filière');
     if (name == null || name.trim().isEmpty) return;
+
+    final cat = ref.read(educationCatalogProvider).valueOrNull;
+    final jumelle = _chercher(
+      cat?.programs.where((p) => p.cycleId == c.id && !p.isCustom),
+      (p) => libelleNormalise(p.name) == libelleNormalise(name),
+      (p) => p.name,
+    );
+    if (jumelle != null && !await _confirmerDoublon('filière', jumelle)) return;
+
     try {
       final id = await ref.read(educationServiceProvider)
           .createProgram(cycleId: c.id, name: name.trim());
@@ -431,6 +452,17 @@ class _SchoolEducationSectionState
       hint: 'Ex. 4ème année',
     );
     if (name == null || name.trim().isEmpty) return;
+
+    // On cherche l'ANNÉE, pas le libellé : « Sixième (6e) » et « 6ème »
+    // s'écrivent différemment et désignent la même chose.
+    final cat = ref.read(educationCatalogProvider).valueOrNull;
+    final jumeau = _chercher(
+      cat?.levels.where((l) => l.cycleId == c.id && !l.isCustom && l.isActive),
+      (l) => memeAnnee(l.name, name),
+      (l) => l.name,
+    );
+    if (jumeau != null && !await _confirmerDoublon('niveau', jumeau)) return;
+
     try {
       final id = await ref.read(educationServiceProvider).createLevel(
           cycleId: c.id, programId: program?.id, name: name.trim());
@@ -444,6 +476,30 @@ class _SchoolEducationSectionState
       if (mounted) _eduSnack(messageErreur(e), error: true);
     }
   }
+
+  /// Le libellé de la première entrée nationale qui correspond, ou `null`.
+  String? _chercher<T>(
+    Iterable<T>? candidats,
+    bool Function(T) correspond,
+    String Function(T) libelle,
+  ) {
+    for (final c in candidats ?? const <Never>[]) {
+      if (correspond(c)) return libelle(c);
+    }
+    return null;
+  }
+
+  Future<bool> _confirmerDoublon(String quoi, String national) =>
+      showAdminConfirm(
+        context,
+        title: 'Ce $quoi existe déjà au national',
+        message: 'Le référentiel national contient déjà « $national ». En '
+            'créer un second dans votre groupe est possible — mais vos écoles '
+            'se répartiront alors sur DEUX entrées, et un tarif réseau posé '
+            'sur l\'une n\'atteindra pas les écoles rattachées à l\'autre.\n\n'
+            'Ne continuez que s\'il s\'agit réellement d\'un $quoi distinct.',
+        confirmLabel: 'Créer quand même',
+      );
 
   Future<void> _programMenu(String action, EducationProgram p) async {
     if (action == 'rename') {

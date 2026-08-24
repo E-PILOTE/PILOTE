@@ -267,14 +267,33 @@ class _Step4DocumentsState extends ConsumerState<_Step4Documents> {
     if (bytes == null) return;
     setState(() => _uploading.add(slug));
     try {
-      final client = ref.read(supabaseClientProvider);
-      final path = await uploadStudentDocumentFile(
-        client: client,
+      // ── LES PIÈCES SE JOIGNENT HORS LIGNE ─────────────────────────────────
+      // L'étape envoyait le fichier à Storage sur-le-champ : une école sans
+      // connexion inscrivait l'élève mais ne pouvait joindre AUCUNE pièce, et
+      // le dossier restait incomplet jusqu'à un passage ultérieur avec du
+      // réseau. Les octets vont désormais dans `upload_outbox` — sur le disque,
+      // à un chemin calculé en local — et montent au retour du réseau.
+      //
+      // ⚠️ Seulement les OCTETS. La ligne `student_documents` s'écrit à
+      // l'enregistrement, APRÈS la création de l'élève : l'écrire ici la
+      // placerait dans la file PowerSync avant l'insertion de `students`, le
+      // serveur refuserait sur la clé étrangère (`23503`), et le connecteur
+      // tenant ce code pour fatal abandonnerait le LOT ENTIER — l'élève, ses
+      // tuteurs et son inscription avec.
+      final path = await queueStudentDocumentFile(
         schoolId: schoolId,
-        studentId: widget.state.studentId,
-        typeSlug: slug,
+        // ⚠️ `effectiveStudentId`, PAS `studentId`. Le chemin de stockage est
+        // `école/élève/pièce` et `studentId` est l'identifiant NEUF que
+        // l'assistant se réserve à l'ouverture. En réinscription, cet
+        // identifiant n'est jamais écrit nulle part : le fichier atterrissait
+        // dans un dossier qui n'appartient à aucun élève, tandis que la ligne
+        // en base, elle, pointait le vrai. Le dossier documentaire de l'enfant
+        // se retrouvait éparpillé sur deux chemins, dont un orphelin.
+        studentId: widget.state.effectiveStudentId,
+        documentType: slug,
         fileName: f.name,
         bytes: bytes,
+        client: ref.read(supabaseClientProvider),
       );
       widget.state.uploadedDocs[slug] =
           _DocEntry(typeSlug: slug, label: label, fileName: f.name, path: path);
@@ -283,7 +302,7 @@ class _Step4DocumentsState extends ConsumerState<_Step4Documents> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           backgroundColor: _kRed,
-          content: Text('Téléversement impossible (connexion requise) : $e'),
+          content: Text(messageErreur(e)),
         ));
       }
     } finally {
@@ -305,8 +324,10 @@ class _Step4DocumentsState extends ConsumerState<_Step4Documents> {
         Padding(
           padding: const EdgeInsets.only(bottom: 14),
           child: Text(
-            'Téléversez les pièces (PDF ou image). Le dossier suit l\'élève : '
-            'en réinscription, les pièces déjà présentes sont conservées.',
+            'Joignez les pièces (PDF ou image). Sans connexion, elles sont '
+            'gardées sur le poste et partent dès le retour du réseau. '
+            'Le dossier suit l\'élève : en réinscription, les pièces déjà '
+            'présentes sont conservées.',
             style: TextStyle(fontSize: 12, color: _kMuted, height: 1.4),
           ),
         ),
@@ -403,6 +424,63 @@ class _DocRow extends StatelessWidget {
   }
 }
 
+/// Le tarif d'inscription applicable à la classe choisie.
+///
+/// ⚠️ Purement INFORMATIF : rien n'est encaissé ici. Le versement se fait après
+/// l'enregistrement, depuis la fiche du dossier — parce qu'un paiement doit
+/// être rattaché à une inscription qui existe (`student_payments.enrollment_id`
+/// est NOT NULL, et une ligne orpheline ferait abandonner tout le lot PowerSync).
+class _FraisAnnonce extends ConsumerWidget {
+  const _FraisAnnonce({required this.classId});
+  final String classId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final f = ref.watch(fraisInscriptionClasseProvider(classId)).valueOrNull;
+    if (f == null) return const SizedBox.shrink();
+
+    // Pas de barème : on le DIT. Afficher « 0 F » se lirait « gratuit », et
+    // trente écoles publiques du réseau n'ont aucun tarif posé.
+    final sansBareme = !f.baremeDefini;
+    final couleur = sansBareme ? kTextMuted : kNavy;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: couleur.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: couleur.withValues(alpha: 0.28)),
+      ),
+      child: Row(children: [
+        Icon(Icons.payments_outlined, size: 18, color: couleur),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(
+              sansBareme
+                  ? 'Aucun tarif d\'inscription défini'
+                  : '${f.du} F — ${f.libelle ?? 'frais d\'inscription'}',
+              style: TextStyle(
+                  fontSize: 13.5, fontWeight: FontWeight.w800, color: _kText),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              sansBareme
+                  ? 'Le groupe n\'a publié aucun barème pour ce niveau. '
+                      'L\'inscription reste possible ; aucun encaissement ne '
+                      'pourra être rattaché.'
+                  : 'À encaisser depuis la fiche du dossier, une fois '
+                      'l\'inscription enregistrée.',
+              style: TextStyle(fontSize: 11.5, color: _kMuted, height: 1.4),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
 // ─── Étape 5 — Résumé ─────────────────────────────────────────────────────────
 
 class _Step5Resume extends ConsumerWidget {
@@ -447,8 +525,13 @@ class _Step5Resume extends ConsumerWidget {
               ('Genre', state.gender == 'M' ? 'Masculin' : 'Féminin'),
               if (state.dateOfBirth != null) ('Date de naissance', state.dateOfBirth!),
               if (state.placeOfBirth != null) ('Lieu de naissance', state.placeOfBirth!),
+              // Le code brut (« monoparentale_pere ») s'affichait ici, à
+              // l'écran précis où l'on relit avant d'enregistrer — même défaut
+              // que le lien de parenté, corrigé en son temps par
+              // `tutorRelationshipLabel`.
               if (state.situationFamiliale != null)
-                ('Situation familiale', state.situationFamiliale!),
+                ('Situation familiale',
+                    situationFamilialeLabel(state.situationFamiliale)),
             ],
           ),
           if (!state.reusesExistingStudent)
@@ -492,6 +575,11 @@ class _Step5Resume extends ConsumerWidget {
                 ? [('Pièces', 'Aucune pour le moment')]
                 : state.uploadedDocs.values.map((d) => (d.label, '✓')).toList(),
           ),
+          // ── CE QUE ÇA VA COÛTER, AVANT D'ENREGISTRER ────────────────────
+          // Le secrétariat annonce le montant à la famille au moment où il
+          // ouvre le dossier. Le lui faire découvrir après enregistrement,
+          // dans un autre module, c'est le faire rappeler la famille.
+          if (state.classId != null) _FraisAnnonce(classId: state.classId!),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(12),

@@ -61,7 +61,7 @@ class DossierPieceState {
 }
 
 /// L'attestation de stage vue depuis le dossier d'examen — le pont Examens↔Stages
-/// pour les bacs professionnels (BAC_P, BAC_T), dont le dossier exige la pièce
+/// pour le baccalauréat (`BAC`), dont le dossier exige la pièce
 /// `attestation_stage`. Le module Stages la produit ; on ne redemande pas à
 /// l'agent de cocher ce que le système sait déjà.
 class StageAttestation {

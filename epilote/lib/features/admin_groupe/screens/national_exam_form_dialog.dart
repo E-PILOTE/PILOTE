@@ -141,8 +141,9 @@ class _State extends ConsumerState<_NationalExamForm> {
                       _isEdit
                           // Le code porte les rattachements : archives de la
                           // DEC, alerte « stage obligatoire », règles. Le
-                          // changer est licite (BAC_TP est redevenu BAC_T), mais
-                          // ce n'est pas une correction de forme.
+                          // changer est licite (BAC_TP → BAC_T par la 0079,
+                          // puis BAC_T → BAC par la 0105), mais ce n'est pas
+                          // une correction de forme.
                           ? 'Le CODE identifie l\'examen dans les archives et '
                               'les alertes. Le modifier est possible, mais il '
                               'ne s\'agit pas d\'une simple correction de '

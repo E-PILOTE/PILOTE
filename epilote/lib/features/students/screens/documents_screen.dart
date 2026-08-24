@@ -5,6 +5,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
+import '../../../services/powersync/student_document_upload.dart'
+    show attachStudentDocumentOffline;
+import '../../../services/powersync/upload_outbox.dart' show pendingFileFor;
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';

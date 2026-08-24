@@ -55,7 +55,7 @@ String safeFileName(String raw, {String fallback = 'export'}) {
 
   // Le tiret plutôt que le souligné : il se lit comme une séparation, là où
   // « _ » se confond avec les jointures déjà présentes dans nos gabarits
-  // (`Candidats_BAC_T_2025-2026`).
+  // (`Candidats_BAC_2025-2026`).
   name = name.replaceAll(_forbidden, '-');
 
   // Espaces et tirets multiples compactés — le remplacement en produit.

@@ -21,6 +21,7 @@ import 'admin_ui.dart' show kSurface;
 import 'pending_uploads_banner.dart';
 import 'reprise_banner.dart';
 import 'sync_failure_banner.dart';
+import 'school_subscription_banner.dart';
 import 'subscription_banner.dart';
 import '../../licensing/presentation/license_banner.dart';
 import 'app_shell/app_header.dart';
@@ -115,6 +116,11 @@ class _AppShellState extends ConsumerState<AppShell> {
     final isStaff = profile != null &&
         profile.role != AppConstants.roleSuperAdmin &&
         profile.role != AppConstants.roleAdminGroupe;
+    // « Personnel » au sens de la synchro englobe les familles ; certaines
+    // informations de gestion, elles, s'arrêtent aux agents de l'établissement.
+    final isFamille = profile != null &&
+        (profile.role == AppConstants.roleParent ||
+            profile.role == AppConstants.roleEleve);
     // Sur poste partagé, la sidebar suit l'AGENT ACTIF (rôle + profil d'accès),
     // pas l'utilisateur qui a authentifié l'appareil.
     final activeProfile = isStaff
@@ -190,6 +196,13 @@ class _AppShellState extends ConsumerState<AppShell> {
                     if (isStaff) const SyncFailureBanner(),
                     if (isStaff) const PendingUploadsBanner(),
                     if (isStaff) const LicenseBanner(),
+                    // Compte à rebours d'échéance de l'école : indépendant de
+                    // la licence (donc visible pour TOUS les groupes), sur le
+                    // même seuil que le bandeau de l'admin de groupe ci-dessous.
+                    // PAS pour les familles : la situation contractuelle de
+                    // l'établissement ne les regarde pas, et « expire dans
+                    // 3 jours » se lit vite comme « l'école n'a pas payé ».
+                    if (isStaff && !isFamille) const SchoolSubscriptionBanner(),
                     if (profile?.role == AppConstants.roleAdminGroupe)
                       const SubscriptionBanner(),
                     // En dernier, sous les bannières d'état : une mise à jour est

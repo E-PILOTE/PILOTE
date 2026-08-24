@@ -203,8 +203,13 @@ bucket_definitions:
       # expirées les retirera alors des appareils.
       - SELECT * FROM stories WHERE group_id = bucket.gid
       - SELECT * FROM story_views WHERE group_id = bucket.gid
+      # Le registre des mouvements est inter-écoles par nature : une école
+      # d'accueil doit voir arriver ce qu'une école sœur a émis.
       - SELECT * FROM student_transfers WHERE group_id = bucket.gid
-      - SELECT * FROM student_tutors WHERE group_id = bucket.gid
+      # ⚠️ `student_tutors` a QUITTÉ ce bucket → voir `by_school`. Il descendait
+      # par groupe faute de colonne `school_id` (migration 0110), et chaque
+      # poste d'école recevait donc les noms, téléphones, e-mails et adresses
+      # des familles de TOUTES les écoles du groupe. Ne pas le remettre ici.
       # payment_configs : api_key / api_secret JAMAIS exposés (liste explicite)
       - SELECT id, group_id, provider, display_name, merchant_id, webhook_url,
           is_active, is_test_mode, configured_by, configured_at, notes,
@@ -234,6 +239,13 @@ bucket_definitions:
       # Stages (migration 0048) — nominatif : filtré par école.
       - SELECT * FROM internships WHERE school_id = bucket.sid
       - SELECT * FROM students WHERE school_id = bucket.sid AND is_active = true
+      # Coordonnées des familles (migration 0110). La donnée la plus
+      # identifiante de la plateforme : nom des parents, deux téléphones,
+      # e-mail, adresse, profession. Elle suit désormais l'ÉCOLE de l'enfant —
+      # `school_id` est dérivé de `students` par trigger, PowerSync n'acceptant
+      # pas de JOIN dans une data-query. Même correction que
+      # `bulletin_subject_lines` ci-dessous.
+      - SELECT * FROM student_tutors WHERE school_id = bucket.sid
       - SELECT * FROM teacher_subjects WHERE school_id = bucket.sid
       - SELECT * FROM subjects WHERE school_id = bucket.sid AND is_active = true
       # Programme par classe : coefficient effectif (override) + volume horaire

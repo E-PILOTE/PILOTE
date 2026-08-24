@@ -246,7 +246,7 @@ final cycleFilieresProvider = FutureProvider.autoDispose
     SELECT ep.code, ep.name
     FROM education_programs ep
     JOIN education_cycles ec ON ec.id = ep.cycle_id
-    WHERE ec.code = ? AND ep.is_active = 1
+    WHERE ec.code = ? AND COALESCE(ep.is_active, 1) <> 0
     ORDER BY ep.order_index, ep.name
     ''',
     [cycleCode],
@@ -271,7 +271,7 @@ final schoolTeachersProvider =
     '''
     SELECT id, TRIM(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')) AS full_name
     FROM profiles
-    WHERE school_id = ? AND is_active = 1
+    WHERE school_id = ? AND COALESCE(is_active, 1) <> 0
       AND role IN ('enseignant', 'directeur', 'proviseur')
     ORDER BY last_name, first_name
     ''',

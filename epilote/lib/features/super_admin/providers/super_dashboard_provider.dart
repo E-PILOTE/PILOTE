@@ -5,6 +5,7 @@ import 'package:realtime_client/realtime_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 
 import '../../../core/utils/billing_period.dart';
+import '../../../core/utils/booleen_en_ligne.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
@@ -301,7 +302,7 @@ final superDashboardProvider =
     ) as List;
 
     groupesTotal  = groups.length;
-    groupesActifs = groups.where((g) => g['is_active'] == true).length;
+    groupesActifs = groups.where((g) => actifEnLigne(g['is_active'])).length;
 
     final now  = DateTime.now();
     final in30 = now.add(const Duration(days: 30));
@@ -338,7 +339,7 @@ final superDashboardProvider =
         planName:        planName,
         status:          status,
         schoolsCount:    schoolsByGroup[id] ?? 0,
-        isActive:        grp['is_active'] as bool? ?? false,
+        isActive:        actifEnLigne(grp['is_active']),
         subscriptionEnd: subEnd,
       ));
     }

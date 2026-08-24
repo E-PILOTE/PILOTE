@@ -15,7 +15,10 @@ import 'examens_widgets.dart' show formatDate;
 /// Diplômes antérieurs acceptés pour s'inscrire à un examen donné.
 /// Source : note officielle METP (cf. migration 0052).
 /// Le BET n'y figure pas : il suit la 3e technique et n'exige aucun diplôme.
+/// `BAC` est le code courant (mig. 0105, baccalauréat unique au METP) ;
+/// `BAC_T`/`BAC_P` restent pour les bases pas encore migrées.
 const kPrerequisites = <String, Set<String>>{
+  'BAC': {'BEPC', 'BET', 'BEP'},
   'BAC_T': {'BEPC', 'BET', 'BEP'},
   'BAC_P': {'BEPC', 'BET', 'BEP'},
   'BEP': {'BEPC', 'BET'},

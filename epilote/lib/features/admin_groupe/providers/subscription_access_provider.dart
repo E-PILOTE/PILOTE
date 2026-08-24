@@ -9,6 +9,12 @@ import 'package:realtime_client/realtime_client.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
 
+// La fenêtre d'alerte (`kSubscriptionAlertDays`) vit dans
+// `core/utils/subscription_days.dart` : elle est partagée avec le bandeau
+// OFFLINE des écoles, qui ne peut pas dépendre d'un provider admin_groupe.
+// Ré-exportée pour les écrans qui l'importaient déjà d'ici.
+export '../../../core/utils/subscription_days.dart' show kSubscriptionAlertDays;
+
 /// Phase d'accès dérivée de l'abonnement du groupe (chemin ONLINE admin_groupe).
 ///
 /// Cascade DOUCE (jamais de blocage sec) :
@@ -20,20 +26,6 @@ enum SubscriptionPhase { active, grace, readOnly }
 
 /// Nombre de jours de grâce après la date de fin avant de passer en lecture seule.
 const int kSubscriptionGraceDays = 15;
-
-/// Fenêtre d'alerte AVANT l'échéance : le bandeau ne s'allume qu'à moins de
-/// [kSubscriptionAlertDays] jours de la fin.
-///
-/// Valait 30 en dur — le bandeau criait un mois entier à l'avance, tous les
-/// jours, sur toutes les pages. Une alerte permanente n'est plus une alerte :
-/// on la lit une fois puis on cesse de la voir, y compris la veille de la
-/// coupure. Une semaine, c'est court assez pour rester crédible et long assez
-/// pour émettre et payer une facture.
-///
-/// Réglable par le super_admin (`platform_settings.subscription_alert_days`,
-/// lu via `subscriptionSettingsProvider`) ; cette constante n'est que le
-/// filet de sécurité quand le réglage est absent ou injoignable.
-const int kSubscriptionAlertDays = 7;
 
 class SubscriptionAccess {
   const SubscriptionAccess({

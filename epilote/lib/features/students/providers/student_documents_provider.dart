@@ -13,8 +13,18 @@ const _bucket = 'student-documents';
 // ════════════════════════════════════════════════════════════════════════════
 //  DOSSIER DOCUMENTAIRE DE L'ÉLÈVE — pièces réelles téléversées (bucket privé).
 //  Le dossier suit l'ÉLÈVE (student_id) : en RÉINSCRIPTION, les pièces déjà
-//  présentes sont conservées (rien à re-téléverser). Upload = Storage (internet) ;
-//  la ligne student_documents est écrite offline-first (PowerSync).
+//  présentes sont conservées (rien à re-téléverser).
+//
+//  ── OÙ SE DÉPOSE UNE PIÈCE, DÉSORMAIS ──────────────────────────────────────
+//  Dans `services/powersync/student_document_upload.dart`, et nulle part
+//  ailleurs : `attachStudentDocumentOffline` (l'élève existe) ou
+//  `queueStudentDocumentFile` (l'assistant, où il n'existe pas encore).
+//
+//  Ce fichier portait un `uploadStudentDocumentFile` qui envoyait à Storage en
+//  DIRECT — donc rien sans réseau. Il a été retiré plutôt que laissé de côté :
+//  une fonction publique qui fait presque la bonne chose est un piège dormant,
+//  et c'est précisément par elle que ce module s'était retrouvé le seul, avec
+//  Examens et Stages sur la même table, à ne pas savoir travailler hors ligne.
 // ════════════════════════════════════════════════════════════════════════════
 
 /// Catalogue des pièces du dossier (slug stable → libellé).
@@ -29,51 +39,14 @@ const studentDocTypes = <String, String>{
 
 String docTypeLabel(String slug) => studentDocTypes[slug] ?? slug;
 
-String _mime(String ext) => switch (ext.toLowerCase()) {
-      'jpg' || 'jpeg' => 'image/jpeg',
-      'png' => 'image/png',
-      'webp' => 'image/webp',
-      'pdf' => 'application/pdf',
-      _ => 'application/octet-stream',
-    };
-
-/// Téléverse un fichier de dossier vers le bucket privé. Retourne le CHEMIN
-/// stocké (les lectures passent par une URL signée). Nécessite internet.
-Future<String> uploadStudentDocumentFile({
-  required SupabaseClient client,
-  required String schoolId,
-  required String studentId,
-  required String typeSlug,
-  required String fileName,
-  required Uint8List bytes,
-}) async {
-  final rawExt = fileName.contains('.') ? fileName.split('.').last : 'bin';
-
-  // Une pièce du dossier est le plus souvent PHOTOGRAPHIÉE : un acte de
-  // naissance pris au téléphone pèse 4 à 8 Mo. On le ramène à 1600 px de long
-  // — assez pour rester parfaitement lisible à l'écran comme à l'impression —
-  // avant de le transférer. Les PDF et les formats indécodables passent
-  // inchangés : `compressForUpload` n'agit que sur ce qu'il sait décoder.
-  final media = await compressForUpload(
-    bytes: bytes,
-    fileName: fileName,
-    mime: _mime(rawExt),
-  );
-
-  final ext = media.fileName.contains('.')
-      ? media.fileName.split('.').last
-      : rawExt;
-  final safe = media.fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-  final path = '$schoolId/$studentId/${typeSlug}_${_uuid.v4().substring(0, 8)}_$safe';
-  await client.storage.from(_bucket).uploadBinary(
-        path,
-        media.bytes,
-        fileOptions: FileOptions(contentType: _mime(ext), upsert: true),
-      );
-  return path;
-}
-
 /// Insère la ligne du dossier (offline-first). `file_url` = chemin Storage.
+///
+/// ⚠️ N'A QU'UN SEUL APPELANT LÉGITIME : l'enregistrement de l'assistant
+/// d'inscription, qui écrit les lignes des pièces APRÈS avoir créé l'élève —
+/// leurs octets, eux, sont partis en file dès l'étape 4. Partout ailleurs, la
+/// pièce se dépose d'un seul geste par `attachStudentDocumentOffline`, qui met
+/// les octets en file ET écrit la ligne. Appeler cette fonction avec un chemin
+/// qui n'a pas été mis en file écrirait une pièce qui ne pointe sur rien.
 Future<void> insertStudentDocumentRow({
   required String groupId,
   required String schoolId,

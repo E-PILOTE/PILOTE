@@ -196,7 +196,14 @@ final adminSchoolsProvider =
             'founded_year, director_id, logo_url, is_active, capacity, '
             'latitude, longitude, location_source')
         .eq('group_id', groupId)
-        .order('name', ascending: true));
+        // ⚠️ `name` seul n'est pas un ordre TOTAL : des écoles homonymes
+        // existent (« École Primaire de Kinkala » revient d'un département à
+        // l'autre). Or `fetchAllRows` rejoue la requête page par page, et deux
+        // requêtes successives n'ont aucune obligation de rendre les ex æquo
+        // dans le même ordre. Une école pouvait donc être sautée à la frontière
+        // de deux pages, ou comptée deux fois. `id` clôt le tri.
+        .order('name', ascending: true)
+        .order('id'));
     for (final s in rows) {
       final id = s['id'] as String;
       schools.add(SchoolDetail(

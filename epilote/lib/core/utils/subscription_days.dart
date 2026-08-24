@@ -52,3 +52,60 @@ bool isNaturalExpiry(String status) =>
 /// Statuts qui ouvrent des droits tant que la date tient.
 bool isEntitlingStatus(String status) =>
     status == 'active' || status == 'trial';
+
+// ════════════════════════════════════════════════════════════════════════════
+//  FENÊTRE D'ALERTE — le même seuil pour le groupe ET pour ses écoles
+//
+//  Deux bandeaux annoncent la même échéance à deux publics : l'admin de groupe
+//  (online, Supabase) et le personnel d'école (offline, PowerSync). Ils avaient
+//  chacun leur seuil — 7 jours d'un côté, 30 de l'autre — donc l'école
+//  s'inquiétait trois semaines avant celui qui peut payer. Le seuil vit
+//  désormais ici, et les deux chemins le lisent.
+//
+//  Valeur effective : réglée par le super_admin
+//  (`platform_settings.subscription_alert_days`), servie en ligne par la RPC
+//  `get_subscription_settings` et recopiée hors ligne dans
+//  `school_groups.subscription_alert_days` (migration 0106). La constante
+//  ci-dessous n'est QUE le filet quand aucune des deux sources n'est joignable.
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Fenêtre d'alerte de repli : le bandeau s'allume à moins de N jours.
+///
+/// Valait 30 (bandeau permanent, donc invisible), puis 7. Ramenée à **5** le
+/// 2026-08-14 : un bandeau est une pression, pas une information. Prévenir tôt
+/// est le rôle de la cloche (`notif_reminder_days` = 30,15,7,1,0), qui ne
+/// s'affiche qu'une fois et ne fatigue pas.
+const int kSubscriptionAlertDays = 5;
+
+/// Jours civils restants **si l'échéance tombe dans la fenêtre d'alerte**,
+/// `null` sinon (trop loin, pas de date, ou déjà dépassée — le dépassement
+/// relève des phases grâce / lecture seule / hard-lock, pas du compte à rebours).
+int? alertDaysLeft(DateTime? end, {required int alertDays, DateTime? today}) {
+  final d = daysUntilDate(end, today);
+  if (d == null || d < 0 || d > alertDays) return null;
+  return d;
+}
+
+/// Seuils de rappel « 30,15,7,1,0 » → `[30, 15, 7, 1, 0]`.
+/// Miroir exact du parseur SQL d'`emit_subscription_reminders` : on ignore les
+/// fragments non numériques au lieu de rejeter toute la liste.
+List<int> parseReminderDays(String csv) {
+  final out = <int>[];
+  for (final part in csv.split(',')) {
+    final n = int.tryParse(part.trim());
+    if (n != null && n >= 0) out.add(n);
+  }
+  out.sort((a, b) => b.compareTo(a));
+  return out;
+}
+
+/// Vrai si au moins un rappel tombe **à l'intérieur** de la fenêtre du bandeau.
+///
+/// C'est l'invariant qui tient les deux réglages ensemble : sans lui, régler
+/// l'alerte à 5 en laissant les rappels à `30,15,7` éteint le canal cloche
+/// précisément dans les cinq jours qui décident du paiement.
+bool remindersCoverAlertWindow({
+  required List<int> reminderDays,
+  required int alertDays,
+}) =>
+    reminderDays.any((d) => d <= alertDays);

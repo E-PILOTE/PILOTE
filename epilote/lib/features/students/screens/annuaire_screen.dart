@@ -14,6 +14,7 @@ import '../providers/student_tutors_provider.dart';
 import '../services/annuaire_pdf_service.dart';
 import '../widgets/scope_drilldown_panel.dart';
 import '../../../core/utils/message_erreur.dart';
+import '../../../core/utils/write_identity.dart';
 
 part 'annuaire_parts.dart';
 part 'annuaire_detail.dart';

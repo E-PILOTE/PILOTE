@@ -3,10 +3,8 @@ import 'dart:typed_data';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:pdf/pdf.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../core/utils/write_identity.dart';
 import '../../../core/utils/sortie_motif.dart';
@@ -17,24 +15,43 @@ import '../../navigation/widgets/module_scaffold.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/classes/providers/class_provider.dart';
 import '../../../features/structure/providers/academic_year_context.dart';
-import '../../../features/structure/providers/academic_year_provider.dart';
+import '../../finance/providers/decompte_du_provider.dart'
+    show DecompteDu, decompteDuProvider;
+import '../../finance/providers/paiements_provider.dart'
+    show kPaymentMethods, paymentMethodLabel, savePayment;
+import '../../finance/services/obligation.dart' show EtatObligation;
+import '../../finance/services/recu_pdf_service.dart'
+    show RecuPaiement, construireRecuPaiement;
+import '../widgets/exoneration_card.dart';
+import '../widgets/fiche_inscription_actions.dart';
 import '../widgets/inscription_form_kit.dart';
+import '../widgets/monthly_evolution_card.dart';
 import '../widgets/scope_drilldown_panel.dart';
+import '../widgets/tuteur_edit_card.dart';
 import '../providers/documents_provider.dart' show kRequiredDocTypes;
+import '../providers/frais_inscription_provider.dart';
 import '../providers/inscriptions_data_provider.dart';
+import '../models/eleve_libelles.dart';
 import '../models/tutor_draft.dart';
 import '../providers/students_provider.dart';
 import '../providers/student_documents_provider.dart';
 import '../providers/student_tutors_provider.dart';
-import '../services/inscription_fiche_service.dart';
+import '../services/edition_eleve_garde.dart';
+import '../services/inscriptions_csv.dart';
 import '../services/inscriptions_pdf_service.dart';
 import 'add_inscription_screen.dart';
 import 'import_eleves_dialog.dart';
 import '../../../core/utils/message_erreur.dart';
 
 part 'inscriptions_list_parts.dart';
+part 'inscriptions_kpi_parts.dart';
+part 'inscriptions_filtres_parts.dart';
 part 'inscriptions_page_parts.dart';
-part 'inscriptions_modals.dart';
+part 'inscriptions_actions.dart';
+part 'inscriptions_dossier.dart';
+part 'inscriptions_frais_card.dart';
+part 'inscriptions_edit.dart';
+part 'inscriptions_edit_parts.dart';
 
 // ─── Accents de cycle ─────────────────────────────────────────────────────────
 const _kBlue = Color(0xFF0EA5E9);
@@ -173,330 +190,6 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
         builder: (_) => _EditStudentModal(row: r),
       );
 
-  // ── Verrou LICENCE ─────────────────────────────────────────────────────────
-  // Les gestes ci-dessous portent déjà leur propre `try` et leur propre
-  // bandeau : on ne peut pas les passer par `runModuleWrite` sans afficher deux
-  // messages pour un seul échec. On pose donc le MÊME verrou à la main, en tête
-  // de chaque geste — avant la boîte de dialogue, pour ne pas faire saisir un
-  // motif de rejet qui sera refusé ensuite.
-  //
-  // Il manquait ici, et ici seulement : le tiroir élève, l'annuaire, les
-  // transferts et les dossiers passaient par `runModuleWrite`. Une école dont
-  // l'abonnement avait expiré continuait donc d'inscrire, de valider et de
-  // rejeter des dossiers — c'est-à-dire de faire entrer des élèves — pendant
-  // que le reste de l'application était en lecture seule.
-
-  Future<void> _changeClass(InscriptionRow r) async {
-    if (writeRefusedForLicense(context)) return;
-    final classes = ref.read(classesProvider).valueOrNull ?? const <ClassModel>[];
-    final others = classes.where((c) => c.id != r.classId).toList();
-    if (others.isEmpty) {
-      _snack('Aucune autre classe disponible.', kTextMuted);
-      return;
-    }
-    final picked = await showDialog<ClassModel>(
-      context: context,
-      builder: (ctx) => SimpleDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text('Réaffecter ${r.fullName}'),
-        children: [
-          for (final c in others)
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(ctx, c),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(children: [
-                  Icon(Icons.meeting_room_outlined,
-                      size: 18, color: kNavy),
-                  const SizedBox(width: 10),
-                  Expanded(child: Text(c.name)),
-                  Text('${c.studentCount ?? 0}'
-                      '${c.capacity != null ? '/${c.capacity}' : ''}',
-                      style: TextStyle(
-                          fontSize: 12, color: kTextMuted)),
-                ]),
-              ),
-            ),
-        ],
-      ),
-    );
-    if (picked == null) return;
-    try {
-      await changeEnrollmentClass(enrollmentId: r.id, newClassId: picked.id);
-      _snack('Élève réaffecté dans ${picked.name}', kGreen);
-    } catch (e) {
-      _snack(messageErreur(e), kRed);
-    }
-  }
-
-  Future<void> _withdraw(InscriptionRow r) async {
-    if (writeRefusedForLicense(context)) return;
-    final ctrl = TextEditingController();
-    // Le motif normalisé est OBLIGATOIRE : c'est lui qui se compte. Le champ
-    // libre reste à côté, pour le cas particulier. Sans catégorie, cette
-    // sortie deviendrait une ligne de plus dans un total qu'on ne sait pas
-    // ventiler — et la déperdition scolaire ne se lit nulle part ailleurs.
-    String? motif;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: const Text('Retirer de la classe'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          DropdownButtonFormField<String>(
-            initialValue: motif,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Motif *'),
-            items: [
-              for (final m in motifsPour(transfert: false))
-                DropdownMenuItem(value: m.code, child: Text(m.label)),
-            ],
-            onChanged: (v) => setLocal(() => motif = v),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: ctrl,
-            maxLines: 2,
-            decoration: const InputDecoration(
-              labelText: 'Précision (facultatif)',
-              hintText: 'Ce que la catégorie ne dit pas',
-            ),
-          ),
-        ]),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Annuler')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: kAccent),
-            onPressed:
-                motif == null ? null : () => Navigator.pop(ctx, true),
-            child: const Text('Retirer'),
-          ),
-        ],
-        ),
-      ),
-    );
-    if (ok != true) { ctrl.dispose(); return; }
-    try {
-      await withdrawStudent(
-        enrollmentId: r.id,
-        motif: motif!,
-        reason: ctrl.text.trim().isEmpty ? '' : ctrl.text.trim(),
-      );
-      _snack('Élève retiré de la classe', kTextMuted);
-    } catch (e) {
-      _snack(messageErreur(e), kRed);
-    }
-    ctrl.dispose();
-  }
-
-  Future<void> _delete(InscriptionRow r) async {
-    if (writeRefusedForLicense(context)) return;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: const Text('Supprimer l\'inscription ?'),
-        content: Text(
-            'L\'inscription de ${r.fullName} pour cette année sera définitivement '
-            'supprimée. La fiche élève (identité, tuteurs) est conservée.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Annuler')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: kRed),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Supprimer'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    try {
-      await deleteEnrollment(r.id);
-      _snack('Inscription supprimée', kTextMuted);
-    } catch (e) {
-      _snack(messageErreur(e), kRed);
-    }
-  }
-
-  /// Pièces obligatoires manquantes au dossier de l'élève, en clair.
-  ///
-  /// Valider une inscription, c'est faire entrer l'élève dans l'effectif —
-  /// et c'est le dernier moment où l'on regarde son dossier. On pouvait le
-  /// faire sans acte de naissance ni certificat médical, sans qu'aucun écran
-  /// ne le signale ; le manque ne se découvrait qu'au contrôle, des mois plus
-  /// tard. On avertit, sans interdire : un dossier se complète souvent après
-  /// la rentrée, et bloquer l'entrée d'un enfant pour une photo serait pire
-  /// que le mal.
-  List<String> _missingRequiredDocs(String studentId) {
-    final docs = ref.read(studentDocumentsProvider(studentId)).valueOrNull;
-    if (docs == null) return const []; // pas encore lu : on ne présume rien
-    final present = {for (final d in docs) d.documentType};
-    return [
-      for (final t in kRequiredDocTypes)
-        if (!present.contains(t)) docTypeLabel(t),
-    ];
-  }
-
-  /// `true` si l'on peut poursuivre (dossier complet, ou l'agent assume).
-  Future<bool> _confirmIncompleteDossier(InscriptionRow r) async {
-    final missing = _missingRequiredDocs(r.studentId);
-    if (missing.isEmpty) return true;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: const Text('Dossier incomplet'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Il manque au dossier de ${r.fullName} :',
-                style: TextStyle(color: kTextPrimary)),
-            const SizedBox(height: 8),
-            for (final m in missing)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 3),
-                child: Row(children: [
-                  Icon(Icons.circle, size: 6, color: kAccent),
-                  const SizedBox(width: 8),
-                  Expanded(
-                      child: Text(m, style: TextStyle(color: kTextPrimary))),
-                ]),
-              ),
-            const SizedBox(height: 10),
-            Text(
-              'Vous pouvez valider quand même — la pièce restera signalée '
-              'manquante dans le module Documents.',
-              style: TextStyle(fontSize: 12.5, color: kTextMuted, height: 1.4),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Annuler')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: kGreen),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Valider quand même'),
-          ),
-        ],
-      ),
-    );
-    return ok == true;
-  }
-
-  Future<void> _validate(InscriptionRow r) async {
-    if (writeRefusedForLicense(context)) return;
-    if (!await _confirmIncompleteDossier(r)) return;
-    final me = _actorOrComplain();
-    if (me == null) return;
-    try {
-      await validateEnrollment(enrollmentId: r.id, validatedBy: me);
-      _snack('Inscription validée', kGreen);
-    } catch (e) {
-      _snack(messageErreur(e), kRed);
-    }
-  }
-
-  Future<void> _reject(InscriptionRow r) async {
-    if (writeRefusedForLicense(context)) return;
-    final ctrl = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: const Text('Rejeter l\'inscription'),
-        content: TextField(
-          controller: ctrl,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: 'Motif du rejet',
-            hintText: 'Ex. : Dossier incomplet, quota atteint…',
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Annuler')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: kRed),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Rejeter'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) { ctrl.dispose(); return; }
-    final me = _actorOrComplain();
-    if (me == null) { ctrl.dispose(); return; }
-    try {
-      await rejectEnrollment(
-        enrollmentId: r.id,
-        rejectionReason:
-            ctrl.text.trim().isEmpty ? 'Aucun motif précisé' : ctrl.text.trim(),
-        validatedBy: me,
-      );
-      _snack('Inscription rejetée', kTextMuted);
-    } catch (e) {
-      _snack(messageErreur(e), kRed);
-    }
-    ctrl.dispose();
-  }
-
-  Future<void> _export(List<InscriptionRow> rows) async {
-    if (rows.isEmpty) return;
-    try {
-      final path = await exportInscriptionsCsv(rows);
-      _snack('Export CSV : ${rows.length} ligne(s) → $path', kGreen);
-    } catch (e) {
-      _snack(messageErreur(e, contexte: 'Export'), kRed);
-    }
-  }
-
-  void _previewPdf(List<InscriptionRow> rows) {
-    if (rows.isEmpty) return;
-    final year = ref.read(activeYearProvider)?.label;
-    showPdfPreviewDialog(
-      context,
-      title: 'Inscriptions',
-      subtitle: '${rows.length} inscription${rows.length > 1 ? 's' : ''}'
-          '${year != null ? ' · $year' : ''}',
-      pdfFileName: 'Inscriptions.pdf',
-      build: (format) =>
-          InscriptionsPdfService.buildPdf(rows: rows, yearLabel: year),
-      onDownload: () =>
-          InscriptionsPdfService.downloadDoc(rows: rows, yearLabel: year),
-    );
-  }
-
-  void _snack(String msg, Color c) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg), backgroundColor: c));
-  }
-
-  /// L'agent qui valide, ou `null` si son identité n'est pas résolue.
-  ///
-  /// `class_enrollments.validated_by` est un `uuid` NOT NULL avec clé étrangère
-  /// vers `profiles`. Le motif `?? ''` qui régnait ici écrivait une chaîne vide :
-  /// SQLite l'accepte, le badge passait « Validée », puis le serveur répondait
-  /// `22P02` et PowerSync abandonnait le LOT ENTIER. L'inscription restait « en
-  /// attente » partout ailleurs et l'élève n'entrait jamais dans l'effectif — en
-  /// emportant au passage tout ce qui avait été saisi dans la même fenêtre.
-  /// En validation groupée, la même chaîne vide partait sur N lignes d'un coup.
-  String? _actorOrComplain() {
-    final id = ref.read(authNotifierProvider).valueOrNull?.id;
-    if (isUsableId(id)) return id!.trim();
-    _snack(writeIdentityMessage(const ['agent']), kRed);
-    return null;
-  }
-
   // ── Sélection / actions groupées ───────────────────────────────────────────
   void _toggleSelect(String id, bool sel) => setState(() {
         if (sel) {
@@ -516,7 +209,16 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
 
   void _clearSelection() => setState(_selected.clear);
 
+  /// Année clôturée : on refuse avant la boucle. Cacher les boutons suffit à
+  /// l'usage, mais une action groupée écrit N lignes — le garde vaut son coût.
+  bool _refuseAnneeVerrouillee() {
+    if (!ref.read(yearReadOnlyProvider)) return false;
+    _snack('Année verrouillée — aucune modification possible', kAccent);
+    return true;
+  }
+
   Future<void> _bulkValidate(List<InscriptionRow> rows) async {
+    if (_refuseAnneeVerrouillee()) return;
     if (writeRefusedForLicense(context)) return;
     final targets = rows
         .where((r) => _selected.contains(r.id) && r.status == 'pending_validation')
@@ -536,7 +238,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
       } catch (e) {
         // Sur trente lignes sélectionnées, un `catch (_) {}` laissait douze
         // échecs invisibles derrière un « 18 validée(s) » satisfaisant.
-        firstError ??= '$e';
+        firstError ??= messageErreur(e);
       }
     }
     if (mounted) setState(() => _selected.clear());
@@ -544,9 +246,16 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
     // On ne barre pas la route d'une validation groupée pour un acte de
     // naissance manquant — mais on ne laisse pas non plus croire que les
     // dossiers étaient complets.
-    final incomplets = targets
-        .where((t) => _missingRequiredDocs(t.studentId).isNotEmpty)
-        .length;
+    //
+    // ⚠️ Le comptage se faisait dans un `.where()` SYNCHRONE sur une lecture
+    // qui, elle, ne l'est pas : `_missingRequiredDocs` rendait toujours une
+    // liste vide, donc `incomplets` valait toujours zéro et la mention ne
+    // pouvait pas s'afficher. Trente dossiers validés d'un coup passaient pour
+    // trente dossiers complets.
+    var incomplets = 0;
+    for (final t in targets) {
+      if ((await _missingRequiredDocs(t.studentId)).isNotEmpty) incomplets++;
+    }
     _snack(
       ko == 0
           ? '$ok inscription(s) validée(s)'
@@ -557,6 +266,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
   }
 
   Future<void> _bulkReject(List<InscriptionRow> rows) async {
+    if (_refuseAnneeVerrouillee()) return;
     if (writeRefusedForLicense(context)) return;
     final targets = rows
         .where((r) => _selected.contains(r.id) && r.status == 'pending_validation')
@@ -597,7 +307,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
             validatedBy: me);
         n++;
       } catch (e) {
-        firstError ??= '$e';
+        firstError ??= messageErreur(e);
       }
     }
     if (mounted) setState(() => _selected.clear());
@@ -627,10 +337,18 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
       ),
       data: (all) {
         final st = ref.watch(inscriptionStatsProvider);
+        final year = ref.watch(yearInscriptionTotalsProvider).valueOrNull ??
+            const YearInscriptionTotals();
         final filtered = _apply(all);
         // Filières OFFERTES par l'école (depuis la structure, même à 0 inscrit)
         // → le filtre est visible pour toute école technique/professionnelle.
-        final filieresPresent = [for (final p in st.byProgram) p.label]..sort();
+        final filieresPresent = st.filieres;
+        // Les dossiers encore en attente se lisent dans la colonne du mois où
+        // ils ont été déposés, mais PAS dans le cumul — qui ne compte que les
+        // validés. Sans un mot, l'écart entre la hauteur des colonnes et la
+        // pente de la courbe passe pour une erreur de calcul.
+        final enAttenteDatee =
+            year.evolution.fold<int>(0, (s, p) => s + p.pending);
 
         return LayoutBuilder(builder: (ctx, cns) {
           final w = cns.maxWidth.isFinite
@@ -642,11 +360,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _KpiSection(
-                    st: st,
-                    year: ref.watch(yearInscriptionTotalsProvider).valueOrNull ??
-                        const YearInscriptionTotals(),
-                  ),
+                  _KpiSection(st: st, year: year),
                   const SizedBox(height: 14),
                   // Dire ce que la page montre. Sans cette ligne, « 2 dossiers »
                   // sous un titre « Inscriptions » se lit comme « cette école a
@@ -683,13 +397,50 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                   // L'effectif VALIDÉ (cycle/niveau/classe) vit dans la page
                   // Élèves. Ici = guichet des admissions : rythme global +
                   // pipeline par dimension (dossiers en cours). Zéro doublon.
-                  if (st.evolution.length >= 2) ...[
+                  // ⚠️ `year.evolution` et NON `st.evolution` : le second se
+                  // calculait sur le guichet (`status != 'active'`), donc une
+                  // école ayant inscrit puis validé trois cents élèves voyait
+                  // une courbe plate sous le titre « Rythme des inscriptions ».
+                  //
+                  // La section ne DISPARAÎT plus sous deux mois d'historique :
+                  // elle s'effaçait sans un mot, et une école de rentrée
+                  // cherchait un graphe qu'on lui avait montré ailleurs. Le
+                  // widget porte son propre état « pas encore assez ».
+                  if (year.evolution.isNotEmpty) ...[
                     const AdminSectionTitle('Rythme des inscriptions',
                         icon: Icons.show_chart_rounded,
+                        // « Dossiers reçus » aurait englobé les rejets, qui ne
+                        // sont pas tracés : on nomme les deux segments.
                         subtitle:
-                            'Nouvelles inscriptions par mois (barres) et effectif cumulé (courbe)'),
+                            'Entrées validées et dossiers en attente, mois par '
+                            'mois (colonnes) — effectif cumulé (aire)'),
                     const SizedBox(height: 12),
-                    _EvolutionCard(points: st.evolution),
+                    MonthlyEvolutionCard(
+                      points: [
+                        for (final p in year.evolution)
+                          EvoPoint(p.label, p.count, p.cumul, stack: p.pending),
+                      ],
+                      barLabel: 'Entrées validées',
+                      // La couleur est celle de la carte KPI « En attente » :
+                      // le même chiffre porte la même teinte partout sur la
+                      // page, on n'a pas à relire la légende.
+                      stackLabel: 'En attente de validation',
+                      lineLabel: 'Effectif cumulé',
+                      note: enAttenteDatee == 0
+                          ? null
+                          : enAttenteDatee == 1
+                              ? 'Un dossier reçu cette année attend encore '
+                                  'd\'être validé : il apparaît dans la colonne '
+                                  'de son mois de dépôt, pas dans l\'effectif '
+                                  'cumulé.'
+                              : '$enAttenteDatee dossiers reçus cette année '
+                                  'attendent encore d\'être validés : ils '
+                                  'apparaissent dans la colonne de leur mois de '
+                                  'dépôt, pas dans l\'effectif cumulé.',
+                      emptyMessage: 'Pas encore assez d\'historique pour '
+                          'tracer un rythme : il faut au moins deux mois '
+                          'portant une date d\'inscription.',
+                    ),
                     const SizedBox(height: 22),
                   ],
                   if (all.isNotEmpty)
@@ -742,26 +493,45 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                     ),
                   ],
                   const SizedBox(height: 16),
-                  if (_selected.isNotEmpty)
-                    _BulkBar(
-                      count: _selected.length,
-                      onValidate: () => _bulkValidate(filtered),
-                      onReject: () => _bulkReject(filtered),
-                      onExport: () {
-                        _export(filtered
-                            .where((r) => _selected.contains(r.id))
-                            .toList());
-                      },
-                      onClear: _clearSelection,
-                    )
-                  else
-                    _ResultHeader(
-                      total: all.length,
-                      filtered: filtered.length,
-                      onExportPdf: filtered.isEmpty
-                          ? null
-                          : () => _previewPdf(filtered),
-                    ),
+                  // La bascule sélection ↔ compteur se fait sous les yeux de
+                  // l'agent : un fondu court dit que la barre a REMPLACÉ
+                  // l'en-tête, là où une substitution sèche donne l'impression
+                  // que la page a sauté.
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 160),
+                    switchInCurve: Curves.easeOut,
+                    child: _selected.isNotEmpty
+                        ? _BulkBar(
+                            // La clé porte le COMPTE : sans elle, le fondu ne
+                            // rejouerait qu'à l'apparition de la barre et le
+                            // nombre changerait sans que rien ne bouge.
+                            key: ValueKey(_selected.length),
+                            count: _selected.length,
+                            readOnly: readOnly,
+                            onValidate: () => _bulkValidate(filtered),
+                            onReject: () => _bulkReject(filtered),
+                            onExport: () {
+                              _export(filtered
+                                  .where((r) => _selected.contains(r.id))
+                                  .toList());
+                            },
+                            onFiches: () => ouvrirFichesGroupees(
+                                context,
+                                ref,
+                                filtered
+                                    .where((r) => _selected.contains(r.id))
+                                    .toList()),
+                            onClear: _clearSelection,
+                          )
+                        : _ResultHeader(
+                            key: const ValueKey('resultats'),
+                            total: all.length,
+                            filtered: filtered.length,
+                            onExportPdf: filtered.isEmpty
+                                ? null
+                                : () => _previewPdf(filtered),
+                          ),
+                  ),
                   const SizedBox(height: 12),
                   if (all.isEmpty)
                     Padding(
@@ -809,6 +579,7 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                       onView: _openDetail,
                       onValidate: _validate,
                       onReject: _reject,
+                      onReopen: _reopen,
                       readOnly: readOnly,
                     )
                   else

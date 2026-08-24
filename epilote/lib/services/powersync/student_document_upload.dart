@@ -35,22 +35,27 @@ String studentDocMime(String ext) => switch (ext.toLowerCase()) {
       _ => 'application/octet-stream',
     };
 
-/// Joint un fichier au dossier d'un élève, éventuellement rattaché à une
-/// candidature d'examen ([examCandidateId]) ou à un stage ([internshipId]).
+/// Met les OCTETS d'une pièce en file et renvoie son chemin Storage — SANS
+/// écrire la ligne `student_documents`.
 ///
-/// Les deux rattachements sont exclusifs par nature mais non contraints ici :
-/// c'est l'appelant qui sait de quoi il parle. Laisser les deux à `null` crée
-/// une pièce de l'ÉLÈVE, réutilisable partout.
-Future<String> attachStudentDocumentOffline({
-  required String groupId,
+/// ── POURQUOI CETTE MOITIÉ EXISTE SÉPARÉMENT ────────────────────────────────
+/// L'assistant d'inscription collecte les pièces à l'étape 4, mais l'élève
+/// n'est créé qu'à l'enregistrement, à la fin. Écrire la ligne dès l'étape 4 la
+/// placerait dans la file PowerSync AVANT l'insertion de `students` : le
+/// serveur répondrait `23503` (clé étrangère `student_id`), un code que le
+/// connecteur tient pour fatal — et c'est le LOT ENTIER qui serait abandonné en
+/// silence, l'élève, ses tuteurs et son inscription compris.
+///
+/// L'assistant met donc les octets en file ici, garde le chemin, et n'écrit la
+/// ligne qu'après avoir créé l'élève. Le chemin, lui, se calcule au même
+/// endroit pour tout le monde : c'est ce qui garantit qu'un fichier et sa ligne
+/// se retrouvent.
+Future<String> queueStudentDocumentFile({
   required String schoolId,
   required String studentId,
   required String documentType,
-  required String documentName,
   required String fileName,
   required Uint8List bytes,
-  String? examCandidateId,
-  String? internshipId,
   SupabaseClient? client,
 }) async {
   final rawExt = fileName.contains('.') ? fileName.split('.').last : 'bin';
@@ -73,14 +78,48 @@ Future<String> attachStudentDocumentOffline({
   final storagePath =
       '$schoolId/$studentId/${documentType}_${_uuid.v4().substring(0, 8)}_$safe';
 
-  // Les octets d'abord : si la mise en file échoue, aucune ligne ne doit
-  // promettre un fichier qui n'arrivera jamais.
   await enqueueUpload(
     bucket: kStudentDocsBucket,
     storagePath: storagePath,
     bytes: media.bytes,
     mime: studentDocMime(ext),
     fileName: safe,
+  );
+
+  // Envoi immédiat si le réseau est là ; sinon la file part au prochain retour.
+  if (client != null) unawaited(flushUploadOutbox(client));
+  return storagePath;
+}
+
+/// Joint un fichier au dossier d'un élève, éventuellement rattaché à une
+/// candidature d'examen ([examCandidateId]) ou à un stage ([internshipId]).
+///
+/// Les deux rattachements sont exclusifs par nature mais non contraints ici :
+/// c'est l'appelant qui sait de quoi il parle. Laisser les deux à `null` crée
+/// une pièce de l'ÉLÈVE, réutilisable partout.
+///
+/// ⚠️ À n'appeler que si l'élève EXISTE déjà. Sinon, voir
+/// [queueStudentDocumentFile] et l'ordre de la file PowerSync.
+Future<String> attachStudentDocumentOffline({
+  required String groupId,
+  required String schoolId,
+  required String studentId,
+  required String documentType,
+  required String documentName,
+  required String fileName,
+  required Uint8List bytes,
+  String? examCandidateId,
+  String? internshipId,
+  SupabaseClient? client,
+}) async {
+  // Les octets d'abord : si la mise en file échoue, aucune ligne ne doit
+  // promettre un fichier qui n'arrivera jamais.
+  final storagePath = await queueStudentDocumentFile(
+    schoolId: schoolId,
+    studentId: studentId,
+    documentType: documentType,
+    fileName: fileName,
+    bytes: bytes,
   );
 
   final now = DateTime.now().toIso8601String();

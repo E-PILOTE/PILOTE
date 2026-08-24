@@ -28,9 +28,15 @@ import 'students_provider.dart';
 
 /// Une classe d'accueil possible.
 class ClasseCible {
-  const ClasseCible(this.id, this.nom);
+  const ClasseCible(this.id, this.nom, {this.niveau, this.filiere});
   final String id;
   final String nom;
+
+  /// Niveau et filière de la classe — portés UNIQUEMENT par le modèle
+  /// d'import, pour que l'école reconnaisse ses propres classes. Le rattachement
+  /// d'un élève, lui, ne passe que par le NOM de la classe : deux façons de
+  /// désigner la même classe, c'est la possibilité qu'elles se contredisent.
+  final String? niveau, filiere;
 }
 
 /// Les classes ouvertes pour l'année courante — les seules destinations
@@ -44,7 +50,8 @@ final classesImportProvider =
 
   final rows = await db.getAll(
     '''
-    SELECT c.id, c.name, sl.order_index AS rang
+    SELECT c.id, c.name, c.filiere_label, sl.name AS niveau,
+           sl.order_index AS rang
       FROM classes c
       LEFT JOIN school_levels sl ON sl.id = c.level_id
      WHERE c.school_id = ? AND c.academic_year_id = ?
@@ -55,20 +62,50 @@ final classesImportProvider =
   );
   return [
     for (final r in rows)
-      ClasseCible(r['id'] as String, (r['name'] as String?) ?? '—'),
+      ClasseCible(
+        r['id'] as String,
+        (r['name'] as String?) ?? '—',
+        niveau: r['niveau'] as String?,
+        filiere: r['filiere_label'] as String?,
+      ),
   ];
 });
 
 /// Une ligne prête à écrire — ou prête à expliquer pourquoi elle ne le sera pas.
 class LigneResolue {
-  LigneResolue(this.ligne, {this.classeId, this.classeNom});
+  LigneResolue(this.ligne,
+      {this.classeId, this.classeNom, this.classeInconnue});
   final LigneImport ligne;
 
   /// La classe d'accueil, une fois résolue. Nulle si la ligne est rejetée.
   final String? classeId;
   final String? classeNom;
 
+  /// Le libellé de classe que le fichier portait et que l'école ne connaît
+  /// pas. Conservé TEL QUEL — c'est lui qu'on affiche à l'écran de contrôle
+  /// pour proposer une correspondance, et une forme normalisée n'aiderait
+  /// personne à reconnaître ce qu'il a tapé dans son classeur.
+  final String? classeInconnue;
+
   bool get retenue => ligne.retenue && classeId != null;
+}
+
+/// Un libellé de classe du fichier que l'école ne reconnaît pas, et le nombre
+/// de lignes qu'il bloque.
+///
+/// ⚠️ C'est l'unité de RÉPARATION, et c'est pour ça qu'elle existe. Quarante
+/// élèves écrits « 6A » dans une école qui a créé « 6e A », ce n'est pas
+/// quarante problèmes : c'en est UN, et le corriger quarante fois — ou rouvrir
+/// le classeur pour un chercher-remplacer — est la raison pour laquelle un
+/// import à moitié rejeté finit à la corbeille.
+class LibelleInconnu {
+  const LibelleInconnu(this.libelle, this.lignes);
+
+  /// Le libellé tel qu'il figure dans le fichier.
+  final String libelle;
+
+  /// Combien de lignes il bloque.
+  final int lignes;
 }
 
 /// Le bilan d'une préparation : ce qui entrera, ce qui ne le peut pas.
@@ -92,17 +129,51 @@ class PreparationImport {
   /// valider. Elles ne bloquent pas, mais elles se signalent.
   List<LigneResolue> get aVerifier =>
       retenues.where((l) => l.ligne.nomDevine).toList(growable: false);
+
+  /// Les libellés de classe non reconnus, regroupés et triés du plus bloquant
+  /// au moins bloquant — l'ordre dans lequel on a intérêt à les traiter.
+  ///
+  /// Le regroupement se fait sur la clé normalisée : « 6A », « 6 a » et « 6A »
+  /// avec un espace insécable sont le même problème, et les présenter trois
+  /// fois ferait recommencer trois fois le même geste.
+  List<LibelleInconnu> get libellesInconnus {
+    final comptes = <String, ({String libelle, int n})>{};
+    for (final l in lignes) {
+      final t = l.classeInconnue;
+      if (t == null || t.isEmpty) continue;
+      final k = cleClasse(t);
+      final vu = comptes[k];
+      comptes[k] = (libelle: vu?.libelle ?? t, n: (vu?.n ?? 0) + 1);
+    }
+    final out = [
+      for (final e in comptes.values) LibelleInconnu(e.libelle, e.n),
+    ]..sort((a, b) {
+        final c = b.lignes.compareTo(a.lignes);
+        return c != 0 ? c : a.libelle.compareTo(b.libelle);
+      });
+    return out;
+  }
 }
 
 /// Confronte le fichier lu à l'état réel de l'école.
 ///
 /// [classeParDefaut] s'applique aux lignes sans colonne « Classe » — cas le
 /// plus fréquent, une école tenant un tableau par classe.
+///
+/// [correspondances] rattrape l'autre cas, celui qui faisait jeter des imports
+/// entiers : le fichier NOMME une classe, mais sous un libellé que l'école
+/// n'emploie pas (« 6A » contre « 6e A »). La clé est la forme normalisée du
+/// libellé du fichier, la valeur l'identifiant de la classe choisie à l'écran
+/// de contrôle. C'est un aiguillage EXPLICITE, décidé par un humain qui voit
+/// combien de lignes il déplace — surtout pas un rapprochement automatique
+/// entre libellés qui se ressemblent : envoyer un enfant en 6ᵉ B au lieu de
+/// 6ᵉ A ne se découvrirait qu'au conseil de classe.
 Future<PreparationImport> preparerImport({
   required LectureImport lecture,
   required String schoolId,
   required String yearId,
   String? classeParDefaut,
+  Map<String, String> correspondances = const {},
 }) async {
   marquerDoublonsInternes(lecture.lignes);
 
@@ -162,13 +233,26 @@ Future<PreparationImport> preparerImport({
     // La classe : celle du fichier si elle est nommée, sinon celle choisie.
     final texte = l.classeTexte?.trim();
     if (texte != null && texte.isNotEmpty) {
-      final trouvee = parNom[cleClasse(texte)];
+      final cle = cleClasse(texte);
+      final trouvee = parNom[cle];
       if (trouvee == null) {
+        // Une correspondance posée à la main l'emporte : c'est un humain qui a
+        // vu le libellé, vu la classe, et vu le nombre de lignes en jeu.
+        final vise = correspondances[cle];
+        if (vise != null) {
+          final c = rows.where((r) => r['id'] == vise);
+          if (c.isNotEmpty) {
+            resolues.add(LigneResolue(l,
+                classeId: vise, classeNom: c.first['name'] as String?));
+            continue;
+          }
+        }
         // On ne rapproche PAS d'une classe qui « ressemble » : mettre un
         // enfant en 6ᵉ B au lieu de 6ᵉ A ne se découvre qu'au conseil.
         l.rejets.add(MotifRejet('Classe « $texte » inconnue dans '
-            'l\'établissement — créez-la, ou corrigez le fichier'));
-        resolues.add(LigneResolue(l));
+            'l\'établissement — indiquez la classe correspondante ci-dessus, '
+            'créez-la, ou corrigez le fichier'));
+        resolues.add(LigneResolue(l, classeInconnue: texte));
         continue;
       }
       resolues.add(

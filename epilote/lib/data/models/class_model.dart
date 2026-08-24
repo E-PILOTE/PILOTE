@@ -1,3 +1,5 @@
+import '../../core/utils/booleen_offline.dart';
+
 bool _b(dynamic v) => v == true || v == 1;
 
 /// Table `classes`
@@ -36,7 +38,10 @@ class ClassModel {
       capacity:       map['capacity']         as int?,
       mainTeacherId:  map['main_teacher_id']  as String?,
       room:           map['room']             as String?,
-      isActive:       _b(map['is_active']),
+      // ⚠️ `_b` rend faux sur une valeur absente : c'est juste pour les
+      // booléens par défaut FAUX, et faux pour `is_active`. Une classe créée
+      // hors ligne serait ressortie « inactive » de son propre écran.
+      isActive:       actifOffline(map['is_active']),
       createdAt:      DateTime.parse(map['created_at'] as String),
       updatedAt:      DateTime.parse(map['updated_at'] as String),
       studentCount:   map['student_count']    as int?,

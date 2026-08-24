@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../navigation/providers/permissions_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
 import 'students_registry_provider.dart';
 import 'student_documents_provider.dart';
@@ -69,6 +70,24 @@ DateTime? _d(Object? v) =>
     (v is String && v.isNotEmpty) ? DateTime.tryParse(v) : null;
 
 /// Toutes les pièces de l'école (jointes à l'élève + sa classe active).
+///
+/// ── ⚠️ CE PROVIDER PORTE UN PÉRIMÈTRE ──────────────────────────────────────
+/// Il alimente DEUX choses que la page présente côte à côte, et qui ne
+/// disaient pas la même vérité :
+///
+///  • la vue « Registre » — une table ÉLÈVE / CLASSE / PIÈCE / DÉPÔT / ÉTAT,
+///    avec sa recherche par nom. Elle lisait l'école entière. La vue « Par
+///    élève » juste à côté, elle, passe par `studentsRegistryProvider`, donc
+///    était correctement restreinte : un enseignant en `own_classes` voyait
+///    douze dossiers d'un côté et huit cents lignes de l'autre.
+///  • les KPI. « Dossiers complets » comptait le périmètre du membre, « Pièces
+///    déposées / Vérifiées / Expirées » comptaient l'établissement : trois
+///    cartes sur quatre parlaient d'un autre ensemble que la quatrième, sur la
+///    même rangée.
+///
+/// Les pièces d'un élève sans inscription active de l'année sortent du
+/// périmètre restreint — c'est voulu : sans classe, rien ne rattache ce dossier
+/// au membre. En `own_school`, aucune clause n'est ajoutée et elles restent.
 final schoolDocumentsProvider =
     StreamProvider.autoDispose<List<DocRow>>((ref) {
   ref.keepAlive();
@@ -76,6 +95,8 @@ final schoolDocumentsProvider =
   final schoolId = profile?.schoolId;
   final yearId = ref.watch(activeYearIdProvider);
   if (schoolId == null || schoolId.isEmpty) return Stream.value(const []);
+  if (!permissionsLoaded(ref)) return const Stream.empty();
+  final scope = classScopeClause(ref, 'documents', column: 'ce.class_id');
 
   return db
       .watch(
@@ -93,10 +114,11 @@ final schoolDocumentsProvider =
               AND ce.academic_year_id = ?
               AND ce.status = 'active'
         LEFT JOIN classes c ON c.id = ce.class_id
-        WHERE  d.school_id = ?
+        WHERE  d.school_id = ? AND COALESCE(s.is_active, 1) <> 0
+        ${scope?.clause ?? ''}
         ORDER  BY s.last_name, s.first_name, d.created_at DESC
         ''',
-        parameters: [yearId ?? '', schoolId],
+        parameters: [yearId ?? '', schoolId, ...?scope?.params],
       )
       .map((rows) => [
             for (final r in rows)

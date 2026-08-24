@@ -2,8 +2,10 @@ part of 'documents_screen.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  DÉTAIL D'UN DOSSIER — checklist complète (pièces exigées + facultatives),
-//  téléversement (Storage privé, internet requis), vérification (cachet admin),
-//  consultation (URL signée) et retrait. Écritures gardées par permissions.
+//  dépôt (offline-first : `upload_outbox`, le fichier monte au retour du
+//  réseau), vérification (cachet admin), consultation (fichier local tant qu'il
+//  est en attente, URL signée ensuite) et retrait. Écritures gardées par
+//  permissions.
 // ════════════════════════════════════════════════════════════════════════════
 class _DossierDetail extends ConsumerStatefulWidget {
   const _DossierDetail({required this.dossier});
@@ -35,32 +37,47 @@ class _DossierDetailState extends ConsumerState<_DossierDetail> {
 
     setState(() => _uploading.add(slug));
     try {
-      final client = ref.read(supabaseClientProvider);
-      final path = await uploadStudentDocumentFile(
-        client: client,
-        schoolId: schoolId,
-        studentId: _studentId,
-        typeSlug: slug,
-        fileName: f.name,
-        bytes: bytes,
-      );
-      await insertStudentDocumentRow(
+      // ── LE DÉPÔT D'UNE PIÈCE NE DEMANDE PLUS LE RÉSEAU ────────────────────
+      // Il passait par Storage en direct : sans connexion, l'agent recevait
+      // « Téléversement impossible (connexion requise) » et le dossier restait
+      // incomplet jusqu'à ce que quelqu'un revienne, avec du réseau, refaire le
+      // geste. Dans une école congolaise, c'est-à-dire souvent jamais.
+      //
+      // `attachStudentDocumentOffline` calcule le chemin en local, pose les
+      // octets sur le disque via `upload_outbox` et écrit la ligne tout de
+      // suite : la pièce entre au dossier immédiatement et le fichier monte au
+      // retour du réseau, à ce chemin exact. Le chemin existait déjà dans le
+      // dépôt — Examens et Stages s'en servent depuis leur écriture ; le module
+      // qui possède `student_documents` était le seul à ne pas l'emprunter.
+      await attachStudentDocumentOffline(
         groupId: groupId,
         schoolId: schoolId,
         studentId: _studentId,
         documentType: slug,
         documentName: label,
-        fileUrl: path,
+        fileName: f.name,
+        bytes: bytes,
+        client: ref.read(supabaseClientProvider),
       );
-      _snack('« $label » téléversé', kGreen);
+      _snack('« $label » ajouté au dossier', kGreen);
     } catch (e) {
-      _snack('Téléversement impossible (connexion requise) : $e', kRed);
+      _snack(messageErreur(e), kRed);
     } finally {
       if (mounted) setState(() => _uploading.remove(slug));
     }
   }
 
   Future<void> _view(DocRow d) async {
+    // Une pièce déposée hors ligne n'est pas encore chez Supabase : son URL
+    // signée n'existe pas. Elle est pourtant SUR LE POSTE, dans la file
+    // d'envoi — c'est l'agent lui-même qui vient de la déposer. Lui répondre
+    // « aperçu indisponible » pour un fichier qu'il a sous la main serait
+    // absurde ; on l'ouvre depuis le disque.
+    final local = await pendingFileFor(d.fileUrl);
+    if (local != null) {
+      await launchUrl(Uri.file(local.path), mode: LaunchMode.externalApplication);
+      return;
+    }
     final client = ref.read(supabaseClientProvider);
     final url = await signedStudentDocUrl(client, d.fileUrl);
     if (url == null) {

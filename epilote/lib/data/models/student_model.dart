@@ -1,3 +1,5 @@
+import '../../core/utils/booleen_offline.dart';
+
 bool _b(dynamic v) => v == true || v == 1;
 
 /// Table `students` — dossier élève.
@@ -65,7 +67,9 @@ class StudentModel {
       socialAidType:       map['social_aid_type']       as String?,
       isAffecte:           _b(map['is_affecte']),
       userId:              map['user_id']                as String?,
-      isActive:            _b(map['is_active']),
+      // ⚠️ Défaut VRAI — cf. `core/utils/booleen_offline.dart`. Les autres
+      // booléens de ce modèle sont par défaut faux et gardent `_b`.
+      isActive:            actifOffline(map['is_active']),
       createdAt:           DateTime.parse(map['created_at'] as String),
       updatedAt:           DateTime.parse(map['updated_at'] as String),
     );

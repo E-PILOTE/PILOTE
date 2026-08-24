@@ -14,6 +14,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/booleen_en_ligne.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'admin_users_provider.dart';
 
@@ -107,7 +108,7 @@ class PorteurMatricule {
         role:        m['role'] as String? ?? '',
         schoolName:  m['school_name'] as String? ?? '—',
         groupName:   m['group_name'] as String? ?? '—',
-        isActive:    m['is_active'] as bool? ?? false,
+        isActive:    actifEnLigne(m['is_active']),
         memeGroupe:  m['meme_groupe'] as bool? ?? false,
         departureMotif: m['departure_motif'] as String?,
       );

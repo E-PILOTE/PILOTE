@@ -11,10 +11,11 @@ import '../../students/widgets/scope_drilldown_panel.dart';
 import '../../vie_scolaire/widgets/vs_kit.dart';
 import '../../vie_scolaire/widgets/vs_form_chrome.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
-import '../providers/frais_provider.dart';
+import '../providers/decompte_du_provider.dart';
 import '../providers/paiements_provider.dart';
 import '../services/obligation.dart';
 import '../services/recu_pdf_service.dart';
+import '../widgets/decompte_card.dart';
 import 'paiements_remboursement.dart';
 import '../../../core/utils/message_erreur.dart';
 
@@ -343,6 +344,9 @@ class _ClassPaymentsState extends ConsumerState<_ClassPayments> {
   /// payeur, et l'écran ne doit pas le désigner comme tel.
   Color _etatColor(EtatObligation e) => switch (e) {
         EtatObligation.aJour => kGreen,
+        // Vert lui aussi : il n'y a rien à réclamer. Ce qui distingue les deux,
+        // c'est l'icône — un boursier n'a pas « payé », il est dispensé.
+        EtatObligation.exonere => kGreen,
         EtatObligation.partiel => const Color(0xFFF59E0B),
         EtatObligation.impaye => kRed,
         EtatObligation.sansBareme => kTextMuted,
@@ -350,6 +354,7 @@ class _ClassPaymentsState extends ConsumerState<_ClassPayments> {
 
   IconData _etatIcon(EtatObligation e) => switch (e) {
         EtatObligation.aJour => Icons.check_circle_rounded,
+        EtatObligation.exonere => Icons.volunteer_activism_rounded,
         EtatObligation.partiel => Icons.timelapse_rounded,
         EtatObligation.impaye => Icons.error_outline_rounded,
         EtatObligation.sansBareme => Icons.circle_outlined,

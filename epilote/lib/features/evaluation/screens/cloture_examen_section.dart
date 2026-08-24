@@ -616,8 +616,15 @@ class _ClassClosure extends ConsumerWidget {
       add(
         kRed,
         Icons.event_busy_rounded,
-        'Aucune année scolaire suivante n\'est déclarée. Les décisions '
-        's\'enregistrent, mais aucune réinscription ne peut être créée.',
+        // Même correction que dans l'onglet Passage : « non déclarée » était un
+        // diagnostic, et il était faux une fois sur deux. Une année créée mais
+        // laissée en BROUILLON par le groupe ne descend pas sur les postes
+        // (sync-rules : `published_at IS NOT NULL`). L'école la cherchait alors
+        // du mauvais côté.
+        'Aucune année scolaire suivante n\'est disponible sur ce poste — soit '
+        'elle n\'a pas été créée, soit elle n\'a pas été publiée par le '
+        'groupe. Les décisions s\'enregistrent malgré tout ; seule la '
+        'réinscription attend.',
       );
     } else if (!s.nextYearHasStructure) {
       // Le message qui manquait. Sans lui, l'écran lisait l'absence de

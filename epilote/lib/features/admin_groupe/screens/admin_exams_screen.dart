@@ -61,7 +61,10 @@ class _State extends ConsumerState<AdminExamsScreen> {
     final async = ref.watch(adminExamsProvider);
 
     return AppShell(
-      title: 'Examens nationaux',
+      // Le titre nomme ce que la page FAIT — suivre la campagne pendant qu'elle
+      // tourne — et non le domaine entier. « Examens nationaux » se lisait comme
+      // un parapluie au-dessus des quatre autres pages de la section.
+      title: 'Campagne d\'examens en cours',
       child: async.when(
         skipLoadingOnReload: true,
         loading: () => const ListShimmer(),

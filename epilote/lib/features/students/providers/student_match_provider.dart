@@ -90,7 +90,7 @@ final studentMatchesProvider = FutureProvider.autoDispose
     LEFT JOIN class_enrollments ce
            ON ce.student_id = s.id AND ce.academic_year_id = ?
     LEFT JOIN classes c ON c.id = ce.class_id
-    WHERE  s.school_id = ? AND s.is_active = 1
+    WHERE  s.school_id = ? AND COALESCE(s.is_active, 1) <> 0
       AND  LOWER(TRIM(s.last_name)) = LOWER(TRIM(?))
       AND  (LOWER(TRIM(s.first_name)) = LOWER(TRIM(?))
             OR (? != '' AND s.date_of_birth = ?))

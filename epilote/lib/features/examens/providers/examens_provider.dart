@@ -216,7 +216,7 @@ final examOverviewProvider =
     '  FROM classes c '
     '  LEFT JOIN national_exams e '
     '    ON e.id = COALESCE(c.exam_override_id, c.exam_id) '
-    ' WHERE c.is_active = 1 AND c.exam_status IN (?, ?) '
+    ' WHERE COALESCE(c.is_active, 1) <> 0 AND c.exam_status IN (?, ?) '
     '   AND c.academic_year_id = ? '
     ' ORDER BY c.cycle_code, c.level_code, c.name',
     ['active', 'examen', 'a_qualifier', yearId ?? ''],

@@ -13,6 +13,20 @@ import 'students_registry_provider.dart';
 // ════════════════════════════════════════════════════════════════════════════
 
 /// Tuteurs de toute l'école (joints aux élèves pour le scope school_id).
+///
+/// ── POURQUOI TOUJOURS LA JOINTURE, MAINTENANT QUE `school_id` EXISTE ───────
+/// La migration 0110 a posé `student_tutors.school_id`, et les sync-rules
+/// filtrent désormais dessus : sur un poste à jour, cette table ne contient
+/// plus que l'école. Filtrer directement sur la colonne serait donc suffisant
+/// — et c'est précisément pour cela qu'on ne le fait pas.
+///
+/// Les sync-rules se déploient À LA MAIN, par le dashboard PowerSync Cloud.
+/// Entre la mise à jour de l'application et ce déploiement, les tuteurs des
+/// écoles sœurs sont encore sur le disque. La jointure les écarte quoi qu'il
+/// arrive ; la colonne seule s'en remettrait à une opération humaine.
+///
+/// Elle écarte aussi les tuteurs d'un élève désactivé, que `students` ne
+/// descend plus (`is_active = true`) mais qui pourraient traîner localement.
 final schoolTutorsProvider =
     StreamProvider.autoDispose<List<StudentTutorModel>>((ref) {
   ref.keepAlive();
@@ -87,13 +101,24 @@ class AnnuaireStats {
   int get withoutContact => students - withContact;
 }
 
+/// ── ⚠️ LES QUATRE CARTES COMPTENT LE MÊME ENSEMBLE ─────────────────────────
+/// « Familles » et « Avec contact » se dérivaient de [familiesProvider], donc
+/// du registre — restreint aux classes du membre quand son profil dit
+/// `own_classes`. « Tuteurs » et « Urgence », eux, se comptaient sur
+/// [schoolTutorsProvider], c'est-à-dire sur l'école entière : la même rangée
+/// affichait « 12 familles » et « 847 tuteurs ». Les quatre se lisent
+/// désormais sur les familles effectivement affichées.
 final annuaireStatsProvider = Provider.autoDispose<AnnuaireStats>((ref) {
   final fams = ref.watch(familiesProvider).valueOrNull ?? const [];
-  final tutors = ref.watch(schoolTutorsProvider).valueOrNull ?? const [];
+  var tutors = 0, emergency = 0;
+  for (final f in fams) {
+    tutors += f.tutors.length;
+    emergency += f.tutors.where((t) => t.isEmergencyContact).length;
+  }
   return AnnuaireStats(
     students: fams.length,
     withContact: fams.where((f) => f.hasContact).length,
-    tutors: tutors.length,
-    emergency: tutors.where((t) => t.isEmergencyContact).length,
+    tutors: tutors,
+    emergency: emergency,
   );
 });

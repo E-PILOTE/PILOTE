@@ -269,7 +269,7 @@ final examClosureClassesProvider = FutureProvider.autoDispose
       LEFT JOIN education_cycles ec ON ec.code = c.cycle_code
       LEFT JOIN class_enrollments e
              ON e.class_id = c.id AND e.status IN ('active', 'graduated')
-     WHERE c.academic_year_id = ? AND c.is_active = 1
+     WHERE c.academic_year_id = ? AND COALESCE(c.is_active, 1) <> 0
        AND COALESCE(c.exam_status, 'passage') <> 'passage'
      GROUP BY c.id, c.name, c.filiere_label, c.exam_status, ec.name, ec.order_index
      ORDER BY cycle_order, c.level_order, c.name

@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/constants/routes.dart';
+import '../../../core/utils/message_erreur.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/admin_academic_year_provider.dart';
 import '../providers/admin_fees_provider.dart';
+import '../widgets/admin_fee_row.dart';
 import 'admin_fee_form_dialog.dart';
-import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  FRAIS & TARIFS — le seul endroit de la plateforme où un montant se crée.
@@ -23,11 +26,17 @@ import '../../../core/utils/message_erreur.dart';
 //  ── GOUVERNANCE ────────────────────────────────────────────────────────────
 //  Un barème est un ACTE DU GROUPE : arrêté dans le public, décision du siège
 //  dans le privé. L'école reçoit et applique. `school_id` dit « s'applique à »,
-//  jamais « créé par » — la RLS (migration 0096) impose l'auteur.
+//  jamais « créé par » — la RLS (migration 0096) impose l'auteur, la migration
+//  0099 impose l'unicité, le fondement et la trace.
 //
 //  ── FORME ──────────────────────────────────────────────────────────────────
 //  Grammaire partagée des écrans du groupe : KPI → barre de filtres (qui porte
 //  le « + ») → en-tête de résultats → liste. Chrome dans `list_chrome.dart`.
+//
+//  ⚠️ La liste est un `SliverList.builder`, pas une `Column`. À l'échelle
+//  visée — un ministère peut publier un tarif par école — une `Column`
+//  construisait le millier de lignes d'un coup, sur des postes qui n'ont pas
+//  cette marge.
 // ════════════════════════════════════════════════════════════════════════════
 class AdminFeesScreen extends ConsumerWidget {
   const AdminFeesScreen({super.key});
@@ -47,6 +56,7 @@ class _BodyState extends ConsumerState<_Body> {
   final _search = TextEditingController();
   String _type = 'tous';
   String _portee = 'toutes';
+  String _etat = 'actifs';
   String? _yearId;
 
   @override
@@ -58,6 +68,8 @@ class _BodyState extends ConsumerState<_Body> {
   List<AdminFee> _filter(List<AdminFee> rows) {
     final q = _search.text.trim().toLowerCase();
     return rows.where((f) {
+      if (_etat == 'actifs' && !f.isActive) return false;
+      if (_etat == 'retires' && f.isActive) return false;
       if (_type != 'tous' && f.feeType != _type) return false;
       if (_portee == 'reseau' && !f.estReseau) return false;
       if (_portee == 'ecole' && f.estReseau) return false;
@@ -68,11 +80,32 @@ class _BodyState extends ConsumerState<_Body> {
     }).toList();
   }
 
+  void _rafraichir() {
+    if (_yearId != null) ref.invalidate(adminFeesProvider(_yearId!));
+  }
+
+  /// Message d'échec lisible. Un refus d'unicité est une décision MÉTIER —
+  /// il se lit tel quel ; le reste passe par la traduction commune, jamais par
+  /// l'objet exception brut.
+  void _echec(Object e) {
+    if (!mounted) return;
+    final texte = switch (e) {
+      BaremeDoublonException(:final message) => message,
+      BaremeInterditException(:final message) => message,
+      _ => messageErreur(e),
+    };
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(texte),
+      backgroundColor: kRed,
+      duration: const Duration(seconds: 6),
+    ));
+  }
+
   Future<void> _open({AdminFee? fee}) async {
     if (_yearId == null) return;
-    final ok = await showAdminFeeForm(context,
-        academicYearId: _yearId!, fee: fee);
-    if (ok) ref.invalidate(adminFeesProvider(_yearId!));
+    final ok =
+        await showAdminFeeForm(context, academicYearId: _yearId!, fee: fee);
+    if (ok) _rafraichir();
   }
 
   Future<void> _retirer(AdminFee f) async {
@@ -82,19 +115,26 @@ class _BodyState extends ConsumerState<_Body> {
       message:
           'Le tarif cessera de s\'appliquer dans les écoles concernées à leur '
           'prochaine synchronisation. Les encaissements déjà enregistrés sont '
-          'conservés : un reçu ne doit jamais renvoyer à un barème introuvable.',
+          'conservés : un reçu ne doit jamais renvoyer à un barème introuvable. '
+          'Vous pourrez le rétablir depuis le filtre « Retirés ».',
       confirmLabel: 'Retirer',
       danger: true,
     );
     if (!ok || !mounted) return;
     try {
       await deactivateAdminFee(ref.read(supabaseClientProvider), f.id);
-      if (_yearId != null) ref.invalidate(adminFeesProvider(_yearId!));
+      _rafraichir();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e'), backgroundColor: kRed));
-      }
+      _echec(e);
+    }
+  }
+
+  Future<void> _retablir(AdminFee f) async {
+    try {
+      await restoreAdminFee(ref.read(supabaseClientProvider), f.id);
+      _rafraichir();
+    } catch (e) {
+      _echec(e);
     }
   }
 
@@ -120,8 +160,8 @@ class _BodyState extends ConsumerState<_Body> {
             ),
           );
         }
-        final annee = years.firstWhere((y) => y.isCurrent,
-            orElse: () => years.first);
+        final annee =
+            years.firstWhere((y) => y.isCurrent, orElse: () => years.first);
         _yearId ??= annee.id;
         final yearId = _yearId!;
 
@@ -136,91 +176,163 @@ class _BodyState extends ConsumerState<_Body> {
   }
 
   Widget _content(List<AdminFee> rows, List<AdminYear> years, String yearId) {
+    final actifs = rows.where((f) => f.isActive).toList();
     final filtered = _filter(rows);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          KpiGrid(items: _kpis(rows)),
-          const SizedBox(height: 20),
-          ListFilterBar(
-            searchCtrl: _search,
-            searchHint: 'Rechercher un tarif, une école, un arrêté…',
-            addLabel: 'Tarif',
-            addIcon: Icons.request_quote_rounded,
-            onSearchChange: (_) => setState(() {}),
-            onAdd: () => _open(),
-            onReset: () => setState(() {
-              _search.clear();
-              _type = 'tous';
-              _portee = 'toutes';
-            }),
-            filters: [
-              ListFilterDropdown(
-                icon: Icons.calendar_month_rounded,
-                label: 'Année',
-                value: yearId,
-                items: {for (final y in years) y.id: y.label},
-                onChanged: (v) => setState(() => _yearId = v),
-              ),
-              ListFilterDropdown(
-                icon: Icons.category_rounded,
-                label: 'Type',
-                value: _type,
-                items: const {'tous': 'Tous', ...kAdminFeeTypes},
-                onChanged: (v) => setState(() => _type = v),
-              ),
-              ListFilterDropdown(
-                icon: Icons.account_balance_rounded,
-                label: 'Portée',
-                value: _portee,
-                items: const {
-                  'toutes': 'Toutes',
-                  'reseau': 'Réseau',
-                  'ecole': 'Établissement',
-                },
-                onChanged: (v) => setState(() => _portee = v),
-              ),
-            ],
+
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                KpiGrid(items: _kpis(actifs)),
+                const SizedBox(height: 20),
+                _barre(years, yearId),
+                const SizedBox(height: 16),
+                Row(children: [
+                  Expanded(
+                    child: ListResultHeader(
+                        total: rows.length,
+                        filtered: filtered.length,
+                        noun: 'tarif'),
+                  ),
+                  _lienRattachement(context),
+                ]),
+                const SizedBox(height: 12),
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
-          ListResultHeader(
-              total: rows.length, filtered: filtered.length, noun: 'tarif'),
-          const SizedBox(height: 12),
-          if (filtered.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: 30),
-              // ⚠️ « Pas de barème, pas d'encaissement » : tant que cette liste
-              // est vide, AUCUNE école du réseau ne peut encaisser. L'état vide
-              // doit le dire, pas se contenter d'un « aucun résultat ».
-              child: AdminEmptyState(
-                icon: Icons.request_quote_outlined,
-                title: 'Aucun tarif publié',
-                message:
-                    'Tant qu\'aucun tarif n\'est publié pour cette année, vos '
-                    'écoles ne peuvent enregistrer aucun paiement. C\'est ici '
-                    'que se saisissent les montants de l\'arrêté.',
-              ),
-            )
-          else
-            for (final f in filtered)
-              _FeeRow(
-                fee: f,
-                onEdit: () => _open(fee: f),
-                onRemove: () => _retirer(f),
-              ),
-        ],
-      ),
+        ),
+        if (filtered.isEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(24, 30, 24, 24),
+            sliver: SliverToBoxAdapter(child: _vide(actifs.isEmpty)),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            sliver: SliverList.builder(
+              itemCount: filtered.length,
+              itemBuilder: (_, i) {
+                final f = filtered[i];
+                return AdminFeeRow(
+                  key: ValueKey(f.id),
+                  fee: f,
+                  onEdit: () => _open(fee: f),
+                  onRemove: () => _retirer(f),
+                  onRestore: () => _retablir(f),
+                );
+              },
+            ),
+          ),
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+      ],
     );
   }
 
-  List<KpiData> _kpis(List<AdminFee> rows) {
-    final n = rows.length;
-    final reseau = rows.where((f) => f.estReseau).length;
-    final ecoles = rows.map((f) => f.schoolId).whereType<String>().toSet().length;
+  /// Le diagnostic vit ICI plutôt que dans la barre latérale.
+  ///
+  /// Un tarif de portée réseau visant un niveau n'atteint que les écoles
+  /// rattachées à l'entrée visée du référentiel — les autres ne reçoivent rien,
+  /// sans erreur ni message. La question ne se pose qu'en publiant un tarif :
+  /// c'est donc là que la réponse doit être à un clic, et nulle part ailleurs
+  /// dans un menu déjà chargé.
+  Widget _lienRattachement(BuildContext context) => TextButton.icon(
+        onPressed: () => context.go(Routes.adminRattachement),
+        icon: const Icon(Icons.account_tree_rounded, size: 16),
+        label: const Text('Rattachement des niveaux',
+            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+        style: TextButton.styleFrom(
+          foregroundColor: kNavy,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        ),
+      );
+
+  Widget _barre(List<AdminYear> years, String yearId) => ListFilterBar(
+        searchCtrl: _search,
+        searchHint: 'Rechercher un tarif, une école, un arrêté…',
+        addLabel: 'Tarif',
+        addIcon: Icons.request_quote_rounded,
+        onSearchChange: (_) => setState(() {}),
+        onAdd: () => _open(),
+        onReset: () => setState(() {
+          _search.clear();
+          _type = 'tous';
+          _portee = 'toutes';
+          _etat = 'actifs';
+        }),
+        filters: [
+          ListFilterDropdown(
+            icon: Icons.calendar_month_rounded,
+            label: 'Année',
+            value: yearId,
+            items: {for (final y in years) y.id: y.label},
+            onChanged: (v) => setState(() => _yearId = v),
+          ),
+          ListFilterDropdown(
+            icon: Icons.category_rounded,
+            label: 'Type',
+            value: _type,
+            items: const {'tous': 'Tous', ...kAdminFeeTypes},
+            onChanged: (v) => setState(() => _type = v),
+          ),
+          ListFilterDropdown(
+            icon: Icons.account_balance_rounded,
+            label: 'Portée',
+            value: _portee,
+            items: const {
+              'toutes': 'Toutes',
+              'reseau': 'Réseau',
+              'ecole': 'Établissement',
+            },
+            onChanged: (v) => setState(() => _portee = v),
+          ),
+          // Sans ce filtre, un retrait était définitif à l'écran : la ligne
+          // disparaissait et rien ne permettait de la rétablir.
+          ListFilterDropdown(
+            icon: Icons.toggle_on_rounded,
+            label: 'État',
+            value: _etat,
+            items: const {
+              'actifs': 'Appliqués',
+              'retires': 'Retirés',
+              'tous': 'Tous',
+            },
+            onChanged: (v) => setState(() => _etat = v),
+          ),
+        ],
+      );
+
+  /// ⚠️ « Pas de barème, pas d'encaissement » : tant qu'aucun tarif n'est
+  /// publié, AUCUNE école du réseau ne peut encaisser. L'état vide doit le
+  /// dire — mais seulement quand c'est vrai : une liste vidée par un filtre
+  /// n'est pas une caisse fermée.
+  Widget _vide(bool aucunTarifPublie) => aucunTarifPublie
+      ? const AdminEmptyState(
+          icon: Icons.request_quote_outlined,
+          title: 'Aucun tarif publié',
+          message:
+              'Tant qu\'aucun tarif n\'est publié pour cette année, vos écoles '
+              'ne peuvent enregistrer aucun paiement. C\'est ici que se '
+              'saisissent les montants de l\'arrêté.',
+        )
+      : const AdminEmptyState(
+          icon: Icons.filter_alt_off_rounded,
+          title: 'Aucun tarif ne correspond',
+          message:
+              'Des tarifs sont bien publiés pour cette année : ce sont les '
+              'filtres qui les écartent. Réinitialisez-les pour tout revoir.',
+        );
+
+  List<KpiData> _kpis(List<AdminFee> actifs) {
+    final n = actifs.length;
+    final reseau = actifs.where((f) => f.estReseau).length;
+    final ecoles =
+        actifs.map((f) => f.schoolId).whereType<String>().toSet().length;
     int maxOf(String t) {
-      final v = rows.where((f) => f.feeType == t).map((f) => f.amount);
+      final v = actifs.where((f) => f.feeType == t).map((f) => f.amount);
       return v.isEmpty ? 0 : v.reduce((a, b) => a > b ? a : b);
     }
 
@@ -229,7 +341,7 @@ class _BodyState extends ConsumerState<_Body> {
 
     return [
       KpiData(
-        label: 'Tarifs publiés',
+        label: 'Tarifs appliqués',
         value: '$n',
         sub: n == 0 ? '⛔ aucun encaissement possible' : '$reseau au réseau',
         icon: Icons.request_quote_rounded,
@@ -266,112 +378,4 @@ class _BodyState extends ConsumerState<_Body> {
       ),
     ];
   }
-}
-
-// ─── Une ligne de tarif ──────────────────────────────────────────────────────
-class _FeeRow extends StatelessWidget {
-  const _FeeRow({
-    required this.fee,
-    required this.onEdit,
-    required this.onRemove,
-  });
-  final AdminFee fee;
-  final VoidCallback onEdit, onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final f = fee;
-    final tone = f.estReseau ? kNavy : kAccent;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-      decoration: BoxDecoration(
-        color: kCardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBorder),
-      ),
-      child: Row(children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-              color: tone.withValues(alpha: 0.07),
-              borderRadius: BorderRadius.circular(10)),
-          child: Icon(Icons.request_quote_rounded, size: 20, color: tone),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Flexible(
-                child: Text(f.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 14.5, fontWeight: FontWeight.w800)),
-              ),
-              const SizedBox(width: 8),
-              _chip(adminFeeTypeLabel(f.feeType), kNavy),
-              const SizedBox(width: 6),
-              _chip(f.estReseau ? 'Réseau' : (f.schoolName ?? 'Établissement'),
-                  tone),
-            ]),
-            const SizedBox(height: 3),
-            Text(
-                '${f.levelName ?? 'Tous les niveaux'}'
-                '${f.dueDay != null ? ' · échéance le ${f.dueDay}' : ''}',
-                style: TextStyle(fontSize: 12, color: kTextMuted)),
-            if (f.sourceReference != null &&
-                f.sourceReference!.trim().isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(f.sourceReference!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic,
-                        color: kTextMuted)),
-              ),
-          ]),
-        ),
-        Text(fmtXaf(f.amount),
-            style: TextStyle(
-                fontSize: 15, fontWeight: FontWeight.w800, color: kGreen)),
-        PopupMenuButton<String>(
-          icon: Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
-          onSelected: (v) => v == 'edit' ? onEdit() : onRemove(),
-          itemBuilder: (ctx) => [
-            const PopupMenuItem(
-                value: 'edit',
-                child: Row(children: [
-                  Icon(Icons.edit_outlined, size: 16),
-                  SizedBox(width: 8),
-                  Text('Modifier'),
-                ])),
-            PopupMenuItem(
-                value: 'remove',
-                child: Row(children: [
-                  Icon(Icons.block_rounded, size: 16, color: kRed),
-                  const SizedBox(width: 8),
-                  Text('Retirer', style: TextStyle(color: kRed)),
-                ])),
-          ],
-        ),
-      ]),
-    );
-  }
-
-  Widget _chip(String label, Color tone) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: tone.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-                fontSize: 10.5, fontWeight: FontWeight.w700, color: tone)),
-      );
 }

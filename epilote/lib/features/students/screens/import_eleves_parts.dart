@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../providers/import_eleves_provider.dart';
+import 'import_classe_picker.dart';
 
 /// Ce que l'école doit préparer avant de cliquer.
 class ModeEmploiImport extends StatelessWidget {
@@ -174,34 +175,27 @@ class ChoixClasseAccueil extends StatelessWidget {
           message: 'Aucune classe ouverte pour l\'année en cours. '
               'Créez les classes avant d\'importer les élèves.');
     }
-    return Row(children: [
-      Text('Classe d\'accueil',
-          style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w700,
-              color: kTextPrimary)),
-      const SizedBox(width: 14),
-      SizedBox(
-        width: 240,
-        child: DropdownButtonFormField<String>(
-          initialValue: valeur,
-          isDense: true,
-          decoration: InputDecoration(
-            isDense: true,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8)),
-            hintText: 'Choisir…',
-          ),
-          items: [
-            for (final c in classes)
-              DropdownMenuItem(value: c.id, child: Text(c.nom)),
-          ],
+    // Le sélecteur filtrant est partagé avec le panneau de correspondance :
+    // un lycée complet dépasse la trentaine de classes, et une liste plate y
+    // devient un défilement à l'aveugle. Niveau et filière n'y RESTREIGNENT que
+    // l'affichage — la valeur retenue reste l'identifiant de la classe.
+    return Wrap(
+      spacing: 14,
+      runSpacing: 10,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text('Classe d\'accueil',
+            style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: kTextPrimary)),
+        SelecteurClasseFiltre(
+          classes: classes,
+          valeur: valeur,
           onChanged: onChanged,
         ),
-      ),
-    ]);
+      ],
+    );
   }
 }
 

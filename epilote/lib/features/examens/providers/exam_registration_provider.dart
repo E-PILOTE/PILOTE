@@ -134,7 +134,8 @@ final classRegistrationProvider = FutureProvider.autoDispose
     '  JOIN students st ON st.id = ce.student_id '
     '  LEFT JOIN exam_candidates ec '
     '    ON ec.student_id = st.id AND ec.session_id = ? '
-    ' WHERE ce.class_id = ? AND ce.status = ? AND st.is_active = 1 '
+    ' WHERE ce.class_id = ? AND ce.status = ? '
+    ' AND COALESCE(st.is_active, 1) <> 0 '
     ' ORDER BY st.last_name, st.first_name',
     [sessionId, classId, 'active'],
   );

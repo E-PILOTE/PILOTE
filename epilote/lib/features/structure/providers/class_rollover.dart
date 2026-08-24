@@ -66,7 +66,7 @@ Future<RolloverResult> rolloverClasses({
     '       level_order, filiere_code, filiere_label, exam_override_id, '
     '       exam_excluded '
     '  FROM classes WHERE school_id = ? AND academic_year_id = ? '
-    '   AND is_active = 1 ORDER BY level_order, name',
+    '   AND COALESCE(is_active, 1) <> 0 ORDER BY level_order, name',
     [schoolId, fromYearId],
   );
   if (source.isEmpty) return const RolloverResult(created: 0, skipped: 0);

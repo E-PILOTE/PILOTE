@@ -34,7 +34,7 @@ class StagiaireCandidate {
   final String? className;
   final String? academicYearId;
 
-  /// En classe de BAC_T/BAC_P : sans attestation, dossier irrecevable.
+  /// En classe de baccalauréat : sans attestation, dossier irrecevable.
   final bool needsAttestation;
 }
 

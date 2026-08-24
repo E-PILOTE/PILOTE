@@ -20,22 +20,109 @@ import 'package:powersync/powersync.dart';
 // ════════════════════════════════════════════════════════════════════════════
 void main() {
   group('verdict proposé', () {
-    test('la barre de passage est à 10/20, pas 8', () {
-      expect(suggestedVerdict(10.0), 'passe');
-      expect(suggestedVerdict(9.99), 'redouble');
-      expect(suggestedVerdict(8.0), 'redouble');
-      expect(suggestedVerdict(19.5), 'passe');
-      expect(suggestedVerdict(0), 'redouble');
+    // Le barème par défaut : la barre du METP, sans zone de délibération.
+    // C'est ce que rend `_baremeFor` quand aucun réglage n'a été posé, et donc
+    // le comportement de TOUTES les écoles au jour du déploiement.
+    const officiel = BaremePassage.officiel;
+
+    test('la barre de passage par défaut est à 10/20, pas 8', () {
+      expect(suggestedVerdict(10.0, officiel), 'passe');
+      expect(suggestedVerdict(9.99, officiel), 'redouble');
+      expect(suggestedVerdict(8.0, officiel), 'redouble');
+      expect(suggestedVerdict(19.5, officiel), 'passe');
+      expect(suggestedVerdict(0, officiel), 'redouble');
     });
 
     test('aucune note ne propose rien — on ne délibère pas dans le vide', () {
-      expect(suggestedVerdict(null), isNull);
+      expect(suggestedVerdict(null, officiel), isNull);
+      expect(propositionPour(null, officiel), PropositionPassage.sansMoyenne);
     });
 
     test('« réorienté » n\'est jamais proposé automatiquement', () {
       for (var a = 0.0; a <= 20.0; a += 0.5) {
-        expect(suggestedVerdict(a), isNot('reoriente'));
+        expect(suggestedVerdict(a, officiel), isNot('reoriente'));
       }
+    });
+  });
+
+  group('le barème se règle (migration 0107)', () {
+    test('une barre abaissée fait passer un élève qui redoublait', () {
+      const primaire = BaremePassage(barre: 9.5);
+      expect(suggestedVerdict(9.6, BaremePassage.officiel), 'redouble');
+      expect(suggestedVerdict(9.6, primaire), 'passe');
+    });
+
+    test('la barre atteinte suffit — on ne « frôle » pas', () {
+      const b = BaremePassage(barre: 12);
+      expect(suggestedVerdict(12.0, b), 'passe');
+      expect(suggestedVerdict(11.999, b), 'redouble');
+    });
+
+    group('zone de délibération', () {
+      const avecZone = BaremePassage(barre: 10, plancher: 8.5);
+
+      test('sous le plancher, le redoublement se propose', () {
+        expect(suggestedVerdict(8.49, avecZone), 'redouble');
+        expect(propositionPour(8.49, avecZone), PropositionPassage.redouble);
+      });
+
+      test('dans la zone, RIEN n\'est proposé — le conseil tranche', () {
+        // ⚠️ L'invariant qui compte. Un défaut prudent — « redouble » — ferait
+        // redoubler tout élève que le conseil n'a pas eu le temps d'examiner,
+        // et c'est exactement la population que la zone existe pour protéger.
+        for (final a in [8.5, 9.0, 9.5, 9.99]) {
+          expect(suggestedVerdict(a, avecZone), isNull, reason: 'moyenne $a');
+          expect(propositionPour(a, avecZone),
+              PropositionPassage.deliberation, reason: 'moyenne $a');
+        }
+      });
+
+      test('le plancher est inclus dans la zone, la barre lui échappe', () {
+        expect(propositionPour(8.5, avecZone), PropositionPassage.deliberation);
+        expect(propositionPour(10.0, avecZone), PropositionPassage.passe);
+      });
+
+      test('sans plancher, la barre fait couperet — comportement d\'avant', () {
+        expect(suggestedVerdict(9.99, BaremePassage.officiel), 'redouble');
+      });
+    });
+
+    group('dérogation de niveau', () {
+      const groupe = BaremePassage(barre: 10, plancher: 8.5);
+
+      test('un niveau peut abaisser la barre seule', () {
+        final d = groupe.avecDerogation(barre: 9);
+        expect(d.barre, 9);
+        expect(d.plancher, 8.5);
+      });
+
+      test('une dérogation absente laisse le barème du groupe intact', () {
+        final d = groupe.avecDerogation();
+        expect(d.barre, groupe.barre);
+        expect(d.plancher, groupe.plancher);
+      });
+
+      test('une dérogation INCOHÉRENTE est ignorée, jamais devinée', () {
+        // Plancher au-dessus de la barre : la zone serait à l'envers, un élève
+        // à 11 « en délibération » pendant qu'un élève à 9 serait admis.
+        // La contrainte SQL l'interdit ; si la ligne arrive quand même sur un
+        // poste, on retombe sur le barème du groupe — connu et valide.
+        final d = groupe.avecDerogation(barre: 8, plancher: 12);
+        expect(d.barre, groupe.barre);
+        expect(d.plancher, groupe.plancher);
+      });
+
+      test('une barre hors de l\'échelle sur 20 est ignorée', () {
+        expect(groupe.avecDerogation(barre: 25).barre, groupe.barre);
+        expect(groupe.avecDerogation(barre: 0).barre, groupe.barre);
+      });
+    });
+
+    test('le libellé du barème se lit sans manuel', () {
+      expect(const BaremePassage(barre: 10).libelle, '10/20');
+      expect(const BaremePassage(barre: 9.5).libelle, '9,5/20');
+      expect(const BaremePassage(barre: 10, plancher: 8.5).libelle,
+          '10/20 · conseil entre 8,5 et 10');
     });
   });
 
@@ -130,7 +217,7 @@ void main() {
       // le 1er l'emporterait. Trimestre par trimestre, l'élève passe.
       final moyenne = annualAverageOf(const [8.0, 10.0, 14.0]);
       expect(moyenne, closeTo(32 / 3, 1e-9));
-      expect(suggestedVerdict(moyenne), 'passe');
+      expect(suggestedVerdict(moyenne, BaremePassage.officiel), 'passe');
     });
   });
 

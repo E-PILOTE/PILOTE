@@ -1,7 +1,12 @@
 name: epilote
 description: "E-PILOTE CONGO v3.0 — Plateforme de gestion scolaire multi-tenant"
 publish_to: 'none'
-version: 3.1.7+18
+# 3.2.0+19 (2026-08-14) — le « +19 » est ce que le parc COMPARE : la chaîne de
+# version ne sert qu'à l'affichage, `build_number` seul décide qu'un poste est
+# en retard (mig 0087). Il ne doit donc jamais reculer ni stagner entre deux
+# binaires différents — 3.1.7+18 a été livré deux fois, le 06/08 et le 14/08,
+# ce qui les rendait indistinguables pour le mécanisme de mise à jour.
+version: 3.2.0+19
 
 environment:
   sdk: ^3.12.0

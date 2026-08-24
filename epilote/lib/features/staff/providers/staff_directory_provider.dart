@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/booleen_offline.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../services/powersync/powersync_service.dart';
 
@@ -149,7 +150,12 @@ final staffDirectoryProvider =
                 firstName: r['first_name'] as String? ?? '',
                 lastName: r['last_name'] as String? ?? '',
                 role: r['role'] as String? ?? '',
-                isActive: r['is_active'] == 1 || r['is_active'] == true,
+                // ⚠️ `== 1` rendait « inactif » un agent dont la colonne
+                // n'était pas renseignée, alors que le tableau de bord de la
+                // MÊME école le comptait en fonction (`COALESCE(is_active, 1)
+                // <> 0`). Deux écrans, deux réponses. `is_active` est un
+                // booléen par défaut VRAI : l'absence d'information vaut oui.
+                isActive: actifOffline(r['is_active']),
                 phone: r['phone'] as String?,
                 employeeNumber: r['employee_number'] as String?,
                 avatarUrl: r['avatar_url'] as String?,

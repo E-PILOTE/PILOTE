@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show FileOptions;
 
+import '../../../core/utils/booleen_en_ligne.dart';
 import '../../../core/utils/media_compression.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 
@@ -39,7 +40,7 @@ class PartnerModel {
         logoUrl: m['logo_url'] as String?,
         websiteUrl: m['website_url'] as String?,
         category: m['category'] as String? ?? 'institutionnel',
-        isActive: m['is_active'] as bool? ?? false,
+        isActive: actifEnLigne(m['is_active']),
         sortOrder: (m['sort_order'] as num?)?.toInt() ?? 0,
         startsAt: _p(m['starts_at']),
         endsAt: _p(m['ends_at']),

@@ -63,6 +63,33 @@ class _TutorFormState extends ConsumerState<_TutorForm> {
       _snack('Téléphone principal obligatoire', kAccent);
       return;
     }
+
+    // ── LE TROISIÈME JUMEAU ───────────────────────────────────────────────
+    // Le guichet et le registre refusent depuis longtemps de créer un tuteur
+    // sans identifiants de rattachement — parce que le dégât s'est produit en
+    // production. Cet écran-ci, lui, passait encore `groupId ?? ''` : une
+    // chaîne vide dans une colonne `uuid NOT NULL`, que SQLite accepte, que le
+    // serveur refuse par `22P02`, et qui fait abandonner à PowerSync le LOT
+    // ENTIER — sans un mot, après un « Contact ajouté » parfaitement vert.
+    //
+    // La règle est celle des deux autres écrans, mais il ne s'y branche pas :
+    // `refusEdition` raisonne sur un formulaire à étapes, celui-ci est une
+    // simple fiche. On garde donc le même verrou, sous sa forme nue.
+    //
+    // On n'appelle pas `missingWriteIds` : il exige aussi un identifiant
+    // d'agent, que `student_tutors` ne porte pas. Réclamer à l'agent un
+    // rattachement dont la ligne n'a pas besoin le renverrait chercher une
+    // panne qui n'existe pas.
+    final profil = ref.read(authNotifierProvider).valueOrNull;
+    final manquants = <String>[
+      if (!isUsableId(profil?.groupId)) 'groupe',
+      if (!isUsableId(profil?.schoolId)) 'école',
+    ];
+    if (!_isEdit && manquants.isNotEmpty) {
+      _snack(writeIdentityMessage(manquants), kRed);
+      return;
+    }
+
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
@@ -82,11 +109,11 @@ class _TutorFormState extends ConsumerState<_TutorForm> {
             isEmergencyContact: _emergency,
           );
         } else {
-          final groupId =
-              ref.read(authNotifierProvider).valueOrNull?.groupId ?? '';
           await addTutor(
             studentId: widget.studentId,
-            groupId: groupId,
+            // Non-nuls par construction : `missingWriteIds` a refusé plus haut.
+            groupId: profil!.groupId!,
+            schoolId: profil.schoolId!,
             firstName: first,
             lastName: last,
             relationship: _rel,

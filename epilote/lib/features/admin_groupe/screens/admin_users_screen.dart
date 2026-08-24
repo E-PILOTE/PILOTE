@@ -681,6 +681,22 @@ class _TableView extends StatelessWidget {
   }
 }
 
+// ─── Géométrie de la colonne ACTIONS ─────────────────────────────────────────
+// La largeur était figée à 150 px — juste au moment où la rangée comptait cinq
+// boutons. L'ajout de « Muter » en a porté certaines à six (les rôles soumis au
+// verrou de poste, qui ont en plus le bouton PIN) : 176 px de contenu dans une
+// boîte de 150, d'où la bande rayée « OVERFLOWED BY 26 PIXELS » en travers de
+// la colonne, sur ces rangées-là seulement.
+//
+// On dérive donc la largeur du NOMBRE MAXIMAL de boutons au lieu de la deviner.
+// Ajouter un bouton demain ne redéborde plus : il suffit d'incrémenter le
+// compteur, et l'en-tête suit la rangée puisque les deux lisent la même valeur.
+const double _kActionBtnSize = 26; // Icon(size: 16) + Padding(all: 5) × 2
+const double _kActionGap = 4;
+const int _kMaxActionBtns = 6; // voir · modifier · mot de passe · PIN · muter · fin de service
+const double _kActionsColW =
+    _kMaxActionBtns * _kActionBtnSize + (_kMaxActionBtns - 1) * _kActionGap;
+
 class _TableHeader extends StatelessWidget {
   const _TableHeader({required this.sortField, required this.sortAsc, required this.onSort});
   final String sortField;
@@ -722,7 +738,7 @@ class _TableHeader extends StatelessWidget {
       _col('ÉCOLE',             'school', flex: 2),
       _col('STATUT',            'status'),
       _col('DERNIÈRE CONNEXION','login',  flex: 2),
-      SizedBox(width: 150,
+      SizedBox(width: _kActionsColW,
           child: Text('ACTIONS', textAlign: TextAlign.end,
               style: TextStyle(color: kTextMuted, fontSize: 11, fontWeight: FontWeight.w700))),
     ]),
@@ -819,17 +835,17 @@ class _TableRowState extends State<_TableRow> {
               style: TextStyle(fontSize: 11.5, color: kTextMuted),
               overflow: TextOverflow.ellipsis)),
           // Actions
-          SizedBox(width: 150, child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          SizedBox(width: _kActionsColW, child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
             _ActionBtn(icon: Icons.visibility_outlined, color: _kBlue, tooltip: 'Voir les détails', onTap: widget.onView),
-            const SizedBox(width: 4),
+            const SizedBox(width: _kActionGap),
             _ActionBtn(icon: Icons.edit_rounded, color: kNavy, tooltip: 'Modifier', onTap: widget.onEdit),
-            const SizedBox(width: 4),
+            const SizedBox(width: _kActionGap),
             _ActionBtn(icon: Icons.key_rounded, color: kAccent, tooltip: 'Réinitialiser le mot de passe', onTap: widget.onPassword),
             if (agentLockApplies(u.role)) ...[
-              const SizedBox(width: 4),
+              const SizedBox(width: _kActionGap),
               _ActionBtn(icon: Icons.pin_rounded, color: kNavy, tooltip: 'Réinitialiser le code du poste', onTap: widget.onResetPin),
             ],
-            const SizedBox(width: 4),
+            const SizedBox(width: _kActionGap),
             // Muter n'est PAS désactiver : l'agent change d'école et reste en
             // service. Les deux gestes ont donc deux boutons.
             _ActionBtn(
@@ -837,7 +853,7 @@ class _TableRowState extends State<_TableRow> {
               tooltip: 'Muter vers un autre établissement',
               onTap: widget.onMuter,
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: _kActionGap),
             _ActionBtn(
               icon: u.isActive ? Icons.logout_rounded : Icons.person_add_alt_1_rounded,
               color: u.isActive ? kRed : kGreen,

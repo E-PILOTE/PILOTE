@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/booleen_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
 
 /// Un message de service est-il « vivant » maintenant ? Actif ET dans sa fenêtre
@@ -26,7 +27,8 @@ final serviceMessagesProvider =
     final now = DateTime.now();
     final live = <String>[];
     for (final r in rows) {
-      final active = (r['is_active'] as int? ?? 0) == 1;
+      // Même correction que pour les partenaires : par défaut VRAI.
+      final active = actifOffline(r['is_active']);
       final body = (r['body'] as String? ?? '').trim();
       if (body.isEmpty) continue;
       if (isMessageLive(now, _parse(r['starts_at'] as String?),

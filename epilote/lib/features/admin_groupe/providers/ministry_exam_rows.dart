@@ -27,16 +27,22 @@ import 'admin_exams_provider.dart';
 /// candidat au BET n'en a jamais eu besoin : l'alerte « bac bloqué » n'a de
 /// sens que sur ce périmètre.
 ///
-/// ⚠️ Les codes RÉELS sont `BAC_T` et `BAC_P` : la Direction des examens et
-/// concours publie DEUX palmarès, « Baccalauréat technique » et « Baccalauréat
-/// professionnel ». Le libellé « bac technique et professionnel » qu'emploie la
-/// presse désigne la SESSION commune de juin, où les deux jurys siègent
-/// ensemble — pas un diplôme unique. La migration 0065 en avait tiré une fusion
-/// erronée, défaite par la 0079.
+/// ⚠️ Le code COURANT est `BAC` — un seul baccalauréat au METP (mig. 0105,
+/// décision du ministère du 13/08/2026). Ce qui sépare un « bac technique »
+/// d'un « bac professionnel » est la FILIÈRE du candidat, saisie par l'école
+/// sur la classe et la candidature ; ce n'est pas un diplôme distinct, et le
+/// référentiel national n'a donc pas à le dédoubler — d'autant qu'un doublon
+/// obligeait à saisir deux fois le même tarif d'État (`applies_to_exam_id`).
 ///
-/// `BAC_TP` reste listé pour qu'un groupe pas encore migré ne perde pas son
-/// alerte du jour au lendemain.
-const kBacProInternship = {'BAC_T', 'BAC_P', 'BAC_TP'};
+/// La DEC continue de proclamer ventilé (« Jurys du bac technique et
+/// professionnel » — sa formule, conservée telle quelle dans
+/// `exam_official_results.source_label`) : cette lecture se retrouve côté
+/// école, par filière.
+///
+/// `BAC_T`, `BAC_P` et `BAC_TP` restent listés pour qu'un groupe pas encore
+/// migré ne perde pas son alerte du jour au lendemain. Ne jamais les retirer
+/// sans avoir vérifié qu'aucune base ne les porte plus.
+const kBacProInternship = {'BAC', 'BAC_T', 'BAC_P', 'BAC_TP'};
 
 const _kUnsetDepartment = 'Non renseigné';
 

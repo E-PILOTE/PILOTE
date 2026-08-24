@@ -64,6 +64,11 @@ class _BodyState extends ConsumerState<_Body> {
   String? _openClassId;
   bool _busy = false;
 
+  /// Classe en cours de traitement pendant une campagne d'école. `null` hors
+  /// campagne. Une barre qui tourne sans rien dire est indistinguable d'un
+  /// écran figé — surtout sur seize classes.
+  String? _progress;
+
   /// Onglet ouvert : passage, examen, ou non revenus.
   YearEndTab _tab = YearEndTab.passage;
 
@@ -123,17 +128,67 @@ class _BodyState extends ConsumerState<_Body> {
     final id = _identity();
     if (id == null) return;
     setState(() => _busy = true);
-    var n = 0;
+    var bilan = const BilanPropositions();
     await runModuleWrite(context, () async {
-      n = await autofillVerdicts(session: s, actorId: id.actorId);
+      bilan = await autofillVerdicts(session: s, actorId: id.actorId);
     });
     if (!mounted) return;
     setState(() => _busy = false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(n == 0
-          ? 'Tous les élèves sont déjà délibérés.'
-          : '$n proposition(s) inscrite(s) — à revoir élève par élève.'),
-      backgroundColor: n == 0 ? kTextMuted : kNavy,
+      content: Text(bilan.resume),
+      backgroundColor: bilan.inscrites == 0 ? kTextMuted : kNavy,
+      duration: const Duration(seconds: 5),
+    ));
+    _refresh(yearId);
+  }
+
+  /// La campagne à l'échelle de l'école — toutes les classes de passage.
+  ///
+  /// Confirmée avant de partir : elle écrit une décision pour chaque élève de
+  /// l'établissement. Elle n'écrase rien de ce qui a déjà été tranché, mais
+  /// « rien n'est écrasé » se vérifie APRÈS, et un chef d'établissement a le
+  /// droit de savoir avant de cliquer ce que le geste recouvre.
+  Future<void> _autofillEcole(String yearId, BaremePassage bareme) async {
+    final id = _identity();
+    if (id == null) return;
+    final ok = await showAdminConfirm(
+      context,
+      title: 'Proposer les verdicts pour toute l\'école',
+      message: 'Chaque classe de passage sera parcourue et un verdict proposé '
+          'pour les élèves qui n\'ont pas encore été délibérés, selon le '
+          'barème en vigueur (${bareme.libelle}).\n\n'
+          'Les décisions déjà prises à la main ne sont jamais remplacées. Les '
+          'élèves en zone de délibération et ceux sans moyenne sont laissés '
+          'sans verdict : le conseil doit les examiner.',
+      confirmLabel: 'Proposer',
+    );
+    if (ok != true || !mounted) return;
+
+    setState(() {
+      _busy = true;
+      _progress = 'Préparation…';
+    });
+    var bilan = const BilanPropositions();
+    await runModuleWrite(context, () async {
+      bilan = await autofillEcole(
+        ref: ref,
+        yearId: yearId,
+        actorId: id.actorId,
+        onProgress: (fait, total, classe) {
+          if (!mounted || classe.isEmpty) return;
+          setState(() => _progress = '$classe — ${fait + 1}/$total');
+        },
+      );
+    });
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _progress = null;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(bilan.resume),
+      backgroundColor: bilan.inscrites == 0 ? kTextMuted : kGreen,
+      duration: const Duration(seconds: 7),
     ));
     _refresh(yearId);
   }
@@ -181,6 +236,7 @@ class _BodyState extends ConsumerState<_Body> {
       builder: (_) => _VerdictSheet(
         entry: e,
         trimesters: s.trimesters,
+        bareme: s.bareme,
         upper: s.upperClass,
         repeat: s.repeatClass,
       ),
@@ -342,6 +398,21 @@ class _BodyState extends ConsumerState<_Body> {
               'd\'examen : leur résultat est proclamé par la DEC.',
         )
       else if (_openClassId == null) ...[
+        // ── LA CAMPAGNE SE MÈNE À L'ÉCHELLE DE L'ÉCOLE ────────────────────
+        // Le conseil de fin d'année se tient une fois et porte sur
+        // l'établissement entier. Demander seize ouvertures de classe et seize
+        // clics pour la même décision, c'était demander à l'utilisateur de
+        // faire à la main ce que la page savait déjà faire.
+        _CampagneEcoleBar(
+          bareme: ref.watch(baremePassageEcoleProvider).valueOrNull,
+          students: students,
+          decided: decided,
+          canEdit: canEdit,
+          busy: _busy,
+          progress: _progress,
+          onRun: (b) => _autofillEcole(yearId, b),
+        ),
+        const SizedBox(height: 18),
         const EvalSectionLabel(
             icon: Icons.touch_app_rounded,
             text: 'Ouvrez une classe pour délibérer'),
@@ -520,6 +591,7 @@ class _ClassDeliberation extends ConsumerWidget {
                   _StudentRow(
                     entry: s.entries[i],
                     trimesterCount: s.trimesters.length,
+                    bareme: s.bareme,
                     canEdit: canEdit,
                     onTap: () => onDecide(s.entries[i], s, yearId),
                   ),

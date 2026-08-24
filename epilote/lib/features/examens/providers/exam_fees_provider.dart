@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../services/powersync/powersync_service.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../models/exam_fee.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -64,10 +65,58 @@ final examFeesProvider =
   //
   // ⚠️ `is_active = 1` rate les lignes écrites par l'application (vue
   // PowerSync) — cf. [[powersync-is-active-egalite-stricte]].
+  // ── Le tarif se retrouve par l'EXAMEN, pas seulement par la session ────────
+  //
+  // Avant la migration 0103, seul `exam_session_id` reliait les deux — et sur
+  // 35 sessions, 6 années et 7 groupes, il n'a JAMAIS été renseigné une seule
+  // fois. La cause était dans l'ordre du travail : un ministère fixe ses frais
+  // par arrêté PUIS ouvre les inscriptions ; exiger la session revenait à
+  // demander de tarifer un examen dont l'instance n'existe pas encore.
+  //
+  // Le ministère vise donc l'examen (`applies_to_exam_id`), stable d'une année
+  // sur l'autre, et le poste résout ici la session de SON année scolaire.
+  // `exam_session_id` reste prioritaire : il sert à déroger sur une session
+  // précise (un rattrapage au tarif différent).
+  //
+  // ⚠️ DÉPENDANCE DE SYNCHRO. Le rapprochement passe par `academic_years.label`,
+  // et les sync-rules ne descendent l'année du groupe que si elle est PUBLIÉE
+  // (`published_at IS NOT NULL`). Une année laissée en brouillon prive donc le
+  // poste de la ligne, la jointure ne rend rien, et le tarif d'examen reste
+  // introuvable — sans erreur. Si un barème publié n'arrive pas sur les postes,
+  // vérifier d'abord que l'année scolaire est publiée.
+  final profile = ref.watch(authNotifierProvider).valueOrNull;
+  final groupId = profile?.groupId;
+  final schoolId = profile?.schoolId;
+  if (groupId == null) {
+    return ExamFeeData(
+      summary: summarizeExamFees(
+          amountPerCandidate: 0, candidates: 0, payments: const []),
+      paidByStudent: const {},
+      feeStructureId: null,
+      amountPerCandidate: 0,
+      baremePublie: false,
+    );
+  }
   final fee = await db.getOptional(
-    'SELECT id, amount_xaf FROM fee_structures '
-    'WHERE exam_session_id = ? AND COALESCE(is_active, 1) <> 0 LIMIT 1',
-    [sessionId],
+    '''
+    SELECT f.id, f.amount_xaf
+      FROM fee_structures f
+      JOIN exam_sessions es ON es.id = ?
+      LEFT JOIN academic_years ay ON ay.id = f.academic_year_id
+     WHERE COALESCE(f.is_active, 1) <> 0
+       AND f.group_id = ?
+       AND (f.school_id IS NULL OR f.school_id = ?)
+       AND (
+             f.exam_session_id = es.id
+          OR (f.applies_to_exam_id = es.exam_id AND ay.label = es.year_label)
+       )
+     ORDER BY (f.exam_session_id IS NULL),   -- viser LA session l'emporte
+              (f.school_id IS NULL),          -- puis le tarif de l'école
+              f.amount_xaf,                   -- puis le moins cher
+              f.id                            -- puis l'id : deux postes doivent
+     LIMIT 1                                  -- retenir la MÊME ligne
+    ''',
+    [sessionId, groupId, schoolId ?? ''],
   );
   final session = await db.getOptional(
     'SELECT fee_amount FROM exam_sessions WHERE id = ?',
