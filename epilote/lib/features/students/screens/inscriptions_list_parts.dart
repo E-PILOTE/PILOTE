@@ -459,6 +459,13 @@ class _SelectCircle extends StatelessWidget {
 }
 
 // ─── Avatar élève ────────────────────────────────────────────────────────────
+// ─── Pastille d'élève ────────────────────────────────────────────────────────
+//
+// L'affichage vit dans `core/widgets/photo_avatar.dart` : depuis que la photo
+// se prend HORS LIGNE, son URL publique peut désigner un fichier encore en file
+// d'envoi, et une copie qui l'ignore montre un avatar cassé à l'agent qui vient
+// pourtant de la prendre. Ce qui reste ici, c'est ce qui est PROPRE au guichet :
+// la teinte selon le sexe, que le registre n'applique pas.
 class _Avatar extends StatelessWidget {
   const _Avatar({required this.row, required this.size});
   final InscriptionRow row;
@@ -466,22 +473,16 @@ class _Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = row.gender == 'F' ? _kPink : kNavy;
-    final initials = (row.firstName.isNotEmpty ? row.firstName[0] : '') +
-        (row.lastName.isNotEmpty ? row.lastName[0] : '');
-    return CircleAvatar(
-      radius: size / 2,
-      backgroundColor: color.withValues(alpha: 0.12),
-      foregroundImage: (row.photoUrl != null && row.photoUrl!.isNotEmpty)
-          ? CachedNetworkImageProvider(row.photoUrl!)
-          : null,
-      child: Text(initials.toUpperCase(),
-          style: TextStyle(
-              color: color, fontWeight: FontWeight.w700, fontSize: size * 0.34)),
+    return PhotoAvatar(
+      name: '${row.firstName} ${row.lastName}',
+      photoUrl: row.photoUrl,
+      size: size,
+      background: color.withValues(alpha: 0.12),
+      foreground: color,
     );
   }
 }
 
-// ─── Badges ──────────────────────────────────────────────────────────────────
 class _TypeBadge extends StatelessWidget {
   const _TypeBadge({required this.type});
   final String type;

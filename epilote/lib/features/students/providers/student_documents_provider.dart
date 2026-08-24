@@ -1,10 +1,7 @@
-import 'dart:typed_data';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../core/utils/media_compression.dart';
 import '../../../services/powersync/powersync_service.dart';
 
 const _uuid = Uuid();
@@ -116,28 +113,13 @@ Future<String?> signedStudentDocUrl(SupabaseClient client, String path) async {
 }
 
 // ─── Photo de profil de l'élève (bucket public `avatars`) ────────────────────
-/// Téléverse la photo de profil vers le bucket PUBLIC `avatars` et renvoie son
-/// URL publique (affichable via CachedNetworkImage). Nécessite internet.
-Future<String> uploadStudentPhoto({
-  required SupabaseClient client,
-  required String studentId,
-  required Uint8List bytes,
-  required String ext,
-}) async {
-  // Une photo d'élève sort d'un téléphone : 4 à 8 Mo pour une pastille de
-  // 38 pixels dans l'annuaire. On réduit à 256 px avant l'envoi — sur une
-  // école de 600 élèves, c'est plusieurs gigaoctets de transfert évités.
-  final media = await compressAvatar(
-    bytes: bytes,
-    fileName: 'photo.$ext',
-    mime: mimeForImageExtension(ext),
-  );
-  final e = media.fileName.split('.').last;
-  final path = 'students/${studentId}_${DateTime.now().millisecondsSinceEpoch}.$e';
-  await client.storage.from('avatars').uploadBinary(
-        path,
-        media.bytes,
-        fileOptions: FileOptions(contentType: media.mime, upsert: true),
-      );
-  return client.storage.from('avatars').getPublicUrl(path);
-}
+//
+// ⚠️ `uploadStudentPhoto` A ÉTÉ RETIRÉE. Elle envoyait à Storage en direct :
+// sans réseau, l'écran répondait « la photo n'a pas pu être envoyée, reprenez-la
+// plus tard », alors que tout le reste de la fiche s'enregistrait hors ligne.
+//
+// La photo passe désormais par `queueAvatarUpload`
+// (`services/powersync/avatar_upload.dart`), qui calcule l'URL publique sans
+// réseau, met les octets en file et les envoie au retour de la connexion.
+// Retirée plutôt que laissée de côté : une fonction publique qui fait presque
+// la bonne chose finit toujours par être rebranchée.

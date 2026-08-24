@@ -40,6 +40,9 @@ import 'package:flutter_test/flutter_test.dart';
 const _kService = 'lib/services/powersync/student_document_upload.dart';
 const _kAssistant = 'lib/features/students/screens/add_inscription_steps_3_5.dart';
 const _kDetailDossier = 'lib/features/students/screens/documents_detail.dart';
+const _kAvatar = 'lib/services/powersync/avatar_upload.dart';
+const _kEditRegistre = 'lib/features/students/screens/eleves_edit.dart';
+const _kEditGuichet = 'lib/features/students/screens/inscriptions_edit.dart';
 
 String _lire(String chemin) {
   final f = File(chemin);
@@ -86,6 +89,94 @@ void main() {
           reason: 'Une pièce déposée hors ligne n\'a pas encore d\'URL signée, '
               'mais elle est sur le poste — c\'est l\'agent qui vient de la '
               'déposer. Lui répondre « aperçu indisponible » serait absurde.');
+    });
+  });
+
+  group('La photo de l\'élève se prend hors ligne', () {
+    // C'était le dernier fichier du module à exiger le réseau. Tout le reste
+    // de la fiche s'enregistrait très bien sans connexion ; seule la photo
+    // répondait « reprenez-la plus tard » — donc, en pratique, jamais.
+    test('les deux éditeurs passent par la file', () {
+      for (final chemin in [_kEditRegistre, _kEditGuichet]) {
+        final src = _lire(chemin);
+        expect(src.contains('queueAvatarUpload('), isTrue,
+            reason: '$chemin doit mettre la photo en file, pas l\'envoyer.');
+        expect(src.contains('uploadStudentPhoto('), isFalse,
+            reason: '$chemin ne doit plus appeler l\'ancien chemin en ligne.');
+      }
+    });
+
+    test('l\'URL publique se calcule SANS réseau', () {
+      // `getPublicUrl` est une simple concaténation : c'est ce qui permet
+      // d'écrire l'URL DÉFINITIVE dans `students.photo_url` avant même que le
+      // fichier n'existe, puis de laisser la file le poser à ce chemin exact.
+      // Un `await` sur le client Storage trahirait un aller-retour réseau, et
+      // toute la mécanique tomberait avec lui.
+      final src = _lire(_kAvatar);
+      expect(src.contains('await client.storage'), isFalse,
+          reason: 'Aucune attente réseau ne doit s\'intercaler : l\'URL doit '
+              'rester calculable hors ligne.');
+      expect(src.contains('getPublicUrl('), isTrue);
+      expect(src.contains('enqueueUpload('), isTrue);
+    });
+
+    test('la pastille montre le fichier local tant qu\'il attend', () {
+      // Sans cela, l'agent qui vient de prendre la photo verrait un avatar
+      // cassé — l'URL publique désigne un objet pas encore téléversé — et
+      // conclurait que son geste a échoué.
+      final src = _lire('lib/core/widgets/photo_avatar.dart');
+      expect(src.contains('pendingFileForPublicUrl('), isTrue);
+      expect(src.contains('FileImage('), isTrue);
+    });
+
+    test('l\'ancien chemin en ligne de la photo a disparu', () {
+      final fautes = <String>[];
+      for (final f in _dartsSous('lib')) {
+        final lignes = f.readAsLinesSync();
+        for (var i = 0; i < lignes.length; i++) {
+          final nu = lignes[i].trimLeft();
+          if (nu.startsWith('//') || nu.startsWith('*')) continue;
+          if (lignes[i].contains('uploadStudentPhoto')) {
+            fautes.add('${f.path}:${i + 1}');
+          }
+        }
+      }
+      expect(fautes, isEmpty,
+          reason: 'Ne pas réintroduire `uploadStudentPhoto` : il envoyait à '
+              'Storage en direct.\n\n${fautes.join('\n')}');
+    });
+  });
+
+  group('Ce qui peut être compressé l\'est', () {
+    test('la note vocale s\'encode en mono, à débit parlé', () {
+      // Seul fichier qu'aucun compresseur ne peut reprendre après coup :
+      // `compressForUpload` ne traite que ce qu'il sait décoder — images et
+      // vidéo. Un AAC déjà encodé lui passe entre les doigts. Le levier est
+      // donc à l'encodage, et nulle part ailleurs.
+      final src = _lire('lib/features/communication/widgets/audio_recorder_button.dart');
+      expect(src.contains('numChannels: 1'), isTrue,
+          reason: 'Une voix en stéréo, c\'est deux fois le même canal.');
+      expect(RegExp(r'bitRate:\s*(\d+)').firstMatch(src), isNotNull);
+      final debit = int.parse(
+          RegExp(r'bitRate:\s*(\d+)').firstMatch(src)!.group(1)!);
+      expect(debit, lessThanOrEqualTo(48000),
+          reason: 'Au-delà de 48 kbps on encode de la musique, pas de la '
+              'parole — et la file d\'envoi dort parfois des jours sur le '
+              'disque d\'un poste partagé.');
+    });
+
+    test('l\'archive d\'examen n\'est PAS compressée', () {
+      // L'exception, et elle est délibérée : son empreinte SHA-256 est ce qui
+      // prouve, des années plus tard, que la pièce opposable n'a pas bougé.
+      // Ré-encoder changerait les octets, donc l'empreinte, donc la valeur
+      // probante. Ce test existe pour qu'un futur « on compresse tout » ne
+      // l'emporte pas par mégarde.
+      final src = _lire(
+          'lib/features/admin_groupe/providers/exam_archives_provider.dart');
+      expect(src.contains('sha256.convert(bytes)'), isTrue,
+          reason: 'L\'empreinte doit porter sur les octets DÉPOSÉS.');
+      expect(src.contains('compressForUpload('), isFalse,
+          reason: 'Compresser ici détruirait la valeur probante de l\'archive.');
     });
   });
 

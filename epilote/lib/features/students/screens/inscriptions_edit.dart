@@ -211,14 +211,15 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
     try {
       String? photoUrl;
       if (_photoBytes != null) {
-        // La photo passe par Storage, donc par le réseau. Tout le reste de cet
-        // écran est faisable hors ligne : un échec de téléversement ne doit pas
-        // emporter la correction d'identité, de scolarité et de tuteurs.
+        // La photo ne demande plus le réseau : `queueAvatarUpload` calcule
+        // son URL publique sans connexion, pose les octets sur le disque et
+        // les envoie au retour du réseau. Le `try` local reste — une file
+        // pleine ou un disque saturé ne doit pas emporter la saisie.
         try {
-          final client = ref.read(supabaseClientProvider);
-          photoUrl = await uploadStudentPhoto(
-            client: client,
-            studentId: id,
+          photoUrl = await queueAvatarUpload(
+            client: ref.read(supabaseClientProvider),
+            folder: 'students',
+            ownerId: id,
             bytes: _photoBytes!,
             ext: _photoExt,
           );
@@ -311,7 +312,7 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
         _snack(
           photoDiffere
               ? 'Modifications enregistrées — la photo n\'a pas pu être '
-                  'envoyée (connexion requise), reprenez-la plus tard.'
+                  'mise en file d\'envoi, reprenez-la.'
               : 'Modifications enregistrées.',
           photoDiffere ? kAccent : kGreen,
         );

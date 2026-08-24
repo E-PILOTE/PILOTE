@@ -1,11 +1,11 @@
 import 'dart:typed_data';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/photo_avatar.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../../data/models/class_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -38,6 +38,9 @@ import '../../../core/utils/ine.dart';
 import '../../../core/utils/write_identity.dart';
 import '../../../core/utils/sortie_motif.dart';
 import '../../../core/utils/message_erreur.dart';
+import '../../../services/powersync/avatar_upload.dart'
+    show queueAvatarUpload;
+
 
 part 'eleves_parts.dart';
 part 'eleves_liste_parts.dart';

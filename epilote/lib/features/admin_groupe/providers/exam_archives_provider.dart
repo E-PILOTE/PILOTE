@@ -407,6 +407,16 @@ class ArchiveActions {
 
     // Empreinte calculée sur les octets déposés : c'est elle qui permettra,
     // des années plus tard, de prouver que la pièce n'a pas bougé.
+    //
+    // ⚠️ ET C'EST POURQUOI ON NE COMPRESSE PAS ICI, seul dépôt de la plateforme
+    // dans ce cas. Partout ailleurs les images sont réduites avant l'envoi ;
+    // une publication d'examen est une PIÈCE OPPOSABLE — un procès-verbal, une
+    // liste d'admis. Ré-encoder son scan changerait les octets, donc
+    // l'empreinte, donc la seule chose qui prouve qu'on regarde bien le
+    // document déposé ce jour-là. On échangerait quelques mégaoctets contre la
+    // valeur probante de l'archive.
+    //
+    // Le poids reste borné en amont, par ce que l'agent a le droit de déposer.
     final digest = sha256.convert(bytes).toString();
     final stamp = DateTime.now().millisecondsSinceEpoch;
     final path = '$groupId/$sessionId/${stamp}_${_safeName(fileName)}';

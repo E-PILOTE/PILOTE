@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +8,7 @@ import 'package:shimmer/shimmer.dart';
 import '../../../core/utils/write_identity.dart';
 import '../../../core/utils/sortie_motif.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/photo_avatar.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../../data/models/class_model.dart';
 import '../../navigation/widgets/module_scaffold.dart';
@@ -42,6 +42,9 @@ import '../services/inscriptions_pdf_service.dart';
 import 'add_inscription_screen.dart';
 import 'import_eleves_dialog.dart';
 import '../../../core/utils/message_erreur.dart';
+import '../../../services/powersync/avatar_upload.dart'
+    show queueAvatarUpload;
+
 
 part 'inscriptions_list_parts.dart';
 part 'inscriptions_kpi_parts.dart';

@@ -346,36 +346,9 @@ class _Tag extends StatelessWidget {
 }
 
 // ─── Avatar (photo ou initiales) ─────────────────────────────────────────────
-class _Avatar extends StatelessWidget {
-  const _Avatar(
-      {required this.name, required this.photoUrl, required this.size});
-  final String name;
-  final String? photoUrl;
-  final double size;
-  @override
-  Widget build(BuildContext context) {
-    final url = photoUrl;
-    if (url != null && url.isNotEmpty) {
-      return CircleAvatar(
-        radius: size / 2,
-        backgroundColor: kSurface,
-        backgroundImage: CachedNetworkImageProvider(url),
-      );
-    }
-    final parts = name.trim().split(RegExp(r'\s+'));
-    final initials = parts.isEmpty
-        ? '?'
-        : (parts.length == 1
-            ? parts.first.characters.take(2).toString()
-            : '${parts.first.characters.first}${parts.last.characters.first}');
-    return CircleAvatar(
-      radius: size / 2,
-      backgroundColor: kNavy.withValues(alpha: 0.10),
-      child: Text(initials.toUpperCase(),
-          style: TextStyle(
-              color: kNavy,
-              fontSize: size * 0.34,
-              fontWeight: FontWeight.w800)),
-    );
-  }
-}
+// La pastille d'élève vit désormais dans `core/widgets/photo_avatar.dart` :
+// depuis que la photo se prend HORS LIGNE, son URL publique peut désigner un
+// fichier encore en file d'envoi, et une copie qui l'ignore affiche un avatar
+// cassé. La règle est à un seul endroit ; ce nom reste pour ne pas réécrire
+// les vingt appels de cet écran.
+typedef _Avatar = PhotoAvatar;
