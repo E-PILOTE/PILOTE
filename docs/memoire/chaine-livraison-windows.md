@@ -1,11 +1,11 @@
 ---
 name: chaine-livraison-windows
-description: "La chaîne de livraison Windows — CI GitHub Actions, installateur Inno Setup, et les trois pièges natifs découverts en la construisant"
+description: "La chaîne de livraison Windows — CI GitHub Actions, installateur Inno Setup, les trois pièges natifs, et pourquoi la publication ne passe plus par un artefact"
 metadata: 
   node_type: memory
   type: project
   originSessionId: db933423-7daf-438d-9460-97e0abf9b86b
-  modified: 2026-08-03T08:24:01.412Z
+  modified: 2026-08-25T05:40:00.000Z
 ---
 
 # Chaîne de livraison Windows (créée le 2026-08-03)
@@ -50,6 +50,40 @@ certificat, sinon Windows affiche « éditeur inconnu » malgré la signature.
 
 3. **`getApplicationDocumentsDirectory()` est un piège sous Windows** → voir
    [[base-hors-ligne-hors-documents]].
+
+## ⚠️ Le quatrième piège : la livraison passait par le quota d'artefacts (2026-08-25)
+
+**Une version entièrement verte est restée bloquée des heures.** Tests Linux et
+Windows, compilation, démarrage réel du binaire, installateur, empreinte : tout
+passait. Seul `actions/upload-artifact` échouait —
+*« Artifact storage quota has been hit. Usage is recalculated every 6-12 hours. »*
+Or l'artefact était le SEUL transport entre le travail Windows et le travail de
+publication : plus d'artefact, plus de version.
+
+**La cause : le pipeline remplissait son propre quota.** Chaque poussée sur
+`feat/**` téléversait l'installateur (~34 Mo) **et** le dossier de compilation
+entier (~46 Mo), gardés 30 jours. À 500 Mo, six commits saturaient. Et vider les
+artefacts ne débloque pas : le quota ne se recalcule que toutes les 6 à 12 h.
+
+**Le remède structurel** : les pièces jointes d'une **publication** ne consomment
+pas ce quota. Le travail Windows dépose donc l'installateur directement sur la
+publication, en **BROUILLON** (invisible au parc, pièces non téléchargeables) ;
+le travail `publication`, qui garde `needs: [verification, windows]`, se contente
+de le **lever**. La barrière des tests est intacte — seul le transport change.
+Les deux artefacts deviennent `continue-on-error` : ils ne servent plus qu'au
+diagnostic d'une branche de travail.
+
+⚠️ Le dépôt du brouillon **refuse de remplacer les pièces d'une version déjà
+PUBLIÉE** : cela changerait sous les pieds des écoles l'installateur qu'elles
+téléchargent, et l'empreinte publiée dans `app_releases` ne correspondrait plus.
+
+Les notes de version vivent désormais dans `packaging/windows/notes-de-version.md`
+avec un jeton `__EMPREINTE__` — de la prose relue comme du texte, et plus aucun
+échappement de guillemets à traverser YAML puis PowerShell.
+
+💡 **Pour savoir si le quota est libéré : une sonde de vingt secondes** (un travail
+Linux qui téléverse un octet) plutôt qu'une reconstruction Windows de 18 minutes.
+Le jeton `gh` n'a pas la portée `user` : l'API de facturation ne répond pas.
 
 ## Ce qui reste
 
