@@ -13,7 +13,10 @@
 //  ⚠️ Espace super_admin : Supabase en direct, jamais PowerSync.
 // ════════════════════════════════════════════════════════════════════════════
 
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 import '../../auth/providers/auth_provider.dart';
 
@@ -156,6 +159,111 @@ class ControleRelease {
       }
     }
     return null;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  L'ADRESSE RÉPOND-ELLE À QUI N'A AUCUN IDENTIFIANT ?
+  //
+  //  ── CE QUI EST ARRIVÉ, ET QUE CECI EMPÊCHE ────────────────────────────────
+  //  La version 3.3.0 a été publiée avec une adresse pointant sur le dépôt
+  //  GitHub PRIVÉ du projet. Les pièces jointes d'une release privée exigent
+  //  une authentification ; l'application, elle, télécharge par un GET anonyme
+  //  (`update_installer.dart`). Chaque poste recevait `404`.
+  //
+  //  Rien ne l'avait vu : tous les contrôles avaient été faits depuis des
+  //  postes AUTHENTIFIÉS, où l'adresse répondait parfaitement. C'est le piège
+  //  entier — une adresse ne se vérifie que dépouillée de toute identité.
+  //
+  //  ── POURQUOI UN CLIENT NU, ET PAS CELUI DE L'APPLICATION ──────────────────
+  //  Le client Supabase porte un jeton dans ses en-têtes. S'en servir ici
+  //  rejouerait l'erreur à l'identique : le contrôle passerait, et le parc
+  //  échouerait. On fabrique donc un `http.Client` vierge.
+  //
+  //  ── ET POURQUOI ON REFUSE MÊME QUAND ON NE SAIT PAS ───────────────────────
+  //  Un réseau muet ne prouve pas que l'adresse est bonne. Publier une version
+  //  qu'on n'a pas pu joindre EST la faute qu'on corrige : on refuse, et celui
+  //  qui publie réessaie. Aucun contournement n'est offert — un bouton
+  //  « publier quand même » ramènerait le défaut dès la première journée
+  //  pressée, et personne ne saurait qu'il a servi.
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /// `null` si [url] se télécharge SANS aucun identifiant.
+  ///
+  /// [tailleAttendue] vient du `manifest.json`. Si le serveur annonce une autre
+  /// taille, l'adresse ne désigne pas le fichier déclaré — et l'écart ne serait
+  /// sinon découvert que par chaque poste, à la vérification d'empreinte, après
+  /// avoir téléchargé trente-cinq mégaoctets pour rien.
+  ///
+  /// [client] n'existe que pour les tests. En production il vaut `null` et la
+  /// méthode fabrique son propre client nu.
+  static Future<ControleRelease?> verifierAdresse(
+    String url, {
+    int? tailleAttendue,
+    http.Client? client,
+    Duration delai = const Duration(seconds: 20),
+  }) async {
+    final u = Uri.tryParse(url.trim());
+    if (u == null || !u.isScheme('https')) {
+      return const ControleRelease._(
+          'url', 'L\'adresse de téléchargement doit être en https://.');
+    }
+
+    final c = client ?? http.Client();
+    final aNous = client == null;
+    try {
+      var r = await c.head(u).timeout(delai);
+
+      // Certains hébergeurs refusent HEAD. Un GET d'un seul octet coûte aussi
+      // peu et prouve la même chose.
+      if (r.statusCode == 405 || r.statusCode == 501) {
+        r = await c
+            .get(u, headers: const {'Range': 'bytes=0-0'})
+            .timeout(delai);
+        if (r.statusCode == 200 || r.statusCode == 206) return null;
+      }
+
+      if (r.statusCode == 401 || r.statusCode == 403) {
+        return ControleRelease._(
+            'url',
+            'L\'adresse demande une authentification (${r.statusCode}). Les '
+            'postes téléchargent sans identifiants : aucune école ne pourrait '
+            'installer cette version. Le dépôt qui héberge le fichier est-il '
+            'bien public ?');
+      }
+      if (r.statusCode != 200) {
+        return ControleRelease._(
+            'url',
+            'L\'adresse répond ${r.statusCode} à une demande sans '
+            'identifiants — exactement ce que recevrait chaque poste du parc. '
+            'Vérifiez que le fichier est bien publié à cette adresse.');
+      }
+
+      final annoncee = int.tryParse(r.headers['content-length'] ?? '');
+      if (tailleAttendue != null &&
+          annoncee != null &&
+          annoncee > 0 &&
+          annoncee != tailleAttendue) {
+        return ControleRelease._(
+            'url',
+            'L\'adresse répond, mais le fichier y pèse $annoncee octets au '
+            'lieu de $tailleAttendue. Elle ne désigne pas l\'installateur que '
+            'vous déclarez : les postes rejetteraient son empreinte après '
+            'l\'avoir téléchargé en entier.');
+      }
+      return null;
+    } on TimeoutException {
+      return ControleRelease._(
+          'url',
+          'L\'adresse n\'a pas répondu en ${delai.inSeconds} s. On ne publie '
+          'pas une version qu\'on n\'a pas pu joindre : réessayez.');
+    } catch (e) {
+      return ControleRelease._(
+          'url',
+          'L\'adresse n\'a pas pu être jointe ($e). On ne publie pas une '
+          'version qu\'on n\'a pas pu joindre : réessayez.');
+    } finally {
+      if (aNous) c.close();
+    }
   }
 }
 

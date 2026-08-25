@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: db933423-7daf-438d-9460-97e0abf9b86b
-  modified: 2026-08-25T10:00:00.000Z
+  modified: 2026-08-25T11:20:00.000Z
 ---
 
 # Le parc peut être mis à jour (migration 0087, 2026-08-03)
@@ -137,9 +137,28 @@ la ligne se corrige EN PLACE, sans publier un build supérieur.
 vérifier depuis un poste connecté ne prouve rien. Voir le garde de recette dans
 [[chaine-livraison-windows]].
 
-💡 Manque encore : `ControleRelease.verifier()` ne teste pas l'adresse (il ne
-vérifie que le préfixe `https://`). Un HEAD anonyme avant l'insertion bloquerait
-la ligne fautive à la source, comme il bloque déjà une empreinte mal formée.
+### ✅ `ControleRelease.verifierAdresse()` — le HEAD anonyme (même jour)
+
+Les douze contrôles de `verifier()` ne lisent que du TEXTE : aucun ne pouvait
+voir un 404. `verifierAdresse()` est asynchrone et séparée pour cela, appelée
+par `release_form_dialog.dart` **avant la moindre écriture**.
+
+- **Client `http` NU**, jamais celui de Supabase — il porte un jeton, et s'en
+  servir rejouerait le défaut par son propre remède. Un test vérifie l'absence
+  de `authorization` / `cookie` / `apikey` / `x-client-info` sur la requête.
+- **401/403** → message nommant l'authentification et demandant si le dépôt est
+  public. **Tout autre non-200** → « exactement ce que recevrait chaque poste ».
+- **`content-length` ≠ `size_bytes`** → refus : l'adresse ne désigne pas le
+  fichier déclaré, écart qui ne se verrait sinon qu'à l'empreinte, sur chaque
+  poste, après 35 Mo téléchargés pour rien.
+- **405/501** → l'hébergeur refuse HEAD : réessai en GET d'un seul octet
+  (`Range: bytes=0-0`). Un refus de méthode ne dit rien du fichier.
+- ⚠️ **Réseau muet ou délai dépassé ⇒ REFUS**, pas laissez-passer. Publier une
+  version qu'on n'a pas pu joindre EST la faute qu'on corrige. **Aucun bouton
+  « publier quand même »** : il servirait dès la première journée pressée et
+  personne ne saurait qu'il a servi.
+
+10 tests (`MockClient`) — 22 au total dans `release_publication_test.dart`.
 
 Liens : [[chaine-livraison-windows]] · [[deploiement-national-octobre]] ·
 [[plateformes-cibles-windows-mac]]

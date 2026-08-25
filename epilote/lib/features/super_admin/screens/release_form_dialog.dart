@@ -115,6 +115,26 @@ class _FormState extends ConsumerState<_ReleaseFormDialog> {
       _erreur = null;
       _champFautif = null;
     });
+
+    // ⚠️ AVANT d'écrire quoi que ce soit : l'adresse répond-elle à qui n'a
+    // aucun identifiant ? Les contrôles ci-dessus ne lisent que du texte ;
+    // celui-ci est le seul qui aurait attrapé la version 3.3.0, publiée vers
+    // un dépôt privé et rendue `404` à chaque poste. Voir l'en-tête de
+    // `ControleRelease.verifierAdresse`.
+    final injoignable = await ControleRelease.verifierAdresse(
+      _url.text,
+      tailleAttendue: int.tryParse(_taille.text.trim()),
+    );
+    if (injoignable != null) {
+      if (!mounted) return;
+      setState(() {
+        _erreur = injoignable.message;
+        _champFautif = injoignable.champ;
+        _envoi = false;
+      });
+      return;
+    }
+
     try {
       await ref.read(releasesServiceProvider).publier(
             version: _version.text,
