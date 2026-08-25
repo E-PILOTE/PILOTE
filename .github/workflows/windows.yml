@@ -36,6 +36,22 @@ env:
   # Flutter est une décision, jamais un effet de bord d'un runner mis à jour.
   FLUTTER_VERSION: '3.44.0'
 
+  # ── ⚠️ LE DÉPÔT DE CE FICHIER EST PRIVÉ ────────────────────────────────────
+  # Les pièces jointes d'une release PRIVÉE ne sont téléchargeables par
+  # PERSONNE sans jeton GitHub. L'application, elle, télécharge sa mise à jour
+  # par un simple GET anonyme : elle recevait un 404.
+  #
+  # Le défaut n'était visible d'aucun poste de développement — `gh` et le
+  # navigateur d'un mainteneur sont authentifiés, l'URL leur répondait. Il
+  # fallait la demander SANS identifiants pour le voir, ce que rien ne faisait.
+  #
+  # L'installateur va donc dans un dépôt PUBLIC de distribution, qui ne
+  # contient aucun code source. La bande passante des releases GitHub est
+  # gratuite et servie par un CDN — 35 Mo × 1000 écoles n'y coûtent rien, là où
+  # le stockage Supabase (plan gratuit : 5 Go de trafic par mois) saturerait
+  # avant la centième école, en emportant le trafic de l'application avec lui.
+  DEPOT_DISTRIBUTION: E-PILOTE/telechargements
+
 jobs:
   verification:
     name: Analyse et tests
@@ -64,10 +80,10 @@ jobs:
   windows:
     name: Construction Windows x64
     runs-on: windows-latest
-    # Pour déposer le BROUILLON de publication (voir plus bas). Un brouillon
-    # n'est visible que des mainteneurs : rien n'atteint le parc ici.
+    # Le brouillon de publication part vers le dépôt de DISTRIBUTION avec un
+    # jeton dédié (voir plus bas) : ce travail n'a jamais besoin d'écrire ici.
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -225,7 +241,7 @@ jobs:
             channel      = 'stable'
             sha256       = $sha
             size_bytes   = $exe.Length
-            download_url = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:GITHUB_REF_NAME/$($exe.Name)"
+            download_url = "https://github.com/$env:DEPOT_DISTRIBUTION/releases/download/$env:GITHUB_REF_NAME/$($exe.Name)"
           }
           $manifeste | ConvertTo-Json | Set-Content dist\manifest.json -Encoding utf8
           Write-Host "Version   : $version (build $build)"
@@ -246,13 +262,27 @@ jobs:
       # en BROUILLON : invisible au parc, pièces non téléchargeables. Le
       # travail `publication`, qui attend les tests, se contente de la lever.
       # La barrière des tests est intacte — seul le transport change.
+      #
+      # ⚠️ Le brouillon est déposé sur le dépôt PUBLIC de distribution, pas
+      # ici : voir `DEPOT_DISTRIBUTION` en tête de fichier. Un brouillon reste
+      # invisible et ses pièces non téléchargeables, même sur un dépôt public.
+      # Cela demande un jeton ayant `contents: write` SUR CET AUTRE DÉPÔT —
+      # `github.token` ne sort jamais du dépôt courant.
       - name: Brouillon de publication
         if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.PUBLIC_RELEASE_TOKEN }}
+          GH_REPO: ${{ env.DEPOT_DISTRIBUTION }}
         run: |
+          if (-not $env:GH_TOKEN) {
+            throw "Le secret PUBLIC_RELEASE_TOKEN est absent. Sans lui, " +
+                  "l'installateur ne peut pas atteindre le depot public de " +
+                  "distribution, et l'adresse inscrite dans app_releases " +
+                  "repondrait 404 a chaque ecole. Creer un jeton a portee " +
+                  "fine avec 'Contents: read and write' sur " +
+                  "$env:GH_REPO, puis le poser en secret du depot."
+          }
           $tag = $env:GITHUB_REF_NAME
           $exe = (Get-ChildItem dist\*.exe | Select-Object -First 1).FullName
           $manifeste = (Resolve-Path dist\manifest.json).Path
@@ -336,17 +366,65 @@ jobs:
     needs: [verification, windows]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       # Tout est déjà déposé sur le brouillon par le travail Windows :
       # l'installateur, son manifeste et les notes portant l'empreinte. Il ne
-      # reste qu'à le rendre visible — un seul geste, qui ne peut pas échouer
-      # pour une raison de stockage.
+      # reste qu'à le rendre visible.
       - name: Lever le brouillon
         env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.PUBLIC_RELEASE_TOKEN }}
+          GH_REPO: ${{ env.DEPOT_DISTRIBUTION }}
         run: |
           gh release edit "${GITHUB_REF_NAME}" --draft=false --latest
           echo "Publiée : $(gh release view "${GITHUB_REF_NAME}" --json url --jq .url)"
+
+      # ── ⚠️ LA RECETTE ANONYME ─────────────────────────────────────────────
+      # Le contrôle dont l'absence a coûté une livraison.
+      #
+      # La version 3.3.0 a été publiée, vérifiée, son empreinte recalculée à la
+      # main — et elle répondait 404 à la première école qui a cliqué « Mettre
+      # à jour ». Le dépôt était privé. Chaque contrôle avait été fait depuis
+      # un poste AUTHENTIFIÉ, où l'adresse répondait parfaitement.
+      #
+      # Cette étape refait le geste exact d'un poste d'établissement : un GET
+      # sans le moindre identifiant, puis le SHA-256 des octets reçus comparé à
+      # celui que l'application exigera. Rien d'autre ne prouve qu'une version
+      # est réellement installable.
+      - name: Recette — télécharger comme une école, sans identifiants
+        run: |
+          set -euo pipefail
+          BASE="https://github.com/${DEPOT_DISTRIBUTION}/releases/download/${GITHUB_REF_NAME}"
+
+          # `--netrc-file /dev/null` et l'absence de tout en-tête : aucune
+          # information d'identification ne doit pouvoir se glisser ici, sinon
+          # le contrôle mentirait exactement comme la fois précédente.
+          curl -fsSL --netrc-file /dev/null -o manifest.json "${BASE}/manifest.json"
+          ATTENDU=$(jq -r .sha256 manifest.json)
+          URL=$(jq -r .download_url manifest.json)
+
+          if [ "${URL}" != "${BASE}/$(basename "${URL}")" ]; then
+            echo "::error::Le manifeste annonce ${URL}, qui n'est pas la"
+            echo "::error::publication en cours. Les postes iraient ailleurs."
+            exit 1
+          fi
+
+          CODE=$(curl -s --netrc-file /dev/null -o installateur.exe \
+                      -w '%{http_code}' -L "${URL}")
+          if [ "${CODE}" != "200" ]; then
+            echo "::error::${URL} répond ${CODE} sans authentification."
+            echo "::error::Chaque école recevrait cette erreur. Le dépôt de"
+            echo "::error::distribution est-il bien PUBLIC ?"
+            exit 1
+          fi
+
+          OBTENU=$(sha256sum installateur.exe | cut -d' ' -f1)
+          if [ "${OBTENU}" != "${ATTENDU}" ]; then
+            echo "::error::Empreinte reçue ${OBTENU}, attendue ${ATTENDU}."
+            echo "::error::L'application ANNULERAIT l'installation."
+            exit 1
+          fi
+
+          echo "✓ Téléchargée anonymement : $(stat -c%s installateur.exe) o"
+          echo "✓ Empreinte conforme : ${OBTENU}"
+          echo "Ligne à publier dans app_releases :"
+          cat manifest.json

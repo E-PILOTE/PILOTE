@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: db933423-7daf-438d-9460-97e0abf9b86b
-  modified: 2026-08-25T06:40:00.000Z
+  modified: 2026-08-25T10:00:00.000Z
 ---
 
 # Le parc peut être mis à jour (migration 0087, 2026-08-03)
@@ -124,6 +124,22 @@ signature redevient bloquant.
 
 💡 `notes` est chargé par `update_provider.dart` mais **jamais affiché** par
 `update_banner.dart` : celui qui met à jour ne voit aucun changelog.
+
+### 🩸 Le premier clic a rendu 404 — le binaire vivait dans un dépôt PRIVÉ
+
+`download_url` pointait sur les releases de `E-PILOTE/PILOTE`, **privé**. Leurs
+pièces jointes exigent une authentification ; l'application télécharge par un GET
+**anonyme**. Corrigé le jour même : le binaire est passé sur le dépôt public
+`E-PILOTE/telechargements`, **empreinte inchangée** — seule l'adresse bouge, donc
+la ligne se corrige EN PLACE, sans publier un build supérieur.
+
+⚠️ **`app_releases.download_url` doit répondre 200 SANS authentification.** Le
+vérifier depuis un poste connecté ne prouve rien. Voir le garde de recette dans
+[[chaine-livraison-windows]].
+
+💡 Manque encore : `ControleRelease.verifier()` ne teste pas l'adresse (il ne
+vérifie que le préfixe `https://`). Un HEAD anonyme avant l'insertion bloquerait
+la ligne fautive à la source, comme il bloque déjà une empreinte mal formée.
 
 Liens : [[chaine-livraison-windows]] · [[deploiement-national-octobre]] ·
 [[plateformes-cibles-windows-mac]]

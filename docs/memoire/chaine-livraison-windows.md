@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: db933423-7daf-438d-9460-97e0abf9b86b
-  modified: 2026-08-25T05:40:00.000Z
+  modified: 2026-08-25T10:00:00.000Z
 ---
 
 # Chaîne de livraison Windows (créée le 2026-08-03)
@@ -84,6 +84,47 @@ avec un jeton `__EMPREINTE__` — de la prose relue comme du texte, et plus aucu
 💡 **Pour savoir si le quota est libéré : une sonde de vingt secondes** (un travail
 Linux qui téléverse un octet) plutôt qu'une reconstruction Windows de 18 minutes.
 Le jeton `gh` n'a pas la portée `user` : l'API de facturation ne répond pas.
+
+## ⚠️⚠️ Le cinquième piège : un dépôt PRIVÉ ne distribue rien (2026-08-25)
+
+**v3.3.0 a été publiée, son empreinte revérifiée à la main — et elle répondait
+`404` à la première personne qui a cliqué « Mettre à jour ».**
+
+Les pièces jointes d'une release **privée** exigent une authentification GitHub.
+L'application télécharge par un `http.Request('GET', url)` **anonyme** : elle ne
+pouvait rien recevoir. `PILOTE` est privé et le restera.
+
+### 🩸 La leçon, plus large que ce bug
+
+**Tout contrôle fait depuis un poste authentifié ment.** J'avais retéléchargé
+l'installateur et recalculé son SHA-256 — le contrôle passait, parce que `gh`
+portait mon jeton. Il fallait demander l'URL **sans identifiants** pour voir le
+défaut, et rien dans la chaîne ne le faisait. Un utilisateur l'a trouvé en un
+clic.
+
+### La forme retenue
+
+Dépôt **public** de distribution : **`E-PILOTE/telechargements`** — installateurs
+et empreintes, **aucun code source**. La bande passante des releases GitHub est
+gratuite et servie par un CDN.
+
+⚠️ **Supabase Storage est exclu** : plan **gratuit** (1 Go de stockage, 5 Go de
+trafic/mois). 35 Mo × 1000 écoles = 35 Go **par version** — saturé avant la
+centième école, en emportant le trafic de l'application avec lui.
+
+⚠️ **Exige le secret `PUBLIC_RELEASE_TOKEN`** (jeton à portée fine, `Contents:
+read and write` sur le dépôt de distribution) : `github.token` ne sort **jamais**
+du dépôt courant. Sans ce secret, l'étape `Brouillon de publication` lève, avec
+le mode d'emploi dans le message.
+
+### Le garde : « Recette — télécharger comme une école, sans identifiants »
+
+Dernière étape de `publication`. `curl --netrc-file /dev/null`, sans le moindre
+en-tête, puis SHA-256 des octets reçus comparé à celui du manifeste. **Vérifié
+qu'il ÉCHOUE** quand on le pointe sur le dépôt privé — un garde qui ne se
+déclenche jamais ne vaut rien.
+
+Voir [[mise-a-jour-du-parc]].
 
 ## Ce qui reste
 
