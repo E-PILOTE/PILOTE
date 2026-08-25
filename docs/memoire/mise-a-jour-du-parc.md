@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: db933423-7daf-438d-9460-97e0abf9b86b
-  modified: 2026-08-25T11:20:00.000Z
+  modified: 2026-08-25T11:45:00.000Z
 ---
 
 # Le parc peut être mis à jour (migration 0087, 2026-08-03)
@@ -122,8 +122,13 @@ aurait été le pire moment possible pour l'apprendre.
 l'application, publier redevient un acte de déploiement, et le certificat de
 signature redevient bloquant.
 
-💡 `notes` est chargé par `update_provider.dart` mais **jamais affiché** par
-`update_banner.dart` : celui qui met à jour ne voit aucun changelog.
+⚠️ **`notes` EST affiché** — `update_dialog.dart:125-139`, encadré déroulant
+(max 190 px), pas dans la bannière qui reste volontairement compacte. Ce champ
+s'adresse donc à **l'agent qui met à jour**, jamais à l'opérateur : y consigner
+un numéro de run ou un motif de correctif le donne à lire à tout le parc.
+(Erreur commise le 2026-08-25 : j'avais grepé `update_banner.dart` et le
+provider, pas la modale, et écrit du bavardage interne dans la ligne du build
+20. Réécrit le jour même.)
 
 ### 🩸 Le premier clic a rendu 404 — le binaire vivait dans un dépôt PRIVÉ
 
