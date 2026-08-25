@@ -1,11 +1,11 @@
 ---
 name: mise-a-jour-du-parc
-description: "Canal de mise à jour (mig 0087 app_releases) — comparaison sur build_number ENTIER, SHA-256 vérifié avant installation, CI prête à signer et inerte sans secret"
+description: "Canal de mise à jour (mig 0087 app_releases) — comparaison sur build_number ENTIER, SHA-256 vérifié avant installation, CI prête à signer et inerte sans secret — canal ouvert le 2026-08-25 (v3.3.0 / build 20)"
 metadata: 
   node_type: memory
   type: project
   originSessionId: db933423-7daf-438d-9460-97e0abf9b86b
-  modified: 2026-08-03T19:25:01.461Z
+  modified: 2026-08-25T06:40:00.000Z
 ---
 
 # Le parc peut être mis à jour (migration 0087, 2026-08-03)
@@ -91,6 +91,39 @@ poste qui refuse l'installation laisse une école bloquée sans comprendre.
 rien ne correspond — vérifié ; le garde `row is! Map` côté Dart tient.
 
 Reste : canal `beta` inutilisé.
+
+## ✅ Le canal a servi pour la première fois — v3.3.0 / build 20 (2026-08-25)
+
+`app_releases` était **vide** : le mécanisme entier n'avait jamais été exercé
+de bout en bout. La première ligne a été écrite ce jour depuis le
+`manifest.json` de la CI (run 32813066795), non par le formulaire.
+
+| | |
+|---|---|
+| `platform` / `channel` | `windows` / `stable` — **le poste code `p_channel: 'stable'` en dur**, publier en `beta` serait invisible |
+| `is_mandatory` | `false` |
+| `min_build` | `null` |
+| empreinte | vérifiée en retéléchargeant l'installateur publié : identique au manifeste, 35 769 649 o |
+| `created_by` | `super@admin.cg` (compte plateforme) |
+
+Vérifié via la RPC : `windows/stable` répond, **`linux`, `macos` et `beta` ne
+répondent rien** — le cloisonnement par plateforme tient.
+
+### ⚠️ Ce qui a rendu la décision facile : le parc n'est pas ce qu'on croit
+
+**10 comptes se sont connectés une seule fois** (dernier : 2026-08-19), pour
+37 écoles provisionnées et 344 profils. Aucun établissement n'exploite encore
+l'application. Publier n'était donc PAS « un déploiement en établissement » —
+la réserve des notes de version sur l'installateur non signé ne s'y appliquait
+pas. Et découvrir en octobre, sur mille postes, que le canal ne fonctionne pas
+aurait été le pire moment possible pour l'apprendre.
+
+⚠️ **Ce raisonnement expire.** Dès qu'une école exploite réellement
+l'application, publier redevient un acte de déploiement, et le certificat de
+signature redevient bloquant.
+
+💡 `notes` est chargé par `update_provider.dart` mais **jamais affiché** par
+`update_banner.dart` : celui qui met à jour ne voit aucun changelog.
 
 Liens : [[chaine-livraison-windows]] · [[deploiement-national-octobre]] ·
 [[plateformes-cibles-windows-mac]]
