@@ -333,8 +333,6 @@ class AgentCreationService {
     String? genre,
     DateTime? dateNaissance,
     String? lieuNaissance,
-    String? photoUrl,
-    bool effacerPhoto = false,
   }) async {
     final client = _ref.read(supabaseClientProvider);
     try {
@@ -347,8 +345,11 @@ class AgentCreationService {
         'p_gender':          _nz(genre),
         'p_date_of_birth':   _jour(dateNaissance),
         'p_birth_place':     _nz(lieuNaissance),
-        'p_avatar_url':      _nz(photoUrl),
-        'p_effacer_photo':   effacerPhoto,
+        // ⚠️ PAS de `p_avatar_url` / `p_effacer_photo` ici, bien que la RPC les
+        // accepte encore. La photo a UNE seule porte depuis la migration 0113 :
+        // `staff_photo_requests`, qui sait attendre le réseau. Les repasser ici
+        // l'appliquerait deux fois et inscrirait deux corrections au journal
+        // d'audit pour un seul geste.
       });
     } catch (e) {
       throw EchecCreationAgent(_lisible(e, "La correction d'une fiche d'agent"));

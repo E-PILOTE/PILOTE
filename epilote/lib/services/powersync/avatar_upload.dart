@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -36,8 +35,9 @@ import 'upload_outbox.dart';
 //  qu'aucune ligne n'ait à être corrigée.
 //
 //  Entre-temps, l'URL pointe sur un objet qui n'existe pas encore. C'est à quoi
-//  sert [pendingFileForPublicUrl] : sur le poste qui vient de la prendre, la
-//  photo s'affiche depuis le disque.
+//  sert [storagePathFromPublicUrl] : elle rend le chemin que la file d'envoi
+//  indexe, et `fichierLocalEnAttente` (core/widgets/photo_avatar.dart) montre
+//  alors la photo depuis le disque, sur le poste qui vient de la prendre.
 // ════════════════════════════════════════════════════════════════════════════
 
 const _uuid = Uuid();
@@ -114,15 +114,4 @@ String? storagePathFromPublicUrl(String? url) {
   final slash = reste.indexOf('/');
   if (slash <= 0 || slash == reste.length - 1) return null;
   return reste.substring(slash + 1);
-}
-
-/// Le fichier local d'une photo encore en attente d'envoi — `null` si elle est
-/// déjà partie, ou si l'URL n'est pas celle d'un objet public Supabase.
-///
-/// Permet d'afficher la photo IMMÉDIATEMENT sur le poste qui vient de la
-/// prendre. Sans cela, l'agent verrait un avatar cassé jusqu'au retour du
-/// réseau, et croirait que son geste a échoué.
-Future<File?> pendingFileForPublicUrl(String? url) async {
-  final chemin = storagePathFromPublicUrl(url);
-  return chemin == null ? null : pendingFileFor(chemin);
 }

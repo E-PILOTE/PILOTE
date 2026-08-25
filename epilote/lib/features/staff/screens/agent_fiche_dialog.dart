@@ -28,6 +28,7 @@ import '../../communication/widgets/user_avatar.dart';
 import '../../user/widgets/staff_account_widgets.dart' show staffRoleLabel;
 import '../providers/agent_creation_provider.dart';
 import '../providers/staff_directory_provider.dart';
+import '../providers/staff_photo_provider.dart';
 import '../providers/staff_dossier_provider.dart'
     show kEmploymentStatuses, employmentStatusLabel;
 import '../services/agent_photo_service.dart';
@@ -78,8 +79,17 @@ class _State extends ConsumerState<_AgentFicheDialog> {
     super.dispose();
   }
 
-  String? get _photoAffichee =>
-      _effacerPhoto ? null : (_photoUrl ?? widget.agent.avatarUrl);
+  /// Ce que la pastille doit montrer, dans l'ordre de fraîcheur : le choix en
+  /// cours (pas encore enregistré), puis une demande déposée mais pas encore
+  /// appliquée par le serveur, puis la fiche.
+  ///
+  /// Sans le deuxième terme, un chef qui rouvre la fiche hors ligne verrait
+  /// encore l'ancienne photo — et la reprendrait, croyant son geste perdu.
+  String? _photoAffichee(WidgetRef ref) {
+    if (_effacerPhoto) return null;
+    if (_photoUrl != null) return _photoUrl;
+    return photoAffichee(ref, widget.agent.id, widget.agent.avatarUrl);
+  }
 
   Future<void> _choisirPhoto() async {
     final res = await FilePicker.platform.pickFiles(
@@ -101,7 +111,7 @@ class _State extends ConsumerState<_AgentFicheDialog> {
     try {
       // Les octets partent AVANT toute écriture dans la fiche : on ne promet
       // jamais dans le dossier une photo qui ne serait pas arrivée.
-      final url = await televerserPhotoAgent(
+      final url = await preparerPhotoAgent(
         client: ref.read(supabaseClientProvider),
         schoolId: schoolId,
         profileId: widget.agent.id,
@@ -125,14 +135,37 @@ class _State extends ConsumerState<_AgentFicheDialog> {
   Future<void> _enregistrer() async {
     setState(() { _saving = true; _erreur = null; });
     try {
+      // ── LA PHOTO PART D'ABORD, ET PAR SA PROPRE PORTE ───────────────────
+      // Elle est le SEUL champ de cette fiche qui sache attendre le réseau :
+      // la demande s'écrit en local, PowerSync la remonte, le serveur
+      // l'applique. Le reste — nom, téléphone, matricule — passe par une RPC
+      // et ne peut pas.
+      //
+      // On la dépose donc AVANT : si la RPC échoue faute de connexion, au
+      // moins la photo est acquise, et on le dit. L'ordre inverse aurait fait
+      // perdre les deux.
+      final profil = ref.read(authNotifierProvider).valueOrNull;
+      final aPhoto = _effacerPhoto || _photoUrl != null;
+      if (aPhoto && profil?.groupId != null && profil?.schoolId != null) {
+        await deposerDemandePhotoAgent(
+          groupId: profil!.groupId!,
+          schoolId: profil.schoolId!,
+          profileId: widget.agent.id,
+          avatarUrl: _photoUrl,
+          requestedBy: profil.id,
+          effacer: _effacerPhoto,
+        );
+      }
+
+      // ⚠️ Plus de `photoUrl` ici : la photo a UNE seule porte, sans quoi elle
+      // s'appliquerait deux fois — une par la demande, une par la RPC — et le
+      // journal d'audit porterait deux corrections pour un seul geste.
       await ref.read(agentCreationServiceProvider).corriger(
             profileId: widget.agent.id,
             prenom: _prenom.text,
             nom: _nom.text,
             telephone: _tel.text,
             matricule: _matricule.text,
-            photoUrl: _photoUrl,
-            effacerPhoto: _effacerPhoto,
           );
       // Après la fiche, et seulement s'il en manquait un : deux appels parce
       // que ce sont deux gestes de nature différente — soigner un dossier
@@ -212,7 +245,7 @@ class _State extends ConsumerState<_AgentFicheDialog> {
                 UserAvatarCircle(
                     name: a.fullName,
                     role: a.role,
-                    avatarUrl: _photoAffichee,
+                    avatarUrl: _photoAffichee(ref),
                     radius: 38),
                 if (_envoiPhoto)
                   const Positioned.fill(
@@ -236,15 +269,17 @@ class _State extends ConsumerState<_AgentFicheDialog> {
                       Text(staffRoleLabel(a.role),
                           style: TextStyle(fontSize: 12, color: kTextMuted)),
                       const SizedBox(height: 8),
-                      Row(children: [
+                      Builder(builder: (_) {
+                        final photo = _photoAffichee(ref);
+                        return Row(children: [
                         OutlinedButton.icon(
                           onPressed: _envoiPhoto || _saving ? null : _choisirPhoto,
                           icon: const Icon(Icons.photo_camera_outlined, size: 16),
-                          label: Text(_photoAffichee == null
+                          label: Text(photo == null
                               ? 'Ajouter une photo'
                               : 'Remplacer'),
                         ),
-                        if (_photoAffichee != null) ...[
+                        if (photo != null) ...[
                           const SizedBox(width: 8),
                           TextButton(
                             onPressed: _envoiPhoto || _saving
@@ -257,7 +292,8 @@ class _State extends ConsumerState<_AgentFicheDialog> {
                                 style: TextStyle(color: kRed, fontSize: 12.5)),
                           ),
                         ],
-                      ]),
+                        ]);
+                      }),
                     ]),
               ),
             ]),
@@ -335,6 +371,21 @@ class _State extends ConsumerState<_AgentFicheDialog> {
               const SizedBox(height: 14),
               AdminErrorBanner(message: _erreur!),
             ],
+            // ── LE REFUS DU SERVEUR NE DOIT PAS RESTER MUET ──────────────────
+            // Le trigger qui applique une demande de photo ne lève JAMAIS : une
+            // exception ferait abandonner à PowerSync le lot entier. Il inscrit
+            // donc son motif dans la demande, qui redescend sur le poste — et
+            // c'est ici, la seule fois où l'agent peut l'apprendre. Sans cet
+            // affichage, la photo ne changerait simplement jamais, sans un mot.
+            Builder(builder: (_) {
+              final refus =
+                  ref.watch(demandePhotoAgentProvider(widget.agent.id)).refus;
+              if (refus == null) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 14),
+                child: AdminErrorBanner(message: 'Photo refusée — $refus'),
+              );
+            }),
           ]),
         ),
       ),

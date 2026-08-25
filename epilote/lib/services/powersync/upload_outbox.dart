@@ -179,3 +179,26 @@ final pendingUploadsProvider = StreamProvider.autoDispose<int>((ref) {
       .watch('SELECT COUNT(*) AS n FROM upload_outbox')
       .map((rows) => rows.isEmpty ? 0 : (rows.first['n'] as int? ?? 0));
 });
+
+/// Les fichiers encore en attente, indexés par CHEMIN Storage → chemin disque.
+///
+/// ── POURQUOI UNE CARTE, ET PAS UNE RECHERCHE PAR FICHIER ───────────────────
+/// Chaque pastille d'avatar doit savoir si SA photo attend encore : sans quoi
+/// l'agent qui vient de la prendre voit un rond cassé et croit son geste raté.
+/// Poser la question une fois par pastille ferait deux cents requêtes sur une
+/// liste de personnel, et autant à chaque reconstruction.
+///
+/// La file, elle, est minuscule — le plus souvent VIDE. On la lit donc en
+/// entier, une fois, et chaque pastille n'a plus qu'à regarder dans une carte
+/// déjà en mémoire.
+final pendingUploadPathsProvider =
+    StreamProvider.autoDispose<Map<String, String>>((ref) {
+  if (!isOfflineCapableDevice) return Stream.value(const {});
+  return db
+      .watch('SELECT storage_path, local_path FROM upload_outbox')
+      .map((rows) => {
+            for (final r in rows)
+              (r['storage_path'] as String? ?? ''):
+                  (r['local_path'] as String? ?? ''),
+          }..removeWhere((k, v) => k.isEmpty || v.isEmpty));
+});

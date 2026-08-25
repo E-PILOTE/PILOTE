@@ -2,18 +2,18 @@ import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../services/powersync/avatar_upload.dart';
+import '../../services/powersync/upload_outbox.dart';
 import 'admin_ui.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LA PASTILLE D'UNE PERSONNE — photo si elle existe, initiales sinon.
 //
 //  ── POURQUOI UN WIDGET PARTAGÉ ─────────────────────────────────────────────
-//  Il en existait quatre copies privées, une par écran (`_Avatar` dans la liste
-//  des élèves, dans celle des inscriptions, dans la messagerie, dans le pavé de
-//  code agent). Tant qu'elles ne faisaient qu'afficher une URL, la duplication
-//  ne coûtait qu'elle-même.
+//  Il en existait quatre copies privées, une par écran. Tant qu'elles ne
+//  faisaient qu'afficher une URL, la duplication ne coûtait qu'elle-même.
 //
 //  Depuis que la photo se prend HORS LIGNE, elle coûte davantage : entre le
 //  moment où l'agent la choisit et le retour du réseau, l'URL publique pointe
@@ -21,10 +21,28 @@ import 'admin_ui.dart';
 //  avatar cassé — et l'agent conclut que son geste a échoué, alors que la photo
 //  est sur le disque, en file d'envoi.
 //
-//  La règle vit donc à un seul endroit : fichier local tant qu'il attend, URL
-//  ensuite, initiales si rien.
+//  ── POURQUOI LA FILE SE LIT EN UNE FOIS ────────────────────────────────────
+//  Interroger la file par pastille ferait deux cents requêtes sur une liste de
+//  personnel, et autant à chaque reconstruction. `pendingUploadPathsProvider`
+//  la lit ENTIÈRE — elle est minuscule, le plus souvent vide — et chaque
+//  pastille n'a plus qu'à regarder dans une carte déjà en mémoire.
 // ════════════════════════════════════════════════════════════════════════════
-class PhotoAvatar extends StatefulWidget {
+
+/// Le fichier local d'une photo encore en attente, ou `null`.
+///
+/// Partagé par [PhotoAvatar] et `UserAvatarCircle` : les deux pastilles de
+/// l'application doivent répondre pareil à la même URL.
+File? fichierLocalEnAttente(WidgetRef ref, String? url) {
+  final chemin = storagePathFromPublicUrl(url);
+  if (chemin == null) return null;
+  final enAttente = ref.watch(pendingUploadPathsProvider).valueOrNull;
+  final local = enAttente?[chemin];
+  if (local == null || local.isEmpty) return null;
+  final f = File(local);
+  return f.existsSync() ? f : null;
+}
+
+class PhotoAvatar extends ConsumerWidget {
   const PhotoAvatar({
     super.key,
     required this.name,
@@ -49,40 +67,8 @@ class PhotoAvatar extends StatefulWidget {
   /// teinte la pastille selon le sexe ; le registre ne le fait pas.
   final Color? foreground;
 
-  @override
-  State<PhotoAvatar> createState() => _PhotoAvatarState();
-}
-
-class _PhotoAvatarState extends State<PhotoAvatar> {
-  File? _local;
-
-  @override
-  void initState() {
-    super.initState();
-    _chercherLocal();
-  }
-
-  @override
-  void didUpdateWidget(PhotoAvatar old) {
-    super.didUpdateWidget(old);
-    if (old.photoUrl != widget.photoUrl) {
-      _local = null;
-      _chercherLocal();
-    }
-  }
-
-  /// La file d'envoi est une table locale : la consulter est bon marché, mais
-  /// pas synchrone. Tant qu'on ne sait pas, on affiche l'URL — au pire une
-  /// pastille vide pendant une frame, jamais une erreur.
-  Future<void> _chercherLocal() async {
-    final url = widget.photoUrl;
-    if (url == null || url.isEmpty) return;
-    final f = await pendingFileForPublicUrl(url);
-    if (mounted && f != null) setState(() => _local = f);
-  }
-
   String get _initiales {
-    final parts = widget.name.trim().split(RegExp(r'\s+'))
+    final parts = name.trim().split(RegExp(r'\s+'))
       ..removeWhere((p) => p.isEmpty);
     if (parts.isEmpty) return '?';
     if (parts.length == 1) {
@@ -93,9 +79,10 @@ class _PhotoAvatarState extends State<PhotoAvatar> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final r = widget.size / 2;
-    final local = _local;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final r = size / 2;
+
+    final local = fichierLocalEnAttente(ref, photoUrl);
     if (local != null) {
       return CircleAvatar(
         radius: r,
@@ -103,7 +90,8 @@ class _PhotoAvatarState extends State<PhotoAvatar> {
         backgroundImage: FileImage(local),
       );
     }
-    final url = widget.photoUrl;
+
+    final url = photoUrl;
     if (url != null && url.isNotEmpty) {
       return CircleAvatar(
         radius: r,
@@ -111,14 +99,15 @@ class _PhotoAvatarState extends State<PhotoAvatar> {
         backgroundImage: CachedNetworkImageProvider(url),
       );
     }
+
     return CircleAvatar(
       radius: r,
-      backgroundColor: widget.background ?? kNavy.withValues(alpha: 0.10),
+      backgroundColor: background ?? kNavy.withValues(alpha: 0.10),
       child: Text(
         _initiales,
         style: TextStyle(
-          color: widget.foreground ?? kNavy,
-          fontSize: widget.size * 0.34,
+          color: foreground ?? kNavy,
+          fontSize: size * 0.34,
           fontWeight: FontWeight.w800,
         ),
       ),

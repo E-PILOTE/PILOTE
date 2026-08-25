@@ -168,7 +168,8 @@ class _AgentCard extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           UserAvatarCircle(
-              name: a.fullName, role: a.role, avatarUrl: a.avatarUrl, radius: 21),
+              name: a.fullName, role: a.role, avatarUrl: a.avatarUrl,
+              profileId: a.id, radius: 21),
           const SizedBox(width: 11),
           Expanded(
             child: Column(
@@ -375,7 +376,7 @@ class _Tr extends StatelessWidget {
             child: Row(children: [
               UserAvatarCircle(
                   name: a.fullName, role: a.role, avatarUrl: a.avatarUrl,
-                  radius: 14),
+                  profileId: a.id, radius: 14),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(a.lastFirst,

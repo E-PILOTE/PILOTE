@@ -125,8 +125,12 @@ void main() {
       // cassé — l'URL publique désigne un objet pas encore téléversé — et
       // conclurait que son geste a échoué.
       final src = _lire('lib/core/widgets/photo_avatar.dart');
-      expect(src.contains('pendingFileForPublicUrl('), isTrue);
       expect(src.contains('FileImage('), isTrue);
+      expect(src.contains('fichierLocalEnAttente('), isTrue);
+      // ⚠️ ET la file se lit en UNE fois. Chercher par pastille ferait deux
+      // cents requêtes sur une liste de personnel, et autant à chaque
+      // reconstruction — c'est pourquoi la variante par-appel a été retirée.
+      expect(src.contains('pendingUploadPathsProvider'), isTrue);
     });
 
     test('l\'ancien chemin en ligne de la photo a disparu', () {

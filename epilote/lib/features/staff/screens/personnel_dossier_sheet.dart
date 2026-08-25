@@ -147,7 +147,8 @@ class _DossierBody extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
         child: Row(children: [
           UserAvatarCircle(
-              name: d.fullName, role: d.role, avatarUrl: d.avatarUrl, radius: 30),
+              name: d.fullName, role: d.role, avatarUrl: d.avatarUrl,
+              profileId: d.id, radius: 30),
           const SizedBox(width: 14),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

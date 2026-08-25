@@ -450,6 +450,29 @@ const schema = Schema([
     Column.text('updated_at'),
   ]),
 
+  // Demandes de changement de photo d'agent (migration 0113).
+  //
+  // ⚠️ L'école n'écrit PAS `profiles.avatar_url` : la RLS `profiles_update`
+  // refuse à un directeur d'écrire dans la fiche d'un autre agent, et un refus
+  // fait abandonner à PowerSync le LOT ENTIER. Elle dépose donc une DEMANDE
+  // dans cette table-ci, que le serveur applique par trigger avec l'autorité
+  // de `corriger_fiche_agent`.
+  //
+  // `applied_at` et `refus` reviennent renseignés par le serveur : c'est par
+  // eux que l'écran sait si la demande a abouti, et pourquoi sinon.
+  Table('staff_photo_requests', [
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('profile_id'),
+    Column.text('avatar_url'),
+    Column.integer('effacer'),
+    Column.text('requested_by'),
+    Column.text('applied_at'),
+    Column.text('refus'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
   Table('staff_members', [
     Column.text('group_id'),
     Column.text('school_id'),

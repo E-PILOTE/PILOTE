@@ -246,6 +246,10 @@ bucket_definitions:
       # pas de JOIN dans une data-query. Même correction que
       # `bulletin_subject_lines` ci-dessous.
       - SELECT * FROM student_tutors WHERE school_id = bucket.sid
+      # Demandes de photo d'agent (migration 0113) — l'école dépose, le serveur
+      # applique. Elle ne peut pas écrire `profiles.avatar_url` elle-même : la
+      # RLS le refuserait et le lot entier serait abandonné.
+      - SELECT * FROM staff_photo_requests WHERE school_id = bucket.sid
       - SELECT * FROM teacher_subjects WHERE school_id = bucket.sid
       - SELECT * FROM subjects WHERE school_id = bucket.sid AND is_active = true
       # Programme par classe : coefficient effectif (override) + volume horaire

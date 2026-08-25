@@ -1,53 +1,43 @@
 // ════════════════════════════════════════════════════════════════════════════
 //  LA PHOTO D'UN AGENT
 //
-//  ── POURQUOI CE CHEMIN EST EN LIGNE, CONTRAIREMENT AU RESTE DE L'ÉCOLE ─────
-//  Tout l'espace école écrit hors ligne, par PowerSync. Pas ceci, pour deux
-//  raisons qui se cumulent :
+//  ── ELLE NE S'ÉCRIT PAS, ELLE SE DEMANDE ───────────────────────────────────
+//  `profiles_update` n'autorise que super_admin, admin_groupe du groupe, ou
+//  l'agent lui-même. Un DIRECTEUR qui corrige la fiche d'un autre agent n'entre
+//  dans aucune des trois : un UPDATE d'`avatar_url` poussé par PowerSync
+//  reviendrait en `42501`, code fatal pour le connecteur, et emporterait le LOT
+//  ENTIER — les notes et les paiements écrits dans la même fenêtre.
 //
-//   1. la RLS `profiles_update` n'autorise que super_admin, admin_groupe du
-//      groupe, ou l'agent lui-même. Une direction qui pousserait un UPDATE de
-//      `avatar_url` par PowerSync le verrait REFUSÉ par le serveur — et un
-//      refus abandonne le LOT ENTIER, emportant au passage les notes et les
-//      paiements écrits dans la même fenêtre. C'est la panne qui a déjà coûté
-//      cher à ce projet ;
-//   2. les octets doivent de toute façon atteindre le stockage.
+//  C'est pour cela que ce chemin est resté en ligne longtemps, derrière la RPC
+//  `corriger_fiche_agent` (0091). Correct, mais il laissait un chef
+//  d'établissement sans photo tant qu'il n'avait pas de réseau — dans un pays
+//  où c'est l'état normal d'une partie des écoles.
 //
-//  On passe donc par `corriger_fiche_agent` (migration 0091), qui est la porte
-//  étroite et nommée. Hors réseau, on le DIT.
+//  La migration 0113 ouvre la seule porte qui ne relâche aucun droit : l'école
+//  DÉPOSE UNE DEMANDE dans `staff_photo_requests`, table qui lui appartient et
+//  qui se synchronise comme le reste ; le serveur l'applique par trigger, avec
+//  l'autorité EXACTE de `corriger_fiche_agent`. Seul le moment change.
 //
-//  ── POURQUOI LA FILE D'ENVOI NE RÈGLE PAS CE CAS ───────────────────────────
-//  `queueAvatarUpload` (`services/powersync/avatar_upload.dart`) rend la photo
-//  d'ÉLÈVE déposable hors ligne, et porte même un paramètre `folder` qui
-//  servirait `staff/` sans une ligne de plus. La tentation est donc réelle —
-//  d'où cette note, pour qu'on ne refasse pas le raisonnement à l'envers.
+//  ── DEUX GESTES, ET C'EST VOULU ────────────────────────────────────────────
+//   1. [preparerPhotoAgent] met les OCTETS en file et rend l'adresse publique
+//      définitive. Aucun réseau : `getPublicUrl` est une concaténation.
+//   2. `deposerDemandePhotoAgent` (staff_photo_provider) écrit la DEMANDE.
 //
-//  Mettre les octets en file ne débloquerait RIEN. Ce qui manque hors ligne,
-//  ce n'est pas le fichier : c'est l'écriture de `avatar_url`, qui ne peut
-//  passer que par la RPC ci-dessus (raison 1). On aurait une photo sur le
-//  disque, aucune fiche modifiée, et l'occasion d'inscrire dans un dossier
-//  l'adresse d'un fichier pas encore arrivé — exactement ce que la séparation
-//  octets/fiche interdit plus bas.
-//
-//  Le rendre vraiment hors ligne demanderait un autre chemin d'écriture pour
-//  `profiles` — une table tampon synchronisée, appliquée côté serveur par
-//  trigger. C'est un chantier, pas un branchement.
+//  Les séparer permet de ne jamais promettre dans un dossier un fichier qui
+//  n'aurait pas été mis en file.
 //
 //  ── L'ADRESSE EST VÉRIFIÉE CÔTÉ SERVEUR ────────────────────────────────────
 //  `avatar_url` s'affiche sur tous les écrans qui montrent cet agent. Accepter
 //  une adresse quelconque reviendrait à laisser poser un mouchard sur chacun
-//  d'eux. La fonction serveur n'accepte qu'une URL de notre propre stockage ;
-//  ce fichier ne fabrique donc jamais d'autre forme.
+//  d'eux. Le trigger n'accepte qu'une URL de notre propre stockage — il refuse
+//  sans lever, en inscrivant son motif dans la demande.
 // ════════════════════════════════════════════════════════════════════════════
 
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uuid/uuid.dart';
 
-import '../../../core/utils/media_compression.dart';
-
-const _uuid = Uuid();
+import '../../../services/powersync/avatar_upload.dart' show queueAvatarUpload;
 
 /// Bucket public — une photo de profil s'affiche sans négocier d'URL signée à
 /// chaque rendu de liste.
@@ -69,12 +59,18 @@ class EchecPhotoAgent implements Exception {
   String toString() => message;
 }
 
-/// Envoie la photo au stockage et renvoie son adresse publique.
+/// Prépare la photo : la compresse, la met en file d'envoi, et rend l'adresse
+/// publique DÉFINITIVE qu'elle portera.
 ///
-/// N'écrit RIEN dans la fiche : c'est l'appelant qui passe l'adresse à
-/// `corriger_fiche_agent`. Séparer les deux permet de ne jamais promettre dans
-/// la fiche un fichier qui ne serait pas arrivé.
-Future<String> televerserPhotoAgent({
+/// N'écrit RIEN dans la fiche, et n'exige AUCUN réseau. Deux propriétés qui
+/// tiennent ensemble : les octets partent par `upload_outbox`, et
+/// `getPublicUrl` n'est qu'une concaténation, donc l'adresse se calcule avant
+/// que le fichier n'existe. Au retour du réseau il monte à ce chemin exact.
+///
+/// C'est l'appelant qui décide ensuite d'en faire une DEMANDE
+/// (`deposerDemandePhotoAgent`) — séparer les deux permet de ne jamais
+/// promettre dans un dossier un fichier qui n'aurait pas été mis en file.
+Future<String> preparerPhotoAgent({
   required SupabaseClient client,
   required String schoolId,
   required String profileId,
@@ -87,45 +83,19 @@ Future<String> televerserPhotoAgent({
         'Format non accepté. Choisissez une image JPG, PNG ou WEBP.');
   }
 
-  // 256 px de côté : la photo n'est jamais rendue plus grande, et un poste
-  // d'école partage souvent une connexion étroite entre vingt agents.
-  final media = await compressAvatar(
-    bytes: bytes,
-    fileName: fileName,
-    mime: avatarMime(rawExt),
-  );
-  final ext =
-      media.fileName.contains('.') ? media.fileName.split('.').last : rawExt;
-
-  // L'UUID rend le chemin unique : remplacer une photo n'écrase pas l'ancienne
-  // pendant qu'un autre poste l'affiche encore depuis son cache.
-  final chemin = 'staff/$schoolId/${profileId}_${_uuid.v4().substring(0, 8)}.$ext';
-
   try {
-    await client.storage.from(kAvatarsBucket).uploadBinary(
-          chemin,
-          media.bytes,
-          fileOptions: FileOptions(contentType: avatarMime(ext), upsert: true),
-        );
+    // 256 px de côté, et la compression a lieu AVANT la mise en file : hors
+    // ligne ces octets dorment sur le disque du poste, parfois des jours.
+    return await queueAvatarUpload(
+      client: client,
+      folder: 'staff/$schoolId',
+      ownerId: profileId,
+      bytes: bytes,
+      ext: rawExt,
+    );
   } catch (e) {
-    final s = e.toString();
-    if (s.contains('SocketException') || s.contains('Failed host lookup')) {
-      // ⚠️ CE MESSAGE NE PARLE PAS QUE DE LA PHOTO, et c'est délibéré.
-      // Il disait « une photo doit atteindre le serveur […] : elle ne peut pas
-      // être ajoutée hors ligne » — vrai, mais trompeur par omission : il
-      // désignait la photo comme l'exception d'un écran qui, sans réseau, ne
-      // sait RIEN enregistrer. `corriger_fiche_agent` est une RPC.
-      //
-      // L'agent renonçait donc à la photo, remplissait le reste, appuyait sur
-      // « Enregistrer » — et se heurtait à un second échec, formulé autrement.
-      // Autant le dire une fois, complètement.
-      throw const EchecPhotoAgent(
-          'Aucune connexion. La fiche d\'un agent se corrige sur le serveur — '
-          'ni la photo ni le reste ne peuvent être enregistrés hors ligne. '
-          'Reprenez cette fiche une fois connecté.');
-    }
-    throw EchecPhotoAgent('Envoi impossible : $e');
+    // Il ne reste plus d'échec réseau à traduire ici : la mise en file n'en
+    // produit pas. Ce qui peut encore échouer, c'est le DISQUE.
+    throw EchecPhotoAgent('Photo impossible à préparer : $e');
   }
-
-  return client.storage.from(kAvatarsBucket).getPublicUrl(chemin);
 }
