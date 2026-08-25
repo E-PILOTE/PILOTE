@@ -227,6 +227,17 @@ jobs:
           Write-Host "Version   : $version (build $build)"
           Write-Host "Empreinte : $sha"
 
+      # ── ⚠️ LE PIPELINE REMPLISSAIT SON PROPRE QUOTA ───────────────────────
+      # Chaque push sur `feat/**` téléversait l'installateur (~34 Mo) ET le
+      # dossier de compilation entier (~46 Mo), gardés 30 jours. À 500 Mo de
+      # quota, six commits suffisaient à saturer — et le message d'échec,
+      # « Artifact storage quota has been hit », tombe sur la PREMIÈRE étape de
+      # téléversement, donc sur l'installateur, donc sur la livraison.
+      #
+      # C'est ainsi qu'un dépôt sain, dont la compilation, les tests, l'
+      # installateur et l'empreinte passaient tous, ne pouvait plus publier une
+      # seule version. Et le quota ne se recalcule que toutes les 6 à 12 heures :
+      # on ne s'en sort pas en relançant.
       - name: Artefact — installateur
         uses: actions/upload-artifact@v4
         with:
@@ -234,18 +245,29 @@ jobs:
           path: |
             dist/*.exe
             dist/manifest.json
-          retention-days: 30
+          # 7 jours suffisent : une version PUBLIÉE garde son exécutable comme
+          # pièce jointe de release, indéfiniment et hors quota d'artefacts.
+          # Ce qui est ici ne sert qu'à passer le relais au job de publication.
+          retention-days: 7
           if-no-files-found: error
 
+      # Le dossier de compilation entier — l'exécutable seul ne démarre pas, il
+      # lui faut les DLL du moteur Flutter, celles des greffons natifs
+      # (PowerSync, media_kit) et le dossier `data/` des ressources Dart.
+      #
+      # ⚠️ SEULEMENT SUR UN TAG, et sans jamais faire échouer la construction :
+      # c'est une aide au DIAGNOSTIC, pas une entrée de la livraison. La
+      # publication ne lit que l'artefact ci-dessus. Un dossier de 46 Mo par
+      # commit de branche est précisément ce qui a saturé le quota, et il ne
+      # servait à personne.
       - name: Artefact
+        if: startsWith(github.ref, 'refs/tags/v')
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: E-PILOTE-windows-x64-${{ github.sha }}
-          # Le dossier ENTIER : l'exécutable seul ne démarre pas. Il lui faut
-          # les DLL du moteur Flutter, celles des greffons natifs (PowerSync,
-          # media_kit) et le dossier `data/` des ressources Dart.
           path: epilote/build/windows/x64/runner/Release/
-          retention-days: 30
+          retention-days: 7
           if-no-files-found: error
 
   publication:
