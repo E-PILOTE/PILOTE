@@ -11,6 +11,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../../core/services/official_pdf_kit.dart';
+
 import '../providers/modules_provider.dart';
 
 // ─── Couleurs PDF ──────────────────────────────────────────────────────────────
@@ -30,11 +32,28 @@ const _text    = PdfColor.fromInt(0xFF0F172A);
 
 class ModulePdfService {
   static Future<Uint8List> buildPdf(ModuleItem m, {List<PlanInfo> plans = const []}) async {
-    final fontRegular = await PdfGoogleFonts.notoSansRegular();
-    final fontBold    = await PdfGoogleFonts.notoSansBold();
-    final fontMedium  = await PdfGoogleFonts.notoSansMedium();
+    // Polices EMBARQUÉES (assets/fonts) — cf. OfficialPdfKit.loadFonts().
+    // `PdfGoogleFonts` allait les chercher sur fonts.gstatic.com et, en cas
+    // d'échec, retombait SANS BRUIT sur Helvetica : sur un poste hors ligne —
+    // le cas normal d'une école congolaise — le document officiel sortait dans
+    // une police de secours sans Unicode, et nul ne le voyait avant impression.
+    final polices = await OfficialPdfKit.loadFonts();
+    final fontRegular = polices.regular;
+    final fontBold = polices.bold;
+    final fontMedium = polices.medium;
+    // Seule police encore téléchargée : les emojis (12 Mo, pas d'équivalent
+    // embarqué raisonnable). Elle reste FACULTATIVE — sans elle, un emoji du
+    // descriptif d'un module ne s'affiche pas, et c'est tout.
+    //
+    // Le `catch` ne suffisait pas : `http.get` n'a AUCUN délai de garde, et un
+    // réseau qui ne répond pas — portail captif d'hôtel, lien satellite saturé —
+    // ne lève pas d'exception, il fait attendre. L'export restait alors bloqué
+    // sur « Génération… » indéfiniment. Trois secondes, puis on s'en passe.
     pw.Font? emojiFont;
-    try { emojiFont = await PdfGoogleFonts.notoColorEmoji(); } catch (_) {}
+    try {
+      emojiFont = await PdfGoogleFonts.notoColorEmoji()
+          .timeout(const Duration(seconds: 3));
+    } catch (_) {}
 
     // Logo officiel de la plateforme (SVG rastérisé en PNG)
     pw.MemoryImage? logoImage;
@@ -274,7 +293,11 @@ class ModulePdfService {
               decoration: pw.BoxDecoration(
                 color: _alpha(statusColor, 0.12),
                 border: pw.Border.all(color: _alpha(statusColor, 0.4), width: 1),
-                borderRadius: pw.BorderRadius.circular(20),
+                // 9 et non 20 : la pastille fait ~18 pt de haut, et un rayon
+                // supérieur à la DEMI-HAUTEUR fait dégénérer le tracé d'arrondi
+                // du paquet `pdf` — deux ergots sombres apparaissent à gauche
+                // et à droite, à mi-hauteur.
+                borderRadius: pw.BorderRadius.circular(9),
               ),
               child: pw.Row(children: [
                 pw.Container(width: 7, height: 7,

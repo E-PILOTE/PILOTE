@@ -14,6 +14,13 @@ const kAuthCongoRed    = Color(0xFFDC2626);
 const kAuthSlate       = Color(0xFF64748B);
 const kAuthTextPrimary = Color(0xFF0F172A);
 
+/// Bleu d'accent plateforme, dérivé du navy, lisible sur fond sombre
+/// (écran-verrou). Remplace les bleus ad-hoc.
+const kAuthAccent      = Color(0xFF3D74B8);
+
+/// Rayon d'arrondi standard des éléments interactifs (boutons, champs, cartes).
+const kAuthRadius      = 8.0;
+
 /// Bandeau tricolore Congo (3 rectangles côte à côte).
 /// [height] hauteur du drapeau, [barWidth] largeur de chaque bande.
 Widget congoFlag({double barWidth = 14, double height = 24, double radius = 2}) =>

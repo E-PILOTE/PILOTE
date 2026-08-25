@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
@@ -10,6 +11,7 @@ import '../../vie_scolaire/widgets/vs_kit.dart';
 import '../providers/leave_provider.dart';
 import '../providers/staff_directory_provider.dart';
 import '../widgets/staff_kit.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'conges_form.dart';
 
@@ -54,13 +56,23 @@ class _BodyState extends ConsumerState<_Body> {
         builder: (_) => _LeaveForm(request: req),
       );
 
+  /// Refuse une décision de congé si l'agent à l'écran n'a pas d'identifiant :
+  /// un `reviewed_by` vide ferait rejeter tout le lot PowerSync sans message.
+  bool _actorMissing(String? actorId) {
+    if (isUsableId(actorId)) return false;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(writeIdentityMessage(['agent'])), backgroundColor: kRed));
+    return true;
+  }
+
   Future<void> _approveAll(List<LeaveRequest> reqs) async {
     final ids = [for (final r in reqs) if (r.isPending) r.id];
     if (ids.isEmpty) return;
     final p = ref.read(authNotifierProvider).valueOrNull;
+    if (_actorMissing(p?.id)) return;
     await runModuleWrite(
       context,
-      () => approveLeaveBulk(ids, p?.id ?? ''),
+      () => approveLeaveBulk(ids, p!.id),
       success: '${ids.length} demande${ids.length > 1 ? 's' : ''} approuvée'
           '${ids.length > 1 ? 's' : ''}',
     );
@@ -68,10 +80,11 @@ class _BodyState extends ConsumerState<_Body> {
 
   Future<void> _approve(LeaveRequest r) async {
     final p = ref.read(authNotifierProvider).valueOrNull;
+    if (_actorMissing(p?.id)) return;
     await runModuleWrite(
       context,
       () => reviewLeaveRequest(
-          id: r.id, status: 'approved', reviewedBy: p?.id ?? ''),
+          id: r.id, status: 'approved', reviewedBy: p!.id),
       success: 'Congé approuvé',
     );
   }
@@ -81,12 +94,13 @@ class _BodyState extends ConsumerState<_Body> {
     if (reason == null) return;
     final p = ref.read(authNotifierProvider).valueOrNull;
     if (!mounted) return;
+    if (_actorMissing(p?.id)) return;
     await runModuleWrite(
       context,
       () => reviewLeaveRequest(
           id: r.id,
           status: 'rejected',
-          reviewedBy: p?.id ?? '',
+          reviewedBy: p!.id,
           rejectionReason: reason.isEmpty ? null : reason),
       success: 'Demande refusée',
     );
@@ -155,7 +169,7 @@ class _BodyState extends ConsumerState<_Body> {
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (all) {
         final pending = all.where((r) => r.isPending).length;
         final approved = all.where((r) => r.status == 'approved').toList();
@@ -208,7 +222,7 @@ class _BodyState extends ConsumerState<_Body> {
             ]),
             const SizedBox(height: 18),
             Row(children: [
-              const Text('Répartir par',
+              Text('Répartir par',
                   style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
@@ -310,7 +324,7 @@ class _FilterBar extends StatelessWidget {
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
-              side: const BorderSide(color: kBorder)),
+              side: BorderSide(color: kBorder)),
         ),
       );
 }
@@ -342,7 +356,7 @@ class _LeaveCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: kBorder),
       ),
@@ -366,14 +380,14 @@ class _LeaveCard extends StatelessWidget {
           ),
           if (canDelete || (canReview && r.status != 'pending'))
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert_rounded,
+              icon: Icon(Icons.more_vert_rounded,
                   size: 18, color: kTextMuted),
               onSelected: (v) => v == 'edit' ? onEdit() : onDelete(),
               itemBuilder: (_) => [
                 if (canReview && r.isPending)
                   const PopupMenuItem(value: 'edit', child: Text('Modifier')),
                 if (canDelete)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                       value: 'delete',
                       child: Text('Supprimer', style: TextStyle(color: kRed))),
               ],
@@ -385,19 +399,19 @@ class _LeaveCard extends StatelessWidget {
         Text(
             '${leaveTypeLabel(r.leaveType)} · ${r.daysCount} jour'
             '${r.daysCount > 1 ? 's' : ''}${period.isNotEmpty ? ' · $period' : ''}',
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12.5, fontWeight: FontWeight.w600, color: kNavy)),
         if ((r.reason ?? '').trim().isNotEmpty) ...[
           const SizedBox(height: 3),
           Text(r.reason!.trim(),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, color: kTextMuted)),
+              style: TextStyle(fontSize: 12, color: kTextMuted)),
         ],
         if (r.status == 'rejected' && (r.rejectionReason ?? '').trim().isNotEmpty) ...[
           const SizedBox(height: 3),
           Text('Refus : ${r.rejectionReason!.trim()}',
-              style: const TextStyle(fontSize: 11.5, color: kRed)),
+              style: TextStyle(fontSize: 11.5, color: kRed)),
         ],
         if (canReview && r.isPending) ...[
           const SizedBox(height: 10),
@@ -407,7 +421,7 @@ class _LeaveCard extends StatelessWidget {
                 onPressed: onReject,
                 style: OutlinedButton.styleFrom(
                     foregroundColor: kRed,
-                    side: const BorderSide(color: kRed),
+                    side: BorderSide(color: kRed),
                     padding: const EdgeInsets.symmetric(vertical: 8)),
                 icon: const Icon(Icons.close_rounded, size: 16),
                 label: const Text('Refuser'),
@@ -443,7 +457,7 @@ class _AddBtn extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                   colors: [kNavyDark, kNavy],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight),

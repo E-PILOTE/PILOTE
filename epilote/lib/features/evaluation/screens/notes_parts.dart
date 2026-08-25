@@ -85,7 +85,7 @@ class _NotesFilterBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: kBorder),
       ),
@@ -97,12 +97,12 @@ class _NotesFilterBar extends StatelessWidget {
             onChanged: onSearch,
             decoration: InputDecoration(
               hintText: 'Rechercher (titre, matière, classe)…',
-              hintStyle: const TextStyle(color: kTextMuted, fontSize: 13),
+              hintStyle: TextStyle(color: kTextMuted, fontSize: 13),
               prefixIcon:
-                  const Icon(Icons.search_rounded, color: kTextMuted, size: 20),
+                  Icon(Icons.search_rounded, color: kTextMuted, size: 20),
               suffixIcon: searchCtrl.text.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.close_rounded,
+                      icon: Icon(Icons.close_rounded,
                           size: 18, color: kTextMuted),
                       onPressed: () {
                         searchCtrl.clear();
@@ -143,7 +143,7 @@ class _NotesFilterBar extends StatelessWidget {
         IconButton(
           tooltip: 'Réinitialiser',
           onPressed: onReset,
-          icon: const Icon(Icons.filter_alt_off_outlined, color: kTextMuted),
+          icon: Icon(Icons.filter_alt_off_outlined, color: kTextMuted),
         ),
         const SizedBox(width: 4),
         if (!readOnly)
@@ -183,7 +183,7 @@ class _FilterDropdown extends StatelessWidget {
         ),
       ),
       hint: Text(hint,
-          style: const TextStyle(fontSize: 13, color: kTextMuted)),
+          style: TextStyle(fontSize: 13, color: kTextMuted)),
       items: [
         DropdownMenuItem(value: null, child: Text('$hint : tous')),
         for (final (v, l) in items) DropdownMenuItem(value: v, child: Text(l)),
@@ -204,7 +204,7 @@ class _AddButton extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                   colors: [kNavyDark, kNavy],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight),
@@ -231,11 +231,11 @@ class _ResultHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(children: [
         Text('$filtered',
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 18, fontWeight: FontWeight.w800, color: kNavy)),
         const SizedBox(width: 6),
         Text(filtered == total ? 'évaluations' : 'sur $total évaluations',
-            style: const TextStyle(fontSize: 13, color: kTextMuted)),
+            style: TextStyle(fontSize: 13, color: kTextMuted)),
       ]);
 }
 
@@ -282,10 +282,10 @@ class _ClassWorkspace extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          const Icon(Icons.class_rounded, size: 18, color: kNavy),
+          Icon(Icons.class_rounded, size: 18, color: kNavy),
           const SizedBox(width: 8),
           Text(className ?? 'Classe',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 15, fontWeight: FontWeight.w800, color: kNavy)),
           const Spacer(),
         ]),
@@ -298,7 +298,7 @@ class _ClassWorkspace extends StatelessWidget {
                     ? 'Créez une évaluation avec « + Nouvelle », puis cliquez '
                         'dessus pour saisir les notes élève par élève.'
                     : 'Cliquez une évaluation pour consulter les notes.',
-                style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                style: TextStyle(fontSize: 12, color: kTextMuted)),
           ),
         ]),
         const SizedBox(height: 14),

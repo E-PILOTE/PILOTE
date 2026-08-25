@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -13,6 +14,7 @@ import '../providers/payroll_provider.dart';
 import '../providers/staff_directory_provider.dart';
 import '../services/payroll_pdf_service.dart';
 import '../widgets/staff_kit.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'paie_form.dart';
 
@@ -69,16 +71,23 @@ class _BodyState extends ConsumerState<_Body> {
 
   Future<void> _carryOver() async {
     final p = ref.read(authNotifierProvider).valueOrNull;
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+      return;
+    }
     final prev = _prevKey.split('-');
     final fm = int.parse(prev.last), fy = int.parse(prev.first);
     final n = await carryOverPayroll(
-      groupId: p?.groupId ?? '',
-      schoolId: p?.schoolId ?? '',
+      groupId: p!.groupId!,
+      schoolId: p.schoolId!,
       fromMonth: fm,
       fromYear: fy,
       toMonth: _month,
       toYear: _year,
-      createdBy: p?.id ?? '',
+      createdBy: p.id,
     );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -175,7 +184,7 @@ class _BodyState extends ConsumerState<_Body> {
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (lines) {
         final mass = lines.fold(0, (a, l) => a + l.net);
         final paid = lines.where((l) => l.status == 'confirmed').toList();
@@ -235,7 +244,7 @@ class _BodyState extends ConsumerState<_Body> {
             const SizedBox(height: 18),
             // Distinction par axe + actions groupées
             Row(children: [
-              const Text('Répartir par',
+              Text('Répartir par',
                   style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
@@ -336,7 +345,7 @@ class _PayCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: kBorder),
       ),
@@ -350,7 +359,7 @@ class _PayCard extends StatelessWidget {
                     fontSize: 14.5, fontWeight: FontWeight.w800)),
           ),
           Text(fmtXaf(l.net),
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 14.5, fontWeight: FontWeight.w800, color: kNavy)),
           const SizedBox(width: 8),
           Container(
@@ -371,14 +380,14 @@ class _PayCard extends StatelessWidget {
           ),
           if (canEdit || canDelete)
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert_rounded,
+              icon: Icon(Icons.more_vert_rounded,
                   size: 18, color: kTextMuted),
               onSelected: (v) => v == 'edit' ? onEdit() : onDelete(),
               itemBuilder: (_) => [
                 if (canEdit)
                   const PopupMenuItem(value: 'edit', child: Text('Modifier')),
                 if (canDelete)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                       value: 'delete',
                       child: Text('Supprimer', style: TextStyle(color: kRed))),
               ],
@@ -391,7 +400,7 @@ class _PayCard extends StatelessWidget {
             'Base ${fmtXaf(l.base)} · Primes ${fmtXaf(l.bonuses)} · '
             'Retenues ${fmtXaf(l.deductions)}'
             '${l.method != null ? ' · ${payMethodLabel(l.method)}' : ''}',
-            style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+            style: TextStyle(fontSize: 11.5, color: kTextMuted)),
         if (canEdit && !paid) ...[
           const SizedBox(height: 10),
           Align(
@@ -421,20 +430,20 @@ class _PeriodBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kBorder),
       ),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         IconButton(
             onPressed: onPrev,
-            icon: const Icon(Icons.chevron_left_rounded, color: kNavy)),
+            icon: Icon(Icons.chevron_left_rounded, color: kNavy)),
         Text(label,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 14, fontWeight: FontWeight.w800, color: kNavy)),
         IconButton(
             onPressed: onNext,
-            icon: const Icon(Icons.chevron_right_rounded, color: kNavy)),
+            icon: Icon(Icons.chevron_right_rounded, color: kNavy)),
       ]),
     );
   }
@@ -452,7 +461,7 @@ class _AddBtn extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                   colors: [kNavyDark, kNavy],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight),

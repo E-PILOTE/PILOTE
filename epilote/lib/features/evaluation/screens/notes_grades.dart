@@ -49,14 +49,33 @@ class _GradeSheetState extends ConsumerState<_GradeSheet> {
 
   Future<void> _save(GradeRow r, {double? score, bool? absent, String? appr}) async {
     final p = ref.read(authNotifierProvider).valueOrNull;
+
+    // La saisie s'enregistre note par note, sans bouton « Valider » : une
+    // écriture refusée à la synchro emporterait tout le lot PowerSync — donc
+    // toute la feuille — sans le moindre message. On refuse ici, en le disant.
+    final missing = missingWriteIds(
+      groupId: p?.groupId,
+      schoolId: p?.schoolId,
+      actorId: p?.id,
+    );
+    if (missing.isNotEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(writeIdentityMessage(missing)),
+        backgroundColor: kRed,
+        duration: const Duration(seconds: 6),
+      ));
+      return;
+    }
+
     final isAbsent = absent ?? r.isAbsent;
     await upsertGrade(
-      groupId: p?.groupId ?? '',
-      schoolId: p?.schoolId ?? '',
+      groupId: p!.groupId!,
+      schoolId: p.schoolId!,
       evaluationId: widget.evaluation.id,
       studentId: r.studentId,
       enrollmentId: r.enrollmentId,
-      createdBy: p?.id ?? '',
+      createdBy: p.id,
       score: isAbsent ? null : score,
       isAbsent: isAbsent,
       appreciation: appr ?? r.appreciation,
@@ -95,9 +114,9 @@ class _GradeSheetState extends ConsumerState<_GradeSheet> {
       minChildSize: 0.5,
       maxChildSize: 0.95,
       builder: (ctx, scroll) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: kCardBg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(children: [
           const SizedBox(height: 10),
@@ -113,7 +132,7 @@ class _GradeSheetState extends ConsumerState<_GradeSheet> {
             child: async.when(
               loading: () =>
                   const Center(child: CircularProgressIndicator()),
-              error: (err, _) => Center(child: Text('Erreur : $err')),
+              error: (err, _) => Center(child: Text(messageErreur(err))),
               data: (rows) {
                 if (rows.isEmpty) {
                   return const Center(
@@ -163,7 +182,7 @@ class _GradeSheetState extends ConsumerState<_GradeSheet> {
                 Text(e.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: kTextPrimary)),
@@ -175,7 +194,7 @@ class _GradeSheetState extends ConsumerState<_GradeSheet> {
                     '${avg != null ? ' · moy. ${avg.toStringAsFixed(2)}/20' : ''}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                    style: TextStyle(fontSize: 12, color: kTextMuted)),
               ]),
         ),
         if (!widget.canEdit)
@@ -185,9 +204,9 @@ class _GradeSheetState extends ConsumerState<_GradeSheet> {
               color: kTextMuted.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(7),
             ),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.lock_outline_rounded, size: 13, color: kTextMuted),
-              SizedBox(width: 5),
+              const SizedBox(width: 5),
               Text('Lecture seule',
                   style: TextStyle(
                       fontSize: 11,
@@ -210,7 +229,7 @@ class _GradeSheetState extends ConsumerState<_GradeSheet> {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       decoration: BoxDecoration(
-        color: r.isAbsent ? kRed.withValues(alpha: 0.04) : Colors.white,
+        color: r.isAbsent ? kRed.withValues(alpha: 0.04) : kCardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kBorder),
       ),
@@ -218,7 +237,7 @@ class _GradeSheetState extends ConsumerState<_GradeSheet> {
         SizedBox(
           width: 24,
           child: Text('$index',
-              style: const TextStyle(fontSize: 11, color: kTextMuted)),
+              style: TextStyle(fontSize: 11, color: kTextMuted)),
         ),
         Expanded(
           child: Column(
@@ -232,7 +251,7 @@ class _GradeSheetState extends ConsumerState<_GradeSheet> {
                 if ((r.matricule ?? '').isNotEmpty)
                   Text(r.matricule!,
                       style:
-                          const TextStyle(fontSize: 10.5, color: kTextMuted)),
+                          TextStyle(fontSize: 10.5, color: kTextMuted)),
               ]),
         ),
         if (norm != null) ...[
@@ -267,7 +286,7 @@ class _GradeSheetState extends ConsumerState<_GradeSheet> {
               filled: true,
               fillColor: kSurface,
               suffixText: '/${e.maxScore.toStringAsFixed(0)}',
-              suffixStyle: const TextStyle(fontSize: 10, color: kTextMuted),
+              suffixStyle: TextStyle(fontSize: 10, color: kTextMuted),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide.none,

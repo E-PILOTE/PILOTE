@@ -2,11 +2,15 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../logout_guard.dart';
 import 'package:go_router/go_router.dart';
 
 import '../admin_ui.dart'
-    show kNavy, kGreen, kBorder, kTextPrimary, kTextMuted;
+    show kNavy, kGreen, kBorder, kTextPrimary, kTextMuted, kCardBg;
 import '../year_selector.dart';
+import '../../theme/palette.dart';
+import '../../theme/theme_provider.dart';
 import '../../constants/app_constants.dart';
 import '../../constants/routes.dart';
 import '../../../data/models/module_model.dart';
@@ -18,7 +22,6 @@ import '../../../features/navigation/module_routes.dart';
 import '../../../features/navigation/providers/module_navigation_provider.dart';
 import '../../../features/navigation/providers/permissions_provider.dart';
 import 'app_shell_theme.dart';
-import 'shell_providers.dart';
 
 /// Barre supérieure de l'AppShell : toggle sidebar, titre, sélecteur d'année
 /// (personnel), cloche de notifications, bascule de thème, menu compte.
@@ -31,6 +34,7 @@ class AppHeader extends ConsumerWidget {
     required this.sidebarExpanded,
     required this.onToggleSidebar,
     this.actions,
+    this.onBack,
   });
 
   final String title;
@@ -39,6 +43,10 @@ class AppHeader extends ConsumerWidget {
   final bool sidebarExpanded;
   final VoidCallback onToggleSidebar;
   final List<Widget>? actions;
+
+  /// Retour explicite. Optionnel : la plupart des modules sont des destinations
+  /// de la barre latérale et n'ont nulle part où revenir.
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -52,7 +60,7 @@ class AppHeader extends ConsumerWidget {
     return Container(
       height: kShellHeaderHeight,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
@@ -62,74 +70,154 @@ class AppHeader extends ConsumerWidget {
         ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(
-              sidebarExpanded ? Icons.menu_open_rounded : Icons.menu_rounded,
-              color: kNavy,
-              size: 22,
-            ),
-            onPressed: onToggleSidebar,
-            tooltip:
-                sidebarExpanded ? 'Réduire la navigation' : 'Ouvrir la navigation',
-          ),
-          const SizedBox(width: 8),
-          Text(
-            title,
-            style: const TextStyle(
-              color: kTextPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const Spacer(),
-          if (isStaff) ...[const YearSelector(), const SizedBox(width: 10)],
-          ...?actions,
-          if (showComm) ...[
-            Builder(
-              builder: (context) => NotificationBell(
-                onSeeAll: () => Scaffold.of(context).openEndDrawer(),
+      // ⚠️ CETTE BARRE DÉBORDAIT, SUR TOUS LES ÉCRANS DE L'APPLICATION.
+      //
+      //  Le titre était un `Text` nu suivi d'un `Spacer` : largeur naturelle,
+      //  aucune capacité à céder. À droite, un bloc de commandes de largeur
+      //  fixe (cloche, thème, lanceur, compte avec nom et rôle). Dès que la
+      //  somme dépassait la place disponible — fenêtre étroite, ou simplement
+      //  Windows à 150 % d'agrandissement, où 1 650 px physiques ne font plus
+      //  que 1 100 px logiques — Flutter peignait la bande jaune « RIGHT
+      //  OVERFLOWED BY 12 PIXELS » par-dessus l'avatar. Le défaut n'était pas
+      //  propre à un écran : il vivait dans la coquille, donc partout.
+      //
+      //  Deux cessions, dans cet ordre :
+      //   1. le TITRE devient `Expanded` et se tronque — il occupe déjà la
+      //      place libre, le rendre flexible ne déplace rien tant qu'il y a de
+      //      la marge, et il est le seul élément qui ne porte aucune action ;
+      //   2. sous `_kSeuilCompact`, le NOM et le RÔLE à côté de l'avatar
+      //      s'effacent. Ce sont deux lignes de texte décoratives : le menu du
+      //      compte reste ouvrable par l'avatar, qui porte déjà les initiales.
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final compact = c.maxWidth < _kSeuilCompact;
+          return Row(
+            children: [
+              IconButton(
+                icon: Icon(
+                  sidebarExpanded ? Icons.menu_open_rounded : Icons.menu_rounded,
+                  color: kNavy,
+                  size: 22,
+                ),
+                onPressed: onToggleSidebar,
+                tooltip: sidebarExpanded
+                    ? 'Réduire la navigation'
+                    : 'Ouvrir la navigation',
               ),
-            ),
-            const SizedBox(width: 4),
-          ],
-          const _ThemeToggle(),
-          // Lanceur d'applications (« Accès rapide ») — personnel scolaire
-          // uniquement (jamais super admin / admin groupe, qui ont leur nav).
-          if (isStaff) ...[
-            const SizedBox(width: 2),
-            const _ModuleLauncher(),
-          ],
-          const SizedBox(width: 4),
-          _AccountMenu(
-            profile: profile,
-            displayName: displayName,
-            roleLabel: roleLabel,
-          ),
-        ],
+              const SizedBox(width: 8),
+              if (onBack != null) ...[
+                IconButton(
+                  icon: Icon(Icons.arrow_back_rounded, color: kNavy, size: 20),
+                  onPressed: onBack,
+                  tooltip: 'Retour',
+                ),
+                const SizedBox(width: 4),
+              ],
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: kTextPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              if (isStaff) ...[const YearSelector(), const SizedBox(width: 10)],
+              ...?actions,
+              if (showComm) ...[
+                Builder(
+                  builder: (context) => NotificationBell(
+                    onSeeAll: () => Scaffold.of(context).openEndDrawer(),
+                  ),
+                ),
+                const SizedBox(width: 4),
+              ],
+              const _ThemeToggle(),
+              // Lanceur d'applications (« Accès rapide ») — personnel scolaire
+              // uniquement (jamais super admin / admin groupe, qui ont leur nav).
+              if (isStaff) ...[
+                const SizedBox(width: 2),
+                const _ModuleLauncher(),
+              ],
+              const SizedBox(width: 4),
+              _AccountMenu(
+                profile: profile,
+                displayName: displayName,
+                roleLabel: roleLabel,
+                montrerNom: !compact,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
+/// Largeur de barre sous laquelle le nom et le rôle cèdent la place.
+///
+/// Mesuré, pas choisi : le bloc de droite pèse ~290 px avec le nom (cloche 48,
+/// thème 48, compte 186, écarts), ~164 sans lui ; le bouton de navigation et sa
+/// marge en prennent 56. À 720, le titre garde donc au moins 370 px — de quoi
+/// écrire « Journal d'audit » ou « Années scolaires » en entier.
+const double _kSeuilCompact = 720;
+
+/// Icône du thème [id] — également réutilisée par les écrans Paramètres.
+IconData themeIcon(EpiloteThemeId id) => switch (id) {
+      EpiloteThemeId.clair => Icons.light_mode_rounded,
+      EpiloteThemeId.sombre => Icons.dark_mode_rounded,
+      EpiloteThemeId.melack => Icons.shield_moon_rounded,
+    };
+
+/// Choix du thème — personnel à l'agent au clavier, jamais à l'appareil.
 class _ThemeToggle extends ConsumerWidget {
   const _ThemeToggle();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
-    return Tooltip(
-      message: isDark ? 'Mode clair' : 'Mode sombre',
-      child: IconButton(
-        icon: Icon(
-          isDark ? Icons.light_mode_rounded : Icons.dark_mode_outlined,
-          color: kTextMuted,
-          size: 22,
-        ),
-        onPressed: () => ref.read(themeModeProvider.notifier).state =
-            isDark ? ThemeMode.light : ThemeMode.dark,
-      ),
+    final current = ref.watch(themeIdProvider);
+    return PopupMenuButton<EpiloteThemeId>(
+      tooltip: 'Thème',
+      offset: const Offset(0, 44),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      icon: Icon(themeIcon(current), color: kTextMuted, size: 22),
+      onSelected: (id) => ref.read(themeIdProvider.notifier).set(id),
+      itemBuilder: (_) => [
+        for (final id in EpiloteThemeId.values)
+          PopupMenuItem(
+            value: id,
+            child: Row(children: [
+              Icon(themeIcon(id),
+                  size: 18, color: id == current ? kGreen : kTextMuted),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(id.label,
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: id == current
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: kTextPrimary)),
+                    Text(id.description,
+                        style: TextStyle(fontSize: 10.5, color: kTextMuted)),
+                  ],
+                ),
+              ),
+              if (id == current) ...[
+                const SizedBox(width: 8),
+                Icon(Icons.check_rounded, size: 16, color: kGreen),
+              ],
+            ]),
+          ),
+      ],
     );
   }
 }
@@ -138,15 +226,15 @@ class _ThemeToggle extends ConsumerWidget {
 // Popover ancré au header (pattern « app switcher » Notion/Linear/Google).
 // Grille de modules groupée par catégorie, filtrée `can_read` (verrou 3),
 // ouverture/fermeture fluides via MenuAnchor, responsive (largeur clampée).
-const List<Color> _launcherPalette = [
+List<Color> get _launcherPalette => [
   kNavy,
   kGreen,
-  Color(0xFF0EA5E9),
-  Color(0xFF7C3AED),
-  Color(0xFFEF4444),
-  Color(0xFFF59E0B),
-  Color(0xFF0891B2),
-  Color(0xFFDB2777),
+  const Color(0xFF0EA5E9),
+  const Color(0xFF7C3AED),
+  const Color(0xFFEF4444),
+  const Color(0xFFF59E0B),
+  const Color(0xFF0891B2),
+  const Color(0xFFDB2777),
 ];
 
 class _LauncherSection {
@@ -190,8 +278,11 @@ class _ModuleLauncherState extends ConsumerState<_ModuleLauncher> {
       controller: _menu,
       alignmentOffset: const Offset(0, 8),
       style: MenuStyle(
-        backgroundColor: const WidgetStatePropertyAll(Colors.white),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+        // Fond du popover : suit le thème. `WidgetStatePropertyAll` masquait ce
+        // blanc au tri par constructeur englobant du codemod — d'où un lanceur
+        // resté blanc en Sombre/Melack.
+        backgroundColor: WidgetStatePropertyAll(kCardBg),
+        surfaceTintColor: WidgetStatePropertyAll(kCardBg),
         padding: const WidgetStatePropertyAll(EdgeInsets.zero),
         elevation: const WidgetStatePropertyAll(12),
         shape: WidgetStatePropertyAll(
@@ -201,7 +292,7 @@ class _ModuleLauncherState extends ConsumerState<_ModuleLauncher> {
       builder: (context, controller, _) => Tooltip(
         message: 'Accès rapide',
         child: IconButton(
-          icon: const Icon(Icons.grid_view_rounded, color: kTextMuted, size: 22),
+          icon: Icon(Icons.grid_view_rounded, color: kTextMuted, size: 22),
           onPressed: () =>
               controller.isOpen ? controller.close() : controller.open(),
         ),
@@ -211,8 +302,16 @@ class _ModuleLauncherState extends ConsumerState<_ModuleLauncher> {
           sections: sections,
           total: total,
           onPick: (slug) {
+            // Fermer le menu PUIS router dans la frame suivante. Fermer
+            // l'overlay et appeler context.go() dans la même frame crée une
+            // course : la navigation peut être avalée par la fermeture du
+            // menu (tap sans effet, intermittent). On diffère d'une frame
+            // pour garantir l'ouverture du module à chaque clic.
+            final route = moduleRoute(slug);
             _menu.close();
-            context.go(moduleRoute(slug));
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) context.go(route);
+            });
           },
         ),
       ],
@@ -258,19 +357,19 @@ class _LauncherPanel extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
               child: Row(children: [
-                const Icon(Icons.grid_view_rounded, size: 18, color: kNavy),
+                Icon(Icons.grid_view_rounded, size: 18, color: kNavy),
                 const SizedBox(width: 9),
-                const Text('Accès rapide',
+                Text('Accès rapide',
                     style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
                         color: kTextPrimary)),
                 const Spacer(),
                 Text('$total module${total > 1 ? 's' : ''}',
-                    style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                    style: TextStyle(fontSize: 12, color: kTextMuted)),
               ]),
             ),
-            const Divider(height: 1, color: kBorder),
+            Divider(height: 1, color: kBorder),
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
@@ -309,7 +408,7 @@ class _LauncherSectionView extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Text(section.title.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.5,
@@ -365,7 +464,7 @@ class _LauncherTile extends StatelessWidget {
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 11.5,
                       height: 1.15,
                       fontWeight: FontWeight.w600,
@@ -385,10 +484,14 @@ class _AccountMenu extends ConsumerWidget {
     required this.profile,
     required this.displayName,
     required this.roleLabel,
+    this.montrerNom = true,
   });
   final ProfileModel? profile;
   final String displayName;
   final String roleLabel;
+
+  /// Barre trop étroite : seul l'avatar reste, initiales comprises.
+  final bool montrerNom;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -406,6 +509,13 @@ class _AccountMenu extends ConsumerWidget {
       _ => Routes.userParametres,
     };
 
+    // Désenrôler le poste = le priver d'offline pour TOUTE l'école → direction
+    // uniquement sur un poste partagé (cf. `canUnenrollDevice`).
+    final mayUnenroll = canUnenrollDevice(
+      role: profile?.role,
+      mode: ref.watch(deviceModeProvider).mode,
+    );
+
     return PopupMenuButton<String>(
       tooltip: 'Mon compte',
       offset: const Offset(0, 48),
@@ -413,15 +523,16 @@ class _AccountMenu extends ConsumerWidget {
       onSelected: (value) async {
         switch (value) {
           case 'logout':
-            ref.read(selectedAgentIdProvider.notifier).state = null;
-            await ref.read(authNotifierProvider.notifier).signOut();
+            // Déconnexion de l'APPAREIL : sur un poste scolaire, elle lui
+            // retire son droit de travailler hors-ligne → avertissement fort.
+            await guardedSignOut(context, ref,
+                sharedDevice: agentLockApplies(profile?.role));
           case 'profile':
             if (context.mounted) context.go(profileRoute);
           case 'settings':
             if (context.mounted) context.go(settingsRoute);
           case 'switch_agent':
-            // Poste partagé : reverrouille → AgentLockGate réaffiche l'écran-verrou.
-            ref.read(selectedAgentIdProvider.notifier).state = null;
+            lockDevice(ref);
         }
       },
       itemBuilder: (_) => [
@@ -432,7 +543,7 @@ class _AccountMenu extends ConsumerWidget {
             children: [
               Text(
                 displayName,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w700,
                   color: kTextPrimary,
                   fontSize: 13,
@@ -440,48 +551,56 @@ class _AccountMenu extends ConsumerWidget {
               ),
               Text(
                 roleLabel,
-                style: const TextStyle(color: kTextMuted, fontSize: 11),
+                style: TextStyle(color: kTextMuted, fontSize: 11),
               ),
             ],
           ),
         ),
         const PopupMenuDivider(),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'profile',
           child: Row(children: [
             Icon(Icons.person_outline, size: 18, color: kNavy),
-            SizedBox(width: 10),
-            Text('Mon profil'),
+            const SizedBox(width: 10),
+            const Text('Mon profil'),
           ]),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'settings',
           child: Row(children: [
             Icon(Icons.settings_outlined, size: 18, color: kNavy),
-            SizedBox(width: 10),
-            Text('Paramètres'),
+            const SizedBox(width: 10),
+            const Text('Paramètres'),
           ]),
         ),
-        // Poste partagé : reverrouiller l'appareil (personnel scolaire, hors
-        // parent/élève — même public que le verrou).
+        // Poste partagé : verrouiller = quitter son écran (local, hors-ligne).
         if (agentLockApplies(profile?.role))
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'switch_agent',
             child: Row(children: [
               Icon(Icons.lock_outline_rounded, size: 18, color: kNavy),
-              SizedBox(width: 10),
-              Text('Changer d’utilisateur'),
+              const SizedBox(width: 10),
+              const Text('Verrouiller / changer d’utilisateur'),
             ]),
           ),
-        const PopupMenuDivider(),
-        const PopupMenuItem(
-          value: 'logout',
-          child: Row(children: [
-            Icon(Icons.logout_rounded, size: 18, color: Colors.red),
-            SizedBox(width: 10),
-            Text('Déconnexion', style: TextStyle(color: Colors.red)),
-          ]),
-        ),
+        // Déconnexion de l'APPAREIL : rare, destructrice de l'offline, réservée
+        // à la direction sur un poste partagé. Libellée sans ambiguïté.
+        if (mayUnenroll) ...[
+          const PopupMenuDivider(),
+          PopupMenuItem(
+            value: 'logout',
+            child: Row(children: [
+              const Icon(Icons.link_off_rounded, size: 18, color: Colors.red),
+              const SizedBox(width: 10),
+              Text(
+                agentLockApplies(profile?.role)
+                    ? 'Déconnecter ce poste…'
+                    : 'Déconnexion',
+                style: const TextStyle(color: Colors.red),
+              ),
+            ]),
+          ),
+        ],
       ],
       child: Row(
         children: [
@@ -497,8 +616,8 @@ class _AccountMenu extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(width: 6),
-          if (profile != null)
+          if (profile != null && montrerNom) ...[
+            const SizedBox(width: 6),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 120),
               child: Column(
@@ -507,7 +626,7 @@ class _AccountMenu extends ConsumerWidget {
                 children: [
                   Text(
                     _shortName(displayName),
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: kTextPrimary,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -516,13 +635,14 @@ class _AccountMenu extends ConsumerWidget {
                   ),
                   Text(
                     roleLabel,
-                    style: const TextStyle(color: kTextMuted, fontSize: 10),
+                    style: TextStyle(color: kTextMuted, fontSize: 10),
                   ),
                 ],
               ),
             ),
+          ],
           const SizedBox(width: 4),
-          const Icon(Icons.arrow_drop_down, color: kTextMuted, size: 20),
+          Icon(Icons.arrow_drop_down, color: kTextMuted, size: 20),
         ],
       ),
     );

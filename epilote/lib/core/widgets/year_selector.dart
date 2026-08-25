@@ -38,13 +38,13 @@ class YearSelector extends ConsumerWidget {
       offset: const Offset(0, 46),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       onSelected: (id) =>
-          ref.read(selectedYearIdProvider.notifier).state = id,
+          ref.read(selectedYearIdProvider.notifier).select(id),
       itemBuilder: (_) => [
         for (final y in live) _item(y, active),
         if (archived.isNotEmpty && live.isNotEmpty)
           const PopupMenuDivider(),
         if (archived.isNotEmpty)
-          const PopupMenuItem<String>(
+          PopupMenuItem<String>(
             enabled: false,
             height: 28,
             child: Text('ARCHIVES',
@@ -70,7 +70,7 @@ class YearSelector extends ConsumerWidget {
             const SizedBox(width: 7),
             Text(
               active?.label ?? '—',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary),
             ),
             const SizedBox(width: 6),
@@ -87,7 +87,7 @@ class YearSelector extends ConsumerWidget {
                       color: st.color)),
             ),
             const SizedBox(width: 2),
-            const Icon(Icons.expand_more_rounded, size: 16, color: kTextMuted),
+            Icon(Icons.expand_more_rounded, size: 16, color: kTextMuted),
           ],
         ),
       ),

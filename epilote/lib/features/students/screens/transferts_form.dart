@@ -111,8 +111,8 @@ class _NewTransferDialogState extends ConsumerState<_NewTransferDialog> {
           ),
           const SizedBox(height: 8),
           if (filtered.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text('Aucun élève correspondant.',
                   style: TextStyle(fontSize: 12.5, color: kTextMuted)),
             )
@@ -159,15 +159,15 @@ class _NewTransferDialogState extends ConsumerState<_NewTransferDialog> {
               border: Border.all(color: kBorder),
             ),
             child: Row(children: [
-              const Icon(Icons.event_outlined, size: 18, color: kTextMuted),
+              Icon(Icons.event_outlined, size: 18, color: kTextMuted),
               const SizedBox(width: 10),
               Text(_fmtDate(_date),
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w600,
                       color: kTextPrimary)),
               const Spacer(),
-              const Icon(Icons.edit_calendar_outlined,
+              Icon(Icons.edit_calendar_outlined,
                   size: 16, color: kTextMuted),
             ]),
           ),
@@ -191,7 +191,7 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 7),
         child: Text(text,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
                 color: kTextPrimary)),
@@ -211,7 +211,7 @@ class _CandidateTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             border:
-                last ? null : const Border(bottom: BorderSide(color: kBorder)),
+                last ? null : Border(bottom: BorderSide(color: kBorder)),
           ),
           child: Row(children: [
             CircleAvatar(
@@ -219,7 +219,7 @@ class _CandidateTile extends StatelessWidget {
               backgroundColor: kNavy.withValues(alpha: 0.1),
               child: Text(
                 c.fullName.isNotEmpty ? c.fullName[0].toUpperCase() : '?',
-                style: const TextStyle(
+                style: TextStyle(
                     color: kNavy, fontWeight: FontWeight.w700, fontSize: 12),
               ),
             ),
@@ -236,10 +236,10 @@ class _CandidateTile extends StatelessWidget {
                     Text(
                         '${c.matricule}${c.className != null ? ' · ${c.className}' : ''}',
                         style:
-                            const TextStyle(fontSize: 11, color: kTextMuted)),
+                            TextStyle(fontSize: 11, color: kTextMuted)),
                   ]),
             ),
-            const Icon(Icons.add_circle_outline_rounded,
+            Icon(Icons.add_circle_outline_rounded,
                 size: 18, color: kNavy),
           ]),
         ),
@@ -259,11 +259,11 @@ class _SelectedStudent extends StatelessWidget {
           border: Border.all(color: kNavy.withValues(alpha: 0.25)),
         ),
         child: Row(children: [
-          const Icon(Icons.person_rounded, size: 18, color: kNavy),
+          Icon(Icons.person_rounded, size: 18, color: kNavy),
           const SizedBox(width: 10),
           Expanded(
             child: Text(label,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: kTextPrimary)),
@@ -271,7 +271,7 @@ class _SelectedStudent extends StatelessWidget {
           IconButton(
             tooltip: 'Changer',
             visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.close_rounded, size: 18, color: kTextMuted),
+            icon: Icon(Icons.close_rounded, size: 18, color: kTextMuted),
             onPressed: onClear,
           ),
         ]),

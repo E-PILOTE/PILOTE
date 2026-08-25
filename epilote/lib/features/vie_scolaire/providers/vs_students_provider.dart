@@ -39,7 +39,7 @@ final vsStudentsProvider = StreamProvider.autoDispose<List<VsStudent>>((ref) {
     LEFT JOIN class_enrollments ce
       ON ce.student_id = s.id AND ce.status = 'active'
     LEFT JOIN classes c ON c.id = ce.class_id
-    WHERE s.school_id = ? AND s.is_active = 1
+    WHERE s.school_id = ? AND COALESCE(s.is_active, 1) <> 0
     ORDER BY c.level_order, c.name, s.last_name, s.first_name
     ''',
     parameters: [schoolId],

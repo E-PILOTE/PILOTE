@@ -46,16 +46,24 @@ class _DayExceptionsSheet extends ConsumerWidget {
     final p = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
     if (yearId == null) return;
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+      return;
+    }
+    final gid = p!.groupId!, sid = p.schoolId!, actor = p.id;
     await runModuleWrite(
       context,
       () => createException(
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: gid,
+        schoolId: sid,
         academicYearId: yearId,
         slotId: s.id,
         date: date,
         kind: 'cancelled',
-        createdBy: p?.id,
+        createdBy: actor,
       ),
       success: 'Séance annulée ce jour',
     );
@@ -91,9 +99,9 @@ class _DayExceptionsSheet extends ConsumerWidget {
       minChildSize: 0.35,
       maxChildSize: 0.92,
       builder: (ctx, scroll) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: kCardBg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(children: [
           const SizedBox(height: 10),
@@ -106,21 +114,21 @@ class _DayExceptionsSheet extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 14, 12, 8),
             child: Row(children: [
-              const Icon(Icons.event_note_rounded, size: 19, color: kNavy),
+              Icon(Icons.event_note_rounded, size: 19, color: kNavy),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(dateLabel,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 15.5,
                               fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
                       if (className != null)
                         Text(className!,
                             style:
-                                const TextStyle(fontSize: 12, color: kTextMuted)),
+                                TextStyle(fontSize: 12, color: kTextMuted)),
                     ]),
               ),
               IconButton(
@@ -136,8 +144,8 @@ class _DayExceptionsSheet extends ConsumerWidget {
               children: [
                 const _DaySectionLabel('Séances prévues (trame)'),
                 if (daySlots.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     child: Text('Aucune séance prévue ce jour.',
                         style: TextStyle(fontSize: 12.5, color: kTextMuted)),
                   )
@@ -196,7 +204,7 @@ class _DaySectionLabel extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Text(text.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.4,
@@ -227,7 +235,7 @@ class _ScheduledRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
       decoration: BoxDecoration(
-        color: isCancelled ? kRed.withValues(alpha: 0.04) : Colors.white,
+        color: isCancelled ? kRed.withValues(alpha: 0.04) : kCardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
             color: isCancelled ? kRed.withValues(alpha: 0.3) : kBorder),
@@ -255,7 +263,7 @@ class _ScheduledRow extends StatelessWidget {
                 Text(
                     '${slot.timeLabel}'
                     '${(slot.teacherName ?? '').isNotEmpty ? ' · ${slot.teacherName}' : ''}',
-                    style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                    style: TextStyle(fontSize: 11.5, color: kTextMuted)),
               ]),
         ),
         if (isCancelled)
@@ -263,7 +271,7 @@ class _ScheduledRow extends StatelessWidget {
               ? TextButton(
                   onPressed: () => onRestore(cancelled!.id),
                   child: const Text('Rétablir'))
-              : const Text('Annulée',
+              : Text('Annulée',
                   style: TextStyle(
                       fontSize: 12, fontWeight: FontWeight.w700, color: kRed))
         else if (canCancel)
@@ -302,7 +310,7 @@ class _ExtraRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(exc.subjectName ?? 'Séance exceptionnelle',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w700,
                         color: kTextPrimary)),
@@ -312,15 +320,15 @@ class _ExtraRow extends StatelessWidget {
                       if ((exc.staffName ?? '').isNotEmpty) exc.staffName,
                       if ((exc.roomName ?? '').isNotEmpty) exc.roomName,
                     ].where((e) => (e ?? '').isNotEmpty).join(' · '),
-                    style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                    style: TextStyle(fontSize: 11.5, color: kTextMuted)),
               ]),
         ),
         if (canDelete)
           InkWell(
             onTap: onDelete,
             borderRadius: BorderRadius.circular(20),
-            child: const Padding(
-              padding: EdgeInsets.all(5),
+            child: Padding(
+              padding: const EdgeInsets.all(5),
               child: Icon(Icons.close_rounded, size: 16, color: kTextMuted),
             ),
           ),

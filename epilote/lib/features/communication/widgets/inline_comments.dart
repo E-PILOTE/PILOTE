@@ -7,6 +7,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../providers/announcement_interactions_provider.dart';
 import 'staff_feed_ui.dart';
 import 'user_avatar.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  Fil de commentaires INLINE (jamais de modal) — s'ouvre sous la publication
@@ -110,8 +111,8 @@ class _InlineCommentsState extends ConsumerState<InlineComments> {
     final me    = ref.watch(authNotifierProvider).valueOrNull;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFFF8FAFC),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
         border: Border(top: BorderSide(color: kBorder)),
       ),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -129,8 +130,8 @@ class _InlineCommentsState extends ConsumerState<InlineComments> {
             ),
             error: (e, _) => Padding(
               padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Text('Erreur : $e',
-                  style: const TextStyle(fontSize: 12, color: kTextMuted)),
+              child: Text(messageErreur(e),
+                  style: TextStyle(fontSize: 12, color: kTextMuted)),
             ),
             data: (comments) => _list(comments, me?.id ?? ''),
           ),
@@ -143,8 +144,8 @@ class _InlineCommentsState extends ConsumerState<InlineComments> {
 
   Widget _list(List<AnnComment> comments, String meId) {
     if (comments.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 8),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Text('Soyez le premier à commenter.',
             style: TextStyle(fontSize: 12.5, color: kTextMuted)),
       );
@@ -205,7 +206,7 @@ class _InlineCommentsState extends ConsumerState<InlineComments> {
               const Spacer(),
               GestureDetector(
                 onTap: _cancelEdit,
-                child: const Icon(Icons.close_rounded,
+                child: Icon(Icons.close_rounded,
                     size: 15, color: kTextMuted),
               ),
             ]),
@@ -243,21 +244,21 @@ class _InlineCommentsState extends ConsumerState<InlineComments> {
                 hintText: _replyingTo != null
                     ? 'Répondre à $_replyingToName…'
                     : 'Écrire un commentaire…',
-                hintStyle: const TextStyle(color: kTextMuted, fontSize: 12.5),
+                hintStyle: TextStyle(color: kTextMuted, fontSize: 12.5),
                 isDense: true,
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: kCardBg,
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(22),
-                    borderSide: const BorderSide(color: kBorder)),
+                    borderSide: BorderSide(color: kBorder)),
                 enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(22),
-                    borderSide: const BorderSide(color: kBorder)),
+                    borderSide: BorderSide(color: kBorder)),
                 focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(22),
-                    borderSide: const BorderSide(color: kNavy, width: 1.4)),
+                    borderSide: BorderSide(color: kNavy, width: 1.4)),
                   ),
                 ),
               ),
@@ -312,7 +313,7 @@ class _CommentTile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: kCardBg,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: kBorder),
               ),
@@ -324,7 +325,7 @@ class _CommentTile extends StatelessWidget {
                       child: Text(name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
@@ -339,7 +340,7 @@ class _CommentTile extends StatelessWidget {
                   ]),
                   const SizedBox(height: 3),
                   Text(comment.content,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 13, color: kTextPrimary, height: 1.45)),
                 ],
               ),
@@ -348,7 +349,7 @@ class _CommentTile extends StatelessWidget {
               padding: const EdgeInsets.only(top: 3, left: 4),
               child: Row(children: [
                 Text(fmtRelativeFr(comment.createdAt),
-                    style: const TextStyle(fontSize: 10.5, color: kTextMuted)),
+                    style: TextStyle(fontSize: 10.5, color: kTextMuted)),
                 if (onReply != null) ...[
                   const SizedBox(width: 12),
                   _MiniAction('Répondre', kNavy, onReply!),

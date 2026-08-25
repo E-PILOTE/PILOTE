@@ -37,24 +37,46 @@ class _BudgetFormState extends ConsumerState<_BudgetForm> {
     super.dispose();
   }
 
+
+  /// Refuse d'écrire quand un identifiant obligatoire manque.
+  ///
+  /// Sans ce garde-fou, `?? ''` envoyait une chaîne vide dans une colonne
+  /// `uuid` NOT NULL : accepté en local, REFUSÉ par le serveur — ce qui
+  /// abandonne le lot PowerSync entier et emporte le travail des autres
+  /// modules, sans message. Mieux vaut refuser franchement, et dire pourquoi.
+  bool _guard(String? groupId, String? schoolId, String? actorId, String? yearId) {
+    final missing = [
+      ...missingWriteIds(
+          groupId: groupId, schoolId: schoolId, actorId: actorId),
+      if (!isUsableId(yearId)) 'année scolaire',
+    ];
+    if (missing.isEmpty) return true;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(writeIdentityMessage(missing)),
+      backgroundColor: kRed,
+      duration: const Duration(seconds: 6),
+    ));
+    return false;
+  }
+
   Future<void> _save() async {
     final budgeted = int.tryParse(_budgeted.text.trim().replaceAll(' ', ''));
     if (budgeted == null || budgeted <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Montant prévu (> 0) requis'), backgroundColor: kRed));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Montant prévu (> 0) requis'), backgroundColor: kRed));
       return;
     }
     final p = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
-    if (yearId == null) return;
+    if (!_guard(p?.groupId, p?.schoolId, p?.id, yearId)) return;
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
       () => saveBudgetLine(
         id: widget.line?.id,
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
-        academicYearId: yearId,
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
+        academicYearId: yearId!,
         category: _category,
         budgeted: budgeted,
         notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
@@ -106,10 +128,10 @@ class _BudgetFormState extends ConsumerState<_BudgetForm> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: kBorder),
                   ),
-                  child: const Row(children: [
+                  child: Row(children: [
                     Icon(Icons.info_outline_rounded,
                         size: 16, color: kTextMuted),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                           'Le réalisé est calculé automatiquement à partir des '

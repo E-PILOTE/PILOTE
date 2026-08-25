@@ -95,13 +95,35 @@ Navigation : ajouter un écran = créer screen + provider, déclarer la route da
 
 - Project ID `wqpdamlnrwgozfvzjjpo`, region `eu-central-2`, PG 17.
 - Helpers RLS en base : `is_super_admin()`, `auth_group_id()`, `auth_school_id()`, `check_quota()`, `is_admin_groupe()`.
-- Mentions (alignées sur `get_mention()` en base) : Excellent ≥18, Très bien ≥16, Bien ≥14, Assez bien ≥12, Passable ≥10. Devise XAF (FCFA).
+- **Mentions — source unique : `lib/core/utils/mention.dart`** (`mentionFor`), tenue identique à `get_mention()` en base (migration 0059). Excellent ≥18, Très Bien ≥16, Bien ≥14, Assez Bien ≥12, Passable ≥10, Insuffisant <10 ; barre de réussite 10/20. ⚠️ Ce barème avait dérivé de 2 points côté bulletins (8/20 ressortait « Passable ») — ne jamais en recopier une variante locale : toute modification touche le Dart **et** le SQL. Devise XAF (FCFA).
 
 ## État d'avancement
 
+> ⚠️ Cette section a menti pendant des mois : elle annonçait l'espace personnel
+> « à construire » alors qu'il était livré. Vérifié dans le code le 2026-08-17.
+> **Ne jamais conclure sur l'avancement sans ouvrir `app_router.dart`** —
+> compter les `_PlaceholderScreen` / `StaffComingSoonScreen` prend dix secondes.
+
 - **super_admin** : 19 pages ✅ complètes (routes câblées).
-- **admin_groupe** : 10 écrans ✅ complets (dashboard KPI+carte, écoles, utilisateurs, profils d'accès, rapports PDF, abonnement, audit, paramètres, modules).
-- **Personnel scolaire** : ⚠️ **espace à construire** — routes `/user/*` sont des placeholders dans `app_router.dart`, SAUF `/user/inscriptions` (réellement implémenté). C'est le gros du roadmap restant (Phases 1-8 : structure → acteurs → quotidien → évaluation → finance → vie scolaire → communication → documents). La sidebar personnel (`app_shell.dart`) est encore en dur et n'utilise pas encore la nav dynamique (`activeModulesProvider`).
+- **admin_groupe** : 12 écrans ✅ (les 10 + Palmarès et Élèves du réseau).
+- **Personnel scolaire** : ✅ **espace livré**. Les ~48 routes `/user/*` pointent
+  sur de vrais écrans — Scolarité, Structure, EDT, Évaluation, Passage, Examens,
+  Vie scolaire, Finance, RH, Communication, Cahier de textes. Il ne reste que
+  **un seul inachevé** dans tout l'espace :
+  | Route | État |
+  |---|---|
+  | `/user/espace-parent` | `StaffComingSoonScreen` — le rôle `parent` n'a pas son espace |
+  | ~~`/user/rapports`~~ | ✅ livré le 2026-08-17 — états des effectifs, du recouvrement et du personnel, PDF signables |
+  | ~~`/user/eleves/:id`~~ | ✅ route morte neutralisée en redirection vers `/user/eleves` |
+
+  ⚠️ **`/user/rapports` est une page de DIRECTION** : elle lit l'école entière,
+  hors du périmètre de classes de l'agent. Deux verrous, tous deux nécessaires —
+  la sidebar (`_staffSections`) et le `redirect` du routeur, comme le Calendrier
+  scolaire.
+
+  La sidebar personnel n'est PAS en dur : `_staffSections` (`core/widgets/app_shell/nav_config.dart`)
+  la construit depuis `modulesGroupedByCategoryProvider` × `myPermissionsProvider`,
+  et distingue « en cours de synchro » de « aucun module accordé ».
 
 ## Mémoire projet
 

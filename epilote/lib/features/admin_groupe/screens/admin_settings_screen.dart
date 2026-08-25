@@ -6,8 +6,13 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/routes.dart';
 import '../../../core/widgets/app_shell.dart';
-import '../providers/admin_settings_provider.dart';
+import '../../../core/theme/theme_provider.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../features/user/widgets/user_settings_cards.dart' show ThemePicker;
+import '../providers/admin_settings_provider.dart';
+import '../widgets/bareme_passage_card.dart';
+import '../widgets/partner_opt_in_tile.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PARAMÈTRES — espace admin_groupe (online, scope group_id)
@@ -62,7 +67,7 @@ class _SettingsTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: kCardBg,
         border: Border(bottom: BorderSide(color: kBorder)),
       ),
@@ -188,8 +193,8 @@ class _ToggleRow extends StatelessWidget {
       onChanged: onChanged,
       secondary: Icon(icon, color: kNavy, size: 21),
       title: Text(title,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kTextPrimary)),
-      subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: kTextMuted)),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kTextPrimary)),
+      subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: kTextMuted)),
     );
   }
 }
@@ -230,8 +235,8 @@ class _NumberStepper extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kTextPrimary)),
-                Text(subtitle, style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kTextPrimary)),
+                Text(subtitle, style: TextStyle(fontSize: 12, color: kTextMuted)),
               ],
             ),
           ),
@@ -248,20 +253,20 @@ class _NumberStepper extends StatelessWidget {
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   onPressed: value > min ? () => onChanged(value - step) : null,
-                  icon: const Icon(Icons.remove_rounded, size: 18, color: kNavy),
+                  icon: Icon(Icons.remove_rounded, size: 18, color: kNavy),
                 ),
                 ConstrainedBox(
                   constraints: const BoxConstraints(minWidth: 56),
                   child: Text(
                     suffix == null ? '$value' : '$value $suffix',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: kTextPrimary),
+                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: kTextPrimary),
                   ),
                 ),
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   onPressed: value < max ? () => onChanged(value + step) : null,
-                  icon: const Icon(Icons.add_rounded, size: 18, color: kNavy),
+                  icon: Icon(Icons.add_rounded, size: 18, color: kNavy),
                 ),
               ],
             ),
@@ -328,7 +333,7 @@ class _GeneralTab extends ConsumerWidget {
           skipLoadingOnReload: true,
           skipLoadingOnRefresh: true,
           loading: () => const _CardLoader(),
-          error: (e, _) => AdminCard(child: AdminErrorBanner(message: 'Erreur : $e')),
+          error: (e, _) => AdminCard(child: AdminErrorBanner(message: messageErreur(e))),
           data: (g) => _GroupInfoCard(group: g),
         ),
         const SizedBox(height: 20),
@@ -342,7 +347,7 @@ class _GeneralTab extends ConsumerWidget {
           skipLoadingOnReload: true,
           skipLoadingOnRefresh: true,
           loading: () => const _CardLoader(),
-          error: (e, _) => AdminCard(child: AdminErrorBanner(message: 'Erreur : $e')),
+          error: (e, _) => AdminCard(child: AdminErrorBanner(message: messageErreur(e))),
           data: (s) => _GeneralPrefsCard(initial: s.general),
         ),
         const SizedBox(height: 20),
@@ -352,13 +357,25 @@ class _GeneralTab extends ConsumerWidget {
           skipLoadingOnReload: true,
           skipLoadingOnRefresh: true,
           loading: () => const _CardLoader(),
-          error: (e, _) => AdminCard(child: AdminErrorBanner(message: 'Erreur : $e')),
+          error: (e, _) => AdminCard(child: AdminErrorBanner(message: messageErreur(e))),
           data: (s) => _PedagogyCard(initial: s.general),
         ),
         const SizedBox(height: 20),
 
+        // ── Barème de passage (migration 0107) ──────────────────────────────
+        // Distinct des paramètres pédagogiques juste au-dessus, et pour une
+        // raison de fond : ceux-ci vivent dans `group_settings`, qui n'est PAS
+        // synchronisée sur les postes. Le barème, lui, doit atteindre chaque
+        // école hors ligne — il est donc écrit sur `school_groups`.
+        const BaremePassageCard(),
+        const SizedBox(height: 20),
+
         // ── Apparence (local, non persisté côté DB) ─────────────────────────
         const _AppearanceCard(),
+        const SizedBox(height: 20),
+
+        // ── Partenaires sur les postes (opt-in, Phase 3b) ───────────────────
+        const PartnerOptInTile(),
         const SizedBox(height: 20),
 
         // ── Mon compte ──────────────────────────────────────────────────────
@@ -408,7 +425,7 @@ class _GroupInfoCard extends StatelessWidget {
                 : null),
         const SizedBox(height: 14),
         if (g == null)
-          const Text('Aucune information disponible.', style: TextStyle(color: kTextMuted))
+          Text('Aucune information disponible.', style: TextStyle(color: kTextMuted))
         else ...[
           // ── En-tête : logo + nom + badges ──────────────────────────────────
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -416,7 +433,7 @@ class _GroupInfoCard extends StatelessWidget {
             const SizedBox(width: 16),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(g.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 18, fontWeight: FontWeight.w800, color: kTextPrimary)),
               const SizedBox(height: 8),
               Wrap(spacing: 6, runSpacing: 6, children: [
@@ -437,9 +454,9 @@ class _GroupInfoCard extends StatelessWidget {
               color: kNavy.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Row(children: [
+            child: Row(children: [
               Icon(Icons.lock_outline_rounded, size: 16, color: kNavy),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Expanded(
                   child: Text(
                       "Ces informations sont gérées par l'administration de la plateforme. "
@@ -477,7 +494,7 @@ class _GroupInfoCard extends StatelessWidget {
               label: const Text('Demander une modification'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: kNavy,
-                side: const BorderSide(color: kBorder),
+                side: BorderSide(color: kBorder),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
@@ -516,7 +533,7 @@ class _GroupLogo extends StatelessWidget {
     final hasLogo = logoUrl != null && logoUrl!.startsWith('http');
     final fallback = Center(
       child: Text(_initials,
-          style: const TextStyle(color: kNavy, fontSize: 24, fontWeight: FontWeight.w900)),
+          style: TextStyle(color: kNavy, fontSize: 24, fontWeight: FontWeight.w900)),
     );
     return Container(
       width: 72, height: 72,
@@ -698,8 +715,8 @@ class _GroupStatsCard extends ConsumerWidget {
         statsAsync.when(
           skipLoadingOnReload: true,
           skipLoadingOnRefresh: true,
-          loading: () => const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
+          loading: () => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
             child: Center(child: CircularProgressIndicator(color: kNavy)),
           ),
           error: (_, _) => const AdminErrorBanner(message: 'Statistiques indisponibles.'),
@@ -788,11 +805,11 @@ class _QuotaBar extends StatelessWidget {
       Row(children: [
         Expanded(
           child: Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12.5, fontWeight: FontWeight.w600, color: kTextPrimary)),
         ),
         Text(hasQuota ? '$used / $max' : '$used',
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12.5, fontWeight: FontWeight.w800, color: kTextPrimary)),
         if (hasQuota) ...[
           const SizedBox(width: 8),
@@ -922,18 +939,17 @@ class _AppearanceCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeProvider);
+    final current = ref.watch(themeIdProvider);
     return AdminCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const AdminSectionTitle('Apparence', icon: Icons.palette_outlined),
-        const SizedBox(height: 8),
-        _ToggleRow(
-          icon: Icons.dark_mode_outlined,
-          title: 'Mode sombre',
-          subtitle: 'Basculer entre le thème clair et sombre',
-          value: themeMode == ThemeMode.dark,
-          onChanged: (v) => ref.read(themeModeProvider.notifier).state =
-              v ? ThemeMode.dark : ThemeMode.light,
+        const SizedBox(height: 4),
+        Text('Votre choix, sur ce poste.',
+            style: TextStyle(fontSize: 11.5, color: kTextMuted)),
+        const SizedBox(height: 12),
+        ThemePicker(
+          current: current,
+          onPick: (id) => ref.read(themeIdProvider.notifier).set(id),
         ),
       ]),
     );
@@ -951,11 +967,11 @@ class _AccountCard extends StatelessWidget {
         const SizedBox(height: 8),
         ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.person_outline_rounded, color: kNavy),
+          leading: Icon(Icons.person_outline_rounded, color: kNavy),
           title: const Text('Mon profil', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-          subtitle: const Text('Nom, téléphone, mot de passe',
+          subtitle: Text('Nom, téléphone, mot de passe',
               style: TextStyle(fontSize: 12, color: kTextMuted)),
-          trailing: const Icon(Icons.chevron_right_rounded, color: kTextMuted),
+          trailing: Icon(Icons.chevron_right_rounded, color: kTextMuted),
           onTap: () => context.go(Routes.adminProfil),
         ),
       ]),
@@ -1000,11 +1016,11 @@ class _BillingTab extends ConsumerWidget {
             configs.when(
               skipLoadingOnReload: true,
               skipLoadingOnRefresh: true,
-              loading: () => const Padding(
-                padding: EdgeInsets.symmetric(vertical: 40),
+              loading: () => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 40),
                 child: Center(child: CircularProgressIndicator(color: kNavy)),
               ),
-              error: (e, _) => AdminErrorBanner(message: 'Erreur : $e'),
+              error: (e, _) => AdminErrorBanner(message: messageErreur(e)),
               data: (list) => list.isEmpty
                   ? const Padding(
                       padding: EdgeInsets.symmetric(vertical: 24),
@@ -1048,7 +1064,7 @@ class _BillingTab extends ConsumerWidget {
           skipLoadingOnReload: true,
           skipLoadingOnRefresh: true,
           loading: () => const _CardLoader(),
-          error: (e, _) => AdminCard(child: AdminErrorBanner(message: 'Erreur : $e')),
+          error: (e, _) => AdminCard(child: AdminErrorBanner(message: messageErreur(e))),
           data: (s) => _FeePolicyCard(initial: s.general),
         ),
         const SizedBox(height: 24),
@@ -1191,7 +1207,7 @@ class _PaymentTileState extends ConsumerState<_PaymentTile> {
     try {
       await ref.read(adminSettingsServiceProvider).setPaymentActive(c.id!, v);
     } catch (e) {
-      if (mounted) _toast(context, 'Échec : $e', ok: false);
+      if (mounted) _toast(context, messageErreur(e), ok: false);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -1209,7 +1225,7 @@ class _PaymentTileState extends ConsumerState<_PaymentTile> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annuler', style: TextStyle(color: kTextMuted)),
+            child: Text('Annuler', style: TextStyle(color: kTextMuted)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -1227,7 +1243,7 @@ class _PaymentTileState extends ConsumerState<_PaymentTile> {
     } catch (e) {
       if (mounted) {
         setState(() => _busy = false);
-        _toast(context, 'Échec : $e', ok: false);
+        _toast(context, messageErreur(e), ok: false);
       }
     }
   }
@@ -1259,18 +1275,18 @@ class _PaymentTileState extends ConsumerState<_PaymentTile> {
               Flexible(
                 child: Text(c.displayName,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
               ),
               const SizedBox(width: 8),
-              if (c.isTestMode) const AdminBadge('TEST', color: kAccent),
+              if (c.isTestMode) AdminBadge('TEST', color: kAccent),
             ]),
             const SizedBox(height: 2),
-            Text(c.provider.label, style: const TextStyle(fontSize: 12, color: kTextMuted)),
+            Text(c.provider.label, style: TextStyle(fontSize: 12, color: kTextMuted)),
           ]),
         ),
         if (_busy)
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: kNavy)),
           )
         else ...[
@@ -1468,7 +1484,7 @@ class _PaymentEditorDialogState extends ConsumerState<_PaymentEditorDialog> {
                   value: _active,
                   onChanged: (v) => setState(() => _active = v),
                   title: const Text('Actif', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
-                  subtitle: const Text('Disponible pour encaisser les paiements',
+                  subtitle: Text('Disponible pour encaisser les paiements',
                       style: TextStyle(fontSize: 11.5, color: kTextMuted)),
                 ),
                 if (apiBased)
@@ -1478,7 +1494,7 @@ class _PaymentEditorDialogState extends ConsumerState<_PaymentEditorDialog> {
                     value: _testMode,
                     onChanged: (v) => setState(() => _testMode = v),
                     title: const Text('Mode test', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
-                    subtitle: const Text('Sandbox — aucune transaction réelle',
+                    subtitle: Text('Sandbox — aucune transaction réelle',
                         style: TextStyle(fontSize: 11.5, color: kTextMuted)),
                   ),
                 if (_error != null) ...[
@@ -1520,7 +1536,7 @@ class _NotificationsTab extends ConsumerWidget {
           skipLoadingOnReload: true,
           skipLoadingOnRefresh: true,
           loading: () => const _CardLoader(),
-          error: (e, _) => AdminCard(child: AdminErrorBanner(message: 'Erreur : $e')),
+          error: (e, _) => AdminCard(child: AdminErrorBanner(message: messageErreur(e))),
           data: (s) => _NotificationsCard(initial: s.notifications),
         ),
         const SizedBox(height: 24),
@@ -1804,7 +1820,7 @@ class _SecurityTab extends ConsumerWidget {
           skipLoadingOnReload: true,
           skipLoadingOnRefresh: true,
           loading: () => const _CardLoader(),
-          error: (e, _) => AdminCard(child: AdminErrorBanner(message: 'Erreur : $e')),
+          error: (e, _) => AdminCard(child: AdminErrorBanner(message: messageErreur(e))),
           data: (s) => _SecurityCard(initial: s.security),
         ),
         const SizedBox(height: 20),
@@ -2012,17 +2028,17 @@ class _RecentLoginsCard extends ConsumerWidget {
         loginsAsync.when(
           skipLoadingOnReload: true,
           skipLoadingOnRefresh: true,
-          loading: () => const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
+          loading: () => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
             child: Center(child: CircularProgressIndicator(color: kNavy)),
           ),
           error: (_, _) => const AdminErrorBanner(message: 'Connexions indisponibles.'),
           data: (list) => list.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   child: Row(children: [
                     Icon(Icons.inbox_outlined, color: kTextMuted, size: 20),
-                    SizedBox(width: 10),
+                    const SizedBox(width: 10),
                     Text('Aucune connexion enregistrée.',
                         style: TextStyle(fontSize: 13, color: kTextMuted)),
                   ]),
@@ -2056,28 +2072,28 @@ class _RecentLoginsCard extends ConsumerWidget {
             borderRadius: BorderRadius.circular(10),
           ),
           child: Text(initials,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: kNavy)),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: kNavy)),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(name,
                 maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13.5, fontWeight: FontWeight.w700, color: kTextPrimary)),
             Text(_roleLabel(l.role),
-                style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                style: TextStyle(fontSize: 12, color: kTextMuted)),
           ]),
         ),
         const SizedBox(width: 8),
         Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
           if (l.isToday)
-            const AdminBadge("Aujourd'hui", color: kGreen)
+            AdminBadge("Aujourd'hui", color: kGreen)
           else if (l.isThisWeek)
-            const AdminBadge('Cette semaine', color: kNavy),
+            AdminBadge('Cette semaine', color: kNavy),
           const SizedBox(height: 4),
           Text(_ago(l.lastLogin),
-              style: const TextStyle(fontSize: 11, color: kTextMuted)),
+              style: TextStyle(fontSize: 11, color: kTextMuted)),
         ]),
       ]),
     );
@@ -2102,9 +2118,9 @@ class _RgpdActionsCard extends StatelessWidget {
             color: kNavy.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Row(children: [
+          child: Row(children: [
             Icon(Icons.privacy_tip_outlined, size: 18, color: kNavy),
-            SizedBox(width: 10),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 'Les données personnelles des élèves et du personnel sont protégées. '
@@ -2142,9 +2158,9 @@ class _RgpdActionsCard extends StatelessWidget {
 class _CardLoader extends StatelessWidget {
   const _CardLoader();
   @override
-  Widget build(BuildContext context) => const AdminCard(
+  Widget build(BuildContext context) => AdminCard(
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 32),
+          padding: const EdgeInsets.symmetric(vertical: 32),
           child: Center(child: CircularProgressIndicator(color: kNavy)),
         ),
       );
@@ -2162,10 +2178,10 @@ class _InfoRow extends StatelessWidget {
       child: Row(children: [
         Icon(icon, size: 18, color: kTextMuted),
         const SizedBox(width: 12),
-        SizedBox(width: 140, child: Text(label, style: const TextStyle(fontSize: 13, color: kTextMuted))),
+        SizedBox(width: 140, child: Text(label, style: TextStyle(fontSize: 13, color: kTextMuted))),
         Expanded(
             child: Text(value,
-                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: kTextPrimary))),
+                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: kTextPrimary))),
       ]),
     );
   }
@@ -2191,7 +2207,7 @@ class _SupportHistoryCard extends ConsumerWidget {
             label: const Text('Nouvelle demande'),
             style: OutlinedButton.styleFrom(
               foregroundColor: kNavy,
-              side: const BorderSide(color: kBorder),
+              side: BorderSide(color: kBorder),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
@@ -2202,17 +2218,17 @@ class _SupportHistoryCard extends ConsumerWidget {
         ticketsAsync.when(
           skipLoadingOnReload: true,
           skipLoadingOnRefresh: true,
-          loading: () => const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
+          loading: () => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
             child: Center(child: CircularProgressIndicator(color: kNavy)),
           ),
           error: (_, _) => const AdminErrorBanner(message: 'Impossible de charger les demandes.'),
           data: (tickets) => tickets.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   child: Row(children: [
                     Icon(Icons.inbox_outlined, color: kTextMuted, size: 20),
-                    SizedBox(width: 10),
+                    const SizedBox(width: 10),
                     Text('Aucune demande envoyée.',
                         style: TextStyle(fontSize: 13, color: kTextMuted)),
                   ]),
@@ -2258,7 +2274,7 @@ class _SupportTicketRow extends StatelessWidget {
           const SizedBox(width: 6),
           Expanded(
             child: Text(t.subject,
-                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: kTextPrimary)),
+                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: kTextPrimary)),
           ),
           const SizedBox(width: 8),
           AdminBadge(label, color: color),
@@ -2267,7 +2283,7 @@ class _SupportTicketRow extends StatelessWidget {
           const SizedBox(height: 4),
           Text(t.body!,
               maxLines: 2, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, color: kTextMuted, height: 1.4)),
+              style: TextStyle(fontSize: 12, color: kTextMuted, height: 1.4)),
         ],
         if (t.response != null && t.response!.isNotEmpty) ...[
           const SizedBox(height: 8),
@@ -2279,11 +2295,11 @@ class _SupportTicketRow extends StatelessWidget {
               border: Border.all(color: kGreen.withValues(alpha: 0.2)),
             ),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Icon(Icons.support_agent_rounded, size: 15, color: kGreen),
+              Icon(Icons.support_agent_rounded, size: 15, color: kGreen),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(t.response!,
-                    style: const TextStyle(fontSize: 12, color: kTextPrimary, height: 1.4)),
+                    style: TextStyle(fontSize: 12, color: kTextPrimary, height: 1.4)),
               ),
             ]),
           ),

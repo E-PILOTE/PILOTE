@@ -11,21 +11,22 @@ import '../providers/academic_year_context.dart';
 import '../providers/subjects_provider.dart';
 import '../services/subjects_pdf_service.dart';
 import 'subject_detail_dialog.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'subjects_parts.dart';
 
 const _kSlug = 'matieres';
 
 // Couleur dérivée du nom (stable) — repère visuel par matière.
-const _palette = <Color>[
+List<Color> get _palette => <Color>[
   kNavy,
   kGreen,
-  Color(0xFF0EA5E9),
-  Color(0xFF8B5CF6),
-  Color(0xFFF59E0B),
-  Color(0xFFEC4899),
-  Color(0xFF14B8A6),
-  Color(0xFFEF4444),
+  const Color(0xFF0EA5E9),
+  const Color(0xFF8B5CF6),
+  const Color(0xFFF59E0B),
+  const Color(0xFFEC4899),
+  const Color(0xFF14B8A6),
+  const Color(0xFFEF4444),
 ];
 Color _subjectColor(String slug) =>
     _palette[slug.codeUnits.fold(0, (s, c) => s + c) % _palette.length];
@@ -132,7 +133,7 @@ class _BodyState extends ConsumerState<_Body> {
       final path = await exportSubjectsCsv(list);
       _snack('Export CSV : ${list.length} ligne(s) → $path', kGreen);
     } catch (e) {
-      _snack('Erreur export : $e', kRed);
+      _snack(messageErreur(e, contexte: 'Export'), kRed);
     }
   }
 
@@ -189,7 +190,7 @@ class _BodyState extends ConsumerState<_Body> {
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('Erreur : $e', style: const TextStyle(color: kRed)),
+          child: Text(messageErreur(e), style: TextStyle(color: kRed)),
         ),
       ),
       data: (all) {

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../core/constants/routes.dart';
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../data/models/class_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -11,17 +12,18 @@ import '../../navigation/widgets/module_scaffold.dart';
 import '../../structure/providers/academic_structure_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
 import '../providers/class_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'classes_parts.dart';
 
 // ─── Accents par cycle (cohérents avec Inscriptions / Structure) ─────────────
-const _cycleColors = <String, Color>{
-  'prescolaire': Color(0xFFEC4899),
-  'primaire': Color(0xFF0EA5E9),
+Map<String, Color> get _cycleColors => <String, Color>{
+  'prescolaire': const Color(0xFFEC4899),
+  'primaire': const Color(0xFF0EA5E9),
   'college': kGreen,
   'lycee': kNavy,
-  'formation_pro': Color(0xFFF59E0B),
-  'fp': Color(0xFFF59E0B),
+  'formation_pro': const Color(0xFFF59E0B),
+  'fp': const Color(0xFFF59E0B),
 };
 const _cycleNames = <String, String>{
   'prescolaire': 'Préscolaire',
@@ -158,7 +160,7 @@ class _BodyState extends ConsumerState<_Body> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur export : $e'), backgroundColor: kRed));
+            SnackBar(content: Text(messageErreur(e, contexte: 'Export')), backgroundColor: kRed));
       }
     }
   }
@@ -209,7 +211,7 @@ class _BodyState extends ConsumerState<_Body> {
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('Erreur : $e', style: const TextStyle(color: kRed)),
+          child: Text(messageErreur(e), style: TextStyle(color: kRed)),
         ),
       ),
       data: (all) {

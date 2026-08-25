@@ -49,10 +49,16 @@ class EntitlementNotifier extends AsyncNotifier<Entitlement> {
   Future<Entitlement> build() async {
     ref.keepAlive();
     final profile = ref.watch(authNotifierProvider).valueOrNull;
+    final role = profile?.role;
+    final groupId = profile?.groupId;
 
     Entitlement ent;
     try {
-      ent = await ref.read(licenseServiceProvider).bootstrap();
+      // On passe l'identité : une licence d'un AUTRE groupe restée dans le
+      // coffre appareil-global (poste partagé) est purgée au lieu de s'appliquer.
+      ent = await ref
+          .read(licenseServiceProvider)
+          .bootstrap(expectedGroupId: groupId);
     } catch (_) {
       ent = const Entitlement.none();
     }
@@ -61,8 +67,6 @@ class EntitlementNotifier extends AsyncNotifier<Entitlement> {
     // Rafraîchissement hors-bande au login (personnel scolaire uniquement).
     // Auto-inerte tant que les clés ne sont pas épinglées : `refreshLicense`
     // n'émet alors AUCUNE requête réseau (voir garde ci-dessous).
-    final role = profile?.role;
-    final groupId = profile?.groupId;
     final isStaff = role != null &&
         role != AppConstants.roleSuperAdmin &&
         role != AppConstants.roleAdminGroupe;

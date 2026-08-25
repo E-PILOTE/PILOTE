@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -18,10 +20,10 @@ import '../../../core/widgets/app_shell.dart';
 class RenewalWallScreen extends ConsumerWidget {
   const RenewalWallScreen({super.key});
 
-  static const _kNavy  = Color(0xFF1E3A5F);
-  static const _kGreen = Color(0xFF009A44);
+  static Color get _kNavy => kNavy;
+  static Color get _kGreen => kGreen;
   static const _kAmber = Color(0xFFB45309);
-  static const _kMuted = Color(0xFF64748B);
+  static Color get _kMuted => kTextMuted;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -46,14 +48,14 @@ class RenewalWallScreen extends ConsumerWidget {
                       size: 42, color: _kAmber),
                 ),
                 const SizedBox(height: 24),
-                const Text(
+                Text(
                   'Abonnement à renouveler',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                       fontSize: 22, fontWeight: FontWeight.w800, color: _kNavy),
                 ),
                 const SizedBox(height: 12),
-                const Text(
+                Text(
                   'L\'abonnement de votre établissement est arrivé à échéance. '
                   'Les modules sont temporairement suspendus le temps du '
                   'renouvellement.',
@@ -68,11 +70,11 @@ class RenewalWallScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: _kGreen.withValues(alpha: 0.25)),
                   ),
-                  child: const Row(
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(Icons.shield_outlined, color: _kGreen, size: 20),
-                      SizedBox(width: 12),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           'Vos données sont intactes et en sécurité. Elles seront '
@@ -86,7 +88,7 @@ class RenewalWallScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
+                Text(
                   'Contactez l\'administrateur de votre groupe scolaire pour '
                   'procéder au renouvellement.',
                   textAlign: TextAlign.center,

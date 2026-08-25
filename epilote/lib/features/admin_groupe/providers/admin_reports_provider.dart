@@ -132,7 +132,7 @@ class ReportSchoolRow {
 
   final String id;
   final String name;
-  final String type; // public / prive / mixte
+  final String type; // public / prive
   final String department;
   final bool isActive;
   final int students, studentsM, studentsF;
@@ -158,7 +158,6 @@ class ReportData {
     required this.schoolsActives,
     required this.publicCount,
     required this.priveCount,
-    required this.mixteCount,
     required this.elevesTotal,
     required this.elevesNouveaux,
     required this.studentsM,
@@ -186,7 +185,7 @@ class ReportData {
 
   // Établissements
   final int schoolsTotal, schoolsActives;
-  final int publicCount, priveCount, mixteCount;
+  final int publicCount, priveCount;
 
   // Effectifs (période)
   final int elevesTotal; // effectif total scopé (école)
@@ -255,7 +254,6 @@ class ReportData {
     schoolsActives: 0,
     publicCount: 0,
     priveCount: 0,
-    mixteCount: 0,
     elevesTotal: 0,
     elevesNouveaux: 0,
     studentsM: 0,
@@ -411,7 +409,7 @@ final reportsSnapshotProvider =
         .from('schools')
         .select('id, name, school_type, city, department, is_active')
         .eq('group_id', groupId)
-        .order('name') as List;
+        .order('name', ascending: true) as List;
     for (final s in rows) {
       final dept = (s['department'] as String?)?.trim();
       schools.add(SchoolRaw(
@@ -645,7 +643,7 @@ ReportData _aggregate(ReportsSnapshot s, ReportFilter f) {
   }
 
   // ── Écoles (scope appliqué pour les compteurs d'établissements) ─────────────
-  int schoolsTotal = 0, schoolsActives = 0, publicCount = 0, priveCount = 0, mixteCount = 0;
+  int schoolsTotal = 0, schoolsActives = 0, publicCount = 0, priveCount = 0;
   final Map<String, int> schoolsByDept = {};
   for (final sc in s.schools) {
     if (!keepSchool(sc.id)) continue;
@@ -657,9 +655,6 @@ ReportData _aggregate(ReportsSnapshot s, ReportFilter f) {
         break;
       case 'prive':
         priveCount++;
-        break;
-      case 'mixte':
-        mixteCount++;
         break;
     }
     schoolsByDept[sc.department] = (schoolsByDept[sc.department] ?? 0) + 1;
@@ -706,7 +701,6 @@ ReportData _aggregate(ReportsSnapshot s, ReportFilter f) {
     schoolsActives: schoolsActives,
     publicCount: publicCount,
     priveCount: priveCount,
-    mixteCount: mixteCount,
     elevesTotal: elevesTotal,
     elevesNouveaux: elevesNouveaux,
     studentsM: studentsM,

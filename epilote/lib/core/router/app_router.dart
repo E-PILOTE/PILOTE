@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,11 +9,13 @@ import '../../core/constants/routes.dart';
 import '../../data/models/profile_model.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/screens/login_screen.dart';
+import '../../features/auth/screens/reprise_poste_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/super_admin/screens/super_dashboard_screen.dart';
 import '../../features/super_admin/screens/school_groups_screen.dart';
 import '../../features/super_admin/screens/administrators_screen.dart';
 import '../../features/super_admin/screens/modules_screen.dart';
+import '../../features/super_admin/screens/releases_screen.dart';
 import '../../features/super_admin/screens/plans_screen.dart';
 import '../../features/super_admin/screens/subscriptions_screen.dart';
 import '../../features/super_admin/screens/audit_screen.dart';
@@ -24,16 +28,26 @@ import '../../features/super_admin/screens/ai_screen.dart';
 import '../../features/communication/screens/announcements_feed.dart';
 import '../../features/communication/screens/messagerie_staff.dart';
 import '../../features/super_admin/screens/tickets_screen.dart';
+import '../../features/super_admin/screens/platform_service_messages_screen.dart';
+import '../../features/super_admin/screens/platform_partners_screen.dart';
 import '../../features/super_admin/screens/national_map_screen.dart';
 import '../../features/super_admin/screens/profile_screen.dart';
 import '../../features/admin_groupe/screens/admin_academic_years_screen.dart';
+import '../../features/admin_groupe/screens/admin_fees_screen.dart';
+import '../../features/admin_groupe/screens/admin_rattachement_screen.dart';
 import '../../features/admin_groupe/screens/admin_dashboard_screen.dart';
 import '../../features/admin_groupe/screens/admin_schools_screen.dart';
 import '../../features/admin_groupe/screens/admin_users_screen.dart';
 import '../../features/admin_groupe/screens/admin_access_screen.dart';
 import '../../features/admin_groupe/screens/admin_reports_screen.dart';
+import '../../features/admin_groupe/screens/admin_exams_screen.dart';
+import '../../features/admin_groupe/screens/exam_referential_screen.dart';
+import '../../features/admin_groupe/screens/exam_sessions_screen.dart';
+import '../../features/admin_groupe/screens/admin_exam_results_screen.dart';
+import '../../features/admin_groupe/screens/admin_merit_screen.dart';
+import '../../features/admin_groupe/screens/admin_students_screen.dart';
 import '../../features/admin_groupe/screens/admin_subscription_screen.dart';
-import '../../features/admin_groupe/screens/admin_audit_screen.dart';
+import '../../features/audit/screens/audit_screen.dart' as shared_audit;
 import '../../features/admin_groupe/screens/admin_settings_screen.dart';
 import '../../features/communication/screens/support_requester_screen.dart';
 import '../../features/admin_groupe/screens/admin_profile_screen.dart';
@@ -50,6 +64,7 @@ import '../../features/structure/screens/emploi_du_temps_screen.dart';
 import '../../features/evaluation/screens/notes_screen.dart';
 import '../../features/evaluation/screens/bulletins_screen.dart';
 import '../../features/evaluation/screens/conseils_screen.dart';
+import '../../features/evaluation/screens/passage_screen.dart';
 import '../../features/vie_scolaire/screens/presences_screen.dart';
 import '../../features/vie_scolaire/screens/discipline_screen.dart';
 import '../../features/vie_scolaire/screens/orientation_screen.dart';
@@ -71,17 +86,20 @@ import '../../features/navigation/module_routes.dart';
 import '../../features/navigation/providers/permissions_provider.dart';
 import '../../licensing/presentation/license_providers.dart';
 import '../../features/navigation/widgets/module_coming_soon.dart';
-import '../../features/user/screens/staff_audit_screen.dart';
+import '../../features/user/screens/rapports_screen.dart';
 import '../../features/user/screens/renewal_wall_screen.dart';
 import '../../features/user/screens/user_dashboard_screen.dart';
 import '../../features/user/screens/user_profile_screen.dart';
 import '../../features/user/screens/user_settings_screen.dart';
 import '../../features/classes/screens/classes_screen.dart';
 import '../../features/classes/screens/classe_detail_screen.dart';
+import '../../features/examens/screens/examens_screen.dart';
+import '../../features/examens/screens/exam_session_screen.dart';
+import '../../features/stages/screens/stages_screen.dart';
 
 // ─── Couleurs Design System ───────────────────────────────────────────────────
-const _kNavy = Color(0xFF1E3A5F);
-const _kSurface = Color(0xFFF0F4F8);
+Color get _kNavy => kNavy;
+Color get _kSurface => kSurface;
 
 /// Notifier qui écoute authNotifierProvider via Riverpod
 /// et déclenche le refresh du router à chaque changement d'état auth.
@@ -109,7 +127,7 @@ class _PlaceholderScreen extends ConsumerWidget {
       backgroundColor: _kSurface,
       appBar: AppBar(
         backgroundColor: _kNavy,
-        foregroundColor: Colors.white,
+        foregroundColor: kCardBg,
         title: Text(
           title,
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
@@ -145,10 +163,10 @@ class _PlaceholderScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF0F172A),
+                color: kTextPrimary,
               ),
             ),
             const SizedBox(height: 8),
@@ -165,7 +183,7 @@ class _PlaceholderScreen extends ConsumerWidget {
               label: const Text('Se déconnecter → page Login'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: _kNavy,
-                side: const BorderSide(color: _kNavy),
+                side: BorderSide(color: _kNavy),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
                   vertical: 12,
@@ -209,13 +227,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isOnAuth =
           loc == Routes.login ||
           loc == Routes.splash ||
-          loc == Routes.forgotPassword;
+          loc == Routes.forgotPassword ||
+          loc == Routes.reprisePoste;
 
       if (isLoading) {
         return loc == Routes.splash ? null : Routes.splash;
       }
-      if (!isLoggedIn && !isOnAuth) return Routes.login;
-      if (!isLoggedIn && loc == Routes.splash) return Routes.login;
+
+      // ── Sans session, deux écrans possibles ────────────────────────────
+      // Si le poste se reconnaît ET tient encore les données de son école, le
+      // renvoyer à l'écran de connexion serait l'enfermer dehors : sur place,
+      // personne ne connaît le mot de passe du compte de l'établissement. On
+      // lui propose la reprise. Cf. `session_keeper.dart`.
+      final porteSansSession = ref.read(repriseProposeeProvider) != null
+          ? Routes.reprisePoste
+          : Routes.login;
+      if (!isLoggedIn && !isOnAuth) return porteSansSession;
+      if (!isLoggedIn && loc == Routes.splash) return porteSansSession;
+      // On ne renvoie JAMAIS de force vers la reprise quelqu'un qui est déjà
+      // sur l'écran de connexion : il y est peut-être allé exprès, et une
+      // redirection en boucle serait pire que le mur qu'on corrige.
       if (isLoggedIn && isOnAuth) return _dashboardForRole(profile);
       if (isLoggedIn && profile.hasPendingProfile) {
         if (loc != Routes.profilePending) return Routes.profilePending;
@@ -241,10 +272,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return _dashboardForRole(profile);
         }
 
-        // ── Calendrier scolaire : config NATIVE réservée à la direction ────
-        // (hors catalogue → pas géré par le verrou 3 modules). On garde la
-        // route au même titre que la sidebar la masque pour les autres rôles.
-        if (loc == Routes.calendrier) {
+        // ── Configs NATIVES réservées à la direction ───────────────────────
+        // (hors catalogue → pas gérées par le verrou 3 modules). On garde la
+        // route au même titre que la sidebar les masque pour les autres rôles.
+        //
+        // ⚠️ `userRapports` en fait partie POUR UNE RAISON DE FOND : ses états
+        // lisent l'école entière, hors du périmètre de classes de l'agent. Sans
+        // ce garde, un enseignant atteignant l'URL éditerait un « État des
+        // effectifs de l'établissement » portant sur toutes les classes.
+        if (loc == Routes.calendrier || loc == Routes.userRapports) {
           if (!AppConstants.directionRoles.contains(role)) {
             return Routes.userDashboard;
           }
@@ -289,6 +325,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // ── Auth ──────────────────────────────────────────────────────────
       GoRoute(path: Routes.splash, builder: (_, _) => const SplashScreen()),
       GoRoute(path: Routes.login, builder: (_, _) => const LoginScreen()),
+      GoRoute(
+          path: Routes.reprisePoste,
+          builder: (_, _) => const ReprisePosteScreen()),
       _placeholder(Routes.forgotPassword, 'Mot de passe oublié'),
       _placeholder(Routes.profilePending, 'Compte en attente'),
 
@@ -309,6 +348,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.superModules,
         builder: (_, _) => const ModulesScreen(),
       ),
+      GoRoute(
+        path: Routes.superVersions,
+        builder: (_, _) => const ReleasesScreen(),
+      ),
       GoRoute(path: Routes.superPlans, builder: (_, _) => const PlansScreen()),
       GoRoute(
         path: Routes.superAbonnements,
@@ -326,7 +369,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.superPaiements,
         builder: (_, _) => const PaymentMethodsScreen(),
       ),
-      _placeholder(Routes.superMessages, 'Messagerie'),
+      // `/super/messagerie` n'est pas un écran : c'est le PARENT de l'accueil,
+      // des messages, des tickets, des annonces et des partenaires. La sidebar
+      // pointe déjà sur l'accueil ; taper l'adresse nue tombait sur un
+      // placeholder, seul cul-de-sac de l'espace opérateur.
+      GoRoute(
+        path: Routes.superMessages,
+        redirect: (_, _) => Routes.superMessagesAccueil,
+      ),
       GoRoute(
         path: Routes.superMessagesInbox,
         builder: (_, state) => StaffMessagesScreen(
@@ -339,6 +389,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.superAnnonces,
         builder: (_, _) => const StaffAnnouncementsScreen(),
+      ),
+      GoRoute(
+        path: Routes.superMessagesAccueil,
+        builder: (_, _) => const PlatformServiceMessagesScreen(),
+      ),
+      GoRoute(
+        path: Routes.superPartenaires,
+        builder: (_, _) => const PlatformPartnersScreen(),
       ),
       GoRoute(path: Routes.superIa, builder: (_, _) => const AiScreen()),
       GoRoute(path: Routes.superAudit, builder: (_, _) => const AuditScreen()),
@@ -373,12 +431,44 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const AdminAcademicYearsScreen(),
       ),
       GoRoute(
+        path: Routes.adminFrais,
+        builder: (_, _) => const AdminFeesScreen(),
+      ),
+      GoRoute(
+        path: Routes.adminRattachement,
+        builder: (_, _) => const AdminRattachementScreen(),
+      ),
+      GoRoute(
         path: Routes.adminUtilisateurs,
         builder: (_, _) => const AdminUsersScreen(),
       ),
       GoRoute(
+        path: Routes.adminEleves,
+        builder: (_, _) => const AdminStudentsScreen(),
+      ),
+      GoRoute(
         path: Routes.adminProfils,
         builder: (_, _) => const AdminAccessScreen(),
+      ),
+      GoRoute(
+        path: Routes.adminReferentiel,
+        builder: (_, _) => const ExamReferentialScreen(),
+      ),
+      GoRoute(
+        path: Routes.adminSessions,
+        builder: (_, _) => const ExamSessionsScreen(),
+      ),
+      GoRoute(
+        path: Routes.adminExamens,
+        builder: (_, _) => const AdminExamsScreen(),
+      ),
+      GoRoute(
+        path: Routes.adminResultats,
+        builder: (_, _) => const AdminExamResultsScreen(),
+      ),
+      GoRoute(
+        path: Routes.adminPalmares,
+        builder: (_, _) => const AdminMeritScreen(),
       ),
       GoRoute(
         path: Routes.adminRapports,
@@ -390,7 +480,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.adminAudit,
-        builder: (_, _) => const AdminAuditScreen(),
+        builder: (_, _) => const shared_audit.AuditScreen(),
       ),
       GoRoute(
         path: Routes.adminSupport,
@@ -435,10 +525,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const UserDashboardScreen(),
       ),
       GoRoute(path: Routes.eleves, builder: (_, _) => const ElevesScreen()),
+      // ⚠️ ROUTE MORTE, conservée en REDIRECTION et non en écran.
+      //
+      //  `Routes.eleveDetail` n'était référencé que par sa propre déclaration :
+      //  aucun code de l'application ne navigue vers `/user/eleves/<id>`. Le
+      //  détail d'un élève se lit dans le tiroir d'`eleves_screen.dart`.
+      //
+      //  Elle affichait donc un placeholder « Élève · <uuid> » — un cul-de-sac
+      //  que seul un lien collé pouvait atteindre, et qui n'apprenait rien.
+      //  La supprimer ferait tomber une telle URL sur l'écran d'erreur ; la
+      //  rediriger la fait atterrir sur la liste, d'où l'élève s'ouvre.
+      //
+      //  À rebrancher sur un vrai lien profond LE JOUR où quelque chose en
+      //  produit (une notification, un partage) — pas avant : un lien que
+      //  personne n'émet est une fonctionnalité qu'on ne peut pas vérifier.
       GoRoute(
         path: Routes.eleveDetail,
-        builder: (_, state) =>
-            _PlaceholderScreen(title: 'Élève · ${state.pathParameters['id']}'),
+        redirect: (_, _) => Routes.eleves,
       ),
       GoRoute(
         path: Routes.inscriptions,
@@ -494,6 +597,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.conseils,
         builder: (_, _) => const ConseilsScreen(),
+      ),
+      GoRoute(
+        path: Routes.passage,
+        builder: (_, _) => const PassageScreen(),
+      ),
+      GoRoute(
+        path: Routes.examens,
+        builder: (_, _) => const ExamensScreen(),
+      ),
+      GoRoute(
+        path: Routes.stages,
+        builder: (_, _) => const StagesScreen(),
+      ),
+      GoRoute(
+        path: Routes.examenSession,
+        builder: (_, st) =>
+            ExamSessionScreen(sessionId: st.pathParameters['id']!),
       ),
       GoRoute(
         path: Routes.presences,
@@ -587,16 +707,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.userRapports,
-        builder: (_, _) => const StaffComingSoonScreen(
-          title: 'Rapports',
-          icon: Icons.bar_chart_rounded,
-          message:
-              'Vos rapports et statistiques seront bientôt disponibles ici.',
-        ),
+        builder: (_, _) => const RapportsScreen(),
       ),
       GoRoute(
         path: Routes.userAudit,
-        builder: (_, _) => const StaffAuditScreen(),
+        builder: (_, _) => const shared_audit.AuditScreen(),
       ),
       GoRoute(
         path: Routes.userSupport,

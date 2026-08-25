@@ -129,35 +129,78 @@ final canProvider =
 
 // ─── Périmètre (verrou 4) ──────────────────────────────────────────────────
 
-/// `staff_id` du membre connecté (via staff_members.profile_id), ou null.
-/// Null tant que le lien n'est pas peuplé → own_classes = aucune classe (sûr).
-final myStaffIdProvider = StreamProvider.autoDispose<String?>((ref) {
-  final pid = ref.watch(activeAgentIdProvider);
-  if (pid == null || pid.isEmpty) return Stream.value(null);
-  return db
-      .watch(
-        'SELECT id FROM staff_members WHERE profile_id = ? AND is_active = 1 LIMIT 1',
-        parameters: [pid],
-      )
-      .map((rows) => rows.isEmpty ? null : rows.first['id'] as String?);
-});
-
 /// IDs de classes autorisées pour un module, selon `data_scope` :
 /// - `own_school`  → `null` (= aucune restriction : toute l'école, géré par RLS/appelant)
 /// - `own_classes` → liste des `class_id` enseignés par le membre (peut être vide)
+///
+/// ── ⚠️ `teacher_subjects.staff_id` EST UN `profiles.id` ─────────────────────
+/// La contrainte en base le dit : `teacher_subjects_staff_id_fkey FOREIGN KEY
+/// (staff_id) REFERENCES profiles(id)`. Il n'y a pas d'identifiant « staff »
+/// distinct à résoudre — `staff_members` est une table d'EXTENSION dont la clé
+/// primaire est déjà l'id du profil (`staff_members_id_fkey → profiles(id)`).
+///
+/// On passait par un `myStaffIdProvider` qui cherchait `staff_members.profile_id` :
+/// cette colonne n'existe pas côté serveur (elle n'est déclarée que dans le
+/// schéma local, où elle reste vide). La recherche ne renvoyait donc JAMAIS
+/// rien, et tout membre en `own_classes` héritait d'une liste de classes vide —
+/// c'est-à-dire d'une application entièrement vide : aucun élève, aucune note,
+/// aucun bulletin, et pas un message pour l'expliquer. Le verrou de périmètre
+/// ne restreignait pas, il effaçait.
 final scopedClassIdsProvider =
     StreamProvider.autoDispose.family<List<String>?, String>((ref, slug) {
   final perm = ref.watch(modulePermissionProvider(slug));
   if (perm == null || !perm.isOwnClasses) {
     return Stream.value(null); // null = toute l'école
   }
-  final staffId = ref.watch(myStaffIdProvider).valueOrNull;
-  if (staffId == null) return Stream.value(const <String>[]);
+  final profileId = ref.watch(activeAgentIdProvider);
+  if (profileId == null || profileId.isEmpty) {
+    return Stream.value(const <String>[]);
+  }
   return db
       .watch(
         'SELECT DISTINCT class_id FROM teacher_subjects WHERE staff_id = ?',
-        parameters: [staffId],
+        parameters: [profileId],
       )
       .map((rows) =>
           rows.map((r) => r['class_id'] as String?).whereType<String>().toList());
 });
+
+/// Fragment SQL restreignant une requête aux classes du membre, à coller dans
+/// un `WHERE` déjà ouvert. `null` = aucune restriction (`own_school`).
+///
+/// [column] est la colonne de classe DE LA REQUÊTE APPELANTE (`ce.class_id`,
+/// `c.id`, …) : chaque module la nomme à sa façon, seule la liste d'IDs est
+/// commune.
+///
+/// ⚠️ FERMÉ PAR DÉFAUT. Tant que la liste des classes n'est pas chargée, on
+/// renvoie `AND 0 = 1` plutôt que « pas de restriction » : afficher toute
+/// l'école pendant une demi-seconde à un enseignant restreint, c'est l'avoir
+/// affichée. Chaque module doit passer par ici — un provider qui oublie le
+/// périmètre ouvre l'école entière sans que rien ne le signale (c'était le cas
+/// du registre des élèves, donc aussi de l'annuaire des familles).
+({String clause, List<String> params})? classScopeClause(
+  Ref ref,
+  String slug, {
+  required String column,
+}) {
+  // Profil d'accès pas encore lu : on ne sait pas si ce membre est restreint.
+  // « Je ne sais pas » se traite comme « restreint », jamais comme « ouvert » —
+  // sinon la fenêtre de chargement sert l'école entière. Les pages qui doivent
+  // afficher un squelette plutôt qu'un effectif vide interrogent d'abord
+  // [permissionsLoaded].
+  if (!permissionsLoaded(ref)) {
+    return (clause: 'AND 0 = 1', params: const <String>[]);
+  }
+  final perm = ref.watch(modulePermissionProvider(slug));
+  if (perm == null || !perm.isOwnClasses) return null; // own_school → tout
+  final ids =
+      ref.watch(scopedClassIdsProvider(slug)).valueOrNull ?? const <String>[];
+  if (ids.isEmpty) return (clause: 'AND 0 = 1', params: const <String>[]);
+  final ph = List.filled(ids.length, '?').join(',');
+  return (clause: 'AND $column IN ($ph)', params: ids);
+}
+
+/// `true` dès que le profil d'accès du membre est connu — même s'il est vide
+/// (aucun module accordé). Sert à distinguer « pas encore chargé » de
+/// « chargé et sans droit », que `modulePermissionProvider` confond en `null`.
+bool permissionsLoaded(Ref ref) => ref.watch(myPermissionsProvider).hasValue;

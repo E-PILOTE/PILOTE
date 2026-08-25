@@ -1,14 +1,20 @@
 # Project-level configuration.
-cmake_minimum_required(VERSION 3.14)
+#
+# 3.15 et non 3.14 : depuis Visual Studio 18 (2026), `audioplayers_windows`
+# s'appuie sur des bibliothèques qui exigent la politique CMP0091 — le choix de
+# la bibliothèque d'exécution MSVC par une variable dédiée plutôt que par des
+# drapeaux de compilation. Cette politique n'existe qu'à partir de CMake 3.15.
+cmake_minimum_required(VERSION 3.15)
 project(epilote LANGUAGES CXX)
 
-# The name of the executable created for the application. Change this to change
-# the on-disk name of your application.
-set(BINARY_NAME "epilote")
+# Nom du binaire sur le disque, et donc du raccourci et de la ligne affichée
+# par le gestionnaire des tâches. Doit rester identique à `OriginalFilename`
+# dans runner/Runner.rc.
+set(BINARY_NAME "E-PILOTE")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
-cmake_policy(VERSION 3.14...3.25)
+cmake_policy(VERSION 3.15...3.25)
 
 # Define build configuration option.
 get_property(IS_MULTICONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)

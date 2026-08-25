@@ -19,6 +19,7 @@ import 'announcements_feed_cards.dart';
 import 'announcements_feed_form.dart';
 import 'events_feed.dart';
 import 'events_feed_form.dart';
+import '../../../core/utils/message_erreur.dart';
 
 class StaffAnnouncementsScreen extends StatefulWidget {
   const StaffAnnouncementsScreen({super.key, this.initialTab = 0});
@@ -60,8 +61,8 @@ class _AgendaTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: kCardBg,
           border: Border(bottom: BorderSide(color: kBorder)),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -75,9 +76,9 @@ class _AgendaTopBar extends StatelessWidget {
           const SizedBox(width: 6),
           Container(width: 1, height: 18, color: kBorder),
           const SizedBox(width: 12),
-          const Icon(Icons.event_rounded, size: 18, color: kNavy),
+          Icon(Icons.event_rounded, size: 18, color: kNavy),
           const SizedBox(width: 8),
-          const Text('Agenda',
+          Text('Agenda',
               style: TextStyle(
                   fontSize: 14, fontWeight: FontWeight.w800, color: kTextPrimary)),
         ]),
@@ -221,7 +222,7 @@ class _FeedState extends ConsumerState<_Feed> {
       skipLoadingOnReload: true,
       loading: () => const FeedSkeleton(cards: 4, maxWidth: double.infinity),
       error: (e, _) =>
-          Center(child: Text('Erreur : $e', style: const TextStyle(color: kTextMuted))),
+          Center(child: Text(messageErreur(e), style: TextStyle(color: kTextMuted))),
       data: (anns) => _buildBody(context, anns),
     );
   }
@@ -329,7 +330,7 @@ class _FeedState extends ConsumerState<_Feed> {
                       label: const Text('Agenda'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: kNavy,
-                        side: const BorderSide(color: kBorder),
+                        side: BorderSide(color: kBorder),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8)),
                       ),
@@ -584,8 +585,8 @@ class _StickyFilterBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.fromLTRB(16, 11, 16, 12),
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: kCardBg,
           border: Border(bottom: BorderSide(color: kBorder)),
         ),
         child: Column(
@@ -726,7 +727,7 @@ class _PublishFabState extends State<_PublishFab>
                 height: 54,
                 padding: const EdgeInsets.symmetric(horizontal: 22),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     colors: [_redBright, kRed],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -770,7 +771,7 @@ class _BulkActionBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: kNavy.withValues(alpha: 0.04),
-          border: const Border(
+          border: Border(
             top   : BorderSide(color: kBorder),
             bottom: BorderSide(color: kBorder),
           ),
@@ -784,7 +785,7 @@ class _BulkActionBar extends StatelessWidget {
             ),
             child: Text(
                 '$count sélectionnée${count > 1 ? 's' : ''}',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w800,
                     color: kNavy)),
@@ -815,7 +816,7 @@ class _BulkActionBar extends StatelessWidget {
             tooltip: 'Annuler la sélection',
             visualDensity: VisualDensity.compact,
             onPressed: onClear,
-            icon: const Icon(Icons.close_rounded, size: 18, color: kTextMuted),
+            icon: Icon(Icons.close_rounded, size: 18, color: kTextMuted),
           ),
         ]),
       );
@@ -847,17 +848,17 @@ class _AuthorFilterBanner extends StatelessWidget {
           border: Border.all(color: kNavy.withValues(alpha: 0.18)),
         ),
         child: Row(children: [
-          const Icon(Icons.person_search_rounded, size: 18, color: kNavy),
+          Icon(Icons.person_search_rounded, size: 18, color: kNavy),
           const SizedBox(width: 10),
           Expanded(
             child: Text.rich(
               TextSpan(children: [
-                const TextSpan(
+                TextSpan(
                     text: 'Publications de ',
                     style: TextStyle(fontSize: 13, color: kTextPrimary)),
                 TextSpan(
                     text: name,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
                         color: kNavy)),

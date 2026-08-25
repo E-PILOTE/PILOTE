@@ -6,21 +6,22 @@ import '../../auth/providers/auth_provider.dart';
 import '../providers/messages_provider.dart' show MessageAttachment;
 import '../providers/stories_provider.dart';
 import 'comm_attachments.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  Composer de Story — deux modes : Média (photo/vidéo téléversés) ou Texte
 //  (fond coloré). Publie une story éphémère 24h via [createStoryScoped].
 // ════════════════════════════════════════════════════════════════════════════
 
-const _bgPalette = [
-  Color(0xFF1E3A5F), // navy
-  Color(0xFF7C3AED), // violet
-  Color(0xFF009A44), // vert
-  Color(0xFFE11D48), // rose
-  Color(0xFFF59E0B), // ambre
-  Color(0xFF0EA5E9), // bleu ciel
-  Color(0xFF0F172A), // noir
-  Color(0xFF059669), // émeraude
+List<Color> get _bgPalette => [
+  kNavy, // navy
+  const Color(0xFF7C3AED), // violet
+  kGreen, // vert
+  const Color(0xFFE11D48), // rose
+  const Color(0xFFF59E0B), // ambre
+  const Color(0xFF0EA5E9), // bleu ciel
+  kTextPrimary, // noir
+  const Color(0xFF059669), // émeraude
 ];
 
 class StoryComposerDialog extends ConsumerStatefulWidget {
@@ -114,7 +115,7 @@ class _StoryComposerDialogState extends ConsumerState<StoryComposerDialog> {
         _toast('Story publiée — visible 24 h', ok: true);
       }
     } catch (e) {
-      _toast('Erreur : $e');
+      _toast(messageErreur(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -135,9 +136,9 @@ class _StoryComposerDialogState extends ConsumerState<StoryComposerDialog> {
         padding: const EdgeInsets.all(20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Row(children: [
-            const Icon(Icons.auto_awesome_rounded, size: 18, color: kNavy),
+            Icon(Icons.auto_awesome_rounded, size: 18, color: kNavy),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Text('Nouvelle story',
                   style: TextStyle(
                       fontSize: 15,
@@ -147,7 +148,7 @@ class _StoryComposerDialogState extends ConsumerState<StoryComposerDialog> {
             IconButton(
               visualDensity: VisualDensity.compact,
               onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.close_rounded, color: kTextMuted),
+              icon: Icon(Icons.close_rounded, color: kTextMuted),
             ),
           ]),
           const SizedBox(height: 12),
@@ -282,7 +283,7 @@ class _StoryComposerDialogState extends ConsumerState<StoryComposerDialog> {
           style: const TextStyle(fontSize: 13),
           decoration: InputDecoration(
             hintText: 'Légende (optionnelle)…',
-            hintStyle: const TextStyle(fontSize: 13, color: kTextMuted),
+            hintStyle: TextStyle(fontSize: 13, color: kTextMuted),
             isDense: true,
             filled: true,
             fillColor: kSurface,
@@ -290,10 +291,10 @@ class _StoryComposerDialogState extends ConsumerState<StoryComposerDialog> {
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: kBorder)),
+                borderSide: BorderSide(color: kBorder)),
             enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: kBorder)),
+                borderSide: BorderSide(color: kBorder)),
           ),
         ),
       ]);
@@ -312,16 +313,16 @@ class _StoryComposerDialogState extends ConsumerState<StoryComposerDialog> {
         child: Center(
           child: _busy
               ? const CircularProgressIndicator(strokeWidth: 2)
-              : const Column(mainAxisSize: MainAxisSize.min, children: [
+              : Column(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.add_photo_alternate_outlined,
                       size: 44, color: kNavy),
-                  SizedBox(height: 10),
+                  const SizedBox(height: 10),
                   Text('Ajouter une photo ou une vidéo',
                       style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: kTextPrimary)),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text('Nécessite une connexion internet',
                       style: TextStyle(fontSize: 11, color: kTextMuted)),
                 ]),

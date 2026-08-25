@@ -32,9 +32,9 @@ class _ProgramCompliance extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.fact_check_outlined, size: 16, color: kNavy),
+          Icon(Icons.fact_check_outlined, size: 16, color: kNavy),
           const SizedBox(width: 8),
-          const Expanded(
+          Expanded(
             child: Text('Conformité au programme',
                 style: TextStyle(
                     fontSize: 14, fontWeight: FontWeight.w800, color: kNavy)),
@@ -101,7 +101,7 @@ class _SubjectVolumeChip extends StatelessWidget {
         Icon(icon, size: 13, color: color),
         const SizedBox(width: 6),
         Text(name,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12, fontWeight: FontWeight.w700, color: kTextPrimary)),
         const SizedBox(width: 6),
         Text(label,
@@ -130,27 +130,27 @@ class _ClassActionsMenu extends StatelessWidget {
     if (!canEdit) return const SizedBox.shrink();
     return PopupMenuButton<String>(
       tooltip: 'Actions',
-      icon: const Icon(Icons.more_horiz_rounded, size: 20, color: kTextMuted),
+      icon: Icon(Icons.more_horiz_rounded, size: 20, color: kTextMuted),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       onSelected: (v) {
         if (v == 'dup') onDuplicate();
         if (v == 'clear') onClear?.call();
       },
       itemBuilder: (_) => [
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'dup',
           child: Row(children: [
             Icon(Icons.copy_all_rounded, size: 17, color: kNavy),
-            SizedBox(width: 10),
-            Text('Dupliquer vers une classe…'),
+            const SizedBox(width: 10),
+            const Text('Dupliquer vers une classe…'),
           ]),
         ),
         if (onClear != null)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'clear',
             child: Row(children: [
               Icon(Icons.delete_sweep_outlined, size: 17, color: kRed),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               Text('Vider l\'emploi du temps', style: TextStyle(color: kRed)),
             ]),
           ),

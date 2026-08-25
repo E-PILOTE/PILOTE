@@ -2,8 +2,10 @@ part of 'documents_screen.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  DÉTAIL D'UN DOSSIER — checklist complète (pièces exigées + facultatives),
-//  téléversement (Storage privé, internet requis), vérification (cachet admin),
-//  consultation (URL signée) et retrait. Écritures gardées par permissions.
+//  dépôt (offline-first : `upload_outbox`, le fichier monte au retour du
+//  réseau), vérification (cachet admin), consultation (fichier local tant qu'il
+//  est en attente, URL signée ensuite) et retrait. Écritures gardées par
+//  permissions.
 // ════════════════════════════════════════════════════════════════════════════
 class _DossierDetail extends ConsumerStatefulWidget {
   const _DossierDetail({required this.dossier});
@@ -35,32 +37,47 @@ class _DossierDetailState extends ConsumerState<_DossierDetail> {
 
     setState(() => _uploading.add(slug));
     try {
-      final client = ref.read(supabaseClientProvider);
-      final path = await uploadStudentDocumentFile(
-        client: client,
-        schoolId: schoolId,
-        studentId: _studentId,
-        typeSlug: slug,
-        fileName: f.name,
-        bytes: bytes,
-      );
-      await insertStudentDocumentRow(
+      // ── LE DÉPÔT D'UNE PIÈCE NE DEMANDE PLUS LE RÉSEAU ────────────────────
+      // Il passait par Storage en direct : sans connexion, l'agent recevait
+      // « Téléversement impossible (connexion requise) » et le dossier restait
+      // incomplet jusqu'à ce que quelqu'un revienne, avec du réseau, refaire le
+      // geste. Dans une école congolaise, c'est-à-dire souvent jamais.
+      //
+      // `attachStudentDocumentOffline` calcule le chemin en local, pose les
+      // octets sur le disque via `upload_outbox` et écrit la ligne tout de
+      // suite : la pièce entre au dossier immédiatement et le fichier monte au
+      // retour du réseau, à ce chemin exact. Le chemin existait déjà dans le
+      // dépôt — Examens et Stages s'en servent depuis leur écriture ; le module
+      // qui possède `student_documents` était le seul à ne pas l'emprunter.
+      await attachStudentDocumentOffline(
         groupId: groupId,
         schoolId: schoolId,
         studentId: _studentId,
         documentType: slug,
         documentName: label,
-        fileUrl: path,
+        fileName: f.name,
+        bytes: bytes,
+        client: ref.read(supabaseClientProvider),
       );
-      _snack('« $label » téléversé', kGreen);
+      _snack('« $label » ajouté au dossier', kGreen);
     } catch (e) {
-      _snack('Téléversement impossible (connexion requise) : $e', kRed);
+      _snack(messageErreur(e), kRed);
     } finally {
       if (mounted) setState(() => _uploading.remove(slug));
     }
   }
 
   Future<void> _view(DocRow d) async {
+    // Une pièce déposée hors ligne n'est pas encore chez Supabase : son URL
+    // signée n'existe pas. Elle est pourtant SUR LE POSTE, dans la file
+    // d'envoi — c'est l'agent lui-même qui vient de la déposer. Lui répondre
+    // « aperçu indisponible » pour un fichier qu'il a sous la main serait
+    // absurde ; on l'ouvre depuis le disque.
+    final local = await pendingFileFor(d.fileUrl);
+    if (local != null) {
+      await launchUrl(Uri.file(local.path), mode: LaunchMode.externalApplication);
+      return;
+    }
     final client = ref.read(supabaseClientProvider);
     final url = await signedStudentDocUrl(client, d.fileUrl);
     if (url == null) {
@@ -138,7 +155,7 @@ class _DossierDetailState extends ConsumerState<_DossierDetail> {
             padding: const EdgeInsets.fromLTRB(20, 18, 16, 18),
             decoration: BoxDecoration(
               color: kNavy.withValues(alpha: 0.04),
-              border: const Border(bottom: BorderSide(color: kBorder)),
+              border: Border(bottom: BorderSide(color: kBorder)),
             ),
             child: Row(children: [
               CircleAvatar(
@@ -161,7 +178,7 @@ class _DossierDetailState extends ConsumerState<_DossierDetail> {
                       Text(s.lastFirst,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 16.5,
                               fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
@@ -172,7 +189,7 @@ class _DossierDetailState extends ConsumerState<_DossierDetail> {
                             s.matricule
                           ].join(' · '),
                           style:
-                              const TextStyle(fontSize: 12.5, color: kTextMuted)),
+                              TextStyle(fontSize: 12.5, color: kTextMuted)),
                     ]),
               ),
               AdminBadge(
@@ -244,7 +261,7 @@ class _Section extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 10, top: 2),
         child: Text(label.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.5,
@@ -284,7 +301,7 @@ class _DocTypeTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kBorder),
       ),
@@ -303,7 +320,7 @@ class _DocTypeTile extends StatelessWidget {
               child: Text(label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: kTextPrimary)),
@@ -316,7 +333,7 @@ class _DocTypeTile extends StatelessWidget {
                 decoration: BoxDecoration(
                     color: kRed.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(5)),
-                child: const Text('exigée',
+                child: Text('exigée',
                     style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
@@ -417,12 +434,12 @@ class _PieceRow extends StatelessWidget {
 }
 
 class _IconAction extends StatelessWidget {
-  const _IconAction({
+  _IconAction({
     required this.icon,
     required this.tip,
     required this.onTap,
-    this.color = kTextMuted,
-  });
+    Color? color,
+  }) : color = color ?? kTextMuted;
   final IconData icon;
   final String tip;
   final VoidCallback onTap;

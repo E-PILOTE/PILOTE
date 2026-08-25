@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show UserAttributes, SignOutScope;
 
 import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const _kNavy  = Color(0xFF1E3A5F);
-const _kGreen = Color(0xFF009A44);
-const _kCard  = Colors.white;
-const _kText  = Color(0xFF0F172A);
-const _kSub   = Color(0xFF64748B);
-const _kBg    = Color(0xFFF0F4F8);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
+Color get _kCard => kCardBg;
+Color get _kText => kTextPrimary;
+Color get _kSub => kTextMuted;
+Color get _kBg => kSurface;
 
 final _fmtDate = DateFormat('dd/MM/yyyy à HH:mm', 'fr_FR');
 
@@ -75,8 +78,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       title: 'Mon Profil',
       child: async.when(
         skipLoadingOnReload: true, skipLoadingOnRefresh: true,
-        loading: () => const Center(child: CircularProgressIndicator(color: _kNavy)),
-        error:   (e, _) => Center(child: Text('Erreur : $e', style: const TextStyle(color: _kSub))),
+        loading: () => Center(child: CircularProgressIndicator(color: _kNavy)),
+        error:   (e, _) => Center(child: Text(messageErreur(e), style: TextStyle(color: _kSub))),
         data:    (profile) {
           // Populate controllers once
           if (_firstNameCtrl.text.isEmpty && profile != null) {
@@ -133,7 +136,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       setState(() => _saving = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red));
+        SnackBar(content: Text(messageErreur(e)), backgroundColor: Colors.red));
       }
     }
   }
@@ -156,12 +159,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       _currentPwdCtrl.clear(); _newPwdCtrl.clear(); _confirmPwdCtrl.clear();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mot de passe modifié avec succès !'), backgroundColor: _kGreen));
+        SnackBar(content: const Text('Mot de passe modifié avec succès !'), backgroundColor: _kGreen));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red));
+        SnackBar(content: Text(messageErreur(e)), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _pwdSaving = false);
@@ -196,7 +199,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red));
+        SnackBar(content: Text(messageErreur(e)), backgroundColor: Colors.red));
       }
     }
   }
@@ -269,9 +272,9 @@ class _ProfileBody extends StatelessWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(32, 32, 32, 24),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [_kNavy, Color(0xFF2A4F7A)],
+                colors: [_kNavy, const Color(0xFF2A4F7A)],
                 begin: Alignment.topLeft, end: Alignment.bottomRight,
               ),
             ),
@@ -339,13 +342,13 @@ class _ProfileBody extends StatelessWidget {
                 Container(
                   width: 10, height: 10,
                   margin: const EdgeInsets.only(right: 6),
-                  decoration: const BoxDecoration(color: _kGreen, shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: _kGreen, shape: BoxShape.circle),
                 ),
-                const Text('Compte actif', style: TextStyle(fontSize: 12, color: _kGreen, fontWeight: FontWeight.w600)),
+                Text('Compte actif', style: TextStyle(fontSize: 12, color: _kGreen, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
-          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+          Divider(height: 1, color: kBorder),
 
           // ── Two column layout ─────────────────────────────────────────
           Padding(
@@ -427,7 +430,7 @@ class _ProfileBody extends StatelessWidget {
                               onToggle: onToggleConfirmPwd,
                             ),
                             const SizedBox(height: 8),
-                            const Align(
+                            Align(
                               alignment: Alignment.centerLeft,
                               child: Text('Minimum 8 caractères, avec lettres et chiffres',
                                   style: TextStyle(fontSize: 11, color: _kSub)),
@@ -472,14 +475,14 @@ class _ProfileBody extends StatelessWidget {
                             value: lastLogin != null ? _fmt(lastLogin) : 'Jamais',
                             color: _kGreen,
                           ),
-                          const Divider(height: 20, color: Color(0xFFE2E8F0)),
+                          Divider(height: 20, color: kBorder),
                           _ActivityRow(
                             icon: Icons.verified_user_rounded,
                             label: 'Compte créé le',
                             value: createdAt != null ? _fmt(createdAt) : '—',
                             color: _kNavy,
                           ),
-                          const Divider(height: 20, color: Color(0xFFE2E8F0)),
+                          Divider(height: 20, color: kBorder),
                           _ActivityRow(
                             icon: Icons.admin_panel_settings_rounded,
                             label: 'Niveau d\'accès',
@@ -590,10 +593,10 @@ class _Card extends StatelessWidget {
         Row(children: [
           Icon(icon, size: 16, color: _kNavy),
           const SizedBox(width: 8),
-          Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _kText)),
+          Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _kText)),
         ]),
         const SizedBox(height: 16),
-        const Divider(height: 1, color: Color(0xFFE2E8F0)),
+        Divider(height: 1, color: kBorder),
         const SizedBox(height: 16),
         child,
       ],
@@ -610,7 +613,7 @@ class _Field extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kSub)),
+      Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kSub)),
       const SizedBox(height: 4),
       TextField(
         controller: ctrl,
@@ -618,12 +621,12 @@ class _Field extends StatelessWidget {
         style: const TextStyle(fontSize: 13),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(fontSize: 12, color: _kSub),
+          hintStyle: TextStyle(fontSize: 12, color: _kSub),
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          border:        OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _kNavy)),
+          border:        OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _kNavy)),
           filled: true, fillColor: _kBg,
         ),
       ),
@@ -639,7 +642,7 @@ class _ReadonlyField extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kSub)),
+      Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kSub)),
       const SizedBox(height: 4),
       Container(
         width: double.infinity,
@@ -647,12 +650,12 @@ class _ReadonlyField extends StatelessWidget {
         decoration: BoxDecoration(
           color: _kBg,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          border: Border.all(color: kBorder),
         ),
         child: Row(children: [
           Icon(icon, size: 14, color: _kSub),
           const SizedBox(width: 8),
-          Text(value, style: const TextStyle(fontSize: 13, color: _kSub)),
+          Text(value, style: TextStyle(fontSize: 13, color: _kSub)),
         ]),
       ),
     ],
@@ -667,7 +670,7 @@ class _PasswordField extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kSub)),
+      Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kSub)),
       const SizedBox(height: 4),
       TextField(
         controller: ctrl,
@@ -676,9 +679,9 @@ class _PasswordField extends StatelessWidget {
         decoration: InputDecoration(
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          border:        OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _kNavy)),
+          border:        OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _kNavy)),
           filled: true, fillColor: _kBg,
           suffixIcon: IconButton(
             icon: Icon(show ? Icons.visibility_off_rounded : Icons.visibility_rounded, size: 18, color: _kSub),
@@ -698,8 +701,8 @@ class _MetaItem extends StatelessWidget {
   Widget build(BuildContext context) => Row(children: [
     Icon(icon, size: 14, color: _kSub),
     const SizedBox(width: 6),
-    Text('$label : ', style: const TextStyle(fontSize: 11, color: _kSub)),
-    Text(value, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kText)),
+    Text('$label : ', style: TextStyle(fontSize: 11, color: _kSub)),
+    Text(value, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kText)),
   ]);
 }
 
@@ -718,8 +721,8 @@ class _ActivityRow extends StatelessWidget {
     Expanded(child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 11, color: _kSub)),
-        Text(value,  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kText)),
+        Text(label, style: TextStyle(fontSize: 11, color: _kSub)),
+        Text(value,  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kText)),
       ],
     )),
   ]);

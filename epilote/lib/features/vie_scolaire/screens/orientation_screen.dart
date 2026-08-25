@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
@@ -10,6 +11,7 @@ import '../../structure/providers/academic_year_provider.dart';
 import '../../students/widgets/scope_drilldown_panel.dart';
 import '../providers/orientation_provider.dart';
 import '../widgets/vs_kit.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'orientation_sheet.dart';
 
@@ -105,7 +107,7 @@ class _BodyState extends ConsumerState<_Body> {
               child: Center(child: CircularProgressIndicator())),
           error: (e, _) => Padding(
               padding: const EdgeInsets.only(top: 40),
-              child: Center(child: Text('Erreur : $e'))),
+              child: Center(child: Text(messageErreur(e)))),
           data: _content,
         ),
         const SizedBox(height: 24),
@@ -234,18 +236,18 @@ class _ClassOrientationState extends ConsumerState<_ClassOrientation> {
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          const Icon(Icons.class_rounded, size: 18, color: kNavy),
+          Icon(Icons.class_rounded, size: 18, color: kNavy),
           const SizedBox(width: 8),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             if (widget.breadcrumb.isNotEmpty)
               Text(widget.breadcrumb,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w700,
                       color: kTextMuted,
                       letterSpacing: 0.2)),
             Text(widget.className,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 15, fontWeight: FontWeight.w800, color: kNavy)),
           ]),
         ]),
@@ -254,7 +256,7 @@ class _ClassOrientationState extends ConsumerState<_ClassOrientation> {
           loading: () => const Padding(
               padding: EdgeInsets.symmetric(vertical: 30),
               child: Center(child: CircularProgressIndicator())),
-          error: (e, _) => Center(child: Text('Erreur : $e')),
+          error: (e, _) => Center(child: Text(messageErreur(e))),
           data: (rows) {
             if (rows.isEmpty) {
               return const Padding(
@@ -283,26 +285,26 @@ class _ClassOrientationState extends ConsumerState<_ClassOrientation> {
                   decoration: InputDecoration(
                     isDense: true,
                     hintText: 'Rechercher un élève parmi ${rows.length}…',
-                    hintStyle: const TextStyle(fontSize: 13, color: kTextMuted),
-                    prefixIcon: const Icon(Icons.search_rounded,
+                    hintStyle: TextStyle(fontSize: 13, color: kTextMuted),
+                    prefixIcon: Icon(Icons.search_rounded,
                         size: 19, color: kTextMuted),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: kCardBg,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: kBorder),
+                      borderSide: BorderSide(color: kBorder),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: kBorder),
+                      borderSide: BorderSide(color: kBorder),
                     ),
                   ),
                 ),
                 const SizedBox(height: 12),
               ],
               if (filtered.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   child: Center(
                       child: Text('Aucun élève trouvé',
                           style: TextStyle(color: kTextMuted))),
@@ -324,7 +326,7 @@ class _ClassOrientationState extends ConsumerState<_ClassOrientation> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kBorder),
       ),
@@ -367,12 +369,12 @@ class _ClassOrientationState extends ConsumerState<_ClassOrientation> {
                   ]),
             ),
             if (r.oriented && r.parentConsulted)
-              const Padding(
-                padding: EdgeInsets.only(right: 6),
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
                 child: Icon(Icons.family_restroom_rounded,
                     size: 16, color: kGreen),
               ),
-            const Icon(Icons.chevron_right_rounded, color: kTextMuted),
+            Icon(Icons.chevron_right_rounded, color: kTextMuted),
           ]),
         ),
       ),

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/notifications_provider.dart';
 import 'notification_timeline.dart';
 import 'notification_types.dart';
+import '../../../core/utils/message_erreur.dart';
 
 /// Drawer latéral « Centre de notifications » (style Windows).
 /// Surface **en lecture seule** : les notifications sont émises par le système
@@ -78,14 +79,14 @@ class _NotificationsDrawerState extends ConsumerState<NotificationsDrawer> {
             // ── En-tête ───────────────────────────────────────────────────
             Container(
               padding: const EdgeInsets.fromLTRB(16, 14, 8, 12),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: kCommCard,
                 border: Border(bottom: BorderSide(color: kCommBorder)),
               ),
               child: Row(children: [
-                const Icon(Icons.notifications_rounded, color: kCommNavy, size: 20),
+                Icon(Icons.notifications_rounded, color: kCommNavy, size: 20),
                 const SizedBox(width: 8),
-                const Text('Notifications',
+                Text('Notifications',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kCommNavy)),
                 const SizedBox(width: 8),
                 if (unread > 0)
@@ -101,7 +102,7 @@ class _NotificationsDrawerState extends ConsumerState<NotificationsDrawer> {
                 const Spacer(),
                 IconButton(
                   tooltip: 'Fermer',
-                  icon: const Icon(Icons.close_rounded, color: kCommSub),
+                  icon: Icon(Icons.close_rounded, color: kCommSub),
                   onPressed: () => Scaffold.of(context).closeEndDrawer(),
                 ),
               ]),
@@ -182,9 +183,9 @@ class _NotificationsDrawerState extends ConsumerState<NotificationsDrawer> {
                 error: (e, _) => Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
-                    child: Text('Erreur : $e',
+                    child: Text(messageErreur(e),
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: kCommSub, fontSize: 12)),
+                        style: TextStyle(color: kCommSub, fontSize: 12)),
                   ),
                 ),
                 data: (_) => items.isEmpty
@@ -205,12 +206,12 @@ class _NotificationsDrawerState extends ConsumerState<NotificationsDrawer> {
 }
 
 class _FilterChip extends StatelessWidget {
-  const _FilterChip({
+  _FilterChip({
     required this.label,
     required this.selected,
     required this.onTap,
-    this.color = kCommNavy,
-  });
+    Color? color,
+  }) : color = color ?? kCommNavy;
   final String label;
   final bool selected;
   final VoidCallback onTap;

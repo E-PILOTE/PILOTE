@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../auth/providers/active_agent_provider.dart';
+import '../../../core/widgets/logout_guard.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/routes.dart';
+import '../../../core/utils/app_version.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/staff_ui.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../features/auth/screens/widgets/device_mode_setting.dart';
 import '../../../features/navigation/providers/module_navigation_provider.dart';
 import '../../../features/structure/providers/academic_year_provider.dart';
 import '../providers/user_profile_provider.dart';
@@ -59,10 +64,10 @@ class _Body extends ConsumerWidget {
               title: 'Mon profil',
               subtitle: 'Voir et modifier mes informations',
               trailing:
-                  const Icon(Icons.chevron_right_rounded, color: kTextMuted),
+                  Icon(Icons.chevron_right_rounded, color: kTextMuted),
               onTap: () => context.go(Routes.userProfil),
             ),
-            const Divider(height: 1, color: kBorder),
+            Divider(height: 1, color: kBorder),
             SettingsTile(
               icon: Icons.email_outlined,
               color: kGreen,
@@ -78,7 +83,18 @@ class _Body extends ConsumerWidget {
       StaffSection(
         title: 'Sécurité',
         icon: Icons.lock_outline_rounded,
-        child: StaffSecurityCard(lastLogin: profile?.lastLogin),
+        child: Column(
+          children: [
+            StaffSecurityCard(lastLogin: profile?.lastLogin),
+            const SizedBox(height: 12),
+            const DeviceModeTile(),
+            // Verrouillage auto : pertinent uniquement sur un poste PARTAGÉ.
+            if (ref.watch(deviceModeProvider).mode == DeviceMode.shared) ...[
+              const SizedBox(height: 12),
+              const AutoLockTile(),
+            ],
+          ],
+        ),
       ),
       const SizedBox(height: 22),
 
@@ -119,7 +135,7 @@ class _Body extends ConsumerWidget {
             title: 'Centre de notifications',
             subtitle: 'Annonces, messages et alertes de votre école',
             trailing:
-                const Icon(Icons.chevron_right_rounded, color: kTextMuted),
+                Icon(Icons.chevron_right_rounded, color: kTextMuted),
             onTap: () => Scaffold.of(context).openEndDrawer(),
           ),
         ),
@@ -127,7 +143,7 @@ class _Body extends ConsumerWidget {
       const SizedBox(height: 22),
 
       // ── À propos ─────────────────────────────────────────────────────────
-      const StaffSection(
+      StaffSection(
         title: 'À propos',
         icon: Icons.info_outline,
         child: AdminCard(
@@ -137,7 +153,11 @@ class _Body extends ConsumerWidget {
               icon: Icons.flag_rounded,
               color: kNavy,
               title: 'E-PILOTE CONGO',
-              subtitle: 'Version 3.0.0',
+              // Lue dans le binaire, pas recopiée à la main : ce libellé
+              // annonçait « 3.0.2 » sur un paquet en 3.1.7. C'est la première
+              // question du support à un établissement.
+              subtitle:
+                  'Version ${ref.watch(appVersionProvider).valueOrNull ?? '…'}',
             ),
             Divider(height: 1, color: kBorder),
             SettingsTile(
@@ -189,27 +209,34 @@ class _Body extends ConsumerWidget {
         ],
         const SizedBox(height: 24),
 
-        // ── Déconnexion (avec confirmation) ─────────────────────────────────
-        OutlinedButton.icon(
-          onPressed: () => _confirmSignOut(context, ref),
-          icon: const Icon(Icons.logout_rounded, size: 18),
-          label: const Text('Déconnexion'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: kRed,
-            side: BorderSide(color: kRed.withValues(alpha: 0.3)),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        // ── Déconnecter le poste ────────────────────────────────────────────
+        // Réservé à la direction sur un poste partagé : l'action prive TOUTE
+        // l'école de son mode hors-ligne (cf. `canUnenrollDevice`).
+        if (canUnenrollDevice(
+          role: ref.watch(authNotifierProvider).valueOrNull?.role,
+          mode: ref.watch(deviceModeProvider).mode,
+        )) ...[
+          OutlinedButton.icon(
+            onPressed: () => _confirmSignOut(context, ref),
+            icon: const Icon(Icons.link_off_rounded, size: 18),
+            label: const Text('Déconnecter ce poste…'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: kRed,
+              side: BorderSide(color: kRed.withValues(alpha: 0.3)),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
+          const SizedBox(height: 16),
+        ],
       ],
     );
   }
 
   Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
-    final ok = await showLogoutConfirmDialog(context);
-    if (!ok || !context.mounted) return;
-    await ref.read(authNotifierProvider.notifier).signOut();
+    // `guardedSignOut` porte déjà l'avertissement complet (offline + travail en
+    // attente) — un second dialogue générique par-dessus ne ferait que du bruit.
+    await guardedSignOut(context, ref, sharedDevice: true);
   }
 }

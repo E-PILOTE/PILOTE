@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,7 +9,7 @@ import '../providers/dunning_provider.dart';
 
 const _kSoonColor = Color(0xFFD97706); // ambre
 const _kGraceColor = Color(0xFFB45309); // ambre foncé
-const _kOverdueColor = Color(0xFFDC2626); // rouge
+Color get _kOverdueColor => kRed; // rouge
 
 /// Panneau « Recouvrement » (super_admin) : groupes proches de l'échéance, en
 /// grâce, ou échus/impayés. Greffé dans l'écran factures. Masqué si rien à relancer.
@@ -25,15 +27,15 @@ class DunningPanel extends ConsumerWidget {
       margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: kBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            const Icon(Icons.campaign_rounded, size: 18, color: _kOverdueColor),
+            Icon(Icons.campaign_rounded, size: 18, color: _kOverdueColor),
             const SizedBox(width: 8),
             Text('Recouvrement — ${rows.length} groupe${rows.length > 1 ? 's' : ''}',
                 style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
@@ -81,7 +83,7 @@ class DunningPanel extends ConsumerWidget {
           const SizedBox(width: 10),
           Expanded(child: Text(r.groupName, style: const TextStyle(fontWeight: FontWeight.w600))),
           Text('${r.planName} · $when$due',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+              style: TextStyle(fontSize: 12, color: kTextMuted)),
         ]),
       ),
     );

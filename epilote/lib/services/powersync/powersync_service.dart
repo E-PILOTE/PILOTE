@@ -1,11 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:powersync/powersync.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'local_storage_dir.dart';
 import 'powersync_connector.dart';
 import 'powersync_schema.dart';
+import 'upload_outbox.dart';
 
 // ─── Base de données PowerSync (SQLite local) ──────────────────────────────
 
@@ -25,6 +28,13 @@ bool _isStaffRole(String? role) =>
 /// Rôle du dernier utilisateur connecté (mis en cache pour l'offline).
 String? _cachedRole;
 
+/// Vrai quand la synchro offline est ACTIVE sur cet appareil (= session du
+/// personnel scolaire). Seuls ces appareils mettent des fichiers en file
+/// d'attente : chez super_admin / admin_groupe, online par conception, un échec
+/// réseau doit rester un échec visible plutôt qu'une promesse d'envoi différé.
+bool _syncEnabled = false;
+bool get isOfflineCapableDevice => _syncEnabled;
+
 /// File de sérialisation des transitions d'authentification.
 /// Indispensable pour les POSTES PARTAGÉS (ex. Proviseur puis Comptable sur le
 /// même ordinateur) : garantit que la PURGE locale d'un utilisateur qui se
@@ -37,11 +47,95 @@ void _enqueueAuth(Future<void> Function() op) {
   _authQueue = _authQueue.then((_) => op()).catchError((_) {});
 }
 
+// ─── Travail local non synchronisé ──────────────────────────────────────────
+
+/// Écritures locales en attente de remontée (`ps_crud`) + fichiers en attente.
+/// Sert de VERROU : tant que ce n'est pas zéro, la base locale ne doit pas être
+/// purgée, et l'utilisateur doit être averti avant de se déconnecter.
+class PendingLocalWork {
+  const PendingLocalWork({required this.writes, required this.files});
+  final int writes;
+  final int files;
+
+  int get total => writes + files;
+  bool get isEmpty => total == 0;
+}
+
+/// Compte ce qui n'est pas encore parti. Ne throw jamais (0 en cas de doute…
+/// mais on préfère surestimer : voir le `catch` — on renvoie 1 si on ne sait
+/// pas, pour ne JAMAIS purger sur une incertitude).
+Future<PendingLocalWork> pendingLocalWork() async {
+  try {
+    final stats = await db.getUploadQueueStats();
+    final row = await db.getOptional('SELECT COUNT(*) AS n FROM upload_outbox');
+    return PendingLocalWork(
+      writes: stats.count,
+      files: (row?['n'] as int?) ?? 0,
+    );
+  } catch (_) {
+    // Impossible de compter → on suppose qu'il reste du travail plutôt que de
+    // risquer une purge destructrice sur une base qu'on n'arrive pas à lire.
+    return const PendingLocalWork(writes: 1, files: 0);
+  }
+}
+
+Future<bool> hasPendingLocalWork() async => !(await pendingLocalWork()).isEmpty;
+
+// ─── Mémoire « dernier agent de cet appareil » ──────────────────────────────
+// Hors de la base PowerSync EXPRÈS : elle doit survivre à `powersync_clear()`
+// et à un redémarrage de l'app, sinon un appareil réattribué ne serait pas purgé.
+
+const _kLastDeviceUserKey = 'epilote.last_device_user';
+
+/// ⚠️ LE SEUL MOMENT OÙ LA BASE LOCALE SE PURGE.
+///
+/// L'appareil change réellement de main quand un utilisateur DIFFÉRENT ouvre
+/// une session. C'est là, et nulle part ailleurs, qu'on efface ce qui restait
+/// du précédent.
+///
+/// En particulier, une DÉCONNEXION ne purge JAMAIS : Supabase émet `signedOut`
+/// de lui-même dès qu'un jeton de rafraîchissement ne vaut plus (week-end hors
+/// ligne, rotation perdue, coupure longue). L'agent n'a rien demandé, et une
+/// école à jour perdrait tout son corpus hors ligne — puis se retrouverait
+/// devant un écran de mot de passe que personne sur place ne connaît.
+///
+/// Le premier utilisateur d'un appareil neuf ([precedent] nul) ne purge pas
+/// non plus : il n'y a rien à effacer, et effacer coûterait un
+/// retéléchargement complet au premier démarrage.
+bool doitPurgerPourChangementDeCompte({
+  required String? precedent,
+  required String? courant,
+}) =>
+    precedent != null &&
+    courant != null &&
+    precedent.isNotEmpty &&
+    courant.isNotEmpty &&
+    precedent != courant;
+
+Future<String?> _readLastDeviceUser() async {
+  try {
+    return (await SharedPreferences.getInstance())
+        .getString(_kLastDeviceUserKey);
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<void> _writeLastDeviceUser(String uid) async {
+  try {
+    await (await SharedPreferences.getInstance())
+        .setString(_kLastDeviceUserKey, uid);
+  } catch (_) {/* fail-soft */}
+}
+
 /// Initialise PowerSync : ouvre la base SQLite locale.
 /// La connexion réseau est conditionnée au rôle (utilisateur seulement).
 Future<void> initPowerSync() async {
-  final dir  = await getApplicationDocumentsDirectory();
-  final path = join(dir.path, 'epilote_v3.db');
+  // ⚠️ Surtout PAS le dossier « Documents » : sous Windows l'agent y voit la
+  // base et peut la supprimer, et le dossier est souvent redirigé vers
+  // OneDrive, dont la synchronisation corrompt une SQLite ouverte. Voir
+  // local_storage_dir.dart, qui reprend au passage une base déjà en place.
+  final path = await localDbPath();
 
   db = PowerSyncDatabase(schema: schema, path: path);
   await db.initialize();
@@ -53,9 +147,19 @@ Future<void> initPowerSync() async {
   if (supabase.auth.currentSession != null) {
     final role = await _resolveRole(supabase);
     if (_isStaffRole(role)) {
+      _syncEnabled = true;
       db.connect(connector: connector);
     }
   }
+
+  // Vidange de la file d'attente de FICHIERS dès que le réseau revient.
+  // PowerSync remonte les écritures SQL tout seul ; les fichiers, eux, n'ont
+  // aucun mécanisme de reprise → c'est ici qu'on le leur donne.
+  db.statusStream.listen((status) {
+    if (status.connected && _syncEnabled) {
+      unawaited(flushUploadOutbox(supabase));
+    }
+  });
 
   // Réagir aux changements de session. Les transitions connexion/déconnexion
   // sont SÉRIALISÉES (_enqueueAuth) : sur un poste partagé, la purge du compte
@@ -64,25 +168,83 @@ Future<void> initPowerSync() async {
     switch (data.event) {
       case AuthChangeEvent.signedIn:
         _enqueueAuth(() async {
-          final role = await _resolveRole(supabase);
-          if (_isStaffRole(role)) {
-            db.connect(connector: connector);
+          // L'appareil change de main → purge de ce qui restait du précédent.
+          // C'est ICI qu'on purge (et non à la déconnexion) : tant que le même
+          // agent revient, son travail en attente doit le retrouver intact.
+          final uid = supabase.auth.currentUser?.id;
+          final previous = await _readLastDeviceUser();
+          if (doitPurgerPourChangementDeCompte(
+              precedent: previous, courant: uid)) {
+            await db.disconnectAndClear();
+            await purgeUploadOutboxFiles();
           }
+          if (uid != null) await _writeLastDeviceUser(uid);
+
+          await _connecterSiPersonnel(supabase, connector);
         });
       case AuthChangeEvent.signedOut:
         _enqueueAuth(() async {
           _cachedRole = null;
-          await db.disconnectAndClear();
+          _syncEnabled = false;
+
+          // ⚠️ ON NE VIDE PLUS RIEN ICI. JAMAIS. (constaté le 2026-08-04)
+          //
+          // `signedOut` n'est PAS un ordre de l'utilisateur : Supabase l'émet
+          // aussi TOUT SEUL dès que le jeton de rafraîchissement ne vaut plus
+          // — expiration après un week-end hors ligne, rotation perdue si
+          // l'application est tuée pendant un renouvellement, coupure longue.
+          // L'agent n'a rien demandé.
+          //
+          // L'ancien code ne gardait la base que s'il RESTAIT DES ÉCRITURES à
+          // remonter. Une école parfaitement à jour — le cas normal — voyait
+          // donc `disconnectAndClear()` effacer d'un coup tout son corpus
+          // hors ligne. Deux conséquences, toutes deux graves au Congo :
+          //
+          //  1. il faut TOUT retélécharger. Neuf mille élèves et leurs notes
+          //     sur la liaison d'un lycée de Kinkala, c'est des heures — et
+          //     c'est précisément l'école à mauvaise liaison qui déclenche
+          //     l'expiration du jeton ;
+          //  2. le poste retombe sur l'écran e-mail + mot de passe. Sur un
+          //     poste PARTAGÉ, les agents ne connaissent que leur code à
+          //     quatre chiffres : PERSONNE SUR PLACE NE CONNAÎT LE MOT DE
+          //     PASSE. L'établissement est enfermé dehors, ses données
+          //     intactes de l'autre côté.
+          //
+          // Garder la base ne fait courir aucun risque de fuite : la purge
+          // multi-tenant a lieu au `signedIn` d'un utilisateur DIFFÉRENT
+          // (ci-dessus), qui est le seul moment où l'appareil change
+          // réellement de main. Se déconnecter suffit ici.
+          await db.disconnect();
         });
       case AuthChangeEvent.tokenRefreshed:
-        // Renouveler les credentials uniquement si déjà connecté (utilisateur)
         if (db.currentStatus.connected) {
           connector.prefetchCredentials();
+        } else {
+          // ⚠️ Un jeton peut revenir SANS `signedIn`. C'est exactement ce que
+          // fait la reprise silencieuse au démarrage (`setSession`, cf.
+          // session_keeper.dart) : la session persistée avait disparu, donc
+          // `initPowerSync` n'a pas connecté, et gotrue n'émet ici qu'un
+          // `tokenRefreshed`. Sans cette branche le poste retrouve son compte
+          // mais reste DÉSYNCHRONISÉ jusqu'au prochain redémarrage — une
+          // journée entière de saisies qui ne remontent pas, sans que rien ne
+          // le signale. Constaté à l'écran le 2026-08-04.
+          _enqueueAuth(() => _connecterSiPersonnel(supabase, connector));
         }
       default:
         break;
     }
   });
+}
+
+/// Active la synchro si le compte est celui du personnel scolaire.
+/// Idempotent : rappeler alors que la connexion est déjà en place ne coûte rien.
+Future<void> _connecterSiPersonnel(
+    SupabaseClient supabase, PowerSyncBackendConnector connector) async {
+  final role = await _resolveRole(supabase);
+  if (_isStaffRole(role)) {
+    _syncEnabled = true;
+    db.connect(connector: connector);
+  }
 }
 
 /// Résout le rôle de l'utilisateur connecté.

@@ -111,6 +111,69 @@ void main() {
       expect(p, LicensePhase.active);
     });
 
+    // ── LE DERNIER JOUR PAYÉ ────────────────────────────────────────────────
+    // `subscription_end` / `valid_to` sont des DATES : elles se parsent à
+    // MINUIT. `now`, lui, porte l'heure courante. Les tests ci-dessus décalent
+    // tous `validTo` de journées entières depuis un `now` à 12 h, si bien que
+    // les deux bornes tombaient toujours à la même heure — le cas réel n'était
+    // jamais joué.
+    //
+    // L'ADR-0009 dit « à l'échéance (`valid_to` DÉPASSÉ) ». Le 31 août n'est pas
+    // dépassé le 31 août : c'est le dernier jour payé. Le chemin online
+    // (`computeSubscriptionAccess`) le compte d'ailleurs comme entitlé
+    // (`daysLeft >= 0`). Les deux chemins doivent dire la même chose du même
+    // client le même jour.
+    group('le jour de l\'échéance est encore payé', () {
+      final echeance = DateTime.utc(2026, 8, 31); // une DATE, donc minuit
+
+      test('9 h le jour même, hard-lock éligible → ENCORE ACTIF', () {
+        final p = computeLicensePhase(
+          validTo: echeance,
+          offlineWindow: const Duration(days: 30),
+          lastSyncAt: DateTime.utc(2026, 8, 31, 8),
+          now: DateTime.utc(2026, 8, 31, 9),
+          hardLockEligible: true,
+        );
+        expect(p, LicensePhase.active,
+            reason: 'couper à 00 h 00 le jour de l\'échéance vole au client '
+                'sa dernière journée payée');
+      });
+
+      test('23 h 59 le jour même → toujours actif', () {
+        final p = computeLicensePhase(
+          validTo: echeance,
+          offlineWindow: const Duration(days: 30),
+          lastSyncAt: DateTime.utc(2026, 8, 31),
+          now: DateTime.utc(2026, 8, 31, 23, 59),
+          hardLockEligible: true,
+        );
+        expect(p, LicensePhase.active);
+      });
+
+      test('le LENDEMAIN à 00 h 01 → hard-lock (le jour même, sans grâce)', () {
+        final p = computeLicensePhase(
+          validTo: echeance,
+          offlineWindow: const Duration(days: 30),
+          lastSyncAt: DateTime.utc(2026, 8, 31, 12),
+          now: DateTime.utc(2026, 9, 1, 0, 1),
+          hardLockEligible: true,
+        );
+        expect(p, LicensePhase.hardLock);
+      });
+
+      test('flag absent : le jour même reste actif, pas « en grâce »', () {
+        final p = computeLicensePhase(
+          validTo: echeance,
+          offlineWindow: const Duration(days: 30),
+          lastSyncAt: DateTime.utc(2026, 8, 31, 6),
+          now: DateTime.utc(2026, 8, 31, 15),
+          hardLockEligible: false,
+        );
+        expect(p, LicensePhase.active,
+            reason: 'un abonnement en cours n\'est pas « échu »');
+      });
+    });
+
     test('fenêtre de confiance dépassée n\'escalade PAS au hard-lock (réseau ≠ impayé)', () {
       final p = computeLicensePhase(
         validTo: now.add(const Duration(days: 60)), // métier OK

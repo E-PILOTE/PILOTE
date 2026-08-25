@@ -6,99 +6,114 @@ import 'package:latlong2/latlong.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../providers/mapillary_provider.dart';
 
-/// Panneau « Vue rue » intégré : affiche les photos Mapillary au sol les plus
-/// proches d'un point, défilables. Aucune redirection navigateur.
-class MapillaryViewerDialog extends ConsumerStatefulWidget {
-  const MapillaryViewerDialog({super.key, required this.center});
+/// Panneau « Vue rue » immersif, intégré à la carte (pas un popup) : couvre la
+/// zone carte avec une entrée animée, affiche les photos Mapillary au sol les
+/// plus proches d'un point, défilables. Se ferme via [onClose].
+class MapillaryPanel extends ConsumerStatefulWidget {
+  const MapillaryPanel({super.key, required this.center, required this.onClose});
   final LatLng center;
+  final VoidCallback onClose;
 
   @override
-  ConsumerState<MapillaryViewerDialog> createState() =>
-      _MapillaryViewerDialogState();
+  ConsumerState<MapillaryPanel> createState() => _MapillaryPanelState();
 }
 
-class _MapillaryViewerDialogState extends ConsumerState<MapillaryViewerDialog> {
+class _MapillaryPanelState extends ConsumerState<MapillaryPanel>
+    with SingleTickerProviderStateMixin {
   int _i = 0;
+  late final AnimationController _anim = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 240),
+  )..forward();
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final key = (lat: widget.center.latitude, lng: widget.center.longitude);
     final async = ref.watch(mapillaryNearbyProvider(key));
 
-    return Dialog(
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760, maxHeight: 600),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // En-tête
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [kNavyDark, kNavy],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+    final curve = CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic);
+    return FadeTransition(
+      opacity: curve,
+      child: SlideTransition(
+        position: Tween<Offset>(begin: const Offset(0, 0.04), end: Offset.zero)
+            .animate(curve),
+        child: Container(
+          color: const Color(0xFF0B0E13),
+          child: Column(
+            children: [
+              // En-tête intégré (barre pleine largeur, pas de chrome de dialogue).
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [kNavyDark, kNavy],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                 ),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                child: Row(children: [
+                  const Icon(Icons.streetview_rounded,
+                      color: Colors.white, size: 18),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text('Vue rue · imagerie au sol',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700)),
+                  ),
+                  IconButton(
+                    tooltip: 'Fermer la vue rue',
+                    icon: const Icon(Icons.close_rounded,
+                        color: Colors.white70, size: 22),
+                    onPressed: widget.onClose,
+                  ),
+                ]),
               ),
-              child: Row(children: [
-                const Icon(Icons.streetview_rounded,
-                    color: Colors.white, size: 18),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text('Vue rue · imagerie au sol',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700)),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded,
-                      color: Colors.white70, size: 20),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ]),
-            ),
-            Flexible(
-              child: async.when(
-                loading: () => const _Centered(
-                  icon: null,
-                  text: 'Recherche des photos au sol…',
-                  spinner: true,
-                ),
-                error: (e, _) => _Centered(
-                  icon: Icons.cloud_off_rounded,
-                  color: kRed,
-                  text: 'Imagerie indisponible (réseau).',
-                  action: ('Réessayer', () {
-                    ref.invalidate(mapillaryNearbyProvider(key));
-                  }),
-                ),
-                data: (imgs) {
-                  if (imgs.isEmpty) {
-                    return const _Centered(
-                      icon: Icons.location_off_rounded,
-                      text:
-                          'Aucune photo de rue à cet endroit.\nLa couverture Mapillary se limite surtout aux axes\nprincipaux de Brazzaville et Pointe-Noire.',
+              Expanded(
+                child: async.when(
+                  loading: () => const _Centered(
+                    icon: null,
+                    text: 'Recherche des photos au sol…',
+                    spinner: true,
+                  ),
+                  error: (e, _) => _Centered(
+                    icon: Icons.cloud_off_rounded,
+                    color: kRed,
+                    text: 'Imagerie indisponible (réseau).',
+                    action: ('Réessayer', () {
+                      ref.invalidate(mapillaryNearbyProvider(key));
+                    }),
+                  ),
+                  data: (imgs) {
+                    if (imgs.isEmpty) {
+                      return const _Centered(
+                        icon: Icons.location_off_rounded,
+                        text:
+                            'Aucune photo de rue à cet endroit.\nLa couverture Mapillary se limite surtout aux axes\nprincipaux de Brazzaville et Pointe-Noire.',
+                      );
+                    }
+                    final i = _i.clamp(0, imgs.length - 1);
+                    return _Viewer(
+                      images: imgs,
+                      index: i,
+                      center: widget.center,
+                      onPrev: i > 0 ? () => setState(() => _i = i - 1) : null,
+                      onNext: i < imgs.length - 1
+                          ? () => setState(() => _i = i + 1)
+                          : null,
                     );
-                  }
-                  final i = _i.clamp(0, imgs.length - 1);
-                  return _Viewer(
-                    images: imgs,
-                    index: i,
-                    center: widget.center,
-                    onPrev: i > 0 ? () => setState(() => _i = i - 1) : null,
-                    onNext: i < imgs.length - 1
-                        ? () => setState(() => _i = i + 1)
-                        : null,
-                  );
-                },
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -174,28 +189,28 @@ class _Viewer extends StatelessWidget {
         // Pied : date, distance, position
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: const BoxDecoration(
-            color: Colors.white,
+          decoration: BoxDecoration(
+            color: kCardBg,
             border: Border(top: BorderSide(color: kBorder)),
-            borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
           ),
           child: Row(children: [
-            const Icon(Icons.photo_camera_back_rounded,
+            Icon(Icons.photo_camera_back_rounded,
                 size: 15, color: kTextMuted),
             const SizedBox(width: 6),
             Text('Prise le $date',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: kTextPrimary)),
             const SizedBox(width: 12),
-            const Icon(Icons.straighten_rounded, size: 15, color: kTextMuted),
+            Icon(Icons.straighten_rounded, size: 15, color: kTextMuted),
             const SizedBox(width: 4),
             Text('à $meters m',
-                style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                style: TextStyle(fontSize: 12, color: kTextMuted)),
             const Spacer(),
             Text('${index + 1} / ${images.length}',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: kNavy)),
@@ -232,7 +247,7 @@ class _Centered extends StatelessWidget {
   const _Centered({
     required this.text,
     this.icon,
-    this.color = kTextMuted,
+    this.color = Colors.white70,
     this.spinner = false,
     this.action,
   });
@@ -251,7 +266,8 @@ class _Centered extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (spinner)
-              const CircularProgressIndicator(color: kNavy, strokeWidth: 2.5)
+              const CircularProgressIndicator(
+                  color: Colors.white, strokeWidth: 2.5)
             else if (icon != null)
               Icon(icon, size: 40, color: color),
             const SizedBox(height: 14),

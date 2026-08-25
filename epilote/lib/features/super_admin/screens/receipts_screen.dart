@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -7,15 +9,16 @@ import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../providers/receipts_provider.dart';
 import '../services/financial_pdf_service.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const _kNavy   = Color(0xFF1E3A5F);
-const _kGreen  = Color(0xFF009A44);
-const _kGold   = Color(0xFFFBBC04);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
+Color get _kGold => kAccent;
 const _kPurple = Color(0xFF7C3AED);
-const _kCard   = Colors.white;
-const _kText   = Color(0xFF0F172A);
-const _kSub    = Color(0xFF64748B);
+Color get _kCard => kCardBg;
+Color get _kText => kTextPrimary;
+Color get _kSub => kTextMuted;
 
 final _fmtXaf  = NumberFormat.currency(locale: 'fr_FR', symbol: 'XAF', decimalDigits: 0);
 final _fmtNum  = NumberFormat.decimalPattern('fr_FR');
@@ -168,9 +171,9 @@ class _KpiCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(kpi.label, style: const TextStyle(fontSize: 10, color: _kSub, fontWeight: FontWeight.w500),
+          Text(kpi.label, style: TextStyle(fontSize: 10, color: _kSub, fontWeight: FontWeight.w500),
               maxLines: 1, overflow: TextOverflow.ellipsis),
-          Text(kpi.value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _kText),
+          Text(kpi.value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _kText),
               maxLines: 1, overflow: TextOverflow.ellipsis),
           Text(kpi.sub, style: TextStyle(fontSize: 9, color: Colors.grey.shade400),
               maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -200,13 +203,13 @@ class _FilterBar extends ConsumerWidget {
               style: const TextStyle(fontSize: 13),
               decoration: InputDecoration(
                 hintText: 'Rechercher par groupe, numéro de reçu…',
-                hintStyle: const TextStyle(fontSize: 12, color: _kSub),
-                prefixIcon: const Icon(Icons.search_rounded, size: 18, color: _kSub),
+                hintStyle: TextStyle(fontSize: 12, color: _kSub),
+                prefixIcon: Icon(Icons.search_rounded, size: 18, color: _kSub),
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                filled: true, fillColor: Colors.white,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+                filled: true, fillColor: kCardBg,
               ),
             ),
           ),
@@ -255,8 +258,8 @@ class _FilterBar extends ConsumerWidget {
         const SizedBox(width: 8),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0xFFE2E8F0)),
+            color: kCardBg,
+            border: Border.all(color: kBorder),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -288,9 +291,9 @@ class _DropFilter extends StatelessWidget {
         child: Text(e.value, style: const TextStyle(fontSize: 12)))).toList(),
     decoration: InputDecoration(
       isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-      filled: true, fillColor: Colors.white,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+      filled: true, fillColor: kCardBg,
     ),
   );
 }
@@ -349,8 +352,8 @@ class _TableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-    decoration: const BoxDecoration(
-      border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+    decoration: BoxDecoration(
+      border: Border(bottom: BorderSide(color: kBorder)),
     ),
     child: const Row(children: [
       Expanded(flex: 2, child: _Th('N° Reçu')),
@@ -370,7 +373,7 @@ class _Th extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) =>
-      Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kSub));
+      Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kSub));
 }
 
 class _TableRow extends StatelessWidget {
@@ -387,24 +390,24 @@ class _TableRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(children: [
           Expanded(flex: 2, child: Text(receipt.receiptNumber,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _kNavy),
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _kNavy),
               maxLines: 1, overflow: TextOverflow.ellipsis)),
           Expanded(flex: 3, child: Text(receipt.groupName,
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
               maxLines: 1, overflow: TextOverflow.ellipsis)),
           Expanded(flex: 2, child: Text(receipt.planName,
-              style: const TextStyle(fontSize: 11, color: _kSub),
+              style: TextStyle(fontSize: 11, color: _kSub),
               maxLines: 1, overflow: TextOverflow.ellipsis)),
           Expanded(flex: 2, child: Text(_fmtXaf.format(receipt.amountXaf),
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kGreen))),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kGreen))),
           Expanded(flex: 2, child: Text(
               receipt.paidAt.isNotEmpty ? _fmtDate.format(DateTime.parse(receipt.paidAt)) : '—',
-              style: const TextStyle(fontSize: 11, color: _kText))),
+              style: TextStyle(fontSize: 11, color: _kText))),
           Expanded(flex: 2, child: Text(
               receipt.periodStart.isNotEmpty
                   ? '${_fmtMo.format(DateTime.parse(receipt.periodStart))} → ${_fmtMo.format(DateTime.parse(receipt.periodEnd))}'
                   : '—',
-              style: const TextStyle(fontSize: 10, color: _kSub))),
+              style: TextStyle(fontSize: 10, color: _kSub))),
           Expanded(flex: 2, child: _MethodChip(method: receipt.paymentMethod)),
           SizedBox(width: 60, child: Row(
             children: [
@@ -468,7 +471,7 @@ class _ReceiptCard extends StatelessWidget {
         color: _kCard,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2))],
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: kBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -477,24 +480,24 @@ class _ReceiptCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(receipt.receiptNumber,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kNavy)),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kNavy)),
               _MethodChip(method: receipt.paymentMethod),
             ],
           ),
           const SizedBox(height: 6),
           Text(receipt.groupName,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kText),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kText),
               maxLines: 1, overflow: TextOverflow.ellipsis),
-          Text(receipt.planName, style: const TextStyle(fontSize: 11, color: _kSub)),
+          Text(receipt.planName, style: TextStyle(fontSize: 11, color: _kSub)),
           const Spacer(),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(_fmtXaf.format(receipt.amountXaf),
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _kGreen)),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _kGreen)),
               Text(receipt.paidAt.isNotEmpty
                   ? _fmtDate.format(DateTime.parse(receipt.paidAt)) : '—',
-                  style: const TextStyle(fontSize: 11, color: _kSub)),
+                  style: TextStyle(fontSize: 11, color: _kSub)),
             ],
           ),
         ],
@@ -560,7 +563,7 @@ class _ReceiptDetail extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 16, 8, 0),
               child: Row(
                 children: [
-                  const Text('Document officiel', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kNavy)),
+                  Text('Document officiel', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kNavy)),
                   const Spacer(),
                   IconButton(
                     tooltip: 'Copier le numéro',
@@ -581,9 +584,9 @@ class _ReceiptDetail extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: kCardBg,
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  border: Border.all(color: kBorder),
                   boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 16, offset: const Offset(0, 4))],
                 ),
                 child: Column(
@@ -592,12 +595,12 @@ class _ReceiptDetail extends StatelessWidget {
                     // ── Header E-PILOTE ──────────────────────────────────────
                     Container(
                       padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Color(0xFF1E3A5F), Color(0xFF2A4F7A)],
+                          colors: [kNavy, const Color(0xFF2A4F7A)],
                           begin: Alignment.topLeft, end: Alignment.bottomRight,
                         ),
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -606,15 +609,15 @@ class _ReceiptDetail extends StatelessWidget {
                           Container(
                             width: 52, height: 52,
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: kCardBg,
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Center(
+                            child: Center(
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.school_rounded, color: Color(0xFF1E3A5F), size: 22),
-                                  Text('EP', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF1E3A5F))),
+                                  Icon(Icons.school_rounded, color: kNavy, size: 22),
+                                  Text('EP', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: kNavy)),
                                 ],
                               ),
                             ),
@@ -632,7 +635,7 @@ class _ReceiptDetail extends StatelessWidget {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF009A44),
+                                    color: kGreen,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Text('REÇU DE PAIEMENT OFFICIEL',
@@ -651,7 +654,7 @@ class _ReceiptDetail extends StatelessWidget {
                               Text('Émis le $now',
                                   style: const TextStyle(color: Colors.white60, fontSize: 10)),
                               Text('Payé le $paidDate',
-                                  style: const TextStyle(color: Color(0xFFFBBC04), fontSize: 10, fontWeight: FontWeight.w600)),
+                                  style: TextStyle(color: kAccent, fontSize: 10, fontWeight: FontWeight.w600)),
                             ],
                           ),
                         ],
@@ -661,7 +664,7 @@ class _ReceiptDetail extends StatelessWidget {
                     // ── Bandeau groupe ───────────────────────────────────────
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      color: const Color(0xFFF0F4F8),
+                      color: kSurface,
                       child: Row(
                         children: [
                           Container(
@@ -671,7 +674,7 @@ class _ReceiptDetail extends StatelessWidget {
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: _kNavy.withValues(alpha: 0.2)),
                             ),
-                            child: const Icon(Icons.corporate_fare_rounded, color: _kNavy, size: 20),
+                            child: Icon(Icons.corporate_fare_rounded, color: _kNavy, size: 20),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -679,9 +682,9 @@ class _ReceiptDetail extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(receipt.groupName,
-                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _kText)),
+                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _kText)),
                                 Text('Groupe Scolaire · Plan : ${receipt.planName}',
-                                    style: const TextStyle(fontSize: 11, color: _kSub)),
+                                    style: TextStyle(fontSize: 11, color: _kSub)),
                               ],
                             ),
                           ),
@@ -719,23 +722,23 @@ class _ReceiptDetail extends StatelessWidget {
                               border: Border.all(color: _kGreen.withValues(alpha: 0.25), width: 1.5),
                             ),
                             child: Column(children: [
-                              const Text('MONTANT TOTAL PAYÉ',
+                              Text('MONTANT TOTAL PAYÉ',
                                   style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _kSub, letterSpacing: 1.0)),
                               const SizedBox(height: 8),
                               Text(_fmtXaf.format(receipt.amountXaf),
-                                  style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: _kGreen)),
-                              const Text('Francs CFA', style: TextStyle(fontSize: 11, color: _kSub)),
+                                  style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: _kGreen)),
+                              Text('Francs CFA', style: TextStyle(fontSize: 11, color: _kSub)),
                             ]),
                           ),
 
                           // Table de détails
                           _DocRow(label: 'N° Reçu',           value: receipt.receiptNumber, bold: true),
                           _DocRow(label: 'N° Facture',         value: receipt.invoiceNumber),
-                          const Divider(height: 20, color: Color(0xFFE2E8F0)),
+                          Divider(height: 20, color: kBorder),
                           _DocRow(label: 'Groupe scolaire',   value: receipt.groupName),
                           _DocRow(label: 'Plan d\'abonnement', value: receipt.planName),
                           _DocRow(label: 'Période couverte',  value: '$startDate → $endDate'),
-                          const Divider(height: 20, color: Color(0xFFE2E8F0)),
+                          Divider(height: 20, color: kBorder),
                           _DocRow(label: 'Date de paiement',  value: paidDate, color: _kGreen),
                           _DocRow(label: 'Mode de règlement', value: _methodLabel(receipt.paymentMethod)),
                           if (receipt.paymentReference.isNotEmpty)
@@ -747,15 +750,15 @@ class _ReceiptDetail extends StatelessWidget {
                     // ── Pied de page légal ───────────────────────────────────
                     Container(
                       padding: const EdgeInsets.all(16),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF8FAFC),
-                        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-                        borderRadius: BorderRadius.vertical(bottom: Radius.circular(4)),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        border: Border(top: BorderSide(color: kBorder)),
+                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(4)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const Text(
+                          Text(
                             'Ce document est un justificatif officiel de paiement émis par la plateforme E-PILOTE Congo.',
                             style: TextStyle(fontSize: 10, color: _kSub),
                             textAlign: TextAlign.center,
@@ -783,7 +786,7 @@ class _ReceiptDetail extends StatelessWidget {
                       icon: const Icon(Icons.print_rounded, size: 14),
                       label: const Text('Imprimer'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: _kNavy, side: const BorderSide(color: _kNavy),
+                        foregroundColor: _kNavy, side: BorderSide(color: _kNavy),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                     ),
@@ -842,7 +845,7 @@ class _DocRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(width: 140, child: Text(label,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _kSub))),
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _kSub))),
         Expanded(child: Text(value,
             style: TextStyle(
               fontSize: 12, fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
@@ -890,10 +893,10 @@ class _NewReceiptDialogState extends ConsumerState<_NewReceiptDialog> {
                 Container(
                   width: 40, height: 40,
                   decoration: BoxDecoration(color: _kGreen.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.receipt_long_rounded, color: _kGreen, size: 20),
+                  child: Icon(Icons.receipt_long_rounded, color: _kGreen, size: 20),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(child: Column(
+                Expanded(child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Créer un reçu manuel', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _kNavy)),
@@ -920,7 +923,7 @@ class _NewReceiptDialogState extends ConsumerState<_NewReceiptDialog> {
                 ]),
               ),
               const SizedBox(height: 16),
-              const Text('Facture à régler', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kText)),
+              Text('Facture à régler', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kText)),
               const SizedBox(height: 6),
               Consumer(builder: (_, ref, _) {
                 final async = ref.watch(unpaidInvoicesProvider);
@@ -929,7 +932,7 @@ class _NewReceiptDialogState extends ConsumerState<_NewReceiptDialog> {
                     height: 42,
                     child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
                   ),
-                  error: (e, _) => Text('Erreur : $e', style: const TextStyle(fontSize: 11, color: Colors.red)),
+                  error: (e, _) => Text(messageErreur(e), style: const TextStyle(fontSize: 11, color: Colors.red)),
                   data: (invoices) {
                     if (invoices.isEmpty) {
                       return Container(
@@ -937,16 +940,16 @@ class _NewReceiptDialogState extends ConsumerState<_NewReceiptDialog> {
                         decoration: BoxDecoration(
                           color: const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                          border: Border.all(color: kBorder),
                         ),
-                        child: const Text('Aucune facture en attente de paiement.',
+                        child: Text('Aucune facture en attente de paiement.',
                             style: TextStyle(fontSize: 12, color: _kSub)),
                       );
                     }
                     return DropdownButtonFormField<String>(
                       initialValue: _invoiceId,
                       isExpanded: true,
-                      hint: const Text('Sélectionner une facture', style: TextStyle(fontSize: 12, color: _kSub)),
+                      hint: Text('Sélectionner une facture', style: TextStyle(fontSize: 12, color: _kSub)),
                       onChanged: (v) => setState(() => _invoiceId = v),
                       items: invoices.map((inv) => DropdownMenuItem(
                         value: inv.id,
@@ -954,8 +957,8 @@ class _NewReceiptDialogState extends ConsumerState<_NewReceiptDialog> {
                       )).toList(),
                       decoration: InputDecoration(
                         isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
                         filled: true, fillColor: const Color(0xFFF8FAFC),
                       ),
                     );
@@ -963,23 +966,23 @@ class _NewReceiptDialogState extends ConsumerState<_NewReceiptDialog> {
                 );
               }),
               const SizedBox(height: 12),
-              const Text('Référence de paiement', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kText)),
+              Text('Référence de paiement', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kText)),
               const SizedBox(height: 6),
               TextField(
                 controller: _refCtrl,
                 style: const TextStyle(fontSize: 13),
                 decoration: InputDecoration(
                   hintText: 'Ex : TXN-MTN-20250315-001',
-                  hintStyle: const TextStyle(fontSize: 12, color: _kSub),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _kNavy)),
+                  hintStyle: TextStyle(fontSize: 12, color: _kSub),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _kNavy)),
                   filled: true, fillColor: const Color(0xFFF8FAFC),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
               ),
               const SizedBox(height: 12),
-              const Text('Mode de règlement', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kText)),
+              Text('Mode de règlement', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _kText)),
               const SizedBox(height: 6),
               DropdownButtonFormField<String>(
                 initialValue: _method,
@@ -992,8 +995,8 @@ class _NewReceiptDialogState extends ConsumerState<_NewReceiptDialog> {
                 ],
                 decoration: InputDecoration(
                   isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kBorder)),
                   filled: true, fillColor: const Color(0xFFF8FAFC),
                 ),
               ),
@@ -1043,11 +1046,11 @@ class _NewReceiptDialogState extends ConsumerState<_NewReceiptDialog> {
                         ref.invalidate(unpaidInvoicesProvider);
                         navigator.pop();
                         messenger.showSnackBar(
-                            const SnackBar(content: Text('Reçu créé avec succès'), backgroundColor: _kGreen));
+                            SnackBar(content: const Text('Reçu créé avec succès'), backgroundColor: _kGreen));
                       } catch (e) {
                         if (mounted) setState(() => _sending = false);
                         messenger.showSnackBar(
-                            SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red));
+                            SnackBar(content: Text(messageErreur(e)), backgroundColor: Colors.red));
                       }
                     },
                     icon: _sending
@@ -1087,9 +1090,9 @@ class _EmptyState extends StatelessWidget {
     child: Column(mainAxisSize: MainAxisSize.min, children: [
       Icon(Icons.receipt_long_rounded, size: 56, color: Colors.grey.shade300),
       const SizedBox(height: 12),
-      const Text('Aucun reçu trouvé', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _kText)),
+      Text('Aucun reçu trouvé', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _kText)),
       const SizedBox(height: 4),
-      const Text('Les reçus apparaissent après confirmation de paiement',
+      Text('Les reçus apparaissent après confirmation de paiement',
           style: TextStyle(fontSize: 12, color: _kSub)),
     ]),
   );
@@ -1136,7 +1139,7 @@ class _ErrorView extends StatelessWidget {
     child: Column(mainAxisSize: MainAxisSize.min, children: [
       const Icon(Icons.error_outline_rounded, size: 48, color: Color(0xFFEF4444)),
       const SizedBox(height: 12),
-      Text('Erreur : $error', style: const TextStyle(fontSize: 12, color: _kSub), textAlign: TextAlign.center),
+      Text(messageErreur(error), style: TextStyle(fontSize: 12, color: _kSub), textAlign: TextAlign.center),
       const SizedBox(height: 16),
       ElevatedButton.icon(onPressed: onRetry,
           icon: const Icon(Icons.refresh_rounded, size: 16), label: const Text('Réessayer')),

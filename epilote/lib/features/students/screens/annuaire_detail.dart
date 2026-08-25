@@ -65,7 +65,7 @@ class _FamilyDetail extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(20, 18, 16, 18),
             decoration: BoxDecoration(
               color: kNavy.withValues(alpha: 0.04),
-              border: const Border(bottom: BorderSide(color: kBorder)),
+              border: Border(bottom: BorderSide(color: kBorder)),
             ),
             child: Row(children: [
               CircleAvatar(
@@ -73,7 +73,7 @@ class _FamilyDetail extends ConsumerWidget {
                 backgroundColor: kNavy.withValues(alpha: 0.12),
                 child: Text(
                   s.firstName.isNotEmpty ? s.firstName[0].toUpperCase() : '?',
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: kNavy, fontWeight: FontWeight.w700, fontSize: 17),
                 ),
               ),
@@ -85,7 +85,7 @@ class _FamilyDetail extends ConsumerWidget {
                       Text(s.lastFirst,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 16.5,
                               fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
@@ -95,7 +95,7 @@ class _FamilyDetail extends ConsumerWidget {
                             if (s.className != null) s.className!,
                             s.matricule
                           ].join(' · '),
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12.5, color: kTextMuted)),
                     ]),
               ),
@@ -156,15 +156,15 @@ class _EmptyTutors extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.all(28),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.contact_phone_outlined, size: 42, color: kTextMuted),
+          Icon(Icons.contact_phone_outlined, size: 42, color: kTextMuted),
           const SizedBox(height: 12),
-          const Text('Aucun tuteur enregistré',
+          Text('Aucun tuteur enregistré',
               style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: kTextPrimary)),
           const SizedBox(height: 6),
-          const Text('Ajoutez un parent ou contact pour joindre la famille.',
+          Text('Ajoutez un parent ou contact pour joindre la famille.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12.5, color: kTextMuted)),
           if (canCreate) ...[
@@ -204,7 +204,7 @@ class _TutorTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(13, 11, 8, 11),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kBorder),
       ),
@@ -226,7 +226,7 @@ class _TutorTile extends StatelessWidget {
                   Text(t.fullName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w700,
                           color: kTextPrimary)),
@@ -234,8 +234,8 @@ class _TutorTile extends StatelessWidget {
                       style: TextStyle(fontSize: 11.5, color: col)),
                 ]),
           ),
-          if (t.isPrimaryContact) const _MiniTag('Principal', kNavy),
-          if (t.isEmergencyContact) const _MiniTag('Urgence', kRed),
+          if (t.isPrimaryContact) _MiniTag('Principal', kNavy),
+          if (t.isEmergencyContact) _MiniTag('Urgence', kRed),
           if (canUpdate)
             IconButton(
               icon: const Icon(Icons.edit_outlined, size: 16),
@@ -307,7 +307,7 @@ class _InfoPill extends StatelessWidget {
           Icon(icon, size: 13, color: kTextMuted),
           const SizedBox(width: 6),
           Text(text,
-              style: const TextStyle(fontSize: 12, color: kTextPrimary)),
+              style: TextStyle(fontSize: 12, color: kTextPrimary)),
         ]),
       );
 }
@@ -326,7 +326,7 @@ class _SubLine extends StatelessWidget {
             child: Text(text,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                style: TextStyle(fontSize: 12, color: kTextMuted)),
           ),
         ]),
       );

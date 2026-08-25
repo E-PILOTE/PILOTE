@@ -6,12 +6,51 @@ part of 'paiements_screen.dart';
 class _StudentPaymentsSheet extends ConsumerWidget {
   const _StudentPaymentsSheet({
     required this.row,
+    required this.className,
     required this.canEdit,
     required this.onChanged,
   });
   final StudentPayRow row;
+  final String className;
   final bool canEdit;
   final VoidCallback onChanged;
+
+  /// Ouvre l'aperçu du reçu. Un paiement annulé imprime son annulation plutôt
+  /// que de se taire : c'est ce qui rend le papier opposable dans les deux sens.
+  void _recu(BuildContext context, WidgetRef ref, PaymentRow p) {
+    final acteur =
+        ref.read(authNotifierProvider).valueOrNull?.fullName ?? 'Le caissier';
+    // Le solde à ce jour, s'il est connu. `valueOrNull` et non `.future` : un
+    // reçu doit sortir même si le décompte n'a pas encore chargé — la ligne
+    // manquera, le papier existera.
+    final d = row.enrollmentId == null
+        ? null
+        : ref.read(decompteDuProvider(row.enrollmentId!)).valueOrNull;
+    showPdfPreviewDialog(
+      context,
+      title: 'Reçu de paiement',
+      subtitle: p.receipt,
+      pdfFileName: '${p.receipt ?? 'recu'}.pdf',
+      build: (_) => construireRecuPaiement(
+        recu: RecuPaiement(
+          numero: p.receipt ?? '—',
+          eleve: row.studentName,
+          matricule: row.matricule,
+          classe: className,
+          montant: p.amount,
+          date: DateTime.tryParse(p.date ?? '') ?? DateTime.now(),
+          methode: paymentMethodLabel(p.method),
+          encaissePar: acteur,
+          motifFrais: p.feeName,
+          annuleLe: p.status == 'cancelled' ? p.date : null,
+          motifAnnulation: p.cancellationReason,
+          // `vide` ⇒ aucun barème publié : on ne sait rien du solde, et la
+          // ligne est omise plutôt qu'imprimée à zéro.
+          resteDu: (d == null || d.vide) ? null : d.reste,
+        ),
+      ),
+    );
+  }
 
   Color _statusColor(String? s) => switch (s) {
         'confirmed' => kGreen,
@@ -20,28 +59,56 @@ class _StudentPaymentsSheet extends ConsumerWidget {
         _ => kTextMuted,
       };
 
-  Future<void> _delete(BuildContext context, WidgetRef ref, PaymentRow p) async {
-    final ok = await showDialog<bool>(
+  /// Rendre l'argent, en le disant. Le remboursement conserve la ligne
+  /// d'encaissement — c'est le seul moyen de justifier la sortie de caisse.
+  Future<void> _rembourser(
+      BuildContext context, WidgetRef ref, PaymentRow p) async {
+    final saisie = await showDialog<SaisieRemboursement>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: const Text('Supprimer ce paiement ?'),
-        content: Text('${fmtXaf(p.amount)} du ${p.date ?? '—'} sera supprimé.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Annuler')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: kRed),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Supprimer'),
-          ),
-        ],
-      ),
+      builder: (_) => RemboursementDialog(encaisse: p.amount, date: p.date),
     );
-    if (ok != true || !context.mounted) return;
-    await runModuleWrite(context, () => deletePayment(p.id),
-        success: 'Paiement supprimé');
+    if (saisie == null || !context.mounted) return;
+    final actor = ref.read(authNotifierProvider).valueOrNull?.id;
+    if (actor == null) return;
+
+    await runModuleWrite(
+      context,
+      () => refundPayment(
+        id: p.id,
+        montant: saisie.montant,
+        encaisse: p.amount,
+        motif: saisie.motif,
+        actorId: actor,
+      ),
+      success: 'Remboursement enregistré',
+    );
+    onChanged();
+  }
+
+  /// Annuler, jamais effacer : sur de l'argent public, une ligne qui disparaît
+  /// laisse une caisse fausse que plus personne ne sait expliquer.
+  Future<void> _annuler(
+      BuildContext context, WidgetRef ref, PaymentRow p) async {
+    final saisi = await showDialog<String>(
+      context: context,
+      builder: (_) => _MotifAnnulationDialog(paiement: p),
+    );
+    if (saisi == null || !context.mounted) return;
+
+    final probleme = motifAnnulationInvalide(saisi);
+    if (probleme != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(probleme), backgroundColor: kRed));
+      return;
+    }
+    final actor = ref.read(authNotifierProvider).valueOrNull?.id;
+    if (actor == null) return;
+
+    await runModuleWrite(
+      context,
+      () => cancelPayment(id: p.id, motif: saisi, actorId: actor),
+      success: 'Paiement annulé',
+    );
     onChanged();
   }
 
@@ -54,9 +121,9 @@ class _StudentPaymentsSheet extends ConsumerWidget {
       minChildSize: 0.5,
       maxChildSize: 0.95,
       builder: (ctx, scroll) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: kCardBg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(children: [
           const SizedBox(height: 10),
@@ -73,15 +140,14 @@ class _StudentPaymentsSheet extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(row.studentName,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
-                      Text('Total réglé : ${fmtXaf(row.paid)}',
-                          style: const TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              color: kGreen)),
+                      Text(
+                          '$className'
+                          '${row.matricule == null ? '' : ' · ${row.matricule}'}',
+                          style: TextStyle(fontSize: 12, color: kTextMuted)),
                     ]),
               ),
               IconButton(
@@ -110,32 +176,57 @@ class _StudentPaymentsSheet extends ConsumerWidget {
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Erreur : $e')),
+              error: (e, _) => Center(child: Text(messageErreur(e))),
               data: (payments) {
+                // ── CE QU'IL DOIT, AVANT CE QU'IL A VERSÉ ──────────────────
+                // L'en-tête n'annonçait que « Total réglé » : le caissier
+                // voyait ce qui était entré et jamais ce qui manquait — la
+                // seule question que pose la famille au guichet.
+                //
+                // ⚠️ DANS la zone défilante, et non en tête fixe. Un décompte
+                // à huit lignes fait 200 px ; ajouté aux 120 px d'en-tête et de
+                // bouton, il ne laissait plus rien à l'`Expanded` sur une
+                // feuille tirée à sa taille minimale — débordement garanti sur
+                // un téléphone.
+                final entete = row.enrollmentId == null
+                    ? const SizedBox.shrink()
+                    : Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: DecompteCard(enrollmentId: row.enrollmentId!),
+                      );
+
                 if (payments.isEmpty) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: AdminEmptyState(
-                        icon: Icons.receipt_long_outlined,
-                        title: 'Aucun paiement',
-                        message: 'Enregistrez le premier paiement de cet élève.',
+                  return ListView(
+                    controller: scroll,
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                    children: [
+                      entete,
+                      const Padding(
+                        padding: EdgeInsets.only(top: 16),
+                        child: AdminEmptyState(
+                          icon: Icons.receipt_long_outlined,
+                          title: 'Aucun paiement',
+                          message:
+                              'Enregistrez le premier paiement de cet élève.',
+                        ),
                       ),
-                    ),
+                    ],
                   );
                 }
                 return ListView.separated(
                   controller: scroll,
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                  itemCount: payments.length,
+                  itemCount: payments.length + 1,
                   separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (_, i) {
+                  itemBuilder: (_, index) {
+                    if (index == 0) return entete;
+                    final i = index - 1;
                     final p = payments[i];
                     final c = _statusColor(p.status);
                     return Container(
                       padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: kCardBg,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: kBorder),
                       ),
@@ -170,15 +261,41 @@ class _StudentPaymentsSheet extends ConsumerWidget {
                                     '${p.receipt != null ? ' · ${p.receipt}' : ''}',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 11.5, color: kTextMuted)),
+                                if (p.cancellationReason != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 3),
+                                    child: Text(
+                                        'Annulé — ${p.cancellationReason}',
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                            fontSize: 11,
+                                            fontStyle: FontStyle.italic,
+                                            color: kRed)),
+                                  ),
                               ]),
                         ),
-                        if (canEdit)
+                        IconButton(
+                          tooltip: 'Imprimer le reçu',
+                          icon: Icon(Icons.receipt_long_rounded,
+                              size: 18, color: kNavy),
+                          onPressed: () => _recu(context, ref, p),
+                        ),
+                        if (canEdit && peutRembourserPaiement(p.status))
                           IconButton(
-                            icon: const Icon(Icons.delete_outline_rounded,
+                            tooltip: 'Rembourser',
+                            icon: Icon(Icons.undo_rounded,
                                 size: 18, color: kTextMuted),
-                            onPressed: () => _delete(context, ref, p),
+                            onPressed: () => _rembourser(context, ref, p),
+                          ),
+                        if (canEdit && peutAnnulerPaiement(p.status))
+                          IconButton(
+                            tooltip: 'Annuler ce paiement',
+                            icon: Icon(Icons.block_rounded,
+                                size: 18, color: kTextMuted),
+                            onPressed: () => _annuler(context, ref, p),
                           ),
                       ]),
                     );
@@ -193,167 +310,62 @@ class _StudentPaymentsSheet extends ConsumerWidget {
   }
 }
 
-// ─── Formulaire d'un paiement ────────────────────────────────────────────────
-class _PaymentForm extends ConsumerStatefulWidget {
-  const _PaymentForm({required this.row, required this.onSaved});
-  final StudentPayRow row;
-  final VoidCallback onSaved;
+// ─── Motif d'annulation ──────────────────────────────────────────────────────
+//
+// ⚠️ La boîte POSSÈDE son contrôleur et le libère elle-même.
+//
+// `await showDialog` rend la main dès le `Navigator.pop`, PAS à la fin de
+// l'animation de sortie : libérer le contrôleur depuis l'appelant juste après
+// l'attente le détruit pendant que le TextField en dépend encore, et l'écran
+// vire au rouge sur « _dependents.isEmpty is not true ». Constaté à l'écran le
+// 2026-08-04, comme sur la boîte de reconnexion la semaine d'avant.
+class _MotifAnnulationDialog extends StatefulWidget {
+  const _MotifAnnulationDialog({required this.paiement});
+  final PaymentRow paiement;
   @override
-  ConsumerState<_PaymentForm> createState() => _PaymentFormState();
+  State<_MotifAnnulationDialog> createState() => _MotifAnnulationDialogState();
 }
 
-class _PaymentFormState extends ConsumerState<_PaymentForm> {
-  String? _feeId;
-  final _amount = TextEditingController();
-  DateTime _date = DateTime.now();
-  String _method = 'especes';
-  String _status = 'confirmed';
-  bool _saving = false;
+class _MotifAnnulationDialogState extends State<_MotifAnnulationDialog> {
+  final _motif = TextEditingController();
 
   @override
   void dispose() {
-    _amount.dispose();
+    _motif.dispose();
     super.dispose();
-  }
-
-  String _fmtDate(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-
-  Future<void> _save() async {
-    final amount = int.tryParse(_amount.text.trim().replaceAll(' ', ''));
-    if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Montant (> 0) requis'), backgroundColor: kRed));
-      return;
-    }
-    final p = ref.read(authNotifierProvider).valueOrNull;
-    setState(() => _saving = true);
-    final ok = await runModuleWrite(
-      context,
-      () => savePayment(
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
-        studentId: widget.row.studentId,
-        enrollmentId: widget.row.enrollmentId,
-        feeStructureId: _feeId,
-        amount: amount,
-        date: _date.toIso8601String().substring(0, 10),
-        method: _method,
-        status: _status,
-        recordedBy: p?.id ?? '',
-      ),
-      success: 'Paiement enregistré',
-    );
-    if (!mounted) return;
-    setState(() => _saving = false);
-    if (ok) {
-      widget.onSaved();
-      Navigator.pop(context);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final fees = ref.watch(feeStructuresProvider).valueOrNull ?? const [];
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 460),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          vsFormHeader(context, 'Nouveau paiement', Icons.payments_rounded),
-          Flexible(
-            child: ListView(
-              padding: const EdgeInsets.all(18),
-              shrinkWrap: true,
-              children: [
-                Text(widget.row.studentName,
-                    style: const TextStyle(
-                        fontSize: 13.5, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 14),
-                DropdownButtonFormField<String?>(
-                  initialValue: _feeId,
-                  isExpanded: true,
-                  decoration: adminFilledInput('Frais concerné',
-                      icon: Icons.request_quote_rounded),
-                  items: [
-                    const DropdownMenuItem(value: null, child: Text('Autre / libre')),
-                    for (final f in fees)
-                      DropdownMenuItem(
-                          value: f.id,
-                          child: Text('${f.name} (${fmtXaf(f.amount)})',
-                              maxLines: 1, overflow: TextOverflow.ellipsis)),
-                  ],
-                  onChanged: (v) {
-                    setState(() {
-                      _feeId = v;
-                      final f = fees.where((x) => x.id == v).firstOrNull;
-                      if (f != null) _amount.text = '${f.amount}';
-                    });
-                  },
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: _amount,
-                  keyboardType: TextInputType.number,
-                  decoration: adminFilledInput('Montant (FCFA)',
-                      icon: Icons.payments_rounded),
-                ),
-                const SizedBox(height: 14),
-                Row(children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () async {
-                        final d = await showDatePicker(
-                          context: context,
-                          initialDate: _date,
-                          firstDate: DateTime(_date.year - 1),
-                          lastDate: DateTime.now(),
-                        );
-                        if (d != null) setState(() => _date = d);
-                      },
-                      borderRadius: BorderRadius.circular(8),
-                      child: InputDecorator(
-                        decoration: adminFilledInput('Date',
-                            icon: Icons.calendar_today_rounded),
-                        child: Text(_fmtDate(_date),
-                            style: const TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.w700)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _method,
-                      isExpanded: true,
-                      decoration: adminFilledInput('Méthode',
-                          icon: Icons.account_balance_wallet_rounded),
-                      items: [
-                        for (final (v, l) in kPaymentMethods)
-                          DropdownMenuItem(value: v, child: Text(l)),
-                      ],
-                      onChanged: (v) => setState(() => _method = v ?? 'especes'),
-                    ),
-                  ),
-                ]),
-                const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
-                  initialValue: _status,
-                  isExpanded: true,
-                  decoration:
-                      adminFilledInput('Statut', icon: Icons.verified_rounded),
-                  items: [
-                    for (final (v, l) in kPaymentStatuses)
-                      DropdownMenuItem(value: v, child: Text(l)),
-                  ],
-                  onChanged: (v) => setState(() => _status = v ?? 'confirmed'),
-                ),
-              ],
-            ),
-          ),
-          vsFormActions(context, _saving, _save, false),
-        ]),
-      ),
+    final p = widget.paiement;
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      title: const Text('Annuler ce paiement ?'),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(
+          '${fmtXaf(p.amount)} du ${p.date ?? '—'} sera marqué ANNULÉ. '
+          'La ligne et son reçu restent au dossier — rien n\'est effacé.',
+          style: TextStyle(fontSize: 13, color: kTextMuted),
+        ),
+        const SizedBox(height: 14),
+        TextField(
+          controller: _motif,
+          autofocus: true,
+          maxLines: 2,
+          decoration: adminFilledInput('Motif de l\'annulation',
+              icon: Icons.edit_note_rounded),
+        ),
+      ]),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Renoncer')),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: kRed),
+          onPressed: () => Navigator.pop(context, _motif.text),
+          child: const Text('Annuler le paiement'),
+        ),
+      ],
     );
   }
 }

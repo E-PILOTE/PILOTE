@@ -44,7 +44,7 @@ class _SpanBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: kBorder),
       ),
@@ -123,7 +123,7 @@ class _SpanBar extends StatelessWidget {
           Expanded(
             child: Center(
               child: Text(monthLabel,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w800,
                       color: kTextPrimary)),
@@ -224,7 +224,7 @@ class _DayChip extends StatelessWidget {
               width: 5,
               height: 5,
               decoration: BoxDecoration(
-                color: selected ? Colors.white : kNavy,
+                color: selected ? kCardBg : kNavy,
                 shape: BoxShape.circle,
               ),
             ),

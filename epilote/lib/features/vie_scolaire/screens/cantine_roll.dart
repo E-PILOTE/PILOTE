@@ -32,12 +32,24 @@ class _MealSheetState extends ConsumerState<_MealSheet> {
     super.dispose();
   }
 
+  /// Refuse un pointage cantine si le compte n'est pas rattaché : un `group_id`
+  /// ou `school_id` vide ferait rejeter tout le lot PowerSync sans message.
+  bool _identityMissing(dynamic p) {
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isEmpty) return false;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+    return true;
+  }
+
   Future<void> _set(MealRow r, bool present) async {
     if (!widget.canEdit) return;
     final p = ref.read(authNotifierProvider).valueOrNull;
+    if (_identityMissing(p)) return;
     await setMeal(
-      groupId: p?.groupId ?? '',
-      schoolId: p?.schoolId ?? '',
+      groupId: p!.groupId!,
+      schoolId: p.schoolId!,
       studentId: r.studentId,
       date: widget.args.date,
       meal: widget.args.meal,
@@ -50,12 +62,13 @@ class _MealSheetState extends ConsumerState<_MealSheet> {
 
   Future<void> _allServed(List<MealRow> rows) async {
     final p = ref.read(authNotifierProvider).valueOrNull;
+    if (_identityMissing(p)) return;
     setState(() => _busy = true);
     await runModuleWrite(
       context,
       () => markAllServed(
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         date: widget.args.date,
         meal: widget.args.meal,
         rows: rows,
@@ -75,9 +88,9 @@ class _MealSheetState extends ConsumerState<_MealSheet> {
       minChildSize: 0.5,
       maxChildSize: 0.95,
       builder: (ctx, scroll) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: kCardBg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(children: [
           const SizedBox(height: 10),
@@ -91,7 +104,7 @@ class _MealSheetState extends ConsumerState<_MealSheet> {
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Erreur : $e')),
+              error: (e, _) => Center(child: Text(messageErreur(e))),
               data: (rows) {
                 if (rows.isEmpty) {
                   return const Center(
@@ -118,7 +131,7 @@ class _MealSheetState extends ConsumerState<_MealSheet> {
                   if (rows.length > 8) _searchField(rows.length),
                   Expanded(
                     child: filtered.isEmpty
-                        ? const Center(
+                        ? Center(
                             child: Text('Aucun élève trouvé',
                                 style: TextStyle(color: kTextMuted)))
                         : ListView.separated(
@@ -146,8 +159,8 @@ class _MealSheetState extends ConsumerState<_MealSheet> {
           decoration: InputDecoration(
             isDense: true,
             hintText: 'Rechercher un élève parmi $total…',
-            hintStyle: const TextStyle(fontSize: 13, color: kTextMuted),
-            prefixIcon: const Icon(Icons.search_rounded, size: 19, color: kTextMuted),
+            hintStyle: TextStyle(fontSize: 13, color: kTextMuted),
+            prefixIcon: Icon(Icons.search_rounded, size: 19, color: kTextMuted),
             suffixIcon: _q.isEmpty
                 ? null
                 : IconButton(
@@ -179,21 +192,21 @@ class _MealSheetState extends ConsumerState<_MealSheet> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(widget.breadcrumb,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: kTextMuted,
                           letterSpacing: 0.2)),
                   const SizedBox(height: 1),
                   Text(widget.className,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
                           color: kTextPrimary)),
                   Text(
                       '${widget.subtitle} · servis $served · absents $absent · '
                       '$done/${rows.length} pointés',
-                      style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                      style: TextStyle(fontSize: 12, color: kTextMuted)),
                 ]),
           ),
           IconButton(
@@ -222,7 +235,7 @@ class _MealSheetState extends ConsumerState<_MealSheet> {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
       decoration: BoxDecoration(
-        color: r.present == false ? kAccent.withValues(alpha: 0.05) : Colors.white,
+        color: r.present == false ? kAccent.withValues(alpha: 0.05) : kCardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kBorder),
       ),
@@ -230,7 +243,7 @@ class _MealSheetState extends ConsumerState<_MealSheet> {
         SizedBox(
             width: 22,
             child: Text('$index',
-                style: const TextStyle(fontSize: 11, color: kTextMuted))),
+                style: TextStyle(fontSize: 11, color: kTextMuted))),
         Expanded(
           child: Text(r.studentName,
               maxLines: 1,

@@ -63,6 +63,33 @@ class _TutorFormState extends ConsumerState<_TutorForm> {
       _snack('Téléphone principal obligatoire', kAccent);
       return;
     }
+
+    // ── LE TROISIÈME JUMEAU ───────────────────────────────────────────────
+    // Le guichet et le registre refusent depuis longtemps de créer un tuteur
+    // sans identifiants de rattachement — parce que le dégât s'est produit en
+    // production. Cet écran-ci, lui, passait encore `groupId ?? ''` : une
+    // chaîne vide dans une colonne `uuid NOT NULL`, que SQLite accepte, que le
+    // serveur refuse par `22P02`, et qui fait abandonner à PowerSync le LOT
+    // ENTIER — sans un mot, après un « Contact ajouté » parfaitement vert.
+    //
+    // La règle est celle des deux autres écrans, mais il ne s'y branche pas :
+    // `refusEdition` raisonne sur un formulaire à étapes, celui-ci est une
+    // simple fiche. On garde donc le même verrou, sous sa forme nue.
+    //
+    // On n'appelle pas `missingWriteIds` : il exige aussi un identifiant
+    // d'agent, que `student_tutors` ne porte pas. Réclamer à l'agent un
+    // rattachement dont la ligne n'a pas besoin le renverrait chercher une
+    // panne qui n'existe pas.
+    final profil = ref.read(authNotifierProvider).valueOrNull;
+    final manquants = <String>[
+      if (!isUsableId(profil?.groupId)) 'groupe',
+      if (!isUsableId(profil?.schoolId)) 'école',
+    ];
+    if (!_isEdit && manquants.isNotEmpty) {
+      _snack(writeIdentityMessage(manquants), kRed);
+      return;
+    }
+
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
@@ -82,11 +109,11 @@ class _TutorFormState extends ConsumerState<_TutorForm> {
             isEmergencyContact: _emergency,
           );
         } else {
-          final groupId =
-              ref.read(authNotifierProvider).valueOrNull?.groupId ?? '';
           await addTutor(
             studentId: widget.studentId,
-            groupId: groupId,
+            // Non-nuls par construction : `missingWriteIds` a refusé plus haut.
+            groupId: profil!.groupId!,
+            schoolId: profil.schoolId!,
             firstName: first,
             lastName: last,
             relationship: _rel,
@@ -116,7 +143,7 @@ class _TutorFormState extends ConsumerState<_TutorForm> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: kBorder))),
             child: Row(children: [
               Icon(_isEdit ? Icons.edit_rounded : Icons.person_add_alt_1_rounded,
@@ -124,7 +151,7 @@ class _TutorFormState extends ConsumerState<_TutorForm> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(_isEdit ? 'Modifier le contact' : 'Nouveau contact',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 15.5,
                         fontWeight: FontWeight.w800,
                         color: kTextPrimary)),
@@ -218,7 +245,7 @@ class _Lbl extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 7),
         child: Text(text,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
                 color: kTextPrimary)),
@@ -260,8 +287,8 @@ class _RelDropdown extends StatelessWidget {
     return DropdownButtonFormField<String>(
       initialValue: value,
       isExpanded: true,
-      style: const TextStyle(fontSize: 13.5, color: kTextPrimary),
-      icon: const Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
+      style: TextStyle(fontSize: 13.5, color: kTextPrimary),
+      icon: Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
       decoration: adminFilledInput('Lien', icon: Icons.family_restroom_rounded),
       items: [
         for (final e in items) DropdownMenuItem(value: e.$1, child: Text(e.$2)),
@@ -300,13 +327,13 @@ class _CheckTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(label,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: kTextPrimary)),
                     Text(sub,
                         style:
-                            const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                            TextStyle(fontSize: 11.5, color: kTextMuted)),
                   ]),
             ),
           ]),

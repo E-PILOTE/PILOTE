@@ -1,6 +1,8 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,13 +10,13 @@ import '../../../core/widgets/app_shell.dart';
 import '../providers/national_map_provider.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const _kNavy  = Color(0xFF1E3A5F);
-const _kGreen = Color(0xFF009A44);
-const _kGold  = Color(0xFFFBBC04);
-const _kCard  = Colors.white;
-const _kText  = Color(0xFF0F172A);
-const _kSub   = Color(0xFF64748B);
-const _kBg    = Color(0xFFF0F4F8);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
+Color get _kGold => kAccent;
+Color get _kCard => kCardBg;
+Color get _kText => kTextPrimary;
+Color get _kSub => kTextMuted;
+Color get _kBg => kSurface;
 
 // ─── Selected dept state ─────────────────────────────────────────────────────
 final _selectedDeptProv = StateProvider.autoDispose<DeptMapEntry?>((ref) => null);
@@ -71,7 +73,7 @@ class _MapLayout extends ConsumerWidget {
             child: Column(
               children: [
                 _GlobalStats(data: data),
-                const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                Divider(height: 1, color: kBorder),
                 Expanded(child: _DeptList(data: data)),
               ],
             ),
@@ -124,9 +126,9 @@ class _GlobalStats extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [_kNavy, Color(0xFF2A4F7A)],
+          colors: [_kNavy, const Color(0xFF2A4F7A)],
           begin: Alignment.topLeft, end: Alignment.bottomRight,
         ),
       ),
@@ -224,7 +226,7 @@ class _DeptList extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(dept.dept,
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kText),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kText),
                           maxLines: 1, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 2),
                       LinearProgressIndicator(
@@ -236,7 +238,7 @@ class _DeptList extends ConsumerWidget {
                       ),
                       const SizedBox(height: 2),
                       Text('${dept.groupCount} groupes · ${dept.schoolCount} écoles · ${dept.studentCount} élèves',
-                          style: const TextStyle(fontSize: 9, color: _kSub)),
+                          style: TextStyle(fontSize: 9, color: _kSub)),
                     ],
                   ),
                 ),
@@ -248,7 +250,7 @@ class _DeptList extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text('${dept.activeGroups} actifs',
-                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: _kGreen)),
+                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: _kGreen)),
                 ),
               ],
             ),
@@ -410,9 +412,9 @@ class _DeptDetail extends ConsumerWidget {
           // Header
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [_kNavy, Color(0xFF2A4F7A)],
+                colors: [_kNavy, const Color(0xFF2A4F7A)],
                 begin: Alignment.topLeft, end: Alignment.bottomRight,
               ),
             ),
@@ -457,7 +459,7 @@ class _DeptDetail extends ConsumerWidget {
                 const SizedBox(height: 16),
 
                 // Activation rate
-                const Text('Taux d\'activation', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _kText)),
+                Text('Taux d\'activation', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _kText)),
                 const SizedBox(height: 6),
                 Row(children: [
                   Expanded(child: LinearProgressIndicator(
@@ -475,7 +477,7 @@ class _DeptDetail extends ConsumerWidget {
 
                 if (dept.groups.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  const Text('Groupes scolaires', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _kText)),
+                  Text('Groupes scolaires', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _kText)),
                   const SizedBox(height: 8),
                   ...dept.groups.map((g) => _GroupRow(group: g)),
                 ],
@@ -503,7 +505,7 @@ class _DetailKpi extends StatelessWidget {
       ),
       child: Column(children: [
         Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: color)),
-        Text(label, style: const TextStyle(fontSize: 10, color: _kSub)),
+        Text(label, style: TextStyle(fontSize: 10, color: _kSub)),
       ]),
     ),
   );
@@ -536,10 +538,10 @@ class _GroupRow extends StatelessWidget {
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(group.name as String,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kText),
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kText),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
             Text(group.planName as String,
-                style: const TextStyle(fontSize: 9, color: _kSub),
+                style: TextStyle(fontSize: 9, color: _kSub),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
           ]),
         ),
@@ -556,9 +558,11 @@ class _NationalAnalytics extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalActive = data.depts.fold<int>(0, (s, d) => s + d.activeGroups);
+    // Compté sur les groupes distincts, pas sur la somme des départements : un
+    // groupe implanté dans neuf départements y apparaît neuf fois.
     final activationRate = data.totalGroups > 0
-        ? (totalActive / data.totalGroups * 100).toStringAsFixed(0) : '0';
+        ? (data.activeGroupsTotal / data.totalGroups * 100).toStringAsFixed(0)
+        : '0';
     final avgSchools = data.totalGroups > 0
         ? (data.totalSchools / data.totalGroups).toStringAsFixed(1) : '0';
 
@@ -577,9 +581,9 @@ class _NationalAnalytics extends StatelessWidget {
           // Header
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [_kNavy, Color(0xFF2A4F7A)],
+                colors: [_kNavy, const Color(0xFF2A4F7A)],
                 begin: Alignment.topLeft, end: Alignment.bottomRight,
               ),
             ),
@@ -605,7 +609,7 @@ class _NationalAnalytics extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // KPIs nationaux
-                const Text('INDICATEURS CLÉS', style: TextStyle(
+                Text('INDICATEURS CLÉS', style: TextStyle(
                     fontSize: 9, fontWeight: FontWeight.w700, color: _kSub, letterSpacing: 1.0)),
                 const SizedBox(height: 10),
                 Row(children: [
@@ -615,17 +619,17 @@ class _NationalAnalytics extends StatelessWidget {
                 ]),
                 const SizedBox(height: 8),
                 Row(children: [
-                  _AnalyticKpi(label: 'Depts couverts', value: '${data.coveredDepts}/12', color: _kGold),
+                  _AnalyticKpi(label: 'Depts couverts', value: '${data.coveredDepts}/${data.totalDepts}', color: _kGold),
                   const SizedBox(width: 8),
                   _AnalyticKpi(label: 'Total élèves', value: '${data.totalStudents}', color: const Color(0xFF7C3AED)),
                 ]),
 
                 const SizedBox(height: 16),
-                const Divider(color: Color(0xFFE2E8F0)),
+                Divider(color: kBorder),
                 const SizedBox(height: 12),
 
                 // Classement départements
-                const Text('CLASSEMENT PAR GROUPES', style: TextStyle(
+                Text('CLASSEMENT PAR GROUPES', style: TextStyle(
                     fontSize: 9, fontWeight: FontWeight.w700, color: _kSub, letterSpacing: 1.0)),
                 const SizedBox(height: 10),
                 ...topDepts.take(6).toList().asMap().entries.map((e) {
@@ -652,10 +656,10 @@ class _NationalAnalytics extends StatelessWidget {
                               fontSize: 9, fontWeight: FontWeight.w800, color: rankColor))),
                           ),
                           const SizedBox(width: 8),
-                          Expanded(child: Text(d.dept, style: const TextStyle(
+                          Expanded(child: Text(d.dept, style: TextStyle(
                             fontSize: 11, fontWeight: FontWeight.w600, color: _kText),
                               maxLines: 1, overflow: TextOverflow.ellipsis)),
-                          Text('${d.groupCount}', style: const TextStyle(
+                          Text('${d.groupCount}', style: TextStyle(
                             fontSize: 11, fontWeight: FontWeight.w800, color: _kNavy)),
                         ]),
                         const SizedBox(height: 4),
@@ -674,7 +678,7 @@ class _NationalAnalytics extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Text('${d.activeGroups} actifs', style: const TextStyle(fontSize: 9, color: _kSub)),
+                          Text('${d.activeGroups} actifs', style: TextStyle(fontSize: 9, color: _kSub)),
                         ]),
                       ],
                     ),
@@ -683,7 +687,7 @@ class _NationalAnalytics extends StatelessWidget {
 
                 if (alertDepts.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  const Divider(color: Color(0xFFE2E8F0)),
+                  Divider(color: kBorder),
                   const SizedBox(height: 12),
                   const Text('ALERTES', style: TextStyle(
                       fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFFEF4444), letterSpacing: 1.0)),
@@ -702,7 +706,7 @@ class _NationalAnalytics extends StatelessWidget {
                       Expanded(child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(d.dept, style: const TextStyle(
+                          Text(d.dept, style: TextStyle(
                             fontSize: 11, fontWeight: FontWeight.w700, color: _kText)),
                           Text(d.groupCount == 0
                               ? 'Aucun groupe enregistré'
@@ -715,7 +719,7 @@ class _NationalAnalytics extends StatelessWidget {
                 ],
 
                 const SizedBox(height: 12),
-                const Divider(color: Color(0xFFE2E8F0)),
+                Divider(color: kBorder),
                 const SizedBox(height: 10),
                 Container(
                   padding: const EdgeInsets.all(10),
@@ -726,21 +730,22 @@ class _NationalAnalytics extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('COUVERTURE NATIONALE', style: TextStyle(
+                      Text('COUVERTURE NATIONALE', style: TextStyle(
                           fontSize: 9, fontWeight: FontWeight.w700, color: _kSub, letterSpacing: 1.0)),
                       const SizedBox(height: 8),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
-                          value: data.coveredDepts / 15,
+                          value: data.coverage,
                           minHeight: 10,
                           backgroundColor: _kBg,
-                          valueColor: const AlwaysStoppedAnimation(_kGreen),
+                          valueColor: AlwaysStoppedAnimation(_kGreen),
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Text('${data.coveredDepts} / 15 départements couverts (${(data.coveredDepts / 15 * 100).toStringAsFixed(0)}%)',
-                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _kNavy)),
+                      Text('${data.coveredDepts} / ${data.totalDepts} départements couverts '
+                          '(${(data.coverage * 100).toStringAsFixed(0)} %)',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _kNavy)),
                     ],
                   ),
                 ),
@@ -768,7 +773,7 @@ class _AnalyticKpi extends StatelessWidget {
       ),
       child: Column(children: [
         Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: color)),
-        Text(label, style: const TextStyle(fontSize: 9, color: _kSub), textAlign: TextAlign.center),
+        Text(label, style: TextStyle(fontSize: 9, color: _kSub), textAlign: TextAlign.center),
       ]),
     ),
   );
@@ -779,10 +784,10 @@ class _AnalyticKpi extends StatelessWidget {
 class _Loading extends StatelessWidget {
   const _Loading();
   @override
-  Widget build(BuildContext context) => const Center(
+  Widget build(BuildContext context) => Center(
     child: Column(mainAxisSize: MainAxisSize.min, children: [
       CircularProgressIndicator(color: _kNavy),
-      SizedBox(height: 16),
+      const SizedBox(height: 16),
       Text('Chargement de la carte nationale…', style: TextStyle(fontSize: 13, color: _kSub)),
     ]),
   );
@@ -795,7 +800,7 @@ class _Err extends StatelessWidget {
   Widget build(BuildContext context) => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
     const Icon(Icons.error_outline_rounded, size: 48, color: Color(0xFFEF4444)),
     const SizedBox(height: 12),
-    Text(error, style: const TextStyle(fontSize: 12, color: _kSub), textAlign: TextAlign.center),
+    Text(error, style: TextStyle(fontSize: 12, color: _kSub), textAlign: TextAlign.center),
     const SizedBox(height: 16),
     ElevatedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh_rounded, size: 16), label: const Text('Réessayer')),
   ]));

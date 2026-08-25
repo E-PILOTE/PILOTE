@@ -2,9 +2,15 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 
+import '../../../core/utils/billing_period.dart';
+import '../../../core/utils/plan_referential_realtime.dart';
+import '../../../core/utils/subscription_days.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../super_admin/providers/invoices_provider.dart' show InvoiceDetail;
+import 'subscription_access_provider.dart'
+    show kSubscriptionAlertDays, subscriptionSettingsProvider;
 
 // ─── Modèles ────────────────────────────────────────────────────────────────
 class GroupSubscription {
@@ -14,6 +20,7 @@ class GroupSubscription {
     required this.planName,
     required this.planSlug,
     required this.priceXaf,
+    this.billingPeriod = kDefaultBillingPeriod,
     required this.status,
     required this.start,
     required this.end,
@@ -25,12 +32,14 @@ class GroupSubscription {
     required this.studentsUsed,
     required this.staffUsed,
     this.description,
+    this.alertDays = kSubscriptionAlertDays,
   });
   final String groupName;
   final String? planId;
   final String planName;
   final String planSlug;
   final int priceXaf;
+  final String billingPeriod;
   final String status;
   final DateTime? start;
   final DateTime? end;
@@ -38,11 +47,26 @@ class GroupSubscription {
   final int schoolsUsed, studentsUsed, staffUsed;
   final String? description;
 
-  int? get daysLeft => end?.difference(DateTime.now()).inDays;
+  /// Fenêtre d'alerte avant échéance (réglage plateforme) — la MÊME que celle
+  /// du bandeau, sinon la carte et le bandeau se contredisent à l'écran.
+  final int alertDays;
+
+  /// Durée couverte par `priceXaf` — « Annuel », « Trimestriel »…
+  String get periodLabel => billingPeriodLabel(billingPeriod);
+
+  /// Suffixe à accoler au montant : « / an », « / mois ».
+  String get periodSuffix => billingPeriodSuffix(billingPeriod);
+
+  /// Jours civils restants — `daysUntilDate`, jamais `difference(now)` : la
+  /// soustraction brute tronquait 21,6 j à 21 alors que le bandeau, lui,
+  /// affichait 22 sur la même page.
+  int? get daysLeft => daysUntilDate(end);
+
   bool get expireSoon {
     final d = daysLeft;
-    return d != null && d >= 0 && d <= 30;
+    return d != null && d >= 0 && d <= alertDays;
   }
+
   bool get expired {
     final d = daysLeft;
     return d != null && d < 0;
@@ -75,6 +99,7 @@ class PlanOption {
     required this.maxStudents,
     required this.maxStaff,
     required this.moduleCount,
+    this.billingPeriod = kDefaultBillingPeriod,
     this.description,
     this.categories = const [],
   });
@@ -83,10 +108,14 @@ class PlanOption {
   final String slug;
   final int priceXaf;
   final int maxSchools, maxStudents, maxStaff, moduleCount;
+  final String billingPeriod;
   final String? description;
 
   /// Familles de modules débloquées (triées par display_order).
   final List<PlanCategory> categories;
+
+  String get periodLabel  => billingPeriodLabel(billingPeriod);
+  String get periodSuffix => billingPeriodSuffix(billingPeriod);
 
   bool get unlimitedSchools  => maxSchools  <= 0;
   bool get unlimitedStudents => maxStudents <= 0;
@@ -199,6 +228,9 @@ final adminSubscriptionProvider =
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
   if (groupId == null) return AdminSubscriptionData.empty;
 
+  // Fenêtre d'alerte réglable par le super_admin — partagée avec le bandeau.
+  final settings = await ref.watch(subscriptionSettingsProvider.future);
+
   // Realtime : groupe + tickets
   Timer? debounce;
   void onChange(_) {
@@ -231,6 +263,9 @@ final adminSubscriptionProvider =
           type: PostgresChangeFilterType.eq, column: 'group_id', value: groupId),
       callback: onChange,
     );
+    // Le tarif et les quotas affichés viennent du PLAN, pas du groupe : sans
+    // cette écoute, une révision tarifaire reste invisible côté client.
+    channel.watchPlanReferential(() => onChange(null));
     channel.subscribe();
     ref.onDispose(() {
       debounce?.cancel();
@@ -244,26 +279,38 @@ final adminSubscriptionProvider =
     final g = await client
         .from('school_groups')
         .select('name, plan_id, subscription_status, subscription_start, subscription_end, '
-            'subscription_plans!plan_id(id, name, slug, price_xaf, max_schools, max_students, max_staff, module_count, description)')
+            'subscription_plans!plan_id(id, name, slug, price_xaf, billing_period, max_schools, max_students, max_staff, module_count, description)')
         .eq('id', groupId)
         .maybeSingle();
 
     // Compteurs d'usage
     int schoolsUsed = 0, studentsUsed = 0, staffUsed = 0;
+    // ⚠️ COMPTER, PAS RAMENER. `select('id')` puis `.length` compte les lignes
+    // REÇUES, et PostgREST en renvoie 1 000 au maximum : passé ce seuil la
+    // jauge se figeait à « 1 000 / 2 000 » quel que soit l'effectif réel. Sur
+    // un quota, c'est le pire endroit possible pour mentir — le client croit
+    // avoir de la marge, et l'écriture est refusée par le serveur.
     try {
-      final s = await client.from('schools').select('id')
-          .eq('group_id', groupId).eq('is_active', true) as List;
-      schoolsUsed = s.length;
+      schoolsUsed = (await client.from('schools').select()
+              .eq('group_id', groupId).eq('is_active', true)
+              .count(CountOption.exact))
+          .count;
     } catch (_) {}
     try {
-      final s = await client.from('students').select('id')
-          .eq('group_id', groupId).eq('is_active', true) as List;
-      studentsUsed = s.length;
+      studentsUsed = (await client.from('students').select()
+              .eq('group_id', groupId).eq('is_active', true)
+              .count(CountOption.exact))
+          .count;
     } catch (_) {}
     try {
-      final s = await client.from('staff_members').select('id')
-          .eq('group_id', groupId).eq('is_active', true) as List;
-      staffUsed = s.length;
+      // Le personnel vit dans `profiles` : `staff_members` est vide et
+      // l'application n'y écrit jamais (cf. migration 0076). La jauge affichait
+      // donc perpétuellement 0.
+      staffUsed = (await client.from('profiles').select()
+              .eq('group_id', groupId).eq('is_active', true)
+              .not('role', 'in', '(super_admin,parent,eleve)')
+              .count(CountOption.exact))
+          .count;
     } catch (_) {}
 
     if (g != null) {
@@ -274,6 +321,8 @@ final adminSubscriptionProvider =
         planName:     plan?['name'] as String? ?? '—',
         planSlug:     plan?['slug'] as String? ?? '',
         priceXaf:     (plan?['price_xaf'] as int?) ?? 0,
+        billingPeriod:
+            plan?['billing_period'] as String? ?? kDefaultBillingPeriod,
         status:       g['subscription_status'] as String? ?? 'trial',
         start:        DateTime.tryParse(g['subscription_start'] as String? ?? ''),
         end:          DateTime.tryParse(g['subscription_end'] as String? ?? ''),
@@ -285,6 +334,7 @@ final adminSubscriptionProvider =
         schoolsUsed:  schoolsUsed,
         studentsUsed: studentsUsed,
         staffUsed:    staffUsed,
+        alertDays:    settings.alertDays,
       );
     }
   } catch (_) {}
@@ -323,9 +373,9 @@ final adminSubscriptionProvider =
   final List<PlanOption> plans = [];
   try {
     final rows = await client.from('subscription_plans')
-        .select('id, name, slug, price_xaf, max_schools, max_students, max_staff, module_count, description, is_active')
+        .select('id, name, slug, price_xaf, billing_period, max_schools, max_students, max_staff, module_count, description, is_active')
         .eq('is_active', true)
-        .order('price_xaf') as List;
+        .order('price_xaf', ascending: true) as List;
     for (final r in rows) {
       final id = r['id'] as String;
       final cats = (catsByPlan[id]?.values.toList() ?? <PlanCategory>[])
@@ -335,6 +385,8 @@ final adminSubscriptionProvider =
         name:        r['name'] as String? ?? '—',
         slug:        r['slug'] as String? ?? '',
         priceXaf:    (r['price_xaf'] as int?) ?? 0,
+        billingPeriod:
+            r['billing_period'] as String? ?? kDefaultBillingPeriod,
         maxSchools:  (r['max_schools'] as int?) ?? 0,
         maxStudents: (r['max_students'] as int?) ?? 0,
         maxStaff:    (r['max_staff'] as int?) ?? 0,
@@ -424,6 +476,26 @@ class AdminSubscriptionService {
       'status': 'open',
     });
     _ref.invalidate(adminSubscriptionProvider);
+  }
+
+  /// Réabonnement au MÊME plan : génère (ou récupère) une facture de
+  /// renouvellement via `create_renewal_invoice` (SECURITY DEFINER, gère
+  /// l'autorisation et l'idempotence côté base). Renvoie le résultat brut :
+  ///   { created:true, invoice_number, amount_xaf, period_start, period_end }
+  ///   { already_pending:true, ... }  — une facture impayée existait déjà
+  ///   { free:true, period_end }      — plan gratuit, prolongé directement
+  /// Le paiement lui-même reste confirmé par la plateforme (mark_invoice_paid).
+  Future<Map<String, dynamic>> requestRenewal() async {
+    final client  = _ref.read(supabaseClientProvider);
+    final groupId = _ref.read(authNotifierProvider).valueOrNull?.groupId;
+    if (groupId == null) throw Exception('Session invalide');
+
+    final res = await client.rpc('create_renewal_invoice',
+        params: {'p_group_id': groupId});
+    _ref.invalidate(adminSubscriptionProvider);
+    return (res is Map)
+        ? Map<String, dynamic>.from(res)
+        : <String, dynamic>{'success': true};
   }
 }
 

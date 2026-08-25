@@ -131,6 +131,22 @@ final currentSchoolProvider =
       .map((rows) => rows.isEmpty ? null : rows.first);
 });
 
+/// Groupe scolaire (réseau) de l'école courante : nom + logo. 100% offline
+/// (ligne `school_groups` du périmètre synchronisée par PowerSync). Sert au
+/// co-branding de la vitrine (drapeau + nom du groupe).
+final currentGroupProvider =
+    StreamProvider.autoDispose<Map<String, dynamic>?>((ref) {
+  final school = ref.watch(currentSchoolProvider).valueOrNull;
+  final gid = school?['group_id'] as String?;
+  if (gid == null || gid.isEmpty) return Stream.value(null);
+  return db
+      .watch(
+        'SELECT name, logo_url FROM school_groups WHERE id = ? LIMIT 1',
+        parameters: [gid],
+      )
+      .map((rows) => rows.isEmpty ? null : rows.first);
+});
+
 /// Logo du groupe scolaire de l'école courante — héritage de marque.
 /// Sert de repli quand l'école n'a pas son propre `logo_url` : l'école étant une
 /// émanation du groupe, elle hérite de son identité visuelle. 100% offline : la
@@ -172,7 +188,8 @@ final yearContentCountProvider = StreamProvider.autoDispose
         '''
         SELECT
           (SELECT COUNT(*) FROM classes
-             WHERE academic_year_id = ?1 AND is_active = 1)               AS classes,
+             WHERE academic_year_id = ?1
+               AND COALESCE(is_active, 1) <> 0)                          AS classes,
           (SELECT COUNT(*) FROM class_enrollments
              WHERE academic_year_id = ?1 AND status = 'active')           AS eleves
         ''',
@@ -206,7 +223,7 @@ Future<int> copySchoolClassesToYear({
       existing.map((r) => (r['name'] as String).toLowerCase().trim()).toSet();
   final src = await db.getAll(
     'SELECT name, capacity, room, level_id, main_teacher_id FROM classes '
-    'WHERE academic_year_id = ? AND school_id = ? AND is_active = 1',
+    'WHERE academic_year_id = ? AND school_id = ? AND COALESCE(is_active, 1) <> 0',
     [sourceYearId, schoolId],
   );
   var created = 0;

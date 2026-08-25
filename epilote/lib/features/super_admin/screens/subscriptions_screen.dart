@@ -1,28 +1,38 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
 import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../providers/subscriptions_provider.dart';
 import '../services/subscription_pdf_service.dart';
+import '../../../core/utils/message_erreur.dart';
+
+/// Message lisible d'une erreur base : un garde-fou métier (ex. « Activation
+/// refusée : aucun reçu payé… ») remonte via PostgrestException.message — on
+/// l'affiche tel quel plutôt que le `toString()` verbeux (code, hint, détails).
+String cleanDbError(Object e) =>
+    e is PostgrestException ? e.message : e.toString();
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
-const _kNavy    = Color(0xFF1E3A5F);
-const _kGreen   = Color(0xFF009A44);
-const _kGold    = Color(0xFFFBBC04);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
+Color get _kGold => kAccent;
 const _kOrange  = Color(0xFFFF6B35);
 const _kPurple  = Color(0xFF7C3AED);
 const _kBlue    = Color(0xFF0EA5E9);
 const _kRed     = Color(0xFFEF4444);
-const _kSurface = Color(0xFFF0F4F8);
-const _kBg      = Color(0xFFFFFFFF);
-const _kBorder  = Color(0xFFE2E8F0);
-const _kText    = Color(0xFF0F172A);
-const _kMuted   = Color(0xFF64748B);
+Color get _kSurface => kSurface;
+Color get _kBg => kCardBg;
+Color get _kBorder => kBorder;
+Color get _kText => kTextPrimary;
+Color get _kMuted => kTextMuted;
 
 // ─── Helpers statut ──────────────────────────────────────────────────────────
 const _statusLabels = {
@@ -155,7 +165,7 @@ class _SubsBodyState extends ConsumerState<_SubsBody> {
       ref.invalidate(subscriptionsProvider);
       if (mounted) _showSuccess('Statut mis à jour : ${_statusLabel(status)}');
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError(cleanDbError(e));
     }
   }
 
@@ -177,9 +187,9 @@ class _SubsBodyState extends ConsumerState<_SubsBody> {
       loading: () => const _ShimmerSkeleton(),
       error: (e, _) => Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
+          Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
           const SizedBox(height: 12),
-          Text('Erreur : $e', style: const TextStyle(color: _kMuted)),
+          Text(messageErreur(e), style: TextStyle(color: _kMuted)),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => ref.invalidate(subscriptionsProvider),
@@ -436,7 +446,7 @@ class _KpiCardState extends State<_KpiCard> with SingleTickerProviderStateMixin 
                           fontWeight: FontWeight.w900, letterSpacing: -0.5,
                         ), overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 2),
-                        Text(d.label, style: const TextStyle(
+                        Text(d.label, style: TextStyle(
                           color: _kMuted, fontSize: 11.5, fontWeight: FontWeight.w600,
                         ), overflow: TextOverflow.ellipsis),
                         if (d.sub != null)
@@ -495,7 +505,7 @@ class _ShimmerSkeleton extends StatelessWidget {
   Widget _box(double w, double h, {double r = 10}) => Container(
     width: w, height: h,
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: kCardBg,
       borderRadius: BorderRadius.circular(r),
     ),
   );
@@ -581,11 +591,11 @@ class _FilterBar extends StatelessWidget {
                 onChanged: onSearchChange,
                 decoration: InputDecoration(
                   hintText: 'Rechercher par groupe, e-mail, plan, département…',
-                  hintStyle: const TextStyle(color: _kMuted, fontSize: 13),
-                  prefixIcon: const Icon(Icons.search_rounded, color: _kMuted, size: 20),
+                  hintStyle: TextStyle(color: _kMuted, fontSize: 13),
+                  prefixIcon: Icon(Icons.search_rounded, color: _kMuted, size: 20),
                   suffixIcon: searchCtrl.text.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.close_rounded, size: 18, color: _kMuted),
+                          icon: Icon(Icons.close_rounded, size: 18, color: _kMuted),
                           onPressed: () { searchCtrl.clear(); onSearchChange(''); })
                       : null,
                   filled: true,
@@ -615,7 +625,7 @@ class _FilterBar extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: _kBorder),
                     ),
-                    child: const Icon(Icons.refresh_rounded, size: 20, color: _kMuted),
+                    child: Icon(Icons.refresh_rounded, size: 20, color: _kMuted),
                   ),
                 ),
               ),
@@ -628,13 +638,13 @@ class _FilterBar extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF1A2F5A), Color(0xFF1E3A5F)],
+                    gradient: LinearGradient(
+                      colors: [const Color(0xFF1A2F5A), kNavy],
                       begin: Alignment.topLeft, end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [BoxShadow(
-                      color: const Color(0xFF1E3A5F).withValues(alpha: 0.25),
+                      color: kNavy.withValues(alpha: 0.25),
                       blurRadius: 8, offset: const Offset(0, 3),
                     )],
                   ),
@@ -752,7 +762,7 @@ class _FilterDropdown extends StatelessWidget {
     child: DropdownButtonHideUnderline(
       child: DropdownButton<String>(
         value: value,
-        dropdownColor: Colors.white,
+        dropdownColor: kCardBg,
         icon: Icon(Icons.arrow_drop_down, size: 18,
             color: active ? Colors.white : _kMuted),
         style: TextStyle(
@@ -806,10 +816,10 @@ class _ResultHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(children: [
     Text('$filtered résultat${filtered > 1 ? "s" : ""}',
-        style: const TextStyle(color: _kText, fontSize: 14, fontWeight: FontWeight.w700)),
+        style: TextStyle(color: _kText, fontSize: 14, fontWeight: FontWeight.w700)),
     if (filtered < total) ...[
       const SizedBox(width: 8),
-      Text('sur $total', style: const TextStyle(color: _kMuted, fontSize: 13)),
+      Text('sur $total', style: TextStyle(color: _kMuted, fontSize: 13)),
     ],
   ]);
 }
@@ -834,7 +844,7 @@ class _TableView extends StatelessWidget {
     flex: flex,
     child: Align(
       alignment: center ? Alignment.center : Alignment.centerLeft,
-      child: Text(label, style: const TextStyle(
+      child: Text(label, style: TextStyle(
           color: _kMuted, fontSize: 11,
           fontWeight: FontWeight.w700, letterSpacing: 0.4),
           overflow: TextOverflow.ellipsis),
@@ -867,17 +877,17 @@ class _TableView extends StatelessWidget {
               _hdr('Type',            2),
               _hdr('Échéance',        3),
               _hdr('Écoles',          1),
-              const SizedBox(width: _statusW,
+              SizedBox(width: _statusW,
                 child: Text('Statut', style: TextStyle(
                     color: _kMuted, fontSize: 11,
                     fontWeight: FontWeight.w700, letterSpacing: 0.4))),
-              const SizedBox(width: _actionsW,
+              SizedBox(width: _actionsW,
                 child: Center(child: Text('Actions', style: TextStyle(
                     color: _kMuted, fontSize: 11,
                     fontWeight: FontWeight.w700, letterSpacing: 0.4)))),
             ]),
           ),
-          const Divider(height: 1, color: _kBorder),
+          Divider(height: 1, color: _kBorder),
           ...subs.asMap().entries.map((e) => _TableRow(
             sub:      e.value,
             isOdd:    e.key.isOdd,
@@ -953,10 +963,10 @@ class _TableRowState extends State<_TableRow> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(s.groupName,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kText),
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kText),
                       overflow: TextOverflow.ellipsis),
                   Text(s.adminEmail,
-                      style: const TextStyle(fontSize: 10.5, color: _kMuted),
+                      style: TextStyle(fontSize: 10.5, color: _kMuted),
                       overflow: TextOverflow.ellipsis),
                 ],
               ),
@@ -979,10 +989,10 @@ class _TableRowState extends State<_TableRow> {
                 overflow: TextOverflow.ellipsis)),
           ])),
           Expanded(flex: 1, child: Row(children: [
-            const Icon(Icons.school_rounded, size: 13, color: _kNavy),
+            Icon(Icons.school_rounded, size: 13, color: _kNavy),
             const SizedBox(width: 4),
             Text('${s.schoolsCount}',
-                style: const TextStyle(fontSize: 12.5, color: _kText,
+                style: TextStyle(fontSize: 12.5, color: _kText,
                     fontWeight: FontWeight.w600)),
           ])),
           SizedBox(
@@ -1123,7 +1133,7 @@ class _SubCardState extends State<_SubCard> {
             Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(s.groupName, style: const TextStyle(
+                Text(s.groupName, style: TextStyle(
                     color: _kText, fontSize: 13.5, fontWeight: FontWeight.w800),
                     overflow: TextOverflow.ellipsis),
                 Text(s.planName ?? 'Sans plan', style: TextStyle(
@@ -1141,7 +1151,8 @@ class _SubCardState extends State<_SubCard> {
           Row(children: [
             _miniStat(Icons.school_rounded, '${s.schoolsCount} écoles', _kNavy),
             const SizedBox(width: 12),
-            _miniStat(Icons.payments_rounded, '${_money(s.priceXaf)} F', _kPurple),
+            _miniStat(Icons.payments_rounded,
+                '${_money(s.priceXaf)} F/${s.periodSuffix}', _kPurple),
           ]),
           const SizedBox(height: 6),
           Row(children: [
@@ -1179,7 +1190,7 @@ class _SubCardState extends State<_SubCard> {
     children: [
       Icon(icon, size: 12, color: color),
       const SizedBox(width: 4),
-      Text(label, style: const TextStyle(
+      Text(label, style: TextStyle(
           color: _kMuted, fontSize: 11.5, fontWeight: FontWeight.w600)),
     ],
   );
@@ -1277,12 +1288,12 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(vertical: 64),
     alignment: Alignment.center,
-    child: const Column(mainAxisSize: MainAxisSize.min, children: [
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
       Icon(Icons.workspace_premium_rounded, size: 56, color: _kBorder),
-      SizedBox(height: 16),
+      const SizedBox(height: 16),
       Text('Aucun abonnement trouvé', style: TextStyle(
           color: _kText, fontSize: 16, fontWeight: FontWeight.w700)),
-      SizedBox(height: 6),
+      const SizedBox(height: 6),
       Text('Modifiez vos filtres ou créez un nouvel abonnement.',
           style: TextStyle(color: _kMuted, fontSize: 13)),
     ]),
@@ -1296,7 +1307,7 @@ class _SectionTitle extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Text(text,
-      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
           color: _kMuted, letterSpacing: 0.5));
 }
 
@@ -1318,7 +1329,7 @@ class _FormField extends StatelessWidget {
   Widget build(BuildContext context) => TextFormField(
     controller:   controller,
     keyboardType: keyboardType,
-    style: const TextStyle(fontSize: 13, color: _kText),
+    style: TextStyle(fontSize: 13, color: _kText),
     decoration: InputDecoration(
       labelText: label,
       prefixIcon: Icon(icon, size: 16, color: _kMuted),
@@ -1327,11 +1338,11 @@ class _FormField extends StatelessWidget {
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: _kBorder),
+        borderSide: BorderSide(color: _kBorder),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: _kNavy, width: 1.5),
+        borderSide: BorderSide(color: _kNavy, width: 1.5),
       ),
       contentPadding: const EdgeInsets.all(12),
     ),
@@ -1440,7 +1451,7 @@ class _SubFormModalState extends ConsumerState<_SubFormModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur : $e'),
+        content: Text(cleanDbError(e)),
         backgroundColor: _kRed,
         behavior: SnackBarBehavior.floating,
       ));
@@ -1471,16 +1482,16 @@ class _SubFormModalState extends ConsumerState<_SubFormModal> {
         child: Column(children: [
           Container(
             padding: const EdgeInsets.fromLTRB(22, 16, 16, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            decoration: BoxDecoration(
+              color: kCardBg,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               border: Border(bottom: BorderSide(color: _kBorder)),
             ),
             child: Row(children: [
               Container(
                 width: 38, height: 38,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF1A2F5A), _kNavy]),
+                  gradient: LinearGradient(colors: [const Color(0xFF1A2F5A), _kNavy]),
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [BoxShadow(color: _kNavy.withValues(alpha: 0.25),
                       blurRadius: 8, offset: const Offset(0, 3))],
@@ -1494,11 +1505,11 @@ class _SubFormModalState extends ConsumerState<_SubFormModal> {
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(
                   _isEditing ? 'Modifier l\'abonnement' : 'Nouvel abonnement',
-                  style: const TextStyle(color: _kText, fontSize: 15, fontWeight: FontWeight.w800),
+                  style: TextStyle(color: _kText, fontSize: 15, fontWeight: FontWeight.w800),
                 ),
                 Text(
                   _isEditing ? 'Mise à jour du groupe scolaire' : 'Créer un groupe & son abonnement',
-                  style: const TextStyle(color: _kMuted, fontSize: 11),
+                  style: TextStyle(color: _kMuted, fontSize: 11),
                 ),
               ]),
               const Spacer(),
@@ -1513,7 +1524,7 @@ class _SubFormModalState extends ConsumerState<_SubFormModal> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: _kBorder),
                   ),
-                  child: const Icon(Icons.close_rounded, size: 15, color: _kMuted),
+                  child: Icon(Icons.close_rounded, size: 15, color: _kMuted),
                 ),
               ),
             ]),
@@ -1608,10 +1619,10 @@ class _SubFormModalState extends ConsumerState<_SubFormModal> {
           ),
           Container(
             padding: const EdgeInsets.fromLTRB(22, 12, 22, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: _kSurface,
               border: Border(top: BorderSide(color: _kBorder)),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
             ),
             child: Row(children: [
               MouseRegion(
@@ -1625,7 +1636,7 @@ class _SubFormModalState extends ConsumerState<_SubFormModal> {
                       border: Border.all(color: _kBorder),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Text('Annuler', style: TextStyle(
+                    child: Text('Annuler', style: TextStyle(
                         color: _kMuted, fontSize: 13, fontWeight: FontWeight.w600)),
                   ),
                 ),
@@ -1698,8 +1709,8 @@ class _FormDropdown<T> extends StatelessWidget {
       child: DropdownButton<T>(
         value: value,
         isExpanded: true,
-        icon: const Icon(Icons.expand_more_rounded, size: 18, color: _kMuted),
-        style: const TextStyle(color: _kText, fontSize: 13),
+        icon: Icon(Icons.expand_more_rounded, size: 18, color: _kMuted),
+        style: TextStyle(color: _kText, fontSize: 13),
         items: items.entries.map((e) => DropdownMenuItem<T>(
           value: e.key,
           child: Row(children: [
@@ -1736,16 +1747,16 @@ class _PlanDropdown extends StatelessWidget {
       child: DropdownButton<String?>(
         value: value,
         isExpanded: true,
-        icon: const Icon(Icons.expand_more_rounded, size: 18, color: _kMuted),
-        style: const TextStyle(color: _kText, fontSize: 13),
-        hint: const Text('Sélectionner un plan', style: TextStyle(color: _kMuted, fontSize: 13)),
+        icon: Icon(Icons.expand_more_rounded, size: 18, color: _kMuted),
+        style: TextStyle(color: _kText, fontSize: 13),
+        hint: Text('Sélectionner un plan', style: TextStyle(color: _kMuted, fontSize: 13)),
         items: [
-          const DropdownMenuItem<String?>(
+          DropdownMenuItem<String?>(
             value: null,
             child: Row(children: [
               Icon(Icons.block_rounded, size: 14, color: _kMuted),
-              SizedBox(width: 8),
-              Text('Aucun plan'),
+              const SizedBox(width: 8),
+              const Text('Aucun plan'),
             ]),
           ),
           ...plans.map((p) => DropdownMenuItem<String?>(
@@ -1754,7 +1765,7 @@ class _PlanDropdown extends StatelessWidget {
               const Icon(Icons.workspace_premium_rounded, size: 14, color: _kPurple),
               const SizedBox(width: 8),
               Flexible(child: Text(
-                '${p.name} · ${_money(p.priceXaf)} F',
+                '${p.name} · ${p.priceLabel}',
                 overflow: TextOverflow.ellipsis,
               )),
             ]),
@@ -1785,11 +1796,11 @@ class _DateField extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(children: [
-          const Icon(Icons.calendar_today_rounded, size: 15, color: _kMuted),
+          Icon(Icons.calendar_today_rounded, size: 15, color: _kMuted),
           const SizedBox(width: 8),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: const TextStyle(color: _kMuted, fontSize: 10)),
-            Text(_fmtDate(value), style: const TextStyle(
+            Text(label, style: TextStyle(color: _kMuted, fontSize: 10)),
+            Text(_fmtDate(value), style: TextStyle(
                 color: _kText, fontSize: 12.5, fontWeight: FontWeight.w600),
                 overflow: TextOverflow.ellipsis),
           ])),
@@ -1852,16 +1863,16 @@ class _SubDetailModalState extends ConsumerState<_SubDetailModal>
         child: Column(children: [
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 14, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            decoration: BoxDecoration(
+              color: kCardBg,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               border: Border(bottom: BorderSide(color: _kBorder)),
             ),
             child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
               _SubGroupGlyph(sub: s, size: 66),
               const SizedBox(width: 14),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(s.groupName, style: const TextStyle(
+                Text(s.groupName, style: TextStyle(
                     color: _kText, fontSize: 17, fontWeight: FontWeight.w800),
                     overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 5),
@@ -1916,7 +1927,7 @@ class _SubDetailModalState extends ConsumerState<_SubDetailModal>
           ),
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(top: BorderSide(color: _kBorder)),
             ),
             child: Row(children: [
@@ -2030,7 +2041,7 @@ class _SubSubscriptionTab extends StatelessWidget {
         _SubDetailCard([
           _SubDetailRow(Icons.workspace_premium_rounded, 'Plan', s.planName ?? '—'),
           _SubDetailRow(Icons.payments_outlined, 'Prix mensuel',
-              s.priceXaf > 0 ? '${_money(s.priceXaf)} FCFA' : 'Gratuit'),
+              s.priceLabel),
           _SubDetailRow(Icons.radio_button_checked_rounded, 'Statut', s.statusLabel, last: true),
         ]),
         const SizedBox(height: 14),
@@ -2050,7 +2061,8 @@ class _SubSubscriptionTab extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(child: _SubMetaChip(
             icon: Icons.payments_rounded,
-            label: '${_money(s.priceXaf)} F / mois',
+            // « / mois » était faux : le même montant est facturé pour un an.
+            label: '${_money(s.priceXaf)} F / ${s.periodSuffix}',
             color: _kPurple)),
         ]),
       ]),
@@ -2148,12 +2160,12 @@ class _SubDetailRow extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
     decoration: BoxDecoration(
-      border: last ? null : const Border(bottom: BorderSide(color: _kBorder)),
+      border: last ? null : Border(bottom: BorderSide(color: _kBorder)),
     ),
     child: Row(children: [
       Icon(icon, size: 15, color: _kNavy),
       const SizedBox(width: 10),
-      Text(label, style: const TextStyle(
+      Text(label, style: TextStyle(
           color: _kMuted, fontSize: 12, fontWeight: FontWeight.w600)),
       const Spacer(),
       Flexible(child: Text(value, style: TextStyle(
@@ -2181,8 +2193,8 @@ class _SubDetailRow extends StatelessWidget {
                 }
               },
               borderRadius: BorderRadius.circular(6),
-              child: const Padding(
-                padding: EdgeInsets.all(2),
+              child: Padding(
+                padding: const EdgeInsets.all(2),
                 child: Icon(Icons.copy_rounded, size: 13, color: _kNavy),
               ),
             ),
@@ -2221,7 +2233,7 @@ class _SubSectionTitle extends StatelessWidget {
   const _SubSectionTitle(this.text);
   final String text;
   @override
-  Widget build(BuildContext context) => Text(text, style: const TextStyle(
+  Widget build(BuildContext context) => Text(text, style: TextStyle(
       color: _kNavy, fontSize: 13, fontWeight: FontWeight.w800));
 }
 
@@ -2248,7 +2260,7 @@ class _SubPrintPreviewModalState extends State<_SubPrintPreviewModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur impression : $e'),
+        content: Text(messageErreur(e, contexte: 'Impression')),
         backgroundColor: _kRed, behavior: SnackBarBehavior.floating,
       ));
       }
@@ -2279,7 +2291,7 @@ class _SubPrintPreviewModalState extends State<_SubPrintPreviewModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur téléchargement : $e'),
+        content: Text(messageErreur(e, contexte: 'Téléchargement')),
         backgroundColor: _kRed, behavior: SnackBarBehavior.floating,
       ));
       }
@@ -2307,9 +2319,9 @@ class _SubPrintPreviewModalState extends State<_SubPrintPreviewModal> {
         child: Column(children: [
           Container(
             padding: const EdgeInsets.fromLTRB(22, 14, 14, 14),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: _kNavy,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
             ),
             child: Row(children: [
               Container(
@@ -2357,9 +2369,9 @@ class _SubPrintPreviewModalState extends State<_SubPrintPreviewModal> {
           ),
           Container(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
+            decoration: BoxDecoration(
+              color: kCardBg,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(18)),
               border: Border(top: BorderSide(color: _kBorder)),
             ),
             child: Row(children: [
@@ -2374,9 +2386,9 @@ class _SubPrintPreviewModalState extends State<_SubPrintPreviewModal> {
                       border: Border.all(color: _kBorder),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.close_rounded, size: 13, color: _kMuted),
-                      SizedBox(width: 5),
+                      const SizedBox(width: 5),
                       Text('Fermer', style: TextStyle(
                           color: _kMuted, fontSize: 12.5, fontWeight: FontWeight.w600)),
                     ]),
@@ -2399,13 +2411,13 @@ class _SubPrintPreviewModalState extends State<_SubPrintPreviewModal> {
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       if (_printing)
-                        const SizedBox(width: 13, height: 13,
+                        SizedBox(width: 13, height: 13,
                             child: CircularProgressIndicator(strokeWidth: 2, color: _kNavy))
                       else
-                        const Icon(Icons.print_rounded, size: 14, color: _kNavy),
+                        Icon(Icons.print_rounded, size: 14, color: _kNavy),
                       const SizedBox(width: 6),
                       Text(_printing ? 'Impression…' : 'Imprimer',
-                          style: const TextStyle(color: _kNavy, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                          style: TextStyle(color: _kNavy, fontSize: 12.5, fontWeight: FontWeight.w700)),
                     ]),
                   ),
                 ),

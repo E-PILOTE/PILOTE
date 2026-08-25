@@ -75,8 +75,8 @@ class _MasterCalendar extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [const SizedBox(width: timeW), for (final d in days) dayHeader(d)]),
         if (rows.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 34),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 34),
             child: Center(
               child: Text('Aucun créneau pour cette sélection.',
                   style: TextStyle(fontSize: 13, color: kTextMuted)),
@@ -94,12 +94,12 @@ class _MasterCalendar extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(r.$1,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w800,
                                   color: kTextPrimary)),
                           Text(r.$2,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 10, color: kTextMuted)),
                         ]),
                   ),
@@ -188,7 +188,7 @@ class _CalCell extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 1),
             child: Text('+$extra autre${extra > 1 ? 's' : ''}',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
                     color: kTextMuted)),
@@ -237,7 +237,7 @@ class _CalBlock extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             if (conflict) ...[
-              const Icon(Icons.warning_amber_rounded, size: 11, color: kRed),
+              Icon(Icons.warning_amber_rounded, size: 11, color: kRed),
               const SizedBox(width: 3),
             ],
             Expanded(
@@ -251,13 +251,13 @@ class _CalBlock extends StatelessWidget {
             ),
             if ((slot.room ?? '').trim().isNotEmpty)
               Text(slot.room!.trim(),
-                  style: const TextStyle(fontSize: 9.5, color: kTextMuted)),
+                  style: TextStyle(fontSize: 9.5, color: kTextMuted)),
           ]),
           if (secondary.trim().isNotEmpty)
             Text(secondary.trim(),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 10, color: kTextPrimary)),
+                style: TextStyle(fontSize: 10, color: kTextPrimary)),
         ]),
       ),
     );

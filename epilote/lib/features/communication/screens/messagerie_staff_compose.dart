@@ -180,7 +180,7 @@ class _ComposeDialogState extends ConsumerState<_ComposeDialog> {
                         setState(() => _selected.remove(o.value)),
                     deleteIconColor: kTextMuted,
                     backgroundColor: kSurface,
-                    side: const BorderSide(color: kBorder),
+                    side: BorderSide(color: kBorder),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20)),
                     visualDensity: VisualDensity.compact,
@@ -204,9 +204,9 @@ class _ComposeDialogState extends ConsumerState<_ComposeDialog> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: dir.isEmpty
-                ? const Center(
+                ? Center(
                     child: Padding(
-                      padding: EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(16),
                       child: Text(
                         'Annuaire indisponible (synchronisation en attente).',
                         textAlign: TextAlign.center,
@@ -215,7 +215,7 @@ class _ComposeDialogState extends ConsumerState<_ComposeDialog> {
                     ),
                   )
                 : results.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text('Aucun collègue ne correspond.',
                             style: TextStyle(
                                 fontSize: 12, color: kTextMuted)),
@@ -223,7 +223,7 @@ class _ComposeDialogState extends ConsumerState<_ComposeDialog> {
                     : ListView.separated(
                         itemCount: results.length,
                         separatorBuilder: (_, _) =>
-                            const Divider(height: 1, color: kBorder),
+                            Divider(height: 1, color: kBorder),
                         itemBuilder: (_, i) =>
                             _DirectoryTile(
                           option: results[i],
@@ -269,14 +269,14 @@ class _ComposeDialogState extends ConsumerState<_ComposeDialog> {
               label: const Text('Joindre des fichiers'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: kNavy,
-                side: const BorderSide(color: kBorder),
+                side: BorderSide(color: kBorder),
                 textStyle: const TextStyle(fontSize: 12),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8)),
               ),
             ),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Text('Images, documents, audio, vidéo — internet requis',
                   style: TextStyle(fontSize: 10.5, color: kTextMuted)),
             ),
@@ -324,14 +324,14 @@ class _DirectoryTile extends StatelessWidget {
                 Text(option.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
                         color: kTextPrimary)),
                 if (option.subtitle != null &&
                     option.subtitle!.isNotEmpty)
                   Text(_roleLabel(option.subtitle),
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 10.5, color: kTextMuted)),
               ],
             ),

@@ -1,20 +1,22 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/license_phase.dart';
 import 'license_providers.dart';
 
 // Ambre (grâce) / rouge (lecture seule).
-const _kWarnBg = Color(0xFFFFFBEB);
-const _kWarnBorder = Color(0xFFFDE68A);
+Color get _kWarnBg => kAccent.withValues(alpha: 0.12);
+Color get _kWarnBorder => kAccent.withValues(alpha: 0.45);
 const _kWarnFg = Color(0xFF92400E);
 const _kWarnIcon = Color(0xFFD97706);
-const _kStopBg = Color(0xFFFEF2F2);
+Color get _kStopBg => kRed.withValues(alpha: 0.12);
 const _kStopBorder = Color(0xFFFECACA);
 const _kStopFg = Color(0xFF991B1B);
-const _kStopIcon = Color(0xFFDC2626);
+Color get _kStopIcon => kRed;
 
 /// Bandeau licence côté PERSONNEL (offline). Rend visible la phase dérivée de la
 /// licence (grâce / lecture seule). À la différence du bandeau admin_groupe, le
@@ -70,7 +72,8 @@ class _LicenseBannerState extends ConsumerState<LicenseBanner>
     final now = DateTime.now().toUtc();
     final phase = ent.phaseAt(now);
 
-    // Priorité d'affichage : hardLock > readOnly > grace > compte à rebours > rien.
+    // Priorité d'affichage : hardLock > readOnly > grace > rien. Le compte à
+    // rebours d'avant-échéance appartient à `SchoolSubscriptionBanner`.
     final (Color bg, Color border, Color fg, IconData icon, Color iconColor, String message) info;
     switch (phase) {
       case LicensePhase.hardLock:
@@ -92,11 +95,13 @@ class _LicenseBannerState extends ConsumerState<LicenseBanner>
               'de votre administration.',
         );
       case LicensePhase.active:
-        final countdown = subscriptionCountdownLabel(ent.license?.validTo, now);
-        if (countdown == null) return const SizedBox.shrink();
-        info = (
-          _kWarnBg, _kWarnBorder, _kWarnFg, Icons.schedule_rounded, _kWarnIcon, countdown,
-        );
+        // Le compte à rebours AVANT échéance a quitté ce bandeau : il dépendait
+        // de `license.validTo`, donc d'une licence émise — que la plupart des
+        // groupes n'ont pas (`LICENSE_PILOT_GROUP_IDS`). Il vit désormais dans
+        // `SchoolSubscriptionBanner`, alimenté par la date synchronisée du
+        // groupe, sur le seuil réglé par le super_admin. Ici, phase active =
+        // rien à signaler.
+        return const SizedBox.shrink();
     }
     final (bg, border, fg, icon, iconColor, message) = info;
 
@@ -123,42 +128,15 @@ class _LicenseBannerState extends ConsumerState<LicenseBanner>
   }
 }
 
-/// Libellé de compte à rebours d'échéance, dérivé de la date d'expiration
-/// SIGNÉE de la licence (`license.validTo`). Pur & testable — aucune I/O.
-///
-/// Renvoie `null` (= rien à afficher en phase active) quand :
-///   - `validTo` est nul (abonnement perpétuel),
-///   - l'échéance est au-delà de `maxThreshold` jours,
-///   - l'échéance est déjà dépassée (les états grace/hardLock prennent le relais).
-///
-/// Comparaison au jour près (les échéances sont des dates, pas des instants).
-String? subscriptionCountdownLabel(
-  DateTime? validTo,
-  DateTime now, {
-  int maxThreshold = 30,
-}) {
-  if (validTo == null) return null;
-  final end = DateTime.utc(validTo.year, validTo.month, validTo.day);
-  final today = DateTime.utc(now.year, now.month, now.day);
-  final daysLeft = end.difference(today).inDays;
-  if (daysLeft < 0 || daysLeft > maxThreshold) return null;
-  if (daysLeft == 0) {
-    return "L'abonnement de l'établissement expire aujourd'hui ; au-delà, "
-        "l'accès aux modules sera suspendu.";
-  }
-  return "L'abonnement de l'établissement expire dans $daysLeft jour"
-      "${daysLeft > 1 ? 's' : ''} ; au-delà, l'accès aux modules sera suspendu.";
-}
-
 /// Helper d'expertise pour gater une mutation staff quand la licence est en
 /// lecture seule. Fail-soft : au doute (pas de licence, chargement) → autorise.
 /// À appeler en tête d'un handler de mutation côté personnel.
 bool ensureLicenseWritable(WidgetRef ref, BuildContext context) {
   final ent = ref.read(entitlementProvider).valueOrNull;
   if (ent != null && ent.isEnforced && !ent.canWriteAt(DateTime.now().toUtc())) {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       backgroundColor: _kStopIcon,
-      content: Text('Abonnement expiré — application en lecture seule. '
+      content: const Text('Abonnement expiré — application en lecture seule. '
           'Modification impossible pour le moment.'),
     ));
     return false;

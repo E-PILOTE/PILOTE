@@ -10,18 +10,18 @@ import 'staff_feed_ui.dart' show FeedAvatar;
 // ════════════════════════════════════════════════════════════════════════════
 
 class FeedComposerCard extends StatelessWidget {
-  const FeedComposerCard({
+  FeedComposerCard({
     super.key,
     required this.hint,
     required this.onCompose,
     required this.onComposePhoto,
     required this.onComposeEvent,
     required this.onComposeDoc,
-    this.avatarColor = kNavy,
+    Color? avatarColor,
     this.avatarIcon = Icons.campaign_rounded,
     this.avatarInitials,
     this.avatarUrl,
-  });
+  }) : avatarColor = avatarColor ?? kNavy;
 
   /// Texte d'invitation (scope-aware : plateforme / groupe / école).
   final String hint;
@@ -42,7 +42,7 @@ class FeedComposerCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: kBorder),
           boxShadow: [
@@ -54,9 +54,9 @@ class FeedComposerCard extends StatelessWidget {
         ),
         child: Column(children: [
           // ── En-tête « Créer une publication » ───────────────────────────────
-          const Row(children: [
+          Row(children: [
             Icon(Icons.edit_note_rounded, size: 18, color: kNavy),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Text('Créer une publication',
                 style: TextStyle(
                     fontSize: 13,
@@ -93,14 +93,14 @@ class FeedComposerCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style:
-                            const TextStyle(fontSize: 13.5, color: kTextMuted)),
+                            TextStyle(fontSize: 13.5, color: kTextMuted)),
                   ),
                 ),
               ),
             ),
           ]),
           const SizedBox(height: 10),
-          const Divider(height: 1, thickness: 1, color: kBorder),
+          Divider(height: 1, thickness: 1, color: kBorder),
           const SizedBox(height: 4),
           // ── Rangée de raccourcis ────────────────────────────────────────────
           Row(children: [
@@ -176,7 +176,7 @@ class _ComposerActionState extends State<_ComposerAction> {
                 child: Text(widget.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
                         color: kTextPrimary)),

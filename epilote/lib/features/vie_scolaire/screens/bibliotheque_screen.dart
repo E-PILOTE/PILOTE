@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
@@ -207,7 +208,7 @@ class _BodyState extends ConsumerState<_Body> {
       Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: kBorder),
         ),
@@ -245,7 +246,7 @@ class _BodyState extends ConsumerState<_Body> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: kBorder),
       ),
@@ -256,9 +257,9 @@ class _BodyState extends ConsumerState<_Body> {
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: const TextStyle(color: kTextMuted, fontSize: 13),
+              hintStyle: TextStyle(color: kTextMuted, fontSize: 13),
               prefixIcon:
-                  const Icon(Icons.search_rounded, color: kTextMuted, size: 20),
+                  Icon(Icons.search_rounded, color: kTextMuted, size: 20),
               filled: true,
               fillColor: kSurface,
               border: OutlineInputBorder(
@@ -282,7 +283,7 @@ class _BodyState extends ConsumerState<_Body> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                   colors: [kNavyDark, kNavy],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight),

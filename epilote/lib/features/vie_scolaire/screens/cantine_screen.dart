@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
@@ -9,6 +10,7 @@ import '../../structure/providers/academic_year_context.dart';
 import '../../students/widgets/scope_drilldown_panel.dart';
 import '../providers/cantine_provider.dart';
 import '../widgets/vs_kit.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'cantine_roll.dart';
 
@@ -55,7 +57,7 @@ class _BodyState extends ConsumerState<_Body> {
       lastDate: DateTime.now().add(const Duration(days: 1)),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx)
-            .copyWith(colorScheme: const ColorScheme.light(primary: kNavy)),
+            .copyWith(colorScheme: ColorScheme.light(primary: kNavy)),
         child: child!,
       ),
     );
@@ -102,7 +104,7 @@ class _BodyState extends ConsumerState<_Body> {
               width: 175,
               onTap: _pickDate,
               child: Text(_dateLabel,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: kTextPrimary)),
@@ -124,7 +126,7 @@ class _BodyState extends ConsumerState<_Body> {
               child: Center(child: CircularProgressIndicator())),
           error: (e, _) => Padding(
               padding: const EdgeInsets.only(top: 40),
-              child: Center(child: Text('Erreur : $e'))),
+              child: Center(child: Text(messageErreur(e)))),
           data: _content,
         ),
         const SizedBox(height: 24),

@@ -44,31 +44,53 @@ class _ExpenseFormState extends ConsumerState<_ExpenseForm> {
   String _fmt(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
+
+  /// Refuse d'écrire quand un identifiant obligatoire manque.
+  ///
+  /// Sans ce garde-fou, `?? ''` envoyait une chaîne vide dans une colonne
+  /// `uuid` NOT NULL : accepté en local, REFUSÉ par le serveur — ce qui
+  /// abandonne le lot PowerSync entier et emporte le travail des autres
+  /// modules, sans message. Mieux vaut refuser franchement, et dire pourquoi.
+  bool _guard(String? groupId, String? schoolId, String? actorId, String? yearId) {
+    final missing = [
+      ...missingWriteIds(
+          groupId: groupId, schoolId: schoolId, actorId: actorId),
+      if (!isUsableId(yearId)) 'année scolaire',
+    ];
+    if (missing.isEmpty) return true;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(writeIdentityMessage(missing)),
+      backgroundColor: kRed,
+      duration: const Duration(seconds: 6),
+    ));
+    return false;
+  }
+
   Future<void> _save() async {
     final amount = int.tryParse(_amount.text.trim().replaceAll(' ', ''));
     if (_title.text.trim().isEmpty || amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Intitulé et montant (> 0) requis'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Intitulé et montant (> 0) requis'),
           backgroundColor: kRed));
       return;
     }
     final p = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
-    if (yearId == null) return;
+    if (!_guard(p?.groupId, p?.schoolId, p?.id, yearId)) return;
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
       () => saveExpense(
         id: widget.expense?.id,
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
-        academicYearId: yearId,
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
+        academicYearId: yearId!,
         title: _title.text.trim(),
         description: _desc.text.trim().isEmpty ? null : _desc.text.trim(),
         amount: amount,
         date: _date.toIso8601String().substring(0, 10),
         category: _category,
-        createdBy: p?.id ?? '',
+        createdBy: p.id,
       ),
       success: _isEdit ? 'Dépense modifiée' : 'Dépense enregistrée',
     );

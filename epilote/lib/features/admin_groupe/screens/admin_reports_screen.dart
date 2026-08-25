@@ -7,6 +7,8 @@ import '../../../core/widgets/app_shell.dart';
 import '../providers/admin_reports_provider.dart';
 import '../services/reports_pdf_service.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Accents locaux (complètent la palette admin_ui) ────────────────────────
 const Color _kPurple = Color(0xFF7C3AED);
@@ -15,7 +17,7 @@ const Color _kPink   = Color(0xFFEC4899);
 const Color _kOrange = Color(0xFFF97316);
 const Color _kTeal   = Color(0xFF14B8A6);
 
-const List<Color> _kPalette = [
+List<Color> get _kPalette => [
   kNavy, kGreen, _kPurple, _kOrange, _kBlue, _kTeal, _kPink, kAccent,
 ];
 
@@ -74,11 +76,11 @@ class _ErrorView extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(vertical: 120, horizontal: 24),
         children: [
-          const Icon(Icons.cloud_off_rounded, size: 48, color: kTextMuted),
+          Icon(Icons.cloud_off_rounded, size: 48, color: kTextMuted),
           const SizedBox(height: 12),
           Text('Impossible de charger les rapports.\n$error',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: kTextMuted)),
+              style: TextStyle(color: kTextMuted)),
           const SizedBox(height: 16),
           Center(
             child: OutlinedButton.icon(
@@ -181,7 +183,7 @@ class _ControlBarState extends ConsumerState<_ControlBar> {
       saveText: 'Valider',
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(primary: kNavy),
+          colorScheme: ColorScheme.light(primary: kNavy),
         ),
         child: child!,
       ),
@@ -199,6 +201,11 @@ class _ControlBarState extends ConsumerState<_ControlBar> {
 
   void _setSchool(String? id) => _set(_filter.copyWith(schoolId: id));
 
+  // « Imprimer » passe par l'APERÇU PARTAGÉ, pas par `Printing.layoutPdf`.
+  //  Ce dernier ouvre sous Windows la boîte de choix d'imprimante (`PrintDlg`)
+  //  avec `hwndOwner = nullptr` : elle peut s'afficher DERRIÈRE l'application,
+  //  et son annulation ne remonte aucune erreur — l'agent voit un bouton qui ne
+  //  fait rien. L'aperçu montre le document, puis laisse imprimer ou enregistrer.
   Future<void> _export({required bool download}) async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -213,11 +220,25 @@ class _ControlBarState extends ConsumerState<_ControlBar> {
               : 'PDF enregistré : $path'),
         ));
       } else {
-        await ReportsPdfService.printReport(data: widget.data);
+        // Construit UNE FOIS : les octets affichés sont ceux qu'on enregistre,
+        // donc avec la même heure d'édition et la même référence.
+        final octets = await ReportsPdfService.buildPdf(data: widget.data);
+        if (!mounted) return;
+        await showPdfPreviewDialog(
+          context,
+          title: 'Rapport analytique',
+          subtitle: '${widget.data.groupName} · ${widget.data.periodLabel} · '
+              '${widget.data.scopeLabel}',
+          pdfFileName: 'Rapport_analytique.pdf',
+          build: (_) async => octets,
+          onDownload: () => ReportsPdfService.downloadReport(
+              data: widget.data, bytes: octets),
+        );
       }
     } catch (e) {
       messenger.showSnackBar(SnackBar(
-          content: Text('Export impossible : $e'), backgroundColor: kRed));
+          content: Text(messageErreur(e, contexte: 'Export')),
+          backgroundColor: kRed));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -232,7 +253,7 @@ class _ControlBarState extends ConsumerState<_ControlBar> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: kBorder),
         boxShadow: [
@@ -251,8 +272,8 @@ class _ControlBarState extends ConsumerState<_ControlBar> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                    colors: [Color(0xFF1A2F5A), kNavy]),
+                gradient: LinearGradient(
+                    colors: [const Color(0xFF1A2F5A), kNavy]),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(Icons.analytics_rounded,
@@ -264,7 +285,7 @@ class _ControlBarState extends ConsumerState<_ControlBar> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(d.groupName,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
                           color: kTextPrimary),
@@ -286,7 +307,7 @@ class _ControlBarState extends ConsumerState<_ControlBar> {
             _ExportControls(busy: _busy, onExport: _export),
           ]),
           const SizedBox(height: 14),
-          const Divider(height: 1, color: kBorder),
+          Divider(height: 1, color: kBorder),
           const SizedBox(height: 14),
           // ── Filtres : période + école ───────────────────────────────────
           Wrap(
@@ -332,7 +353,7 @@ class _ExportControls extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF1A2F5A), kNavy]),
+              gradient: LinearGradient(colors: [const Color(0xFF1A2F5A), kNavy]),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -369,7 +390,7 @@ class _ExportControls extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: kBorder),
               ),
-              child: const Icon(Icons.download_rounded, size: 18, color: kNavy),
+              child: Icon(Icons.download_rounded, size: 18, color: kNavy),
             ),
           ),
         ),
@@ -422,7 +443,7 @@ class _PeriodSelector extends StatelessWidget {
     }
 
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      const Icon(Icons.date_range_rounded, size: 16, color: kTextMuted),
+      Icon(Icons.date_range_rounded, size: 16, color: kTextMuted),
       const SizedBox(width: 8),
       Container(
         padding: const EdgeInsets.all(3),
@@ -484,19 +505,19 @@ class _SchoolSelector extends StatelessWidget {
           border: Border.all(color: kBorder),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.account_balance_rounded, size: 16, color: kNavy),
+          Icon(Icons.account_balance_rounded, size: 16, color: kNavy),
           const SizedBox(width: 8),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 220),
             child: Text(label,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
                     color: kTextPrimary)),
           ),
           const SizedBox(width: 6),
-          const Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
+          Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
         ]),
       ),
     );
@@ -519,12 +540,12 @@ class _SchoolSelector extends StatelessWidget {
                       color: selected ? kNavy : kTextPrimary)),
               if (sub != null)
                 Text(sub,
-                    style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                    style: TextStyle(fontSize: 11, color: kTextMuted)),
             ],
           ),
         ),
         if (selected)
-          const Icon(Icons.check_rounded, size: 16, color: kNavy),
+          Icon(Icons.check_rounded, size: 16, color: kNavy),
       ]);
 }
 
@@ -543,20 +564,20 @@ class _ScopeChip extends StatelessWidget {
           border: Border.all(color: kNavy.withValues(alpha: 0.25)),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.filter_alt_rounded, size: 14, color: kNavy),
+          Icon(Icons.filter_alt_rounded, size: 14, color: kNavy),
           const SizedBox(width: 6),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 200),
             child: Text(label,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12, fontWeight: FontWeight.w700, color: kNavy)),
           ),
           const SizedBox(width: 4),
           GestureDetector(
             onTap: onClear,
-            child: const Padding(
-              padding: EdgeInsets.all(2),
+            child: Padding(
+              padding: const EdgeInsets.all(2),
               child: Icon(Icons.close_rounded, size: 15, color: kNavy),
             ),
           ),
@@ -586,7 +607,7 @@ class _SectionTabs extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: sel ? kNavy : Colors.white,
+                  color: sel ? kNavy : kCardBg,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: sel ? kNavy : kBorder),
                   boxShadow: sel
@@ -712,7 +733,7 @@ class _KpiCardState extends State<_KpiCard>
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: kBorder),
               boxShadow: [
@@ -761,7 +782,7 @@ class _KpiCardState extends State<_KpiCard>
                                         )),
                                     const SizedBox(height: 2),
                                     Text(d.label,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           color: kTextMuted,
                                           fontSize: 11.5,
                                           fontWeight: FontWeight.w600,
@@ -934,12 +955,11 @@ class _SyntheseSection extends StatelessWidget {
           );
           final donut = _CategoryDonut(
             title: 'Types d\'établissement',
-            subtitle: 'Public · Privé · Mixte',
+            subtitle: 'Public · Privé',
             icon: Icons.pie_chart_rounded,
             slices: [
               _Slice('Public', d.publicCount, _kBlue),
               _Slice('Privé', d.priveCount, kGreen),
-              _Slice('Mixte', d.mixteCount, _kPurple),
             ],
             centerValue: fmtInt(d.schoolsTotal),
             centerLabel: 'écoles',
@@ -1055,7 +1075,7 @@ class _Highlight extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                     color: color)),
             Text(label,
-                style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                style: TextStyle(fontSize: 11.5, color: kTextMuted)),
           ],
         ),
       ]);
@@ -1180,15 +1200,15 @@ class _ParityCard extends StatelessWidget {
               total: d.elevesTotal,
               color: _kBlue),
           const SizedBox(height: 18),
-          const Divider(height: 1, color: kBorder),
+          Divider(height: 1, color: kBorder),
           const SizedBox(height: 14),
           Row(children: [
-            const Icon(Icons.balance_rounded, size: 16, color: kTextMuted),
+            Icon(Icons.balance_rounded, size: 16, color: kTextMuted),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 _parityComment(d.pctFilles),
-                style: const TextStyle(fontSize: 12, color: kTextMuted),
+                style: TextStyle(fontSize: 12, color: kTextMuted),
               ),
             ),
           ]),
@@ -1230,7 +1250,7 @@ class _ParityRow extends StatelessWidget {
               decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 8),
           Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: kTextPrimary)),
@@ -1361,7 +1381,7 @@ class _RecoveryCard extends StatelessWidget {
             const Spacer(),
             Text(
                 '${fmtInt(data.elevesAJour)} à jour · ${fmtInt(data.elevesImpayes)} en attente',
-                style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                style: TextStyle(fontSize: 11.5, color: kTextMuted)),
           ]),
         ],
       ),
@@ -1378,7 +1398,7 @@ class _RecoveryCard extends StatelessWidget {
                   BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 5),
           Text(label,
-              style: const TextStyle(fontSize: 10.5, color: kTextMuted)),
+              style: TextStyle(fontSize: 10.5, color: kTextMuted)),
         ],
       );
 }
@@ -1533,7 +1553,7 @@ class _EtablissementsSection extends ConsumerWidget {
                 subtitle: 'Cliquez une ligne pour analyser une école'),
           ),
           Text('${d.schoolRows.length} école(s)',
-              style: const TextStyle(fontSize: 12, color: kTextMuted)),
+              style: TextStyle(fontSize: 12, color: kTextMuted)),
         ]),
         const SizedBox(height: 12),
         _SchoolsTable(rows: d.schoolRows, onTap: drill),
@@ -1559,7 +1579,7 @@ class _SchoolsTable extends StatelessWidget {
   Widget build(BuildContext context) {
     final table = Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: kBorder),
         boxShadow: [
@@ -1575,7 +1595,7 @@ class _SchoolsTable extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             color: kSurface,
-            child: const Row(children: [
+            child: Row(children: [
               Expanded(flex: 5, child: Text('ÉTABLISSEMENT', style: _kHeaderSt)),
               Expanded(flex: 2, child: Text('TYPE', style: _kHeaderSt)),
               Expanded(
@@ -1600,7 +1620,7 @@ class _SchoolsTable extends StatelessWidget {
                       style: _kHeaderSt, textAlign: TextAlign.right)),
             ]),
           ),
-          const Divider(height: 1, color: kBorder),
+          Divider(height: 1, color: kBorder),
           ...rows.asMap().entries.map((e) =>
               _SchoolRow(s: e.value, isOdd: e.key.isOdd, onTap: onTap)),
         ]),
@@ -1618,7 +1638,7 @@ class _SchoolsTable extends StatelessWidget {
   }
 }
 
-const _kHeaderSt =
+TextStyle get _kHeaderSt =>
     TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kTextMuted);
 
 class _SchoolRow extends StatefulWidget {
@@ -1651,8 +1671,8 @@ class _SchoolRowState extends State<_SchoolRow> {
                 ? kNavy.withValues(alpha: 0.05)
                 : widget.isOdd
                     ? kSurface.withValues(alpha: 0.5)
-                    : Colors.white,
-            border: const Border(
+                    : kCardBg,
+            border: Border(
                 bottom: BorderSide(color: kBorder, width: 0.6)),
           ),
           child: Row(children: [
@@ -1677,14 +1697,14 @@ class _SchoolRowState extends State<_SchoolRow> {
                       Text(s.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: kTextPrimary)),
                       Text(s.city ?? s.department,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 11.5, color: kTextMuted)),
                     ],
                   ),
@@ -1704,12 +1724,12 @@ class _SchoolRowState extends State<_SchoolRow> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(fmtInt(s.students),
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                           color: kTextPrimary)),
                   Text('${s.studentsF} F · ${s.studentsM} G',
-                      style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                      style: TextStyle(fontSize: 11, color: kTextMuted)),
                 ],
               ),
             ),
@@ -1717,7 +1737,7 @@ class _SchoolRowState extends State<_SchoolRow> {
               flex: 2,
               child: Text(fmtInt(s.staff),
                   textAlign: TextAlign.right,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: kTextPrimary)),
@@ -1726,7 +1746,7 @@ class _SchoolRowState extends State<_SchoolRow> {
               flex: 2,
               child: Text(fmtInt(s.classes),
                   textAlign: TextAlign.right,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: kTextPrimary)),
@@ -1735,7 +1755,7 @@ class _SchoolRowState extends State<_SchoolRow> {
               flex: 3,
               child: Text(_compactXaf(s.revenue),
                   textAlign: TextAlign.right,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: kGreen)),
@@ -1823,10 +1843,10 @@ class _TrendChartState extends State<_TrendChart> {
                     plotAreaBorderWidth: 0,
                     margin: EdgeInsets.zero,
                     tooltipBehavior: _tt,
-                    primaryXAxis: const CategoryAxis(
-                      majorGridLines: MajorGridLines(width: 0),
-                      axisLine: AxisLine(width: 0),
-                      majorTickLines: MajorTickLines(size: 0),
+                    primaryXAxis: CategoryAxis(
+                      majorGridLines: const MajorGridLines(width: 0),
+                      axisLine: const AxisLine(width: 0),
+                      majorTickLines: const MajorTickLines(size: 0),
                       labelStyle:
                           TextStyle(fontSize: 11, color: kTextMuted),
                       labelRotation: -35,
@@ -1841,7 +1861,7 @@ class _TrendChartState extends State<_TrendChart> {
                         dashArray: const <double>[4, 4],
                       ),
                       labelStyle:
-                          const TextStyle(fontSize: 11, color: kTextMuted),
+                          TextStyle(fontSize: 11, color: kTextMuted),
                       axisLabelFormatter: widget.money
                           ? (details) => ChartAxisLabel(
                               _compactXaf(details.value), details.textStyle)
@@ -1960,7 +1980,7 @@ class _CategoryDonutState extends State<_CategoryDonut> {
                         animationDuration: 1000,
                         innerRadius: '64%',
                         radius: '92%',
-                        strokeColor: Colors.white,
+                        strokeColor: kCardBg,
                         strokeWidth: 2.5,
                         dataLabelSettings:
                             const DataLabelSettings(isVisible: false),
@@ -1971,12 +1991,12 @@ class _CategoryDonutState extends State<_CategoryDonut> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(widget.centerValue,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
                       Text(widget.centerLabel,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 11, color: kTextMuted)),
                     ],
                   ),
@@ -2014,7 +2034,7 @@ class _LegendDot extends StatelessWidget {
               decoration:
                   BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 6),
-          Text(text, style: const TextStyle(fontSize: 12, color: kTextMuted)),
+          Text(text, style: TextStyle(fontSize: 12, color: kTextMuted)),
         ],
       );
 }
@@ -2102,7 +2122,7 @@ class _BarRow extends StatelessWidget {
               child: Text(label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12.5, color: kTextPrimary)),
             ),
             const SizedBox(width: 8),
@@ -2136,7 +2156,7 @@ class _ChartEmpty extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Text(message,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
+                  style: TextStyle(fontSize: 12.5, color: kTextMuted)),
             ),
           ],
         ),
@@ -2153,7 +2173,7 @@ class _ShimmerSkeleton extends StatelessWidget {
         width: w,
         height: h,
         decoration: BoxDecoration(
-            color: Colors.white, borderRadius: BorderRadius.circular(r)),
+            color: kCardBg, borderRadius: BorderRadius.circular(r)),
       );
 
   @override
@@ -2199,14 +2219,12 @@ Color _rateColor(double v) => v >= 70 ? kGreen : v >= 40 ? kAccent : kRed;
 Color _typeColor(String type) => switch (type) {
       'public' => _kBlue,
       'prive' => kGreen,
-      'mixte' => _kPurple,
       _ => kNavy,
     };
 
 String _typeLabel(String type) => switch (type) {
       'public' => 'Public',
       'prive' => 'Privé',
-      'mixte' => 'Mixte',
       _ => type,
     };
 

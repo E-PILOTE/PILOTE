@@ -13,13 +13,13 @@ import '../../../core/widgets/admin_ui.dart';
 //  Réutilisé par Documents, Annuaire, etc.
 // ════════════════════════════════════════════════════════════════════════════
 
-const _cycleColors = <String, Color>{
-  'prescolaire': Color(0xFFEC4899),
-  'primaire': Color(0xFF0EA5E9),
+Map<String, Color> get _cycleColors => <String, Color>{
+  'prescolaire': const Color(0xFFEC4899),
+  'primaire': const Color(0xFF0EA5E9),
   'college': kGreen,
   'lycee': kNavy,
-  'formation_pro': Color(0xFFF59E0B),
-  'fp': Color(0xFFF59E0B),
+  'formation_pro': const Color(0xFFF59E0B),
+  'fp': const Color(0xFFF59E0B),
 };
 const _cycleNames = <String, String>{
   'prescolaire': 'Préscolaire',
@@ -171,14 +171,14 @@ class ScopeDrilldownPanel extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.donut_small_rounded, size: 16, color: kNavy),
+          Icon(Icons.donut_small_rounded, size: 16, color: kNavy),
           const SizedBox(width: 8),
           Expanded(
             child: Text(title,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 14, fontWeight: FontWeight.w800, color: kNavy)),
           ),
-          const Text('Cliquez un cycle, affinez par niveau / classe',
+          Text('Cliquez un cycle, affinez par niveau / classe',
               style: TextStyle(fontSize: 11.5, color: kTextMuted)),
         ]),
         const SizedBox(height: 12),
@@ -211,7 +211,7 @@ class ScopeDrilldownPanel extends StatelessWidget {
         // Filtres en cascade (apparaissent quand un cycle est choisi).
         if (selCyc != null) ...[
           const SizedBox(height: 14),
-          const Divider(height: 1, color: kBorder),
+          Divider(height: 1, color: kBorder),
           const SizedBox(height: 14),
           LayoutBuilder(builder: (ctx, cns) {
             final wide = cns.maxWidth >= 560;
@@ -296,7 +296,7 @@ class _CycleCard extends StatelessWidget {
     return SizedBox(
       width: 226,
       child: Material(
-        color: selected ? color.withValues(alpha: 0.07) : Colors.white,
+        color: selected ? color.withValues(alpha: 0.07) : kCardBg,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
@@ -326,7 +326,7 @@ class _CycleCard extends StatelessWidget {
                       child: Text(scopeCycleName(code),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: kTextPrimary,
@@ -340,7 +340,7 @@ class _CycleCard extends StatelessWidget {
                       textBaseline: TextBaseline.alphabetic,
                       children: [
                         Text('$total',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 32,
                                 fontWeight: FontWeight.w800,
                                 color: kTextPrimary,
@@ -349,7 +349,7 @@ class _CycleCard extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 3),
                           child: Text(unitNoun,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 12, color: kTextMuted)),
                         ),
                       ]),
@@ -413,7 +413,7 @@ class _ScopeDropdown extends StatelessWidget {
       Padding(
         padding: const EdgeInsets.only(bottom: 6, left: 2),
         child: Text(label.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.3,
@@ -426,19 +426,19 @@ class _ScopeDropdown extends StatelessWidget {
         key: ValueKey('$label::${value ?? '∅'}'),
         initialValue: value,
         isExpanded: true,
-        style: const TextStyle(fontSize: 13, color: kTextPrimary),
-        icon: const Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
+        style: TextStyle(fontSize: 13, color: kTextPrimary),
+        icon: Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
         decoration: adminFilledInput(hint, icon: icon),
         selectedItemBuilder: (context) => [
           Text(hint,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, color: kTextMuted)),
+              style: TextStyle(fontSize: 13, color: kTextMuted)),
           for (final e in items)
             Text(e.$2,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13, color: kTextPrimary)),
+                style: TextStyle(fontSize: 13, color: kTextPrimary)),
         ],
         items: [
           DropdownMenuItem(value: null, child: Text(hint)),

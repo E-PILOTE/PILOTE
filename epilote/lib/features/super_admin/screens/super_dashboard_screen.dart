@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -11,32 +13,33 @@ import '../../../features/auth/providers/auth_provider.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../providers/super_dashboard_provider.dart';
 import 'national_map_screen.dart';
+import 'super_exams_section.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const _kNavy   = Color(0xFF1E3A5F);
-const _kGreen  = Color(0xFF009A44);
-const _kGold   = Color(0xFFFBBC04);
-const _kRed    = Color(0xFFDC2626);
-const _kCard   = Colors.white;
-const _kBg     = Color(0xFFF4F6FA);
-const _kText   = Color(0xFF0F172A);
-const _kMuted  = Color(0xFF64748B);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
+Color get _kGold => kAccent;
+Color get _kRed => kRed;
+Color get _kCard => kCardBg;
+Color get _kBg => kSurface;
+Color get _kText => kTextPrimary;
+Color get _kMuted => kTextMuted;
 const _kBlue   = Color(0xFF3B82F6);
 const _kTeal   = Color(0xFF14B8A6);
 const _kPurple = Color(0xFF8B5CF6);
 const _kOrange = Color(0xFFF97316);
 
 // ─── Couleurs département & plan ─────────────────────────────────────────────
-const _kDeptColors = {
+Map<String, Color> get _kDeptColors => {
   'Brazzaville': _kNavy,   'Pointe-Noire': _kBlue,
   'Dolisie':     _kTeal,   'Pool':         _kGreen,
-  'Plateaux':    _kPurple, 'Kouilou':      Color(0xFF0EA5E9),
-  'Sangha':      _kOrange, 'Niari':        Color(0xFFEC4899),
-  'Bouenza':     Color(0xFF84CC16), 'Autres': _kGold,
+  'Plateaux':    _kPurple, 'Kouilou':      const Color(0xFF0EA5E9),
+  'Sangha':      _kOrange, 'Niari':        const Color(0xFFEC4899),
+  'Bouenza':     const Color(0xFF84CC16), 'Autres': _kGold,
 };
 Color _deptColor(String d) => _kDeptColors[d] ?? _kMuted;
 
-const _kPlanColors = {
+Map<String, Color> get _kPlanColors => {
   'Institutionnel': _kNavy, 'Premium': _kBlue,
   'Pro':            _kTeal, 'Gratuit': _kGold,
 };
@@ -127,7 +130,7 @@ class _TabChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? _kNavy : _kBg,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: selected ? _kNavy : const Color(0xFFE2E8F0)),
+          border: Border.all(color: selected ? _kNavy : kBorder),
           boxShadow: selected ? [BoxShadow(
               color: _kNavy.withValues(alpha: 0.25),
               blurRadius: 10, offset: const Offset(0, 4))] : [],
@@ -171,7 +174,7 @@ class _OverviewTab extends ConsumerWidget {
               children: [
                 _PageHeader(profile: profile),
                 const SizedBox(height: 20),
-                const _QuickActions(),
+                _QuickActions(),
                 const SizedBox(height: 20),
                 if (stats.expirantDans30j > 0) ...[
                   _AlertesSection(stats: stats),
@@ -184,6 +187,9 @@ class _OverviewTab extends ConsumerWidget {
                 _RevenueSection(stats: stats),
                 const SizedBox(height: 22),
                 _ChartsRow(stats: stats),
+                // Adoption du module Examens d'État à l'échelle plateforme
+                // (s'efface si aucun groupe ne l'utilise).
+                const SuperExamsSection(),
                 const SizedBox(height: 22),
                 _BottomRow(stats: stats),
               ],
@@ -209,9 +215,9 @@ class _PageHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft, end: Alignment.bottomRight,
-          colors: [_kNavy, Color(0xFF2D5A8E)],
+          colors: [_kNavy, const Color(0xFF2D5A8E)],
         ),
         borderRadius: BorderRadius.circular(18),
         boxShadow: [BoxShadow(
@@ -286,24 +292,24 @@ class _PageHeader extends StatelessWidget {
 
 // ─── 2 · Actions rapides ──────────────────────────────────────────────────────
 class _QuickActions extends StatelessWidget {
-  const _QuickActions();
+  _QuickActions();
 
-  final _actions = const [
+  final _actions = [
     _QA('Nouveau groupe', Icons.add_business_rounded,  _kNavy,   Routes.superGroupes),
-    _QA('Nouvel admin',   Icons.person_add_rounded,    _kBlue,   Routes.superAdministrateurs),
-    _QA('Créer un plan',  Icons.inventory_2_rounded,   _kTeal,   Routes.superPlans),
+    const _QA('Nouvel admin',   Icons.person_add_rounded,    _kBlue,   Routes.superAdministrateurs),
+    const _QA('Créer un plan',  Icons.inventory_2_rounded,   _kTeal,   Routes.superPlans),
     _QA('Abonnements',    Icons.verified_rounded,      _kGreen,  Routes.superAbonnements),
-    _QA('Factures',       Icons.receipt_long_rounded,  _kPurple, Routes.superFactures),
-    _QA('Rapports',       Icons.bar_chart_rounded,     _kOrange, Routes.superRapports),
+    const _QA('Factures',       Icons.receipt_long_rounded,  _kPurple, Routes.superFactures),
+    const _QA('Rapports',       Icons.bar_chart_rounded,     _kOrange, Routes.superRapports),
   ];
 
   @override
   Widget build(BuildContext context) => _Card(child: Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const Row(children: [
+      Row(children: [
         Icon(Icons.flash_on_rounded, size: 15, color: _kGold),
-        SizedBox(width: 7),
+        const SizedBox(width: 7),
         Text('Actions rapides', style: TextStyle(
             color: _kText, fontSize: 13.5, fontWeight: FontWeight.w700)),
       ]),
@@ -426,6 +432,24 @@ class _AlertesSection extends StatelessWidget {
 // Type de sparkline — chaque KPI a le sien
 enum _SparkType { spline, splineArea, column, barH, progress }
 
+// ─── Tendances réelles ───────────────────────────────────────────────────────
+//
+// Les cartes portaient des slogans écrits en dur : « ↑ dynamique »,
+// « ↑ croissance », « ↑ inscriptions », « ↑ +8 % », « ✅ Nominal ». Ils
+// s'affichaient quelle que soit la donnée — « 0 groupe · ↑ dynamique » — et le
+// « +8 % » avait la précision d'une mesure sans en être une.
+//
+// Les séries mensuelles existaient déjà et comptent les CRÉATIONS du mois. On
+// les lit, tout simplement.
+
+double _lastMonth(List<MonthlyPoint> pts) => pts.isEmpty ? 0 : pts.last.value;
+
+String _newThisMonth(List<MonthlyPoint> pts, String noun) {
+  final n = _lastMonth(pts).round();
+  if (n == 0) return 'aucun ce mois-ci';
+  return '+$n $noun${n > 1 ? 's' : ''} ce mois-ci';
+}
+
 class _KD {
   _KD({
     required this.icon,
@@ -501,7 +525,8 @@ class _KpiGrid extends StatelessWidget {
         format: (v) => _fmt(v.round()),
         label: 'Groupes actifs',
         sub: '${stats.groupesTotal} au total',
-        trend: '↑ dynamique', trendUp: true,
+        trend: _newThisMonth(stats.trendGroupes, 'groupe'),
+        trendUp: _lastMonth(stats.trendGroupes) > 0,
         sparkType: _SparkType.spline,
         pts: stats.trendGroupes,
       ),
@@ -511,7 +536,8 @@ class _KpiGrid extends StatelessWidget {
         rawValue: stats.ecolesTotal.toDouble(),
         format: (v) => _fmt(v.round()),
         label: 'Écoles actives',
-        trend: '↑ croissance', trendUp: true,
+        trend: _newThisMonth(stats.trendEcoles, 'école'),
+        trendUp: _lastMonth(stats.trendEcoles) > 0,
         sparkType: _SparkType.column,
         pts: stats.trendEcoles,
       ),
@@ -521,17 +547,26 @@ class _KpiGrid extends StatelessWidget {
         rawValue: stats.elevesTotal.toDouble(),
         format: (v) => _fmtLg(v.round()),
         label: 'Élèves total',
-        trend: '↑ inscriptions', trendUp: true,
+        trend: _newThisMonth(stats.trendEleves, 'inscrit'),
+        trendUp: _lastMonth(stats.trendEleves) > 0,
         sparkType: _SparkType.splineArea,
         pts: stats.trendEleves,
       ),
       // 4 · Personnel — BarH (barres horizontales par rôle)
+      //
+      // Pas de série mensuelle pour le personnel : la carte affichait « ↑ +8 % »,
+      // un pourcentage précis que rien ne calculait. On dit ce qu'on sait —
+      // combien de métiers différents composent ce total.
       _KD(
         icon: Icons.badge_rounded, color: _kPurple,
         rawValue: stats.personnelTotal.toDouble(),
         format: (v) => _fmt(v.round()),
         label: 'Personnel actif',
-        trend: '↑ +8%', trendUp: true,
+        trend: stats.personnelByRole.isEmpty
+            ? '—'
+            : '${stats.personnelByRole.length} métier'
+                '${stats.personnelByRole.length > 1 ? 's' : ''}',
+        trendUp: stats.personnelTotal > 0,
         sparkType: _SparkType.barH,
         barsData: stats.personnelByRole,
       ),
@@ -542,7 +577,10 @@ class _KpiGrid extends StatelessWidget {
         format: (v) => _fmtRevenu(v),
         label: 'Revenus XAF/mois',
         sub: 'FCFA · abonnements actifs',
-        trend: '↑ revenus', trendUp: true,
+        trend: _lastMonth(stats.trendRevenus) > 0
+            ? '${_fmtRevenu(_lastMonth(stats.trendRevenus))} encaissés'
+            : 'aucun encaissement ce mois',
+        trendUp: _lastMonth(stats.trendRevenus) > 0,
         sparkType: _SparkType.splineArea,
         pts: stats.trendRevenus,
       ),
@@ -558,24 +596,44 @@ class _KpiGrid extends StatelessWidget {
         sparkType: _SparkType.barH,
         barsData: stats.abonnementsByStatus,
       ),
-      // 7 · Sync — barre de progression animée avec glow
+      // 7 · Écoles géolocalisées — barre de progression
+      //
+      // ⚠️ Remplace « Sync réussie 99,7 % », qui était une CONSTANTE. Rien dans
+      // la plateforme ne mesure un taux de synchronisation : le chiffre
+      // s'affichait identique, base pleine ou base vide, application en ligne
+      // ou hors ligne. Ce qui suit se compte : combien d'écoles portent des
+      // coordonnées, donc apparaissent réellement sur la carte nationale.
       _KD(
-        icon: Icons.sync_rounded, color: _kBlue,
-        rawValue: stats.syncRate,
-        format: (v) => '${v.toStringAsFixed(1)}%',
-        label: 'Sync réussie',
+        icon: Icons.place_rounded, color: _kBlue,
+        rawValue: stats.ecolesTotal == 0
+            ? 0
+            : stats.ecolesGeolocalisees * 100 / stats.ecolesTotal,
+        format: (v) => '${v.toStringAsFixed(0)}%',
+        label: 'Écoles géolocalisées',
+        sub: '${stats.ecolesGeolocalisees}/${stats.ecolesTotal} sur la carte',
         trend: isSyncing ? '✅ En ligne' : '⚡ Hors ligne',
         trendUp: isSyncing,
         sparkType: _SparkType.progress,
         progressMax: 100.0,
       ),
-      // 8 · SLA — barre de progression animée avec glow
+      // 8 · Couverture territoriale — barre de progression
+      //
+      // ⚠️ Remplace « Disponibilité SLA 99,5 % », constante elle aussi : un
+      // engagement de service annoncé à un ministère sans rien pour le mesurer.
       _KD(
-        icon: Icons.shield_rounded, color: _kTeal,
-        rawValue: stats.slaRate,
-        format: (v) => '${v.toStringAsFixed(1)}%',
-        label: 'Disponibilité SLA',
-        trend: '✅ Nominal', trendUp: true,
+        icon: Icons.map_rounded, color: _kTeal,
+        rawValue: stats.departementsTotal == 0
+            ? 0
+            : stats.departementsCouverts * 100 / stats.departementsTotal,
+        format: (v) => '${v.toStringAsFixed(0)}%',
+        label: 'Couverture nationale',
+        sub: '${stats.departementsCouverts}/${stats.departementsTotal} '
+            'départements',
+        trend: stats.departementsCouverts == 0
+            ? 'aucun département'
+            : '${stats.departementsCouverts} atteint'
+                '${stats.departementsCouverts > 1 ? 's' : ''}',
+        trendUp: stats.departementsCouverts > 0,
         sparkType: _SparkType.progress,
         progressMax: 100.0,
       ),
@@ -700,7 +758,7 @@ class _KpiCardState extends State<_KpiCard>
                             ),
                             const SizedBox(width: 8),
                             Expanded(child: Text(d.label,
-                                style: const TextStyle(color: _kMuted,
+                                style: TextStyle(color: _kMuted,
                                     fontSize: 10.5, fontWeight: FontWeight.w600),
                                 overflow: TextOverflow.ellipsis)),
                             Container(
@@ -1069,14 +1127,14 @@ class _PlanDonut extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (stats.groupesByPlan.isEmpty) {
-      return const _Card(child: Column(
+      return _Card(child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionTitle(icon: Icons.donut_large_rounded,
+          const _SectionTitle(icon: Icons.donut_large_rounded,
               title: "Plans d'abonnement", sub: 'Répartition des groupes'),
-          SizedBox(height: 24),
+          const SizedBox(height: 24),
           Center(child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 32),
+            padding: const EdgeInsets.symmetric(vertical: 32),
             child: Text('Aucun groupe enregistré',
                 style: TextStyle(color: _kMuted, fontSize: 13)),
           )),
@@ -1110,16 +1168,16 @@ class _PlanDonut extends StatelessWidget {
                   pointColorMapper: (d, _) => d.color,
                   animationDuration: 1200,
                   innerRadius: '62%', radius: '92%',
-                  strokeColor: Colors.white, strokeWidth: 2.5,
+                  strokeColor: kCardBg, strokeWidth: 2.5,
                   dataLabelSettings: const DataLabelSettings(isVisible: false),
                 ),
               ],
             ),
             Column(mainAxisSize: MainAxisSize.min, children: [
-              Text(_fmt(total), style: const TextStyle(
+              Text(_fmt(total), style: TextStyle(
                   color: _kText, fontSize: 26,
                   fontWeight: FontWeight.w900, letterSpacing: -0.8)),
-              const Text('groupes', style: TextStyle(
+              Text('groupes', style: TextStyle(
                   color: _kMuted, fontSize: 11, fontWeight: FontWeight.w500)),
             ]),
           ]),
@@ -1132,7 +1190,7 @@ class _PlanDonut extends StatelessWidget {
                     decoration: BoxDecoration(
                         color: pt.color, shape: BoxShape.circle)),
                 const SizedBox(width: 6),
-                Text(pt.label, style: const TextStyle(
+                Text(pt.label, style: TextStyle(
                     color: _kText, fontSize: 11.5,
                     fontWeight: FontWeight.w600)),
                 const SizedBox(width: 5),
@@ -1194,18 +1252,21 @@ class _DeptChartState extends State<_DeptChart>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(children: [
-          const Icon(Icons.map_rounded, size: 17, color: _kNavy),
+          Icon(Icons.map_rounded, size: 17, color: _kNavy),
           const SizedBox(width: 8),
-          const Expanded(child: Text('Par Département', style: TextStyle(
+          Expanded(child: Text('Par Département', style: TextStyle(
               color: _kText, fontSize: 15, fontWeight: FontWeight.w700))),
-          widget.stats.deptStats.isNotEmpty
-              ? const _Chip('Données réelles', _kGreen)
-              : const _Chip('Démo', _kGold),
+          // « Démo » laissait croire que la carte montrait un jeu d'exemple.
+          // Elle ne montre rien : il n'y a aucun groupe à répartir.
+          if (widget.stats.deptStats.isNotEmpty)
+            _Chip('Données réelles', _kGreen)
+          else
+            _Chip('Aucune donnée', _kMuted),
         ]),
         const SizedBox(height: 2),
         Text('$totalG groupe${totalG != 1 ? 's' : ''} · '
             '$totalE école${totalE != 1 ? 's' : ''}',
-            style: const TextStyle(color: _kMuted, fontSize: 12)),
+            style: TextStyle(color: _kMuted, fontSize: 12)),
         const SizedBox(height: 4),
         Text('Cliquez sur un département pour les détails',
             style: TextStyle(color: _kMuted.withValues(alpha: 0.55),
@@ -1340,15 +1401,15 @@ class _DeptDetail extends StatelessWidget {
                 fontWeight: FontWeight.w700)),
             const Spacer(),
             Text('${groups.length} groupe${groups.length > 1 ? 's' : ''}',
-                style: const TextStyle(color: _kMuted, fontSize: 11)),
+                style: TextStyle(color: _kMuted, fontSize: 11)),
             const SizedBox(width: 8),
             MouseRegion(
               cursor: SystemMouseCursors.click,
               child: GestureDetector(onTap: onClose,
-                  child: const Icon(Icons.close_rounded, size: 15, color: _kMuted))),
+                  child: Icon(Icons.close_rounded, size: 15, color: _kMuted))),
           ]),
         ),
-        const Divider(height: 1, color: Color(0xFFE2E8F0)),
+        Divider(height: 1, color: kBorder),
         ...groups.map((g) => _GRow(g: g)),
       ]),
     );
@@ -1387,13 +1448,13 @@ class _GRowState extends State<_GRow> {
             Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(g.name, style: const TextStyle(
+                Text(g.name, style: TextStyle(
                     color: _kText, fontSize: 12, fontWeight: FontWeight.w600),
                     overflow: TextOverflow.ellipsis),
                 Row(children: [
                   _PBadge(g.planName), const SizedBox(width: 6),
                   Text('${g.schoolsCount} école${g.schoolsCount != 1 ? 's' : ''}',
-                      style: const TextStyle(color: _kMuted, fontSize: 10)),
+                      style: TextStyle(color: _kMuted, fontSize: 10)),
                 ]),
               ],
             )),
@@ -1408,7 +1469,7 @@ class _GRowState extends State<_GRow> {
               ],
             ]),
             const SizedBox(width: 4),
-            const Icon(Icons.arrow_forward_ios_rounded, size: 10, color: _kMuted),
+            Icon(Icons.arrow_forward_ios_rounded, size: 10, color: _kMuted),
           ]),
         ),
       ),
@@ -1435,7 +1496,7 @@ class _PBadge extends StatelessWidget {
 class _SBadge extends StatelessWidget {
   const _SBadge(this.s);
   final String s;
-  static const _map = {
+  static Map<String, (String, Color)> get _map => {
     'active':    ('Actif',    _kGreen),
     'trial':     ('Essai',    _kBlue),
     'expired':   ('Expiré',   _kRed),
@@ -1507,7 +1568,7 @@ class _TopGroupes extends StatelessWidget {
         ]),
         const SizedBox(height: 12),
         if (top.isEmpty)
-          const Padding(padding: EdgeInsets.symmetric(vertical: 24),
+          Padding(padding: const EdgeInsets.symmetric(vertical: 24),
             child: Center(child: Text('Aucune donnée disponible',
                 style: TextStyle(color: _kMuted, fontSize: 13))))
         else
@@ -1521,8 +1582,8 @@ class _TopGroupes extends StatelessWidget {
 class _TopGroupRow extends StatelessWidget {
   const _TopGroupRow({required this.rank, required this.g});
   final int rank; final DeptGroupInfo g;
-  static const _medals = [
-    Color(0xFFFFD700), Color(0xFFB0B8C5), Color(0xFFCD7F32), _kMuted, _kMuted,
+  static List<Color> get _medals => [
+    const Color(0xFFFFD700), const Color(0xFFB0B8C5), const Color(0xFFCD7F32), _kMuted, _kMuted,
   ];
   @override
   Widget build(BuildContext context) {
@@ -1543,20 +1604,20 @@ class _TopGroupRow extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(g.name, style: const TextStyle(color: _kText, fontSize: 12.5,
+            Text(g.name, style: TextStyle(color: _kText, fontSize: 12.5,
                 fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
             _PBadge(g.planName),
           ],
         )),
         Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
           Row(children: [
-            const Icon(Icons.domain_rounded, size: 12, color: _kMuted),
+            Icon(Icons.domain_rounded, size: 12, color: _kMuted),
             const SizedBox(width: 3),
-            Text('${g.schoolsCount}', style: const TextStyle(
+            Text('${g.schoolsCount}', style: TextStyle(
                 color: _kText, fontSize: 14, fontWeight: FontWeight.w700)),
           ]),
           Text('école${g.schoolsCount != 1 ? 's' : ''}',
-              style: const TextStyle(color: _kMuted, fontSize: 10)),
+              style: TextStyle(color: _kMuted, fontSize: 10)),
         ]),
       ]),
     );
@@ -1567,22 +1628,24 @@ class _ActivityFeed extends StatelessWidget {
   const _ActivityFeed({required this.stats});
   final SuperDashboardData stats;
 
-  static const _demo = [
-    ActivityItem(time: 'il y a 17h', icon: '🏫',
-        title: 'Groupe mis à jour', detail: 'Réseau EDEC Congo'),
-    ActivityItem(time: 'il y a 2 j', icon: '👤',
-        title: 'Profil mis à jour', detail: 'Grace'),
-    ActivityItem(time: 'il y a 3 j', icon: '🏫',
-        title: 'Nouvelle école ajoutée', detail: 'École Primaire Saint-Pierre'),
-    ActivityItem(time: 'il y a 5 j', icon: '📋',
-        title: "Plan d'abonnement mis à jour", detail: 'Premium'),
-    ActivityItem(time: 'il y a 6 j', icon: '🏫',
-        title: 'Nouvelle école ajoutée', detail: 'École Savorgnan de Brazza'),
-  ];
+  // ⚠️ AUCUNE ACTIVITÉ FICTIVE ICI.
+  //
+  // Cette carte affichait, quand le journal d'audit était vide, cinq
+  // événements écrits en dur : « Réseau EDEC Congo », « École Primaire
+  // Saint-Pierre », « École Savorgnan de Brazza », un profil « Grace », un
+  // plan « Premium ». Sur une plateforme sans le moindre groupe enregistré,
+  // le tableau de bord racontait donc une semaine d'exploitation qui n'avait
+  // pas eu lieu — avec des noms d'établissements qui n'existent pas. Une
+  // pastille « Démo » le signalait, mais une pastille n'annule pas ce que
+  // l'œil a lu : devant un ministère, ces cinq lignes appellent des questions
+  // auxquelles personne ne peut répondre.
+  //
+  // Le vide se dit. Il est même informatif : il indique que le journal
+  // d'audit n'a encore rien enregistré.
 
   @override
   Widget build(BuildContext context) {
-    final items = stats.recentActivity.isEmpty ? _demo : stats.recentActivity;
+    final items = stats.recentActivity;
     return _Card(child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1591,9 +1654,7 @@ class _ActivityFeed extends StatelessWidget {
               title: 'Activité récente',
               sub: 'Dernières modifications plateforme'),
           const Spacer(),
-          if (stats.recentActivity.isEmpty)
-            const _Chip('Démo', _kGold)
-          else
+          if (items.isNotEmpty)
             TextButton(
               onPressed: () => context.go(Routes.superAudit),
               style: TextButton.styleFrom(foregroundColor: _kNavy,
@@ -1603,7 +1664,24 @@ class _ActivityFeed extends StatelessWidget {
             ),
         ]),
         const SizedBox(height: 14),
-        ...items.map((i) => _ATile(item: i)),
+        if (items.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 22),
+            child: Column(children: [
+              Icon(Icons.history_toggle_off_rounded, size: 26, color: _kMuted),
+              const SizedBox(height: 8),
+              Text('Aucune opération enregistrée',
+                  style: TextStyle(color: _kText, fontSize: 12.5,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(height: 3),
+              Text('Le journal se remplira dès la première création de '
+                  'groupe, d\'école ou d\'abonnement.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: _kMuted, fontSize: 11.5)),
+            ]),
+          )
+        else
+          ...items.map((i) => _ATile(item: i)),
       ],
     ));
   }
@@ -1628,13 +1706,13 @@ class _ATile extends StatelessWidget {
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           RichText(text: TextSpan(children: [
-            TextSpan(text: '${item.time} · ', style: const TextStyle(
+            TextSpan(text: '${item.time} · ', style: TextStyle(
                 color: _kMuted, fontSize: 11, fontWeight: FontWeight.w500)),
-            TextSpan(text: item.title, style: const TextStyle(
+            TextSpan(text: item.title, style: TextStyle(
                 color: _kText, fontSize: 12.5, fontWeight: FontWeight.w600)),
           ]), overflow: TextOverflow.ellipsis),
           const SizedBox(height: 2),
-          Text('"${item.detail}"', style: const TextStyle(
+          Text('"${item.detail}"', style: TextStyle(
               color: _kMuted, fontSize: 11.5, fontStyle: FontStyle.italic),
               overflow: TextOverflow.ellipsis),
         ],
@@ -1671,12 +1749,12 @@ class _SectionTitle extends StatelessWidget {
       Row(children: [
         Icon(icon, size: 17, color: _kNavy),
         const SizedBox(width: 8),
-        Text(title, style: const TextStyle(
+        Text(title, style: TextStyle(
             color: _kText, fontSize: 15, fontWeight: FontWeight.w700)),
       ]),
       if (sub != null) ...[
         const SizedBox(height: 2),
-        Text(sub!, style: const TextStyle(color: _kMuted, fontSize: 12)),
+        Text(sub!, style: TextStyle(color: _kMuted, fontSize: 12)),
       ],
     ],
   );
@@ -1693,7 +1771,7 @@ class _LoadingState extends StatelessWidget {
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
         child: Shimmer.fromColors(
-          baseColor: const Color(0xFFE2E8F0),
+          baseColor: kBorder,
           highlightColor: const Color(0xFFF8FAFC),
           child: const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1745,7 +1823,7 @@ class _ShimmerBox extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     width: width, height: height,
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: kCardBg,
       borderRadius: BorderRadius.circular(radius),
     ),
   );
@@ -1762,7 +1840,7 @@ class _ShimmerKpiRow extends StatelessWidget {
         child: Container(
           height: 120,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: kCardBg,
             borderRadius: BorderRadius.circular(16),
           ),
           padding: const EdgeInsets.all(14),
@@ -1773,22 +1851,22 @@ class _ShimmerKpiRow extends StatelessWidget {
                 Container(
                   width: 34, height: 34,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: kCardBg,
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
                 const Spacer(),
                 Container(width: 46, height: 7,
-                    decoration: BoxDecoration(color: Colors.white,
+                    decoration: BoxDecoration(color: kCardBg,
                         borderRadius: BorderRadius.circular(4))),
               ]),
               const SizedBox(height: 8),
               Container(width: 80, height: 20,
-                  decoration: BoxDecoration(color: Colors.white,
+                  decoration: BoxDecoration(color: kCardBg,
                       borderRadius: BorderRadius.circular(6))),
               const SizedBox(height: 6),
               Container(width: 120, height: 10,
-                  decoration: BoxDecoration(color: Colors.white,
+                  decoration: BoxDecoration(color: kCardBg,
                       borderRadius: BorderRadius.circular(4))),
             ],
           ),
@@ -1808,12 +1886,12 @@ class _ErrorState extends StatelessWidget {
       Container(padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
               color: _kRed.withValues(alpha: 0.08), shape: BoxShape.circle),
-          child: const Icon(Icons.warning_amber_rounded, size: 42, color: _kRed)),
+          child: Icon(Icons.warning_amber_rounded, size: 42, color: _kRed)),
       const SizedBox(height: 18),
-      const Text('Impossible de charger le tableau de bord',
+      Text('Impossible de charger le tableau de bord',
           style: TextStyle(color: _kText, fontSize: 15, fontWeight: FontWeight.w700)),
       const SizedBox(height: 6),
-      Text(error, style: const TextStyle(color: _kMuted, fontSize: 12),
+      Text(error, style: TextStyle(color: _kMuted, fontSize: 12),
           textAlign: TextAlign.center),
       const SizedBox(height: 22),
       ElevatedButton.icon(
@@ -2362,7 +2440,7 @@ class _RevenueSectionState extends State<_RevenueSection> {
           Container(
             width: 34, height: 34,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [_kGold, Color(0xFFF59E0B)]),
+              gradient: LinearGradient(colors: [_kGold, const Color(0xFFF59E0B)]),
               borderRadius: BorderRadius.circular(9),
             ),
             child: const Icon(Icons.account_balance_wallet_rounded,
@@ -2370,7 +2448,7 @@ class _RevenueSectionState extends State<_RevenueSection> {
           ),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Revenus & Abonnements', style: TextStyle(
+            Text('Revenus & Abonnements', style: TextStyle(
                 color: _kText, fontSize: 15, fontWeight: FontWeight.w700)),
             Text(isEstimate ? 'Projection estimée' : 'Données réelles Supabase',
                 style: TextStyle(
@@ -2387,20 +2465,20 @@ class _RevenueSectionState extends State<_RevenueSection> {
         // ─ Total + variation ──────────────────────────────────────────────
         Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(_fmtRevenuFull(total), style: const TextStyle(
+            Text(_fmtRevenuFull(total), style: TextStyle(
                 color: _kText, fontSize: 26, fontWeight: FontWeight.w900,
                 letterSpacing: -0.8)),
             Text('Total · $_periodLabel · FCFA',
-                style: const TextStyle(color: _kMuted, fontSize: 11)),
+                style: TextStyle(color: _kMuted, fontSize: 11)),
           ]),
           const SizedBox(width: 12),
           if (variation != null) _VariationBadge(variation),
           const Spacer(),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Text(_fmtRevenuFull(widget.stats.revenusXafMois),
-                style: const TextStyle(color: _kGold, fontSize: 14,
+                style: TextStyle(color: _kGold, fontSize: 14,
                     fontWeight: FontWeight.w800)),
-            const Text('MRR actuel', style: TextStyle(color: _kMuted, fontSize: 10)),
+            Text('MRR actuel', style: TextStyle(color: _kMuted, fontSize: 10)),
           ]),
         ]),
         const SizedBox(height: 16),
@@ -2408,19 +2486,19 @@ class _RevenueSectionState extends State<_RevenueSection> {
         SizedBox(
           height: 200,
           child: !hasData && shown.isNotEmpty
-              ? const Center(child: Padding(
-                  padding: EdgeInsets.only(top: 60),
+              ? Center(child: Padding(
+                  padding: const EdgeInsets.only(top: 60),
                   child: Text('Aucun revenu sur cette période',
                       style: TextStyle(color: _kMuted, fontSize: 13))))
               : shown.isEmpty
-                  ? const Center(child: CircularProgressIndicator(color: _kGold))
+                  ? Center(child: CircularProgressIndicator(color: _kGold))
                   : SfCartesianChart(
                       backgroundColor: Colors.transparent,
                       plotAreaBorderWidth: 0,
                       margin: EdgeInsets.zero,
                       tooltipBehavior: tooltipBehavior,
                       primaryXAxis: CategoryAxis(
-                        labelStyle: const TextStyle(color: _kMuted, fontSize: 9.5,
+                        labelStyle: TextStyle(color: _kMuted, fontSize: 9.5,
                             fontWeight: FontWeight.w500),
                         majorGridLines: const MajorGridLines(width: 0),
                         axisLine: AxisLine(
@@ -2452,7 +2530,7 @@ class _RevenueSectionState extends State<_RevenueSection> {
                           width: 2.0, animationDuration: 1500,
                           splineType: SplineType.natural,
                           enableTooltip: false,
-                          markerSettings: const MarkerSettings(
+                          markerSettings: MarkerSettings(
                             isVisible: true, shape: DataMarkerType.circle,
                             width: 7, height: 7, color: _kNavy,
                             borderColor: Colors.white, borderWidth: 2.0,
@@ -2467,10 +2545,10 @@ class _RevenueSectionState extends State<_RevenueSection> {
           Row(mainAxisSize: MainAxisSize.min, children: [
             Container(width: 14, height: 10,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [_kGold, Color(0xFFF59E0B)]),
+                  gradient: LinearGradient(colors: [_kGold, const Color(0xFFF59E0B)]),
                   borderRadius: BorderRadius.circular(3))),
             const SizedBox(width: 6),
-            const Text('Revenus mensuels (FCFA)',
+            Text('Revenus mensuels (FCFA)',
                 style: TextStyle(color: _kMuted, fontSize: 10.5)),
           ]),
           const SizedBox(width: 20),
@@ -2479,9 +2557,9 @@ class _RevenueSectionState extends State<_RevenueSection> {
                 color: _kNavy.withValues(alpha: 0.65)),
             const SizedBox(width: 2),
             Container(width: 6, height: 6,
-                decoration: const BoxDecoration(color: _kNavy, shape: BoxShape.circle)),
+                decoration: BoxDecoration(color: _kNavy, shape: BoxShape.circle)),
             const SizedBox(width: 6),
-            const Text('Tendance', style: TextStyle(color: _kMuted, fontSize: 10.5)),
+            Text('Tendance', style: TextStyle(color: _kMuted, fontSize: 10.5)),
           ]),
         ]),
       ],

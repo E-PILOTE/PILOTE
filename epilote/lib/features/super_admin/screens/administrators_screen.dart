@@ -1,6 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
@@ -9,22 +11,24 @@ import 'package:supabase_flutter/supabase_flutter.dart' show FileOptions;
 
 import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/media_compression.dart';
 import '../providers/administrators_provider.dart';
 import '../services/admin_pdf_service.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Design tokens (identiques à school_groups_screen) ───────────────────────
-const _kNavy    = Color(0xFF1E3A5F);
-const _kGreen   = Color(0xFF009A44);
-const _kGold    = Color(0xFFFBBC04);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
+Color get _kGold => kAccent;
 const _kOrange  = Color(0xFFFF6B35);
 const _kPurple  = Color(0xFF7C3AED);
 const _kBlue    = Color(0xFF0EA5E9);
 const _kRed     = Color(0xFFEF4444);
-const _kSurface = Color(0xFFF0F4F8);
-const _kBg      = Color(0xFFFFFFFF);
-const _kBorder  = Color(0xFFE2E8F0);
-const _kText    = Color(0xFF0F172A);
-const _kMuted   = Color(0xFF64748B);
+Color get _kSurface => kSurface;
+Color get _kBg => kCardBg;
+Color get _kBorder => kBorder;
+Color get _kText => kTextPrimary;
+Color get _kMuted => kTextMuted;
 
 // ─── Helpers rôles ────────────────────────────────────────────────────────────
 Color _roleColor(String role) => switch (role) {
@@ -137,7 +141,7 @@ class _AdminsBodyState extends ConsumerState<_AdminsBody> {
           .eq('id', a.id);
       ref.invalidate(administratorsProvider);
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError(messageErreur(e));
     }
   }
 
@@ -147,7 +151,7 @@ class _AdminsBodyState extends ConsumerState<_AdminsBody> {
       await client.auth.resetPasswordForEmail(a.email);
       if (mounted) _showSuccess('Email de réinitialisation envoyé à ${a.email}');
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError(messageErreur(e));
     }
   }
 
@@ -164,7 +168,7 @@ class _AdminsBodyState extends ConsumerState<_AdminsBody> {
       ref.invalidate(administratorsProvider);
       if (mounted) _showSuccess('Compte "${a.fullName}" supprimé définitivement.');
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError(messageErreur(e));
     }
   }
 
@@ -186,9 +190,9 @@ class _AdminsBodyState extends ConsumerState<_AdminsBody> {
       loading: () => const _ShimmerSkeleton(),
       error: (e, _) => Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
+          Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
           const SizedBox(height: 12),
-          Text('Erreur : $e', style: const TextStyle(color: _kMuted)),
+          Text(messageErreur(e), style: TextStyle(color: _kMuted)),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => ref.invalidate(administratorsProvider),
@@ -434,7 +438,7 @@ class _KpiCardState extends State<_KpiCard> with SingleTickerProviderStateMixin 
                           fontWeight: FontWeight.w900, letterSpacing: -0.5,
                         )),
                         const SizedBox(height: 2),
-                        Text(d.label, style: const TextStyle(
+                        Text(d.label, style: TextStyle(
                           color: _kMuted, fontSize: 11.5, fontWeight: FontWeight.w600,
                         ), overflow: TextOverflow.ellipsis),
                         if (d.sub != null)
@@ -493,7 +497,7 @@ class _ShimmerSkeleton extends StatelessWidget {
   Widget _box(double w, double h, {double r = 10}) => Container(
     width: w, height: h,
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: kCardBg,
       borderRadius: BorderRadius.circular(r),
     ),
   );
@@ -580,11 +584,11 @@ class _FilterBar extends StatelessWidget {
                 onChanged: onSearchChange,
                 decoration: InputDecoration(
                   hintText: 'Rechercher par nom, email, groupe…',
-                  hintStyle: const TextStyle(color: _kMuted, fontSize: 13),
-                  prefixIcon: const Icon(Icons.search_rounded, color: _kMuted, size: 20),
+                  hintStyle: TextStyle(color: _kMuted, fontSize: 13),
+                  prefixIcon: Icon(Icons.search_rounded, color: _kMuted, size: 20),
                   suffixIcon: searchCtrl.text.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.close_rounded, size: 18, color: _kMuted),
+                          icon: Icon(Icons.close_rounded, size: 18, color: _kMuted),
                           onPressed: () { searchCtrl.clear(); onSearchChange(''); })
                       : null,
                   filled: true,
@@ -614,7 +618,7 @@ class _FilterBar extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: _kBorder),
                     ),
-                    child: const Icon(Icons.refresh_rounded, size: 20, color: _kMuted),
+                    child: Icon(Icons.refresh_rounded, size: 20, color: _kMuted),
                   ),
                 ),
               ),
@@ -627,13 +631,13 @@ class _FilterBar extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF1A2F5A), Color(0xFF1E3A5F)],
+                    gradient: LinearGradient(
+                      colors: [const Color(0xFF1A2F5A), kNavy],
                       begin: Alignment.topLeft, end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [BoxShadow(
-                      color: const Color(0xFF1E3A5F).withValues(alpha: 0.25),
+                      color: kNavy.withValues(alpha: 0.25),
                       blurRadius: 8, offset: const Offset(0, 3),
                     )],
                   ),
@@ -748,7 +752,7 @@ class _FilterDropdown extends StatelessWidget {
     child: DropdownButtonHideUnderline(
       child: DropdownButton<String>(
         value: value,
-        dropdownColor: Colors.white,
+        dropdownColor: kCardBg,
         icon: Icon(Icons.arrow_drop_down, size: 18,
             color: active ? Colors.white : _kMuted),
         style: TextStyle(
@@ -802,10 +806,10 @@ class _ResultHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(children: [
     Text('$filtered résultat${filtered > 1 ? "s" : ""}',
-        style: const TextStyle(color: _kText, fontSize: 14, fontWeight: FontWeight.w700)),
+        style: TextStyle(color: _kText, fontSize: 14, fontWeight: FontWeight.w700)),
     if (filtered < total) ...[
       const SizedBox(width: 8),
-      Text('sur $total', style: const TextStyle(color: _kMuted, fontSize: 13)),
+      Text('sur $total', style: TextStyle(color: _kMuted, fontSize: 13)),
     ],
   ]);
 }
@@ -833,7 +837,7 @@ class _TableView extends StatelessWidget {
     flex: flex,
     child: Align(
       alignment: center ? Alignment.center : Alignment.centerLeft,
-      child: Text(label, style: const TextStyle(
+      child: Text(label, style: TextStyle(
           color: _kMuted, fontSize: 11,
           fontWeight: FontWeight.w700, letterSpacing: 0.4),
           overflow: TextOverflow.ellipsis),
@@ -867,18 +871,18 @@ class _TableView extends StatelessWidget {
               _hdr('Groupe scolaire',    2),
               _hdr('Email',              3),
               _hdr('Téléphone',          2),
-              const SizedBox(width: _statusW,
+              SizedBox(width: _statusW,
                 child: Text('Statut', style: TextStyle(
                     color: _kMuted, fontSize: 11,
                     fontWeight: FontWeight.w700, letterSpacing: 0.4))),
               _hdr('Dernière connexion', 2),
-              const SizedBox(width: _actionsW,
+              SizedBox(width: _actionsW,
                 child: Center(child: Text('Actions', style: TextStyle(
                     color: _kMuted, fontSize: 11,
                     fontWeight: FontWeight.w700, letterSpacing: 0.4)))),
             ]),
           ),
-          const Divider(height: 1, color: _kBorder),
+          Divider(height: 1, color: _kBorder),
           // Lignes
           ...admins.asMap().entries.map((e) => _TableRow(
             admin:    e.value,
@@ -964,7 +968,7 @@ class _TableRowState extends State<_TableRow> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(a.fullName,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kText),
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kText),
                       overflow: TextOverflow.ellipsis),
                   if (a.firstName.isEmpty && a.lastName.isEmpty)
                     Text('Profil incomplet',
@@ -1005,11 +1009,11 @@ class _TableRowState extends State<_TableRow> {
                         color: _kGold.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Icon(Icons.business_rounded, size: 12, color: _kGold),
+                      child: Icon(Icons.business_rounded, size: 12, color: _kGold),
                     ),
                   const SizedBox(width: 6),
                   Expanded(child: Text(a.groupName!,
-                      style: const TextStyle(fontSize: 12, color: _kText),
+                      style: TextStyle(fontSize: 12, color: _kText),
                       overflow: TextOverflow.ellipsis)),
                 ])
               : Text(a.role == 'super_admin' ? 'Plateforme' : '—',
@@ -1025,14 +1029,14 @@ class _TableRowState extends State<_TableRow> {
             child: Tooltip(
               message: a.email,
               child: Text(a.email,
-                  style: const TextStyle(fontSize: 12, color: _kNavy),
+                  style: TextStyle(fontSize: 12, color: _kNavy),
                   overflow: TextOverflow.ellipsis),
             ),
           )),
 
           // Téléphone
           Expanded(flex: 2, child: Text(a.phone ?? '—',
-              style: const TextStyle(fontSize: 12, color: _kMuted),
+              style: TextStyle(fontSize: 12, color: _kMuted),
               overflow: TextOverflow.ellipsis)),
 
           // Statut (cliquable pour toggle)
@@ -1222,10 +1226,10 @@ class _AdminCardState extends State<_AdminCard> {
             Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(a.fullName, style: const TextStyle(
+                Text(a.fullName, style: TextStyle(
                     color: _kText, fontSize: 13.5, fontWeight: FontWeight.w800),
                     overflow: TextOverflow.ellipsis),
-                Text(a.email, style: const TextStyle(
+                Text(a.email, style: TextStyle(
                     color: _kMuted, fontSize: 11),
                     overflow: TextOverflow.ellipsis),
               ],
@@ -1257,7 +1261,7 @@ class _AdminCardState extends State<_AdminCard> {
                   color: _kGold.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text(a.groupName!, style: const TextStyle(
+                child: Text(a.groupName!, style: TextStyle(
                     color: _kGold, fontSize: 11, fontWeight: FontWeight.w700),
                     overflow: TextOverflow.ellipsis),
               ),
@@ -1266,9 +1270,9 @@ class _AdminCardState extends State<_AdminCard> {
 
           // ─ Infos ─────────────────────────────────────────────────────────
           Row(children: [
-            const Icon(Icons.access_time_rounded, size: 12, color: _kMuted),
+            Icon(Icons.access_time_rounded, size: 12, color: _kMuted),
             const SizedBox(width: 4),
-            Text(a.lastLoginLabel, style: const TextStyle(
+            Text(a.lastLoginLabel, style: TextStyle(
                 color: _kMuted, fontSize: 11.5, fontWeight: FontWeight.w500)),
           ]),
 
@@ -1376,12 +1380,12 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(vertical: 64),
     alignment: Alignment.center,
-    child: const Column(mainAxisSize: MainAxisSize.min, children: [
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
       Icon(Icons.admin_panel_settings_rounded, size: 56, color: _kBorder),
-      SizedBox(height: 16),
+      const SizedBox(height: 16),
       Text('Aucun administrateur trouvé', style: TextStyle(
           color: _kText, fontSize: 16, fontWeight: FontWeight.w700)),
-      SizedBox(height: 6),
+      const SizedBox(height: 6),
       Text('Modifiez vos filtres ou créez un nouvel administrateur.',
           style: TextStyle(color: _kMuted, fontSize: 13)),
     ]),
@@ -1427,7 +1431,7 @@ class _AvatarUploadBox extends StatelessWidget {
           ),
           clipBehavior: Clip.antiAlias,
           child: uploading
-              ? const Center(child: SizedBox(width: 24, height: 24,
+              ? Center(child: SizedBox(width: 24, height: 24,
                   child: CircularProgressIndicator(strokeWidth: 2, color: _kNavy)))
               : previewBytes != null
                   ? Image.memory(previewBytes!, fit: BoxFit.cover)
@@ -1470,7 +1474,7 @@ class _AvatarUploadBox extends StatelessWidget {
           cursor: SystemMouseCursors.click,
           child: GestureDetector(
             onTap: onPick,
-            child: const Text('Changer', style: TextStyle(
+            child: Text('Changer', style: TextStyle(
                 color: _kNavy, fontSize: 11, fontWeight: FontWeight.w600,
                 decoration: TextDecoration.underline,
                 decorationColor: _kNavy)),
@@ -1573,14 +1577,19 @@ class _AdminFormModalState extends ConsumerState<_AdminFormModal> {
 
     try {
       final client = ref.read(supabaseClientProvider);
-      final ext = file.extension ?? 'jpg';
+      final media = await compressAvatar(
+        bytes: file.bytes!,
+        fileName: file.name,
+        mime: mimeForImageExtension(file.extension),
+      );
+      final ext = media.fileName.split('.').last;
       final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
       final path = 'admins/$fileName';
 
       await client.storage.from('avatars').uploadBinary(
         path,
-        file.bytes!,
-        fileOptions: FileOptions(contentType: 'image/$ext', upsert: true),
+        media.bytes,
+        fileOptions: FileOptions(contentType: media.mime, upsert: true),
       );
 
       final url = client.storage.from('avatars').getPublicUrl(path);
@@ -1588,7 +1597,7 @@ class _AdminFormModalState extends ConsumerState<_AdminFormModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Erreur upload : $e'),
+          content: Text(messageErreur(e, contexte: 'Envoi du fichier')),
           backgroundColor: _kRed,
           behavior: SnackBarBehavior.floating,
         ));
@@ -1631,7 +1640,7 @@ class _AdminFormModalState extends ConsumerState<_AdminFormModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur : $e'),
+        content: Text(messageErreur(e)),
         backgroundColor: _kRed,
         behavior: SnackBarBehavior.floating,
       ));
@@ -1663,17 +1672,17 @@ class _AdminFormModalState extends ConsumerState<_AdminFormModal> {
           // ── En-tête ──────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(22, 16, 16, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            decoration: BoxDecoration(
+              color: kCardBg,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               border: Border(bottom: BorderSide(color: _kBorder)),
             ),
             child: Row(children: [
               Container(
                 width: 38, height: 38,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                      colors: [Color(0xFF1A2F5A), _kNavy]),
+                  gradient: LinearGradient(
+                      colors: [const Color(0xFF1A2F5A), _kNavy]),
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [BoxShadow(color: _kNavy.withValues(alpha: 0.25),
                       blurRadius: 8, offset: const Offset(0, 3))],
@@ -1687,12 +1696,12 @@ class _AdminFormModalState extends ConsumerState<_AdminFormModal> {
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(
                   _isEditing ? 'Modifier l\'administrateur' : 'Nouvel administrateur',
-                  style: const TextStyle(color: _kText, fontSize: 15,
+                  style: TextStyle(color: _kText, fontSize: 15,
                       fontWeight: FontWeight.w800),
                 ),
                 Text(
                   _isEditing ? 'Mise à jour des informations' : 'Remplissez les champs requis',
-                  style: const TextStyle(color: _kMuted, fontSize: 11),
+                  style: TextStyle(color: _kMuted, fontSize: 11),
                 ),
               ]),
               const Spacer(),
@@ -1707,7 +1716,7 @@ class _AdminFormModalState extends ConsumerState<_AdminFormModal> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: _kBorder),
                   ),
-                  child: const Icon(Icons.close_rounded, size: 15, color: _kMuted),
+                  child: Icon(Icons.close_rounded, size: 15, color: _kMuted),
                 ),
               ),
             ]),
@@ -1776,7 +1785,7 @@ class _AdminFormModalState extends ConsumerState<_AdminFormModal> {
                         decoration: InputDecoration(
                           labelText: 'Mot de passe *',
                           hintText: 'Min. 8 caractères',
-                          prefixIcon: const Icon(Icons.lock_rounded, size: 16, color: _kMuted),
+                          prefixIcon: Icon(Icons.lock_rounded, size: 16, color: _kMuted),
                           suffixIcon: MouseRegion(
                             cursor: SystemMouseCursors.click,
                             child: IconButton(
@@ -1790,7 +1799,7 @@ class _AdminFormModalState extends ConsumerState<_AdminFormModal> {
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: _kNavy, width: 1.5),
+                            borderSide: BorderSide(color: _kNavy, width: 1.5),
                           ),
                           filled: true, fillColor: _kSurface,
                           contentPadding: const EdgeInsets.all(12),
@@ -1816,23 +1825,23 @@ class _AdminFormModalState extends ConsumerState<_AdminFormModal> {
                         child: DropdownButton<String>(
                           value: _role,
                           isExpanded: true,
-                          icon: const Icon(Icons.expand_more_rounded, size: 18, color: _kMuted),
-                          style: const TextStyle(color: _kText, fontSize: 13),
-                          items: const [
+                          icon: Icon(Icons.expand_more_rounded, size: 18, color: _kMuted),
+                          style: TextStyle(color: _kText, fontSize: 13),
+                          items: [
                             DropdownMenuItem(
                               value: 'super_admin',
                               child: Row(children: [
                                 Icon(Icons.shield_rounded, size: 14, color: _kNavy),
-                                SizedBox(width: 8),
-                                Text('Super Admin — accès total plateforme'),
+                                const SizedBox(width: 8),
+                                const Text('Super Admin — accès total plateforme'),
                               ]),
                             ),
                             DropdownMenuItem(
                               value: 'admin_groupe',
                               child: Row(children: [
                                 Icon(Icons.business_rounded, size: 14, color: _kGold),
-                                SizedBox(width: 8),
-                                Text('Admin Groupe — accès à un groupe scolaire'),
+                                const SizedBox(width: 8),
+                                const Text('Admin Groupe — accès à un groupe scolaire'),
                               ]),
                             ),
                           ],
@@ -1858,10 +1867,10 @@ class _AdminFormModalState extends ConsumerState<_AdminFormModal> {
                           child: DropdownButton<String>(
                             value: _groupId,
                             isExpanded: true,
-                            hint: const Text('Sélectionner un groupe *',
+                            hint: Text('Sélectionner un groupe *',
                                 style: TextStyle(color: _kMuted, fontSize: 13)),
-                            icon: const Icon(Icons.expand_more_rounded, size: 18, color: _kMuted),
-                            style: const TextStyle(color: _kText, fontSize: 13),
+                            icon: Icon(Icons.expand_more_rounded, size: 18, color: _kMuted),
+                            style: TextStyle(color: _kText, fontSize: 13),
                             items: (data?.groups ?? []).map((g) =>
                               DropdownMenuItem(
                                 value: g.id,
@@ -1889,10 +1898,10 @@ class _AdminFormModalState extends ConsumerState<_AdminFormModal> {
           // ── Footer ───────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(22, 12, 22, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: _kSurface,
               border: Border(top: BorderSide(color: _kBorder)),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
             ),
             child: Row(children: [
               MouseRegion(
@@ -1906,7 +1915,7 @@ class _AdminFormModalState extends ConsumerState<_AdminFormModal> {
                       border: Border.all(color: _kBorder),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Text('Annuler', style: TextStyle(
+                    child: Text('Annuler', style: TextStyle(
                         color: _kMuted, fontSize: 13, fontWeight: FontWeight.w600)),
                   ),
                 ),
@@ -2026,9 +2035,9 @@ class _AdminDetailModalState extends State<_AdminDetailModal>
           // ─ Header propre ──────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 14, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            decoration: BoxDecoration(
+              color: kCardBg,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               border: Border(bottom: BorderSide(color: _kBorder)),
             ),
             child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
@@ -2039,7 +2048,7 @@ class _AdminDetailModalState extends State<_AdminDetailModal>
               Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(a.fullName, style: const TextStyle(
+                  Text(a.fullName, style: TextStyle(
                       color: _kText, fontSize: 17, fontWeight: FontWeight.w800),
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 5),
@@ -2055,24 +2064,24 @@ class _AdminDetailModalState extends State<_AdminDetailModal>
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: _kGold.withValues(alpha: 0.30)),
                         ),
-                        child: Text(a.groupName!, style: const TextStyle(
+                        child: Text(a.groupName!, style: TextStyle(
                             color: _kGold, fontSize: 10.5,
                             fontWeight: FontWeight.w700)),
                       ),
                   ]),
                   const SizedBox(height: 5),
                   Row(children: [
-                    const Icon(Icons.email_outlined, size: 12, color: _kMuted),
+                    Icon(Icons.email_outlined, size: 12, color: _kMuted),
                     const SizedBox(width: 4),
                     Flexible(child: Text(a.email,
-                        style: const TextStyle(color: _kMuted, fontSize: 11.5),
+                        style: TextStyle(color: _kMuted, fontSize: 11.5),
                         overflow: TextOverflow.ellipsis)),
                     if (a.phone != null) ...[
                       const SizedBox(width: 10),
-                      const Icon(Icons.phone_outlined, size: 12, color: _kMuted),
+                      Icon(Icons.phone_outlined, size: 12, color: _kMuted),
                       const SizedBox(width: 3),
                       Text(a.phone!,
-                          style: const TextStyle(color: _kMuted, fontSize: 11.5)),
+                          style: TextStyle(color: _kMuted, fontSize: 11.5)),
                     ],
                   ]),
                 ],
@@ -2133,7 +2142,7 @@ class _AdminDetailModalState extends State<_AdminDetailModal>
           // ─ Footer actions ────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(top: BorderSide(color: _kBorder)),
             ),
             child: Row(children: [
@@ -2289,7 +2298,7 @@ class _AdmAccessTab extends StatelessWidget {
                 a.role == 'super_admin'
                     ? 'Accès total à la plateforme'
                     : 'Accès limité à son groupe scolaire',
-                style: const TextStyle(color: _kMuted, fontSize: 12.5,
+                style: TextStyle(color: _kMuted, fontSize: 12.5,
                     fontWeight: FontWeight.w600),
               ),
             ])),
@@ -2457,12 +2466,12 @@ class _AdmDetailRow extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
     decoration: BoxDecoration(
-      border: last ? null : const Border(bottom: BorderSide(color: _kBorder)),
+      border: last ? null : Border(bottom: BorderSide(color: _kBorder)),
     ),
     child: Row(children: [
       Icon(icon, size: 15, color: _kNavy),
       const SizedBox(width: 10),
-      Text(label, style: const TextStyle(
+      Text(label, style: TextStyle(
           color: _kMuted, fontSize: 12, fontWeight: FontWeight.w600)),
       const Spacer(),
       Flexible(child: Text(value, style: TextStyle(
@@ -2490,8 +2499,8 @@ class _AdmDetailRow extends StatelessWidget {
                 }
               },
               borderRadius: BorderRadius.circular(6),
-              child: const Padding(
-                padding: EdgeInsets.all(2),
+              child: Padding(
+                padding: const EdgeInsets.all(2),
                 child: Icon(Icons.copy_rounded, size: 13, color: _kNavy),
               ),
             ),
@@ -2530,7 +2539,7 @@ class _AdmSectionTitle extends StatelessWidget {
   const _AdmSectionTitle(this.text);
   final String text;
   @override
-  Widget build(BuildContext context) => Text(text, style: const TextStyle(
+  Widget build(BuildContext context) => Text(text, style: TextStyle(
       color: _kNavy, fontSize: 13, fontWeight: FontWeight.w800));
 }
 
@@ -2562,9 +2571,9 @@ class _AdmTimelineItem extends StatelessWidget {
       const SizedBox(width: 14),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-        Text(title, style: const TextStyle(
+        Text(title, style: TextStyle(
             color: _kText, fontSize: 13, fontWeight: FontWeight.w600)),
-        Text(_fmtDate(date), style: const TextStyle(
+        Text(_fmtDate(date), style: TextStyle(
             color: _kMuted, fontSize: 11.5)),
       ])),
     ]),
@@ -2594,7 +2603,7 @@ class _AdminPrintPreviewModalState extends State<_AdminPrintPreviewModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur impression : $e'),
+        content: Text(messageErreur(e, contexte: 'Impression')),
         backgroundColor: _kRed, behavior: SnackBarBehavior.floating,
       ));
       }
@@ -2625,7 +2634,7 @@ class _AdminPrintPreviewModalState extends State<_AdminPrintPreviewModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur téléchargement : $e'),
+        content: Text(messageErreur(e, contexte: 'Téléchargement')),
         backgroundColor: _kRed, behavior: SnackBarBehavior.floating,
       ));
       }
@@ -2698,9 +2707,9 @@ class _AdminPrintPreviewModalState extends State<_AdminPrintPreviewModal> {
           // ── Barre modale ───────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(22, 14, 14, 14),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: _kNavy,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
             ),
             child: Row(children: [
               Container(
@@ -2757,10 +2766,10 @@ class _AdminPrintPreviewModalState extends State<_AdminPrintPreviewModal> {
           // ── Footer actions ─────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            decoration: BoxDecoration(
+              color: kCardBg,
               borderRadius:
-                  BorderRadius.vertical(bottom: Radius.circular(18)),
+                  const BorderRadius.vertical(bottom: Radius.circular(18)),
               border: Border(top: BorderSide(color: _kBorder)),
             ),
             child: Row(children: [
@@ -2777,9 +2786,9 @@ class _AdminPrintPreviewModalState extends State<_AdminPrintPreviewModal> {
                       border: Border.all(color: _kBorder),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.close_rounded, size: 13, color: _kMuted),
-                      SizedBox(width: 5),
+                      const SizedBox(width: 5),
                       Text('Fermer', style: TextStyle(
                           color: _kMuted, fontSize: 12.5,
                           fontWeight: FontWeight.w600)),
@@ -2802,9 +2811,9 @@ class _AdminPrintPreviewModalState extends State<_AdminPrintPreviewModal> {
                       border: Border.all(color: _kBorder),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.copy_rounded, size: 13, color: _kMuted),
-                      SizedBox(width: 5),
+                      const SizedBox(width: 5),
                       Text('Copier', style: TextStyle(
                           color: _kMuted, fontSize: 12.5,
                           fontWeight: FontWeight.w600)),
@@ -2830,15 +2839,15 @@ class _AdminPrintPreviewModalState extends State<_AdminPrintPreviewModal> {
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       if (_printing)
-                        const SizedBox(width: 13, height: 13,
+                        SizedBox(width: 13, height: 13,
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: _kNavy))
                       else
-                        const Icon(Icons.print_rounded,
+                        Icon(Icons.print_rounded,
                             size: 14, color: _kNavy),
                       const SizedBox(width: 6),
                       Text(_printing ? 'Impression…' : 'Imprimer',
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: _kNavy, fontSize: 12.5,
                               fontWeight: FontWeight.w700)),
                     ]),
@@ -2937,8 +2946,8 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
                   child: const Icon(Icons.warning_rounded, color: _kRed, size: 22),
                 ),
                 const SizedBox(width: 12),
-                const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Suppression définitive',
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Suppression définitive',
                       style: TextStyle(color: _kRed, fontSize: 16, fontWeight: FontWeight.w800)),
                   Text('Cette action est irréversible',
                       style: TextStyle(color: _kMuted, fontSize: 11.5)),
@@ -2956,9 +2965,9 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
                   _AdminAvatar(admin: a, size: 42),
                   const SizedBox(width: 12),
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(a.fullName, style: const TextStyle(
+                    Text(a.fullName, style: TextStyle(
                         fontWeight: FontWeight.w700, fontSize: 14, color: _kText)),
-                    Text(a.email, style: const TextStyle(fontSize: 12, color: _kMuted)),
+                    Text(a.email, style: TextStyle(fontSize: 12, color: _kMuted)),
                     const SizedBox(height: 4),
                     _RoleBadge(role: a.role),
                   ]),
@@ -2999,7 +3008,7 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
                           : null,
                     ),
                     const SizedBox(width: 10),
-                    const Expanded(child: Text(
+                    Expanded(child: Text(
                       'Je confirme vouloir supprimer définitivement ce compte administrateur',
                       style: TextStyle(fontSize: 12.5, color: _kText),
                     )),
@@ -3019,7 +3028,7 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
                         border: Border.all(color: _kBorder),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text('Annuler', style: TextStyle(
+                      child: Text('Annuler', style: TextStyle(
                           color: _kMuted, fontSize: 13, fontWeight: FontWeight.w600)),
                     ),
                   ),
@@ -3067,7 +3076,7 @@ class _SectionTitle extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Text(text,
-      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
           color: _kMuted, letterSpacing: 0.5));
 }
 
@@ -3107,13 +3116,13 @@ class _FormField extends StatelessWidget {
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: _kBorder),
+        borderSide: BorderSide(color: _kBorder),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
         borderSide: readOnly
-            ? const BorderSide(color: _kBorder)
-            : const BorderSide(color: _kNavy, width: 1.5),
+            ? BorderSide(color: _kBorder)
+            : BorderSide(color: _kNavy, width: 1.5),
       ),
       contentPadding: const EdgeInsets.all(12),
     ),

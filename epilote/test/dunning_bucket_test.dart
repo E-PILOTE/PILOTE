@@ -14,12 +14,26 @@ void main() {
     expect(b('active', now.add(const Duration(days: 30))), isNull);
   });
 
-  test('actif, échéance proche (J-7) → expiringSoon', () {
-    expect(b('active', now.add(const Duration(days: 7))), DunningBucket.expiringSoon);
+  test('actif, échéance proche (J-5) → expiringSoon', () {
+    expect(b('active', now.add(const Duration(days: 5))), DunningBucket.expiringSoon);
   });
 
-  test('actif, échéance J-8 → null (au-delà du seuil « proche »)', () {
-    expect(b('active', now.add(const Duration(days: 8))), isNull);
+  test('actif, échéance J-6 → null (au-delà du seuil « proche »)', () {
+    // Le seau « échoit bientôt » du recouvrement suit la MÊME fenêtre que le
+    // bandeau de l'admin de groupe (`kSubscriptionAlertDays`, réglable) : le
+    // super_admin et son client doivent voir la même urgence le même jour.
+    expect(b('active', now.add(const Duration(days: 6))), isNull);
+  });
+
+  test('seuil élargi : soonDays=7 rattrape J-7', () {
+    expect(
+      bucketDunning(
+          status: 'active',
+          end: now.add(const Duration(days: 7)),
+          now: now,
+          soonDays: 7),
+      DunningBucket.expiringSoon,
+    );
   });
 
   test('échu depuis 10 j (naturel, ≤ grâce 15) → inGrace', () {

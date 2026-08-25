@@ -206,37 +206,57 @@ class _SectionHeader extends StatelessWidget {
       );
     }
 
+    // ⚠️ Le titre est borné À LA MAIN, pas par un `Flexible`.
+    // Dans un `Row`, un enfant souple et un `Expanded` se partagent l'espace
+    // libre à parts égales : le titre n'aurait plus que la moitié de la largeur
+    // et « FORMATION PROFESSIONNELLE » serait tronqué même au repos. Sans
+    // contrainte du tout — l'état précédent — c'est l'inverse : la barre déborde
+    // et Flutter jette une exception à chaque image pendant l'animation de
+    // repli. On réserve donc une largeur minimale au filet et on laisse le
+    // titre prendre le reste, en l'abrégeant s'il le faut.
+    const kRuleMin = 16.0;
     final header = Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 12, 5),
-      child: Row(
-        children: [
-          if (collapsible) ...[
-            AnimatedRotation(
-              turns: collapsed ? -0.25 : 0, // ▸ replié / ▾ déplié
-              duration: const Duration(milliseconds: 200),
-              child: Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 16,
-                color: white.withValues(alpha: 0.40),
+      child: LayoutBuilder(builder: (context, c) {
+        final reserved = (collapsible ? 20.0 : 0.0) + 8 + kRuleMin;
+        final maxLabel =
+            (c.maxWidth - reserved).clamp(0.0, double.infinity);
+        return Row(
+          children: [
+            if (collapsible) ...[
+              AnimatedRotation(
+                turns: collapsed ? -0.25 : 0, // ▸ replié / ▾ déplié
+                duration: const Duration(milliseconds: 200),
+                child: Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 16,
+                  color: white.withValues(alpha: 0.40),
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxLabel),
+              child: Text(
+                label,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: white.withValues(alpha: 0.38),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.1,
+                ),
               ),
             ),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            label,
-            style: TextStyle(
-              color: white.withValues(alpha: 0.38),
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.1,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Divider(height: 1, color: white.withValues(alpha: 0.10)),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Divider(height: 1, color: white.withValues(alpha: 0.10)),
-          ),
-        ],
-      ),
+          ],
+        );
+      }),
     );
 
     if (!collapsible) return header;
@@ -288,8 +308,8 @@ class _InfoRow extends StatelessWidget {
     final white = Colors.white;
     if (!expanded) {
       return entry.loading
-          ? const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: Center(
                 child: SizedBox(
                   width: 16,
@@ -308,7 +328,7 @@ class _InfoRow extends StatelessWidget {
       child: Row(
         children: [
           if (entry.loading)
-            const SizedBox(
+            SizedBox(
               width: 13,
               height: 13,
               child: CircularProgressIndicator(strokeWidth: 2, color: kAccent),

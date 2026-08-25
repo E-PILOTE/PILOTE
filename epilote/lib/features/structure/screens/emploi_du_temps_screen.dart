@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/class_context_banner.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
@@ -23,6 +24,7 @@ import '../providers/timetable_provider.dart';
 import '../services/emploi_du_temps_pdf_service.dart';
 import 'edt_settings_screen.dart';
 import 'emploi_du_temps_history.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'emploi_du_temps_grid.dart';
 part 'emploi_du_temps_form.dart';
@@ -189,7 +191,7 @@ class _EdtPageState extends ConsumerState<_EdtPage> {
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('Erreur : $e', style: const TextStyle(color: kRed)),
+          child: Text(messageErreur(e), style: TextStyle(color: kRed)),
         ),
       ),
       data: (classes) {

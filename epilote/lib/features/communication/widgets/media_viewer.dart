@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
@@ -8,6 +10,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart' show showContentOverlay;
 import '../providers/messages_provider.dart'
     show MessageAttachment, cachedSignedUrl, resolveAttachmentUrl;
+import '../../../services/powersync/upload_outbox.dart' show pendingFileFor;
 import 'feed_video_player.dart' show InlineVideoPlayer;
 
 // ─── Image d'une pièce jointe (Storage privé) ────────────────────────────────
@@ -38,6 +41,10 @@ class _SignedNetworkImageState extends State<SignedNetworkImage> {
   /// URL résolue (synchrone si déjà en cache → aucun spinner à la réouverture).
   String? _resolvedUrl;
 
+  /// Fichier encore dans la file d'attente d'envoi : l'expéditeur voit sa photo
+  /// tout de suite, hors réseau, avant même qu'elle n'ait quitté l'appareil.
+  File? _pendingFile;
+
   @override
   void initState() {
     super.initState();
@@ -49,6 +56,7 @@ class _SignedNetworkImageState extends State<SignedNetworkImage> {
     super.didUpdateWidget(old);
     if (old.att.cacheKey != widget.att.cacheKey) {
       _resolvedUrl = null;
+      _pendingFile = null;
       _resolve();
     }
   }
@@ -59,6 +67,13 @@ class _SignedNetworkImageState extends State<SignedNetworkImage> {
     if (cached != null) {
       _resolvedUrl = cached;
       return;
+    }
+    // Pas encore téléversée ? Le fichier est sur le disque, on l'affiche.
+    final path = widget.att.resolvedPath;
+    if (path != null) {
+      pendingFileFor(path).then((f) {
+        if (f != null && mounted) setState(() => _pendingFile = f);
+      });
     }
     resolveAttachmentUrl(Supabase.instance.client, widget.att).then((u) {
       if (mounted) setState(() => _resolvedUrl = u);
@@ -83,10 +98,17 @@ class _SignedNetworkImageState extends State<SignedNetworkImage> {
           width: widget.width,
           height: widget.height,
           color: kSurface,
-          child: const Icon(Icons.broken_image_outlined, color: kTextMuted),
+          child: Icon(Icons.broken_image_outlined, color: kTextMuted),
         );
+    // Priorité au fichier local en attente : c'est la seule source disponible
+    // hors réseau, et elle est plus fraîche que n'importe quelle URL.
+    final pending = _pendingFile;
+    if (pending != null) {
+      return Image.file(pending,
+          width: widget.width, height: widget.height, fit: widget.fit);
+    }
     final url = _resolvedUrl;
-    if (url == null) return ph;
+    if (url == null || url.isEmpty) return ph;
     return CachedNetworkImage(
       imageUrl: url,
       cacheKey: widget.att.cacheKey,
@@ -286,7 +308,7 @@ class _MediaViewerState extends State<_MediaViewer> {
                     height: 7,
                     decoration: BoxDecoration(
                       color: i == _index
-                          ? Colors.white
+                          ? kCardBg
                           : Colors.white.withValues(alpha: 0.45),
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -443,7 +465,7 @@ class _PdfOverlay extends StatelessWidget {
               height: h,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: kCardBg,
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(

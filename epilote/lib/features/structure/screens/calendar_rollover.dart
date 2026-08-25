@@ -40,8 +40,14 @@ class _PrepClassesDialogState extends ConsumerState<_PrepClassesDialog> {
 
   Future<void> _submit() async {
     final p = ref.read(authNotifierProvider).valueOrNull;
-    if (_sourceId == null || p?.schoolId == null) {
-      _calToast(context, 'Choisissez une année source');
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (_sourceId == null || missing.isNotEmpty) {
+      _calToast(
+          context,
+          _sourceId == null
+              ? 'Choisissez une année source'
+              : writeIdentityMessage(missing));
       return;
     }
     setState(() => _saving = true);
@@ -53,7 +59,7 @@ class _PrepClassesDialogState extends ConsumerState<_PrepClassesDialog> {
           sourceYearId: _sourceId!,
           targetYearId: widget.targetYear.id,
           schoolId: p!.schoolId!,
-          groupId: p.groupId ?? '',
+          groupId: p.groupId!,
         );
       },
       success: 'Classes préparées',
@@ -112,7 +118,7 @@ class _PrepClassesDialogState extends ConsumerState<_PrepClassesDialog> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(children: [
-                    const Icon(Icons.info_outline_rounded, size: 16, color: kNavy),
+                    Icon(Icons.info_outline_rounded, size: 16, color: kNavy),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -121,7 +127,7 @@ class _PrepClassesDialogState extends ConsumerState<_PrepClassesDialog> {
                                 '(sans les inscriptions). Les doublons sont ignorés.'
                             : 'Les classes sont recréées sans les inscriptions. '
                                 'Les doublons sont ignorés.',
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 11.5, color: kTextMuted, height: 1.4),
                       ),
                     ),

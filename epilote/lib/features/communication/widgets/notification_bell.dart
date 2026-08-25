@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -31,13 +33,13 @@ class _NotificationBellState extends ConsumerState<NotificationBell> {
     return MenuAnchor(
       alignmentOffset: const Offset(-300, 6),
       style: MenuStyle(
-        backgroundColor: const WidgetStatePropertyAll(kCommBg),
+        backgroundColor: WidgetStatePropertyAll(kCommBg),
         elevation: const WidgetStatePropertyAll(8),
         padding: const WidgetStatePropertyAll(EdgeInsets.zero),
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
-            side: const BorderSide(color: kCommBorder),
+            side: BorderSide(color: kCommBorder),
           ),
         ),
       ),
@@ -56,8 +58,8 @@ class _NotificationBellState extends ConsumerState<NotificationBell> {
           clipBehavior: Clip.none,
           children: [
             IconButton(
-              icon: const Icon(Icons.notifications_outlined,
-                  color: Color(0xFF64748B), size: 22),
+              icon: Icon(Icons.notifications_outlined,
+                  color: kTextMuted, size: 22),
               tooltip: 'Notifications',
               // Curseur main au survol (desktop) pour signaler le clic.
               mouseCursor: SystemMouseCursors.click,
@@ -129,15 +131,15 @@ class _NotifDropdownPanel extends ConsumerWidget {
           // ── En-tête ────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(14, 12, 8, 10),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: kCommCard,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
               border: Border(bottom: BorderSide(color: kCommBorder)),
             ),
             child: Row(children: [
-              const Icon(Icons.notifications_rounded, color: kCommNavy, size: 18),
+              Icon(Icons.notifications_rounded, color: kCommNavy, size: 18),
               const SizedBox(width: 8),
-              const Text('Notifications',
+              Text('Notifications',
                   style: TextStyle(
                       fontSize: 14, fontWeight: FontWeight.w800, color: kCommNavy)),
               const SizedBox(width: 6),
@@ -163,7 +165,7 @@ class _NotifDropdownPanel extends ConsumerWidget {
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: const Text('Tout lire',
+                  child: Text('Tout lire',
                       style: TextStyle(fontSize: 11, color: kCommNavy)),
                 ),
             ]),
@@ -176,11 +178,11 @@ class _NotifDropdownPanel extends ConsumerWidget {
                   height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2)),
             )
           else if (items.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
               child: Column(children: [
                 Icon(Icons.notifications_off_outlined, size: 40, color: kCommBorder),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 Text('Aucune notification',
                     style: TextStyle(fontSize: 13, color: kCommSub)),
               ]),
@@ -193,9 +195,9 @@ class _NotifDropdownPanel extends ConsumerWidget {
           // ── Pied : tout afficher ───────────────────────────────────────
           Container(
             width: double.infinity,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: kCommCard,
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(14)),
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(14)),
               border: Border(top: BorderSide(color: kCommBorder)),
             ),
             child: TextButton.icon(
@@ -206,8 +208,8 @@ class _NotifDropdownPanel extends ConsumerWidget {
                   borderRadius: BorderRadius.vertical(bottom: Radius.circular(14)),
                 ),
               ),
-              icon: const Icon(Icons.open_in_full_rounded, size: 15, color: kCommNavy),
-              label: const Text('Tout afficher',
+              icon: Icon(Icons.open_in_full_rounded, size: 15, color: kCommNavy),
+              label: Text('Tout afficher',
                   style: TextStyle(
                       fontSize: 12.5, fontWeight: FontWeight.w700, color: kCommNavy)),
             ),
@@ -268,14 +270,14 @@ class _PreviewTile extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(dateStr,
-                        style: const TextStyle(fontSize: 10, color: kCommSub)),
+                        style: TextStyle(fontSize: 10, color: kCommSub)),
                   ]),
                   if (notif.body.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(notif.body,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 11.5, color: kCommSub, height: 1.3)),
                   ],
                 ],

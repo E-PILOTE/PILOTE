@@ -120,7 +120,7 @@ class _EmptyMini extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(text,
-                style: const TextStyle(fontSize: 13, color: kTextMuted)),
+                style: TextStyle(fontSize: 13, color: kTextMuted)),
           ),
         ]),
       );

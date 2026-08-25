@@ -22,14 +22,14 @@ class _EntityPicker extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(label.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.6,
                 color: kTextMuted)),
         const SizedBox(height: 10),
         if (items.isEmpty)
-          const Text('Aucune donnée — construisez l\'emploi du temps par classe.',
+          Text('Aucune donnée — construisez l\'emploi du temps par classe.',
               style: TextStyle(fontSize: 12.5, color: kTextMuted))
         else
           DropdownButtonFormField<String>(
@@ -73,11 +73,11 @@ class _ConflictBanner extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.warning_amber_rounded, size: 18, color: kRed),
+          Icon(Icons.warning_amber_rounded, size: 18, color: kRed),
           const SizedBox(width: 8),
           Text(
               '${hit.length} créneau${hit.length > 1 ? 'x' : ''} en conflit',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 13, fontWeight: FontWeight.w800, color: kRed)),
         ]),
         if (labels.isNotEmpty) ...[
@@ -86,13 +86,13 @@ class _ConflictBanner extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 2),
               child: Text('•  $l',
-                  style: const TextStyle(fontSize: 12, color: kTextPrimary)),
+                  style: TextStyle(fontSize: 12, color: kTextPrimary)),
             ),
           if (labels.length > 4)
             Padding(
               padding: const EdgeInsets.only(top: 2),
               child: Text('•  +${labels.length - 4} autre(s)…',
-                  style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                  style: TextStyle(fontSize: 12, color: kTextMuted)),
             ),
         ],
       ]),
@@ -255,7 +255,7 @@ class _FormConflict extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text('•  $l',
-                style: const TextStyle(fontSize: 11.5, color: kTextPrimary)),
+                style: TextStyle(fontSize: 11.5, color: kTextPrimary)),
           ),
       ]),
     );
@@ -374,11 +374,11 @@ class _InfoNote extends StatelessWidget {
           border: Border.all(color: kBorder),
         ),
         child: Row(children: [
-          const Icon(Icons.info_outline_rounded, size: 16, color: kTextMuted),
+          Icon(Icons.info_outline_rounded, size: 16, color: kTextMuted),
           const SizedBox(width: 8),
           Expanded(
             child: Text(text,
-                style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                style: TextStyle(fontSize: 12, color: kTextMuted)),
           ),
         ]),
       );
@@ -391,7 +391,7 @@ class _Lbl extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 7),
         child: Text(text,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
                 color: kTextPrimary)),
@@ -419,10 +419,10 @@ class _TimeField extends StatelessWidget {
                 border: Border.all(color: kBorder),
               ),
               child: Row(children: [
-                const Icon(Icons.schedule_rounded, size: 16, color: kTextMuted),
+                Icon(Icons.schedule_rounded, size: 16, color: kTextMuted),
                 const SizedBox(width: 8),
                 Text(value,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: kTextPrimary)),

@@ -24,18 +24,18 @@ class _ChartsRow extends ConsumerWidget {
           backgroundColor: Colors.transparent,
           plotAreaBorderWidth: 0,
           margin: EdgeInsets.zero,
-          primaryXAxis: const CategoryAxis(
-            majorGridLines: MajorGridLines(width: 0),
-            axisLine: AxisLine(width: 0),
-            majorTickLines: MajorTickLines(size: 0),
+          primaryXAxis: CategoryAxis(
+            majorGridLines: const MajorGridLines(width: 0),
+            axisLine: const AxisLine(width: 0),
+            majorTickLines: const MajorTickLines(size: 0),
             labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
             labelRotation: -35,
             labelIntersectAction: AxisLabelIntersectAction.rotate45,
           ),
-          primaryYAxis: const NumericAxis(
+          primaryYAxis: NumericAxis(
             majorGridLines: MajorGridLines(width: 0.5, color: kBorder),
-            axisLine: AxisLine(width: 0),
-            majorTickLines: MajorTickLines(size: 0),
+            axisLine: const AxisLine(width: 0),
+            majorTickLines: const MajorTickLines(size: 0),
             labelStyle: TextStyle(fontSize: 10, color: kTextMuted),
           ),
           tooltipBehavior:
@@ -101,7 +101,7 @@ class _ChartsRow extends ConsumerWidget {
                     ? const _ChartEmpty()
                     : SfCircularChart(
                   margin: EdgeInsets.zero,
-                  legend: const Legend(
+                  legend: Legend(
                     isVisible: true,
                     position: LegendPosition.bottom,
                     textStyle: TextStyle(fontSize: 11, color: kTextMuted),
@@ -111,11 +111,11 @@ class _ChartsRow extends ConsumerWidget {
                     CircularChartAnnotation(
                       widget: Column(mainAxisSize: MainAxisSize.min, children: [
                         Text('$total',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w800,
                                 color: kTextPrimary)),
-                        const Text('élèves',
+                        Text('élèves',
                             style: TextStyle(fontSize: 10, color: kTextMuted)),
                       ]),
                     ),
@@ -164,7 +164,7 @@ class _ChartTitle extends StatelessWidget {
         Icon(icon, size: 17, color: kNavy),
         const SizedBox(width: 8),
         Text(title,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
       ]);
 }
@@ -172,10 +172,10 @@ class _ChartTitle extends StatelessWidget {
 class _ChartEmpty extends StatelessWidget {
   const _ChartEmpty();
   @override
-  Widget build(BuildContext context) => const Center(
+  Widget build(BuildContext context) => Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.bar_chart_rounded, size: 36, color: kBorder),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text('Aucune donnée pour cette année',
               style: TextStyle(fontSize: 12, color: kTextMuted)),
         ]),
@@ -186,13 +186,13 @@ class _ChartEmpty extends StatelessWidget {
 class _ChartLoading extends StatelessWidget {
   const _ChartLoading();
   @override
-  Widget build(BuildContext context) => const Center(
+  Widget build(BuildContext context) => Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           SizedBox(
               width: 22,
               height: 22,
               child: CircularProgressIndicator(strokeWidth: 2.4, color: kNavy)),
-          SizedBox(height: 10),
+          const SizedBox(height: 10),
           Text('Chargement des données…',
               style: TextStyle(fontSize: 12, color: kTextMuted)),
         ]),

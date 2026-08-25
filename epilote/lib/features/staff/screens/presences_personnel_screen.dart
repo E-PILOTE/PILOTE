@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
@@ -9,6 +10,7 @@ import '../../vie_scolaire/widgets/vs_kit.dart';
 import '../providers/staff_attendance_provider.dart';
 import '../providers/staff_directory_provider.dart';
 import '../widgets/staff_kit.dart';
+import '../../../core/utils/message_erreur.dart';
 
 const _kSlug = 'presences-personnel';
 
@@ -62,17 +64,29 @@ class _BodyState extends ConsumerState<_Body> {
     if (d != null) setState(() => _date = d);
   }
 
+  /// Refuse un pointage si le compte n'est pas rattaché : un `group_id`,
+  /// `school_id` ou `recorded_by` vide ferait rejeter tout le lot PowerSync.
+  bool _identityMissing(dynamic p) {
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isEmpty) return false;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+    return true;
+  }
+
   Future<void> _mark(String staffId, String status) async {
     final p = ref.read(authNotifierProvider).valueOrNull;
+    if (_identityMissing(p)) return;
     await runModuleWrite(
       context,
       () => setStaffAttendance(
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         staffId: staffId,
         dateKey: _key,
         status: status,
-        recordedBy: p?.id ?? '',
+        recordedBy: p.id,
       ),
       success: null,
     );
@@ -85,15 +99,16 @@ class _BodyState extends ConsumerState<_Body> {
     final ids = [for (final a in agents) a.id];
     if (ids.isEmpty) return;
     final p = ref.read(authNotifierProvider).valueOrNull;
+    if (_identityMissing(p)) return;
     await runModuleWrite(
       context,
       () => setStaffAttendanceBulk(
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         staffIds: ids,
         dateKey: _key,
         status: status,
-        recordedBy: p?.id ?? '',
+        recordedBy: p.id,
         overwrite: overwrite,
       ),
       success: 'Pointage appliqué à ${ids.length} agent'
@@ -122,7 +137,7 @@ class _BodyState extends ConsumerState<_Body> {
               child: Center(child: CircularProgressIndicator())),
           error: (e, _) => Padding(
               padding: const EdgeInsets.only(top: 40),
-              child: Center(child: Text('Erreur : $e'))),
+              child: Center(child: Text(messageErreur(e)))),
           data: (agents) =>
               _content(agents, marks.valueOrNull ?? const {}, canMark),
         ),
@@ -186,7 +201,7 @@ class _BodyState extends ConsumerState<_Body> {
       const SizedBox(height: 18),
       // Distinction : axe + segments cliquables (couverture par segment)
       Row(children: [
-        const Text('Répartir par',
+        Text('Répartir par',
             style: TextStyle(
                 fontSize: 12.5, fontWeight: FontWeight.w700, color: kTextMuted)),
         const SizedBox(width: 10),
@@ -241,26 +256,26 @@ class _BodyState extends ConsumerState<_Body> {
           decoration: InputDecoration(
             isDense: true,
             hintText: 'Rechercher un agent parmi ${agents.length}…',
-            hintStyle: const TextStyle(fontSize: 13, color: kTextMuted),
+            hintStyle: TextStyle(fontSize: 13, color: kTextMuted),
             prefixIcon:
-                const Icon(Icons.search_rounded, size: 19, color: kTextMuted),
+                Icon(Icons.search_rounded, size: 19, color: kTextMuted),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: kCardBg,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: kBorder),
+              borderSide: BorderSide(color: kBorder),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: kBorder),
+              borderSide: BorderSide(color: kBorder),
             ),
           ),
         ),
         const SizedBox(height: 12),
       ],
       if (filtered.isEmpty)
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 20),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20),
           child: Center(
               child: Text('Aucun agent trouvé',
                   style: TextStyle(color: kTextMuted))),
@@ -296,7 +311,7 @@ class _AgentRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kBorder),
       ),
@@ -309,7 +324,7 @@ class _AgentRow extends StatelessWidget {
                 style: const TextStyle(
                     fontSize: 13.5, fontWeight: FontWeight.w700)),
             Text(staffCategoryLabel(staffCategory(agent.role)),
-                style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                style: TextStyle(fontSize: 11, color: kTextMuted)),
           ]),
         ),
         const SizedBox(width: 8),
@@ -385,15 +400,15 @@ class _DateBtn extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: kBorder),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.calendar_today_rounded, size: 15, color: kNavy),
+              Icon(Icons.calendar_today_rounded, size: 15, color: kNavy),
               const SizedBox(width: 8),
               Text(label,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w700, color: kNavy)),
             ]),
           ),

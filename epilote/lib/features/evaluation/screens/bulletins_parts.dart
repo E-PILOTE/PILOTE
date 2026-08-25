@@ -31,10 +31,10 @@ class _BulletinBody extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          const Icon(Icons.class_rounded, size: 18, color: kNavy),
+          Icon(Icons.class_rounded, size: 18, color: kNavy),
           const SizedBox(width: 8),
           Text(className ?? 'Classe',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 15, fontWeight: FontWeight.w800, color: kNavy)),
           const Spacer(),
         ]),
@@ -45,7 +45,7 @@ class _BulletinBody extends ConsumerWidget {
               child: Center(child: CircularProgressIndicator())),
           error: (e, _) => Padding(
               padding: const EdgeInsets.only(top: 20),
-              child: Center(child: Text('Erreur : $e'))),
+              child: Center(child: Text(messageErreur(e)))),
           data: (comp) {
             if (comp.evaluationCount == 0) {
               return const Padding(
@@ -180,7 +180,7 @@ class _ActionBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kBorder),
       ),
@@ -205,7 +205,7 @@ class _ActionBar extends StatelessWidget {
                   : allPublished
                       ? 'Bulletins publiés ($published/$total) — visibles familles'
                       : 'Bulletins générés ($generated/$total) — brouillon',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
         ),
         if (busy)
@@ -268,7 +268,7 @@ class _StudentRow extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kBorder),
       ),
@@ -287,7 +287,7 @@ class _StudentRow extends StatelessWidget {
               ),
               child: Center(
                 child: Text(s.rank == 0 ? '—' : '${s.rank}',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13, fontWeight: FontWeight.w800, color: kNavy)),
               ),
             ),
@@ -303,7 +303,7 @@ class _StudentRow extends StatelessWidget {
                             fontSize: 13.5, fontWeight: FontWeight.w700)),
                     Text(
                         '${s.mention}${s.persisted ? ' · ${s.status == 'published' ? 'publié' : 'généré'}' : ''}',
-                        style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                        style: TextStyle(fontSize: 11.5, color: kTextMuted)),
                   ]),
             ),
             Container(
@@ -321,7 +321,7 @@ class _StudentRow extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                       color: _avgColor(s.overallAverage))),
             ),
-            const Icon(Icons.chevron_right_rounded, color: kTextMuted),
+            Icon(Icons.chevron_right_rounded, color: kTextMuted),
           ]),
         ),
       ),

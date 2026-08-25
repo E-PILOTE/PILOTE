@@ -187,7 +187,7 @@ final announcementsProvider =
     final sel = client.from('school_groups').select('id, name');
     final rows = await (ctx.isGroup && ctx.groupId != null
             ? sel.eq('id', ctx.groupId!)
-            : sel.eq('is_active', true).order('name')) as List;
+            : sel.eq('is_active', true).order('name', ascending: true)) as List;
     groups = rows.map((r) {
       final m = Map<String, dynamic>.from(r as Map);
       return GroupOption(id: m['id'] as String, name: m['name'] as String? ?? '');

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+
+import '../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../services/powersync/sync_failures_provider.dart';
 
-const _kAlertRed = Color(0xFFDC2626);
-const _kAlertBg = Color(0xFFFEF2F2);
+Color get _kAlertRed => kRed;
+Color get _kAlertBg => kRed.withValues(alpha: 0.12);
 const _kAlertText = Color(0xFF991B1B);
 const _kBorder = Color(0xFFFECACA);
 
@@ -39,7 +41,7 @@ class SyncFailureBanner extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              const Icon(Icons.sync_problem_rounded, size: 18, color: _kAlertRed),
+              Icon(Icons.sync_problem_rounded, size: 18, color: _kAlertRed),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -96,11 +98,11 @@ class _SyncFailureDialog extends ConsumerWidget {
     final items = live.isEmpty ? failures : live;
 
     return AlertDialog(
-      title: const Row(
+      title: Row(
         children: [
           Icon(Icons.sync_problem_rounded, color: _kAlertRed, size: 22),
-          SizedBox(width: 10),
-          Expanded(child: Text('Données non synchronisées')),
+          const SizedBox(width: 10),
+          const Expanded(child: Text('Données non synchronisées')),
         ],
       ),
       content: SizedBox(
@@ -184,7 +186,7 @@ class _FailureRow extends StatelessWidget {
           IconButton(
             tooltip: 'Marquer comme vu',
             visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.check_circle_outline_rounded,
+            icon: Icon(Icons.check_circle_outline_rounded,
                 size: 20, color: _kAlertRed),
             onPressed: () => acknowledgeSyncFailure(failure.id),
           ),

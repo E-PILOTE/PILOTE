@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:intl/intl.dart';
@@ -7,14 +9,14 @@ import '../../../core/widgets/app_shell.dart';
 import '../providers/reports_provider.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const _kNavy   = Color(0xFF1E3A5F);
-const _kGreen  = Color(0xFF009A44);
-const _kGold   = Color(0xFFFBBC04);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
+Color get _kGold => kAccent;
 const _kOrange = Color(0xFFFF6B35);
 const _kPurple = Color(0xFF7C3AED);
-const _kCard   = Colors.white;
-const _kText    = Color(0xFF0F172A);
-const _kSub     = Color(0xFF64748B);
+Color get _kCard => kCardBg;
+Color get _kText => kTextPrimary;
+Color get _kSub => kTextMuted;
 
 final _fmtXaf = NumberFormat.currency(locale: 'fr_FR', symbol: 'XAF', decimalDigits: 0);
 final _fmtNum = NumberFormat.decimalPattern('fr_FR');
@@ -69,7 +71,7 @@ class _ActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white,
+      color: kCardBg,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Row(
         children: [
@@ -109,7 +111,7 @@ class _PeriodSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey.shade200),
       ),
@@ -310,10 +312,10 @@ class _KpiCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(def.label, style: const TextStyle(fontSize: 11, color: _kSub, fontWeight: FontWeight.w500),
+                Text(def.label, style: TextStyle(fontSize: 11, color: _kSub, fontWeight: FontWeight.w500),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 2),
-                Text(def.value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _kText),
+                Text(def.value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _kText),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
                 Text(def.sub, style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -341,13 +343,13 @@ class _RevenueChart extends StatelessWidget {
       height: 270,
       child: SfCartesianChart(
         plotAreaBorderWidth: 0,
-        primaryXAxis: const CategoryAxis(
+        primaryXAxis: CategoryAxis(
           labelStyle: TextStyle(fontSize: 10, color: _kSub),
-          majorGridLines: MajorGridLines(width: 0),
-          axisLine: AxisLine(width: 0),
+          majorGridLines: const MajorGridLines(width: 0),
+          axisLine: const AxisLine(width: 0),
         ),
         primaryYAxis: NumericAxis(
-          labelStyle: const TextStyle(fontSize: 10, color: _kSub),
+          labelStyle: TextStyle(fontSize: 10, color: _kSub),
           axisLine: const AxisLine(width: 0),
           majorTickLines: const MajorTickLines(size: 0),
           numberFormat: NumberFormat.compact(locale: 'fr_FR'),
@@ -364,7 +366,7 @@ class _RevenueChart extends StatelessWidget {
             borderColor: _kGreen,
             borderWidth: 2.5,
             splineType: SplineType.natural,
-            markerSettings: const MarkerSettings(
+            markerSettings: MarkerSettings(
               isVisible: true, height: 6, width: 6,
               color: _kGreen, borderColor: Colors.white, borderWidth: 2,
             ),
@@ -380,13 +382,13 @@ class _RevenueChart extends StatelessWidget {
             yAxisName: 'y2',
           ),
         ],
-        axes: const [
+        axes: [
           NumericAxis(
             name: 'y2',
             opposedPosition: true,
             labelStyle: TextStyle(fontSize: 9, color: _kNavy),
-            axisLine: AxisLine(width: 0),
-            majorTickLines: MajorTickLines(size: 0),
+            axisLine: const AxisLine(width: 0),
+            majorTickLines: const MajorTickLines(size: 0),
           ),
         ],
         tooltipBehavior: TooltipBehavior(enable: true),
@@ -404,7 +406,7 @@ class _PlanDonut extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (data.groupsByPlan.isEmpty) {
-      return const _ChartCard(
+      return _ChartCard(
         title: 'Répartition par plan',
         subtitle: 'Aucune donnée',
         height: 270,
@@ -457,15 +459,15 @@ class _InvoiceStatusChart extends StatelessWidget {
       height: 250,
       child: SfCartesianChart(
         plotAreaBorderWidth: 0,
-        primaryXAxis: const CategoryAxis(
+        primaryXAxis: CategoryAxis(
           labelStyle: TextStyle(fontSize: 9, color: _kSub),
-          majorGridLines: MajorGridLines(width: 0),
-          axisLine: AxisLine(width: 0),
+          majorGridLines: const MajorGridLines(width: 0),
+          axisLine: const AxisLine(width: 0),
         ),
-        primaryYAxis: const NumericAxis(
+        primaryYAxis: NumericAxis(
           labelStyle: TextStyle(fontSize: 9, color: _kSub),
-          axisLine: AxisLine(width: 0),
-          majorTickLines: MajorTickLines(size: 0),
+          axisLine: const AxisLine(width: 0),
+          majorTickLines: const MajorTickLines(size: 0),
         ),
         legend: const Legend(isVisible: true, position: LegendPosition.bottom,
           textStyle: TextStyle(fontSize: 9), iconHeight: 7, iconWidth: 7),
@@ -554,12 +556,12 @@ class _GroupTypeSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _LegendDot(color: _kNavy,   label: 'Établissements publics'),
-              SizedBox(width: 24),
-              _LegendDot(color: _kPurple, label: 'Établissements privés'),
+              const SizedBox(width: 24),
+              const _LegendDot(color: _kPurple, label: 'Établissements privés'),
             ],
           ),
         ],
@@ -577,7 +579,7 @@ class _BigStat extends StatelessWidget {
       Text(_fmtNum.format(value),
           style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: color)),
       const SizedBox(height: 2),
-      Text(label, style: const TextStyle(fontSize: 11, color: _kSub, fontWeight: FontWeight.w500)),
+      Text(label, style: TextStyle(fontSize: 11, color: _kSub, fontWeight: FontWeight.w500)),
     ],
   );
 }
@@ -591,7 +593,7 @@ class _LegendDot extends StatelessWidget {
     children: [
       Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
       const SizedBox(width: 6),
-      Text(label, style: const TextStyle(fontSize: 11, color: _kSub)),
+      Text(label, style: TextStyle(fontSize: 11, color: _kSub)),
     ],
   );
 }
@@ -608,8 +610,8 @@ class _TopGroupsTable extends StatelessWidget {
       title: 'Top 5 Groupes Scolaires',
       subtitle: 'Classés par nombre d\'établissements',
       child: data.topGroups.isEmpty
-          ? const Padding(
-              padding: EdgeInsets.all(24),
+          ? Padding(
+              padding: const EdgeInsets.all(24),
               child: Center(child: Text('Aucune donnée', style: TextStyle(color: _kSub))),
             )
           : Table(
@@ -622,11 +624,11 @@ class _TopGroupsTable extends StatelessWidget {
                 5: FlexColumnWidth(1.5),
               },
               children: [
-                const TableRow(
+                TableRow(
                   decoration: BoxDecoration(
-                    border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+                    border: Border(bottom: BorderSide(color: kBorder)),
                   ),
-                  children: [
+                  children: const [
                     _Th('Groupe'), _Th('Département'), _Th('Écoles'),
                     _Th('Type'), _Th('Revenus'), _Th('Statut'),
                   ],
@@ -645,7 +647,7 @@ class _TopGroupsTable extends StatelessWidget {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Center(child: Text('${idx + 1}',
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _kNavy))),
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _kNavy))),
                         ),
                         const SizedBox(width: 8),
                         Expanded(child: Text(g.name,
@@ -653,12 +655,12 @@ class _TopGroupsTable extends StatelessWidget {
                             maxLines: 1, overflow: TextOverflow.ellipsis)),
                       ])),
                       _Td(child: Text(g.department,
-                          style: const TextStyle(fontSize: 11, color: _kSub))),
+                          style: TextStyle(fontSize: 11, color: _kSub))),
                       _Td(child: Text('${g.schoolCount}',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kNavy))),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kNavy))),
                       _Td(child: _TypeBadge(type: g.groupType)),
                       _Td(child: Text(_fmtXaf.format(g.revenueXaf),
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kGreen))),
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kGreen))),
                       _Td(child: _StatusChip(status: g.status)),
                     ],
                   );
@@ -675,7 +677,7 @@ class _Th extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-    child: Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kSub)),
+    child: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kSub)),
   );
 }
 
@@ -739,7 +741,7 @@ class _StaffContractChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const labels = <String, (String, Color)>{
+    final labels = <String, (String, Color)>{
       'permanent':   ('Permanent',   _kNavy),
       'contractuel': ('Contractuel', _kGreen),
       'vacataire':   ('Vacataire',   _kGold),
@@ -764,7 +766,7 @@ class _StaffContractChart extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(e.value.$1,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _kText)),
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: _kText)),
                     Text('$count  (${(pct * 100).toStringAsFixed(0)}%)',
                         style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
                   ],
@@ -818,7 +820,7 @@ class _DeptBreakdown extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(e.value.key,
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: _kText),
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: _kText),
                           maxLines: 1, overflow: TextOverflow.ellipsis),
                     ),
                     const SizedBox(width: 8),
@@ -865,11 +867,11 @@ class _FinancialSummaryTable extends StatelessWidget {
           3: FlexColumnWidth(2),
         },
         children: [
-          const TableRow(
+          TableRow(
             decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+              border: Border(bottom: BorderSide(color: kBorder)),
             ),
-            children: [
+            children: const [
               _Th('Catégorie'), _Th('Nb factures'), _Th('Montant'), _Th('% du total'),
             ],
           ),
@@ -887,7 +889,7 @@ class _FinancialSummaryTable extends StatelessWidget {
                   Text(row.label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
                 ])),
                 _Td(child: Text('${row.count}',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kText))),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kText))),
                 _Td(child: Text(_fmtXaf.format(row.amount),
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color))),
                 _Td(child: Row(children: [
@@ -946,8 +948,8 @@ class _ChartCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _kText)),
-          Text(subtitle, style: const TextStyle(fontSize: 11, color: _kSub)),
+          Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _kText)),
+          Text(subtitle, style: TextStyle(fontSize: 11, color: _kSub)),
           const SizedBox(height: 12),
           if (height != null) Expanded(child: child) else child,
         ],
@@ -1024,10 +1026,10 @@ class _ErrorView extends StatelessWidget {
       children: [
         const Icon(Icons.error_outline_rounded, size: 48, color: Color(0xFFEF4444)),
         const SizedBox(height: 12),
-        const Text('Erreur de chargement',
+        Text('Erreur de chargement',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _kText)),
         const SizedBox(height: 4),
-        Text(error, style: const TextStyle(fontSize: 12, color: _kSub), textAlign: TextAlign.center),
+        Text(error, style: TextStyle(fontSize: 12, color: _kSub), textAlign: TextAlign.center),
         const SizedBox(height: 16),
         ElevatedButton.icon(
           onPressed: onRetry,

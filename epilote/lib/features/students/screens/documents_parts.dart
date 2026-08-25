@@ -160,9 +160,9 @@ class _ResetChip extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: kRed.withValues(alpha: 0.25)),
             ),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.filter_alt_off_rounded, size: 14, color: kRed),
-              SizedBox(width: 5),
+              const SizedBox(width: 5),
               Text('Réinitialiser',
                   style: TextStyle(
                       color: kRed, fontSize: 12, fontWeight: FontWeight.w600)),
@@ -189,17 +189,17 @@ class _ActiveFilterChip extends StatelessWidget {
           border: Border.all(color: kNavy.withValues(alpha: 0.25)),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.filter_alt_rounded, size: 14, color: kNavy),
+          Icon(Icons.filter_alt_rounded, size: 14, color: kNavy),
           const SizedBox(width: 6),
           Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12.5, fontWeight: FontWeight.w700, color: kNavy)),
           const SizedBox(width: 2),
           InkWell(
             onTap: onClear,
             borderRadius: BorderRadius.circular(20),
-            child: const Padding(
-              padding: EdgeInsets.all(3),
+            child: Padding(
+              padding: const EdgeInsets.all(3),
               child: Icon(Icons.close_rounded, size: 15, color: kNavy),
             ),
           ),
@@ -231,7 +231,7 @@ class _ResultHeader extends StatelessWidget {
           size: 16, color: kTextMuted),
       const SizedBox(width: 8),
       Text(txt,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
       const Spacer(),
       if (onExportPdf != null) AdminPdfButton(onTap: onExportPdf!),
@@ -297,7 +297,7 @@ class _DossierCard extends StatelessWidget {
               Text(d.student.lastFirst,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w800,
                       color: kTextPrimary)),
@@ -308,13 +308,13 @@ class _DossierCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style:
-                            const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                            TextStyle(fontSize: 11.5, color: kTextMuted)),
                   ),
-                  const Text(' · ',
+                  Text(' · ',
                       style: TextStyle(fontSize: 11.5, color: kTextMuted)),
                 ],
                 Text(d.student.matricule,
-                    style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                    style: TextStyle(fontSize: 11.5, color: kTextMuted)),
               ]),
             ]),
           ),
@@ -333,7 +333,7 @@ class _DossierCard extends StatelessWidget {
                     .any((x) => x.documentType == e.key && x.isVerified),
               ),
             ),
-        const Divider(height: 18, color: kBorder),
+        Divider(height: 18, color: kBorder),
         Row(children: [
           _MiniStat(Icons.description_outlined, '${d.docs.length}', 'pièces'),
           const SizedBox(width: 16),
@@ -344,10 +344,10 @@ class _DossierCard extends StatelessWidget {
                 color: kRed),
           ],
           const Spacer(),
-          const Text('Gérer',
+          Text('Gérer',
               style: TextStyle(
                   fontSize: 12, fontWeight: FontWeight.w700, color: kNavy)),
-          const Icon(Icons.chevron_right_rounded, size: 18, color: kNavy),
+          Icon(Icons.chevron_right_rounded, size: 18, color: kNavy),
         ]),
       ]),
     );
@@ -382,14 +382,14 @@ class _ChecklistRow extends StatelessWidget {
         const Text('à vérifier',
             style: TextStyle(fontSize: 11, color: Color(0xFF0EA5E9))),
       if (!present)
-        const Text('manquant',
+        Text('manquant',
             style: TextStyle(fontSize: 11, color: kTextMuted)),
     ]);
   }
 }
 
 class _MiniStat extends StatelessWidget {
-  const _MiniStat(this.icon, this.value, this.label, {this.color = kTextMuted});
+  _MiniStat(this.icon, this.value, this.label, {Color? color}) : color = color ?? kTextMuted;
   final IconData icon;
   final String value, label;
   final Color color;
@@ -401,7 +401,7 @@ class _MiniStat extends StatelessWidget {
         Text('$value ',
             style: TextStyle(
                 fontSize: 12.5, fontWeight: FontWeight.w800, color: color)),
-        Text(label, style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+        Text(label, style: TextStyle(fontSize: 11.5, color: kTextMuted)),
       ]);
 }
 
@@ -416,9 +416,9 @@ class _RegistryTable extends StatelessWidget {
       child: Column(children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: kSurface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
           ),
           child: const Row(children: [
             _Th('ÉLÈVE', flex: 4),
@@ -444,7 +444,7 @@ class _Th extends StatelessWidget {
         flex: flex,
         child: Text(label,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.4,
@@ -461,7 +461,7 @@ class _RegistryRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        border: last ? null : const Border(bottom: BorderSide(color: kBorder)),
+        border: last ? null : Border(bottom: BorderSide(color: kBorder)),
       ),
       child: Row(children: [
         Expanded(
@@ -470,12 +470,12 @@ class _RegistryRow extends StatelessWidget {
             Text(d.lastFirst,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
                     color: kTextPrimary)),
             Text(d.matricule,
-                style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                style: TextStyle(fontSize: 11.5, color: kTextMuted)),
           ]),
         ),
         Expanded(
@@ -484,14 +484,14 @@ class _RegistryRow extends StatelessWidget {
               ? Align(
                   alignment: Alignment.centerLeft,
                   child: AdminBadge(d.className!, color: kNavy))
-              : const Text('—', style: TextStyle(color: kTextMuted)),
+              : Text('—', style: TextStyle(color: kTextMuted)),
         ),
         Expanded(
           flex: 4,
           child: Text(d.typeLabel,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
                   color: kTextPrimary)),
@@ -499,16 +499,16 @@ class _RegistryRow extends StatelessWidget {
         Expanded(
           flex: 2,
           child: Text(_fmtDate(d.createdAt),
-              style: const TextStyle(fontSize: 12, color: kTextMuted)),
+              style: TextStyle(fontSize: 12, color: kTextMuted)),
         ),
         Expanded(
           flex: 2,
           child: Align(
             alignment: Alignment.centerLeft,
             child: d.isExpired
-                ? const AdminBadge('Expirée', color: kRed)
+                ? AdminBadge('Expirée', color: kRed)
                 : d.isVerified
-                    ? const AdminBadge('Vérifiée', color: kGreen)
+                    ? AdminBadge('Vérifiée', color: kGreen)
                     : const AdminBadge('À vérifier',
                         color: Color(0xFF0EA5E9)),
           ),

@@ -14,10 +14,15 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// English (United States) resources
+// Ressources françaises (France)
+//
+// L'application est francophone : la fiche de propriétés du fichier, que
+// l'agent d'un établissement consulte pour vérifier ce qu'il installe, doit
+// l'être aussi. D'où LANG_FRENCH et le bloc « 040c04e4 » plus bas — les deux
+// doivent rester cohérents, sinon Windows n'affiche plus aucune métadonnée.
 
-#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
-LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_FRA)
+LANGUAGE LANG_FRENCH, SUBLANG_FRENCH
 
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
@@ -87,25 +92,30 @@ VS_VERSION_INFO VERSIONINFO
 BEGIN
     BLOCK "StringFileInfo"
     BEGIN
-        BLOCK "040904e4"
+        BLOCK "040c04e4"
         BEGIN
-            VALUE "CompanyName", "cg.epilote" "\0"
-            VALUE "FileDescription", "epilote" "\0"
+            // ⚠️ CompanyName devra être IDENTIQUE au sujet du certificat de
+            // signature de code. Un écart entre les deux fait apparaître
+            // « éditeur inconnu » à l'installation, malgré la signature.
+            VALUE "CompanyName", "E-PILOTE CONGO" "\0"
+            VALUE "FileDescription", "E-PILOTE CONGO — Gestion scolaire" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "epilote" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 cg.epilote. All rights reserved." "\0"
-            VALUE "OriginalFilename", "epilote.exe" "\0"
-            VALUE "ProductName", "epilote" "\0"
+            VALUE "InternalName", "E-PILOTE" "\0"
+            VALUE "LegalCopyright", "© 2026 E-PILOTE CONGO. Tous droits réservés." "\0"
+            VALUE "OriginalFilename", "E-PILOTE.exe" "\0"
+            VALUE "ProductName", "E-PILOTE CONGO" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
     BLOCK "VarFileInfo"
     BEGIN
-        VALUE "Translation", 0x409, 1252
+        // 0x40C = français (France), 1252 = jeu de caractères — à tenir
+        // identique à l'identifiant du bloc StringFileInfo ci-dessus.
+        VALUE "Translation", 0x40c, 1252
     END
 END
 
-#endif    // English (United States) resources
+#endif    // Ressources françaises (France)
 /////////////////////////////////////////////////////////////////////////////
 
 

@@ -47,11 +47,23 @@ class LicenseService {
 
   /// Démarrage : recharge la licence du coffre et la re-vérifie. Coffre vide ou
   /// illisible ⇒ `Entitlement.none()` (fail-soft, app non-enforcée).
-  Future<Entitlement> bootstrap() async {
+  ///
+  /// [expectedGroupId] : identité authentifiée courante. Le coffre est
+  /// APPAREIL-global (une seule clé, cf. `SecureLicenseStore`) : sur un poste
+  /// partagé, la licence d'un AUTRE groupe (école précédente) y subsiste. On la
+  /// PURGE si son `group_id` ne correspond pas — sinon elle s'appliquerait à
+  /// tort ET son repère version/temps bloquerait la licence légitime entrante
+  /// (rollback / horloge haute-eau empoisonnée). `null` = pas de contrôle
+  /// d'identité (appel interne / rôle sans licence) → comportement historique.
+  Future<Entitlement> bootstrap({String? expectedGroupId}) async {
     final state = await _safeRead();
     if (state == null) return const Entitlement.none();
     final license = await _decode(state.token);
     if (license == null) return const Entitlement.none();
+    if (expectedGroupId != null && license.groupId != expectedGroupId) {
+      await _safeClear(); // licence d'un autre groupe → on repart de zéro
+      return const Entitlement.none();
+    }
     return Entitlement(license: license, lastSyncAt: state.lastSyncAt);
   }
 
@@ -60,7 +72,10 @@ class LicenseService {
   /// l'existant. `expectedGroupId` = identité authentifiée (passée en paramètre,
   /// pas de port Identity — C1).
   Future<Entitlement> refresh({required String expectedGroupId}) async {
-    final current = await bootstrap();
+    // Purge d'abord toute licence d'un AUTRE groupe (poste partagé) : sans ça,
+    // son `version` servirait de plancher anti-rollback et rejetterait la
+    // licence légitime de CE groupe, et son `timeHighWater` fausserait l'heure.
+    final current = await bootstrap(expectedGroupId: expectedGroupId);
 
     final token = await _safeFetch();
     if (token == null) return current; // hors ligne / indisponible
@@ -97,6 +112,10 @@ class LicenseService {
 
   Future<bool> _safeWrite(TrustState s) async {
     try { await _store.write(s); return true; } catch (_) { return false; }
+  }
+
+  Future<void> _safeClear() async {
+    try { await _store.clear(); } catch (_) {/* fail-soft : purge best-effort */}
   }
 
   Future<String?> _safeFetch() async {

@@ -1,5 +1,5 @@
-// Helper : accepte bool (Supabase) et int 0/1 (SQLite PowerSync)
-bool _b(dynamic v) => v == true || v == 1;
+import '../../core/utils/booleen_offline.dart';
+
 
 /// Table `school_groups` — synchée offline (contient plan_id)
 class SchoolGroupModel {
@@ -14,6 +14,7 @@ class SchoolGroupModel {
     required this.subscriptionStatus,
     this.subscriptionStart,
     this.subscriptionEnd,
+    this.subscriptionAlertDays,
     required this.adminEmail,
     this.phone,
     this.address,
@@ -40,11 +41,18 @@ class SchoolGroupModel {
       subscriptionEnd: map['subscription_end'] != null
           ? DateTime.parse(map['subscription_end'] as String)
           : null,
+      // Entier côté serveur, mais PowerSync rend parfois la valeur en texte
+      // selon le chemin (SQLite local vs PostgREST) : on accepte les deux.
+      subscriptionAlertDays: switch (map['subscription_alert_days']) {
+        final int v => v,
+        final String v => int.tryParse(v),
+        _ => null,
+      },
       adminEmail:  map['admin_email'] as String,
       phone:       map['phone']       as String?,
       address:     map['address']     as String?,
       logoUrl:     map['logo_url']    as String?,
-      isActive:    _b(map['is_active']),
+      isActive:    actifOffline(map['is_active']), // défaut VRAI
       notes:       map['notes']       as String?,
       createdBy:   map['created_by']  as String?,
       createdAt:   DateTime.parse(map['created_at'] as String),
@@ -61,6 +69,12 @@ class SchoolGroupModel {
   final String subscriptionStatus; // 'trial' | 'active' | 'suspended' | 'cancelled'
   final DateTime? subscriptionStart;
   final DateTime? subscriptionEnd;
+
+  /// Fenêtre d'alerte réglée par le super_admin, recopiée sur le groupe pour
+  /// atteindre les postes hors ligne (migration 0106). `null` = groupe jamais
+  /// touché par le trigger → le client retombe sur `kSubscriptionAlertDays`.
+  /// MIROIR : ne jamais l'écrire depuis l'app.
+  final int? subscriptionAlertDays;
   final String adminEmail;
   final String? phone;
   final String? address;

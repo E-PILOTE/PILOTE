@@ -5,6 +5,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../providers/group_chat_provider.dart';
 import '../providers/messages_provider.dart' show RecipientOption, scopedRecipientsProvider;
 import '../widgets/staff_feed_ui.dart' show roleColor, roleLabelFr;
+import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  Création d'une conversation de groupe — nom + sélection multi-membres depuis
@@ -54,7 +55,7 @@ class _GroupCreateDialogState extends ConsumerState<GroupCreateDialog> {
         widget.onCreated(convId);
       }
     } catch (e) {
-      _toast('Erreur : $e');
+      _toast(messageErreur(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -78,9 +79,9 @@ class _GroupCreateDialogState extends ConsumerState<GroupCreateDialog> {
         padding: const EdgeInsets.all(20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Row(children: [
-            const Icon(Icons.group_add_rounded, size: 19, color: kNavy),
+            Icon(Icons.group_add_rounded, size: 19, color: kNavy),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Text('Nouveau groupe',
                   style: TextStyle(
                       fontSize: 15,
@@ -90,7 +91,7 @@ class _GroupCreateDialogState extends ConsumerState<GroupCreateDialog> {
             IconButton(
               visualDensity: VisualDensity.compact,
               onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.close_rounded, color: kTextMuted),
+              icon: Icon(Icons.close_rounded, color: kTextMuted),
             ),
           ]),
           const SizedBox(height: 12),
@@ -99,21 +100,21 @@ class _GroupCreateDialogState extends ConsumerState<GroupCreateDialog> {
             style: const TextStyle(fontSize: 13.5),
             decoration: InputDecoration(
               hintText: 'Nom du groupe (ex. Conseil de classe 3e A)…',
-              hintStyle: const TextStyle(fontSize: 13, color: kTextMuted),
-              prefixIcon: const Icon(Icons.badge_outlined,
+              hintStyle: TextStyle(fontSize: 13, color: kTextMuted),
+              prefixIcon: Icon(Icons.badge_outlined,
                   size: 18, color: kTextMuted),
               isDense: true,
               filled: true,
               fillColor: kSurface,
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: kBorder)),
+                  borderSide: BorderSide(color: kBorder)),
               enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: kBorder)),
+                  borderSide: BorderSide(color: kBorder)),
               focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: kNavy)),
+                  borderSide: BorderSide(color: kNavy)),
             ),
           ),
           const SizedBox(height: 10),
@@ -145,18 +146,18 @@ class _GroupCreateDialogState extends ConsumerState<GroupCreateDialog> {
             onChanged: (v) => setState(() => _query = v.toLowerCase()),
             decoration: InputDecoration(
               hintText: 'Rechercher un collègue…',
-              hintStyle: const TextStyle(fontSize: 13, color: kTextMuted),
+              hintStyle: TextStyle(fontSize: 13, color: kTextMuted),
               prefixIcon:
-                  const Icon(Icons.search_rounded, size: 18, color: kTextMuted),
+                  Icon(Icons.search_rounded, size: 18, color: kTextMuted),
               isDense: true,
               filled: true,
               fillColor: kSurface,
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: kBorder)),
+                  borderSide: BorderSide(color: kBorder)),
               enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: kBorder)),
+                  borderSide: BorderSide(color: kBorder)),
             ),
           ),
           const SizedBox(height: 8),
@@ -168,8 +169,8 @@ class _GroupCreateDialogState extends ConsumerState<GroupCreateDialog> {
               ),
               error: (e, _) => Padding(
                 padding: const EdgeInsets.all(20),
-                child: Text('Erreur : $e',
-                    style: const TextStyle(color: kTextMuted, fontSize: 12)),
+                child: Text(messageErreur(e),
+                    style: TextStyle(color: kTextMuted, fontSize: 12)),
               ),
               data: (all) {
                 final filtered = _query.isEmpty
@@ -180,8 +181,8 @@ class _GroupCreateDialogState extends ConsumerState<GroupCreateDialog> {
                             (o.subtitle ?? '').toLowerCase().contains(_query))
                         .toList();
                 if (filtered.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.all(24),
+                  return Padding(
+                    padding: const EdgeInsets.all(24),
                     child: Text('Aucun collègue trouvé',
                         style: TextStyle(color: kTextMuted, fontSize: 12.5)),
                   );
@@ -282,13 +283,13 @@ class _MemberTile extends StatelessWidget {
                 Text(option.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: kTextPrimary)),
                 if (option.subtitle != null)
                   Text(roleLabelFr(option.subtitle),
-                      style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                      style: TextStyle(fontSize: 11, color: kTextMuted)),
               ],
             ),
           ),
@@ -320,12 +321,12 @@ class _SelectedChip extends StatelessWidget {
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Text(label.split(' ').first,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11.5, fontWeight: FontWeight.w700, color: kNavy)),
           const SizedBox(width: 4),
           GestureDetector(
             onTap: onRemove,
-            child: const Icon(Icons.close_rounded, size: 14, color: kNavy),
+            child: Icon(Icons.close_rounded, size: 14, color: kNavy),
           ),
         ]),
       );

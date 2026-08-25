@@ -13,6 +13,8 @@ import '../providers/annuaire_provider.dart';
 import '../providers/student_tutors_provider.dart';
 import '../services/annuaire_pdf_service.dart';
 import '../widgets/scope_drilldown_panel.dart';
+import '../../../core/utils/message_erreur.dart';
+import '../../../core/utils/write_identity.dart';
 
 part 'annuaire_parts.dart';
 part 'annuaire_detail.dart';
@@ -143,7 +145,7 @@ class _BodyState extends ConsumerState<_Body> {
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('Erreur : $e', style: const TextStyle(color: kRed)),
+          child: Text(messageErreur(e), style: TextStyle(color: kRed)),
         ),
       ),
       data: (allFams) {

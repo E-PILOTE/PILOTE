@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/auth/session_morte.dart';
 import '../providers/auth_provider.dart';
 import 'widgets/auth_colors.dart';
 import 'widgets/contact_support_drawer.dart';
@@ -52,6 +53,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   // ─── Auth ──────────────────────────────────────────────────────────────────
 
   Future<void> _handleLogin(String email, String password) async {
+    // L'agent reprend la main : le message d'expiration a fait son office.
+    ref.read(sessionMorteMessageProvider.notifier).state = null;
     setState(() { _errorMsg = null; _isLoading = true; });
     try {
       await ref.read(authNotifierProvider.notifier).signIn(email, password);
@@ -152,7 +155,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   Widget _formCard() => LoginFormCard(
         isLoading: _isLoading,
-        errorMsg:  _errorMsg,
+        // À défaut d'erreur de saisie, on explique pourquoi l'agent se
+        // retrouve ici : une session tombée toute seule n'est pas une faute
+        // de sa part, et le dire évite l'appel au support.
+        errorMsg:  _errorMsg ?? ref.watch(sessionMorteMessageProvider),
         onLogin:   _handleLogin,
         onForgotPassword: () => showContactSupportDrawer(context),
       );
@@ -175,7 +181,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       // pour que la photo respire côté card et reste discrète côté héros.
       Positioned.fill(
         child: Image.asset(
-          'assets/images/login_bg.jpg',
+          'assets/images/login_bg.webp',
           fit: BoxFit.cover,
           opacity: const AlwaysStoppedAnimation(0.42),
           errorBuilder: (_, _, _) => const SizedBox.shrink(),

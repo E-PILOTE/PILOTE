@@ -60,7 +60,7 @@ class _RoomsTab extends ConsumerWidget {
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (rooms) {
         // Regroupement par type, dans l'ordre du catalogue.
         final byType = <String, List<Room>>{};
@@ -113,14 +113,14 @@ class _RoomsTab extends ConsumerWidget {
                     Icon(_roomTypeIcon(type), size: 16, color: kNavy),
                     const SizedBox(width: 8),
                     Text(roomTypeLabel(type).toUpperCase(),
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 0.5,
                             color: kNavy)),
                     const SizedBox(width: 6),
                     Text('· ${byType[type]!.length}',
-                        style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                        style: TextStyle(fontSize: 12, color: kTextMuted)),
                   ]),
                 ),
                 Wrap(
@@ -211,7 +211,7 @@ class _RoomCard extends StatelessWidget {
             Text(room.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13.5, fontWeight: FontWeight.w800, color: kTextPrimary)),
             const SizedBox(height: 2),
             Text(
@@ -222,19 +222,19 @@ class _RoomCard extends StatelessWidget {
               ].join(' · '),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11.5, color: kTextMuted),
+              style: TextStyle(fontSize: 11.5, color: kTextMuted),
             ),
           ]),
         ),
         if (onEdit != null)
           IconButton(
-            icon: const Icon(Icons.edit_outlined, size: 17, color: kTextMuted),
+            icon: Icon(Icons.edit_outlined, size: 17, color: kTextMuted),
             onPressed: onEdit,
             tooltip: 'Modifier',
           ),
         if (onDelete != null)
           IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, size: 17, color: kRed),
+            icon: Icon(Icons.delete_outline_rounded, size: 17, color: kRed),
             onPressed: onDelete,
             tooltip: 'Retirer',
           ),
@@ -284,12 +284,24 @@ class _RoomFormState extends ConsumerState<_RoomForm> {
 
   Future<void> _save() async {
     if (_name.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Le nom de la salle est requis'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Le nom de la salle est requis'),
           backgroundColor: kAccent));
       return;
     }
     final profile = ref.read(authNotifierProvider).valueOrNull;
+    if (!_isEdit) {
+      final missing = missingWriteIds(
+          groupId: profile?.groupId,
+          schoolId: profile?.schoolId,
+          actorId: profile?.id);
+      if (missing.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(writeIdentityMessage(missing)),
+            backgroundColor: kRed));
+        return;
+      }
+    }
     final cap = int.tryParse(_capacity.text.trim());
     setState(() => _saving = true);
     final ok = await runModuleWrite(
@@ -306,8 +318,8 @@ class _RoomFormState extends ConsumerState<_RoomForm> {
           );
         } else {
           await createRoom(
-            groupId: profile?.groupId ?? '',
-            schoolId: profile?.schoolId ?? '',
+            groupId: profile!.groupId!,
+            schoolId: profile.schoolId!,
             code: _code.text,
             name: _name.text,
             roomType: _type,

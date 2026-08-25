@@ -17,6 +17,26 @@ const schema = Schema([
     Column.text('updated_at'),
   ]),
 
+  // Messages de service (vitrine des postes) — diffusion globale (migration 0034)
+  Table('platform_service_messages', [
+    Column.text('body'),
+    Column.integer('is_active'),
+    Column.text('starts_at'),
+    Column.text('ends_at'),
+  ]),
+
+  // Partenaires (vitrine des postes) — diffusion globale (migration 0035)
+  Table('platform_partners', [
+    Column.text('name'),
+    Column.text('logo_url'),
+    Column.text('website_url'),
+    Column.text('category'),
+    Column.integer('is_active'),
+    Column.integer('sort_order'),
+    Column.text('starts_at'),
+    Column.text('ends_at'),
+  ]),
+
   Table('modules', [
     Column.text('category_id'),
     Column.text('name'),
@@ -102,6 +122,8 @@ const schema = Schema([
     Column.integer('is_active'),
     Column.text('last_login'),
     Column.text('fcm_token'),
+    // Reset PIN de poste par admin_groupe (migration 0033)
+    Column.text('pin_reset_requested_at'),
     Column.text('created_at'),
     Column.text('updated_at'),
   ]),
@@ -121,6 +143,24 @@ const schema = Schema([
     Column.text('address'),
     Column.text('logo_url'),
     Column.integer('is_active'),
+    // Opt-in affichage partenaires sur les postes du groupe (migration 0035)
+    Column.integer('partner_display_enabled'),
+    // Fenêtre d'alerte d'échéance recopiée depuis platform_settings (mig 0106).
+    // Seul chemin par lequel un réglage de la PLATEFORME atteint un poste
+    // école hors ligne : platform_settings n'est pas synchronisée (RLS
+    // super_admin), school_groups descend en entier via `by_group`.
+    Column.integer('subscription_alert_days'),
+    // Barème de passage du GROUPE (migration 0107) — la barre au-dessus de
+    // laquelle l'élève passe, et le plancher sous lequel il redouble sans
+    // discussion. Entre les deux s'ouvre la zone de délibération : le logiciel
+    // ne propose rien et le conseil tranche.
+    //
+    // Le seuil descend par `school_groups` pour la même raison que la fenêtre
+    // d'alerte juste au-dessus : la table est synchronisée en entier par
+    // `by_group` (SELECT *), donc un réglage du ministère atteint les postes
+    // sans toucher aux sync-rules.
+    Column.real('promotion_pass_mark'),
+    Column.real('promotion_deliberation_floor'),
     Column.text('notes'),
     Column.text('created_at'),
     Column.text('updated_at'),
@@ -223,6 +263,20 @@ const schema = Schema([
     Column.integer('order_index'),
     Column.integer('display_order'),
     Column.text('notation_type'),
+    // Correspondance vers le NIVEAU NATIONAL du référentiel partagé.
+    //
+    // ⚠️ Sans cette colonne, `baremesApplicablesProvider` lève « no such
+    // column: sl.education_level_id » : sa jointure traduit le niveau national
+    // visé par un tarif du ministère (migration 0101) en niveau de l'école.
+    // La requête entière échoue, donc le dû de CHAQUE élève devient
+    // indéterminé et les écrans Frais et Paiements tombent en erreur — sur
+    // tous les postes à la fois. Une colonne absente du schéma local n'est pas
+    // « une donnée en moins » : c'est une requête qui ne s'exécute pas.
+    Column.text('education_level_id'),
+    // Barème de passage PROPRE à ce niveau — NULL = on hérite de celui du
+    // groupe (`school_groups.promotion_pass_mark`). Migration 0107.
+    Column.real('pass_mark'),
+    Column.real('deliberation_floor'),
     Column.text('group_id'),
     Column.text('school_id'),
     Column.integer('is_active'),
@@ -269,6 +323,12 @@ const schema = Schema([
     Column.integer('level_order'),   // ordre pédagogique du niveau (0011)
     Column.text('filiere_code'),     // filière dénormalisée (0012) → KPI par filière
     Column.text('filiere_label'),    // libellé filière (lycée/FP), NULL si aucune
+    // Classe d'examen (0044/0045) — DÉRIVÉ côté serveur par trigger : le client
+    // LIT, il n'écrit jamais exam_id/exam_status (aucune règle dupliquée en Dart).
+    Column.text('exam_id'),          // examen d'État résolu (NULL = aucun)
+    Column.text('exam_status'),      // examen | passage | a_qualifier
+    Column.text('exam_override_id'), // surcharge explicite (saisissable)
+    Column.integer('exam_excluded'), // exclusion explicite (saisissable)
     Column.text('school_id'),
     Column.text('group_id'),
     Column.text('academic_year_id'),
@@ -289,6 +349,9 @@ const schema = Schema([
     Column.text('previous_class_id'),
     Column.text('withdrawal_date'),
     Column.text('withdrawal_reason'),
+    // Catégorie normalisée de la sortie (migration 0082) — c'est elle
+    // qui se compte ; `withdrawal_reason` reste le commentaire libre.
+    Column.text('withdrawal_motif'),
     // Workflow inscription
     Column.text('inscription_type'),       // new|reinscription|transfer
     Column.text('transfer_reason'),        // motif si type=transfer (migration 0007)
@@ -300,6 +363,20 @@ const schema = Schema([
     Column.text('rejection_reason'),
     Column.text('previous_school_name'),
     Column.text('previous_class_name'),
+    // Exonération de scolarité de CETTE année (migration 0109). Le taux vit
+    // sur l'inscription et non sur l'élève : une bourse se reconduit, elle ne
+    // se traîne pas. ⚠️ Sans ces deux colonnes ici, le dû d'un boursier serait
+    // calculé plein sur les postes — l'exonération existerait en base et
+    // n'existerait nulle part sur le terrain.
+    Column.integer('exemption_rate'),
+    Column.text('exemption_motif'),
+    // Décision de fin d'année du conseil de classe (migration 0074).
+    // `promotion_average` est un `numeric` en base : `real` est le bon miroir.
+    Column.text('promotion_decision'),        // passe|redouble|reoriente
+    Column.real('promotion_average'),
+    Column.text('promotion_target_class_id'),
+    Column.text('promotion_decided_at'),
+    Column.text('promotion_decided_by'),
     Column.text('created_at'),
     Column.text('updated_at'),
   ]),
@@ -310,6 +387,11 @@ const schema = Schema([
 
   Table('students', [
     Column.text('matricule'),
+    // Identifiant NATIONAL — 11 chiffres, attribué par le serveur et immuable
+    // (migration 0080). Distinct du matricule, qui reste le numéro propre à
+    // l'école. Reste NULL tant qu'une inscription saisie hors ligne n'a pas
+    // été synchronisée : c'est le prix de l'unicité nationale garantie.
+    Column.text('ine'),
     Column.text('first_name'),
     Column.text('last_name'),
     Column.text('date_of_birth'),
@@ -342,6 +424,16 @@ const schema = Schema([
   Table('student_tutors', [
     Column.text('student_id'),
     Column.text('group_id'),
+    // École de l'élève rattaché (migration 0110). C'est elle qui permet aux
+    // sync-rules de descendre les tuteurs PAR ÉCOLE : sans cette colonne, la
+    // seule clause possible était `group_id`, et chaque poste recevait les
+    // coordonnées des familles de toutes les écoles du groupe.
+    //
+    // ⚠️ Le serveur la recalcule par trigger, mais le client l'écrit AUSSI :
+    // une fiche saisie hors ligne vit dans cette base-ci avant d'atteindre le
+    // serveur, et une colonne locale vide ferait disparaître le tuteur de
+    // toute requête filtrant sur l'école jusqu'au retour du réseau.
+    Column.text('school_id'),
     Column.text('first_name'),
     Column.text('last_name'),
     Column.text('relationship'),    // pere|mere|tuteur|autre
@@ -358,13 +450,40 @@ const schema = Schema([
     Column.text('updated_at'),
   ]),
 
+  // Demandes de changement de photo d'agent (migration 0113).
+  //
+  // ⚠️ L'école n'écrit PAS `profiles.avatar_url` : la RLS `profiles_update`
+  // refuse à un directeur d'écrire dans la fiche d'un autre agent, et un refus
+  // fait abandonner à PowerSync le LOT ENTIER. Elle dépose donc une DEMANDE
+  // dans cette table-ci, que le serveur applique par trigger avec l'autorité
+  // de `corriger_fiche_agent`.
+  //
+  // `applied_at` et `refus` reviennent renseignés par le serveur : c'est par
+  // eux que l'écran sait si la demande a abouti, et pourquoi sinon.
+  Table('staff_photo_requests', [
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('profile_id'),
+    Column.text('avatar_url'),
+    Column.integer('effacer'),
+    Column.text('requested_by'),
+    Column.text('applied_at'),
+    Column.text('refus'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
   Table('staff_members', [
     Column.text('group_id'),
     Column.text('school_id'),
-    // ⚠️ profile_id N'EXISTE PAS encore en base LIVE (audit 2026-06-21). Conservé
-    // ici car myStaffIdProvider le LIT (renvoie null tant que non peuplé) — le
-    // retirer ferait crasher cette requête. NE RIEN ÉCRIRE dessus (échec upload
-    // silencieux). À matérialiser en Phase 5 (Paie) : ALTER TABLE en prod + FK.
+    // ⚠️ COLONNE FANTÔME — n'existe pas en base LIVE, donc toujours vide.
+    // Plus personne ne la LIT : le périmètre `own_classes` passait par elle et
+    // ne trouvait jamais rien (cf. scopedClassIdsProvider). Il n'y a d'ailleurs
+    // rien à y mettre — `staff_members.id` EST déjà l'id du profil
+    // (`staff_members_id_fkey → profiles(id)`), le lien existe par la clé
+    // primaire. Conservée le temps d'un cycle pour ne pas provoquer de
+    // migration du schéma local avant la démonstration ; à supprimer ensuite.
+    // NE RIEN ÉCRIRE dessus (échec d'upload silencieux).
     Column.text('profile_id'),
     Column.text('job_title'),
     Column.text('hire_date'),
@@ -702,6 +821,7 @@ const schema = Schema([
     Column.text('bulletin_id'),
     Column.text('subject_id'),
     Column.text('group_id'),
+    Column.text('school_id'),
     Column.real('average'),
     Column.real('class_average'),
     Column.integer('rank'),
@@ -725,9 +845,28 @@ const schema = Schema([
     Column.integer('amount_xaf'),
     Column.integer('due_day_of_month'),
     Column.text('applies_to_level_id'),
+    // Niveau du RÉFÉRENTIEL PARTAGÉ (migration 0101) : c'est ainsi que le
+    // ministère tarifie « la 6e » pour tout son réseau. `applies_to_level_id`
+    // ne désigne que le niveau d'UNE école et ne vaut que pour elle ; sans
+    // cette colonne sur le poste, un tarif national par niveau arriverait
+    // amputé de sa cible et serait réclamé à tous les élèves.
+    Column.text('applies_to_education_level_id'),
     Column.integer('is_active'),
     Column.text('created_at'),
     Column.text('updated_at'),
+      // Barème des frais d'UNE session d'examen précise. Cf. migration 0058.
+    Column.text('exam_session_id'),
+    // L'EXAMEN visé (migration 0103) — le ciblage courant. `exam_session_id`
+    // désigne une instance annuelle : il n'a jamais été renseigné une seule
+    // fois en production, parce qu'un ministère fixe ses frais AVANT d'ouvrir
+    // la session. Le poste résout ici la session de son année scolaire ; sans
+    // cette colonne, il ne trouverait aucun barème et la caisse de l'examen
+    // resterait fermée.
+    Column.text('applies_to_exam_id'),
+    // Le texte qui fonde le tarif (arrêté, note de service, délibération
+    // d'assemblée APE). Un montant sans texte fondateur n'est pas un tarif,
+    // c'est un chiffre. Cf. migration 0096.
+    Column.text('source_reference'),
   ]),
 
   // api_key et api_secret exclus intentionnellement (données sensibles)
@@ -752,7 +891,15 @@ const schema = Schema([
     Column.text('student_id'),
     Column.text('enrollment_id'),
     Column.text('fee_structure_id'),
-    Column.real('amount_xaf'),
+    // ⚠️ INTEGER, jamais `real` — et c'est un piège qui a coûté de l'argent.
+    // `student_payments.amount_xaf` est un `integer` côté Postgres (le franc
+    // CFA n'a pas de subdivision). Déclarée `real` ici, la colonne locale
+    // stockait 10000.0 ; le connecteur l'envoyait tel quel et Postgres
+    // refusait — « invalid input syntax for type integer: "10000.0" », code
+    // 22P02. PowerSync ABANDONNE alors la transaction ENTIÈRE : le paiement
+    // était perdu, et avec lui toutes les écritures du même lot.
+    // Le type local doit suivre le type serveur pour toute colonne numérique.
+    Column.integer('amount_xaf'),
     Column.text('payment_date'),
     Column.integer('period_month'),
     Column.integer('period_year'),
@@ -764,6 +911,22 @@ const schema = Schema([
     Column.text('notes'),
     Column.text('created_at'),
     Column.text('updated_at'),
+    // ⚠️ NOT NULL en base (migration 0095). Une écriture locale sans année
+    // ferait rejeter le lot ENTIER (23502) et perdrait le paiement.
+    Column.text('academic_year_id'),
+    // ── Annulation et remboursement (migration 0094) ─────────────────────────
+    // Un paiement ne se supprime plus : il s'annule, et l'annulation porte son
+    // auteur et son motif. Ces colonnes descendent par le `SELECT *` du bucket
+    // by_school — aucune modification de sync-rules n'est requise.
+    Column.text('cancelled_at'),
+    Column.text('cancelled_by'),
+    Column.text('cancellation_reason'),
+    // ⚠️ `integer` local pour un `integer` serveur : un `real` ferait rejeter
+    // le lot ENTIER (22P02) et perdrait le paiement, comme pour `amount_xaf`.
+    Column.integer('refunded_amount_xaf'),
+    Column.text('refunded_at'),
+    Column.text('refunded_by'),
+    Column.text('refund_reason'),
   ]),
 
   Table('budget_lines', [
@@ -1088,6 +1251,12 @@ const schema = Schema([
     Column.text('document_type'),
     Column.text('document_name'),
     Column.text('file_url'),
+    // NULL = pièce de l'élève (réutilisable à chaque candidature) ; renseigné =
+    // pièce propre à CETTE candidature d'examen. Cf. migration 0056.
+    Column.text('exam_candidate_id'),
+    // Idem pour un stage : convention signée, fiche d'évaluation du tuteur.
+    // Cf. migration 0057.
+    Column.text('internship_id'),
     Column.integer('is_verified'),
     Column.text('verified_by'),
     Column.text('verified_at'),
@@ -1203,5 +1372,216 @@ const schema = Schema([
     Column.text('ops'),          // JSON des opérations perdues
     Column.text('summary'),      // libellé lisible (ex. « Inscription d'élève »)
     Column.integer('acknowledged'), // 0 = à voir, 1 = acquitté par l'utilisateur
+  ]),
+
+  // ── File d'attente d'envoi de fichiers (local-only) ────────────────────────
+  // PowerSync met en file les écritures SQL, mais PAS les fichiers : Supabase
+  // Storage exige le réseau. Sans cela, joindre une photo hors-ligne faisait
+  // échouer l'envoi ENTIER du message (le texte partait pourtant très bien).
+  // Ici : les octets sont écrits sur le disque, le chemin Storage est calculé
+  // en local (UUID, aucun réseau) et le message référence ce chemin tout de
+  // suite. Le fichier est téléversé au retour du réseau, à ce chemin exact.
+  // ════════════════════════════════════════════════════════════════════════
+  // EXAMENS D'ÉTAT (migrations 0044→0046)
+  // ════════════════════════════════════════════════════════════════════════
+  // Référentiel NATIONAL (national_exams / rules / sessions / centers) : diffusé
+  // à TOUS les appareils — il ne contient aucune donnée d'élève, il est petit et
+  // il doit rester lisible hors ligne (une école doit savoir quel examen prépare
+  // sa classe même sans réseau).
+  // exam_candidates, lui, est filtré par école : c'est de la donnée nominative.
+
+  Table('national_exams', [
+    Column.text('code'),          // CEPE | BEPC | BET | BAC_G | ...
+    Column.text('name'),
+    Column.text('short_name'),
+    Column.text('tutelle'),       // mepsa | metp
+    Column.text('cycle_code'),
+    Column.text('kind'),          // diplome | concours
+    Column.real('min_average'),
+    Column.integer('order_index'),
+    Column.integer('is_active'),
+  ]),
+
+  // Règles « quelle classe prépare quel examen ». Synchronisées pour AFFICHAGE
+  // et traçabilité (« pourquoi cet examen ? ») — la résolution reste serveur.
+  Table('exam_eligibility_rules', [
+    Column.text('exam_id'),
+    Column.text('cycle_code'),
+    Column.text('level_code'),
+    Column.text('program_code'),
+    Column.text('tutelle'),
+    Column.text('valid_from'),
+    Column.text('valid_to'),
+    Column.text('group_id'),
+    Column.text('note'),
+    Column.integer('is_active'),
+  ]),
+
+  Table('exam_sessions', [
+    Column.text('exam_id'),
+    Column.text('year_label'),
+    Column.text('registration_opens_at'),
+    Column.text('registration_closes_at'),
+    Column.text('written_from'),
+    Column.text('written_to'),
+    Column.text('practical_from'),
+    Column.text('practical_to'),
+    Column.text('results_published_at'),
+    Column.integer('max_age'),
+    Column.text('age_reference_date'),
+    Column.real('fee_amount'),
+    Column.text('required_documents'), // jsonb -> texte JSON côté SQLite
+    Column.text('status'),
+    Column.text('notes'),
+  ]),
+
+  Table('exam_centers', [
+    Column.text('code'),
+    Column.text('name'),
+    Column.text('department_id'),
+    Column.text('school_id'),
+    Column.text('tutelle'),
+    Column.integer('capacity'),
+    Column.real('latitude'),
+    Column.real('longitude'),
+    Column.integer('is_active'),
+  ]),
+
+  // Candidatures — écrites hors ligne par l'école, remontées à la reconnexion.
+  Table('exam_candidates', [
+    Column.text('session_id'),
+    Column.text('student_id'),
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('class_id'),
+    // ── Champs ENTRANTS : la DEC les décide, nous ne faisons que les recevoir.
+    Column.text('candidate_number'),   // attribué par la DEC — ne jamais générer
+    Column.text('center_id'),          // affecté par la DEC — ne jamais décider
+    Column.text('dossier_status'),     // incomplet | complet | depose | valide | rejete
+    Column.text('missing_documents'),  // jsonb -> texte JSON
+    Column.integer('is_repeater'),
+    Column.text('registered_at'),
+    Column.text('submitted_at'),
+    Column.text('result'),             // admis | ajourne | absent | fraude | en_attente
+    Column.real('average'),
+    Column.text('mention'),
+    // Deux horloges à ne pas confondre (migration 0053) :
+    Column.text('decided_at'),          // PROCLAMATION par la DEC (leur horloge)
+    Column.text('result_received_at'),  // RÉCEPTION chez nous (notre horloge)
+    Column.text('result_source'),       // saisie_manuelle | import_csv | api_dec
+    Column.text('result_recorded_by'),
+    Column.text('notes'),
+    Column.text('created_by'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  // ── TRANSMISSIONS (migration 0054) — dépôt OPPOSABLE à la DEC ──────────────
+  // Ce que l'école a DÉCLARÉ, et quand. Écrit hors ligne, figé à la soumission.
+  // `snapshot`/`payload` = jsonb -> texte JSON. `reference` est un libellé
+  // humain (PAS une clé d'unicité serveur : cf. migration 0054).
+  Table('transmissions', [
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('kind'),
+    Column.text('recipient'),
+    Column.text('session_id'),
+    Column.text('reference'),
+    Column.text('status'),
+    Column.text('channel'),
+    Column.text('snapshot'),        // jsonb -> texte : la liste TELLE QUE DÉPOSÉE
+    Column.integer('item_count'),
+    Column.text('transmitted_at'),
+    Column.text('transmitted_by'),
+    Column.text('acknowledged_at'),
+    Column.text('acknowledgment_ref'),
+    Column.text('corrects_id'),
+    Column.text('notes'),
+    Column.text('created_by'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  Table('transmission_items', [
+    Column.text('transmission_id'),
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('candidate_id'),
+    Column.text('student_id'),
+    Column.text('local_ref'),
+    Column.integer('lot_number'),   // le lot (~50) est À L'INTÉRIEUR d'une classe
+    Column.integer('position'),
+    Column.text('payload'),         // jsonb -> texte : nom, matricule, classe…
+    Column.text('created_at'),
+  ]),
+
+  // ════════════════════════════════════════════════════════════════════════
+  // STAGES (migration 0048) — dépendance DURE du bac professionnel :
+  // l'attestation de stage est une pièce obligatoire du dossier d'examen.
+  // ════════════════════════════════════════════════════════════════════════
+
+  Table('internship_companies', [
+    Column.text('group_id'),
+    Column.text('school_id'),      // NULL = entreprise partagée au groupe
+    Column.text('name'),
+    Column.text('sector'),
+    Column.text('address'),
+    Column.text('city'),
+    Column.text('department_id'),
+    Column.text('contact_name'),
+    Column.text('contact_phone'),
+    Column.text('contact_email'),
+    Column.text('notes'),
+    Column.integer('is_active'),
+    Column.text('created_by'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  Table('internships', [
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('student_id'),
+    Column.text('class_id'),
+    Column.text('academic_year_id'),
+    Column.text('company_id'),
+    Column.text('title'),
+    Column.text('start_date'),
+    Column.text('end_date'),
+    Column.text('school_tutor_id'),
+    Column.text('company_tutor_name'),
+    Column.text('company_tutor_phone'),
+    Column.text('convention_signed_at'),
+    Column.text('convention_url'),
+    Column.text('status'),          // prevu | en_cours | termine | interrompu | valide
+    Column.text('attestation_issued_at'),
+    Column.text('attestation_url'),
+    Column.real('evaluation_grade'),
+    Column.text('evaluation_comment'),
+    Column.text('notes'),
+    Column.text('created_by'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
+  // Référentiel territorial (0043) — 15 départements, national.
+  Table('departments', [
+    Column.text('code'),
+    Column.text('name'),
+    Column.text('chef_lieu'),
+    Column.integer('order_index'),
+    Column.integer('is_active'),
+  ]),
+
+  Table.localOnly('upload_outbox', [
+    Column.text('bucket'),      // bucket Storage cible
+    Column.text('storage_path'),// chemin définitif ({groupId}/{uuid}_{nom})
+    Column.text('local_path'),  // fichier sur le disque, en attente
+    Column.text('mime'),
+    Column.text('file_name'),
+    Column.integer('size'),
+    Column.text('created_at'),  // ISO-8601 UTC
+    Column.integer('attempts'), // tentatives d'envoi
+    Column.text('last_error'),  // dernier échec (diagnostic)
   ]),
 ]);

@@ -118,8 +118,8 @@ class _ProgrammeFormState extends ConsumerState<_ProgrammeForm> {
               child: DropdownButtonFormField<String>(
                 initialValue: hasSubject ? _subjectId : null,
                 isExpanded: true,
-                style: const TextStyle(fontSize: 13.5, color: kTextPrimary),
-                icon: const Icon(Icons.expand_more_rounded,
+                style: TextStyle(fontSize: 13.5, color: kTextPrimary),
+                icon: Icon(Icons.expand_more_rounded,
                     size: 18, color: kTextMuted),
                 decoration: adminFilledInput('Choisir'),
                 items: [
@@ -137,8 +137,8 @@ class _ProgrammeFormState extends ConsumerState<_ProgrammeForm> {
               child: DropdownButtonFormField<String>(
                 initialValue: hasLevel ? _levelId : null,
                 isExpanded: true,
-                style: const TextStyle(fontSize: 13.5, color: kTextPrimary),
-                icon: const Icon(Icons.expand_more_rounded,
+                style: TextStyle(fontSize: 13.5, color: kTextPrimary),
+                icon: Icon(Icons.expand_more_rounded,
                     size: 18, color: kTextMuted),
                 decoration: adminFilledInput('Choisir'),
                 items: [
@@ -156,8 +156,8 @@ class _ProgrammeFormState extends ConsumerState<_ProgrammeForm> {
           child: DropdownButtonFormField<String?>(
             initialValue: hasTri ? _trimesterId : null,
             isExpanded: true,
-            style: const TextStyle(fontSize: 13.5, color: kTextPrimary),
-            icon: const Icon(Icons.expand_more_rounded,
+            style: TextStyle(fontSize: 13.5, color: kTextPrimary),
+            icon: Icon(Icons.expand_more_rounded,
                 size: 18, color: kTextMuted),
             decoration: adminFilledInput('Toute l\'année'),
             items: [
@@ -200,12 +200,12 @@ class _ProgrammeFormState extends ConsumerState<_ProgrammeForm> {
             activeThumbColor: kGreen,
             value: _isOfficial,
             onChanged: (v) => setState(() => _isOfficial = v),
-            title: const Text('Programme officiel',
+            title: Text('Programme officiel',
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: kTextPrimary)),
-            subtitle: const Text(
+            subtitle: Text(
                 'Curriculum officiel adopté (sinon : programme propre à l\'école)',
                 style: TextStyle(fontSize: 11.5, color: kTextMuted)),
           ),
@@ -224,7 +224,7 @@ class _Field extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
                   color: kTextPrimary)),
@@ -254,7 +254,7 @@ class _ProgrammeDetail extends StatelessWidget {
             decoration: BoxDecoration(
               color: col.withValues(alpha: 0.06),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              border: const Border(bottom: BorderSide(color: kBorder)),
+              border: Border(bottom: BorderSide(color: kBorder)),
             ),
             child: Row(children: [
               Container(
@@ -273,7 +273,7 @@ class _ProgrammeDetail extends StatelessWidget {
                       Text(row.title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
@@ -283,15 +283,15 @@ class _ProgrammeDetail extends StatelessWidget {
                         AdminBadge(row.levelLabel, color: kNavy),
                         AdminBadge(row.trimesterLabelOrAll, color: kTextMuted),
                         if (row.isOfficial)
-                          const AdminBadge('Officiel', color: kGreen)
+                          AdminBadge('Officiel', color: kGreen)
                         else if (row.isShared)
-                          const AdminBadge('Partagé (groupe)', color: kNavy),
+                          AdminBadge('Partagé (groupe)', color: kNavy),
                       ]),
                     ]),
               ),
               IconButton(
                 tooltip: 'Fermer',
-                icon: const Icon(Icons.close_rounded, color: kTextMuted),
+                icon: Icon(Icons.close_rounded, color: kTextMuted),
                 onPressed: () => Navigator.pop(context),
               ),
             ]),
@@ -301,9 +301,9 @@ class _ProgrammeDetail extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
               child: row.hasContent
                   ? Text(row.content!.trim(),
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 13.5, color: kTextPrimary, height: 1.5))
-                  : const Text('Aucun contenu détaillé pour ce programme.',
+                  : Text('Aucun contenu détaillé pour ce programme.',
                       style: TextStyle(
                           fontSize: 13, color: kTextMuted, fontStyle: FontStyle.italic)),
             ),
@@ -312,7 +312,7 @@ class _ProgrammeDetail extends StatelessWidget {
             Container(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
               decoration:
-                  const BoxDecoration(border: Border(top: BorderSide(color: kBorder))),
+                  BoxDecoration(border: Border(top: BorderSide(color: kBorder))),
               child: Row(children: [
                 const Spacer(),
                 AdminPrimaryButton(

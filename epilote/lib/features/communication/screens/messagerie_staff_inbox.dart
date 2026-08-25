@@ -100,17 +100,17 @@ class _ConvTile extends StatelessWidget {
       child: Container(
         color: checked
             ? kNavy.withValues(alpha: 0.06)
-            : (selected ? kSurface : Colors.white),
+            : (selected ? kSurface : kCardBg),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(children: [
           InkWell(
             onTap: onCheckToggle,
             borderRadius: BorderRadius.circular(20),
             child: checked
-                ? const CircleAvatar(
+                ? CircleAvatar(
                     radius: 18,
                     backgroundColor: kNavy,
-                    child: Icon(Icons.check_rounded,
+                    child: const Icon(Icons.check_rounded,
                         size: 20, color: Colors.white))
                 : conv.isGroup
                     ? GroupAvatarImage(avatarUrl: conv.group?.avatarUrl)
@@ -127,7 +127,7 @@ class _ConvTile extends StatelessWidget {
               children: [
                 Row(children: [
                   if (conv.isGroup) ...[
-                    const Icon(Icons.groups_rounded,
+                    Icon(Icons.groups_rounded,
                         size: 14, color: kNavy),
                     const SizedBox(width: 4),
                   ],
@@ -145,17 +145,17 @@ class _ConvTile extends StatelessWidget {
                   if (last != null)
                     Text(_relativeTime(last.insertedAt),
                         style:
-                            const TextStyle(fontSize: 10, color: kTextMuted)),
+                            TextStyle(fontSize: 10, color: kTextMuted)),
                 ]),
                 const SizedBox(height: 2),
                 Row(children: [
                   if (conv.isArchived) ...[
-                    const Icon(Icons.archive_outlined,
+                    Icon(Icons.archive_outlined,
                         size: 12, color: kTextMuted),
                     const SizedBox(width: 4),
                   ],
                   if (last != null && last.attachments.isNotEmpty) ...[
-                    const Icon(Icons.attach_file_rounded,
+                    Icon(Icons.attach_file_rounded,
                         size: 12, color: kTextMuted),
                     const SizedBox(width: 2),
                   ],
@@ -296,13 +296,13 @@ class _MiniAction extends StatelessWidget {
     return Row(mainAxisSize: MainAxisSize.min, children: [
       // Étiquette
       Material(
-        color: Colors.white,
+        color: kCardBg,
         elevation: 2,
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: kTextPrimary)),

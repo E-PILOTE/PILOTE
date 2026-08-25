@@ -2,10 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../../../core/widgets/annuaire_filter_bar.dart';
 import '../../../core/widgets/app_shell.dart';
+import '../../auth/providers/active_agent_provider.dart' show agentLockApplies;
+import '../../../core/utils/mouvement_agent.dart';
+import '../providers/admin_carriere_provider.dart' show ChargeLiberee;
 import '../providers/admin_users_provider.dart';
+import '../widgets/agent_carriere_panel.dart';
+import 'agent_mouvement_dialogs.dart';
 import '../providers/subscription_access_provider.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Couleurs locales ─────────────────────────────────────────────────────────
 const _kOrange = Color(0xFFFF6B35);
@@ -27,9 +34,9 @@ class AdminUsersScreen extends ConsumerWidget {
         loading: () => const _ShimmerSkeleton(),
         error: (e, _) => Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.cloud_off_rounded, size: 48, color: kTextMuted),
+            Icon(Icons.cloud_off_rounded, size: 48, color: kTextMuted),
             const SizedBox(height: 12),
-            Text('Erreur : $e', style: const TextStyle(color: kTextMuted)),
+            Text(messageErreur(e), style: TextStyle(color: kTextMuted)),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () => ref.invalidate(adminUsersProvider),
@@ -97,9 +104,9 @@ class _UsersBodyState extends ConsumerState<_UsersBody> {
     if (!ensureSubscriptionWritable(ref, context)) return;
     final data = widget.data;
     if (data.schools.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         backgroundColor: kRed,
-        content: Text("Vous devez d'abord créer au moins une école."),
+        content: const Text("Vous devez d'abord créer au moins une école."),
       ));
       return;
     }
@@ -112,31 +119,117 @@ class _UsersBodyState extends ConsumerState<_UsersBody> {
   void _openResetPwd(AdminUser u) =>
       showDialog(context: context, builder: (_) => ResetPasswordDialog(user: u));
 
+  Future<void> _resetPin(AdminUser u) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Réinitialiser le code du poste'),
+        content: Text('${u.fullName} devra créer un nouveau code PIN à sa '
+            'prochaine ouverture de session sur un poste partagé. Continuer ?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Réinitialiser')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ref.read(adminUsersServiceProvider).resetAgentPin(u.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            backgroundColor: kGreen,
+            content: const Text('Code du poste réinitialisé')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(backgroundColor: kRed, content: Text(messageErreur(e))));
+      }
+    }
+  }
+
   void _openDetail(AdminUser u) => showDialog(
         context: context,
         builder: (_) => _UserDetailModal(
           user: u,
           onEdit:     () { Navigator.of(context).pop(); _openEdit(u); },
           onPassword: () { Navigator.of(context).pop(); _openResetPwd(u); },
-          onToggle:   () { Navigator.of(context).pop(); _toggleActive(u); },
+          onToggle:   () { Navigator.of(context).pop(); _mouvementCarriere(u); },
         ),
       );
 
-  Future<void> _toggleActive(AdminUser u) async {
-    try {
-      await ref.read(adminUsersServiceProvider).setActive(u.id, !u.isActive);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          backgroundColor: kGreen,
-          content: Text(u.isActive ? 'Compte désactivé' : 'Compte activé'),
-        ));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(backgroundColor: kRed, content: Text('Erreur : $e')));
-      }
+  /// Muter, radier ou réintégrer — jamais « basculer un booléen ».
+  ///
+  /// L'ancien bouton Actif/Inactif confondait huit situations et désactivait
+  /// un agent MUTÉ, qu'on attendait pourtant dans une autre école. Chaque geste
+  /// a désormais son motif, sa date d'effet et la référence de son acte
+  /// (migration 0083).
+  Future<void> _mouvementCarriere(AdminUser u) async {
+    if (!ensureSubscriptionWritable(ref, context)) return;
+    final charge = u.isActive
+        ? await showRadiationDialog(context, user: u)
+        : await showReintegrationDialog(context, user: u, schools: widget.data.schools);
+    if (charge == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      backgroundColor: kGreen,
+      content: Text(u.isActive
+          ? 'Fin de service enregistrée — le dossier reste consultable'
+          : 'Agent réintégré'),
+    ));
+    await _annoncerCharge(u, charge);
+  }
+
+  Future<void> _muter(AdminUser u) async {
+    if (!ensureSubscriptionWritable(ref, context)) return;
+    if (!u.isActive) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        backgroundColor: _kOrange,
+        content: Text('Cet agent a quitté le service : le réintégrer d\'abord.'),
+      ));
+      return;
     }
+    final charge =
+        await showMutationDialog(context, user: u, schools: widget.data.schools);
+    if (charge == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      backgroundColor: kGreen,
+      content: Text('${u.fullName} muté — ancienneté conservée'),
+    ));
+    await _annoncerCharge(u, charge);
+  }
+
+  /// Ce que le départ a libéré, et surtout CE QUI RESTE À FAIRE.
+  ///
+  /// L'emploi du temps n'est jamais modifié par un mouvement administratif :
+  /// qui remplace un enseignant est une décision de l'établissement. Taire les
+  /// créneaux restés à son nom se lirait « tout est réglé » — d'où cette
+  /// modale, et non un message qui s'efface.
+  Future<void> _annoncerCharge(AdminUser u, ChargeLiberee charge) async {
+    final texte = charge.resume;
+    if (texte == null || !mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(
+            charge.creneauxAReattribuer > 0
+                ? Icons.warning_amber_rounded
+                : Icons.check_circle_outline,
+            color: charge.creneauxAReattribuer > 0 ? _kOrange : kGreen,
+            size: 34),
+        title: Text('Charge de ${u.fullName}'),
+        content: Text('$texte\n\nLes cours faits, les paies et les congés '
+            'déjà enregistrés restent au dossier : ils disent ce qui a été.'),
+        actions: [
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Compris')),
+        ],
+      ),
+    );
   }
 
   @override
@@ -162,30 +255,60 @@ class _UsersBodyState extends ConsumerState<_UsersBody> {
                 _KpiGrid(data: data),
                 const SizedBox(height: 20),
                 // ── Filtres ──────────────────────────────────────────────────
-                _FilterBar(
-                  contentWidth:   w - 48,
+                // Kit partagé avec l'annuaire Personnel de l'école : mêmes
+                // widgets, mêmes gestes d'un espace à l'autre.
+                AnnuaireFilterBar(
+                  width:          w - 48,
                   searchCtrl:     _searchCtrl,
-                  roleFilter:     _roleFilter,
-                  schoolFilter:   _schoolFilter,
-                  statusFilter:   _statusFilter,
-                  isTableView:    _isTableView,
-                  rolesPresent:   roles,
-                  schools:        data.schools,
+                  searchHint:     'Rechercher (nom, email, matricule)…',
                   onSearchChange: (_) => setState(() {}),
-                  onRole:         (v) => setState(() => _roleFilter   = v),
-                  onSchool:       (v) => setState(() => _schoolFilter = v),
-                  onStatus:       (v) => setState(() => _statusFilter = v),
+                  isTableView:    _isTableView,
                   onToggleView:   ()  => setState(() => _isTableView  = !_isTableView),
+                  hasActiveFilters: _roleFilter != null ||
+                      _schoolFilter != null || _statusFilter != 'all',
                   onReset: () => setState(() {
                     _searchCtrl.clear();
                     _roleFilter = _schoolFilter = null;
                     _statusFilter = 'all';
                   }),
-                  onAdd: _openCreate,
+                  primaryAction: AnnuairePrimaryAction(
+                    icon: Icons.person_add_rounded,
+                    label: 'Nouvel utilisateur',
+                    onTap: _openCreate,
+                  ),
+                  filters: [
+                    AnnuaireDropdown<String?>(
+                      icon: Icons.badge_outlined, label: 'Rôle',
+                      value: _roleFilter, active: _roleFilter != null,
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('Tous les rôles')),
+                        ...roles.map((r) => DropdownMenuItem(
+                            value: r,
+                            child: Text(roleLabel(r), overflow: TextOverflow.ellipsis))),
+                      ],
+                      onChanged: (v) => setState(() => _roleFilter = v),
+                    ),
+                    AnnuaireDropdown<String?>(
+                      icon: Icons.account_balance_outlined, label: 'École',
+                      value: _schoolFilter, active: _schoolFilter != null,
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('Toutes les écoles')),
+                        ...data.schools.map((s) => DropdownMenuItem(
+                            value: s.id,
+                            child: Text(s.name, overflow: TextOverflow.ellipsis))),
+                      ],
+                      onChanged: (v) => setState(() => _schoolFilter = v),
+                    ),
+                    AnnuaireStatusSegment(
+                      value: _statusFilter,
+                      onChanged: (v) => setState(() => _statusFilter = v),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 // ── Résultat ──────────────────────────────────────────────────
-                _ResultHeader(total: data.users.length, filtered: filtered.length),
+                AnnuaireResultHeader(
+                    total: data.users.length, filtered: filtered.length),
                 const SizedBox(height: 12),
                 // ── Vue principale ───────────────────────────────────────────
                 if (data.users.isEmpty)
@@ -213,7 +336,9 @@ class _UsersBodyState extends ConsumerState<_UsersBody> {
                     onView:     _openDetail,
                     onEdit:     _openEdit,
                     onPassword: _openResetPwd,
-                    onToggle:   _toggleActive,
+                    onToggle:   _mouvementCarriere,
+                    onMuter:    _muter,
+                    onResetPin: _resetPin,
                     data:       data,
                   )
                 else
@@ -223,7 +348,9 @@ class _UsersBodyState extends ConsumerState<_UsersBody> {
                     onView:     _openDetail,
                     onEdit:     _openEdit,
                     onPassword: _openResetPwd,
-                    onToggle:   _toggleActive,
+                    onToggle:   _mouvementCarriere,
+                    onMuter:    _muter,
+                    onResetPin: _resetPin,
                   ),
                 const SizedBox(height: 24),
               ]),
@@ -373,7 +500,7 @@ class _KpiCardState extends State<_KpiCard> with SingleTickerProviderStateMixin 
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: kBorder),
               boxShadow: [BoxShadow(
@@ -402,7 +529,7 @@ class _KpiCardState extends State<_KpiCard> with SingleTickerProviderStateMixin 
                           fontWeight: FontWeight.w900, letterSpacing: -0.5,
                         )),
                         const SizedBox(height: 2),
-                        Text(d.label, style: const TextStyle(
+                        Text(d.label, style: TextStyle(
                           color: kTextMuted, fontSize: 11.5, fontWeight: FontWeight.w600,
                         ), overflow: TextOverflow.ellipsis),
                         if (d.sub != null)
@@ -460,7 +587,7 @@ class _ShimmerSkeleton extends StatelessWidget {
 
   Widget _box(double w, double h, {double r = 10}) => Container(
     width: w, height: h,
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(r)),
+    decoration: BoxDecoration(color: kCardBg, borderRadius: BorderRadius.circular(r)),
   );
 
   @override
@@ -497,321 +624,21 @@ class _ShimmerSkeleton extends StatelessWidget {
   );
 }
 
-// ─── Barre de filtres ─────────────────────────────────────────────────────────
-
-class _FilterBar extends StatelessWidget {
-  const _FilterBar({
-    required this.contentWidth,
-    required this.searchCtrl,
-    required this.roleFilter,
-    required this.schoolFilter,
-    required this.statusFilter,
-    required this.isTableView,
-    required this.rolesPresent,
-    required this.schools,
-    required this.onSearchChange,
-    required this.onRole,
-    required this.onSchool,
-    required this.onStatus,
-    required this.onToggleView,
-    required this.onReset,
-    required this.onAdd,
-  });
-
-  final double contentWidth;
-  final TextEditingController searchCtrl;
-  final String?  roleFilter, schoolFilter;
-  final String   statusFilter;
-  final bool     isTableView;
-  final List<String>      rolesPresent;
-  final List<SchoolOption> schools;
-  final ValueChanged<String>  onSearchChange;
-  final ValueChanged<String?> onRole, onSchool;
-  final ValueChanged<String>  onStatus;
-  final VoidCallback onToggleView, onReset, onAdd;
-
-  bool get _hasFilters =>
-      roleFilter != null || schoolFilter != null || statusFilter != 'all';
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: contentWidth,
-    child: Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: kBorder),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
-          Expanded(
-            flex: 3,
-            child: TextField(
-              controller: searchCtrl,
-              onChanged: onSearchChange,
-              decoration: InputDecoration(
-                hintText: 'Rechercher (nom, email, matricule)…',
-                hintStyle: const TextStyle(color: kTextMuted, fontSize: 13),
-                prefixIcon: const Icon(Icons.search_rounded, color: kTextMuted, size: 20),
-                suffixIcon: searchCtrl.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 18, color: kTextMuted),
-                        onPressed: () { searchCtrl.clear(); onSearchChange(''); })
-                    : null,
-                filled: true,
-                fillColor: kSurface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          _ToggleViewBtn(isTable: isTableView, onToggle: onToggleView),
-          const SizedBox(width: 8),
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: Tooltip(
-              message: 'Réinitialiser les filtres',
-              child: InkWell(
-                onTap: onReset,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.all(9),
-                  decoration: BoxDecoration(
-                    color: kSurface,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: kBorder),
-                  ),
-                  child: const Icon(Icons.refresh_rounded, size: 20, color: kTextMuted),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: onAdd,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1A2F5A), Color(0xFF1E3A5F)],
-                    begin: Alignment.topLeft, end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [BoxShadow(
-                    color: const Color(0xFF1E3A5F).withValues(alpha: 0.25),
-                    blurRadius: 8, offset: const Offset(0, 3),
-                  )],
-                ),
-                child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.person_add_rounded, size: 15, color: Colors.white),
-                  SizedBox(width: 6),
-                  Text('Nouvel utilisateur', style: TextStyle(
-                    color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
-                  )),
-                ]),
-              ),
-            ),
-          ),
-        ]),
-        const SizedBox(height: 10),
-        Row(children: [
-          _FilterDropdown<String?>(
-            icon: Icons.badge_outlined, label: 'Rôle',
-            value: roleFilter,
-            items: [
-              const DropdownMenuItem(value: null, child: Text('Tous les rôles')),
-              ...rolesPresent.map((r) => DropdownMenuItem(
-                  value: r, child: Text(roleLabel(r), overflow: TextOverflow.ellipsis))),
-            ],
-            onChanged: onRole,
-            active: roleFilter != null,
-          ),
-          const SizedBox(width: 8),
-          _FilterDropdown<String?>(
-            icon: Icons.account_balance_outlined, label: 'École',
-            value: schoolFilter,
-            items: [
-              const DropdownMenuItem(value: null, child: Text('Toutes les écoles')),
-              ...schools.map((s) => DropdownMenuItem(
-                  value: s.id, child: Text(s.name, overflow: TextOverflow.ellipsis))),
-            ],
-            onChanged: onSchool,
-            active: schoolFilter != null,
-          ),
-          const SizedBox(width: 8),
-          _StatusSegment(value: statusFilter, onChanged: onStatus),
-          const Spacer(),
-          if (_hasFilters)
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: onReset,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: kRed.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: kRed.withValues(alpha: 0.25)),
-                  ),
-                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.filter_alt_off_rounded, size: 13, color: kRed),
-                    SizedBox(width: 4),
-                    Text('Réinitialiser', style: TextStyle(
-                      color: kRed, fontSize: 11.5, fontWeight: FontWeight.w600)),
-                  ]),
-                ),
-              ),
-            ),
-        ]),
-      ]),
-    ),
-  );
-}
-
-class _ToggleViewBtn extends StatelessWidget {
-  const _ToggleViewBtn({required this.isTable, required this.onToggle});
-  final bool isTable;
-  final VoidCallback onToggle;
-
-  @override
-  Widget build(BuildContext context) => MouseRegion(
-    cursor: SystemMouseCursors.click,
-    child: Tooltip(
-      message: isTable ? 'Vue en cartes' : 'Vue en tableau',
-      child: InkWell(
-        onTap: onToggle,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(9),
-          decoration: BoxDecoration(
-            color: kSurface, borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: kBorder),
-          ),
-          child: Icon(isTable ? Icons.grid_view_rounded : Icons.table_rows_rounded,
-              size: 18, color: kNavy),
-        ),
-      ),
-    ),
-  );
-}
-
-class _FilterDropdown<T> extends StatelessWidget {
-  const _FilterDropdown({
-    required this.icon, required this.label, required this.items,
-    required this.value, required this.onChanged, required this.active,
-  });
-  final IconData icon;
-  final String label;
-  final List<DropdownMenuItem<T>> items;
-  final T value;
-  final ValueChanged<T?> onChanged;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    height: 38,
-    constraints: const BoxConstraints(minWidth: 160, maxWidth: 220),
-    padding: const EdgeInsets.symmetric(horizontal: 10),
-    decoration: BoxDecoration(
-      color: active ? kNavy.withValues(alpha: 0.06) : kSurface,
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: active ? kNavy.withValues(alpha: 0.35) : kBorder),
-    ),
-    child: DropdownButtonHideUnderline(
-      child: DropdownButton<T>(
-        value: value,
-        icon: Icon(Icons.expand_more_rounded, size: 14,
-            color: active ? kNavy : kTextMuted),
-        isExpanded: true,
-        style: TextStyle(
-          color: active ? kNavy : kTextPrimary,
-          fontSize: 12.5,
-          fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-        ),
-        items: items,
-        onChanged: onChanged,
-      ),
-    ),
-  );
-}
-
-class _StatusSegment extends StatelessWidget {
-  const _StatusSegment({required this.value, required this.onChanged});
-  final String value;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget seg(String v, String label) {
-      final sel = value == v;
-      return GestureDetector(
-        onTap: () => onChanged(v),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: sel ? kNavy : Colors.transparent,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(label, style: TextStyle(
-            fontSize: 12, fontWeight: FontWeight.w600,
-            color: sel ? Colors.white : kTextMuted,
-          )),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: kSurface, borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: kBorder),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        seg('all', 'Tous'),
-        seg('active', 'Actifs'),
-        seg('inactive', 'Inactifs'),
-      ]),
-    );
-  }
-}
-
-class _ResultHeader extends StatelessWidget {
-  const _ResultHeader({required this.total, required this.filtered});
-  final int total, filtered;
-
-  @override
-  Widget build(BuildContext context) => Row(children: [
-    Text('$filtered résultat${filtered > 1 ? 's' : ''}',
-        style: const TextStyle(color: kTextPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
-    if (filtered < total) ...[
-      const SizedBox(width: 8),
-      Text('sur $total', style: const TextStyle(color: kTextMuted, fontSize: 13)),
-    ],
-  ]);
-}
-
 // ─── Vue Tableau ──────────────────────────────────────────────────────────────
 
 class _TableView extends StatelessWidget {
   const _TableView({
     required this.users, required this.sortField, required this.sortAsc,
     required this.onSort, required this.onView, required this.onEdit, required this.onPassword,
-    required this.onToggle, required this.data,
+    required this.onToggle, required this.onMuter, required this.onResetPin,
+    required this.data,
   });
   final List<AdminUser>  users;
   final String sortField;
   final bool   sortAsc;
   final ValueChanged<String>    onSort;
-  final ValueChanged<AdminUser> onView, onEdit, onPassword, onToggle;
+  final ValueChanged<AdminUser> onView, onEdit, onPassword, onToggle, onMuter,
+      onResetPin;
   final AdminUsersData data;
 
   @override
@@ -825,7 +652,7 @@ class _TableView extends StatelessWidget {
     }
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: kBorder),
         boxShadow: [BoxShadow(
@@ -845,12 +672,30 @@ class _TableView extends StatelessWidget {
             onEdit:     () => onEdit(e.value),
             onPassword: () => onPassword(e.value),
             onToggle:   () => onToggle(e.value),
+            onMuter:    () => onMuter(e.value),
+            onResetPin: () => onResetPin(e.value),
           )),
         ]),
       ),
     );
   }
 }
+
+// ─── Géométrie de la colonne ACTIONS ─────────────────────────────────────────
+// La largeur était figée à 150 px — juste au moment où la rangée comptait cinq
+// boutons. L'ajout de « Muter » en a porté certaines à six (les rôles soumis au
+// verrou de poste, qui ont en plus le bouton PIN) : 176 px de contenu dans une
+// boîte de 150, d'où la bande rayée « OVERFLOWED BY 26 PIXELS » en travers de
+// la colonne, sur ces rangées-là seulement.
+//
+// On dérive donc la largeur du NOMBRE MAXIMAL de boutons au lieu de la deviner.
+// Ajouter un bouton demain ne redéborde plus : il suffit d'incrémenter le
+// compteur, et l'en-tête suit la rangée puisque les deux lisent la même valeur.
+const double _kActionBtnSize = 26; // Icon(size: 16) + Padding(all: 5) × 2
+const double _kActionGap = 4;
+const int _kMaxActionBtns = 6; // voir · modifier · mot de passe · PIN · muter · fin de service
+const double _kActionsColW =
+    _kMaxActionBtns * _kActionBtnSize + (_kMaxActionBtns - 1) * _kActionGap;
 
 class _TableHeader extends StatelessWidget {
   const _TableHeader({required this.sortField, required this.sortAsc, required this.onSort});
@@ -867,7 +712,7 @@ class _TableHeader extends StatelessWidget {
         child: Row(children: [
           Flexible(child: Text(label,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: kTextMuted, fontSize: 11, fontWeight: FontWeight.w700))),
+              style: TextStyle(color: kTextMuted, fontSize: 11, fontWeight: FontWeight.w700))),
           const SizedBox(width: 3),
           Icon(
             sortField == field
@@ -893,7 +738,7 @@ class _TableHeader extends StatelessWidget {
       _col('ÉCOLE',             'school', flex: 2),
       _col('STATUT',            'status'),
       _col('DERNIÈRE CONNEXION','login',  flex: 2),
-      const SizedBox(width: 118,
+      SizedBox(width: _kActionsColW,
           child: Text('ACTIONS', textAlign: TextAlign.end,
               style: TextStyle(color: kTextMuted, fontSize: 11, fontWeight: FontWeight.w700))),
     ]),
@@ -904,11 +749,12 @@ class _TableRow extends StatefulWidget {
   const _TableRow({
     required this.user, required this.isOdd, required this.data,
     required this.onView, required this.onEdit, required this.onPassword, required this.onToggle,
+    required this.onMuter, required this.onResetPin,
   });
   final AdminUser user;
   final bool isOdd;
   final AdminUsersData data;
-  final VoidCallback onView, onEdit, onPassword, onToggle;
+  final VoidCallback onView, onEdit, onPassword, onToggle, onMuter, onResetPin;
 
   @override
   State<_TableRow> createState() => _TableRowState();
@@ -932,7 +778,7 @@ class _TableRowState extends State<_TableRow> {
         decoration: BoxDecoration(
           color: _hov
               ? kNavy.withValues(alpha: 0.04)
-              : widget.isOdd ? kSurface.withValues(alpha: 0.5) : Colors.white,
+              : widget.isOdd ? kSurface.withValues(alpha: 0.5) : kCardBg,
           border: Border(bottom: BorderSide(color: kBorder.withValues(alpha: 0.6))),
         ),
         child: Row(children: [
@@ -953,10 +799,10 @@ class _TableRowState extends State<_TableRow> {
           // Nom + email
           Expanded(flex: 3, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(u.fullName,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary),
                 overflow: TextOverflow.ellipsis),
             Text(u.email,
-                style: const TextStyle(fontSize: 11, color: kTextMuted),
+                style: TextStyle(fontSize: 11, color: kTextMuted),
                 overflow: TextOverflow.ellipsis),
           ])),
           // Rôle + profil
@@ -970,7 +816,7 @@ class _TableRowState extends State<_TableRow> {
           // École
           Expanded(flex: 2, child: u.schoolName != null
               ? _SmallBadge(label: u.schoolName!, color: _kBlue, icon: Icons.account_balance_outlined)
-              : const Text('—', style: TextStyle(color: kTextMuted, fontSize: 12))),
+              : Text('—', style: TextStyle(color: kTextMuted, fontSize: 12))),
           // Statut
           Expanded(child: Row(children: [
             Icon(
@@ -986,20 +832,32 @@ class _TableRowState extends State<_TableRow> {
           ])),
           // Dernière connexion
           Expanded(flex: 2, child: Text(u.lastLoginLabel,
-              style: const TextStyle(fontSize: 11.5, color: kTextMuted),
+              style: TextStyle(fontSize: 11.5, color: kTextMuted),
               overflow: TextOverflow.ellipsis)),
           // Actions
-          SizedBox(width: 118, child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          SizedBox(width: _kActionsColW, child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
             _ActionBtn(icon: Icons.visibility_outlined, color: _kBlue, tooltip: 'Voir les détails', onTap: widget.onView),
-            const SizedBox(width: 4),
+            const SizedBox(width: _kActionGap),
             _ActionBtn(icon: Icons.edit_rounded, color: kNavy, tooltip: 'Modifier', onTap: widget.onEdit),
-            const SizedBox(width: 4),
+            const SizedBox(width: _kActionGap),
             _ActionBtn(icon: Icons.key_rounded, color: kAccent, tooltip: 'Réinitialiser le mot de passe', onTap: widget.onPassword),
-            const SizedBox(width: 4),
+            if (agentLockApplies(u.role)) ...[
+              const SizedBox(width: _kActionGap),
+              _ActionBtn(icon: Icons.pin_rounded, color: kNavy, tooltip: 'Réinitialiser le code du poste', onTap: widget.onResetPin),
+            ],
+            const SizedBox(width: _kActionGap),
+            // Muter n'est PAS désactiver : l'agent change d'école et reste en
+            // service. Les deux gestes ont donc deux boutons.
             _ActionBtn(
-              icon: u.isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
+              icon: Icons.swap_horiz_rounded, color: _kPurple,
+              tooltip: 'Muter vers un autre établissement',
+              onTap: widget.onMuter,
+            ),
+            const SizedBox(width: _kActionGap),
+            _ActionBtn(
+              icon: u.isActive ? Icons.logout_rounded : Icons.person_add_alt_1_rounded,
               color: u.isActive ? kRed : kGreen,
-              tooltip: u.isActive ? 'Désactiver' : 'Activer',
+              tooltip: u.isActive ? 'Enregistrer une fin de service' : 'Réintégrer',
               onTap: widget.onToggle,
             ),
           ])),
@@ -1084,10 +942,12 @@ class _CardGrid extends StatelessWidget {
   const _CardGrid({
     required this.users, required this.data, required this.onView,
     required this.onEdit, required this.onPassword, required this.onToggle,
+    required this.onMuter, required this.onResetPin,
   });
   final List<AdminUser>  users;
   final AdminUsersData   data;
-  final ValueChanged<AdminUser> onView, onEdit, onPassword, onToggle;
+  final ValueChanged<AdminUser> onView, onEdit, onPassword, onToggle, onMuter,
+      onResetPin;
 
   @override
   Widget build(BuildContext context) {
@@ -1110,6 +970,8 @@ class _CardGrid extends StatelessWidget {
             onEdit:     () => onEdit(u),
             onPassword: () => onPassword(u),
             onToggle:   () => onToggle(u),
+            onMuter:    () => onMuter(u),
+            onResetPin: () => onResetPin(u),
           ))).toList(),
       );
     });
@@ -1118,9 +980,10 @@ class _CardGrid extends StatelessWidget {
 
 class _UserCard extends StatefulWidget {
   const _UserCard({required this.user, required this.onView, required this.onEdit,
-      required this.onPassword, required this.onToggle});
+      required this.onPassword, required this.onToggle, required this.onMuter,
+      required this.onResetPin});
   final AdminUser user;
-  final VoidCallback onView, onEdit, onPassword, onToggle;
+  final VoidCallback onView, onEdit, onPassword, onToggle, onMuter, onResetPin;
 
   @override
   State<_UserCard> createState() => _UserCardState();
@@ -1142,7 +1005,7 @@ class _UserCardState extends State<_UserCard> {
         duration: const Duration(milliseconds: 160),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: _hov ? kNavy.withValues(alpha: 0.3) : kBorder),
           boxShadow: [BoxShadow(
@@ -1167,34 +1030,44 @@ class _UserCardState extends State<_UserCard> {
             const SizedBox(width: 10),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(u.fullName, maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: kTextPrimary)),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: kTextPrimary)),
               Text(u.email, maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                  style: TextStyle(fontSize: 11, color: kTextMuted)),
             ])),
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert_rounded, color: kTextMuted, size: 20),
+              icon: Icon(Icons.more_vert_rounded, color: kTextMuted, size: 20),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               onSelected: (v) {
                 if (v == 'view')     widget.onView();
                 if (v == 'edit')     widget.onEdit();
                 if (v == 'password') widget.onPassword();
+                if (v == 'reset_pin') widget.onResetPin();
+                if (v == 'muter')    widget.onMuter();
                 if (v == 'toggle')   widget.onToggle();
               },
               itemBuilder: (_) => [
                 const PopupMenuItem(value: 'view', child: Row(children: [
                   Icon(Icons.visibility_outlined, size: 18, color: _kBlue), SizedBox(width: 10), Text('Voir les détails'),
                 ])),
-                const PopupMenuItem(value: 'edit', child: Row(children: [
-                  Icon(Icons.edit_outlined, size: 18, color: kNavy), SizedBox(width: 10), Text('Modifier'),
+                PopupMenuItem(value: 'edit', child: Row(children: [
+                  Icon(Icons.edit_outlined, size: 18, color: kNavy), const SizedBox(width: 10), const Text('Modifier'),
                 ])),
-                const PopupMenuItem(value: 'password', child: Row(children: [
-                  Icon(Icons.key_rounded, size: 18, color: kAccent), SizedBox(width: 10), Text('Réinit. mot de passe'),
+                PopupMenuItem(value: 'password', child: Row(children: [
+                  Icon(Icons.key_rounded, size: 18, color: kAccent), const SizedBox(width: 10), const Text('Réinit. mot de passe'),
+                ])),
+                if (agentLockApplies(u.role))
+                  PopupMenuItem(value: 'reset_pin', child: Row(children: [
+                    Icon(Icons.pin_rounded, size: 18, color: kNavy), const SizedBox(width: 10), const Text('Réinit. code du poste'),
+                  ])),
+                const PopupMenuItem(value: 'muter', child: Row(children: [
+                  Icon(Icons.swap_horiz_rounded, size: 18, color: _kPurple),
+                  SizedBox(width: 10), Text('Muter'),
                 ])),
                 PopupMenuItem(value: 'toggle', child: Row(children: [
-                  Icon(u.isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
+                  Icon(u.isActive ? Icons.logout_rounded : Icons.person_add_alt_1_rounded,
                       size: 18, color: u.isActive ? kRed : kGreen),
                   const SizedBox(width: 10),
-                  Text(u.isActive ? 'Désactiver' : 'Activer'),
+                  Text(u.isActive ? 'Fin de service' : 'Réintégrer'),
                 ])),
               ],
             ),
@@ -1213,7 +1086,7 @@ class _UserCardState extends State<_UserCard> {
           if (u.lastLogin != null) ...[
             const SizedBox(height: 8),
             Text(u.lastLoginLabel,
-                style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                style: TextStyle(fontSize: 11, color: kTextMuted)),
           ],
         ]),
       ),
@@ -1283,7 +1156,7 @@ class _UserDetailModalState extends State<_UserDetailModal>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 3, vsync: this);
+    _tabs = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -1312,9 +1185,9 @@ class _UserDetailModalState extends State<_UserDetailModal>
           // ─ Header ──────────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 14, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            decoration: BoxDecoration(
+              color: kCardBg,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               border: Border(bottom: BorderSide(color: kBorder)),
             ),
             child: Row(children: [
@@ -1333,15 +1206,20 @@ class _UserDetailModalState extends State<_UserDetailModal>
               Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(u.fullName, style: const TextStyle(
+                  Text(u.fullName, style: TextStyle(
                       color: kTextPrimary, fontSize: 17, fontWeight: FontWeight.w800),
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 6),
                   Wrap(spacing: 6, runSpacing: 4, children: [
                     _RoleBadge(role: u.role),
-                    AdminBadge(u.isActive ? 'Actif' : 'Inactif',
+                    // « Inactif » ne disait rien : on affiche le MOTIF du
+                    // départ, seule information exploitable (migration 0083).
+                    AdminBadge(
+                        u.isActive
+                            ? 'En service'
+                            : mouvementLabel(u.departureMotif),
                         color: u.isActive ? kGreen : kRed,
-                        icon: u.isActive ? Icons.check_circle : Icons.block_rounded),
+                        icon: u.isActive ? Icons.check_circle : Icons.logout_rounded),
                     if (u.schoolName != null)
                       AdminBadge(u.schoolName!, color: _kBlue,
                           icon: Icons.account_balance_outlined),
@@ -1351,16 +1229,16 @@ class _UserDetailModalState extends State<_UserDetailModal>
                   ]),
                   const SizedBox(height: 6),
                   Row(children: [
-                    const Icon(Icons.email_outlined, size: 12, color: kTextMuted),
+                    Icon(Icons.email_outlined, size: 12, color: kTextMuted),
                     const SizedBox(width: 4),
                     Flexible(child: Text(u.email,
-                        style: const TextStyle(color: kTextMuted, fontSize: 11.5),
+                        style: TextStyle(color: kTextMuted, fontSize: 11.5),
                         overflow: TextOverflow.ellipsis)),
                     if (u.phone != null && u.phone!.isNotEmpty) ...[
                       const SizedBox(width: 10),
-                      const Icon(Icons.phone_outlined, size: 12, color: kTextMuted),
+                      Icon(Icons.phone_outlined, size: 12, color: kTextMuted),
                       const SizedBox(width: 3),
-                      Text(u.phone!, style: const TextStyle(color: kTextMuted, fontSize: 11.5)),
+                      Text(u.phone!, style: TextStyle(color: kTextMuted, fontSize: 11.5)),
                     ],
                   ]),
                 ],
@@ -1389,6 +1267,7 @@ class _UserDetailModalState extends State<_UserDetailModal>
               labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
               tabs: const [
                 Tab(text: 'Informations'),
+                Tab(text: 'Carrière'),
                 Tab(text: 'Rôle & Accès'),
                 Tab(text: 'Activité'),
               ],
@@ -1400,6 +1279,10 @@ class _UserDetailModalState extends State<_UserDetailModal>
               controller: _tabs,
               children: [
                 _UserInfoTab(user: u),
+                SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: AgentCarrierePanel(profileId: u.id),
+                ),
                 _UserAccessTab(user: u),
                 _UserActivityTab(user: u),
               ],
@@ -1408,14 +1291,14 @@ class _UserDetailModalState extends State<_UserDetailModal>
           // ─ Footer ───────────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(top: BorderSide(color: kBorder)),
             ),
             child: Row(children: [
               OutlinedButton.icon(
                 onPressed: widget.onToggle,
-                icon: Icon(u.isActive ? Icons.block_rounded : Icons.check_rounded, size: 16),
-                label: Text(u.isActive ? 'Désactiver' : 'Activer'),
+                icon: Icon(u.isActive ? Icons.logout_rounded : Icons.person_add_alt_1_rounded, size: 16),
+                label: Text(u.isActive ? 'Fin de service' : 'Réintégrer'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: u.isActive ? _kOrange : kGreen,
                   side: BorderSide(color: u.isActive ? _kOrange : kGreen),
@@ -1549,7 +1432,7 @@ class _UserAccessTab extends StatelessWidget {
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(u.roleLbl, style: TextStyle(
                   color: color, fontSize: 16, fontWeight: FontWeight.w800)),
-              const Text('Accès limité à son établissement',
+              Text('Accès limité à son établissement',
                   style: TextStyle(color: kTextMuted, fontSize: 12.5,
                       fontWeight: FontWeight.w600)),
             ])),
@@ -1605,14 +1488,14 @@ class _UserActivityTab extends StatelessWidget {
             subtitle: _fmtDateTime(u.lastLogin),
           )
         else
-          const _UserTimelineItem(
+          _UserTimelineItem(
             icon: Icons.login_rounded,
             color: kTextMuted,
             title: 'Aucune connexion enregistrée',
             subtitle: "L'utilisateur ne s'est jamais connecté",
           ),
         if (!u.isActive)
-          const _UserTimelineItem(
+          _UserTimelineItem(
             icon: Icons.block_rounded,
             color: kRed,
             title: 'Compte actuellement désactivé',
@@ -1620,7 +1503,7 @@ class _UserActivityTab extends StatelessWidget {
             last: true,
           )
         else
-          const _UserTimelineItem(
+          _UserTimelineItem(
             icon: Icons.verified_rounded,
             color: kGreen,
             title: 'Compte opérationnel',
@@ -1662,10 +1545,10 @@ class _UserTimelineItem extends StatelessWidget {
       Expanded(child: Padding(
         padding: EdgeInsets.only(bottom: last ? 0 : 18, top: 6),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: const TextStyle(
+          Text(title, style: TextStyle(
               fontSize: 13.5, fontWeight: FontWeight.w700, color: kTextPrimary)),
           const SizedBox(height: 2),
-          Text(subtitle, style: const TextStyle(fontSize: 12, color: kTextMuted)),
+          Text(subtitle, style: TextStyle(fontSize: 12, color: kTextMuted)),
         ]),
       )),
     ]),
@@ -1881,7 +1764,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
 
   Widget _sectionTitle(String title) => Padding(
     padding: const EdgeInsets.only(top: 20, bottom: 12),
-    child: Text(title, style: const TextStyle(
+    child: Text(title, style: TextStyle(
       fontSize: 11, fontWeight: FontWeight.w700,
       color: kTextMuted, letterSpacing: 0.5,
     )),
@@ -1896,13 +1779,13 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: kBorder),
+          borderSide: BorderSide(color: kBorder),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: readOnly
-              ? const BorderSide(color: kBorder)
-              : const BorderSide(color: kNavy, width: 1.5),
+              ? BorderSide(color: kBorder)
+              : BorderSide(color: kNavy, width: 1.5),
         ),
         contentPadding: const EdgeInsets.all(12),
       );
@@ -1934,7 +1817,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
   Widget _passwordField() => TextFormField(
     controller: _password,
     obscureText: _obscure,
-    style: const TextStyle(fontSize: 13, color: kTextPrimary),
+    style: TextStyle(fontSize: 13, color: kTextPrimary),
     validator: (v) {
       if (v == null || v.isEmpty) return 'Mot de passe requis';
       if (v.length < 6) return 'Au moins 6 caractères';
@@ -1966,7 +1849,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
     _dob, 'Date de naissance (JJ/MM/AAAA)', Icons.cake_outlined,
     keyboard: TextInputType.datetime,
     suffix: IconButton(
-      icon: const Icon(Icons.calendar_today_rounded, size: 18, color: kTextMuted),
+      icon: Icon(Icons.calendar_today_rounded, size: 18, color: kTextMuted),
       onPressed: _pickDate,
     ),
     validator: (v) {
@@ -2012,7 +1895,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
     _hireDate, 'Prise de service', Icons.event_available_outlined,
     keyboard: TextInputType.datetime,
     suffix: IconButton(
-      icon: const Icon(Icons.calendar_today_rounded, size: 18, color: kTextMuted),
+      icon: Icon(Icons.calendar_today_rounded, size: 18, color: kTextMuted),
       onPressed: _pickHireDate,
     ),
     validator: (v) {
@@ -2065,7 +1948,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
         constraints: const BoxConstraints(maxWidth: 560, maxHeight: 700),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: kCardBg,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [BoxShadow(
               color: Colors.black.withValues(alpha: 0.15),
@@ -2078,17 +1961,17 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
               // ── En-tête blanc avec boîte icône navy ──────────────────────
               Container(
                 padding: const EdgeInsets.fromLTRB(20, 16, 14, 16),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                decoration: BoxDecoration(
+                  color: kCardBg,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                   border: Border(bottom: BorderSide(color: kBorder)),
                 ),
                 child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
                   Container(
                     width: 38, height: 38,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF1A2F5A), kNavy],
+                      gradient: LinearGradient(
+                        colors: [const Color(0xFF1A2F5A), kNavy],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -2106,13 +1989,13 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
                     children: [
                       Text(
                         _isEdit ? "Modifier l'utilisateur" : 'Nouvel utilisateur',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: kTextPrimary, fontSize: 15, fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         _isEdit ? widget.user!.email : 'Compte du personnel scolaire',
-                        style: const TextStyle(color: kTextMuted, fontSize: 11),
+                        style: TextStyle(color: kTextMuted, fontSize: 11),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -2130,7 +2013,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: kBorder),
                         ),
-                        child: const Icon(Icons.close_rounded, size: 15, color: kTextMuted),
+                        child: Icon(Icons.close_rounded, size: 15, color: kTextMuted),
                       ),
                     ),
                   ),
@@ -2226,9 +2109,9 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
               // ── Pied de page ─────────────────────────────────────────────
               Container(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: kSurface,
-                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
                   border: Border(top: BorderSide(color: kBorder)),
                 ),
                 child: Row(children: [
@@ -2243,7 +2126,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
                           border: Border.all(color: kBorder),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Text('Annuler', style: TextStyle(
+                        child: Text('Annuler', style: TextStyle(
                           color: kTextMuted, fontSize: 13, fontWeight: FontWeight.w600)),
                       ),
                     ),
@@ -2330,9 +2213,9 @@ class _ResetPasswordDialogState extends ConsumerState<ResetPasswordDialog> {
       await ref.read(adminUsersServiceProvider).resetPassword(widget.user.id, _pwd.text);
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           backgroundColor: kGreen,
-          content: Text('Mot de passe réinitialisé'),
+          content: const Text('Mot de passe réinitialisé'),
         ));
       }
     } catch (e) {

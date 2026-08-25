@@ -195,15 +195,15 @@ final educationCatalogProvider =
     final cyc = await client
         .from('education_cycles')
         .select('id, code, name, description, order_index, has_programs, group_id, is_active')
-        .order('order_index') as List;
+        .order('order_index', ascending: true) as List;
     final pro = await client
         .from('education_programs')
         .select('id, cycle_id, code, name, description, order_index, group_id, is_active')
-        .order('order_index') as List;
+        .order('order_index', ascending: true) as List;
     final lvl = await client
         .from('education_levels')
         .select('id, cycle_id, program_id, code, name, order_index, group_id, is_active')
-        .order('order_index') as List;
+        .order('order_index', ascending: true) as List;
 
     return EducationCatalog(
       cycles:   [for (final r in cyc) EducationCycle.fromRow(r as Map<String, dynamic>)],
@@ -232,6 +232,15 @@ class SchoolEducationSelection {
 }
 
 // Sélections enregistrées pour une école (vide si école pas encore créée).
+//
+// ⚠️ On lit `school_levels` — la table que TOUTE l'application lit réellement
+// (les classes s'y rattachent par `level_id`). Cet écran lisait auparavant
+// `school_education_levels`, qui n'a jamais contenu une seule ligne : la
+// sélection affichée était donc toujours vide, quelle que soit la structure
+// réelle de l'école. Voir migration 0089.
+//
+// Les filières ne sont pas stockées à part : elles se déduisent des niveaux
+// retenus. Une filière sans niveau n'existe pas dans une école.
 final schoolEducationProvider = FutureProvider.autoDispose
     .family<SchoolEducationSelection, String>((ref, schoolId) async {
   ref.keepAlive();
@@ -242,23 +251,46 @@ final schoolEducationProvider = FutureProvider.autoDispose
         .from('school_cycles')
         .select('cycle_id')
         .eq('school_id', schoolId) as List;
-    final pro = await client
-        .from('school_education_programs')
-        .select('program_id')
-        .eq('school_id', schoolId) as List;
     final lvl = await client
-        .from('school_education_levels')
-        .select('level_id')
-        .eq('school_id', schoolId) as List;
+        .from('school_levels')
+        .select('education_level_id, program_id')
+        .eq('school_id', schoolId)
+        .not('education_level_id', 'is', null) as List;
     return SchoolEducationSelection(
-      cycleIds:   {for (final r in cyc) r['cycle_id'] as String},
-      programIds: {for (final r in pro) r['program_id'] as String},
-      levelIds:   {for (final r in lvl) r['level_id'] as String},
+      cycleIds: {for (final r in cyc) r['cycle_id'] as String},
+      programIds: {
+        for (final r in lvl)
+          if (r['program_id'] != null) r['program_id'] as String,
+      },
+      levelIds: {for (final r in lvl) r['education_level_id'] as String},
     );
   } catch (_) {
     return SchoolEducationSelection.empty;
   }
 });
+
+/// Le réseau a décoché des niveaux qui portent encore des classes.
+///
+/// Ce n'est pas une erreur technique, c'est une réponse : la base a tout
+/// refusé plutôt que d'emporter des classes et leurs élèves. Le message dit
+/// quoi fermer d'abord.
+class StructureRefusee implements Exception {
+  const StructureRefusee(this.bloquants);
+
+  /// Niveaux encore peuplés — libellé et nombre de classes.
+  final List<({String niveau, int classes})> bloquants;
+
+  @override
+  String toString() {
+    final liste = bloquants
+        .map((b) => '${b.niveau} (${b.classes} classe'
+            '${b.classes > 1 ? 's' : ''})')
+        .join(', ');
+    return 'Ces niveaux portent encore des classes : $liste. '
+        'Fermez ou déplacez ces classes avant de les retirer de '
+        'l\'établissement — rien n\'a été modifié.';
+  }
+}
 
 // ─── Service (mutations) ────────────────────────────────────────────────────
 class EducationService {
@@ -268,38 +300,37 @@ class EducationService {
   String? get _groupId =>
       _ref.read(authNotifierProvider).valueOrNull?.groupId;
 
-  /// Remplace l'offre éducative d'une école (cycles / filières / niveaux).
+  /// Donne à une école sa structure réelle : matérialise les niveaux cochés
+  /// dans `school_levels`, la table dont dépendent les classes.
+  ///
+  /// Une seule instruction serveur, transactionnelle. L'ancienne version
+  /// enchaînait six requêtes « delete puis insert » : une coupure réseau au
+  /// milieu laissait l'école sans structure, et de toute façon elle écrivait
+  /// dans deux tables que personne ne lit (migration 0089).
+  ///
+  /// Lève [StructureRefusee] si le retrait emporterait des classes — auquel
+  /// cas RIEN n'a été modifié côté serveur.
   Future<void> saveSchoolEducation({
     required String schoolId,
     required Set<String> cycleIds,
-    required Set<String> programIds,
     required Set<String> levelIds,
   }) async {
-    final groupId = _groupId;
-    if (groupId == null) throw Exception('Groupe introuvable');
-    final c = _ref.read(supabaseClientProvider);
+    final res = await _ref.read(supabaseClientProvider).rpc(
+      'appliquer_structure_ecole',
+      params: {
+        'p_school_id': schoolId,
+        'p_cycle_ids': cycleIds.toList(),
+        'p_level_ids': levelIds.toList(),
+      },
+    ) as Map<String, dynamic>;
 
-    // Stratégie « delete + insert » : simple et idempotent (la RLS borne au groupe).
-    await c.from('school_cycles').delete().eq('school_id', schoolId);
-    await c.from('school_education_programs').delete().eq('school_id', schoolId);
-    await c.from('school_education_levels').delete().eq('school_id', schoolId);
-
-    if (cycleIds.isNotEmpty) {
-      await c.from('school_cycles').insert([
-        for (final id in cycleIds)
-          {'school_id': schoolId, 'cycle_id': id, 'group_id': groupId},
-      ]);
-    }
-    if (programIds.isNotEmpty) {
-      await c.from('school_education_programs').insert([
-        for (final id in programIds)
-          {'school_id': schoolId, 'program_id': id, 'group_id': groupId},
-      ]);
-    }
-    if (levelIds.isNotEmpty) {
-      await c.from('school_education_levels').insert([
-        for (final id in levelIds)
-          {'school_id': schoolId, 'level_id': id, 'group_id': groupId},
+    if (res['ok'] != true) {
+      throw StructureRefusee([
+        for (final b in (res['bloquants'] as List? ?? const []))
+          (
+            niveau: (b as Map)['niveau'] as String? ?? 'Niveau',
+            classes: (b['classes'] as num?)?.toInt() ?? 0,
+          ),
       ]);
     }
 

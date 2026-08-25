@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -12,8 +10,18 @@ const _bucket = 'student-documents';
 // ════════════════════════════════════════════════════════════════════════════
 //  DOSSIER DOCUMENTAIRE DE L'ÉLÈVE — pièces réelles téléversées (bucket privé).
 //  Le dossier suit l'ÉLÈVE (student_id) : en RÉINSCRIPTION, les pièces déjà
-//  présentes sont conservées (rien à re-téléverser). Upload = Storage (internet) ;
-//  la ligne student_documents est écrite offline-first (PowerSync).
+//  présentes sont conservées (rien à re-téléverser).
+//
+//  ── OÙ SE DÉPOSE UNE PIÈCE, DÉSORMAIS ──────────────────────────────────────
+//  Dans `services/powersync/student_document_upload.dart`, et nulle part
+//  ailleurs : `attachStudentDocumentOffline` (l'élève existe) ou
+//  `queueStudentDocumentFile` (l'assistant, où il n'existe pas encore).
+//
+//  Ce fichier portait un `uploadStudentDocumentFile` qui envoyait à Storage en
+//  DIRECT — donc rien sans réseau. Il a été retiré plutôt que laissé de côté :
+//  une fonction publique qui fait presque la bonne chose est un piège dormant,
+//  et c'est précisément par elle que ce module s'était retrouvé le seul, avec
+//  Examens et Stages sur la même table, à ne pas savoir travailler hors ligne.
 // ════════════════════════════════════════════════════════════════════════════
 
 /// Catalogue des pièces du dossier (slug stable → libellé).
@@ -28,36 +36,14 @@ const studentDocTypes = <String, String>{
 
 String docTypeLabel(String slug) => studentDocTypes[slug] ?? slug;
 
-String _mime(String ext) => switch (ext.toLowerCase()) {
-      'jpg' || 'jpeg' => 'image/jpeg',
-      'png' => 'image/png',
-      'webp' => 'image/webp',
-      'pdf' => 'application/pdf',
-      _ => 'application/octet-stream',
-    };
-
-/// Téléverse un fichier de dossier vers le bucket privé. Retourne le CHEMIN
-/// stocké (les lectures passent par une URL signée). Nécessite internet.
-Future<String> uploadStudentDocumentFile({
-  required SupabaseClient client,
-  required String schoolId,
-  required String studentId,
-  required String typeSlug,
-  required String fileName,
-  required Uint8List bytes,
-}) async {
-  final ext = fileName.contains('.') ? fileName.split('.').last : 'bin';
-  final safe = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-  final path = '$schoolId/$studentId/${typeSlug}_${_uuid.v4().substring(0, 8)}_$safe';
-  await client.storage.from(_bucket).uploadBinary(
-        path,
-        bytes,
-        fileOptions: FileOptions(contentType: _mime(ext), upsert: true),
-      );
-  return path;
-}
-
 /// Insère la ligne du dossier (offline-first). `file_url` = chemin Storage.
+///
+/// ⚠️ N'A QU'UN SEUL APPELANT LÉGITIME : l'enregistrement de l'assistant
+/// d'inscription, qui écrit les lignes des pièces APRÈS avoir créé l'élève —
+/// leurs octets, eux, sont partis en file dès l'étape 4. Partout ailleurs, la
+/// pièce se dépose d'un seul geste par `attachStudentDocumentOffline`, qui met
+/// les octets en file ET écrit la ligne. Appeler cette fonction avec un chemin
+/// qui n'a pas été mis en file écrirait une pièce qui ne pointe sur rien.
 Future<void> insertStudentDocumentRow({
   required String groupId,
   required String schoolId,
@@ -127,20 +113,13 @@ Future<String?> signedStudentDocUrl(SupabaseClient client, String path) async {
 }
 
 // ─── Photo de profil de l'élève (bucket public `avatars`) ────────────────────
-/// Téléverse la photo de profil vers le bucket PUBLIC `avatars` et renvoie son
-/// URL publique (affichable via CachedNetworkImage). Nécessite internet.
-Future<String> uploadStudentPhoto({
-  required SupabaseClient client,
-  required String studentId,
-  required Uint8List bytes,
-  required String ext,
-}) async {
-  final e = ext.toLowerCase().replaceAll('jpeg', 'jpg');
-  final path = 'students/${studentId}_${DateTime.now().millisecondsSinceEpoch}.$e';
-  await client.storage.from('avatars').uploadBinary(
-        path,
-        bytes,
-        fileOptions: FileOptions(contentType: _mime(e), upsert: true),
-      );
-  return client.storage.from('avatars').getPublicUrl(path);
-}
+//
+// ⚠️ `uploadStudentPhoto` A ÉTÉ RETIRÉE. Elle envoyait à Storage en direct :
+// sans réseau, l'écran répondait « la photo n'a pas pu être envoyée, reprenez-la
+// plus tard », alors que tout le reste de la fiche s'enregistrait hors ligne.
+//
+// La photo passe désormais par `queueAvatarUpload`
+// (`services/powersync/avatar_upload.dart`), qui calcule l'URL publique sans
+// réseau, met les octets en file et les envoie au retour de la connexion.
+// Retirée plutôt que laissée de côté : une fonction publique qui fait presque
+// la bonne chose finit toujours par être rebranchée.

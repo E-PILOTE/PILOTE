@@ -1,24 +1,29 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
 
-const _uuid = Uuid();
-
 // ════════════════════════════════════════════════════════════════════════════
-//  FRAIS DE SCOLARITÉ (table `fee_structures`) — barèmes de frais (inscription,
-//  mensualité, examens, autre) avec montant XAF, jour d'échéance et niveau
-//  concerné (optionnel = toute l'école). 100% offline.
+//  FRAIS DE SCOLARITÉ (table `fee_structures`) — LECTURE SEULE côté école.
+//
+//  Deux portées descendent sur le poste depuis la migration 0096 : le tarif du
+//  réseau (`school_id IS NULL`, posé par le ministère pour toutes ses écoles)
+//  et celui posé pour cet établissement. Dans les deux cas l'auteur est le
+//  groupe — l'école reçoit et applique. 100% offline.
 // ════════════════════════════════════════════════════════════════════════════
 
 const kFeeTypes = <(String, String)>[
   ('inscription', 'Inscription'),
   ('mensualite', 'Mensualité'),
   ('frais_examens', 'Frais d\'examens'),
+  ('cotisation_ape', 'Cotisation APE'),
   ('autre', 'Autre'),
 ];
+
+/// D'où vient le tarif : du réseau entier, ou posé pour cet établissement.
+/// Dans les deux cas c'est le GROUPE qui l'a écrit — l'école ne fait que lire.
+enum BaremeScope { reseau, etablissement }
 
 String feeTypeLabel(String? t) =>
     kFeeTypes.firstWhere((e) => e.$1 == t, orElse: () => ('autre', 'Autre')).$2;
@@ -32,11 +37,14 @@ class FeeStructure {
     required this.dueDay,
     required this.levelId,
     required this.levelName,
+    required this.scope,
+    required this.sourceReference,
   });
   final String id, name, feeType;
   final int amount;
   final int? dueDay;
-  final String? levelId, levelName;
+  final String? levelId, levelName, sourceReference;
+  final BaremeScope scope;
 }
 
 final feeStructuresProvider =
@@ -44,17 +52,32 @@ final feeStructuresProvider =
   ref.keepAlive();
   final profile = ref.watch(authNotifierProvider).valueOrNull;
   final schoolId = profile?.schoolId;
+  final groupId = profile?.groupId;
   final yearId = ref.watch(activeYearIdProvider);
-  if (schoolId == null || schoolId.isEmpty) return Stream.value(const []);
+  if (schoolId == null || schoolId.isEmpty || groupId == null) {
+    return Stream.value(const []);
+  }
   return db.watch(
     '''
-    SELECT f.*, sl.name AS level_name
+    SELECT f.*,
+           COALESCE(sl.name, el.name) AS level_name
     FROM fee_structures f
     LEFT JOIN school_levels sl ON sl.id = f.applies_to_level_id
-    WHERE f.school_id = ? AND f.academic_year_id = ? AND f.is_active = 1
-    ORDER BY f.fee_type, f.amount_xaf DESC
+    -- Le niveau NATIONAL (migration 0101) : le ministère tarifie « la 6e » du
+    -- réseau entier, l'école n'a rien saisi et lit le même libellé.
+    LEFT JOIN education_levels el ON el.id = f.applies_to_education_level_id
+    -- ⚠️ `f.school_id = ?` SEUL rendrait invisible tout tarif du ministère :
+    -- depuis la migration 0096, un barème de portée réseau porte `school_id`
+    -- NULL. C'est le même piège que dans les sync-rules, une couche plus haut.
+    -- ⚠️ `is_active = 1` rate les lignes écrites par l'application : la vue
+    -- PowerSync ne garantit pas l'entier 1. COALESCE(...) <> 0 est la forme
+    -- sûre (cf. [[powersync-is-active-egalite-stricte]]).
+    WHERE f.group_id = ? AND (f.school_id = ? OR f.school_id IS NULL)
+      AND f.academic_year_id = ?
+      AND COALESCE(f.is_active, 1) <> 0
+    ORDER BY f.fee_type, f.school_id IS NULL, f.amount_xaf DESC
     ''',
-    parameters: [schoolId, yearId ?? ''],
+    parameters: [groupId, schoolId, yearId ?? ''],
   ).map((rows) => [
         for (final r in rows)
           FeeStructure(
@@ -65,50 +88,29 @@ final feeStructuresProvider =
             dueDay: (r['due_day_of_month'] as num?)?.round(),
             levelId: r['applies_to_level_id'] as String?,
             levelName: r['level_name'] as String?,
+            scope: (r['school_id'] as String?) == null
+                ? BaremeScope.reseau
+                : BaremeScope.etablissement,
+            sourceReference: r['source_reference'] as String?,
           ),
       ]);
 });
 
-// ─── Mutations ───────────────────────────────────────────────────────────────
-Future<void> saveFeeStructure({
-  String? id,
-  required String groupId,
-  required String schoolId,
-  required String academicYearId,
-  required String name,
-  required String feeType,
-  required int amount,
-  int? dueDay,
-  String? levelId,
-}) async {
-  final now = DateTime.now().toIso8601String();
-  if (id != null) {
-    await db.execute(
-      'UPDATE fee_structures SET name = ?, fee_type = ?, amount_xaf = ?, '
-      'due_day_of_month = ?, applies_to_level_id = ?, updated_at = ? WHERE id = ?',
-      [name, feeType, amount, dueDay, levelId, now, id],
-    );
-  } else {
-    await db.execute(
-      '''
-      INSERT INTO fee_structures (
-        id, group_id, school_id, academic_year_id, name, fee_type, amount_xaf,
-        due_day_of_month, applies_to_level_id, is_active, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
-      ''',
-      [_uuid.v4(), groupId, schoolId, academicYearId, name, feeType, amount,
-       dueDay, levelId, now, now],
-    );
-  }
-}
-
-/// Soft delete (is_active=0 → retiré du bucket de synchro).
-Future<void> deleteFeeStructure(String id) async {
-  await db.execute(
-    'UPDATE fee_structures SET is_active = 0, updated_at = ? WHERE id = ?',
-    [DateTime.now().toIso8601String(), id],
-  );
-}
+// ─── Aucune mutation ici, et c'est volontaire ────────────────────────────────
+//
+// Un barème est un ACTE DU GROUPE (migration 0096, décision D2). L'école le
+// reçoit et l'applique. `saveFeeStructure` et `deleteFeeStructure` ont été
+// retirées le 5 août 2026 : tant qu'elles existaient, il n'y avait aucun tarif
+// de référence, donc aucun moyen de constater une surfacturation, et « combien
+// coûte l'inscription en 6e » avait mille réponses.
+//
+// La RLS refuserait de toute façon l'écriture — mais un refus serveur (42501)
+// abandonne le LOT PowerSync ENTIER, ce qui emporterait au passage le travail
+// des autres modules, sans le moindre message. L'absence de bouton est la
+// vraie protection ; la RLS n'est que le filet.
+//
+// Le seul écrivain est `features/admin_groupe/providers/admin_fees_provider`,
+// en ligne, sur Supabase direct.
 
 /// Niveaux distincts utilisés par l'école (pour le champ « niveau concerné »).
 final schoolLevelOptionsProvider =

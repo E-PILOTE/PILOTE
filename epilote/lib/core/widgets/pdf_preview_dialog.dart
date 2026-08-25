@@ -5,6 +5,7 @@ import 'package:pdf/pdf.dart' show PdfPageFormat;
 import 'package:printing/printing.dart';
 
 import 'admin_ui.dart';
+import '../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  APERÇU PDF PARTAGÉ — fenêtre in-app (widget `PdfPreview`) réutilisée par tous
@@ -21,8 +22,13 @@ Future<void> showPdfPreviewDialog(
   required PdfBuilder build,
   required String pdfFileName,
   Future<String?> Function()? onDownload,
-  Color accent = kNavy,
+  // Résolu au corps, pas en défaut : une valeur par défaut doit être une
+  // constante de compilation, or les jetons suivent désormais le thème.
+  Color? accent,
 }) {
+  // Locale plutôt que `accent ??=` : une variable capturée par la closure du
+  // builder n'est pas promue par Dart.
+  final acc = accent ?? kNavy;
   return showDialog(
     context: context,
     barrierColor: Colors.black54,
@@ -32,7 +38,7 @@ Future<void> showPdfPreviewDialog(
       builder: build,
       pdfFileName: pdfFileName,
       onDownload: onDownload,
-      accent: accent,
+      accent: acc,
     ),
   );
 }
@@ -59,7 +65,7 @@ class _PdfPreviewDialog extends StatelessWidget {
     final w = (size.width * 0.72).clamp(420.0, 900.0);
     final h = (size.height * 0.9).clamp(420.0, 1180.0);
     return Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: kCardBg,
       insetPadding: const EdgeInsets.all(24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
@@ -70,8 +76,8 @@ class _PdfPreviewDialog extends StatelessWidget {
           // En-tête sobre : pastille accent + titre, sur fond blanc.
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            decoration: BoxDecoration(
+              color: kCardBg,
               border: Border(bottom: BorderSide(color: kBorder)),
             ),
             child: Row(children: [
@@ -93,7 +99,7 @@ class _PdfPreviewDialog extends StatelessWidget {
                     Text(title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: kTextPrimary,
                             fontSize: 14.5,
                             fontWeight: FontWeight.w800)),
@@ -102,7 +108,7 @@ class _PdfPreviewDialog extends StatelessWidget {
                       Text(subtitle!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: kTextMuted, fontSize: 11.5)),
                     ],
                   ],
@@ -111,7 +117,7 @@ class _PdfPreviewDialog extends StatelessWidget {
               IconButton(
                 tooltip: 'Fermer',
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.close_rounded, color: kTextMuted),
+                icon: Icon(Icons.close_rounded, color: kTextMuted),
                 onPressed: () => Navigator.pop(context),
               ),
             ]),
@@ -128,10 +134,36 @@ class _PdfPreviewDialog extends StatelessWidget {
               canDebug: false,
               pdfFileName: pdfFileName,
               previewPageMargin: const EdgeInsets.all(12),
-              scrollViewDecoration: const BoxDecoration(color: kSurface),
-              pdfPreviewPageDecoration: const BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
+              // ⚠️ SANS `maxPageWidth`, LE RASTÉRISEUR DIMENSIONNE LES PAGES
+              //    POUR LA FENÊTRE ENTIÈRE, PAS POUR CETTE BOÎTE.
+              //
+              //  `printing` calcule son dpi ainsi (5.14.3, preview/raster.dart) :
+              //      min(largeurÉcran - 16, maxPageWidth ?? ∞) × dpr
+              //          ÷ format.largeur × 72
+              //  Le paramètre laissé nul, `maxPageWidth` vaut l'infini : sur une
+              //  fenêtre de 1 650 px, une A4 était rendue à ~200 dpi, soit
+              //  1 654 × 2 339 pixels — puis encodée en PNG — alors que la
+              //  colonne d'aperçu ne fait jamais plus de 900 px de large. Trois
+              //  fois trop de pixels par page, à chaque page.
+              //
+              //  Sur le bilan d'un groupe de 1 000 établissements — 52 pages,
+              //  mesurées — l'aperçu mettait entre 18 et 45 secondes à afficher
+              //  quoi que ce soit. Le document, lui, était déjà construit : tout
+              //  ce temps était de la rastérisation inutile.
+              //
+              //  On borne donc à la largeur réellement affichée. Rien n'est
+              //  tronqué ni dégradé : le PDF enregistré ou imprimé est le même
+              //  fichier, seul l'aperçu cesse de rendre ce que l'écran ne
+              //  montrera pas.
+              maxPageWidth: w - 24,
+              // Les octets sont constants et le format ne peut pas changer
+              // (`canChangePageFormat: false`) : reconstruire à chaque
+              // changement de disposition ne ferait que rejouer le build.
+              dynamicLayout: false,
+              scrollViewDecoration: BoxDecoration(color: kSurface),
+              pdfPreviewPageDecoration: BoxDecoration(
+                color: kCardBg,
+                boxShadow: const [
                   BoxShadow(
                       color: Color(0x22000000),
                       blurRadius: 8,
@@ -162,7 +194,7 @@ class _PdfPreviewDialog extends StatelessWidget {
                       } catch (e) {
                         messenger.showSnackBar(SnackBar(
                             backgroundColor: kRed,
-                            content: Text('Erreur enregistrement : $e')));
+                            content: Text(messageErreur(e, contexte: 'Enregistrement'))));
                       }
                     },
                   ),

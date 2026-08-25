@@ -135,7 +135,7 @@ class PaymentGroupOption {
 final paymentConfigGroupsProvider =
     FutureProvider.autoDispose<List<PaymentGroupOption>>((ref) async {
   final client = ref.watch(supabaseClientProvider);
-  final rows = await client.from('school_groups').select('id, name').order('name');
+  final rows = await client.from('school_groups').select('id, name').order('name', ascending: true);
   return (rows as List).map((r) {
     final m = r as Map;
     return PaymentGroupOption(id: m['id'] as String, name: m['name'] as String? ?? '—');

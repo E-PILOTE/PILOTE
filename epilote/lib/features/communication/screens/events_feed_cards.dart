@@ -59,27 +59,27 @@ class StaffEventCard extends StatelessWidget {
                     child: Text(event.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                             color: kTextPrimary)),
                   ),
                   if (event.isPast) ...[
                     const SizedBox(width: 8),
-                    const AdminBadge('Passé', color: kTextMuted),
+                    AdminBadge('Passé', color: kTextMuted),
                   ],
                   if (manageable)
                     PopupMenuButton<String>(
                       tooltip: 'Gérer',
-                      icon: const Icon(Icons.more_vert_rounded,
+                      icon: Icon(Icons.more_vert_rounded,
                           size: 18, color: kTextMuted),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10)),
                       onSelected: (v) => v == 'edit'
                           ? onEdit?.call()
                           : onDelete?.call(),
-                      itemBuilder: (_) => const [
-                        PopupMenuItem(
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(
                             value: 'edit',
                             child: Text('Modifier',
                                 style: TextStyle(fontSize: 12.5))),
@@ -96,7 +96,7 @@ class StaffEventCard extends StatelessWidget {
                   Text(event.description,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 12.5, color: kTextMuted, height: 1.4)),
                 ],
                 const SizedBox(height: 8),
@@ -123,7 +123,7 @@ class StaffEventCard extends StatelessWidget {
         children: [
           Icon(icon, size: 13, color: kTextMuted),
           const SizedBox(width: 4),
-          Text(text, style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+          Text(text, style: TextStyle(fontSize: 11.5, color: kTextMuted)),
         ],
       );
 }
@@ -160,17 +160,17 @@ class StaffEventDetailDialog extends StatelessWidget {
                 color: aColor,
                 icon: Icons.groups_rounded),
             if (event.schoolId == null)
-              const AdminBadge('Tout le réseau',
+              AdminBadge('Tout le réseau',
                   color: kNavy, icon: Icons.hub_rounded)
             else
-              const AdminBadge('Mon école',
+              AdminBadge('Mon école',
                   color: kGreen, icon: Icons.school_rounded),
           ]),
           if (event.description.isNotEmpty) ...[
             const SizedBox(height: 16),
             SelectableText(
               event.description,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 13.5, color: kTextPrimary, height: 1.6),
             ),
           ],

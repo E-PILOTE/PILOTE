@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
@@ -12,6 +13,7 @@ import '../providers/vs_students_provider.dart';
 import '../widgets/vs_kit.dart';
 import '../widgets/vs_form_chrome.dart';
 import '../widgets/vs_student_field.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'infirmerie_form.dart';
 
@@ -103,7 +105,7 @@ class _BodyState extends ConsumerState<_Body> {
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (all) {
         final filtered = _apply(all);
         final todayCount = all.where((v) => v.date == today).length;
@@ -225,7 +227,7 @@ class _FilterBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: kBorder),
       ),
@@ -236,9 +238,9 @@ class _FilterBar extends StatelessWidget {
             onChanged: onSearch,
             decoration: InputDecoration(
               hintText: 'Rechercher (élève, symptôme, diagnostic)…',
-              hintStyle: const TextStyle(color: kTextMuted, fontSize: 13),
+              hintStyle: TextStyle(color: kTextMuted, fontSize: 13),
               prefixIcon:
-                  const Icon(Icons.search_rounded, color: kTextMuted, size: 20),
+                  Icon(Icons.search_rounded, color: kTextMuted, size: 20),
               filled: true,
               fillColor: kSurface,
               border: OutlineInputBorder(
@@ -253,7 +255,7 @@ class _FilterBar extends StatelessWidget {
         IconButton(
           tooltip: 'Réinitialiser',
           onPressed: onReset,
-          icon: const Icon(Icons.filter_alt_off_outlined, color: kTextMuted),
+          icon: Icon(Icons.filter_alt_off_outlined, color: kTextMuted),
         ),
         const SizedBox(width: 4),
         if (canCreate)
@@ -264,7 +266,7 @@ class _FilterBar extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                       colors: [kNavyDark, kNavy],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight),
@@ -310,7 +312,7 @@ class _VisitCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: kBorder),
       ),
@@ -323,7 +325,7 @@ class _VisitCard extends StatelessWidget {
             decoration: BoxDecoration(
                 color: kRed.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.local_hospital_rounded, size: 20, color: kRed),
+            child: Icon(Icons.local_hospital_rounded, size: 20, color: kRed),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -333,7 +335,7 @@ class _VisitCard extends StatelessWidget {
                   Text(v.studentName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.w800,
                           color: kTextPrimary)),
@@ -342,7 +344,7 @@ class _VisitCard extends StatelessWidget {
                       '${v.date}${v.time != null ? ' · ${v.time!.substring(0, 5)}' : ''}'
                       '${v.className != null ? ' · ${v.className}' : ''}'
                       '${v.restHours != null ? ' · repos ${v.restHours}h' : ''}',
-                      style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                      style: TextStyle(fontSize: 12, color: kTextMuted)),
                   if ((v.symptoms ?? '').trim().isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text('Symptômes : ${v.symptoms!.trim()}',
@@ -355,7 +357,7 @@ class _VisitCard extends StatelessWidget {
                     Text(line,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 12, color: kTextMuted, height: 1.3)),
                   ],
                   const SizedBox(height: 8),
@@ -378,7 +380,7 @@ class _VisitCard extends StatelessWidget {
           if (canEdit || canDelete)
             PopupMenuButton<String>(
               icon:
-                  const Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
+                  Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
               onSelected: (x) => x == 'edit' ? onEdit() : onDelete(),
               itemBuilder: (ctx) => [
                 if (canEdit)
@@ -390,11 +392,11 @@ class _VisitCard extends StatelessWidget {
                         Text('Modifier'),
                       ])),
                 if (canDelete)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                       value: 'delete',
                       child: Row(children: [
                         Icon(Icons.delete_outline_rounded, size: 16, color: kRed),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Text('Supprimer', style: TextStyle(color: kRed)),
                       ])),
               ],

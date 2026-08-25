@@ -106,7 +106,7 @@ class _StaffEventCalendarState extends State<StaffEventCalendar> {
           : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               grid,
               const SizedBox(height: 16),
-              const Divider(color: kBorder, height: 1),
+              Divider(color: kBorder, height: 1),
               const SizedBox(height: 16),
               dayPanel,
             ]),
@@ -131,17 +131,17 @@ class _MonthHeader extends StatelessWidget {
     final label = '${mois[0].toUpperCase()}${mois.substring(1)} ${month.year}';
     return Row(children: [
       Text(label,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 16, fontWeight: FontWeight.w800, color: kNavy)),
       const SizedBox(width: 6),
       IconButton(
         onPressed: onPrev,
-        icon: const Icon(Icons.chevron_left_rounded, size: 22, color: kTextMuted),
+        icon: Icon(Icons.chevron_left_rounded, size: 22, color: kTextMuted),
         visualDensity: VisualDensity.compact,
       ),
       IconButton(
         onPressed: onNext,
-        icon: const Icon(Icons.chevron_right_rounded, size: 22, color: kTextMuted),
+        icon: Icon(Icons.chevron_right_rounded, size: 22, color: kTextMuted),
         visualDensity: VisualDensity.compact,
       ),
       const Spacer(),
@@ -149,7 +149,7 @@ class _MonthHeader extends StatelessWidget {
         onPressed: onToday,
         style: OutlinedButton.styleFrom(
           foregroundColor: kNavy,
-          side: const BorderSide(color: kBorder),
+          side: BorderSide(color: kBorder),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -169,7 +169,7 @@ class _WeekdayHeader extends StatelessWidget {
             .map((d) => Expanded(
                   child: Center(
                     child: Text(d,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             color: kTextMuted)),
@@ -272,7 +272,7 @@ class _MonthGrid extends StatelessWidget {
                   if (dayEvents.length > 3)
                     Text('+${dayEvents.length - 3}',
                         style:
-                            const TextStyle(fontSize: 8, color: kTextMuted)),
+                            TextStyle(fontSize: 8, color: kTextMuted)),
                 ],
               ),
             ),
@@ -301,16 +301,16 @@ class _DayPanel extends StatelessWidget {
         children: [
           Text(
             selected != null ? fmtDateFullFr(selected) : 'Aucun jour sélectionné',
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary),
           ),
           const SizedBox(height: 4),
           Text('${events.length} événement${events.length > 1 ? 's' : ''}',
-              style: const TextStyle(fontSize: 11, color: kTextMuted)),
+              style: TextStyle(fontSize: 11, color: kTextMuted)),
           const SizedBox(height: 12),
           if (events.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 32),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
               child: Center(
                 child: Text('Aucun événement ce jour',
                     style: TextStyle(fontSize: 12, color: kTextMuted)),
@@ -360,7 +360,7 @@ class _DayEventTile extends StatelessWidget {
                     Text(event.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: kTextPrimary)),
@@ -374,12 +374,12 @@ class _DayEventTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style:
-                          const TextStyle(fontSize: 11.5, color: kTextMuted),
+                          TextStyle(fontSize: 11.5, color: kTextMuted),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded,
+              Icon(Icons.chevron_right_rounded,
                   size: 18, color: kTextMuted),
             ]),
           ),

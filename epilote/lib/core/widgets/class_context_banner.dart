@@ -59,7 +59,7 @@ class ClassContextBanner extends StatelessWidget {
                 Text(crumbs.join('  ▸  '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w800,
                         color: kTextPrimary)),
@@ -68,7 +68,7 @@ class ClassContextBanner extends StatelessWidget {
                   Text(subtitle!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                      style: TextStyle(fontSize: 11.5, color: kTextMuted)),
                 ],
               ]),
         ),
@@ -79,9 +79,9 @@ class ClassContextBanner extends StatelessWidget {
             color: kNavy.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(7),
           ),
-          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.lock_outline_rounded, size: 12, color: kNavy),
-            SizedBox(width: 4),
+            const SizedBox(width: 4),
             Text('Contexte',
                 style: TextStyle(
                     fontSize: 10.5, fontWeight: FontWeight.w700, color: kNavy)),

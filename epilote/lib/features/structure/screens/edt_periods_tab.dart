@@ -62,11 +62,20 @@ class _PeriodsTabState extends ConsumerState<_PeriodsTab> {
 
   Future<void> _seed(BuildContext context, String? cycleCode) async {
     final profile = ref.read(authNotifierProvider).valueOrNull;
+    final missing = missingWriteIds(
+        groupId: profile?.groupId,
+        schoolId: profile?.schoolId,
+        actorId: profile?.id);
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+      return;
+    }
     await runModuleWrite(
       context,
       () => seedStandardPeriods(
-        groupId: profile?.groupId ?? '',
-        schoolId: profile?.schoolId ?? '',
+        groupId: profile!.groupId!,
+        schoolId: profile.schoolId!,
         cycleCode: cycleCode,
       ),
       success: 'Trame standard installée',
@@ -107,7 +116,7 @@ class _PeriodsTabState extends ConsumerState<_PeriodsTab> {
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (allPeriods) {
         // Trame du cycle sélectionné uniquement.
         final periods =
@@ -244,7 +253,7 @@ class _PeriodRow extends StatelessWidget {
     final color = _kindColor(period.kind);
     final isBreak = !period.isCourse;
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: kBorder)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -252,7 +261,7 @@ class _PeriodRow extends StatelessWidget {
         SizedBox(
           width: 110,
           child: Text(period.timeLabel,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 13, fontWeight: FontWeight.w800, color: kTextPrimary)),
         ),
         Container(
@@ -275,18 +284,18 @@ class _PeriodRow extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                     color: isBreak ? color : kTextPrimary)),
             Text('${periodKindLabel(period.kind)} · ${period.durationMinutes} min',
-                style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                style: TextStyle(fontSize: 11.5, color: kTextMuted)),
           ]),
         ),
         if (onEdit != null)
           IconButton(
-            icon: const Icon(Icons.edit_outlined, size: 17, color: kTextMuted),
+            icon: Icon(Icons.edit_outlined, size: 17, color: kTextMuted),
             onPressed: onEdit,
             tooltip: 'Modifier',
           ),
         if (onDelete != null)
           IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, size: 17, color: kRed),
+            icon: Icon(Icons.delete_outline_rounded, size: 17, color: kRed),
             onPressed: onDelete,
             tooltip: 'Supprimer',
           ),
@@ -326,7 +335,7 @@ class _CycleSelector extends StatelessWidget {
                 duration: const Duration(milliseconds: 150),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: on ? color.withValues(alpha: 0.12) : Colors.white,
+                  color: on ? color.withValues(alpha: 0.12) : kCardBg,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                       color: on ? color : kBorder, width: on ? 1.5 : 1),

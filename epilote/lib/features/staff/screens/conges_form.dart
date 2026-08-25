@@ -73,13 +73,19 @@ class _LeaveFormState extends ConsumerState<_LeaveForm> {
       return;
     }
     final p = ref.read(authNotifierProvider).valueOrNull;
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isNotEmpty) {
+      _snack(writeIdentityMessage(missing));
+      return;
+    }
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
       () => saveLeaveRequest(
         id: widget.request?.id,
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         staffId: _staffId!,
         leaveType: _type,
         startDate: _start!.toIso8601String().substring(0, 10),
@@ -158,10 +164,10 @@ class _LeaveFormState extends ConsumerState<_LeaveForm> {
                       border: Border.all(color: kBorder),
                     ),
                     child: Row(children: [
-                      const Icon(Icons.today_rounded, size: 16, color: kNavy),
+                      Icon(Icons.today_rounded, size: 16, color: kNavy),
                       const SizedBox(width: 8),
                       Text('$_days jour${_days > 1 ? 's' : ''} de congé',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: kNavy)),

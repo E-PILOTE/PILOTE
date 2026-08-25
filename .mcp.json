@@ -9,7 +9,7 @@
       }
     },
     "dart": {
-      "command": "/home/melack/flutter/bin/dart",
+      "command": "C:\\flutter\\bin\\dart.exe",
       "args": ["mcp-server"]
     },
     "context7": {

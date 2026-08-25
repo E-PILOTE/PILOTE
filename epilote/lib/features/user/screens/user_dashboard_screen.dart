@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,42 +8,48 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 import '../../../core/constants/routes.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
+import '../../../core/widgets/staff_ui.dart';
 import '../../communication/widgets/user_avatar.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/classes/providers/class_provider.dart';
 import '../../../data/models/class_model.dart';
 import '../../../features/communication/providers/announcements_provider.dart';
 import '../../../features/structure/providers/academic_year_context.dart';
+import '../../../features/structure/widgets/demarrage_card.dart';
 import '../../../features/structure/providers/academic_year_provider.dart';
 import '../../../features/navigation/providers/module_navigation_provider.dart';
 import '../../../features/navigation/providers/permissions_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../providers/dashboard_provider.dart';
+import '../../examens/providers/examens_provider.dart';
+import '../../stages/providers/stages_provider.dart';
 
 part 'dashboard_year_parts.dart';
 part 'dashboard_kpi_parts.dart';
 part 'dashboard_chart_parts.dart';
 part 'dashboard_block_parts.dart';
+part 'dashboard_examens_parts.dart';
 part 'dashboard_cards_parts.dart';
 part 'dashboard_modules_parts.dart';
+part 'dashboard_skeleton_parts.dart';
 
 /// Ombre portée du texte de la bannière — garantit le contraste du blanc sur le
 /// verre translucide (fond variable derrière l'aurora).
-const List<Shadow> _kBannerTextShadow = [
-  Shadow(color: Color(0x99091828), blurRadius: 8, offset: Offset(0, 1)),
+List<Shadow> get _kBannerTextShadow => [
+  Shadow(color: kNavyDeep, blurRadius: 8, offset: const Offset(0, 1)),
 ];
 
 /// Palette cyclique pour les tuiles / graphes.
-const _kPalette = [
+List<Color> get _kPalette => [
   kNavy,
   kGreen,
-  Color(0xFF0EA5E9),
-  Color(0xFF7C3AED),
-  Color(0xFFEF4444),
-  Color(0xFFF59E0B),
-  Color(0xFF0891B2),
-  Color(0xFFDB2777),
+  const Color(0xFF0EA5E9),
+  const Color(0xFF7C3AED),
+  const Color(0xFFEF4444),
+  const Color(0xFFF59E0B),
+  const Color(0xFF0891B2),
+  const Color(0xFFDB2777),
 ];
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -58,11 +62,12 @@ const _kPalette = [
 //  quand on lui retire ces modules, ça redescend. Le rôle ne sert qu'à départager
 //  à charge égale. Un bloc non autorisé ne s'affiche jamais.
 // ════════════════════════════════════════════════════════════════════════════
-enum _Section { scolarite, personnel, finance, medical, discipline }
+enum _Section { scolarite, examens, personnel, finance, medical, discipline }
 
 /// Modules représentatifs de chaque domaine (alignés sur les `show*` du build).
 const Map<_Section, List<String>> _sectionSlugs = {
   _Section.scolarite: ['classes', 'eleves', 'inscriptions'],
+  _Section.examens: ['examens', 'stages'],
   _Section.personnel: ['personnel'],
   _Section.finance: ['paiements-eleves', 'frais-scolarite', 'depenses', 'budget'],
   _Section.medical: ['infirmerie'],
@@ -88,6 +93,7 @@ int _sectionWeight(_Section s, Map<String, ModulePermission> perms) {
 List<_Section> _roleTiebreak(String role) {
   const overview = [
     _Section.scolarite,
+    _Section.examens,
     _Section.personnel,
     _Section.finance,
     _Section.discipline,
@@ -97,6 +103,7 @@ List<_Section> _roleTiebreak(String role) {
     'comptable' => const [
         _Section.finance,
         _Section.scolarite,
+        _Section.examens,
         _Section.personnel,
         _Section.discipline,
         _Section.medical,
@@ -104,6 +111,7 @@ List<_Section> _roleTiebreak(String role) {
     'infirmier' => const [
         _Section.medical,
         _Section.scolarite,
+        _Section.examens,
         _Section.personnel,
         _Section.finance,
         _Section.discipline,
@@ -111,6 +119,7 @@ List<_Section> _roleTiebreak(String role) {
     'cpe' || 'surveillant' => const [
         _Section.discipline,
         _Section.scolarite,
+        _Section.examens,
         _Section.personnel,
         _Section.finance,
         _Section.medical,
@@ -187,6 +196,7 @@ class _DashboardBody extends ConsumerWidget {
         (groupedAsync.isLoading && !groupedAsync.hasValue) ||
         (permsAsync.isLoading && !permsAsync.hasValue);
     final modulesError = groupedAsync.hasError || permsAsync.hasError;
+
     var hasModules = false;
     for (final entry in grouped.entries) {
       if (entry.value.any((m) => perms[m.slug]?.canRead ?? false)) {
@@ -194,6 +204,23 @@ class _DashboardBody extends ConsumerWidget {
         break;
       }
     }
+
+    // Squelette shimmer tant que le dashboard n'a pas de contenu STABLE :
+    // 1) vrai premier chargement (aucune valeur produite : `isLoading && !hasValue`),
+    // 2) le piège PowerSync : `db.watch()` émet une liste VIDE avant la première
+    //    synchro (hasValue=true, isLoading=false). Sans garde, « Aucun module »
+    //    et des KPI à zéro clignotent une fraction de seconde avant que les
+    //    données descendent. On garde donc la silhouette tant qu'aucun module
+    //    n'est là ET que la synchro initiale n'a JAMAIS abouti (`lastSyncedAt`
+    //    est persisté : après la 1ʳᵉ synchro, un relancement offline s'affiche
+    //    instantanément et un re-sync de fond ne clignote jamais par-dessus le
+    //    contenu vivant).
+    final everSynced = ref.watch(lastSyncedAtProvider) != null;
+    final firstLoad = (permsAsync.isLoading && !permsAsync.hasValue) ||
+        (groupedAsync.isLoading && !groupedAsync.hasValue) ||
+        (schoolAsync.isLoading && !schoolAsync.hasValue);
+    final awaitingFirstSync = !hasModules && !everSynced && !modulesError;
+    if (firstLoad || awaitingFirstSync) return const _DashboardSkeleton();
 
     // Permissions d'affichage des blocs métier.
     final showClasses = perms['classes']?.canRead ?? false;
@@ -204,6 +231,9 @@ class _DashboardBody extends ConsumerWidget {
 
     // Blocs métier composés selon les PERMISSIONS (→ adaptatif au rôle).
     final showScolarite = showClasses || showEleves;
+    final showExamensMod = perms['examens']?.canRead ?? false;
+    final showStagesMod = perms['stages']?.canRead ?? false;
+    final showExamens = showExamensMod || showStagesMod;
     final showPersonnel = perms['personnel']?.canRead ?? false;
     final showFinance = (perms['paiements-eleves']?.canRead ?? false) ||
         (perms['frais-scolarite']?.canRead ?? false) ||
@@ -212,6 +242,7 @@ class _DashboardBody extends ConsumerWidget {
     final showMedical = perms['infirmerie']?.canRead ?? false;
     final showDiscipline = perms['discipline']?.canRead ?? false;
     final anyBlock = showScolarite ||
+        showExamens ||
         showPersonnel ||
         showFinance ||
         showMedical ||
@@ -228,6 +259,11 @@ class _DashboardBody extends ConsumerWidget {
           showClasses: showClasses,
           showEleves: showEleves,
           showInscriptions: showInscriptions,
+        ),
+      if (showExamens)
+        _Section.examens: _ExamensBlock(
+          showExamens: showExamensMod,
+          showStages: showStagesMod,
         ),
       if (showPersonnel) _Section.personnel: const _PersonnelBlock(),
       if (showFinance) _Section.finance: const _FinanceBlock(),
@@ -258,6 +294,10 @@ class _DashboardBody extends ConsumerWidget {
           agentAvatarUrl: agent?.avatarUrl,
         ),
         const SizedBox(height: 18),
+
+        // Le premier matin, un établissement ouvre l'application sur du vide.
+        // Cette carte dit par où commencer, puis s'efface d'elle-même.
+        const DemarrageCard(),
 
         if (activeYear != null) ...[
           _AcademicYearCard(year: activeYear, syncState: syncState),
@@ -324,26 +364,7 @@ class _SchoolBanner extends StatefulWidget {
   State<_SchoolBanner> createState() => _SchoolBannerState();
 }
 
-class _SchoolBannerState extends State<_SchoolBanner>
-    with SingleTickerProviderStateMixin {
-  // Dérive lente des halos lumineux (aurora) — luminescence « vivante » discrète.
-  late final AnimationController _glow;
-
-  @override
-  void initState() {
-    super.initState();
-    _glow = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 9),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _glow.dispose();
-    super.dispose();
-  }
-
+class _SchoolBannerState extends State<_SchoolBanner> {
   String _greeting() {
     final h = DateTime.now().hour;
     if (h < 12) return 'Bonjour';
@@ -362,97 +383,28 @@ class _SchoolBannerState extends State<_SchoolBanner>
         child: Transform.translate(offset: Offset(0, 14 * (1 - t)), child: child),
       ),
       child: Container(
-        // Verre translucide + lueur périphérique fluorescente (halos colorés
-        // diffusés en ombre externe) : effet « premium glass » sans nuire à la
-        // lisibilité du texte blanc (base navy translucide gardée dense).
+        // Aplat MONO — aligné sur la bannière admin_groupe.
+        //
+        // `kNavyDeep` et non `kNavy` : depuis la refonte des thèmes, `kNavy` est
+        // un jeton de PREMIER PLAN (il s'éclaircit en sombre) — peindre une
+        // grande carte avec donnerait un aplat bleu clair sous du texte blanc.
+        // `kNavyDeep` reste un fond sombre dans les 3 thèmes (garanti par
+        // `palette_test.dart` : blanc lisible dessus).
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
+          color: kNavyDeep,
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: kNavy.withValues(alpha: 0.28),
-              blurRadius: 26,
-              offset: const Offset(0, 12),
-            ),
-            BoxShadow(
-              color: kGreen.withValues(alpha: 0.18),
-              blurRadius: 34,
-              spreadRadius: -8,
-              offset: const Offset(-10, 8),
-            ),
-            BoxShadow(
-              color: const Color(0xFF0EA5E9).withValues(alpha: 0.18),
-              blurRadius: 34,
-              spreadRadius: -8,
-              offset: const Offset(12, -4),
+              color: kNavy.withValues(alpha: 0.25),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           child: Stack(
             children: [
-              // Base « verre fumé » : navy fortement translucide → le bleu
-              // s'efface (sans disparaître tout à fait), le fond transparaît et
-              // l'aurora colorée transparaît. Lisibilité assurée par l'ombre de
-              // texte (cf. _bannerShadow) + le voile plus dense en bas.
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        kNavyDark.withValues(alpha: 0.55),
-                        kNavy.withValues(alpha: 0.40),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              // Voile bas plus dense : ancre la carte et sécurise le contraste
-              // du texte quel que soit le fond derrière (verre translucide).
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: [
-                        kNavyDark.withValues(alpha: 0.34),
-                        kNavyDark.withValues(alpha: 0.0),
-                      ],
-                      stops: const [0.0, 0.62],
-                    ),
-                  ),
-                ),
-              ),
-              // Aurora lumineuse animée (halos verts/bleus/violets diffus).
-              Positioned.fill(
-                child: AnimatedBuilder(
-                  animation: _glow,
-                  builder: (_, _) =>
-                      CustomPaint(painter: _AuroraPainter(_glow.value)),
-                ),
-              ),
-              // Reflet supérieur (sheen) — accentue l'effet vitré.
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  height: 56,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.white.withValues(alpha: 0.10),
-                        Colors.white.withValues(alpha: 0.0),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
                 child: Row(
@@ -494,13 +446,13 @@ class _SchoolBannerState extends State<_SchoolBanner>
                         children: [
                           Text(
                               '${_greeting()}${widget.firstName.isNotEmpty ? ", ${widget.firstName}" : ""} 👋',
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: Colors.white70,
                                   fontSize: 13,
                                   shadows: _kBannerTextShadow)),
                           const SizedBox(height: 5),
                           Text(widget.schoolName,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 22,
                                   fontWeight: FontWeight.w800,
@@ -516,7 +468,7 @@ class _SchoolBannerState extends State<_SchoolBanner>
                               const SizedBox(width: 5),
                               Flexible(
                                 child: Text(widget.roleLabel!,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         color: Colors.white70,
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
@@ -571,37 +523,6 @@ class _SchoolBannerState extends State<_SchoolBanner>
 
 // Peintre d'aurora : 3 halos colorés diffus qui dérivent lentement derrière le
 // verre. MaskFilter.blur donne la luminescence « fluo » à faible coût.
-class _AuroraPainter extends CustomPainter {
-  _AuroraPainter(this.t);
-  final double t;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width, h = size.height;
-    final dx = math.sin(t * 2 * math.pi);
-    final dy = math.cos(t * 2 * math.pi);
-
-    void blob(Offset center, double r, Color color) {
-      final p = Paint()
-        ..color = color
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 44);
-      canvas.drawCircle(center, r, p);
-    }
-
-    blob(Offset(w * 0.16 + dx * 24, h * 0.30 + dy * 16), 78,
-        kGreen.withValues(alpha: 0.32));
-    blob(Offset(w * 0.80 - dx * 28, h * 0.70 + dy * 20), 92,
-        const Color(0xFF0EA5E9).withValues(alpha: 0.30));
-    blob(Offset(w * 0.55 + dx * 20, h * 0.08 - dy * 14), 64,
-        const Color(0xFF7C3AED).withValues(alpha: 0.26));
-    blob(Offset(w * 0.40 - dx * 18, h * 0.85 - dy * 16), 58,
-        const Color(0xFFF59E0B).withValues(alpha: 0.18));
-  }
-
-  @override
-  bool shouldRepaint(_AuroraPainter old) => old.t != t;
-}
-
 // ─── Logo établissement (cascade école → groupe → initiales) ───────────────────
 // L'école est une émanation du groupe scolaire : si elle n'a pas son propre logo,
 // elle hérite naturellement de celui du groupe. Dernier repli : ses initiales.
@@ -679,7 +600,7 @@ class _SchoolLogoBadge extends StatelessWidget {
 class _TricolorStrip extends StatelessWidget {
   const _TricolorStrip();
   @override
-  Widget build(BuildContext context) => const SizedBox(
+  Widget build(BuildContext context) => SizedBox(
         height: 4,
         child: Row(children: [
           Expanded(child: ColoredBox(color: kGreen)),

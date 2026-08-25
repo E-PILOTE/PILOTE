@@ -40,13 +40,20 @@ class _OrientationSheetState extends ConsumerState<_OrientationSheet> {
     final p = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
     if (yearId == null) return;
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+      return;
+    }
     setState(() => _busy = true);
     final ok = await runModuleWrite(
       context,
       () => saveOrientation(
         id: widget.row.recordId,
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         academicYearId: yearId,
         studentId: widget.row.studentId,
         trimesterId: widget.trimesterId,
@@ -54,7 +61,7 @@ class _OrientationSheetState extends ConsumerState<_OrientationSheet> {
         targetLevel: _level.text.trim().isEmpty ? null : _level.text.trim(),
         targetFiliere: _filiere.text.trim().isEmpty ? null : _filiere.text.trim(),
         parentConsulted: _consulted,
-        counselorId: p?.id ?? '',
+        counselorId: p.id,
       ),
       success: 'Orientation enregistrée',
     );
@@ -74,9 +81,9 @@ class _OrientationSheetState extends ConsumerState<_OrientationSheet> {
       minChildSize: 0.45,
       maxChildSize: 0.95,
       builder: (ctx, scroll) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: kCardBg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(children: [
           const SizedBox(height: 10),
@@ -88,18 +95,18 @@ class _OrientationSheetState extends ConsumerState<_OrientationSheet> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 12, 10),
             child: Row(children: [
-              const Icon(Icons.explore_rounded, size: 18, color: kNavy),
+              Icon(Icons.explore_rounded, size: 18, color: kNavy),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(widget.row.studentName,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: kTextPrimary)),
               ),
               if (!widget.canEdit)
-                const Padding(
-                  padding: EdgeInsets.only(right: 4),
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
                   child: Icon(Icons.lock_outline_rounded,
                       size: 16, color: kTextMuted),
                 ),

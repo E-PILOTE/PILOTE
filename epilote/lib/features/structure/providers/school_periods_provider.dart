@@ -67,7 +67,7 @@ final schoolPeriodsProvider =
     '''
     SELECT id, cycle_code, label, period_index, kind, start_time, end_time
     FROM   school_periods
-    WHERE  school_id = ? AND is_active = 1
+    WHERE  school_id = ? AND COALESCE(is_active, 1) <> 0
     ORDER  BY start_time, period_index
     ''',
     parameters: [schoolId],

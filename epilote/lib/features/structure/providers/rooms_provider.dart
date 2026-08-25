@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/utils/booleen_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
 
@@ -68,7 +69,7 @@ final roomsProvider = StreamProvider.autoDispose<List<Room>>((ref) {
     '''
     SELECT id, code, name, room_type, capacity, building, is_active
     FROM   rooms
-    WHERE  school_id = ? AND is_active = 1
+    WHERE  school_id = ? AND COALESCE(is_active, 1) <> 0
     ORDER  BY room_type, name
     ''',
     parameters: [schoolId],
@@ -81,7 +82,9 @@ final roomsProvider = StreamProvider.autoDispose<List<Room>>((ref) {
             roomType: (r['room_type'] as String?) ?? 'ordinaire',
             capacity: (r['capacity'] as num?)?.toInt(),
             building: r['building'] as String?,
-            isActive: (r['is_active'] as int? ?? 1) == 1,
+            // Sémantique déjà juste (`?? 1`), écrite désormais sous la forme
+            // unique du dépôt — c'est elle que la garde reconnaît.
+            isActive: actifOffline(r['is_active']),
           ),
       ]);
 });

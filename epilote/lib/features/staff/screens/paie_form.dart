@@ -65,13 +65,19 @@ class _PayrollFormState extends ConsumerState<_PayrollForm> {
       return;
     }
     final p = ref.read(authNotifierProvider).valueOrNull;
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isNotEmpty) {
+      _snack(writeIdentityMessage(missing));
+      return;
+    }
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
       () => savePayroll(
         id: widget.line?.id,
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         staffId: _staffId!,
         month: widget.month,
         year: widget.year,
@@ -82,7 +88,7 @@ class _PayrollFormState extends ConsumerState<_PayrollForm> {
         method: _method,
         status: _status,
         reference: _reference.text.trim().isEmpty ? null : _reference.text.trim(),
-        createdBy: p?.id ?? '',
+        createdBy: p.id,
       ),
       success: _isEdit ? 'Bulletin modifié' : 'Bulletin créé',
     );
@@ -166,7 +172,7 @@ class _PayrollFormState extends ConsumerState<_PayrollForm> {
                     border: Border.all(color: kGreen.withValues(alpha: 0.3)),
                   ),
                   child: Row(children: [
-                    const Icon(Icons.account_balance_wallet_rounded,
+                    Icon(Icons.account_balance_wallet_rounded,
                         size: 18, color: kGreen),
                     const SizedBox(width: 10),
                     const Text('Net à payer',
@@ -174,7 +180,7 @@ class _PayrollFormState extends ConsumerState<_PayrollForm> {
                             fontSize: 13, fontWeight: FontWeight.w700)),
                     const Spacer(),
                     Text(fmtXaf(_net),
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
                             color: kGreen)),

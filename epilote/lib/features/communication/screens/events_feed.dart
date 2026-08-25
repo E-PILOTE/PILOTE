@@ -16,6 +16,7 @@ import '../widgets/staff_event_calendar.dart';
 import '../widgets/staff_feed_ui.dart';
 import 'events_feed_cards.dart';
 import 'events_feed_form.dart';
+import '../../../core/utils/message_erreur.dart';
 
 /// Agenda partagé scope-aware (onglet « Agenda » du module Annonces).
 /// • École → offline-first (`schoolEventsProvider`, SQLite local).
@@ -89,7 +90,7 @@ class _EventsAgendaBodyState extends ConsumerState<EventsAgendaBody> {
       skipLoadingOnReload: true,
       loading: () => const FeedSkeleton(cards: 4, maxWidth: double.infinity),
       error: (e, _) => Center(
-        child: Text('Erreur : $e', style: const TextStyle(color: kTextMuted)),
+        child: Text(messageErreur(e), style: TextStyle(color: kTextMuted)),
       ),
       data: (events) => _buildBody(context, events),
     );

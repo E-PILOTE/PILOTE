@@ -8,6 +8,11 @@ class Routes {
   static const String profilePending = '/profile-pending';
   static const String forgotPassword = '/forgot-password';
 
+  /// Le poste a perdu sa session serveur mais se reconnaît et tient encore les
+  /// données de son école. Prend la place de l'écran de connexion, qui serait
+  /// un mur : sur place, personne ne connaît le mot de passe du compte.
+  static const String reprisePoste   = '/reprise-poste';
+
   // ── Super Admin ─────────────────────────────────────────────────────────
   static const String superDashboard       = '/super/dashboard';
   static const String superGroupes         = '/super/groupes';
@@ -23,6 +28,8 @@ class Routes {
   static const String superMessagesInbox= '/super/messagerie/messages';
   static const String superTickets      = '/super/messagerie/tickets';
   static const String superAnnonces     = '/super/messagerie/annonces';
+  static const String superMessagesAccueil = '/super/messagerie/accueil';
+  static const String superPartenaires  = '/super/messagerie/partenaires';
   static const String superNotifications= '/super/notifications';
   static const String superIa           = '/super/ia';
   static const String superAudit        = '/super/audit';
@@ -30,13 +37,30 @@ class Routes {
   static const String superParametres   = '/super/parametres';
   static const String superProfil       = '/super/profil';
   static const String superCarte        = '/super/carte';
+  static const String superVersions     = '/super/versions';
 
   // ── Admin Groupe ─────────────────────────────────────────────────────────
   static const String adminDashboard    = '/admin/dashboard';
   static const String adminEcoles       = '/admin/ecoles';
   static const String adminEcoleDetail  = '/admin/ecoles/:id';
   static const String adminUtilisateurs = '/admin/utilisateurs';
+  static const String adminEleves       = '/admin/eleves';
   static const String adminProfils      = '/admin/profils';
+  // Le SEUL endroit de la plateforme où un montant se crée. L'école reçoit et
+  // applique — elle n'a plus aucun écran d'écriture (migration 0096, D2).
+  static const String adminFrais        = '/admin/frais';
+  // Où pointe la 6e de chaque école. Un tarif réseau par niveau (mig. 0101)
+  // vise une entrée du référentiel ; toute la chaîne tient à ce rattachement,
+  // et rien ne le montrait — d'où cet écran de constat, en lecture seule.
+  static const String adminRattachement = '/admin/rattachement';
+  static const String adminExamens      = '/admin/examens';
+  // Le référentiel national et son calendrier appartiennent au MINISTÈRE, pas
+  // à l'opérateur de la plateforme : c'est lui qui connaît les examens et
+  // reçoit les arrêtés. Le super_admin exploite le SaaS, il ne le peuple pas.
+  static const String adminReferentiel  = '/admin/referentiel-examens';
+  static const String adminSessions     = '/admin/sessions-examen';
+  static const String adminResultats    = '/admin/resultats';
+  static const String adminPalmares     = '/admin/palmares';
   static const String adminRapports     = '/admin/rapports';
   static const String adminAbonnement   = '/admin/abonnement';
   static const String adminAudit        = '/admin/audit';
@@ -71,9 +95,13 @@ class Routes {
   static const String calendrier      = '/user/calendrier'; // config direction (natif)
   static const String matieres        = '/user/matieres';
   static const String programmes      = '/user/programmes';
+  static const String examens        = '/user/examens';
+  static const String stages         = '/user/stages';
+  static const String examenSession  = '/user/examens/session/:id';
   static const String notes           = '/user/notes';
   static const String bulletins       = '/user/bulletins';
   static const String conseils        = '/user/conseils';
+  static const String passage         = '/user/passage';
   static const String presences       = '/user/presences';
   static const String emploiDuTemps   = '/user/emploi-du-temps';
   static const String cahierTextes    = '/user/cahier-textes';

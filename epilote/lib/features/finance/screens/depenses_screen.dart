@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
@@ -9,6 +10,7 @@ import '../../structure/providers/academic_year_context.dart';
 import '../../vie_scolaire/widgets/vs_kit.dart';
 import '../../vie_scolaire/widgets/vs_form_chrome.dart';
 import '../providers/depenses_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'depenses_form.dart';
 
@@ -96,7 +98,7 @@ class _BodyState extends ConsumerState<_Body> {
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (all) {
         final filtered = _apply(all);
         final total = all.fold(0, (a, e) => a + e.amount);
@@ -193,9 +195,9 @@ class _CategoryBreakdown extends StatelessWidget {
   const _CategoryBreakdown({required this.byCat, required this.total});
   final Map<String, int> byCat;
   final int total;
-  static const _colors = [
-    Color(0xFF0EA5E9), kGreen, Color(0xFFF59E0B), Color(0xFF8B5CF6),
-    Color(0xFFEC4899), kNavy, kTextMuted,
+  static List<Color> get _colors => [
+    const Color(0xFF0EA5E9), kGreen, const Color(0xFFF59E0B), const Color(0xFF8B5CF6),
+    const Color(0xFFEC4899), kNavy, kTextMuted,
   ];
   @override
   Widget build(BuildContext context) {
@@ -204,14 +206,14 @@ class _CategoryBreakdown extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kBorder),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+        Row(children: [
           Icon(Icons.pie_chart_rounded, size: 16, color: kTextMuted),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Text('Répartition par catégorie',
               style: TextStyle(
                   fontSize: 13, fontWeight: FontWeight.w800, color: kTextPrimary)),
@@ -242,7 +244,7 @@ class _CategoryBreakdown extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                   '${expenseCategoryLabel(entries[i].key)} · ${fmtXaf(entries[i].value)}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
                       color: kTextPrimary)),
@@ -276,7 +278,7 @@ class _FilterBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: kBorder),
       ),
@@ -288,9 +290,9 @@ class _FilterBar extends StatelessWidget {
             onChanged: onSearch,
             decoration: InputDecoration(
               hintText: 'Rechercher une dépense…',
-              hintStyle: const TextStyle(color: kTextMuted, fontSize: 13),
+              hintStyle: TextStyle(color: kTextMuted, fontSize: 13),
               prefixIcon:
-                  const Icon(Icons.search_rounded, color: kTextMuted, size: 20),
+                  Icon(Icons.search_rounded, color: kTextMuted, size: 20),
               filled: true,
               fillColor: kSurface,
               border: OutlineInputBorder(
@@ -331,7 +333,7 @@ class _FilterBar extends StatelessWidget {
         IconButton(
           tooltip: 'Réinitialiser',
           onPressed: onReset,
-          icon: const Icon(Icons.filter_alt_off_outlined, color: kTextMuted),
+          icon: Icon(Icons.filter_alt_off_outlined, color: kTextMuted),
         ),
         const SizedBox(width: 4),
         if (canCreate) _AddBtn(label: 'Dépense', onTap: onAdd),
@@ -358,7 +360,7 @@ class _ExpenseCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: kBorder),
       ),
@@ -369,7 +371,7 @@ class _ExpenseCard extends StatelessWidget {
           decoration: BoxDecoration(
               color: kRed.withValues(alpha: 0.07),
               borderRadius: BorderRadius.circular(10)),
-          child: const Icon(Icons.trending_down_rounded, size: 20, color: kRed),
+          child: Icon(Icons.trending_down_rounded, size: 20, color: kRed),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -392,7 +394,7 @@ class _ExpenseCard extends StatelessWidget {
                         color: kNavy.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(6)),
                     child: Text(expenseCategoryLabel(e.category),
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w700,
                             color: kNavy)),
@@ -404,15 +406,15 @@ class _ExpenseCard extends StatelessWidget {
                     '${(e.description ?? '').isNotEmpty ? ' · ${e.description}' : ''}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                    style: TextStyle(fontSize: 12, color: kTextMuted)),
               ]),
         ),
         Text(fmtXaf(e.amount),
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 15, fontWeight: FontWeight.w800, color: kRed)),
         if (canEdit || canDelete)
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
+            icon: Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
             onSelected: (v) => v == 'edit' ? onEdit() : onDelete(),
             itemBuilder: (ctx) => [
               if (canEdit)
@@ -424,11 +426,11 @@ class _ExpenseCard extends StatelessWidget {
                       Text('Modifier'),
                     ])),
               if (canDelete)
-                const PopupMenuItem(
+                PopupMenuItem(
                     value: 'delete',
                     child: Row(children: [
                       Icon(Icons.delete_outline_rounded, size: 16, color: kRed),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text('Supprimer', style: TextStyle(color: kRed)),
                     ])),
             ],
@@ -452,7 +454,7 @@ class _AddBtn extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                   colors: [kNavyDark, kNavy],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight),

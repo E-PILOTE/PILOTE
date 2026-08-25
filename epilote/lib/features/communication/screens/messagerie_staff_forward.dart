@@ -104,9 +104,9 @@ class _ForwardMessageDialogState extends ConsumerState<ForwardMessageDialog> {
         padding: const EdgeInsets.all(18),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Row(children: [
-            const Icon(Icons.shortcut_rounded, size: 19, color: kNavy),
+            Icon(Icons.shortcut_rounded, size: 19, color: kNavy),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Text('Transférer à…',
                   style: TextStyle(
                       fontSize: 15,
@@ -116,7 +116,7 @@ class _ForwardMessageDialogState extends ConsumerState<ForwardMessageDialog> {
             IconButton(
               visualDensity: VisualDensity.compact,
               onPressed: _busy ? null : () => Navigator.pop(context),
-              icon: const Icon(Icons.close_rounded, color: kTextMuted),
+              icon: Icon(Icons.close_rounded, color: kTextMuted),
             ),
           ]),
           const SizedBox(height: 4),
@@ -137,7 +137,7 @@ class _ForwardMessageDialogState extends ConsumerState<ForwardMessageDialog> {
                         : '(vide)'),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12.5, color: kTextPrimary)),
+                style: TextStyle(fontSize: 12.5, color: kTextPrimary)),
           ),
           const SizedBox(height: 10),
           TextField(
@@ -173,8 +173,8 @@ class _ForwardMessageDialogState extends ConsumerState<ForwardMessageDialog> {
                     ),
                 ],
                 if (fg.isEmpty && fp.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(24),
+                  Padding(
+                    padding: const EdgeInsets.all(24),
                     child: Center(
                       child: Text('Aucune destination',
                           style:
@@ -199,7 +199,7 @@ class _ForwardSection extends StatelessWidget {
         child: Align(
           alignment: Alignment.centerLeft,
           child: Text(label.toUpperCase(),
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 10.5,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.4,
@@ -238,7 +238,7 @@ class _ForwardTile extends StatelessWidget {
                   Text(title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: kTextPrimary)),
@@ -247,11 +247,11 @@ class _ForwardTile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style:
-                            const TextStyle(fontSize: 11, color: kTextMuted)),
+                            TextStyle(fontSize: 11, color: kTextMuted)),
                 ],
               ),
             ),
-            const Icon(Icons.send_rounded, size: 16, color: kNavy),
+            Icon(Icons.send_rounded, size: 16, color: kNavy),
           ]),
         ),
       );

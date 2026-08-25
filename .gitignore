@@ -59,5 +59,33 @@ powersynck-Token
 # Jeton PowerSync local (ne jamais committer)
 powersynchToken
 
+# ⚠️ `powersync/cli.yaml` N'EST PLUS ignoré : il ne contient que des
+# identifiants d'instance, déjà présents en clair dans
+# `epilote/lib/services/powersync/powersync_connector.dart` depuis le
+# 2026-08-04. Les cacher ici ne protégeait rien et faisait perdre, à chaque
+# changement de machine, l'information « quelle instance vise-t-on ». Le
+# secret réel (jeton d'administration) est demandé par `powersync login` et
+# ne touche jamais le disque du dépôt.
+
 # Temp CLI supabase
 supabase/.temp/
+
+# ─── CLI PowerSync installée dans le projet ───────────────────────────────────
+# `npm install -g --prefix .tools powersync` (296 paquets, à ne pas committer).
+# Pourquoi ici plutôt qu'en global : l'application Claude est un paquet Windows
+# à système de fichiers redirigé — ce qu'elle écrit dans %APPDATA% atterrit
+# sous AppData\Local\Packages\Claude_…\LocalCache\Roaming\. Une CLI installée
+# depuis l'assistant est donc INVISIBLE depuis un vrai terminal, et l'inverse
+# est vrai aussi. `.tools\` n'est redirigé pour personne.
+.tools/
+
+# Compagnon visuel brainstorming (superpowers)
+.superpowers/
+
+# Artefacts d'empaquetage (.deb, bundles)
+dist/
+
+# ─── Sauvegardes de base ──────────────────────────────────────────────────────
+# Dumps CSV de la base de production : données scolaires réelles (élèves,
+# personnels, paiements). Elles n'ont rien à faire dans un dépôt, même privé.
+backups/

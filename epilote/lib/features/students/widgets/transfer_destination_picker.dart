@@ -137,7 +137,7 @@ class _Lbl extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 7),
         child: Text(text,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
                 color: kTextPrimary)),
@@ -166,8 +166,8 @@ class _Dropdown extends StatelessWidget {
     return DropdownButtonFormField<String>(
       initialValue: value,
       isExpanded: true,
-      style: const TextStyle(fontSize: 13, color: kTextPrimary),
-      icon: const Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
+      style: TextStyle(fontSize: 13, color: kTextPrimary),
+      icon: Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
       decoration: adminFilledInput(hint, icon: icon),
       selectedItemBuilder: (context) => [
         for (final e in items)
@@ -176,7 +176,7 @@ class _Dropdown extends StatelessWidget {
             child: Text(e.$2,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13, color: kTextPrimary)),
+                style: TextStyle(fontSize: 13, color: kTextPrimary)),
           ),
       ],
       items: [

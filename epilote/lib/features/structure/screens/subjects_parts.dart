@@ -85,7 +85,7 @@ class _SubjectFilterBar extends StatelessWidget {
                     color: kNavy),
                 const SizedBox(width: 7),
                 Text(isTable ? 'Cartes' : 'Table',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: kNavy)),
@@ -162,10 +162,10 @@ class _ResultHeader extends StatelessWidget {
         ? _pl(total, 'matière', 'matières')
         : '$filtered / ${_pl(total, 'matière', 'matières')}';
     return Row(children: [
-      const Icon(Icons.menu_book_outlined, size: 16, color: kTextMuted),
+      Icon(Icons.menu_book_outlined, size: 16, color: kTextMuted),
       const SizedBox(width: 8),
       Text(txt,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
       const Spacer(),
       if (onExportPdf != null) AdminPdfButton(onTap: onExportPdf!),
@@ -182,7 +182,7 @@ class _NiveauxCell extends StatelessWidget {
   Widget build(BuildContext context) {
     if (niveaux.isEmpty) {
       return Text(assigned ? '—' : 'Non affectée',
-          style: const TextStyle(fontSize: 12, color: kTextMuted));
+          style: TextStyle(fontSize: 12, color: kTextMuted));
     }
     const cap = 4;
     final shown = niveaux.length > cap ? niveaux.sublist(0, cap) : niveaux;
@@ -191,7 +191,7 @@ class _NiveauxCell extends StatelessWidget {
       for (final n in shown) AdminBadge(n, color: kNavy),
       if (extra > 0)
         Text('+$extra',
-            style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+            style: TextStyle(fontSize: 11.5, color: kTextMuted)),
     ]);
   }
 }
@@ -231,9 +231,9 @@ class _SubjectTable extends ConsumerWidget {
       child: Column(children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: kSurface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
           ),
           child: Row(children: [
             if (canBulk) ...[
@@ -288,7 +288,7 @@ class _Check extends StatelessWidget {
           activeColor: kNavy,
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           visualDensity: VisualDensity.compact,
-          side: const BorderSide(color: kTextMuted, width: 1.5),
+          side: BorderSide(color: kTextMuted, width: 1.5),
         ),
       );
 }
@@ -305,7 +305,7 @@ class _Th extends StatelessWidget {
       Flexible(
         child: Text(label,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.4,
@@ -350,7 +350,7 @@ class _SubjectRow extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? kNavy.withValues(alpha: 0.04) : null,
           border:
-              last ? null : const Border(bottom: BorderSide(color: kBorder)),
+              last ? null : Border(bottom: BorderSide(color: kBorder)),
         ),
         child: Row(children: [
           if (canBulk) ...[
@@ -373,7 +373,7 @@ class _SubjectRow extends StatelessWidget {
                 child: Text(s.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w700,
                         color: kTextPrimary)),
@@ -396,7 +396,7 @@ class _SubjectRow extends StatelessWidget {
             child: Align(
               alignment: Alignment.centerLeft,
               child: s.classCount == 0
-                  ? const Text('—',
+                  ? Text('—',
                       style: TextStyle(fontSize: 12.5, color: kTextMuted))
                   : AdminBadge(_pl(s.classCount, 'classe', 'classes'),
                       color: kNavy),
@@ -409,7 +409,7 @@ class _SubjectRow extends StatelessWidget {
                 IconButton(
                   tooltip: 'Modifier',
                   visualDensity: VisualDensity.compact,
-                  icon: const Icon(Icons.edit_outlined, size: 18, color: kNavy),
+                  icon: Icon(Icons.edit_outlined, size: 18, color: kNavy),
                   onPressed: onEdit,
                 ),
               if (canDelete)
@@ -417,10 +417,10 @@ class _SubjectRow extends StatelessWidget {
                   tooltip: 'Archiver',
                   visualDensity: VisualDensity.compact,
                   icon:
-                      const Icon(Icons.archive_outlined, size: 18, color: kRed),
+                      Icon(Icons.archive_outlined, size: 18, color: kRed),
                   onPressed: onArchive,
                 ),
-              const Icon(Icons.chevron_right_rounded,
+              Icon(Icons.chevron_right_rounded,
                   size: 18, color: kTextMuted),
             ]),
           ),
@@ -504,14 +504,14 @@ class _SubjectGridCard extends StatelessWidget {
             IconButton(
               tooltip: 'Modifier',
               visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.edit_outlined, size: 17, color: kNavy),
+              icon: Icon(Icons.edit_outlined, size: 17, color: kNavy),
               onPressed: onEdit,
             ),
           if (canDelete)
             IconButton(
               tooltip: 'Archiver',
               visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.archive_outlined, size: 17, color: kRed),
+              icon: Icon(Icons.archive_outlined, size: 17, color: kRed),
               onPressed: onArchive,
             ),
         ]),
@@ -519,7 +519,7 @@ class _SubjectGridCard extends StatelessWidget {
         Text(s.name,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
                 color: kTextPrimary)),
@@ -541,8 +541,8 @@ class _SubjectGridCard extends StatelessWidget {
           _NiveauxCell(niveaux: s.niveaux, assigned: true),
         ],
         const SizedBox(height: 10),
-        const Row(children: [
-          Spacer(),
+        Row(children: [
+          const Spacer(),
           Text('Détails', style: TextStyle(fontSize: 11, color: kTextMuted)),
           Icon(Icons.chevron_right_rounded, size: 15, color: kTextMuted),
         ]),
@@ -627,7 +627,7 @@ class _SubjectFormState extends ConsumerState<_SubjectForm> {
       submitIcon: _isEdit ? Icons.check_rounded : Icons.add_rounded,
       onSubmit: _saving ? null : _save,
       body: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Nom de la matière *',
+        Text('Nom de la matière *',
             style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
@@ -641,7 +641,7 @@ class _SubjectFormState extends ConsumerState<_SubjectForm> {
               icon: Icons.menu_book_outlined),
         ),
         const SizedBox(height: 16),
-        const Text('Coefficient par défaut',
+        Text('Coefficient par défaut',
             style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
@@ -654,7 +654,7 @@ class _SubjectFormState extends ConsumerState<_SubjectForm> {
           Expanded(
             child: Center(
               child: Text('$_coef',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.w800,
                       color: kNavy)),
@@ -664,8 +664,8 @@ class _SubjectFormState extends ConsumerState<_SubjectForm> {
               icon: Icons.add_rounded,
               onTap: () => setState(() => _coef = (_coef + 1).clamp(1, 20))),
         ]),
-        const Padding(
-          padding: EdgeInsets.only(top: 10),
+        Padding(
+          padding: const EdgeInsets.only(top: 10),
           child: Text(
               'Une même matière peut être enseignée dans plusieurs niveaux et '
               'cycles, avec un coefficient différent par classe (ex. Maths coef. '

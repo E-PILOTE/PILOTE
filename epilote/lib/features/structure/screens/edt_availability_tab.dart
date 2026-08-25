@@ -60,7 +60,7 @@ class _AvailabilityTab extends ConsumerWidget {
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (items) {
         // Regroupé par enseignant.
         final byStaff = <String, List<TeacherAvailability>>{};
@@ -71,7 +71,7 @@ class _AvailabilityTab extends ConsumerWidget {
           padding: const EdgeInsets.all(16),
           children: [
             Row(children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                     'Plages d\'indisponibilité et préférences. Le placement d\'un '
                     'cours sur une plage « indisponible » est bloqué.',
@@ -132,16 +132,16 @@ class _StaffAvailCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: kBorder),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Icon(Icons.person_outline_rounded, size: 16, color: kNavy),
+          Icon(Icons.person_outline_rounded, size: 16, color: kNavy),
           const SizedBox(width: 8),
           Text(name,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 13.5, fontWeight: FontWeight.w800, color: kTextPrimary)),
         ]),
         const SizedBox(height: 10),
@@ -169,8 +169,8 @@ class _StaffAvailCard extends StatelessWidget {
                   InkWell(
                     onTap: () => onDelete(a),
                     borderRadius: BorderRadius.circular(20),
-                    child: const Padding(
-                      padding: EdgeInsets.all(3),
+                    child: Padding(
+                      padding: const EdgeInsets.all(3),
                       child: Icon(Icons.close_rounded, size: 14, color: kTextMuted),
                     ),
                   ),
@@ -209,12 +209,21 @@ class _AvailabilityFormState extends ConsumerState<_AvailabilityForm> {
     if (!_wholeDay && _hhmmToMin(_end) <= _hhmmToMin(_start)) return;
     final profile = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
+    final missing = missingWriteIds(
+        groupId: profile?.groupId,
+        schoolId: profile?.schoolId,
+        actorId: profile?.id);
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+      return;
+    }
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
       () => createTeacherAvailability(
-        groupId: profile?.groupId ?? '',
-        schoolId: profile?.schoolId ?? '',
+        groupId: profile!.groupId!,
+        schoolId: profile.schoolId!,
         staffId: _staffId!,
         academicYearId: yearId,
         dayOfWeek: _day,
@@ -239,12 +248,12 @@ class _AvailabilityFormState extends ConsumerState<_AvailabilityForm> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: kBorder))),
             child: Row(children: [
-              const Icon(Icons.event_busy_outlined, size: 18, color: kNavy),
+              Icon(Icons.event_busy_outlined, size: 18, color: kNavy),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text('Déclarer une disponibilité',
                     style: TextStyle(
                         fontSize: 15.5,

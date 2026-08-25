@@ -5,6 +5,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
+import '../../../services/powersync/student_document_upload.dart'
+    show attachStudentDocumentOffline;
+import '../../../services/powersync/upload_outbox.dart' show pendingFileFor;
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
@@ -14,6 +17,7 @@ import '../providers/student_documents_provider.dart';
 import '../providers/students_registry_provider.dart';
 import '../services/documents_pdf_service.dart';
 import '../widgets/scope_drilldown_panel.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'documents_parts.dart';
 part 'documents_detail.dart';
@@ -150,7 +154,7 @@ class _BodyState extends ConsumerState<_Body> {
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('Erreur : $e', style: const TextStyle(color: kRed)),
+          child: Text(messageErreur(e), style: TextStyle(color: kRed)),
         ),
       ),
       data: (allDossiers) {

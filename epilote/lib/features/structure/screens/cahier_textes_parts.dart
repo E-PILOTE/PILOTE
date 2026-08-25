@@ -96,9 +96,9 @@ class _Drop extends StatelessWidget {
         child: DropdownButtonFormField<String>(
           initialValue: items.containsKey(value) ? value : null,
           isExpanded: true,
-          style: const TextStyle(fontSize: 13, color: kTextPrimary),
+          style: TextStyle(fontSize: 13, color: kTextPrimary),
           icon:
-              const Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
+              Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
           decoration: adminFilledInput(hint),
           items: [
             DropdownMenuItem(value: null, child: Text(hint)),
@@ -129,17 +129,17 @@ class _ScopeChip extends StatelessWidget {
             border: Border.all(color: kNavy.withValues(alpha: 0.25)),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.filter_alt_rounded, size: 14, color: kNavy),
+            Icon(Icons.filter_alt_rounded, size: 14, color: kNavy),
             const SizedBox(width: 6),
             Text(label,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12.5, fontWeight: FontWeight.w700, color: kNavy)),
             const SizedBox(width: 2),
             InkWell(
               onTap: onClear,
               borderRadius: BorderRadius.circular(20),
-              child: const Padding(
-                padding: EdgeInsets.all(3),
+              child: Padding(
+                padding: const EdgeInsets.all(3),
                 child: Icon(Icons.close_rounded, size: 15, color: kNavy),
               ),
             ),
@@ -157,10 +157,10 @@ class _ResultHeader extends StatelessWidget {
     final noun = total <= 1 ? 'séance' : 'séances';
     final txt = filtered == total ? '$total $noun' : '$filtered / $total $noun';
     return Row(children: [
-      const Icon(Icons.history_edu_outlined, size: 16, color: kTextMuted),
+      Icon(Icons.history_edu_outlined, size: 16, color: kTextMuted),
       const SizedBox(width: 8),
       Text(txt,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
     ]);
   }
@@ -200,7 +200,7 @@ class _LessonTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
         decoration: BoxDecoration(
-          border: last ? null : const Border(bottom: BorderSide(color: kBorder)),
+          border: last ? null : Border(bottom: BorderSide(color: kBorder)),
         ),
         child: Row(children: [
           // Pastille date.
@@ -212,7 +212,7 @@ class _LessonTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8)),
             child: Column(children: [
               Text(e.entryDate?.day.toString().padLeft(2, '0') ?? '—',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
                       color: kNavy,
@@ -220,7 +220,7 @@ class _LessonTile extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                   e.entryDate != null ? _moShort(e.entryDate!.month) : '',
-                  style: const TextStyle(fontSize: 10.5, color: kTextMuted)),
+                  style: TextStyle(fontSize: 10.5, color: kTextMuted)),
             ]),
           ),
           const SizedBox(width: 13),
@@ -231,7 +231,7 @@ class _LessonTile extends StatelessWidget {
                   Text(e.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w700,
                           color: kTextPrimary)),
@@ -251,7 +251,7 @@ class _LessonTile extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style:
-                              const TextStyle(fontSize: 12, color: kTextMuted)),
+                              TextStyle(fontSize: 12, color: kTextMuted)),
                     ),
                   ]),
                 ]),
@@ -275,7 +275,7 @@ class _LessonTile extends StatelessWidget {
               ]),
             ),
           const SizedBox(width: 4),
-          const Icon(Icons.chevron_right_rounded, size: 18, color: kTextMuted),
+          Icon(Icons.chevron_right_rounded, size: 18, color: kTextMuted),
         ]),
       ),
     );
@@ -302,7 +302,7 @@ class _LessonDetail extends StatelessWidget {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: kBorder))),
             child: Row(children: [
               Expanded(
@@ -310,7 +310,7 @@ class _LessonDetail extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(e.title,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
@@ -322,7 +322,7 @@ class _LessonDetail extends StatelessWidget {
                             if (e.subjectName != null) e.subjectName!,
                           ].join('  ·  '),
                           style:
-                              const TextStyle(fontSize: 12.5, color: kTextMuted)),
+                              TextStyle(fontSize: 12.5, color: kTextMuted)),
                     ]),
               ),
               IconButton(
@@ -380,7 +380,7 @@ class _LessonDetail extends StatelessWidget {
 }
 
 class _Section extends StatelessWidget {
-  const _Section(this.label, this.value, this.icon, {this.accent = kNavy});
+  _Section(this.label, this.value, this.icon, {Color? accent}) : accent = accent ?? kNavy;
   final String label;
   final String? value;
   final IconData icon;
@@ -404,7 +404,7 @@ class _Section extends StatelessWidget {
         ]),
         const SizedBox(height: 6),
         Text(v,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 13, color: kTextPrimary, height: 1.45)),
       ]),
     );

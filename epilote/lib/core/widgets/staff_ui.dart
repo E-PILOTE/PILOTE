@@ -40,7 +40,7 @@ class StaffPageHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [kNavyDark, kNavy],
@@ -139,8 +139,8 @@ class HeaderChip extends StatelessWidget {
 // ─── Skeletons shimmer (états de chargement) ────────────────────────────────────
 // Mêmes couleurs que le skeleton admin_groupe (admin_schools_screen).
 
-const Color _kSkelBase      = Color(0xFFE8ECF0);
-const Color _kSkelHighlight = Color(0xFFF5F7FA);
+Color get _kSkelBase      => kBorder;
+Color get _kSkelHighlight => kSurface;
 
 /// Enveloppe shimmer standard : `ShimmerPanel(child: …)` autour de
 /// n'importe quelle composition de [SkeletonBox].
@@ -168,7 +168,7 @@ class SkeletonBox extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(radius),
         ),
       );
@@ -187,6 +187,11 @@ class FeedSkeleton extends StatelessWidget {
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxWidth),
             child: ListView(
+              // Un squelette n'a rien à faire défiler : `shrinkWrap` le rend
+              // utilisable AUSSI dans une Column (sinon « Vertical viewport was
+              // given unbounded height » → carré rouge à la place du squelette).
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.all(24),
               children: [
                 const SkeletonBox(height: 86, radius: 14),

@@ -32,7 +32,7 @@ final subjectsProvider = StreamProvider.autoDispose<List<SubjectModel>>((ref) {
                   WHERE cs.subject_id = s.id
                     AND c.level_code IS NOT NULL) AS niveaux
         FROM   subjects s
-        WHERE  s.school_id = ? AND s.is_active = 1
+        WHERE  s.school_id = ? AND COALESCE(s.is_active, 1) <> 0
         ORDER  BY s.display_order, s.name
         ''',
         parameters: [profile.schoolId],

@@ -1,4 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
+
+import '../../../core/utils/billing_period.dart';
+import '../../../core/utils/paged_fetch.dart';
+import '../../../core/utils/plan_referential_realtime.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
 
@@ -117,22 +125,46 @@ final reportsProvider = FutureProvider.autoDispose<ReportsData>((ref) async {
   final client = ref.watch(supabaseClientProvider);
   final months = ref.watch(reportsPeriodProvider);
 
+  // Le chiffre d'affaires de ce rapport est calculé sur le TARIF COURANT des
+  // plans. `keepAlive` sans écoute figeait le rapport sur les prix connus au
+  // premier affichage — un rapport faux est pire qu'un rapport absent.
+  Timer? debounce;
+  try {
+    final channel = client
+        .channel('platform_reports_referential')
+        .watchPlanReferential(() {
+          debounce?.cancel();
+          debounce = Timer(const Duration(seconds: 2), () => ref.invalidateSelf());
+        })
+        .subscribe();
+    ref.onDispose(() {
+      debounce?.cancel();
+      client.removeChannel(channel);
+    });
+  } catch (_) {/* hors-ligne / token expiré → on continue */}
+
+  // ⚠️ Élèves et personnel se COMPTENT : les ramener plafonnait le rapport
+  // national à 1 000 lignes (cf. `paged_fetch.dart`). Le personnel vit dans
+  // `profiles`, pas dans `staff_members` — table vide que rien n'écrit.
   final results = await Future.wait([
     client.from('school_groups').select(
         'id, name, department, subscription_status, plan_id, group_type, '
-        'subscription_plans(name, price_xaf)'),
+        'subscription_plans(name, price_xaf, billing_period)'),
     client.from('schools').select('id, group_id'),
-    client.from('students').select('id'),
-    client.from('staff_members').select('id, contract_type'),
     client.from('group_invoices').select(
         'id, amount_xaf, status, created_at, group_id'),
   ]);
 
   final groups   = results[0] as List;
   final schools  = results[1] as List;
-  final students = results[2] as List;
-  final staff    = results[3] as List;
-  final invoices = results[4] as List;
+  final invoices = results[2] as List;
+
+  final int totalElevesCount =
+      await client.from('students').count(CountOption.exact);
+  final staff = await fetchAllRows(() => client
+      .from('profiles')
+      .select('id, employment_status')
+      .not('role', 'in', '(super_admin,admin_groupe,parent,eleve)'));
 
   // ── KPIs ──────────────────────────────────────────────────────────────────
   final paidInvoices     = invoices.where((i) => (i as Map)['status'] == 'paid').toList();
@@ -146,12 +178,13 @@ final reportsProvider = FutureProvider.autoDispose<ReportsData>((ref) async {
   final paymentRate = invoices.isEmpty ? 0.0
       : paidInvoices.length / invoices.length;
 
-  // MRR = somme des prix de plans des groupes actifs
+  // MRR = somme des tarifs RAMENÉS AU MOIS des groupes actifs. Additionner
+  // des prix bruts mêlerait des annuels et des mensuels dans un même total.
   final mrr = groups
       .where((g) => (g as Map)['subscription_status'] == 'active')
       .fold<int>(0, (s, g) {
         final plan = (g as Map)['subscription_plans'] as Map?;
-        return s + ((plan?['price_xaf'] as num? ?? 0).toInt());
+        return s + monthlyPriceOfPlanRow(plan).round();
       });
 
   // Public / Privé
@@ -173,7 +206,7 @@ final reportsProvider = FutureProvider.autoDispose<ReportsData>((ref) async {
     final m       = g as Map;
     final planMap = m['subscription_plans'] as Map?;
     final name    = planMap?['name'] as String? ?? 'Sans plan';
-    final price   = (planMap?['price_xaf'] as num? ?? 0).toInt();
+    final price   = monthlyPriceOfPlanRow(planMap).round();
     final agg     = planAgg[name] ?? const _PlanAgg(0, 0);
     planAgg[name] = _PlanAgg(agg.count + 1, agg.revenue + price);
   }
@@ -224,7 +257,7 @@ final reportsProvider = FutureProvider.autoDispose<ReportsData>((ref) async {
   // ── Staff by contract ──────────────────────────────────────────────────────
   final Map<String, int> staffByContract = {};
   for (final s in staff) {
-    final ct = (s as Map)['contract_type'] as String? ?? 'inconnu';
+    final ct = (s)['employment_status'] as String? ?? 'inconnu';
     staffByContract[ct] = (staffByContract[ct] ?? 0) + 1;
   }
 
@@ -269,7 +302,7 @@ final reportsProvider = FutureProvider.autoDispose<ReportsData>((ref) async {
   return ReportsData(
     totalGroupes:          groups.length,
     totalEcoles:           schools.length,
-    totalEleves:           students.length,
+    totalEleves:           totalElevesCount,
     totalPersonnel:        staff.length,
     totalRevenusXaf:       totalRevenusXaf,
     totalFacturesPending:  pendingInvoices.length,

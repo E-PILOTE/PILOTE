@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 
 import '../../../features/auth/providers/auth_provider.dart';
 
@@ -208,9 +209,15 @@ final adminModulesCatalogProvider =
   // 2. Profils d'accès du groupe (dénominateur)
   int totalProfiles = 0;
   try {
-    final r = await client.from('access_profiles')
-        .select('id').eq('group_id', groupId) as List;
-    totalProfiles = r.length;
+    // `count` serveur : ce dénominateur sert à calculer un pourcentage de
+    // profils autorisés par module. Compté sur une liste tronquée à 1 000, il
+    // aurait gonflé chaque pourcentage sans qu'aucune erreur ne le signale.
+    totalProfiles = (await client
+            .from('access_profiles')
+            .select('id')
+            .eq('group_id', groupId)
+            .count(CountOption.exact))
+        .count;
   } catch (_) {}
 
   // 3. Profils autorisés par module (au moins un droit can_* actif)
@@ -242,11 +249,11 @@ final adminModulesCatalogProvider =
   try {
     final catRows = await client.from('module_categories')
         .select('id, name, slug, display_order')
-        .order('display_order') as List;
+        .order('display_order', ascending: true) as List;
     final modRows = await client.from('modules')
         .select('id, name, slug, icon, description, category_id, display_order')
         .eq('is_active', true)
-        .order('display_order') as List;
+        .order('display_order', ascending: true) as List;
     for (final c in catRows) {
       final cid = c['id'] as String;
       final mods = modRows

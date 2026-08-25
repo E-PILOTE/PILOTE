@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
+import 'school_geocoder_provider.dart';
 
 // ─── Centroïdes départementaux — 15 départements (réforme oct. 2024) ─────────
 // Sources : capitales officielles + OSM places. Les 3 nouveaux (Congo-Oubangui,
@@ -50,6 +51,7 @@ class AdminSchoolPin {
     this.longitude,
     this.locationSource,
     this.locationCapturedAt,
+    this.logoUrl,
   });
   final String id;
   final String name;
@@ -62,6 +64,7 @@ class AdminSchoolPin {
   final double? longitude;
   final String? locationSource; // 'gps' | 'geocoded' | 'manual'
   final DateTime? locationCapturedAt;
+  final String? logoUrl;
 
   bool get hasGps => latitude != null && longitude != null;
   LatLng? get gpsCoords => hasGps ? LatLng(latitude!, longitude!) : null;
@@ -124,13 +127,20 @@ class AdminDeptEntry {
 class AdminRegionalData {
   const AdminRegionalData({
     required this.depts,
+    required this.allDepts,
     required this.gpsSchools,
     required this.totalSchools,
     required this.totalStudents,
     required this.coveredDepts,
     required this.activeSchools,
   });
-  final List<AdminDeptEntry> depts;       // écoles sans GPS, agrégées par département
+  /// Écoles SANS GPS, agrégées par département → sert UNIQUEMENT aux bulles
+  /// « Pôles » de la carte (les écoles géolocalisées ont leur propre pin).
+  final List<AdminDeptEntry> depts;
+  /// TOUTES les écoles (GPS + non-GPS) agrégées par département → KPI,
+  /// analytique et rapport PDF. Sans cela, géolocaliser les écoles vidait la
+  /// répartition départementale et mettait « Départements couverts » à 0.
+  final List<AdminDeptEntry> allDepts;
   final List<AdminSchoolPin> gpsSchools;  // écoles avec GPS, positionnées individuellement
   final int totalSchools;
   final int totalStudents;
@@ -141,11 +151,41 @@ class AdminRegionalData {
   int get noGpsCount => totalSchools - gpsCount;
 
   static const empty = AdminRegionalData(
-    depts: [], gpsSchools: [],
+    depts: [], allDepts: [], gpsSchools: [],
     totalSchools: 0, totalStudents: 0,
     coveredDepts: 0, activeSchools: 0,
   );
 }
+
+/// Libellé de département d'un pin (« Non précisé » si absent).
+String deptKeyOf(AdminSchoolPin p) {
+  final d = p.department;
+  return (d == null || d.isEmpty) ? 'Non précisé' : d;
+}
+
+/// Agrège une liste de pins par département, triée par nombre d'écoles décroissant.
+List<AdminDeptEntry> buildDeptEntries(Iterable<AdminSchoolPin> pins) {
+  final byDept = <String, List<AdminSchoolPin>>{};
+  for (final p in pins) {
+    byDept.putIfAbsent(deptKeyOf(p), () => []).add(p);
+  }
+  return byDept.entries.map((e) {
+    final list = e.value;
+    return AdminDeptEntry(
+      dept:         e.key,
+      coords:       _resolveCoords(e.key),
+      schoolCount:  list.length,
+      studentCount: list.fold<int>(0, (a, p) => a + p.students),
+      activeCount:  list.where((p) => p.isActive).length,
+      schools:      list,
+    );
+  }).toList()
+    ..sort((a, b) => b.schoolCount.compareTo(a.schoolCount));
+}
+
+/// Nombre de départements réellement couverts (hors « Non précisé »).
+int countCoveredDepts(List<AdminDeptEntry> allDepts) =>
+    allDepts.where((d) => d.dept != 'Non précisé').length;
 
 // ─── Provider principal (écoles + effectifs) ────────────────────────────────
 final adminRegionalProvider =
@@ -187,7 +227,7 @@ final adminRegionalProvider =
   final results = await Future.wait([
     client
         .from('schools')
-        .select('id, name, school_type, department, city, is_active, '
+        .select('id, name, school_type, department, city, is_active, logo_url, '
                 'latitude, longitude, location_source, location_captured_at')
         .eq('group_id', groupId),
     client
@@ -209,6 +249,7 @@ final adminRegionalProvider =
   }
 
   final List<AdminSchoolPin> gpsSchools = [];
+  final List<AdminSchoolPin> allPins    = [];
   final Map<String, List<AdminSchoolPin>> pinsByDept = {};
 
   for (final s in schools) {
@@ -230,40 +271,30 @@ final adminRegionalProvider =
       longitude:          lng,
       locationSource:     m['location_source'] as String?,
       locationCapturedAt: capRaw != null ? DateTime.tryParse(capRaw) : null,
+      logoUrl:            m['logo_url'] as String?,
       students:           studentsBySchool[id] ?? 0,
     );
 
+    allPins.add(pin);
     if (pin.hasGps) {
       gpsSchools.add(pin);
     } else {
-      final dept = pin.department;
-      final key  = (dept == null || dept.isEmpty) ? 'Non précisé' : dept;
-      pinsByDept.putIfAbsent(key, () => []).add(pin);
+      pinsByDept.putIfAbsent(deptKeyOf(pin), () => []).add(pin);
     }
   }
 
-  final depts = pinsByDept.entries.map((e) {
-    final pins = e.value;
-    return AdminDeptEntry(
-      dept:         e.key,
-      coords:       _resolveCoords(e.key),
-      schoolCount:  pins.length,
-      // Effectif = somme des écoles de CE département uniquement (cohérent avec
-      // la liste détaillée et avec _applyFilter). Les écoles géolocalisées sont
-      // comptées à part dans gpsSchools, pas dans l'agrégat départemental.
-      studentCount: pins.fold<int>(0, (a, p) => a + p.students),
-      activeCount:  pins.where((p) => p.isActive).length,
-      schools:      pins,
-    );
-  }).toList()
-    ..sort((a, b) => b.schoolCount.compareTo(a.schoolCount));
+  // Bulles carte : écoles SANS GPS uniquement (les GPS ont leur pin propre).
+  final depts = buildDeptEntries(pinsByDept.values.expand((e) => e));
+  // KPI / analytique / PDF : TOUTES les écoles.
+  final allDepts = buildDeptEntries(allPins);
 
   return AdminRegionalData(
     depts:         depts,
+    allDepts:      allDepts,
     gpsSchools:    gpsSchools,
     totalSchools:  schools.length,
     totalStudents: students.length,
-    coveredDepts:  depts.length,
+    coveredDepts:  countCoveredDepts(allDepts),
     activeSchools: schools.where((s) => (s as Map)['is_active'] as bool? ?? true).length,
   );
 });
@@ -393,6 +424,16 @@ class AdminProjectService {
       'location_captured_at': DateTime.now().toIso8601String(),
     }).eq('id', schoolId);
   }
+
+  /// Retire la position d'une école (remise à « non localisée »).
+  Future<void> clearSchoolGps(String schoolId) async {
+    await _client.from('schools').update({
+      'latitude':             null,
+      'longitude':            null,
+      'location_source':      null,
+      'location_captured_at': null,
+    }).eq('id', schoolId);
+  }
 }
 
 final adminProjectServiceProvider =
@@ -400,6 +441,36 @@ final adminProjectServiceProvider =
   final client  = ref.watch(supabaseClientProvider);
   final profile = ref.watch(authNotifierProvider).valueOrNull;
   return AdminProjectService(client, profile?.groupId ?? '');
+});
+
+// ─── Backfill GPS : géocodage de masse des écoles sans position ──────────────
+/// Géocode les écoles du groupe sans GPS mais avec une ville connue
+/// (`congo_places.json`). Écrit `location_source='geocoded'` et retourne le
+/// nombre d'écoles corrigées. Rafraîchit la carte à la fin.
+final geocodeMissingProvider =
+    Provider.autoDispose<Future<int> Function()>((ref) {
+  return () async {
+    // Attendre le chargement de l'asset localités (sinon géocodage vide au démarrage).
+    final places = await ref.read(congoPlacesProvider.future);
+    final data   = await ref.read(adminRegionalProvider.future);
+    final svc    = ref.read(adminProjectServiceProvider);
+    // Les écoles sans GPS vivent dans les agrégats départementaux.
+    final noGps = data.depts.expand((d) => d.schools).where((s) => !s.hasGps);
+    var fixed = 0;
+    for (final s in noGps) {
+      final coords = geocodeCity(places, s.city);
+      if (coords == null) continue;
+      await svc.patchSchoolGps(
+        schoolId:  s.id,
+        latitude:  coords.latitude,
+        longitude: coords.longitude,
+        source:    'geocoded',
+      );
+      fixed++;
+    }
+    if (fixed > 0) ref.invalidate(adminRegionalProvider);
+    return fixed;
+  };
 });
 
 // ─── Utilitaires ─────────────────────────────────────────────────────────────

@@ -37,10 +37,10 @@ class _CouncilBody extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          const Icon(Icons.groups_rounded, size: 18, color: kNavy),
+          Icon(Icons.groups_rounded, size: 18, color: kNavy),
           const SizedBox(width: 8),
           Text(className ?? 'Classe',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 15, fontWeight: FontWeight.w800, color: kNavy)),
           const Spacer(),
         ]),
@@ -51,7 +51,7 @@ class _CouncilBody extends ConsumerWidget {
               child: Center(child: CircularProgressIndicator())),
           error: (e, _) => Padding(
               padding: const EdgeInsets.only(top: 20),
-              child: Center(child: Text('Erreur : $e'))),
+              child: Center(child: Text(messageErreur(e)))),
           data: (s) {
         if (s.evaluationCount == 0) {
           return const Padding(
@@ -200,14 +200,14 @@ class _Distribution extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kBorder),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+        Row(children: [
           Icon(Icons.donut_small_rounded, size: 16, color: kTextMuted),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Text('Répartition des distinctions',
               style: TextStyle(
                   fontSize: 13,
@@ -242,12 +242,73 @@ class _Distribution extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text('$label · $n',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
                         color: kTextPrimary)),
               ]),
           ],
+        ),
+      ]),
+    );
+  }
+}
+
+// ─── Passerelle vers le conseil de FIN D'ANNÉE ───────────────────────────────
+//
+// Le conseil de classe se tient chaque trimestre ; celui de fin d'année ne se
+// tient qu'une fois et engage la scolarité de l'élève. La carte le dit avant
+// d'y mener — un intitulé seul (« Passage en classe supérieure ») ne distingue
+// pas une consultation d'une décision irréversible.
+class _PassageGateway extends StatelessWidget {
+  const _PassageGateway();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      decoration: BoxDecoration(
+        color: kCardBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: kNavy.withValues(alpha: 0.28)),
+      ),
+      child: Row(children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: kNavy.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Icon(Icons.moving_rounded, size: 20, color: kNavy),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Conseil de fin d\'année',
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: kTextPrimary)),
+              const SizedBox(height: 3),
+              Text(
+                'Passage, redoublement et réinscription pour l\'année '
+                'suivante. Se tient après le 3ᵉ trimestre, sur la moyenne '
+                'annuelle des trois bulletins.',
+                style: TextStyle(
+                    fontSize: 12, height: 1.35, color: kTextMuted),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        FilledButton.icon(
+          onPressed: () => context.go(Routes.passage),
+          style: FilledButton.styleFrom(backgroundColor: kNavy),
+          icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+          label: const Text('Ouvrir la délibération'),
         ),
       ]),
     );

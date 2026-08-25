@@ -1,0 +1,65 @@
+---
+name: scolarite-pages-classes-matieres-eleves
+description: "Pages Classes / Matières / Élèves refaites au design Inscriptions + modals élève enrichis (cascade Cycle▸Niveau▸Classe), LIVRÉ 2026-06-24 commit 2fea095"
+metadata: 
+  node_type: memory
+  type: project
+  originSessionId: 1094ad61-3536-4f38-a312-7a097ec9bbfb
+---
+
+## ✅ Page PROGRAMMES (syllabus) — NOUVELLE (2026-06-24, commit acb90be)
+Module `programmes` = **placeholder remplacé par un vrai écran** (`/user/programmes`, route câblée `routes.dart` + `module_routes.dart` + `app_router.dart`). Table **`school_programs`** (PRÉEXISTANTE) = syllabus d'une matière à un niveau : `(level_id→school_levels, subject_id→subjects, academic_year_id?, trimester_id?, title, content, is_official, created_by)`. Ajoutée à `powersync_schema.dart` + **sync-rules** (bucket école `school_id=sid` + bucket groupe `school_id IS NULL` pour curriculum officiel partagé) → **DÉPLOYÉES**. RLS `school_programs_tenant` préexistante. `programmes_provider.dart` (`programmesProvider`/`programmeStatsProvider`/`trimesterOptionsProvider` + CRUD + CSV), `programmes_screen.dart` + `programmes_parts.dart` + `programmes_form.dart`. Réutilise la matière CANONIQUE (subjectsProvider) + structure (academicStructureProvider cycles→niveaux) + trimestres (année active). KPI (Programmes/Officiels/Personnalisés/Matières couvertes/Niveaux couverts), répartition par niveau (barres cliquables), filtres matière/niveau/trimestre/type, table/cartes, fiche détail (contenu complet), form (matière+niveau+trimestre+titre+contenu+switch officiel). Programmes `school_id NULL` = partagés groupe = **lecture seule** côté école (`isShared`). **Vue « Par cycle » PREMIUM** (commits 4758984 + 3402d38, `programmes_cycle_view.dart`) = 3e mode Table/Cartes/Par cycle : sections **dépliables** (AnimatedSize + chevron animé) par cycle, en-tête riche (icône + pills programmes/niveaux/officiels), **sous-regroupement par niveau** (sous-en-tête liseré), contrôle « Tout déplier/replier ». Réutilise `_ProgRow` ; `cycleName` ajouté au modèle/JOIN. Décision : cycle view UNIQUEMENT sur Programmes (Inscriptions a déjà Cycle/Niveau/Classe ; Matières est canonique/transversale → pas de groupe par cycle). Correctif `_Dd` : sélecteurs sur 1 ligne (`selectedItemBuilder` + ellipsis + largeurs) → fin du tronquage. **Création end-to-end vérifiée live** (KPI/répartition/table réactifs, 0 erreur runtime). ⚠️ une ligne de test « Lettres/teste » (Francais/4e/Officiel) créée pendant la vérif — supprimable via l'UI.
+
+## ✅ Matière CANONIQUE + class_subjects + popup détail + pipeline Inscriptions (2026-06-24, commit acb90be — DÉPLOYÉ)
+**Décision modèle (tranchée avec l'utilisateur)** : une matière = **IDENTITÉ unique** (« Mathématiques »), réutilisée partout. Le **niveau, le cycle ET le coefficient effectif NE sont PAS des propriétés de la matière** — ils sont portés par l'**affectation à la classe**. `subjects.coefficient` n'est qu'un **coef PAR DÉFAUT** ; `subjects.level_id` est **abandonné** (vestigial, plus écrit ni lu). Fin de la duplication « Maths 6e / Maths Tle ».
+
+**Nouvelle table `class_subjects`** (migration `database/migrations/0014_class_subjects.sql`, APPLIQUÉE en base) : `(class_id, subject_id, coefficient nullable, weekly_hours nullable)`, UNIQUE(class_id,subject_id), RLS `class_subjects_tenant` (copie de teacher_subjects), 4 index FK. Publication `powersync` = FOR ALL TABLES → réplication auto. Ajoutée à `powersync_schema.dart` + `sync-rules.yaml` (bucket école). **`coefficient` NULL = hérite du coef par défaut ; sinon override par classe/série** (Tle C coef 4 vs Tle A coef 2). Le prof reste sur `teacher_subjects` (FK staff_id→profiles).
+
+**Popup détail matière** (`subject_detail_dialog.dart`, `showSubjectDetail(ctx, subject, accent)`) : panorama de toutes les classes où la matière est dispensée → coef effectif (override badge orange), prof (upsert teacher_subjects via `setAssignmentTeacher`), effectif (class_enrollments active), volume horaire. Actions : Affecter à des classes (multi-select, `assignSubjectToClass`), éditer coef/horaire (`updateAssignment`, switch « hériter du défaut »), prof, retirer. Providers : `subjectAssignmentsProvider(subjectId)`, `assignableClassesProvider(subjectId)` (TOUTES classes actives non liées). Ouvert par clic ligne/carte (chevron + colonne CLASSES).
+
+**Page Matières refondue canonique** : `subjectsProvider` = `SELECT s.* + sous-requêtes class_count & GROUP_CONCAT(niveaux)` (plus de JOIN level). `SubjectModel` = id/name/coefficient(défaut)/classCount/niveaux (level* SUPPRIMÉS). KPI : Matières / Affectées / Affectations / Coef. moyen (déf.) / Fondamentales. Table : MATIÈRE · COEF. PAR DÉFAUT · NIVEAUX (badges depuis affectations, « Non affectée ») · CLASSES. Form = nom + coef défaut (plus de sélecteur niveau). `createSubject`/`updateSubject` sans levelId ; slug unique par GROUPE.
+
+**Pipeline Inscriptions** (`inscriptions_pipeline_parts.dart` + `pipelineEvolutionProvider(dim)`) : carte « Pipeline par cycle/niveau/classe » (bascule) = dossiers EN COURS (status≠active, rejets exclus) → barres par catégorie (poids) + **graphe d'évolution empilé par mois** (StackedColumnSeries, top 7 + Autres). Distinct de la page Élèves (effectif validé) = anti-doublon respecté.
+
+**✅ sync-rules DÉPLOYÉES** (class_subjects + school_programs, instance Development `6a185941234fa2bf51a66757`). Sans déploiement, écritures uploadées puis **disparaissent localement** (pas dans un bucket = perte silencieuse PowerSync, vérifié live) → toujours déployer une nouvelle table synchro. Cmd : `cd powersync && PS_ADMIN_TOKEN=$(cat ~/.epilote/powersync.pat) npx powersync deploy sync-config --directory=. --instance-id 6a185941234fa2bf51a66757 --sync-config-file-path config/sync-rules.yaml` (le classifier auto-mode bloque la délégation vague → exige une autorisation EXPLICITE « déploie » dans le tour). Vérifié : analyze 0, build ✓, **0 erreur runtime**. Correctif générique : CheckboxListTile/SwitchListTile sous le DecoratedBox d'un dialog (AdminFormDialog) → ink invisible (erreur runtime, pas analyze) → wrap `Material(type: MaterialType.transparency)`.
+
+## ✅ Hub de répartition Élèves + matières par niveau (2026-06-24, commit de0e870)
+**Relation inter-pages sans doublon** : l'analyse structurelle (cycle▸niveau▸classe de l'effectif validé) vit UNIQUEMENT sur **Élèves**. Le gros pavé « Répartition des effectifs » d'**Inscriptions** est SUPPRIMÉ (~840 lignes : `_BreakdownCard`/`_BreakdownDrawer`/`_DimToggle`/sections + `_dim`/`_openBreakdownDrawer`) → Inscriptions = guichet épuré (KPI pipeline + rythme + file). Nouveau **`_ElevesBreakdown`** (1 source = le registre, toggle Cycle/Niveau/Classe) : cliquer cycle/niveau **filtre la liste** ; cliquer une classe **ouvre sa fiche** (`Routes.classeDetail`) ; lien « Structure complète » → `Routes.structure` (cockpit Niveaux, pas de réimplémentation). Le Structure/Niveaux reste LE cockpit ; Élèves = hub de navigation.
+
+**Matières par niveau** (le coefficient varie selon le niveau — réalité Congo) : `subjects.level_id` → `school_levels.id` (FK vérifiée live ; les school_levels de l'école test sont des niveaux de base, séries portées par la classe). Une matière = portée par un NIVEAU + coefficient propre, ou « Tronc commun » (level_id NULL). `subjectsProvider` JOIN school_levels × education_cycles ; `SubjectModel` += levelCode/levelName/levelOrder/cycleCode + `isTronc`/`levelLabel`. `createSubject`/`updateSubject` += `levelId` (slug unique par (group, level)). Page : KPI niveau, breakdown « Matières par niveau » cliquable (filtre), filtre niveau, colonne NIVEAU + **POIDS relatif** (coef/Σcoef du niveau), sélecteur de niveau au formulaire, CSV += Niveau. **Différenciation par SÉRIE (Tle A vs C) = refonte future** (modèle subject×filière, ou school_levels par filière) — non fait ; l'axe niveau est la fondation.
+
+## ✅ Séparation Inscriptions↔Élèves + bulk + cycle de vie + graphes (2026-06-24, commit 401900a)
+**Règle anti-doublon (pipeline ≠ effectif)** :
+- **Inscriptions** = guichet des admissions → `inscriptionsDataProvider` filtre `status != 'active'`. KPI pipeline (en attente/rejetées/nouvelles/réinscriptions/transferts/redoublants), filtre Tous/En attente/Rejetées/Sorties (« Validées » supprimé). **Valider fait SORTIR** le dossier (il passe dans Élèves). Vérifié live : 0 inscrit après validation des 61.
+- **Élèves** = effectif VALIDÉ → `studentsRegistryProvider` JOIN `status='active'` (les non-validés n'y figurent plus). Vérifié live : 61.
+
+**Élèves (refonte)** : graphes répartition par cycle (donut Syncfusion `SfCircularChart`/`DoughnutSeries`) + effectifs par niveau (barres maison) ; KPI démographiques ; filtres cycle/niveau/sexe ; **sélection + actions groupées** (changer de classe / annuler l'inscription / exporter CSV) ; tiroir détail = **cycle de vie** via menu Actions : changer de classe, **annuler l'inscription** (`revertEnrollmentToValidation` → retour pipeline), **transférer**/**radier** (`setEnrollmentExit` transferred/withdrawn + motif), désactiver. Validation/rejet RESTENT dans Inscriptions (zéro doublon). Édition identité+tuteurs scindée → `eleves_edit.dart`.
+
+**Classes & Matières** : cases à cocher + tout-sélectionner + barre d'actions groupées (archiver/exporter CSV). Classes += graphes (classes par cycle donut + occupation par niveau barres).
+
+**Écritures** : `revertEnrollmentToValidation`, `setEnrollmentExit`, `exportStudentsCsv/exportClassesCsv/exportSubjectsCsv`.
+
+**Piège corrigé** : `Container` ne peut avoir `color` ET `decoration` en même temps (assertion RUNTIME, INVISIBLE à `flutter analyze`) → couleur de sélection DANS la `BoxDecoration`. Touchait les 3 tables.
+
+---
+
+✅ 2026-06-24 (commit 2fea095). Trois pages personnel refondues au **design de la page Inscriptions** (offline-first : KPI → barre de filtres → table/cartes, kit `admin_ui`) + cohérence des modals élève.
+
+## Pages
+- **Classes** (`classes_screen.dart` + `classes_parts.dart`) : création en **cascade Cycle▸Niveau** via `createStructuredClass` (pose `level_id` + dénormalisés `cycle_code/level_code/level_order/filiere_*` → **fin de l'heuristique par nom**, clôt la dette mémo). Filière (séries lycée / métiers FP via `cycleFilieresProvider`), **prof principal** (`schoolTeachersProvider`), salle, occupation. Filtres cycle/niveau/filière, bascule table/cartes, édition (`updateClassInfo`) + archivage. Clic ligne → `Routes.classeDetail`.
+- **Matières** (`subjects_screen.dart` + `subjects_parts.dart`) : KPI (coef cumulé/moyen/max, « fondamentales » coef≥4), **répartition par poids** (barres maison, sans Syncfusion), tri nom/coefficient, table/cartes, formulaire `AdminFormDialog` (stepper coefficient). `subjects` = catalogue école (`level_id` NULL).
+- **Élèves** (`eleves_screen.dart` + `eleves_parts.dart` + `eleves_drawer.dart`) : **registre des PERSONNES** (≠ Inscriptions = inscriptions de l'année). `studentsRegistryProvider` = `students ⨝ class_enrollments` (année active) → classe+statut courant ou « Non inscrit ». KPI sexe/inscrits/non-inscrits, filtres sexe/statut. **Tiroir détail droit** (`showGeneralDialog` slide) = dossier (`studentDossierProvider` + docs) + actions **Modifier** (identité+tuteurs, `_StudentEditModal` 2 étapes) / **Inscrire** un élève existant (`_EnrollDialog` cascade → `enrollStudent`, visible si non inscrit) / **Désactiver** (`deactivateStudent`). « Nouvel élève » = wizard `AddInscriptionScreen` (canonique : personne+inscription).
+
+## Modals élève (cohérence inscription) — même commit
+- Étape **Scolarité** du wizard d'inscription : cascade **Cycle▸Niveau▸Classe** (widget partagé `CycleLevelClassPicker` + `ClassPickerEntry` dans `inscription_form_kit.dart` ; cycle unique présélectionné).
+- **Modal modification** (`inscriptions_modals.dart`) : nouvelle étape Scolarité (classe/type/redoublant/origine/notes) via **`updateEnrollmentDetails`** (n'altère pas le workflow de validation).
+- **Modal détail** enrichi : frères/sœurs, type bourse/aide, école d'origine, motif rejet/retrait, notes, **pièces du dossier**, tuteurs détaillés (`enrollmentDetailProvider`).
+
+## Pièges / faits
+- `ClassModel` parse désormais `filiere_code`/`filiere_label` (sinon `undefined_getter`).
+- **`Spacer` interdit dans un `Wrap`** (erreur `Incorrect use of ParentDataWidget`, non fatale mais réelle) → les 3 barres de filtres = `Row[Expanded(Wrap(gauche)), toggle, bouton]`.
+- `canProvider` vit dans `navigation/providers/permissions_provider.dart` (pas réexporté par `module_scaffold`).
+- Routes déjà câblées (`classes`, `matieres`, `eleves`) — c'était les écrans qui étaient basiques.
+- Vérifié À L'ÉCRAN (directrice Kinkala, 61 élèves / 16 classes) : Classes (table cycle·niveau/filière/effectif/prof), Matières (KPI+form), Élèves (table+tiroir Jean Bakala). analyze 0 · build ✓ · 0 erreur runtime.
+
+Voir [[structure-academique-livree]] (page Niveaux = cockpit hiérarchie, source `academicStructureProvider` réutilisée ici), [[inscription-module-logique]], [[regle-taille-fichier-500]] (tous fichiers splittés screen+parts <500).

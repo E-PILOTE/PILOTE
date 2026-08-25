@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -8,24 +10,27 @@ import 'package:printing/printing.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show FileOptions;
 
 import '../../../core/widgets/app_shell.dart';
+import '../../../core/utils/media_compression.dart';
 import '../providers/school_groups_provider.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_animated_button/flutter_animated_button.dart';
 import '../services/group_pdf_service.dart';
+import '../widgets/plan_change_notice.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const _kNavy    = Color(0xFF1E3A5F);
-const _kGreen   = Color(0xFF009A44);
-const _kGold    = Color(0xFFFBBC04);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
+Color get _kGold => kAccent;
 const _kOrange  = Color(0xFFFF6B35);
 const _kPurple  = Color(0xFF7C3AED);
 const _kRed     = Color(0xFFEF4444);
-const _kSurface = Color(0xFFF0F4F8);
-const _kBg      = Color(0xFFFFFFFF);
-const _kBorder  = Color(0xFFE2E8F0);
-const _kText    = Color(0xFF0F172A);
-const _kMuted   = Color(0xFF64748B);
+Color get _kSurface => kSurface;
+Color get _kBg => kCardBg;
+Color get _kBorder => kBorder;
+Color get _kText => kTextPrimary;
+Color get _kMuted => kTextMuted;
 
 // ─── Écran principal ──────────────────────────────────────────────────────────
 
@@ -160,7 +165,7 @@ class _GroupsBodyState extends ConsumerState<_GroupsBody> {
           .update({'is_active': !g.isActive}).eq('id', g.id);
       ref.invalidate(schoolGroupsProvider);
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError(messageErreur(e));
     }
   }
 
@@ -177,7 +182,7 @@ class _GroupsBodyState extends ConsumerState<_GroupsBody> {
       ref.invalidate(schoolGroupsProvider);
       if (mounted) _showSuccess('Groupe "${g.name}" supprimé définitivement.');
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError(messageErreur(e));
     }
   }
 
@@ -206,9 +211,9 @@ class _GroupsBodyState extends ConsumerState<_GroupsBody> {
       loading: () => const _ShimmerSkeleton(),
       error:   (e, _) => Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
+          Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
           const SizedBox(height: 12),
-          Text('Erreur : $e', style: const TextStyle(color: _kMuted)),
+          Text(messageErreur(e), style: TextStyle(color: _kMuted)),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => ref.invalidate(schoolGroupsProvider),
@@ -472,7 +477,7 @@ class _KpiCardState extends State<_KpiCard> with SingleTickerProviderStateMixin 
                           fontWeight: FontWeight.w900, letterSpacing: -0.5,
                         )),
                         const SizedBox(height: 2),
-                        Text(d.label, style: const TextStyle(
+                        Text(d.label, style: TextStyle(
                           color: _kMuted, fontSize: 11.5, fontWeight: FontWeight.w600,
                         ), overflow: TextOverflow.ellipsis),
                         if (d.sub != null)
@@ -533,7 +538,7 @@ class _ShimmerSkeleton extends StatelessWidget {
   Widget _box(double w, double h, {double r = 10}) => Container(
     width: w, height: h,
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: kCardBg,
       borderRadius: BorderRadius.circular(r),
     ),
   );
@@ -635,11 +640,11 @@ class _FilterBar extends StatelessWidget {
               onChanged: onSearchChange,
               decoration: InputDecoration(
                 hintText: 'Rechercher un groupe, email, département…',
-                hintStyle: const TextStyle(color: _kMuted, fontSize: 13),
-                prefixIcon: const Icon(Icons.search_rounded, color: _kMuted, size: 20),
+                hintStyle: TextStyle(color: _kMuted, fontSize: 13),
+                prefixIcon: Icon(Icons.search_rounded, color: _kMuted, size: 20),
                 suffixIcon: searchCtrl.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 18, color: _kMuted),
+                        icon: Icon(Icons.close_rounded, size: 18, color: _kMuted),
                         onPressed: () { searchCtrl.clear(); onSearchChange(''); })
                     : null,
                 filled: true,
@@ -671,7 +676,7 @@ class _FilterBar extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: _kBorder),
                   ),
-                  child: const Icon(Icons.refresh_rounded, size: 20, color: _kMuted),
+                  child: Icon(Icons.refresh_rounded, size: 20, color: _kMuted),
                 ),
               ),
             ),
@@ -685,13 +690,13 @@ class _FilterBar extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1A2F5A), Color(0xFF1E3A5F)],
+                  gradient: LinearGradient(
+                    colors: [const Color(0xFF1A2F5A), kNavy],
                     begin: Alignment.topLeft, end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: [BoxShadow(
-                    color: const Color(0xFF1E3A5F).withValues(alpha: 0.25),
+                    color: kNavy.withValues(alpha: 0.25),
                     blurRadius: 8, offset: const Offset(0, 3),
                   )],
                 ),
@@ -833,10 +838,10 @@ class _ResultHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(children: [
     Text('$filtered résultat${filtered > 1 ? 's' : ''}',
-        style: const TextStyle(color: _kText, fontSize: 14, fontWeight: FontWeight.w700)),
+        style: TextStyle(color: _kText, fontSize: 14, fontWeight: FontWeight.w700)),
     if (filtered < total) ...[
       const SizedBox(width: 8),
-      Text('sur $total', style: const TextStyle(color: _kMuted, fontSize: 13)),
+      Text('sur $total', style: TextStyle(color: _kMuted, fontSize: 13)),
     ],
   ]);
 }
@@ -909,7 +914,7 @@ class _TableHeader extends StatelessWidget {
         child: Row(children: [
           Flexible(child: Text(label,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                   color: _kMuted, fontSize: 11.5, fontWeight: FontWeight.w700))),
           const SizedBox(width: 4),
           Icon(
@@ -994,17 +999,17 @@ class _TableRowState extends State<_TableRow> {
             Expanded(flex: 3, child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(g.name, style: const TextStyle(
+                Text(g.name, style: TextStyle(
                     color: _kText, fontSize: 13, fontWeight: FontWeight.w700),
                     overflow: TextOverflow.ellipsis),
-                Text(g.adminEmail, style: const TextStyle(
+                Text(g.adminEmail, style: TextStyle(
                     color: _kMuted, fontSize: 11),
                     overflow: TextOverflow.ellipsis),
               ],
             )),
             // Département
             Expanded(child: Text(g.department ?? '—',
-                style: const TextStyle(color: _kText, fontSize: 12.5),
+                style: TextStyle(color: _kText, fontSize: 12.5),
                 overflow: TextOverflow.ellipsis)),
             // Type
             Expanded(child: _TypeBadge(type: g.groupType, label: g.groupTypeLabel)),
@@ -1014,10 +1019,10 @@ class _TableRowState extends State<_TableRow> {
             Expanded(child: _StatusBadge(status: g.subscriptionStatus, label: g.statusLabel)),
             // Écoles
             Expanded(child: Row(children: [
-              Text('${g.schoolCount}', style: const TextStyle(
+              Text('${g.schoolCount}', style: TextStyle(
                   color: _kText, fontSize: 13, fontWeight: FontWeight.w700)),
               if (g.maxSchools > 0) Text(' / ${g.maxSchools}',
-                  style: const TextStyle(color: _kMuted, fontSize: 11)),
+                  style: TextStyle(color: _kMuted, fontSize: 11)),
             ])),
             // Fin abonnement
             Expanded(child: g.subscriptionEnd != null
@@ -1031,7 +1036,7 @@ class _TableRowState extends State<_TableRow> {
                       const Text('Expire bientôt',
                           style: TextStyle(color: _kOrange, fontSize: 10)),
                   ])
-                : const Text('—', style: TextStyle(color: _kMuted))),
+                : Text('—', style: TextStyle(color: _kMuted))),
             // Actions
             SizedBox(
               width: 92,
@@ -1168,11 +1173,11 @@ class _GroupCardState extends State<_GroupCard> {
               Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(g.name, style: const TextStyle(
+                  Text(g.name, style: TextStyle(
                       color: _kText, fontSize: 13.5, fontWeight: FontWeight.w800),
                       overflow: TextOverflow.ellipsis),
                   Text(g.department ?? '—',
-                      style: const TextStyle(color: _kMuted, fontSize: 11)),
+                      style: TextStyle(color: _kMuted, fontSize: 11)),
                 ],
               )),
               _StatusBadge(status: g.subscriptionStatus, label: g.statusLabel),
@@ -1223,7 +1228,7 @@ class _GroupCardState extends State<_GroupCard> {
 }
 
 class _CardStat extends StatelessWidget {
-  const _CardStat({required this.icon, required this.label, this.color = _kMuted});
+  _CardStat({required this.icon, required this.label, Color? color}) : color = color ?? _kMuted;
   final IconData icon;
   final String label;
   final Color color;
@@ -1245,7 +1250,7 @@ class _GroupAvatar extends StatelessWidget {
   final double  size;
   final String? logoUrl;
 
-  static const _colors = [_kNavy, _kGreen, _kPurple, _kOrange, Color(0xFF0EA5E9)];
+  static List<Color> get _colors => [_kNavy, _kGreen, _kPurple, _kOrange, const Color(0xFF0EA5E9)];
 
   String get _initials {
     final parts = name.trim().split(RegExp(r'\s+'));
@@ -1380,12 +1385,12 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(vertical: 64),
     alignment: Alignment.center,
-    child: const Column(mainAxisSize: MainAxisSize.min, children: [
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
       Icon(Icons.school_rounded, size: 56, color: _kBorder),
-      SizedBox(height: 16),
+      const SizedBox(height: 16),
       Text('Aucun groupe trouvé', style: TextStyle(
           color: _kText, fontSize: 16, fontWeight: FontWeight.w700)),
-      SizedBox(height: 6),
+      const SizedBox(height: 6),
       Text('Modifiez vos filtres ou créez un nouveau groupe.',
           style: TextStyle(color: _kMuted, fontSize: 13)),
     ]),
@@ -1447,9 +1452,9 @@ class _GroupDetailModalState extends State<_GroupDetailModal>
           // ─ Header propre ──────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 14, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            decoration: BoxDecoration(
+              color: kCardBg,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               border: Border(bottom: BorderSide(color: _kBorder)),
             ),
             child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
@@ -1476,7 +1481,7 @@ class _GroupDetailModalState extends State<_GroupDetailModal>
               Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(g.name, style: const TextStyle(
+                  Text(g.name, style: TextStyle(
                       color: _kText, fontSize: 17, fontWeight: FontWeight.w800),
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 5),
@@ -1488,27 +1493,27 @@ class _GroupDetailModalState extends State<_GroupDetailModal>
                   ]),
                   const SizedBox(height: 5),
                   Row(children: [
-                    const Icon(Icons.email_outlined, size: 12, color: _kMuted),
+                    Icon(Icons.email_outlined, size: 12, color: _kMuted),
                     const SizedBox(width: 4),
                     Flexible(child: Text(g.adminEmail,
-                        style: const TextStyle(color: _kMuted, fontSize: 11.5),
+                        style: TextStyle(color: _kMuted, fontSize: 11.5),
                         overflow: TextOverflow.ellipsis)),
                     if (g.department != null) ...[
                       const SizedBox(width: 10),
-                      const Icon(Icons.location_on_outlined,
+                      Icon(Icons.location_on_outlined,
                           size: 12, color: _kMuted),
                       const SizedBox(width: 3),
                       Text(g.department!,
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: _kMuted, fontSize: 11.5)),
                     ],
                     if (g.foundedYear != null) ...[
                       const SizedBox(width: 10),
-                      const Icon(Icons.history_edu_outlined,
+                      Icon(Icons.history_edu_outlined,
                           size: 12, color: _kMuted),
                       const SizedBox(width: 3),
                       Text('Fondé en ${g.foundedYear}',
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: _kMuted, fontSize: 11.5)),
                     ],
                   ]),
@@ -1570,7 +1575,7 @@ class _GroupDetailModalState extends State<_GroupDetailModal>
           // ─ Footer actions ────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(top: BorderSide(color: _kBorder)),
             ),
             child: Row(children: [
@@ -1658,7 +1663,7 @@ class _InfoTab extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: _kBorder),
             ),
-            child: Text(g.notes!, style: const TextStyle(
+            child: Text(g.notes!, style: TextStyle(
                 color: _kMuted, fontSize: 13, height: 1.5)),
           ),
         ],
@@ -1679,7 +1684,7 @@ class _InfoTab extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(child: _MetaChip(
             icon: Icons.account_balance_wallet_rounded,
-            label: '${_fmtXaf(g.priceXaf.toDouble())}/mois',
+            label: '${_fmtXaf(g.priceXaf.toDouble())}/${g.periodSuffix}',
             color: _kGold,
           )),
         ]),
@@ -1718,14 +1723,14 @@ class _SubscriptionTab extends ConsumerWidget {
                 color: _kNavy.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.inventory_2_rounded, color: _kNavy, size: 24),
+              child: Icon(Icons.inventory_2_rounded, color: _kNavy, size: 24),
             ),
             const SizedBox(width: 16),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Plan ${g.planName}', style: const TextStyle(
+              Text('Plan ${g.planName}', style: TextStyle(
                   color: _kNavy, fontSize: 16, fontWeight: FontWeight.w800)),
-              Text('${_fmtXaf(g.priceXaf.toDouble())} / mois',
-                  style: const TextStyle(color: _kGold, fontSize: 14, fontWeight: FontWeight.w700)),
+              Text('${_fmtXaf(g.priceXaf.toDouble())} / ${g.periodSuffix}',
+                  style: TextStyle(color: _kGold, fontSize: 14, fontWeight: FontWeight.w700)),
             ])),
             _StatusBadge(status: g.subscriptionStatus, label: g.statusLabel),
           ]),
@@ -1745,7 +1750,7 @@ class _SubscriptionTab extends ConsumerWidget {
         _QuotaBar(
           label: 'Capacité élèves',
           used: 0,
-          max:  g.maxStudents,
+          max:  g.maxStudents == -1 ? null : g.maxStudents,
           color: _kGreen,
           showUsed: false,
         ),
@@ -1777,7 +1782,7 @@ class _SubscriptionTab extends ConsumerWidget {
             padding: EdgeInsets.all(16),
             child: CircularProgressIndicator(strokeWidth: 2),
           )),
-          error: (e, _) => Text('Erreur: $e',
+          error: (e, _) => Text(messageErreur(e),
               style: const TextStyle(color: _kRed, fontSize: 12)),
           data: (modules) {
             if (modules.isEmpty) {
@@ -1788,7 +1793,7 @@ class _SubscriptionTab extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: _kBorder),
                 ),
-                child: const Text('Aucun module configuré dans ce plan.',
+                child: Text('Aucun module configuré dans ce plan.',
                     style: TextStyle(color: _kMuted, fontSize: 13)),
               );
             }
@@ -1806,7 +1811,7 @@ class _SubscriptionTab extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(children: [
-                        Text(entry.key, style: const TextStyle(
+                        Text(entry.key, style: TextStyle(
                           color: _kNavy, fontSize: 12,
                           fontWeight: FontWeight.w700)),
                         const Spacer(),
@@ -1825,7 +1830,7 @@ class _SubscriptionTab extends ConsumerWidget {
                       const SizedBox(height: 6),
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: kCardBg,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: _kBorder),
                         ),
@@ -1835,7 +1840,7 @@ class _SubscriptionTab extends ConsumerWidget {
                             final isLast = me.key == entry.value.length - 1;
                             return Container(
                               decoration: BoxDecoration(
-                                border: isLast ? null : const Border(
+                                border: isLast ? null : Border(
                                   bottom: BorderSide(color: _kBorder),
                                 ),
                               ),
@@ -1865,11 +1870,11 @@ class _SubscriptionTab extends ConsumerWidget {
                                   color: mod.isAccessible ? _kText : _kMuted,
                                 )),
                                 trailing: mod.isAccessible
-                                    ? const Text('Actif',
+                                    ? Text('Actif',
                                         style: TextStyle(
                                           color: _kGreen, fontSize: 11,
                                           fontWeight: FontWeight.w600))
-                                    : const Text('Verrouillé',
+                                    : Text('Verrouillé',
                                         style: TextStyle(
                                           color: _kMuted, fontSize: 11)),
                               ),
@@ -1957,10 +1962,10 @@ class _TimelineItem extends StatelessWidget {
       ),
       const SizedBox(width: 14),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(
+        Text(title, style: TextStyle(
             color: _kText, fontSize: 13, fontWeight: FontWeight.w600)),
         Text(DateFormat('dd MMMM yyyy', 'fr').format(date),
-            style: const TextStyle(color: _kMuted, fontSize: 11.5)),
+            style: TextStyle(color: _kMuted, fontSize: 11.5)),
       ])),
     ]),
   );
@@ -1986,7 +1991,7 @@ class _QuotaBar extends StatelessWidget {
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        Text(label, style: const TextStyle(color: _kMuted, fontSize: 12)),
+        Text(label, style: TextStyle(color: _kMuted, fontSize: 12)),
         const Spacer(),
         Text(max == null || max == -1
             ? (showUsed ? '$used / ∞' : 'Illimité')
@@ -2197,16 +2202,28 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
 
     try {
       final client = ref.read(supabaseClientProvider);
-      final ext = file.extension ?? 'jpg';
-      final fileName =
-          'logo_${DateTime.now().millisecondsSinceEpoch}.$ext';
+
+      // ⚠️ Le logo partait BRUT vers le stockage : un fichier sorti d'un
+      // téléphone ou d'un scanner (3 à 8 Mo) était transféré tel quel pour être
+      // affiché… en 38 pixels dans la liste des groupes. Sur les connexions
+      // congolaises, cet envoi pouvait ne jamais aboutir — et chaque affichage
+      // le retéléchargeait. La fiche ÉCOLE compressait déjà, pas celle du
+      // GROUPE : deux formulaires jumeaux, un seul des deux corrigé.
+      final media = await compressLogo(
+        bytes: file.bytes!,
+        fileName: file.name,
+        mime: mimeForImageExtension(file.extension),
+      );
+
+      final ext = media.fileName.split('.').last;
+      final fileName = 'logo_${DateTime.now().millisecondsSinceEpoch}.$ext';
       final path = 'groups/$fileName';
 
       await client.storage.from('group-logos').uploadBinary(
         path,
-        file.bytes!,
+        media.bytes,
         fileOptions: FileOptions(
-          contentType: 'image/$ext',
+          contentType: media.mime,
           upsert: true,
         ),
       );
@@ -2219,7 +2236,7 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Erreur upload : $e'),
+          content: Text(messageErreur(e, contexte: 'Envoi du fichier')),
           backgroundColor: _kRed,
           behavior: SnackBarBehavior.floating,
         ));
@@ -2270,7 +2287,7 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Erreur : $e'),
+          content: Text(messageErreur(e)),
           backgroundColor: _kRed,
           behavior: SnackBarBehavior.floating,
         ));
@@ -2302,17 +2319,17 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
           // ── Header ────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(22, 16, 16, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+            decoration: BoxDecoration(
+              color: kCardBg,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
               border: Border(bottom: BorderSide(color: _kBorder)),
             ),
             child: Row(children: [
               Container(
                 width: 38, height: 38,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                      colors: [Color(0xFF1A2F5A), _kNavy]),
+                  gradient: LinearGradient(
+                      colors: [const Color(0xFF1A2F5A), _kNavy]),
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [BoxShadow(color: _kNavy.withValues(alpha: 0.25),
                       blurRadius: 8, offset: const Offset(0, 3))],
@@ -2326,13 +2343,13 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(
                   isEdit ? 'Modifier le groupe' : 'Nouveau groupe scolaire',
-                  style: const TextStyle(color: _kText, fontSize: 15,
+                  style: TextStyle(color: _kText, fontSize: 15,
                       fontWeight: FontWeight.w800),
                 ),
                 Text(
                   isEdit ? 'Mise à jour des informations'
                       : 'Remplissez les champs requis',
-                  style: const TextStyle(color: _kMuted, fontSize: 11),
+                  style: TextStyle(color: _kMuted, fontSize: 11),
                 ),
               ]),
               const Spacer(),
@@ -2347,7 +2364,7 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: _kBorder),
                   ),
-                  child: const Icon(Icons.close_rounded, size: 15, color: _kMuted),
+                  child: Icon(Icons.close_rounded, size: 15, color: _kMuted),
                 ),
               ),
             ]),
@@ -2400,7 +2417,7 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
                               LengthLimitingTextInputFormatter(4),
                             ],
                             decoration: _inputDeco('Année de création (ex : 1998)').copyWith(
-                              prefixIcon: const Icon(Icons.calendar_today_rounded,
+                              prefixIcon: Icon(Icons.calendar_today_rounded,
                                   size: 15, color: _kMuted),
                             ),
                             validator: (v) {
@@ -2496,8 +2513,8 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
                           Text(
                             p.priceXaf == 0
                                 ? 'Gratuit'
-                                : '${_fmtXaf(p.priceXaf.toDouble())}/mois',
-                            style: const TextStyle(
+                                : '${_fmtXaf(p.priceXaf.toDouble())}/${p.periodSuffix}',
+                            style: TextStyle(
                                 color: _kMuted, fontSize: 12),
                           ),
                         ]),
@@ -2505,6 +2522,11 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
                       onChanged: (v) => setState(() => _planId = v),
                       validator: (v) =>
                           v == null ? 'Sélectionner un plan' : null,
+                    ),
+                    PlanChangeNotice(
+                      existing: widget.existing,
+                      plans: widget.plans,
+                      selectedPlanId: _planId,
                     ),
 
                     const _FormDivider(),
@@ -2526,9 +2548,9 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
           // ── Footer ─────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(22, 12, 22, 12),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(
+            decoration: BoxDecoration(
+              color: kCardBg,
+              borderRadius: const BorderRadius.vertical(
                   bottom: Radius.circular(18)),
               border: Border(top: BorderSide(color: _kBorder)),
             ),
@@ -2621,7 +2643,7 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
       child: Container(
         width: 480,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [BoxShadow(
               color: _kRed.withValues(alpha: 0.12),
@@ -2680,13 +2702,13 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
                   Expanded(child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(g.name, style: const TextStyle(
+                      Text(g.name, style: TextStyle(
                           color: _kText, fontSize: 14,
                           fontWeight: FontWeight.w800),
                           overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 2),
                       Text('${g.groupTypeLabel}  •  ${g.adminEmail}',
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: _kMuted, fontSize: 11),
                           overflow: TextOverflow.ellipsis),
                     ],
@@ -2696,7 +2718,7 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
               const SizedBox(height: 16),
 
               // Avertissement données
-              const Text('Seront également supprimées :',
+              Text('Seront également supprimées :',
                   style: TextStyle(
                       color: _kText, fontSize: 12,
                       fontWeight: FontWeight.w700)),
@@ -2725,7 +2747,7 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
                       duration: const Duration(milliseconds: 150),
                       width: 20, height: 20,
                       decoration: BoxDecoration(
-                        color: _confirmed ? _kRed : Colors.white,
+                        color: _confirmed ? _kRed : kCardBg,
                         borderRadius: BorderRadius.circular(5),
                         border: Border.all(
                           color: _confirmed
@@ -2759,7 +2781,7 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
           // ── Footer ─────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(28, 14, 28, 22),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(top: BorderSide(color: _kBorder)),
             ),
             child: Row(children: [
@@ -2775,7 +2797,7 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
                       border: Border.all(color: _kBorder),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Center(child: Text('Annuler',
+                    child: Center(child: Text('Annuler',
                         style: TextStyle(
                             color: _kMuted, fontSize: 13,
                             fontWeight: FontWeight.w700))),
@@ -2847,7 +2869,7 @@ class _DeleteWarningItem extends StatelessWidget {
         ),
         child: Icon(icon, size: 12, color: _kRed.withValues(alpha: 0.7)),
       ),
-      Expanded(child: Text(text, style: const TextStyle(
+      Expanded(child: Text(text, style: TextStyle(
           color: _kMuted, fontSize: 11.5))),
     ]),
   );
@@ -2876,7 +2898,7 @@ class _PrintPreviewModalState extends State<_PrintPreviewModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur impression : $e'),
+        content: Text(messageErreur(e, contexte: 'Impression')),
         backgroundColor: _kRed, behavior: SnackBarBehavior.floating,
       ));
       }
@@ -2907,7 +2929,7 @@ class _PrintPreviewModalState extends State<_PrintPreviewModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur téléchargement : $e'),
+        content: Text(messageErreur(e, contexte: 'Téléchargement')),
         backgroundColor: _kRed, behavior: SnackBarBehavior.floating,
       ));
       }
@@ -2937,7 +2959,7 @@ class _PrintPreviewModalState extends State<_PrintPreviewModal> {
       '',
       '── ABONNEMENT ───────────────────────────',
       '  Plan        : ${g.planName}',
-      '  Tarif       : ${_fmtXaf(g.priceXaf.toDouble())} / mois',
+      '  Tarif       : ${_fmtXaf(g.priceXaf.toDouble())} / ${g.periodSuffix}',
       if (g.subscriptionStart != null)
         '  Début       : ${DateFormat('dd/MM/yyyy').format(g.subscriptionStart!)}',
       if (g.subscriptionEnd != null)
@@ -2990,9 +3012,9 @@ class _PrintPreviewModalState extends State<_PrintPreviewModal> {
           // ── Barre modale ───────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(22, 14, 14, 14),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: _kNavy,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
             ),
             child: Row(children: [
               Container(
@@ -3049,10 +3071,10 @@ class _PrintPreviewModalState extends State<_PrintPreviewModal> {
           // ── Footer actions ─────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            decoration: BoxDecoration(
+              color: kCardBg,
               borderRadius:
-                  BorderRadius.vertical(bottom: Radius.circular(18)),
+                  const BorderRadius.vertical(bottom: Radius.circular(18)),
               border: Border(top: BorderSide(color: _kBorder)),
             ),
             child: Row(children: [
@@ -3069,9 +3091,9 @@ class _PrintPreviewModalState extends State<_PrintPreviewModal> {
                       border: Border.all(color: _kBorder),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.close_rounded, size: 13, color: _kMuted),
-                      SizedBox(width: 5),
+                      const SizedBox(width: 5),
                       Text('Fermer', style: TextStyle(
                           color: _kMuted, fontSize: 12.5,
                           fontWeight: FontWeight.w600)),
@@ -3094,9 +3116,9 @@ class _PrintPreviewModalState extends State<_PrintPreviewModal> {
                       border: Border.all(color: _kBorder),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.copy_rounded, size: 13, color: _kMuted),
-                      SizedBox(width: 5),
+                      const SizedBox(width: 5),
                       Text('Copier', style: TextStyle(
                           color: _kMuted, fontSize: 12.5,
                           fontWeight: FontWeight.w600)),
@@ -3122,15 +3144,15 @@ class _PrintPreviewModalState extends State<_PrintPreviewModal> {
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       if (_printing)
-                        const SizedBox(width: 13, height: 13,
+                        SizedBox(width: 13, height: 13,
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: _kNavy))
                       else
-                        const Icon(Icons.print_rounded,
+                        Icon(Icons.print_rounded,
                             size: 14, color: _kNavy),
                       const SizedBox(width: 6),
                       Text(_printing ? 'Impression…' : 'Imprimer',
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: _kNavy, fontSize: 12.5,
                               fontWeight: FontWeight.w700)),
                     ]),
@@ -3217,7 +3239,7 @@ class _FormLabel extends StatelessWidget {
         ),
       ),
       const SizedBox(width: 8),
-      Text(text, style: const TextStyle(
+      Text(text, style: TextStyle(
           color: _kNavy, fontSize: 10.5, fontWeight: FontWeight.w800,
           letterSpacing: 1.1)),
     ]),
@@ -3229,8 +3251,8 @@ class _FormDivider extends StatelessWidget {
   const _FormDivider();
 
   @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(vertical: 18),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 18),
     child: Divider(color: _kBorder, height: 1),
   );
 }
@@ -3291,8 +3313,8 @@ class _SquareInitials extends StatelessWidget {
   final String name;
   final double size;
 
-  static const _colors = [_kNavy, _kGreen, _kPurple, _kOrange,
-      Color(0xFF0EA5E9)];
+  static List<Color> get _colors => [_kNavy, _kGreen, _kPurple, _kOrange,
+      const Color(0xFF0EA5E9)];
 
   String get _initials {
     final parts = name.trim().split(RegExp(r'\s+'));
@@ -3376,15 +3398,15 @@ class _DetailRow extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
     decoration: BoxDecoration(
-      border: last ? null : const Border(bottom: BorderSide(color: _kBorder)),
+      border: last ? null : Border(bottom: BorderSide(color: _kBorder)),
     ),
     child: Row(children: [
       Icon(icon, size: 15, color: _kNavy),
       const SizedBox(width: 10),
-      Text(label, style: const TextStyle(
+      Text(label, style: TextStyle(
           color: _kMuted, fontSize: 12, fontWeight: FontWeight.w600)),
       const Spacer(),
-      Flexible(child: Text(value, style: const TextStyle(
+      Flexible(child: Text(value, style: TextStyle(
           color: _kText, fontSize: 13, fontWeight: FontWeight.w600),
           textAlign: TextAlign.right,
           overflow: TextOverflow.ellipsis)),
@@ -3435,7 +3457,7 @@ class _LogoUploadBox extends StatelessWidget {
   final VoidCallback onPick;
   final VoidCallback onRemove;
 
-  static const _colors = [_kNavy, _kGreen, _kPurple, _kOrange, Color(0xFF0EA5E9)];
+  static List<Color> get _colors => [_kNavy, _kGreen, _kPurple, _kOrange, const Color(0xFF0EA5E9)];
 
   String get _initials {
     final parts = name.trim().split(RegExp(r'\s+'));
@@ -3520,7 +3542,7 @@ class _LogoUploadBox extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 uploading ? 'Upload…' : (_hasImage ? 'Changer' : 'Logo'),
-                style: const TextStyle(
+                style: TextStyle(
                   color: _kNavy, fontSize: 11, fontWeight: FontWeight.w700),
               ),
             ]),
@@ -3532,7 +3554,7 @@ class _LogoUploadBox extends StatelessWidget {
 
   Widget _buildContent() {
     if (uploading) {
-      return const Center(
+      return Center(
         child: SizedBox(
           width: 24, height: 24,
           child: CircularProgressIndicator(strokeWidth: 2, color: _kNavy),
@@ -3546,7 +3568,7 @@ class _LogoUploadBox extends StatelessWidget {
       return CachedNetworkImage(
         imageUrl: logoUrl!,
         fit: BoxFit.cover,
-        placeholder: (_, _) => const Center(
+        placeholder: (_, _) => Center(
           child: SizedBox(
             width: 20, height: 20,
             child: CircularProgressIndicator(strokeWidth: 2, color: _kNavy),
@@ -3574,7 +3596,7 @@ class _SectionTitle extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) => Text(text, style: const TextStyle(
+  Widget build(BuildContext context) => Text(text, style: TextStyle(
       color: _kNavy, fontSize: 13, fontWeight: FontWeight.w800,
       letterSpacing: 0.2));
 }
@@ -3600,10 +3622,10 @@ class _InfoGrid extends StatelessWidget {
           Icon(i.icon, size: 16, color: _kNavy),
           const SizedBox(width: 10),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(i.label, style: const TextStyle(color: _kMuted, fontSize: 10.5,
+            Text(i.label, style: TextStyle(color: _kMuted, fontSize: 10.5,
                 fontWeight: FontWeight.w600)),
             const SizedBox(height: 2),
-            Text(i.value, style: const TextStyle(color: _kText, fontSize: 13,
+            Text(i.value, style: TextStyle(color: _kText, fontSize: 13,
                 fontWeight: FontWeight.w700),
                 overflow: TextOverflow.ellipsis),
           ])),
@@ -3621,20 +3643,20 @@ class _InfoItem {
 
 InputDecoration _inputDeco(String? hint) => InputDecoration(
   hintText: hint,
-  hintStyle: const TextStyle(color: _kMuted, fontSize: 13),
+  hintStyle: TextStyle(color: _kMuted, fontSize: 13),
   filled: true,
   fillColor: _kSurface,
   border: OutlineInputBorder(
     borderRadius: BorderRadius.circular(8),
-    borderSide: const BorderSide(color: _kBorder),
+    borderSide: BorderSide(color: _kBorder),
   ),
   enabledBorder: OutlineInputBorder(
     borderRadius: BorderRadius.circular(8),
-    borderSide: const BorderSide(color: _kBorder),
+    borderSide: BorderSide(color: _kBorder),
   ),
   focusedBorder: OutlineInputBorder(
     borderRadius: BorderRadius.circular(8),
-    borderSide: const BorderSide(color: _kNavy, width: 1.5),
+    borderSide: BorderSide(color: _kNavy, width: 1.5),
   ),
   errorBorder: OutlineInputBorder(
     borderRadius: BorderRadius.circular(8),

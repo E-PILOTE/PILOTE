@@ -7,7 +7,7 @@ part of 'school_calendar_screen.dart';
 // ════════════════════════════════════════════════════════════════════════════
 
 /// Palette des trimestres (T1/T2/T3/…).
-const _kTrimColors = [kNavy, kGreen, Color(0xFF0EA5E9), Color(0xFF7C3AED)];
+List<Color> get _kTrimColors => [kNavy, kGreen, const Color(0xFF0EA5E9), const Color(0xFF7C3AED)];
 
 class _YearDetail extends ConsumerWidget {
   const _YearDetail({required this.year});
@@ -19,18 +19,18 @@ class _YearDetail extends ConsumerWidget {
     final counts = ref.watch(yearContentCountProvider(year.id)).valueOrNull;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Container(
-        color: Colors.white,
+        color: kCardBg,
         padding: const EdgeInsets.fromLTRB(24, 18, 24, 18),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Text(year.label,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 20, fontWeight: FontWeight.w800, color: kNavy)),
             const SizedBox(width: 10),
-            if (year.isCurrent) const _Tag(text: 'Courante', color: kGreen),
+            if (year.isCurrent) _Tag(text: 'Courante', color: kGreen),
             if (year.isLocked) ...[
               const SizedBox(width: 6),
-              const _Tag(text: 'Archivée', color: kAccent),
+              _Tag(text: 'Archivée', color: kAccent),
             ],
             const Spacer(),
             _CountChip(icon: Icons.class_rounded, value: counts?.classes, label: 'classes'),
@@ -39,36 +39,47 @@ class _YearDetail extends ConsumerWidget {
           ]),
           const SizedBox(height: 4),
           Text('${_fmtDate.format(year.startDate)} → ${_fmtDate.format(year.endDate)}',
-              style: const TextStyle(fontSize: 13, color: kTextMuted)),
+              style: TextStyle(fontSize: 13, color: kTextMuted)),
           const SizedBox(height: 12),
           _YearProgress(year: year),
+          const SizedBox(height: 10),
+          _CurrentPeriodStrip(year: year),
         ]),
       ),
-      const Divider(height: 1, color: kBorder),
+      Divider(height: 1, color: kBorder),
       Expanded(
         child: trimAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator(color: kNavy)),
+          loading: () => Center(child: CircularProgressIndicator(color: kNavy)),
           error: (e, _) =>
-              Center(child: Text('Erreur : $e', style: const TextStyle(color: kRed))),
+              Center(child: Text(messageErreur(e), style: TextStyle(color: kRed))),
           data: (trims) {
             if (trims.isEmpty) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: AdminEmptyState(
+              // Le découpage en trimestres appartient au groupe, mais les
+              // vacances appartiennent à l'école : elle peut les saisir sans
+              // attendre que le ministère ait publié son calendrier.
+              return ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  const AdminEmptyState(
                     icon: Icons.event_busy_rounded,
-                    title: 'Calendrier non défini',
+                    title: 'Trimestres non définis',
                     message:
                         'Les trimestres et séquences de cette année seront '
-                        'définis par le groupe puis hérités par votre école.',
+                        'définis par le groupe puis hérités par votre école. '
+                        'Vos jours non ouvrés, eux, se saisissent dès à '
+                        'présent.',
                   ),
-                ),
+                  const SizedBox(height: 18),
+                  _HolidaysCard(year: year, trims: const []),
+                ],
               );
             }
             return ListView(
               padding: const EdgeInsets.all(24),
               children: [
                 _YearTimeline(year: year, trims: trims),
+                const SizedBox(height: 16),
+                _HolidaysCard(year: year, trims: trims),
                 const SizedBox(height: 18),
                 const AdminSectionTitle('Trimestres & séquences',
                     icon: Icons.view_timeline_rounded),
@@ -125,6 +136,101 @@ class _YearProgress extends StatelessWidget {
   }
 }
 
+// ─── « Où en sommes-nous ? » ──────────────────────────────────────────────────
+//  Trimestre et séquence courants, en une ligne, en haut de l'écran.
+//  L'information existait — mais il fallait dérouler toute la page et repérer
+//  deux pastilles vertes pour la reconstituer. Or c'est la première question
+//  qu'on pose à un calendrier scolaire : dans quelle période saisit-on les
+//  notes aujourd'hui ?
+//
+//  `is_current` est posé par le GROUPE et ne suit pas forcément le calendrier
+//  réel (un ministère peut oublier de basculer le trimestre). On affiche donc
+//  ce que la base déclare, et on signale l'écart quand les dates le
+//  contredisent, plutôt que d'inventer une vérité concurrente.
+class _CurrentPeriodStrip extends ConsumerWidget {
+  const _CurrentPeriodStrip({required this.year});
+  final AcademicYearModel year;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final trims = ref.watch(trimestersProvider(year.id)).valueOrNull;
+    if (trims == null || trims.isEmpty) return const SizedBox.shrink();
+
+    TrimesterModel? declared;
+    for (final t in trims) {
+      if (t.isCurrent) {
+        declared = t;
+        break;
+      }
+    }
+
+    final now = DateTime.now();
+    TrimesterModel? byDate;
+    for (final t in trims) {
+      if (!now.isBefore(t.startDate) && !now.isAfter(t.endDate)) {
+        byDate = t;
+        break;
+      }
+    }
+
+    final seq = declared == null
+        ? null
+        : ref.watch(currentSequenceProvider(declared.id)).valueOrNull;
+
+    if (declared == null) {
+      return _PeriodChip(
+        icon: Icons.help_outline_rounded,
+        color: kAccent,
+        text: byDate == null
+            ? 'Aucun trimestre en cours déclaré par le groupe.'
+            : 'Aucun trimestre déclaré courant — d\'après les dates, nous '
+                'sommes dans ${byDate.label}.',
+      );
+    }
+
+    final drifted = byDate != null && byDate.id != declared.id;
+    return _PeriodChip(
+      icon: drifted ? Icons.warning_amber_rounded : Icons.play_circle_rounded,
+      color: drifted ? kAccent : kGreen,
+      text: drifted
+          ? 'Le groupe déclare ${declared.label} courant, mais les dates '
+              'placent aujourd\'hui dans ${byDate.label}.'
+          : 'En cours : ${declared.label}'
+              '${seq == null ? '' : ' · ${seq.label}'}',
+    );
+  }
+}
+
+class _PeriodChip extends StatelessWidget {
+  const _PeriodChip(
+      {required this.icon, required this.color, required this.text});
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.09),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withValues(alpha: 0.28)),
+        ),
+        child: Row(children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text,
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                    height: 1.35)),
+          ),
+        ]),
+      );
+}
+
 // ─── Timeline visuelle proportionnelle des trimestres ─────────────────────────
 class _YearTimeline extends StatelessWidget {
   const _YearTimeline({required this.year, required this.trims});
@@ -142,9 +248,9 @@ class _YearTimeline extends StatelessWidget {
 
     return AdminCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+        Row(children: [
           Icon(Icons.timeline_rounded, size: 17, color: kNavy),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Text("Déroulé de l'année",
               style: TextStyle(
                   fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
@@ -270,7 +376,7 @@ class _LegendDot extends StatelessWidget {
                 color: current ? color : kTextMuted)),
         if (current) ...[
           const SizedBox(width: 4),
-          const Icon(Icons.circle, size: 5, color: kGreen),
+          Icon(Icons.circle, size: 5, color: kGreen),
         ],
       ]);
 }
@@ -285,7 +391,7 @@ class _TrimesterCard extends ConsumerWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: kBorder),
       ),
@@ -301,7 +407,7 @@ class _TrimesterCard extends ConsumerWidget {
                   color: kNavy.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8)),
               child: Text('T${trimester.trimesterNumber}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w800, color: kNavy)),
             ),
             const SizedBox(width: 12),
@@ -309,15 +415,15 @@ class _TrimesterCard extends ConsumerWidget {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
                   Text(trimester.label,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 14, fontWeight: FontWeight.w700, color: kNavy)),
                   const SizedBox(width: 8),
-                  if (trimester.isCurrent) const _Tag(text: 'Courant', color: kGreen),
+                  if (trimester.isCurrent) _Tag(text: 'Courant', color: kGreen),
                 ]),
                 const SizedBox(height: 2),
                 Text(
                     '${_fmtDate.format(trimester.startDate)} → ${_fmtDate.format(trimester.endDate)}',
-                    style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                    style: TextStyle(fontSize: 11, color: kTextMuted)),
               ]),
             ),
           ]),
@@ -328,22 +434,22 @@ class _TrimesterCard extends ConsumerWidget {
           data: (seqs) {
             if (seqs.isEmpty) return const SizedBox.shrink();
             return Column(children: [
-              const Divider(height: 1, color: kBorder),
+              Divider(height: 1, color: kBorder),
               ...seqs.map((s) => Padding(
                     padding: const EdgeInsets.fromLTRB(20, 8, 16, 8),
                     child: Row(children: [
-                      const Icon(Icons.fiber_manual_record, size: 8, color: kTextMuted),
+                      Icon(Icons.fiber_manual_record, size: 8, color: kTextMuted),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text('Séq. ${s.sequenceNumber} · ${s.label}',
-                            style: const TextStyle(fontSize: 12.5, color: kNavy)),
+                            style: TextStyle(fontSize: 12.5, color: kNavy)),
                       ),
                       Text(
                           '${_fmtDate.format(s.startDate)} → ${_fmtDate.format(s.endDate)}',
-                          style: const TextStyle(fontSize: 10.5, color: kTextMuted)),
+                          style: TextStyle(fontSize: 10.5, color: kTextMuted)),
                       if (s.isCurrent) ...[
                         const SizedBox(width: 8),
-                        const _Tag(text: 'Courante', color: kGreen),
+                        _Tag(text: 'Courante', color: kGreen),
                       ],
                     ]),
                   )),

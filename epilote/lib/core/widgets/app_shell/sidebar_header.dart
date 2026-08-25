@@ -31,12 +31,12 @@ class SidebarHeader extends StatelessWidget {
           ),
           if (expanded) ...[
             const SizedBox(width: 10),
-            const Expanded(
+            Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'E-PILOTE CONGO',
                     style: TextStyle(
                       color: Colors.white,

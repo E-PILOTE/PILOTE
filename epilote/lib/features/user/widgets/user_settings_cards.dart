@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
-import '../../../core/widgets/app_shell.dart';
+import '../../../core/theme/palette.dart';
+import '../../../core/theme/theme_provider.dart';
+import '../../../core/widgets/app_shell/app_header.dart' show themeIcon;
 import '../../../core/widgets/password_change_dialog.dart';
 import '../../../features/navigation/providers/module_navigation_provider.dart';
 import '../../../features/structure/providers/academic_year_context.dart';
@@ -69,7 +71,7 @@ class SettingsTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: kTextPrimary),
@@ -77,7 +79,7 @@ class SettingsTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(subtitle,
-                      style: const TextStyle(fontSize: 12, color: kTextMuted),
+                      style: TextStyle(fontSize: 12, color: kTextMuted),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis),
                 ],
@@ -116,14 +118,14 @@ class StaffSecurityCard extends StatelessWidget {
             label: const Text('Changer le mot de passe'),
             style: OutlinedButton.styleFrom(
               foregroundColor: kNavy,
-              side: const BorderSide(color: kBorder),
+              side: BorderSide(color: kBorder),
               padding: const EdgeInsets.symmetric(vertical: 13),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Le changement de mot de passe nécessite une connexion internet.',
             style: TextStyle(fontSize: 11.5, color: kTextMuted),
           ),
@@ -185,28 +187,81 @@ class StaffSchoolCard extends ConsumerWidget {
     };
 
 // ─── Carte Apparence ───────────────────────────────────────────────────────────
+/// Le thème appartient à l'AGENT, pas au poste : sur un poste partagé, chacun
+/// retrouve le sien après le PIN. Rien n'est synchronisé.
 class StaffAppearanceCard extends ConsumerWidget {
   const StaffAppearanceCard({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
+    final current = ref.watch(themeIdProvider);
     return AdminCard(
-      padding: EdgeInsets.zero,
-      child: SettingsTile(
-        icon: isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-        color: kAccent,
-        title: 'Thème sombre',
-        subtitle: isDark ? 'Activé' : 'Désactivé',
-        trailing: Switch(
-          value: isDark,
-          activeThumbColor: kGreen,
-          onChanged: (v) => ref.read(themeModeProvider.notifier).state =
-              v ? ThemeMode.dark : ThemeMode.light,
-        ),
-        onTap: () => ref.read(themeModeProvider.notifier).state =
-            isDark ? ThemeMode.light : ThemeMode.dark,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.palette_outlined, size: 18, color: kAccent),
+            const SizedBox(width: 8),
+            Text('Thème',
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: kTextPrimary)),
+          ]),
+          const SizedBox(height: 4),
+          Text('Votre choix, sur ce poste — les autres agents gardent le leur.',
+              style: TextStyle(fontSize: 11.5, color: kTextMuted)),
+          const SizedBox(height: 12),
+          ThemePicker(current: current, onPick: (id) => ref.read(themeIdProvider.notifier).set(id)),
+        ],
       ),
+    );
+  }
+}
+
+/// Sélecteur 3 thèmes, partagé par les Paramètres personnel et admin groupe.
+class ThemePicker extends StatelessWidget {
+  const ThemePicker({super.key, required this.current, required this.onPick});
+  final EpiloteThemeId current;
+  final ValueChanged<EpiloteThemeId> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (final id in EpiloteThemeId.values) ...[
+          Expanded(
+            child: InkWell(
+              onTap: () => onPick(id),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: id == current
+                      ? kGreen.withValues(alpha: 0.10)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: id == current ? kGreen : kBorder,
+                      width: id == current ? 1.5 : 1),
+                ),
+                child: Column(children: [
+                  Icon(themeIcon(id),
+                      size: 20, color: id == current ? kGreen : kTextMuted),
+                  const SizedBox(height: 6),
+                  Text(id.label,
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight:
+                              id == current ? FontWeight.w700 : FontWeight.w500,
+                          color: id == current ? kGreen : kTextPrimary)),
+                ]),
+              ),
+            ),
+          ),
+          if (id != EpiloteThemeId.values.last) const SizedBox(width: 8),
+        ],
+      ],
     );
   }
 }
@@ -266,7 +321,7 @@ class StaffSyncCard extends ConsumerWidget {
                     'sont envoyées automatiquement.'
                 : 'Vous travaillez hors ligne. Vos modifications seront '
                     'envoyées dès le retour de la connexion.',
-            style: const TextStyle(fontSize: 12, color: kTextMuted, height: 1.5),
+            style: TextStyle(fontSize: 12, color: kTextMuted, height: 1.5),
           ),
         ],
       ),

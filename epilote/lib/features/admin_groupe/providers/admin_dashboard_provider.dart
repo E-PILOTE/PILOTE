@@ -3,7 +3,13 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
 
+import '../../../core/utils/paged_fetch.dart';
+import '../../../core/utils/plan_referential_realtime.dart';
+import '../../../core/utils/subscription_days.dart';
+
 import '../../../features/auth/providers/auth_provider.dart';
+import 'subscription_access_provider.dart'
+    show kSubscriptionAlertDays, subscriptionSettingsProvider;
 
 // ─── Point mensuel (sparklines / courbes) ───────────────────────────────────
 class MonthlyPoint {
@@ -63,12 +69,12 @@ class AdminDashboardData {
     required this.classesTotal,
     required this.revenusMois,
     required this.paiementsMoisCount,
+    this.revenusMoisLabel,
     required this.elevesAJour,
     required this.schools,
     required this.recentActivity,
     required this.publicCount,
     required this.priveCount,
-    required this.mixteCount,
     required this.studentsM,
     required this.studentsF,
     required this.enseignantsTotal,
@@ -82,6 +88,7 @@ class AdminDashboardData {
     required this.staffByContract,
     required this.staffByDept,
     required this.hireTrend,
+    this.alertDays = kSubscriptionAlertDays,
   });
 
   final String  groupName;
@@ -89,16 +96,24 @@ class AdminDashboardData {
   final String  planSlug;
   final String  subscriptionStatus;
   final DateTime? subscriptionEnd;
+
+  /// Fenêtre d'alerte avant échéance (réglage plateforme), partagée avec le
+  /// bandeau et la carte du plan — les trois doivent dire la même chose.
+  final int     alertDays;
   final int     maxSchools, maxStudents, maxStaff, moduleCount;
   final int     ecolesTotal, ecolesActives, elevesTotal, personnelTotal, classesTotal;
   final double  revenusMois;
   final int     paiementsMoisCount;
+
+  /// Nommé SEULEMENT si les revenus affichés ne sont pas ceux du mois en
+  /// cours — un chiffre d'une autre période ne se montre jamais sans sa date.
+  final String? revenusMoisLabel;
   final int     elevesAJour;
   final List<SchoolSummary> schools;
   final List<AdminActivity> recentActivity;
 
   // ── Indicateurs stratégiques ──
-  final int publicCount, priveCount, mixteCount;
+  final int publicCount, priveCount;
   final int studentsM, studentsF;
   final int enseignantsTotal, adminsTotal;
   final Map<String, int> schoolsByDept;
@@ -147,9 +162,8 @@ class AdminDashboardData {
       maxStudents <= 0 ? 0 : (elevesTotal / maxStudents * 100).clamp(0, 999);
 
   bool get expireBientot {
-    if (subscriptionEnd == null) return false;
-    final d = subscriptionEnd!.difference(DateTime.now()).inDays;
-    return d >= 0 && d <= 30;
+    final d = daysUntilDate(subscriptionEnd);
+    return d != null && d >= 0 && d <= alertDays;
   }
 
   static const empty = AdminDashboardData(
@@ -163,7 +177,7 @@ class AdminDashboardData {
     personnelTotal: 0, classesTotal: 0,
     revenusMois: 0, paiementsMoisCount: 0, elevesAJour: 0,
     schools: [], recentActivity: [],
-    publicCount: 0, priveCount: 0, mixteCount: 0,
+    publicCount: 0, priveCount: 0,
     studentsM: 0, studentsF: 0,
     enseignantsTotal: 0, adminsTotal: 0,
     schoolsByDept: {}, studentsByDept: {},
@@ -171,6 +185,20 @@ class AdminDashboardData {
     fonctionnaires: 0, nonFonctionnaires: 0,
     staffByContract: {}, staffByDept: {}, hireTrend: [],
   );
+}
+
+/// « 2026-06 » → « juin 2026 ». Un chiffre venu d'un autre mois que le mois
+/// courant doit porter son mois, sinon il se lit comme celui d'aujourd'hui.
+String _monthLabel(String key) {
+  const noms = [
+    'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+    'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
+  ];
+  final parts = key.split('-');
+  if (parts.length != 2) return key;
+  final m = int.tryParse(parts[1]);
+  if (m == null || m < 1 || m > 12) return key;
+  return '${noms[m - 1]} ${parts[0]}';
 }
 
 // ─── Provider principal ─────────────────────────────────────────────────────
@@ -181,6 +209,10 @@ final adminDashboardProvider =
   final profile = ref.watch(authNotifierProvider).valueOrNull;
   final groupId = profile?.groupId;
   if (groupId == null) return AdminDashboardData.empty;
+
+  // Fenêtre d'alerte réglable par le super_admin — partagée avec le bandeau.
+  final alertDays =
+      (await ref.watch(subscriptionSettingsProvider.future)).alertDays;
 
   // ── Realtime : invalidation silencieuse sur changements du groupe ─────────
   Timer? debounce;
@@ -204,6 +236,9 @@ final adminDashboardProvider =
         callback: onChange,
       );
     }
+    // Les quotas du bandeau viennent du plan : un relèvement de limite doit
+    // s'y voir sans redémarrer l'application.
+    channel.watchPlanReferential(() => onChange(null));
     channel.subscribe();
     ref.onDispose(() {
       debounce?.cancel();
@@ -243,13 +278,13 @@ final adminDashboardProvider =
   final List<Map<String, dynamic>> schoolRows = [];
   final Map<String, String> schoolDept = {};
   final Map<String, int> schoolsByDept = {};
-  int publicCount = 0, priveCount = 0, mixteCount = 0;
+  int publicCount = 0, priveCount = 0;
   try {
     final rows = await client
         .from('schools')
         .select('id, name, school_type, city, department, is_active')
         .eq('group_id', groupId)
-        .order('name') as List;
+        .order('name', ascending: true) as List;
     schoolRows.addAll(rows.cast<Map<String, dynamic>>());
     for (final s in schoolRows) {
       final id   = s['id'] as String;
@@ -260,7 +295,6 @@ final adminDashboardProvider =
       switch (s['school_type'] as String?) {
         case 'public': publicCount++; break;
         case 'prive':  priveCount++;  break;
-        case 'mixte':  mixteCount++;  break;
       }
     }
   } catch (_) {}
@@ -271,11 +305,14 @@ final adminDashboardProvider =
   final List<DateTime> enrollDates = [];
   int elevesTotal = 0, studentsM = 0, studentsF = 0;
   try {
-    final rows = await client
+    // Ventilation par école, département et genre : il faut les lignes, donc
+    // une pagination — `.length` sur une réponse tronquée à 1 000 plafonnait
+    // l'effectif du groupe (cf. `paged_fetch.dart`).
+    final rows = await fetchAllRows(() => client
         .from('students')
         .select('school_id, gender, created_at')
         .eq('group_id', groupId)
-        .eq('is_active', true) as List;
+        .eq('is_active', true));
     elevesTotal = rows.length;
     for (final r in rows) {
       final sid = r['school_id'] as String? ?? '';
@@ -298,18 +335,22 @@ final adminDashboardProvider =
   final List<DateTime>   hireDates        = [];
   int personnelTotal = 0, fonctionnaires = 0, nonFonctionnaires = 0;
   try {
-    final rows = await client
-        .from('staff_members')
-        .select('school_id, contract_type, hire_date')
+    // Le personnel vit dans `profiles` : `staff_members` est vide et
+    // l'application n'y écrit jamais. Ce bandeau affichait donc zéro agent
+    // dans un groupe qui en compte des centaines.
+    final rows = await fetchAllRows(() => client
+        .from('profiles')
+        .select('school_id, employment_status, hire_date')
         .eq('group_id', groupId)
-        .eq('is_active', true) as List;
+        .eq('is_active', true)
+        .not('role', 'in', '(super_admin,admin_groupe,parent,eleve)'));
     personnelTotal = rows.length;
     for (final r in rows) {
       final sid = r['school_id'] as String? ?? '';
       staffBySchool[sid] = (staffBySchool[sid] ?? 0) + 1;
       final dept = schoolDept[sid] ?? 'Non précisé';
       staffByDept[dept] = (staffByDept[dept] ?? 0) + 1;
-      final ct = (r['contract_type'] as String?) ?? 'permanent';
+      final ct = (r['employment_status'] as String?) ?? 'permanent';
       staffByContract[ct] = (staffByContract[ct] ?? 0) + 1;
       // Fonctionnaire de l'État = contrat permanent (titulaire) ; sinon non-fonctionnaire.
       if (ct == 'permanent') {
@@ -326,11 +367,11 @@ final adminDashboardProvider =
   final Map<String, int> classesBySchool = {};
   int classesTotal = 0;
   try {
-    final rows = await client
+    final rows = await fetchAllRows(() => client
         .from('classes')
         .select('school_id')
         .eq('group_id', groupId)
-        .eq('is_active', true) as List;
+        .eq('is_active', true));
     classesTotal = rows.length;
     for (final r in rows) {
       final sid = r['school_id'] as String? ?? '';
@@ -368,36 +409,64 @@ final adminDashboardProvider =
     );
   }).toList();
 
-  // ── Finance du mois courant + tendance 6 mois ────────────────────────────
+  // ── Finance : élèves à jour sur l'ANNÉE, revenus du dernier mois encaissé ──
+  //
+  // ⚠️ Deux erreurs de fenêtre corrigées ici, toutes deux visibles sur l'écran
+  // d'accueil du ministère :
+  //
+  //  1. « Élèves à jour » se comptait sur le MOIS CIVIL en cours. Or la
+  //     scolarité se règle par tranches sur l'année (sept→juin) : le 1er de
+  //     chaque mois, et pendant toutes les vacances de juillet-août, le taux
+  //     retombait mécaniquement à 0 % — un rouge franc sur la page d'accueil,
+  //     alors que la page Rapports, elle, comptait sur l'année et affichait
+  //     69 %. Deux chiffres contradictoires pour la même question.
+  //  2. « Revenus du mois » restait à zéro dès qu'aucun encaissement n'avait
+  //     encore eu lieu dans le mois courant. On montre désormais le DERNIER
+  //     mois encaissé, en le nommant — un chiffre daté vaut mieux qu'un zéro
+  //     muet.
   double revenusMois = 0;
   int    paiementsCount = 0;
+  String? revenusMoisLabel;
   final  Set<String> studentsPaid = {};
   final  List<DateTime> payDates = [];
   final  Map<String, double> revByMonth = {};
+  final  Map<String, int> countByMonth = {};
   try {
-    final now   = DateTime.now();
+    final now = DateTime.now();
+    // L'année scolaire congolaise court de septembre à juin.
+    final yearStart = DateTime(now.month >= 9 ? now.year : now.year - 1, 9, 1);
     final from6 = DateTime(now.year, now.month - 5, 1);
-    final start = DateTime(now.year, now.month, 1);
+    final from = yearStart.isBefore(from6) ? yearStart : from6;
     final rows = await client
         .from('student_payments')
         .select('amount_xaf, student_id, status, payment_date')
         .eq('group_id', groupId)
         .eq('status', 'confirmed')
-        .gte('payment_date', from6.toIso8601String().substring(0, 10)) as List;
+        .gte('payment_date', from.toIso8601String().substring(0, 10)) as List;
     for (final r in rows) {
       final amount = (r['amount_xaf'] as num? ?? 0).toDouble();
       final dt = DateTime.tryParse(r['payment_date'] as String? ?? '');
-      if (dt != null) {
-        final key = '${dt.year}-${dt.month.toString().padLeft(2, '0')}';
-        revByMonth[key] = (revByMonth[key] ?? 0) + amount;
-        payDates.add(dt);
-      }
-      if (dt != null && !dt.isBefore(start)) {
-        revenusMois += amount;
-        paiementsCount++;
+      if (dt == null) continue;
+      final key = '${dt.year}-${dt.month.toString().padLeft(2, '0')}';
+      revByMonth[key] = (revByMonth[key] ?? 0) + amount;
+      countByMonth[key] = (countByMonth[key] ?? 0) + 1;
+      payDates.add(dt);
+      // À jour = a réglé au moins une tranche depuis la rentrée.
+      if (!dt.isBefore(yearStart)) {
         final sid = r['student_id'] as String?;
         if (sid != null) studentsPaid.add(sid);
       }
+    }
+    // Le mois courant s'il a encaissé, sinon le dernier qui l'a fait.
+    final currentKey =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    final key = revByMonth.containsKey(currentKey)
+        ? currentKey
+        : (revByMonth.keys.toList()..sort()).lastOrNull;
+    if (key != null) {
+      revenusMois = revByMonth[key] ?? 0;
+      paiementsCount = countByMonth[key] ?? 0;
+      if (key != currentKey) revenusMoisLabel = _monthLabel(key);
     }
   } catch (_) {}
 
@@ -428,6 +497,7 @@ final adminDashboardProvider =
     planSlug:           planSlug,
     subscriptionStatus: subStatus,
     subscriptionEnd:    subEnd,
+    alertDays:          alertDays,
     maxSchools:         maxSchools,
     maxStudents:        maxStudents,
     maxStaff:           maxStaff,
@@ -439,12 +509,12 @@ final adminDashboardProvider =
     classesTotal:       classesTotal,
     revenusMois:        revenusMois,
     paiementsMoisCount: paiementsCount,
+    revenusMoisLabel:   revenusMoisLabel,
     elevesAJour:        studentsPaid.length,
     schools:            schools,
     recentActivity:     activity,
     publicCount:        publicCount,
     priveCount:         priveCount,
-    mixteCount:         mixteCount,
     studentsM:          studentsM,
     studentsF:          studentsF,
     enseignantsTotal:   enseignantsTotal,

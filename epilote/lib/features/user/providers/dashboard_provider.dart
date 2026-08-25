@@ -70,7 +70,8 @@ final staffSummaryProvider = StreamProvider.autoDispose<StaffSummary>((ref) {
         SELECT
           COUNT(*) AS total,
           COALESCE(SUM(CASE WHEN role = 'enseignant' THEN 1 ELSE 0 END), 0) AS teachers,
-          COALESCE(SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END), 0) AS active
+          COALESCE(SUM(CASE WHEN COALESCE(is_active, 1) <> 0
+                            THEN 1 ELSE 0 END), 0)                    AS active
         FROM profiles
         WHERE school_id = ? AND role NOT IN ('eleve', 'parent')
         ''',
@@ -92,15 +93,18 @@ final staffSummaryProvider = StreamProvider.autoDispose<StaffSummary>((ref) {
 class PaymentsSummary {
   const PaymentsSummary(this.encaisse, this.attente);
   final int encaisse; // status = 'confirmed'
-  final int attente; // autres statuts
+  final int attente; // status = 'pending'
 }
 
 /// Encaissements (confirmés) vs en attente — école, **scopés à l'année active**
-/// (cohérent avec les Dépenses/Solde). `student_payments` n'ayant pas de colonne
-/// `academic_year_id`, l'année est portée par l'inscription liée
-/// (`enrollment_id → class_enrollments.academic_year_id`). Un paiement sans
-/// inscription rattachée (enrollment_id nul) n'est pas imputable à une année et
-/// n'entre donc pas dans ces totaux annuels. `amount_xaf` en XAF.
+/// (cohérent avec les Dépenses/Solde). `amount_xaf` en XAF.
+///
+/// Ce total lisait l'année par une jointure sur `class_enrollments`, faute de
+/// colonne d'année sur le paiement (migration 0095). Deux conséquences, toutes
+/// deux corrigées ici : un paiement sans inscription rattachée — les frais
+/// d'examen, `savePayment` acceptant un `enrollment_id` nul — DISPARAISSAIT
+/// des totaux ; et « en attente » (`<> 'confirmed'`) comptait les paiements
+/// ANNULÉS comme de l'argent à venir.
 final paymentsSummaryProvider =
     StreamProvider.autoDispose<PaymentsSummary>((ref) {
   final sid = ref.watch(authNotifierProvider).valueOrNull?.schoolId;
@@ -112,11 +116,17 @@ final paymentsSummaryProvider =
       .watch(
         '''
         SELECT
-          COALESCE(SUM(CASE WHEN sp.status = 'confirmed' THEN sp.amount_xaf ELSE 0 END), 0) AS enc,
-          COALESCE(SUM(CASE WHEN sp.status <> 'confirmed' THEN sp.amount_xaf ELSE 0 END), 0) AS att
-        FROM student_payments sp
-        JOIN class_enrollments ce ON ce.id = sp.enrollment_id
-        WHERE sp.school_id = ? AND ce.academic_year_id = ?
+          -- Net encaissé : un remboursement PARTIEL laisse la ligne
+          -- `confirmed` mais n'a plus rapporté que la différence ; un
+          -- remboursement TOTAL passe en `refunded` et ne rapporte rien.
+          -- Compter les seules lignes `confirmed` faisait disparaître la part
+          -- conservée d'un remboursement partiel (cf. `montantNet`).
+          COALESCE(SUM(CASE WHEN status IN ('confirmed', 'refunded')
+                            THEN MAX(amount_xaf - COALESCE(refunded_amount_xaf, 0), 0)
+                            ELSE 0 END), 0) AS enc,
+          COALESCE(SUM(CASE WHEN status = 'pending'   THEN amount_xaf ELSE 0 END), 0) AS att
+        FROM student_payments
+        WHERE school_id = ? AND academic_year_id = ?
         ''',
         parameters: [sid, yearId],
       )

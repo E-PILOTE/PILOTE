@@ -75,9 +75,9 @@ class _DeliberationSheetState extends ConsumerState<_DeliberationSheet> {
       minChildSize: 0.45,
       maxChildSize: 0.95,
       builder: (ctx, scroll) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: kCardBg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(children: [
           const SizedBox(height: 10),
@@ -94,7 +94,7 @@ class _DeliberationSheetState extends ConsumerState<_DeliberationSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(e.studentName,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
@@ -102,7 +102,7 @@ class _DeliberationSheetState extends ConsumerState<_DeliberationSheet> {
                           '${e.rank == 0 ? '—' : '${e.rank}ᵉ/${e.totalStudents}'} · ${e.mention}'
                           '${e.matricule != null ? ' · ${e.matricule}' : ''}',
                           style:
-                              const TextStyle(fontSize: 12, color: kTextMuted)),
+                              TextStyle(fontSize: 12, color: kTextMuted)),
                     ]),
               ),
               if (!widget.canEdit)
@@ -113,10 +113,10 @@ class _DeliberationSheetState extends ConsumerState<_DeliberationSheet> {
                     color: kTextMuted.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(7),
                   ),
-                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
                     Icon(Icons.lock_outline_rounded,
                         size: 13, color: kTextMuted),
-                    SizedBox(width: 5),
+                    const SizedBox(width: 5),
                     Text('Lecture seule',
                         style: TextStyle(
                             fontSize: 11,
@@ -143,9 +143,9 @@ class _DeliberationSheetState extends ConsumerState<_DeliberationSheet> {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: kAccent.withValues(alpha: 0.35)),
                     ),
-                    child: const Row(children: [
+                    child: Row(children: [
                       Icon(Icons.info_outline_rounded, size: 16, color: kAccent),
-                      SizedBox(width: 9),
+                      const SizedBox(width: 9),
                       Expanded(
                         child: Text(
                             'Bulletin non encore généré pour cet élève. '
@@ -257,7 +257,7 @@ class _DeliberationSheetState extends ConsumerState<_DeliberationSheet> {
             const SizedBox(height: 2),
             Text(l,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 10, color: kTextMuted)),
+                style: TextStyle(fontSize: 10, color: kTextMuted)),
           ]),
         ),
       );
@@ -268,7 +268,7 @@ class _Label extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Text(text.toUpperCase(),
-      style: const TextStyle(
+      style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w800,
           color: kTextMuted,
@@ -297,7 +297,7 @@ class _AwardChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
-          color: selected ? color.withValues(alpha: 0.14) : Colors.white,
+          color: selected ? color.withValues(alpha: 0.14) : kCardBg,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
               color: selected ? color : kBorder,

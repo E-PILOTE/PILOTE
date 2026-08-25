@@ -10,6 +10,7 @@ import '../../structure/providers/academic_year_context.dart';
 import '../providers/transfers_provider.dart';
 import '../services/transfers_pdf_service.dart';
 import '../widgets/transfer_destination_picker.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'transferts_parts.dart';
 part 'transferts_form.dart';
@@ -183,7 +184,7 @@ class _BodyState extends ConsumerState<_Body> {
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('Erreur : $e', style: const TextStyle(color: kRed)),
+          child: Text(messageErreur(e), style: TextStyle(color: kRed)),
         ),
       ),
       data: (all) {

@@ -1,7 +1,12 @@
 name: epilote
 description: "E-PILOTE CONGO v3.0 — Plateforme de gestion scolaire multi-tenant"
 publish_to: 'none'
-version: 3.0.0+1
+# 3.2.0+19 (2026-08-14) — le « +19 » est ce que le parc COMPARE : la chaîne de
+# version ne sert qu'à l'affichage, `build_number` seul décide qu'un poste est
+# en retard (mig 0087). Il ne doit donc jamais reculer ni stagner entre deux
+# binaires différents — 3.1.7+18 a été livré deux fois, le 06/08 et le 14/08,
+# ce qui les rendait indistinguables pour le mécanisme de mise à jour.
+version: 3.3.0+20
 
 environment:
   sdk: ^3.12.0
@@ -52,6 +57,11 @@ dependencies:
   uuid: ^4.5.1
   logger: ^2.5.0
   connectivity_plus: ^6.1.4
+  # Version réellement embarquée dans le binaire installé. Un numéro écrit
+  # en dur dans le code se désynchronise — il affichait « 3.0.2 » pour un
+  # paquet en 3.1.7. Sur un parc mis à jour à la main, c'est la première
+  # question du support : quelle version tourne sur ce poste ?
+  package_info_plus: ^9.0.1
   url_launcher: ^6.3.1
   powersync: ^1.18.0
   fl_chart: ^1.2.0
@@ -60,6 +70,9 @@ dependencies:
   path: ^1.9.1
   shared_preferences: ^2.5.5
   crypto: ^3.0.7
+  # `AccumulatorSink` — le calcul d'empreinte EN FLUX. Sans lui, vérifier un
+  # installateur de 34 Mo le charge entier en mémoire sur un poste d'école.
+  convert: ^3.1.2
   cryptography: ^2.7.0          # Ed25519 (vérif signature licence) — crypto seul ne fait que SHA/HMAC
   flutter_secure_storage: ^9.2.4 # coffre licence (Keychain/Keystore ; faible desktop → intégrité par signature)
   flutter_map: ^7.0.2
@@ -75,7 +88,12 @@ dependencies:
   pdf: ^3.12.0                # génération PDF
   printing: ^5.14.3           # impression + téléchargement PDF
   pdfrx: ^2.4.4
-  audioplayers: ^6.7.1
+  # ⚠️ Plancher à 6.8.1 : c'est la première version dont le greffon Windows
+  # (audioplayers_windows 4.4.1) compile avec Visual Studio 18 (2026). En deçà,
+  # il inclut <experimental/coroutine>, que MSVC 14.51 transforme en erreur
+  # dure — la compilation Windows échoue, et elle seule. Voir aussi la
+  # politique CMP0091 exigée dans windows/CMakeLists.txt.
+  audioplayers: ^6.8.1
   media_kit: ^1.2.6
   media_kit_video: ^2.0.1
   media_kit_libs_video: ^1.0.7
@@ -104,3 +122,10 @@ flutter:
     - assets/icons/
     - assets/icons/logo.svg
     - assets/geo/
+    # Polices des documents officiels — EMBARQUÉES, jamais téléchargées.
+    # `PdfGoogleFonts` va les chercher sur fonts.gstatic.com : sans réseau et
+    # sans cache, le moteur PDF retombe sur Helvetica, qui ne gère PAS
+    # l'Unicode. Tous les accents des documents officiels sautaient alors —
+    # sur un produit offline-first destiné aux écoles congolaises, c'est
+    # inacceptable. Voir OfficialPdfKit.loadFonts().
+    - assets/fonts/

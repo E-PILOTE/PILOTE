@@ -121,13 +121,21 @@ final academicStructureProvider =
     JOIN education_cycles ec ON ec.id = sc.cycle_id
     LEFT JOIN school_levels sl
            ON sl.cycle_id = sc.cycle_id
-          AND sl.group_id = sc.group_id
-          AND sl.is_active = 1
+          -- ⚠️ SANS CETTE LIGNE, l'écran affichait les niveaux de TOUTES les
+          -- écoles du réseau : 42 au lieu de 6, sept copies de CP1, CE1, CM2.
+          -- `school_levels` porte bien un `school_id` — le filtre sur le seul
+          -- `group_id` laissait entrer les catalogues voisins.
+          AND sl.school_id = sc.school_id
+          AND sl.group_id  = sc.group_id
+          -- `is_active = 1` rate les lignes écrites par l'application : la vue
+          -- PowerSync n'y met pas toujours un entier. Un niveau créé le matin
+          -- disparaissait de l'écran l'après-midi.
+          AND COALESCE(sl.is_active, 1) <> 0
     LEFT JOIN classes c
            ON c.level_id = sl.id
           AND c.school_id = ?
           AND c.academic_year_id = ?
-          AND c.is_active = 1
+          AND COALESCE(c.is_active, 1) <> 0
     WHERE sc.school_id = ?
     ORDER BY ec.order_index, sl.order_index, c.name
     ''',
@@ -238,7 +246,7 @@ final cycleFilieresProvider = FutureProvider.autoDispose
     SELECT ep.code, ep.name
     FROM education_programs ep
     JOIN education_cycles ec ON ec.id = ep.cycle_id
-    WHERE ec.code = ? AND ep.is_active = 1
+    WHERE ec.code = ? AND COALESCE(ep.is_active, 1) <> 0
     ORDER BY ep.order_index, ep.name
     ''',
     [cycleCode],
@@ -263,7 +271,7 @@ final schoolTeachersProvider =
     '''
     SELECT id, TRIM(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')) AS full_name
     FROM profiles
-    WHERE school_id = ? AND is_active = 1
+    WHERE school_id = ? AND COALESCE(is_active, 1) <> 0
       AND role IN ('enseignant', 'directeur', 'proviseur')
     ORDER BY last_name, first_name
     ''',

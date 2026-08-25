@@ -3,14 +3,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  ESPACE ADMIN_GROUPE — Analyses d'une année scolaire (online / Supabase direct).
-//  Ventilation par département / type d'établissement / école + année sélectionnée.
+//  ESPACE ADMIN_GROUPE — Analyses d'une année scolaire (online / Supabase).
+//
+//  La ventilation par école vient de la RPC `academic_year_school_stats` : un
+//  GROUP BY côté Postgres, une ligne par établissement. La version précédente
+//  rapatriait toutes les lignes de `classes` et `class_enrollments` de l'année
+//  pour les compter en Dart — intenable à 1 000 écoles, et surtout exposé à la
+//  troncature silencieuse de PostgREST.
+//
+//  Les regroupements par département et par type restent côté client : ils
+//  portent sur la liste des écoles (37 aujourd'hui, 1 000 à la cible), c'est-à-
+//  dire une poignée de lignes déjà en mémoire — pas la peine d'un aller-retour
+//  de plus.
 // ══════════════════════════════════════════════════════════════════════════════
 
-// ─── Année sélectionnée pour les analyses (par défaut : courante) ──────────────
-final selectedAdminYearIdProvider = StateProvider.autoDispose<String?>((ref) => null);
+// ─── Année sélectionnée pour les analyses (par défaut : courante) ─────────────
+final selectedAdminYearIdProvider =
+    StateProvider.autoDispose<String?>((ref) => null);
 
-// ─── Analytics d'une année : par département / par type / par école ────────────
 class YearDeptStat {
   const YearDeptStat({
     required this.department,
@@ -64,12 +74,18 @@ class AdminYearAnalytics {
   final List<YearSchoolStat> bySchool;
   final int ecolesTotal, ecolesPreparees, classes, eleves;
 
+  /// Départements où au moins une école a préparé l'année.
   int get departementsCouverts =>
       byDepartment.where((d) => d.ecolesPreparees > 0).length;
+
   double get tauxAdoption =>
       ecolesTotal == 0 ? 0 : ecolesPreparees / ecolesTotal;
-  double get moyenneElevesParClasse =>
-      classes == 0 ? 0 : eleves / classes;
+
+  double get moyenneElevesParClasse => classes == 0 ? 0 : eleves / classes;
+
+  /// Établissements sans aucune classe ouverte — la cible des relances.
+  List<YearSchoolStat> get ecolesEnRetard =>
+      bySchool.where((s) => !s.adopted).toList();
 
   static const empty = AdminYearAnalytics(
     byDepartment: [],
@@ -82,99 +98,137 @@ class AdminYearAnalytics {
   );
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+//  UN ÉTABLISSEMENT DANS SON DÉPARTEMENT
+//
+//  La table « Préparation par école » nommait un problème sans jamais le situer.
+//  « Lycée de Sibiti — 0 classe, en attente » : reste à savoir si tout le Niari
+//  est en retard, ou si ce lycée est le seul de son département à ne pas avoir
+//  ouvert. Les deux situations appellent des gestes opposés — relancer un
+//  établissement, ou appeler une direction départementale.
+//
+//  Aucune requête : tout se déduit de `bySchool`, déjà en mémoire. C'est aussi
+//  ce qui rend le calcul testable sans base ni réseau.
+// ══════════════════════════════════════════════════════════════════════════════
+class YearDepartmentDetail {
+  const YearDepartmentDetail({
+    required this.department,
+    required this.ecoles,
+    required this.ecolesPreparees,
+    required this.classes,
+    required this.eleves,
+    required this.groupeEcoles,
+    required this.groupeClasses,
+    required this.groupeEleves,
+  });
+
+  final String department;
+
+  /// Les établissements du département, effectif décroissant.
+  final List<YearSchoolStat> ecoles;
+  final int ecolesPreparees, classes, eleves;
+
+  /// Totaux du groupe — sans eux, « 430 élèves » ne veut rien dire.
+  final int groupeEcoles, groupeClasses, groupeEleves;
+
+  int get ecolesTotal => ecoles.length;
+  int get ecolesEnAttente => ecolesTotal - ecolesPreparees;
+
+  double get tauxPreparation =>
+      ecolesTotal == 0 ? 0 : ecolesPreparees / ecolesTotal;
+  double get moyenneElevesParClasse => classes == 0 ? 0 : eleves / classes;
+
+  double get partEleves => groupeEleves == 0 ? 0 : eleves / groupeEleves;
+  double get partClasses => groupeClasses == 0 ? 0 : classes / groupeClasses;
+  double get partEcoles => groupeEcoles == 0 ? 0 : ecolesTotal / groupeEcoles;
+
+  /// Rang d'un établissement dans son département, par effectif décroissant.
+  /// 1 = le plus grand ; `null` si l'école n'est pas de ce département.
+  ///
+  /// Rang de compétition : deux écoles à effectif égal partagent le même rang.
+  /// Les départager par leur position dans la liste inventerait un classement
+  /// que les données ne portent pas.
+  int? rangDe(String schoolId) {
+    final cible = ecoles.where((e) => e.id == schoolId).firstOrNull;
+    if (cible == null) return null;
+    return 1 + ecoles.where((e) => e.eleves > cible.eleves).length;
+  }
+
+  /// Extrait un département d'une ventilation d'année.
+  static YearDepartmentDetail of(AdminYearAnalytics a, String department) {
+    final ecoles = a.bySchool.where((s) => s.department == department).toList()
+      ..sort((x, y) => y.eleves.compareTo(x.eleves));
+    return YearDepartmentDetail(
+      department: department,
+      ecoles: ecoles,
+      ecolesPreparees: ecoles.where((s) => s.adopted).length,
+      classes: ecoles.fold(0, (acc, s) => acc + s.classes),
+      eleves: ecoles.fold(0, (acc, s) => acc + s.eleves),
+      groupeEcoles: a.ecolesTotal,
+      groupeClasses: a.classes,
+      groupeEleves: a.eleves,
+    );
+  }
+}
+
 /// Ventilation d'une année par département / type d'établissement / école.
-/// Online (Supabase direct) — agrégation côté client (REST ne fait pas GROUP BY).
 final adminYearAnalyticsProvider = FutureProvider.autoDispose
     .family<AdminYearAnalytics, String>((ref, yearId) async {
-  ref.keepAlive();
   final client = ref.watch(supabaseClientProvider);
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
   if (groupId == null) return AdminYearAnalytics.empty;
 
-  final schools = await client
-      .from('schools')
-      .select('id, name, department, school_type')
-      .eq('group_id', groupId)
-      .eq('is_active', true) as List;
-  final classRows = await client
-      .from('classes')
-      .select('school_id')
-      .eq('group_id', groupId)
-      .eq('academic_year_id', yearId)
-      .eq('is_active', true) as List;
-  final enrollRows = await client
-      .from('class_enrollments')
-      .select('school_id')
-      .eq('group_id', groupId)
-      .eq('academic_year_id', yearId)
-      .eq('status', 'active') as List;
+  final rows = await client
+      .rpc('academic_year_school_stats', params: {'p_year_id': yearId}) as List;
 
-  final classBySchool = <String, int>{};
-  for (final r in classRows) {
-    final s = r['school_id'] as String?;
-    if (s != null) classBySchool[s] = (classBySchool[s] ?? 0) + 1;
-  }
-  final eleveBySchool = <String, int>{};
-  for (final r in enrollRows) {
-    final s = r['school_id'] as String?;
-    if (s != null) eleveBySchool[s] = (eleveBySchool[s] ?? 0) + 1;
-  }
+  final bySchool = rows
+      .map((r) => YearSchoolStat(
+            id: r['school_id'] as String,
+            name: (r['school_name'] as String?) ?? '—',
+            department: (r['department'] as String?) ?? 'Non précisé',
+            type: (r['school_type'] as String?) ?? 'autre',
+            classes: (r['classes'] as num?)?.toInt() ?? 0,
+            eleves: (r['eleves'] as num?)?.toInt() ?? 0,
+          ))
+      .toList()
+    ..sort((a, b) => b.eleves.compareTo(a.eleves));
 
-  final bySchool = <YearSchoolStat>[];
-  for (final s in schools) {
-    final id = s['id'] as String;
-    bySchool.add(YearSchoolStat(
-      id: id,
-      name: (s['name'] as String?) ?? '—',
-      department: (s['department'] as String?)?.trim().isNotEmpty == true
-          ? s['department'] as String
-          : 'Non précisé',
-      type: (s['school_type'] as String?) ?? 'autre',
-      classes: classBySchool[id] ?? 0,
-      eleves: eleveBySchool[id] ?? 0,
-    ));
-  }
-  bySchool.sort((a, b) => b.eleves.compareTo(a.eleves));
-
-  // Agrégation par département
+  // ── Agrégation par département ───────────────────────────────────────────
   final deptMap = <String, List<YearSchoolStat>>{};
   for (final s in bySchool) {
     (deptMap[s.department] ??= []).add(s);
   }
-  final byDepartment = deptMap.entries.map((e) {
-    return YearDeptStat(
-      department: e.key,
-      ecoles: e.value.length,
-      ecolesPreparees: e.value.where((s) => s.adopted).length,
-      classes: e.value.fold(0, (a, s) => a + s.classes),
-      eleves: e.value.fold(0, (a, s) => a + s.eleves),
-    );
-  }).toList()
+  final byDepartment = deptMap.entries
+      .map((e) => YearDeptStat(
+            department: e.key,
+            ecoles: e.value.length,
+            ecolesPreparees: e.value.where((s) => s.adopted).length,
+            classes: e.value.fold(0, (a, s) => a + s.classes),
+            eleves: e.value.fold(0, (a, s) => a + s.eleves),
+          ))
+      .toList()
     ..sort((a, b) => b.eleves.compareTo(a.eleves));
 
-  // Agrégation par type d'établissement
+  // ── Agrégation par type d'établissement ──────────────────────────────────
   final typeMap = <String, List<YearSchoolStat>>{};
   for (final s in bySchool) {
     (typeMap[s.type] ??= []).add(s);
   }
-  final byType = typeMap.entries.map((e) {
-    return YearTypeStat(
-      type: e.key,
-      ecoles: e.value.length,
-      classes: e.value.fold(0, (a, s) => a + s.classes),
-      eleves: e.value.fold(0, (a, s) => a + s.eleves),
-    );
-  }).toList()
+  final byType = typeMap.entries
+      .map((e) => YearTypeStat(
+            type: e.key,
+            ecoles: e.value.length,
+            classes: e.value.fold(0, (a, s) => a + s.classes),
+            eleves: e.value.fold(0, (a, s) => a + s.eleves),
+          ))
+      .toList()
     ..sort((a, b) => b.eleves.compareTo(a.eleves));
 
-  // Totaux dérivés du réseau ACTIF (bySchool ne porte que sur les écoles
-  // actives) → cohérents avec les ventilations et avec adminAcademicYearsProvider.
-  // (classRows/enrollRows bruts incluraient des écoles désactivées.)
   return AdminYearAnalytics(
     byDepartment: byDepartment,
     byType: byType,
     bySchool: bySchool,
-    ecolesTotal: schools.length,
+    ecolesTotal: bySchool.length,
     ecolesPreparees: bySchool.where((s) => s.adopted).length,
     classes: bySchool.fold(0, (a, s) => a + s.classes),
     eleves: bySchool.fold(0, (a, s) => a + s.eleves),

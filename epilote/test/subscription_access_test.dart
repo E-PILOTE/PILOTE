@@ -59,9 +59,48 @@ void main() {
       expect(a.phase, SubscriptionPhase.grace);
     });
 
-    test('expiresSoon vrai quand actif et échéance ≤ 30 j', () {
-      final a = compute('active', DateTime(2026, 7, 20)); // 16 j
+    test('expiresSoon vrai quand actif et échéance ≤ 5 j (défaut)', () {
+      final a = compute('active', DateTime(2026, 7, 8)); // 4 j
       expect(a.phase, SubscriptionPhase.active);
+      expect(a.expiresSoon, true);
+    });
+
+    test('borne exacte de la fenêtre d\'alerte (J-5) → alerté', () {
+      expect(compute('active', DateTime(2026, 7, 9)).expiresSoon, true);
+    });
+
+    test('J-6 → PAS encore alerté (le bandeau reste éteint)', () {
+      final a = compute('active', DateTime(2026, 7, 10));
+      expect(a.phase, SubscriptionPhase.active);
+      expect(a.expiresSoon, false);
+    });
+
+    test('J-7 : la cloche sonne, mais le bandeau attend encore', () {
+      // Les deux canaux sont volontairement décalés : le rappel J-7 informe,
+      // le bandeau presse. Voir subscription_reminder_coherence_test.dart.
+      expect(compute('active', DateTime(2026, 7, 11)).expiresSoon, false);
+    });
+
+    test('régression : à 22 j le bandeau ne s\'allume plus (valait 30 en dur)', () {
+      expect(compute('active', DateTime(2026, 7, 26)).expiresSoon, false);
+    });
+
+    test('alerte CONFIGURABLE : alertDays=30 → 16 j déclenche de nouveau', () {
+      final a = computeSubscriptionAccess(
+          status: 'active', end: DateTime(2026, 7, 20), today: today,
+          alertDays: 30);
+      expect(a.expiresSoon, true);
+      expect(a.alertDays, 30);
+    });
+
+    test('expiresSoon faux dès que la date est dépassée (c\'est la grâce)', () {
+      expect(compute('active', DateTime(2026, 7, 3)).expiresSoon, false);
+    });
+
+    test('échéance AUJOURD\'HUI → 0 j restant, encore actif et alerté', () {
+      final a = compute('active', today);
+      expect(a.phase, SubscriptionPhase.active);
+      expect(a.daysLeft, 0);
       expect(a.expiresSoon, true);
     });
 

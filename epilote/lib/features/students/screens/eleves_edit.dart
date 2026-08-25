@@ -3,6 +3,20 @@ part of 'eleves_screen.dart';
 // ════════════════════════════════════════════════════════════════════════════
 //  MODIFICATION ÉLÈVE (personne) — assistant 2 étapes Identité · Tuteurs
 //  (la scolarité se gère via Inscriptions). Même habillage que l'inscription.
+//
+//  ── CE QUI A ÉTÉ REPRIS ICI ────────────────────────────────────────────────
+//  Cet écran était la COPIE de celui du guichet (`inscriptions_edit.dart`), et
+//  il en avait gardé les défauts après que l'original eut été corrigé :
+//   • aucune garde d'écriture — d'où un `group_id` vide qui faisait perdre le
+//     lot de synchronisation, et des fiches de tuteur jetées en silence ;
+//   • la case « contact principal » se décochait, laissant un élève sans le
+//     numéro que l'école compose en premier ;
+//   • un échec de téléversement de la photo — c'est-à-dire une simple coupure
+//     réseau — emportait toute la saisie, dans une application offline-first.
+//
+//  La fiche tuteur et le sélecteur de photo vivent désormais dans
+//  `widgets/tuteur_edit_card.dart`, partagés avec le guichet : la prochaine
+//  correction ne pourra plus n'atteindre qu'une moitié de l'application.
 // ════════════════════════════════════════════════════════════════════════════
 class _StudentEditModal extends ConsumerStatefulWidget {
   const _StudentEditModal({required this.studentId, required this.fullName});
@@ -38,23 +52,10 @@ class _StudentEditModalState extends ConsumerState<_StudentEditModal> {
   Uint8List? _photoBytes;
   String _photoExt = 'jpg';
 
-  final List<_TutorDraft> _tutors = [];
+  final List<TuteurBrouillon> _tutors = [];
   final List<String> _removedTutorIds = [];
 
   bool _primed = false, _saving = false;
-
-  static const _situations = {
-    'biparentale': 'Biparentale',
-    'monoparentale_pere': 'Monoparentale (père)',
-    'monoparentale_mere': 'Monoparentale (mère)',
-    'orphelin_partiel': 'Orphelin partiel',
-    'orphelin_total': 'Orphelin total',
-    'tuteur': 'Sous tutelle',
-  };
-  static const _bloodGroups = {
-    'A+': 'A+', 'A-': 'A-', 'B+': 'B+', 'B-': 'B-',
-    'AB+': 'AB+', 'AB-': 'AB-', 'O+': 'O+', 'O-': 'O-',
-  };
 
   bool _b(Object? v) => v == 1 || v == true;
 
@@ -77,6 +78,12 @@ class _StudentEditModalState extends ConsumerState<_StudentEditModal> {
     _firstName.text = d.s('first_name');
     _lastName.text = d.s('last_name');
     _placeOfBirth.text = d.s('place_of_birth');
+    // Pré-remplissage identique à celui de l'éditeur du guichet — volontairement.
+    // Il mérite discussion : un élève importé par CSV n'a pas de nationalité, et
+    // ouvrir sa fiche pour corriger un téléphone la fixera à « Congolaise » au
+    // premier enregistrement. La valeur est visible à l'écran avant d'être
+    // écrite, donc ce n'est pas silencieux — mais si on décide de la changer,
+    // c'est aux DEUX écrans à la fois, pas ici seulement.
     _nationality.text =
         d.s('nationality').isEmpty ? 'Congolaise' : d.s('nationality');
     final sib = d.student['nombre_freres_soeurs'];
@@ -101,7 +108,7 @@ class _StudentEditModalState extends ConsumerState<_StudentEditModal> {
     final pu = d.s('photo_url');
     _photoUrl = pu.isEmpty ? null : pu;
     for (final t in d.tutors) {
-      _tutors.add(_TutorDraft.fromInfo(t));
+      _tutors.add(TuteurBrouillon.fromInfo(t));
     }
     _primed = true;
   }
@@ -143,23 +150,52 @@ class _StudentEditModalState extends ConsumerState<_StudentEditModal> {
   String? _nullIfEmpty(String v) => v.trim().isEmpty ? null : v.trim();
 
   Future<void> _save() async {
-    if (_firstName.text.trim().isEmpty || _lastName.text.trim().isEmpty) {
-      if (_step != 0) {
-        setState(() => _step = 0);
-        _page.jumpToPage(0);
+    if (writeRefusedForLicense(context)) return;
+
+    // Les règles de refus vivent dans `services/edition_eleve_garde.dart` — les
+    // mêmes qu'au guichet, où elles existent parce qu'un dégât s'est produit en
+    // production. Ici on ne fait qu'obéir, et ramener l'agent sur la page où le
+    // problème se corrige.
+    final profile = ref.read(authNotifierProvider).valueOrNull;
+    final groupId = profile?.groupId;
+    final schoolId = profile?.schoolId;
+    final refus = refusEditionRegistre(
+      prenom: _firstName.text,
+      nom: _lastName.text,
+      tuteurs: [for (final t in _tutors) t.saisi],
+      groupId: groupId,
+      schoolId: schoolId,
+    );
+    if (refus != null) {
+      if (refus.etape != kEtapeAucune && refus.etape != _step) {
+        setState(() => _step = refus.etape);
+        _page.jumpToPage(refus.etape);
       }
-      _snack('Le prénom et le nom sont obligatoires.', kRed);
+      _snack(refus.message, kRed);
       return;
     }
+
     setState(() => _saving = true);
     final id = widget.studentId;
-    final groupId = ref.read(authNotifierProvider).valueOrNull?.groupId ?? '';
+    var photoDiffere = false;
     try {
       String? photoUrl;
       if (_photoBytes != null) {
-        final client = ref.read(supabaseClientProvider);
-        photoUrl = await uploadStudentPhoto(
-            client: client, studentId: id, bytes: _photoBytes!, ext: _photoExt);
+        // La photo ne demande plus le réseau : `queueAvatarUpload` calcule
+        // son URL publique sans connexion, pose les octets sur le disque et
+        // les envoie au retour du réseau. Le `try` local reste — une file
+        // pleine ou un disque saturé ne doit pas emporter la saisie.
+        try {
+          photoUrl = await queueAvatarUpload(
+            client: ref.read(supabaseClientProvider),
+            folder: 'students',
+            ownerId: id,
+            bytes: _photoBytes!,
+            ext: _photoExt,
+          );
+        } catch (_) {
+          photoDiffere = true;
+        }
       }
       await updateStudent(
         studentId: id,
@@ -191,11 +227,18 @@ class _StudentEditModalState extends ConsumerState<_StudentEditModal> {
         final fn = t.firstName.text.trim();
         final ln = t.lastName.text.trim();
         final ph = t.phone.text.trim();
+        // À ce stade, une fiche neuve ne peut plus être à moitié remplie : la
+        // garde l'a refusée. Ce qui reste ici, ce sont les fiches JAMAIS
+        // touchées — celles qu'on ignore sans bruit, à dessein.
         if (fn.isEmpty || ln.isEmpty || ph.isEmpty) continue;
         if (t.id == null) {
+          // Non-nuls par construction : la garde a refusé l'enregistrement
+          // s'il existait un tuteur neuf sans `group_id` ou sans `school_id`
+          // utilisable.
           await addTutor(
             studentId: id,
-            groupId: groupId,
+            groupId: groupId!.trim(),
+            schoolId: schoolId!.trim(),
             firstName: fn,
             lastName: ln,
             relationship: t.relationship,
@@ -213,9 +256,12 @@ class _StudentEditModalState extends ConsumerState<_StudentEditModal> {
             lastName: ln,
             relationship: t.relationship,
             phonePrimary: ph,
-            email: t.email.text.trim(),
-            profession: t.profession.text.trim(),
-            address: t.address.text.trim(),
+            // `_nullIfEmpty` et non `.trim()` : vider un champ doit remettre la
+            // colonne à NULL, pas y poser une chaîne vide que l'annuaire
+            // compterait ensuite comme une adresse renseignée.
+            email: _nullIfEmpty(t.email.text),
+            profession: _nullIfEmpty(t.profession.text),
+            address: _nullIfEmpty(t.address.text),
             isPrimaryContact: t.isPrimary,
             isEmergencyContact: t.isEmergency,
           );
@@ -226,12 +272,17 @@ class _StudentEditModalState extends ConsumerState<_StudentEditModal> {
       ref.invalidate(studentsRegistryProvider);
       if (mounted) {
         Navigator.of(context).pop();
-        _snack('Modifications enregistrées.', kGreen);
+        _snack(
+            photoDiffere
+                ? 'Modifications enregistrées — la photo n\'a pas pu être '
+                    'mise en file d\'envoi, reprenez-la.'
+                : 'Modifications enregistrées.',
+            photoDiffere ? kAccent : kGreen);
       }
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
-        _snack('Erreur : $e', kRed);
+        _snack(messageErreur(e), kRed);
       }
     }
   }
@@ -254,7 +305,7 @@ class _StudentEditModalState extends ConsumerState<_StudentEditModal> {
             height: 240,
             child: Center(
                 child:
-                    Text('Erreur : $e', style: const TextStyle(color: kRed)))),
+                    Text(messageErreur(e), style: TextStyle(color: kRed)))),
         data: (d) {
           if (!_primed) _prime(d);
           return Column(mainAxisSize: MainAxisSize.min, children: [
@@ -293,7 +344,7 @@ class _StudentEditModalState extends ConsumerState<_StudentEditModal> {
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Center(
-            child: _PhotoPicker(
+            child: PhotoPickerEleve(
               bytes: _photoBytes,
               url: _photoUrl,
               initials: _initials(),
@@ -335,7 +386,7 @@ class _StudentEditModalState extends ConsumerState<_StudentEditModal> {
           FormDropdown<String>(
             label: 'Situation familiale',
             value: _situation,
-            items: _situations,
+            items: kSituationsFamiliales,
             onChanged: (v) => setState(() => _situation = v),
           ),
           FormTextField(
@@ -368,7 +419,7 @@ class _StudentEditModalState extends ConsumerState<_StudentEditModal> {
           FormDropdown<String>(
             label: 'Groupe sanguin',
             value: _bloodGroup,
-            items: _bloodGroups,
+            items: kGroupesSanguins,
             onChanged: (v) => setState(() => _bloodGroup = v),
           ),
           FormTextField(
@@ -390,10 +441,13 @@ class _StudentEditModalState extends ConsumerState<_StudentEditModal> {
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           for (var i = 0; i < _tutors.length; i++)
-            _TutorCard(
+            TuteurEditCard(
+              key: ObjectKey(_tutors[i]),
               draft: _tutors[i],
               index: i,
               onChanged: () => setState(() {}),
+              onPromote: () =>
+                  setState(() => promouvoirContactPrincipal(_tutors, _tutors[i])),
               onRemove: () => setState(() {
                 final t = _tutors.removeAt(i);
                 if (t.id != null) _removedTutorIds.add(t.id!);
@@ -405,203 +459,8 @@ class _StudentEditModalState extends ConsumerState<_StudentEditModal> {
               icon: const Icon(Icons.add_rounded, size: 18),
               label: const Text('Ajouter un tuteur / contact'),
               style: TextButton.styleFrom(foregroundColor: kNavy),
-              onPressed: () => setState(() => _tutors.add(_TutorDraft())),
+              onPressed: () => setState(() => _tutors.add(TuteurBrouillon())),
             ),
         ]),
       );
-}
-
-// ─── Carte d'édition d'un tuteur ─────────────────────────────────────────────
-class _TutorCard extends StatelessWidget {
-  const _TutorCard({
-    required this.draft,
-    required this.index,
-    required this.onChanged,
-    required this.onRemove,
-  });
-  final _TutorDraft draft;
-  final int index;
-  final VoidCallback onChanged, onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: draft.isPrimary ? kNavy.withValues(alpha: 0.3) : kBorder),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Text(draft.isPrimary ? 'Tuteur principal' : 'Contact ${index + 1}',
-              style: const TextStyle(
-                  fontWeight: FontWeight.w800, fontSize: 14, color: kNavy)),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, color: kRed, size: 18),
-            tooltip: 'Supprimer ce tuteur',
-            onPressed: onRemove,
-          ),
-        ]),
-        const SizedBox(height: 8),
-        Row(children: [
-          Expanded(
-              child: FormTextField(controller: draft.firstName, label: 'Prénom *')),
-          const SizedBox(width: 12),
-          Expanded(
-              child: FormTextField(controller: draft.lastName, label: 'Nom *')),
-        ]),
-        FormDropdown<String>(
-          label: 'Lien de parenté',
-          value: draft.relationship,
-          items: const {
-            'pere': 'Père',
-            'mere': 'Mère',
-            'tuteur': 'Tuteur légal',
-            'autre': 'Autre',
-          },
-          onChanged: (v) {
-            draft.relationship = v ?? 'autre';
-            onChanged();
-          },
-        ),
-        FormTextField(
-            controller: draft.phone,
-            label: 'Téléphone *',
-            keyboardType: TextInputType.phone),
-        FormTextField(
-            controller: draft.email,
-            label: 'Email',
-            keyboardType: TextInputType.emailAddress),
-        FormTextField(controller: draft.profession, label: 'Profession'),
-        FormTextField(controller: draft.address, label: 'Adresse'),
-        FormCheckTile(
-            label: 'Contact principal',
-            value: draft.isPrimary,
-            onChanged: (v) {
-              draft.isPrimary = v;
-              onChanged();
-            }),
-        FormCheckTile(
-            label: 'Contact d\'urgence',
-            value: draft.isEmergency,
-            onChanged: (v) {
-              draft.isEmergency = v;
-              onChanged();
-            }),
-      ]),
-    );
-  }
-}
-
-class _TutorDraft {
-  _TutorDraft({
-    this.id,
-    String firstName = '',
-    String lastName = '',
-    this.relationship = 'mere',
-    String phone = '',
-    String email = '',
-    String profession = '',
-    String address = '',
-    this.isPrimary = false,
-    this.isEmergency = false,
-  })  : firstName = TextEditingController(text: firstName),
-        lastName = TextEditingController(text: lastName),
-        phone = TextEditingController(text: phone),
-        email = TextEditingController(text: email),
-        profession = TextEditingController(text: profession),
-        address = TextEditingController(text: address);
-
-  factory _TutorDraft.fromInfo(StudentTutorInfo t) => _TutorDraft(
-        id: t.id,
-        firstName: t.firstName,
-        lastName: t.lastName,
-        relationship:
-            const {'pere', 'mere', 'tuteur', 'autre'}.contains(t.relationship)
-                ? t.relationship
-                : 'autre',
-        phone: t.phonePrimary ?? '',
-        email: t.email ?? '',
-        profession: t.profession ?? '',
-        address: t.address ?? '',
-        isPrimary: t.isPrimary,
-        isEmergency: t.isEmergency,
-      );
-
-  final String? id;
-  final TextEditingController firstName, lastName, phone, email, profession,
-      address;
-  String relationship;
-  bool isPrimary, isEmergency;
-
-  void dispose() {
-    firstName.dispose();
-    lastName.dispose();
-    phone.dispose();
-    email.dispose();
-    profession.dispose();
-    address.dispose();
-  }
-}
-
-// ─── Sélecteur de photo ───────────────────────────────────────────────────────
-class _PhotoPicker extends StatelessWidget {
-  const _PhotoPicker(
-      {required this.bytes,
-      required this.url,
-      required this.initials,
-      required this.onPick});
-  final Uint8List? bytes;
-  final String? url;
-  final String initials;
-  final VoidCallback? onPick;
-  @override
-  Widget build(BuildContext context) {
-    Widget avatar;
-    if (bytes != null) {
-      avatar = CircleAvatar(radius: 46, backgroundImage: MemoryImage(bytes!));
-    } else if (url != null && url!.isNotEmpty) {
-      avatar = CircleAvatar(
-          radius: 46,
-          backgroundColor: kSurface,
-          backgroundImage: CachedNetworkImageProvider(url!));
-    } else {
-      avatar = CircleAvatar(
-        radius: 46,
-        backgroundColor: kNavy.withValues(alpha: 0.10),
-        child: Text(initials,
-            style: const TextStyle(
-                color: kNavy, fontSize: 28, fontWeight: FontWeight.w800)),
-      );
-    }
-    return Stack(children: [
-      Container(
-        decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: kBorder, width: 2)),
-        child: avatar,
-      ),
-      Positioned(
-        right: 0,
-        bottom: 0,
-        child: Material(
-          color: kNavy,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onPick,
-            child: const Padding(
-              padding: EdgeInsets.all(7),
-              child: Icon(Icons.photo_camera_outlined,
-                  size: 16, color: Colors.white),
-            ),
-          ),
-        ),
-      ),
-    ]);
-  }
 }

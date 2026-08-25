@@ -11,13 +11,13 @@ Widget vsFormHeader(BuildContext context, String title, IconData icon) =>
     Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
       decoration:
-          const BoxDecoration(border: Border(bottom: BorderSide(color: kBorder))),
+          BoxDecoration(border: Border(bottom: BorderSide(color: kBorder))),
       child: Row(children: [
         Icon(icon, size: 18, color: kNavy),
         const SizedBox(width: 10),
         Expanded(
           child: Text(title,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 15.5,
                   fontWeight: FontWeight.w800,
                   color: kTextPrimary)),

@@ -53,7 +53,7 @@ class VsStudentField extends StatelessWidget {
                     fontWeight: sel == null ? FontWeight.w400 : FontWeight.w700,
                     color: sel == null ? kTextMuted : kTextPrimary)),
           ),
-          const Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
+          Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
         ]),
       ),
     );
@@ -94,9 +94,9 @@ class _StudentPickerSheetState extends State<_StudentPickerSheet> {
       minChildSize: 0.5,
       maxChildSize: 0.95,
       builder: (ctx, scroll) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: kCardBg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(children: [
           const SizedBox(height: 10),
@@ -126,7 +126,7 @@ class _StudentPickerSheetState extends State<_StudentPickerSheet> {
           const Divider(height: 1),
           Expanded(
             child: list.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text('Aucun élève',
                         style: TextStyle(color: kTextMuted)))
                 : ListView.builder(

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/booleen_en_ligne.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -127,7 +128,8 @@ final adminGroupStatsProvider =
         .select('id, is_active')
         .eq('group_id', groupId) as List;
     final totalSchools  = schoolsRows.length;
-    final activeSchools = schoolsRows.where((r) => (r as Map)['is_active'] == true).length;
+    final activeSchools =
+        schoolsRows.where((r) => actifEnLigne((r as Map)['is_active'])).length;
 
     final usersRows = await client
         .from('profiles')
@@ -136,7 +138,8 @@ final adminGroupStatsProvider =
         .neq('role', 'super_admin')
         .neq('role', 'admin_groupe') as List;
     final totalUsers  = usersRows.length;
-    final activeUsers = usersRows.where((r) => (r as Map)['is_active'] == true).length;
+    final activeUsers =
+        usersRows.where((r) => actifEnLigne((r as Map)['is_active'])).length;
 
     final profile = await ref.read(adminGroupProfileProvider.future);
     final (maxS, maxU) = _planQuotas(profile?.planName ?? '');
@@ -701,7 +704,7 @@ final adminPaymentConfigsProvider =
       .select('id, provider, display_name, api_key, api_secret, merchant_id, '
           'webhook_url, is_active, is_test_mode, notes')
       .eq('group_id', groupId)
-      .order('created_at') as List;
+      .order('created_at', ascending: false) as List;
   return rows
       .map((r) => PaymentConfig.fromRow(r as Map<String, dynamic>))
       .toList();

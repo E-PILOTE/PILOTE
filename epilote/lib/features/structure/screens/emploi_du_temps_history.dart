@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../providers/edt_audit_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  HISTORIQUE DE L'EMPLOI DU TEMPS — tiroir latéral droit listant « qui a modifié
@@ -59,19 +60,19 @@ class _EdtHistoryView extends ConsumerWidget {
     final async = ref.watch(edtAuditProvider);
     final w = MediaQuery.of(context).size.width;
     return Material(
-      color: Colors.white,
+      color: kCardBg,
       child: SizedBox(
         width: w < 560 ? w : 500,
         height: double.infinity,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Container(
             padding: const EdgeInsets.fromLTRB(20, 20, 12, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: kBorder))),
             child: Row(children: [
-              const Icon(Icons.history_rounded, size: 19, color: kNavy),
+              Icon(Icons.history_rounded, size: 19, color: kNavy),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text('Historique des modifications',
                     style: TextStyle(
                         fontSize: 16,
@@ -87,7 +88,7 @@ class _EdtHistoryView extends ConsumerWidget {
             child: async.when(
               skipLoadingOnReload: true,
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Erreur : $e')),
+              error: (e, _) => Center(child: Text(messageErreur(e))),
               data: (entries) {
                 if (entries.isEmpty) {
                   return const Center(
@@ -113,7 +114,7 @@ class _EdtHistoryView extends ConsumerWidget {
                     return Container(
                       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: kCardBg,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: kBorder),
                       ),
@@ -132,7 +133,7 @@ class _EdtHistoryView extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(e.summary,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w700,
                                         color: kTextPrimary)),
@@ -142,13 +143,13 @@ class _EdtHistoryView extends ConsumerWidget {
                                     '${e.actorName ?? 'Agent'}',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 11.5, color: kTextMuted)),
                               ]),
                         ),
                         const SizedBox(width: 8),
                         Text(_when(e.at),
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 11, color: kTextMuted)),
                       ]),
                     );

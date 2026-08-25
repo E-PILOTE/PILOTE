@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -14,6 +15,7 @@ import '../providers/conseils_provider.dart' show awardFor;
 import '../providers/evaluation_overview_provider.dart';
 import '../services/bulletin_pdf_service.dart';
 import 'evaluation_overview_widgets.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'bulletins_parts.dart';
 part 'bulletins_detail.dart';
@@ -66,12 +68,29 @@ class _BodyState extends ConsumerState<_Body> {
     final p = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
     if (yearId == null || _trimesterId == null) return;
+
+    // Un bulletin généré sans rattachement serait refusé à la remontée et
+    // emporterait le lot PowerSync entier — toute une classe de bulletins
+    // perdue sans message.
+    final missing = missingWriteIds(
+      groupId: p?.groupId,
+      schoolId: p?.schoolId,
+      actorId: p?.id,
+    );
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(writeIdentityMessage(missing)),
+        backgroundColor: kRed,
+        duration: const Duration(seconds: 6),
+      ));
+      return;
+    }
     setState(() => _busy = true);
     await runModuleWrite(
       context,
       () => generateBulletins(
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         academicYearId: yearId,
         trimesterId: _trimesterId!,
         comp: comp,
@@ -152,7 +171,7 @@ class _BodyState extends ConsumerState<_Body> {
               child: Center(child: CircularProgressIndicator())),
           error: (e, _) => Padding(
               padding: const EdgeInsets.only(top: 40),
-              child: Center(child: Text('Erreur : $e'))),
+              child: Center(child: Text(messageErreur(e)))),
           data: (ov) => _content(ov, canCreate, canUpdate, readOnly),
         ),
         const SizedBox(height: 24),

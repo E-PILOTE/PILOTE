@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../providers/announcement_interactions_provider.dart';
 import '../widgets/staff_feed_ui.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Widgets SOCIAUX du fil d'annonces — réactions, commentaires, partage.
@@ -35,9 +36,9 @@ class ReactionPeopleDialog extends ConsumerWidget {
         padding: const EdgeInsets.all(18),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Row(children: [
-            const Icon(Icons.emoji_emotions_rounded, size: 18, color: kNavy),
+            Icon(Icons.emoji_emotions_rounded, size: 18, color: kNavy),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Text('Réactions',
                   style: TextStyle(
                       fontSize: 15,
@@ -47,12 +48,12 @@ class ReactionPeopleDialog extends ConsumerWidget {
             IconButton(
               visualDensity: VisualDensity.compact,
               onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.close_rounded,
+              icon: Icon(Icons.close_rounded,
                   size: 18, color: kTextMuted),
             ),
           ]),
           const SizedBox(height: 8),
-          const Divider(height: 1, color: kBorder),
+          Divider(height: 1, color: kBorder),
           Flexible(
             child: async.when(
               loading: () => const Padding(
@@ -61,12 +62,12 @@ class ReactionPeopleDialog extends ConsumerWidget {
               ),
               error: (e, _) => Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text('Erreur : $e',
-                    style: const TextStyle(color: kTextMuted, fontSize: 12)),
+                child: Text(messageErreur(e),
+                    style: TextStyle(color: kTextMuted, fontSize: 12)),
               ),
               data: (people) => people.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.all(24),
+                  ? Padding(
+                      padding: const EdgeInsets.all(24),
                       child: Text('Aucune réaction',
                           style:
                               TextStyle(color: kTextMuted, fontSize: 12.5)),
@@ -102,13 +103,13 @@ class ReactionPeopleDialog extends ConsumerWidget {
                                       CrossAxisAlignment.start,
                                   children: [
                                     Text(p.name,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w700,
                                             color: kTextPrimary)),
                                     if (p.role != null)
                                       Text(roleLabelFr(p.role),
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                               fontSize: 11,
                                               color: kTextMuted)),
                                   ]),
@@ -141,7 +142,7 @@ class ReactionCountPill extends StatelessWidget {
           Text(emoji, style: const TextStyle(fontSize: 13)),
           const SizedBox(width: 3),
           Text('$count',
-              style: const TextStyle(fontSize: 12, color: kTextMuted)),
+              style: TextStyle(fontSize: 12, color: kTextMuted)),
         ]),
       );
 }
@@ -187,7 +188,7 @@ class CommentPreviewTile extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   text: TextSpan(
-                    style: const TextStyle(fontSize: 12.5, color: kTextPrimary),
+                    style: TextStyle(fontSize: 12.5, color: kTextPrimary),
                     children: [
                       if (comment.authorName != null)
                         TextSpan(
@@ -201,7 +202,7 @@ class CommentPreviewTile extends StatelessWidget {
                 if (more > 0) ...[
                   const SizedBox(height: 3),
                   Text('Voir $more autre${more > 1 ? 's' : ''} commentaire${more > 1 ? 's' : ''}',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 11.5,
                           color: kNavy,
                           fontWeight: FontWeight.w600)),
@@ -237,7 +238,7 @@ class _ExpandableContentState extends State<ExpandableContent> {
 
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(fontSize: 14, color: kTextPrimary, height: 1.55);
+    final style = TextStyle(fontSize: 14, color: kTextPrimary, height: 1.55);
     return LayoutBuilder(builder: (context, constraints) {
       // Mesure si le texte dépasse le nombre de lignes replié.
       final tp = TextPainter(
@@ -259,7 +260,7 @@ class _ExpandableContentState extends State<ExpandableContent> {
             child: Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(_expanded ? 'Voir moins' : 'Voir plus',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: kNavy)),
@@ -551,7 +552,7 @@ class _ReactionBarState extends State<_ReactionBar>
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: kCardBg,
                   borderRadius: BorderRadius.circular(30),
                   boxShadow: [
                     BoxShadow(
@@ -654,7 +655,7 @@ class _ActBtn extends StatelessWidget {
                     maxLines: 1,
                     softWrap: false,
                     overflow: TextOverflow.fade,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: kTextMuted)),

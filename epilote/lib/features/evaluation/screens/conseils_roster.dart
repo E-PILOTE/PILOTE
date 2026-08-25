@@ -56,7 +56,7 @@ class _ActionBar extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(text,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: kTextPrimary)),
@@ -141,9 +141,9 @@ class _SynthesisCard extends StatelessWidget {
         border: Border.all(color: kNavy.withValues(alpha: 0.15)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+        Row(children: [
           Icon(Icons.forum_rounded, size: 15, color: kNavy),
-          SizedBox(width: 7),
+          const SizedBox(width: 7),
           Text('Synthèse du conseil',
               style: TextStyle(
                   fontSize: 12,
@@ -153,7 +153,7 @@ class _SynthesisCard extends StatelessWidget {
         ]),
         const SizedBox(height: 8),
         Text(text,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 13, height: 1.45, color: kTextPrimary)),
       ]),
     );
@@ -200,7 +200,7 @@ class _StudentRow extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kBorder),
       ),
@@ -219,7 +219,7 @@ class _StudentRow extends StatelessWidget {
               ),
               child: Center(
                 child: Text(entry.rank == 0 ? '—' : '${entry.rank}',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
                         color: kNavy)),
@@ -238,10 +238,10 @@ class _StudentRow extends StatelessWidget {
                     Row(children: [
                       Text(entry.mention,
                           style:
-                              const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                              TextStyle(fontSize: 11.5, color: kTextMuted)),
                       if (hasAppr) ...[
                         const SizedBox(width: 6),
-                        const Icon(Icons.sticky_note_2_outlined,
+                        Icon(Icons.sticky_note_2_outlined,
                             size: 12, color: kTextMuted),
                       ],
                     ]),
@@ -276,7 +276,7 @@ class _StudentRow extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: kBorder),
                 ),
-                child: const Text('À délibérer',
+                child: Text('À délibérer',
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -297,7 +297,7 @@ class _StudentRow extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                       color: _avgColor(entry.average))),
             ),
-            const Icon(Icons.chevron_right_rounded, color: kTextMuted),
+            Icon(Icons.chevron_right_rounded, color: kTextMuted),
           ]),
         ),
       ),

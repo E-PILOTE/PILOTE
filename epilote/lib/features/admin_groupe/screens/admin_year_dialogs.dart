@@ -1,62 +1,23 @@
 part of 'admin_academic_years_screen.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
-//  DIALOGUES — champ date, nouvelle année, passage d'année.
+//  DIALOGUES — nouvelle année / correction, et passage d'année.
+//
+//  Le champ date vit maintenant dans `core/widgets/admin_date_field.dart` : il
+//  existait ici en double avec celui du dialogue calendrier.
 // ════════════════════════════════════════════════════════════════════════════
 
-// ─── Champ date partagé ────────────────────────────────────────────────────────
-class _DateField extends StatelessWidget {
-  const _DateField({
-    required this.label,
-    required this.value,
-    required this.onPick,
-  });
-  final String label;
-  final DateTime? value;
-  final ValueChanged<DateTime> onPick;
-  @override
-  Widget build(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label,
-          style: const TextStyle(
-              fontSize: 12, fontWeight: FontWeight.w600, color: kNavy)),
-      const SizedBox(height: 6),
-      InkWell(
-        onTap: () async {
-          final now = DateTime.now();
-          final picked = await showDatePicker(
-            context: context,
-            initialDate: value ?? now,
-            firstDate: DateTime(now.year - 2),
-            lastDate: DateTime(now.year + 4),
-          );
-          if (picked != null) onPick(picked);
-        },
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
-          decoration: BoxDecoration(
-            color: kSurface,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: kBorder),
-          ),
-          child: Row(children: [
-            const Icon(Icons.calendar_today_rounded,
-                size: 15, color: kTextMuted),
-            const SizedBox(width: 8),
-            Text(value != null ? _fmt.format(value!) : 'Choisir…',
-                style: TextStyle(
-                    fontSize: 13, color: value != null ? kNavy : kTextMuted)),
-          ]),
-        ),
-      ),
-    ]);
-  }
-}
+/// Bornes du sélecteur d'année : large, mais pas infini — une rentrée saisie en
+/// 2043 par une frappe malheureuse coûte cher à rattraper.
+DateTime get _borneMin => DateTime(DateTime.now().year - 5);
+DateTime get _borneMax => DateTime(DateTime.now().year + 6);
 
-// ─── Dialogue : nouvelle année ─────────────────────────────────────────────────
+// ─── Dialogue : nouvelle année OU édition ──────────────────────────────────────
+// [existing] null → création (pré-remplie sur le calendrier type Congo).
+// [existing] non null → correction du libellé/dates d'une année déjà créée.
 class _YearDialog extends ConsumerStatefulWidget {
-  const _YearDialog();
+  const _YearDialog({this.existing});
+  final AdminYear? existing;
   @override
   ConsumerState<_YearDialog> createState() => _YearDialogState();
 }
@@ -67,19 +28,54 @@ class _YearDialogState extends ConsumerState<_YearDialog> {
   bool _saving = false;
   String? _error;
 
+  bool get _isEdit => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final ex = widget.existing;
+    if (ex != null) {
+      _label.text = ex.label;
+      _start = ex.startDate;
+      _end = ex.endDate;
+    } else {
+      final y = defaultSchoolYearStart(DateTime.now());
+      _label.text = schoolYearLabel(y);
+      _start = schoolYearStartDate(y);
+      _end = schoolYearEndDate(y);
+    }
+  }
+
   @override
   void dispose() {
     _label.dispose();
     super.dispose();
   }
 
-  Future<void> _submit() async {
-    if (_label.text.trim().isEmpty || _start == null || _end == null) {
-      setState(() => _error = 'Libellé et dates requis');
-      return;
+  String? _valider() {
+    if (_label.text.trim().isEmpty) return 'Le libellé est requis.';
+    if (_start == null || _end == null) {
+      return 'Les dates de début et de fin sont requises.';
     }
     if (!_end!.isAfter(_start!)) {
-      setState(() => _error = 'La date de fin doit suivre le début');
+      return 'La date de fin doit suivre la date de début.';
+    }
+    final jours = _end!.difference(_start!).inDays;
+    if (jours < 90) {
+      return 'Une année scolaire de $jours jours est probablement une erreur '
+          'de saisie (minimum attendu : 90 jours).';
+    }
+    if (jours > 500) {
+      return 'Une année scolaire de $jours jours dépasse ce qu\'un calendrier '
+          'scolaire peut couvrir (maximum attendu : 500 jours).';
+    }
+    return null;
+  }
+
+  Future<void> _submit() async {
+    final err = _valider();
+    if (err != null) {
+      setState(() => _error = err);
       return;
     }
     setState(() {
@@ -87,13 +83,21 @@ class _YearDialogState extends ConsumerState<_YearDialog> {
       _error = null;
     });
     try {
-      await ref
-          .read(adminCalendarServiceProvider)
-          .createYear(label: _label.text, start: _start!, end: _end!);
+      final svc = ref.read(adminCalendarServiceProvider);
+      if (_isEdit) {
+        await svc.updateYear(
+            id: widget.existing!.id,
+            label: _label.text,
+            start: _start!,
+            end: _end!);
+      } else {
+        await svc.createYear(label: _label.text, start: _start!, end: _end!);
+      }
       ref.invalidate(adminAcademicYearsProvider);
+      if (_isEdit) ref.invalidate(adminYearCalendarProvider(widget.existing!.id));
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = messageErreur(e));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -102,12 +106,14 @@ class _YearDialogState extends ConsumerState<_YearDialog> {
   @override
   Widget build(BuildContext context) {
     return AdminFormDialog(
-      icon: Icons.event_rounded,
-      title: 'Nouvelle année scolaire',
-      subtitle: 'Définissez la prochaine année du groupe',
+      icon: _isEdit ? Icons.edit_calendar_rounded : Icons.event_rounded,
+      title: _isEdit ? 'Modifier l\'année scolaire' : 'Nouvelle année scolaire',
+      subtitle: _isEdit
+          ? 'Corrigez le libellé ou les dates'
+          : 'Pré-remplie sur le calendrier congolais — ajustez si besoin',
       width: 480,
       saving: _saving,
-      submitLabel: 'Créer',
+      submitLabel: _isEdit ? 'Enregistrer' : 'Créer',
       submitIcon: Icons.check_rounded,
       onSubmit: _submit,
       body: Column(
@@ -125,16 +131,26 @@ class _YearDialogState extends ConsumerState<_YearDialog> {
           const SizedBox(height: 14),
           Row(children: [
             Expanded(
-                child: _DateField(
+                child: AdminDateField(
                     label: 'Début',
                     value: _start,
-                    onPick: (d) => setState(() => _start = d))),
+                    first: _borneMin,
+                    last: _borneMax,
+                    onPick: (d) => setState(() {
+                          _start = d;
+                          _error = null;
+                        }))),
             const SizedBox(width: 12),
             Expanded(
-                child: _DateField(
+                child: AdminDateField(
                     label: 'Fin',
                     value: _end,
-                    onPick: (d) => setState(() => _end = d))),
+                    first: _borneMin,
+                    last: _borneMax,
+                    onPick: (d) => setState(() {
+                          _end = d;
+                          _error = null;
+                        }))),
           ]),
           const SizedBox(height: 14),
           Container(
@@ -143,15 +159,20 @@ class _YearDialogState extends ConsumerState<_YearDialog> {
               color: kNavy.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Row(children: [
+            child: Row(children: [
               Icon(Icons.info_outline_rounded, size: 16, color: kNavy),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Créée NON courante. Toutes les écoles du groupe '
-                  "l'hériteront à leur prochaine synchro.",
-                  style:
-                      TextStyle(fontSize: 11.5, color: kTextMuted, height: 1.4),
+                  _isEdit
+                      ? 'La correction se propage à toutes les écoles du groupe '
+                          'à leur prochaine synchro. Le calendrier existant doit '
+                          'rester dans les nouvelles bornes.'
+                      : 'Créée NON courante. Toutes les écoles du groupe '
+                          "l'hériteront à leur prochaine synchro. Deux années "
+                          'ne peuvent pas se chevaucher.',
+                  style: TextStyle(
+                      fontSize: 11.5, color: kTextMuted, height: 1.4),
                 ),
               ),
             ]),
@@ -225,35 +246,53 @@ class _RolloverDialogState extends ConsumerState<_RolloverDialog> {
     return '';
   }
 
-  Future<void> _submit() async {
-    final src = _source;
-    if (src == null ||
-        _label.text.trim().isEmpty ||
-        _start == null ||
-        _end == null) {
-      setState(() => _error = 'Source, libellé et dates requis');
-      return;
+  String? _valider() {
+    if (_source == null) return "L'année source est requise.";
+    if (_label.text.trim().isEmpty) return 'Le libellé est requis.';
+    if (_start == null || _end == null) {
+      return 'Les dates de début et de fin sont requises.';
     }
     if (!_end!.isAfter(_start!)) {
-      setState(() => _error = 'La date de fin doit suivre le début');
+      return 'La date de fin doit suivre la date de début.';
+    }
+    // Chevauchement avec une année existante : la base refuserait de toute
+    // façon, autant le dire avant d'envoyer.
+    for (final y in widget.years) {
+      if (!y.startDate.isAfter(_end!) && !_start!.isAfter(y.endDate)) {
+        return 'Ces dates chevauchent l\'année « ${y.label} » '
+            '(${_fmtShort.format(y.startDate)} → '
+            '${_fmtShort.format(y.endDate)}).';
+      }
+    }
+    return null;
+  }
+
+  Future<void> _submit() async {
+    final err = _valider();
+    if (err != null) {
+      setState(() => _error = err);
       return;
     }
     setState(() {
       _saving = true;
       _error = null;
     });
+    final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(adminCalendarServiceProvider).rolloverYear(
-            sourceYearId: src.id,
-            label: _label.text,
-            start: _start!,
-            end: _end!,
-            copyCalendar: _copyCalendar,
-          );
+      final outcome =
+          await ref.read(adminCalendarServiceProvider).rolloverYear(
+                sourceYearId: _source!.id,
+                label: _label.text,
+                start: _start!,
+                end: _end!,
+                copyCalendar: _copyCalendar,
+              );
       ref.invalidate(adminAcademicYearsProvider);
       if (mounted) Navigator.pop(context);
+      messenger.showSnackBar(
+          SnackBar(backgroundColor: kGreen, content: Text(outcome.resume)));
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = messageErreur(e));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -285,14 +324,14 @@ class _RolloverDialogState extends ConsumerState<_RolloverDialog> {
             items: widget.years
                 .map((y) => DropdownMenuItem(
                       value: y.id,
-                      child: Text(
-                          '${y.label}${y.isCurrent ? "  · en cours" : ""}',
+                      child: Text('${y.label}${y.isCurrent ? "  · en cours" : ""}',
                           overflow: TextOverflow.ellipsis),
                     ))
                 .toList(),
             onChanged: (v) => setState(() {
               _sourceId = v;
               _applyPrefill(_source);
+              _error = null;
             }),
           ),
           const AdminFormDivider(),
@@ -305,16 +344,26 @@ class _RolloverDialogState extends ConsumerState<_RolloverDialog> {
           const SizedBox(height: 12),
           Row(children: [
             Expanded(
-                child: _DateField(
+                child: AdminDateField(
                     label: 'Début',
                     value: _start,
-                    onPick: (d) => setState(() => _start = d))),
+                    first: _borneMin,
+                    last: _borneMax,
+                    onPick: (d) => setState(() {
+                          _start = d;
+                          _error = null;
+                        }))),
             const SizedBox(width: 12),
             Expanded(
-                child: _DateField(
+                child: AdminDateField(
                     label: 'Fin',
                     value: _end,
-                    onPick: (d) => setState(() => _end = d))),
+                    first: _borneMin,
+                    last: _borneMax,
+                    onPick: (d) => setState(() {
+                          _end = d;
+                          _error = null;
+                        }))),
           ]),
           const SizedBox(height: 14),
           InkWell(
@@ -323,8 +372,7 @@ class _RolloverDialogState extends ConsumerState<_RolloverDialog> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color:
-                    _copyCalendar ? kGreen.withValues(alpha: 0.06) : kSurface,
+                color: _copyCalendar ? kGreen.withValues(alpha: 0.06) : kSurface,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                     color: _copyCalendar
@@ -335,13 +383,29 @@ class _RolloverDialogState extends ConsumerState<_RolloverDialog> {
                 Icon(Icons.event_note_rounded,
                     size: 18, color: _copyCalendar ? kGreen : kTextMuted),
                 const SizedBox(width: 10),
-                const Expanded(
-                  child: Text(
-                    'Reporter le calendrier (trimestres & séquences, +1 an)',
-                    style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: kNavy),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Reporter le calendrier (trimestres, séquences et '
+                        'vacances, décalés sur les nouvelles dates)',
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: kNavy),
+                      ),
+                      const SizedBox(height: 2),
+                      // Dire que les fériés ne sont PAS reportés évite la
+                      // question — et surtout le doute de l'agent qui compte
+                      // les lignes et n'en retrouve pas le même nombre.
+                      Text(
+                        'Les jours fériés légaux sont recalculés pour la '
+                        'nouvelle année, pas recopiés : Pâques se déplace.',
+                        style: TextStyle(fontSize: 11.5, color: kTextMuted),
+                      ),
+                    ],
                   ),
                 ),
                 Checkbox(
@@ -359,13 +423,15 @@ class _RolloverDialogState extends ConsumerState<_RolloverDialog> {
               color: kNavy.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Row(children: [
+            child: Row(children: [
               Icon(Icons.info_outline_rounded, size: 16, color: kNavy),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Année créée NON courante. Les écoles prépareront leurs '
-                  'classes ; définissez-la courante le jour de la rentrée.',
+                  'Année, trimestres et séquences sont créés en une seule '
+                  'transaction : en cas de coupure, rien n\'est créé à moitié. '
+                  'L\'année est créée NON courante — définissez-la courante le '
+                  'jour de la rentrée.',
                   style:
                       TextStyle(fontSize: 11.5, color: kTextMuted, height: 1.4),
                 ),

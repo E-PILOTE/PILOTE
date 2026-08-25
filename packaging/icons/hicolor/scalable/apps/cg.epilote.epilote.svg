@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <!-- Gradient fond navy -->
+    <radialGradient id="bgGrad" cx="40%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#1E3A5F"/>
+      <stop offset="100%" stop-color="#0F2340"/>
+    </radialGradient>
+
+    <!-- Gradient or Congo -->
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FBBC04"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+  </defs>
+
+  <!-- === FOND CERCLE PRINCIPAL === -->
+  <circle cx="100" cy="100" r="96" fill="#0F2340"/>
+  <circle cx="100" cy="100" r="94" fill="url(#bgGrad)"/>
+
+  <!-- === ANNEAU EXTÉRIEUR VERT CONGO === -->
+  <circle cx="100" cy="100" r="94" fill="none" stroke="#009A44" stroke-width="3.5"/>
+  <!-- Tirets décoratifs sur anneau -->
+  <circle cx="100" cy="100" r="94" fill="none"
+    stroke="#009A44" stroke-width="1" stroke-opacity="0.3"
+    stroke-dasharray="8,6"/>
+
+  <!-- === ANNEAU INTÉRIEUR SUBTIL === -->
+  <circle cx="100" cy="100" r="84" fill="none"
+    stroke="#1E3A5F" stroke-width="1.5" stroke-opacity="0.8"/>
+
+  <!-- =========================================
+       MORTARBOARD (TOQUE ACADÉMIQUE)
+       ========================================= -->
+
+  <!-- Plateau principal -->
+  <polygon
+    points="100,38  148,58  100,78  52,58"
+    fill="url(#goldGrad)"/>
+  <!-- Plateau — face avant gauche (volume) -->
+  <polygon
+    points="52,58  100,78  100,82  52,62"
+    fill="#D97706" opacity="0.7"/>
+  <!-- Plateau — face avant droite (volume) -->
+  <polygon
+    points="148,58  100,78  100,82  148,62"
+    fill="#B45309" opacity="0.5"/>
+
+  <!-- Montant vertical central -->
+  <rect x="97" y="58" width="6" height="32" rx="3"
+    fill="white" opacity="0.95"/>
+
+  <!-- Corps de la toque (cylindre haut) -->
+  <ellipse cx="100" cy="90" rx="28" ry="7"
+    fill="#1A3050"/>
+  <rect x="72" y="78" width="56" height="28" rx="2"
+    fill="#1A3050"/>
+  <ellipse cx="100" cy="90" rx="28" ry="7"
+    fill="none" stroke="#009A44" stroke-width="1.5"/>
+
+  <!-- Base de la toque (bord) -->
+  <ellipse cx="100" cy="106" rx="32" ry="8"
+    fill="#152A44"/>
+  <ellipse cx="100" cy="106" rx="32" ry="8"
+    fill="none" stroke="#009A44" stroke-width="1.5"/>
+
+  <!-- Pompon / cordon -->
+  <line x1="148" y1="58" x2="148" y2="76"
+    stroke="url(#goldGrad)" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="148" cy="80" r="5"
+    fill="url(#goldGrad)"/>
+
+  <!-- === ÉTOILE CONGO en haut === -->
+  <g transform="translate(100,22)">
+    <polygon
+      points="0,-7 1.8,-2.5 6.6,-2.5 2.8,0.9 4.2,6.2 0,3.5 -4.2,6.2 -2.8,0.9 -6.6,-2.5 -1.8,-2.5"
+      fill="url(#goldGrad)"/>
+  </g>
+
+  <!-- === TEXTE "E-PILOTE" === -->
+  <text
+    x="100" y="128"
+    font-family="'Arial Black', 'Impact', 'Helvetica Neue', sans-serif"
+    font-size="17"
+    font-weight="900"
+    letter-spacing="3"
+    fill="white"
+    text-anchor="middle">E-PILOTE</text>
+
+  <!-- === LIGNE DÉCORATIVE TRICOLORE === -->
+  <g transform="translate(65,135)">
+    <rect x="0"  y="0" width="23" height="2.5" rx="1.5" fill="#009A44"/>
+    <rect x="25" y="0" width="20" height="2.5" rx="1.5" fill="#FBBC04"/>
+    <rect x="47" y="0" width="23" height="2.5" rx="1.5" fill="#DC2626"/>
+  </g>
+
+  <!-- === TEXTE "CONGO" === -->
+  <text
+    x="100" y="152"
+    font-family="'Arial', 'Helvetica', sans-serif"
+    font-size="11"
+    font-weight="700"
+    letter-spacing="5"
+    fill="#009A44"
+    text-anchor="middle">CONGO</text>
+
+  <!-- === SOUS-TITRE "GESTION SCOLAIRE" === -->
+  <text
+    x="100" y="167"
+    font-family="'Arial', 'Helvetica', sans-serif"
+    font-size="6.5"
+    font-weight="500"
+    letter-spacing="2"
+    fill="#94A3B8"
+    opacity="0.85"
+    text-anchor="middle">GESTION SCOLAIRE</text>
+
+  <!-- === POINTS DORÉS DÉCORATIFS === -->
+  <circle cx="54"  cy="136" r="2.5" fill="#FBBC04" opacity="0.8"/>
+  <circle cx="146" cy="136" r="2.5" fill="#FBBC04" opacity="0.8"/>
+  <circle cx="54"  cy="164" r="1.5" fill="#009A44" opacity="0.5"/>
+  <circle cx="146" cy="164" r="1.5" fill="#009A44" opacity="0.5"/>
+</svg>

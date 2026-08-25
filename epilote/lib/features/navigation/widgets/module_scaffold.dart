@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/app_shell.dart';
 import '../../../licensing/domain/entitlement.dart';
 import '../providers/permissions_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  Kit de page module — applique le verrou 3 (profil) côté écran :
@@ -12,10 +15,10 @@ import '../providers/permissions_provider.dart';
 //  • runModuleWrite  : exécute une mutation locale en remontant les erreurs.
 // ════════════════════════════════════════════════════════════════════════════
 
-const _kNavy   = Color(0xFF1E3A5F);
-const _kGreen  = Color(0xFF009A44);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
 const _kRed    = Color(0xFFEF4444);
-const _kMuted  = Color(0xFF64748B);
+Color get _kMuted => kTextMuted;
 
 /// Enveloppe un écran de module : titre + AppShell + garde `can_read`.
 /// Tant que les permissions chargent → spinner ; non accordé → page « Accès
@@ -27,12 +30,14 @@ class ModuleScaffold extends ConsumerWidget {
     required this.title,
     required this.child,
     this.actions,
+    this.onBack,
   });
 
   final String slug;
   final String title;
   final Widget child;
   final List<Widget>? actions;
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -40,6 +45,7 @@ class ModuleScaffold extends ConsumerWidget {
     return AppShell(
       title: title,
       actions: actions,
+      onBack: onBack,
       child: permsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => _Denied(
@@ -81,14 +87,14 @@ class _Denied extends StatelessWidget {
               const SizedBox(height: 16),
               Text(title,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 18, fontWeight: FontWeight.w700, color: _kNavy)),
               const SizedBox(height: 8),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: Text(message,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 13, color: _kMuted, height: 1.5)),
+                    style: TextStyle(fontSize: 13, color: _kMuted, height: 1.5)),
               ),
             ],
           ),
@@ -121,6 +127,40 @@ class PermissionGate extends ConsumerWidget {
   }
 }
 
+/// Message affiché quand l'abonnement expiré met l'application en lecture seule.
+const kReadOnlyWriteMessage =
+    'Abonnement expiré — application en lecture seule. '
+    'Modification impossible pour le moment.';
+
+/// `true` si l'abonnement expiré met l'application en lecture seule, SANS rien
+/// afficher — pour les écrans qui portent leur propre bandeau d'erreur.
+/// Sinon, préférer [writeRefusedForLicense] ou [runModuleWrite].
+bool get writeBlockedByLicense => LicenseEnforcement.writeBlockedNow;
+
+/// `true` si l'écriture locale doit être REFUSÉE (abonnement expiré au-delà de
+/// la grâce), après en avoir averti l'utilisateur.
+///
+/// Même verrou que [runModuleWrite], pour les gestes qui gèrent déjà leurs
+/// propres erreurs et leurs propres messages — appeler `runModuleWrite` y
+/// afficherait deux bandeaux pour un seul échec. À placer en TÊTE du geste :
+///
+/// ```dart
+/// if (writeRefusedForLicense(context)) return;
+/// ```
+///
+/// Fail-soft : sans licence (enforcement dormant) il renvoie toujours `false`.
+/// Ne touche JAMAIS la synchro (C4).
+bool writeRefusedForLicense(BuildContext context) {
+  if (!LicenseEnforcement.writeBlockedNow) return false;
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      backgroundColor: _kRed,
+      content: Text(kReadOnlyWriteMessage),
+    ));
+  }
+  return true;
+}
+
 /// Exécute une mutation locale ([op]) en capturant les erreurs immédiates
 /// (contraintes locales, exceptions) et en les remontant à l'utilisateur.
 ///
@@ -136,16 +176,7 @@ Future<bool> runModuleWrite(
   // de la grâce, ou fenêtre de confiance dépassée), on refuse l'écriture LOCALE
   // avant exécution. Fail-soft (aucune licence ⇒ jamais bloquant). Ne touche
   // JAMAIS la synchro (C4) : les données déjà créées continuent de remonter.
-  if (LicenseEnforcement.writeBlockedNow) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        backgroundColor: _kRed,
-        content: Text('Abonnement expiré — application en lecture seule. '
-            'Modification impossible pour le moment.'),
-      ));
-    }
-    return false;
-  }
+  if (writeRefusedForLicense(context)) return false;
   try {
     await op();
     if (context.mounted && success != null) {
@@ -156,7 +187,7 @@ Future<bool> runModuleWrite(
   } catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur : $e'), backgroundColor: _kRed));
+          SnackBar(content: Text(messageErreur(e)), backgroundColor: _kRed));
     }
     return false;
   }

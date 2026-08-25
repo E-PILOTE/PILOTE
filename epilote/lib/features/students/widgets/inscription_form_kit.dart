@@ -11,7 +11,8 @@ import '../../../core/widgets/admin_ui.dart';
 // ════════════════════════════════════════════════════════════════════════════
 
 const _kIconGradStart = Color(0xFF1A2F5A);
-const _kPanelBg = Color(0xFFF8FAFC);
+// Bande du stepper : un FOND, il doit suivre le thème (sinon blanc en sombre).
+Color get _kPanelBg => kSurface;
 
 // ─── Cadre du modal (carte blanche centrée, ombre, radius 18) ─────────────────
 class InscriptionModalFrame extends StatelessWidget {
@@ -34,7 +35,7 @@ class InscriptionModalFrame extends StatelessWidget {
         constraints: BoxConstraints(maxHeight: maxHeight),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
@@ -68,8 +69,8 @@ class InscriptionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 16, 14, 14),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: kCardBg,
         border: Border(bottom: BorderSide(color: kBorder)),
       ),
       child: Row(children: [
@@ -77,7 +78,7 @@ class InscriptionHeader extends StatelessWidget {
           width: 38,
           height: 38,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               colors: [_kIconGradStart, kNavy],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -101,7 +102,7 @@ class InscriptionHeader extends StatelessWidget {
               Text(title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
                       color: kTextPrimary)),
@@ -109,7 +110,7 @@ class InscriptionHeader extends StatelessWidget {
               Text(subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                  style: TextStyle(fontSize: 11.5, color: kTextMuted)),
             ],
           ),
         ),
@@ -120,11 +121,11 @@ class InscriptionHeader extends StatelessWidget {
             width: 30,
             height: 30,
             decoration: BoxDecoration(
-              color: const Color(0xFFF0F4F8),
+              color: kSurface,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: kBorder),
             ),
-            child: const Icon(Icons.close_rounded, size: 16, color: kTextMuted),
+            child: Icon(Icons.close_rounded, size: 16, color: kTextMuted),
           ),
         ),
       ]),
@@ -149,7 +150,7 @@ class InscriptionStepIndicator extends StatelessWidget {
           final active = i == current;
           final done = i < current;
           final accent = done || active ? kGreen : kBorder;
-          final dotColor = active ? kNavy : (done ? kGreen : Colors.white);
+          final dotColor = active ? kNavy : (done ? kGreen : kCardBg);
           final txtColor = active ? kNavy : (done ? kGreen : kTextMuted);
           return Expanded(
             child: Row(children: [
@@ -201,7 +202,7 @@ class InscriptionStepIndicator extends StatelessWidget {
 
 // ─── Barre de navigation (Retour/Annuler · Suivant/Action finale) ────────────
 class InscriptionNavBar extends StatelessWidget {
-  const InscriptionNavBar({
+  InscriptionNavBar({
     super.key,
     required this.currentStep,
     required this.totalSteps,
@@ -211,8 +212,8 @@ class InscriptionNavBar extends StatelessWidget {
     required this.onSubmit,
     this.lastLabel = 'Enregistrer',
     this.lastIcon = Icons.check_rounded,
-    this.lastColor = kGreen,
-  });
+    Color? lastColor,
+  }) : lastColor = lastColor ?? kGreen;
   final int currentStep, totalSteps;
   final bool submitting;
   final VoidCallback onBack, onNext, onSubmit;
@@ -225,8 +226,8 @@ class InscriptionNavBar extends StatelessWidget {
     final isLast = currentStep == totalSteps - 1;
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 14, 22, 18),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: kCardBg,
         border: Border(top: BorderSide(color: kBorder)),
       ),
       child: Row(children: [
@@ -273,7 +274,7 @@ class FormSectionTitle extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(text.toUpperCase(),
-              style: const TextStyle(
+              style: TextStyle(
                   color: kNavy,
                   fontSize: 10.5,
                   fontWeight: FontWeight.w800,
@@ -289,7 +290,7 @@ class FormFieldLabel extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 5, left: 2),
         child: Text(text,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 11.5,
                 color: kTextMuted,
                 fontWeight: FontWeight.w600)),
@@ -325,7 +326,7 @@ class FormTextField extends StatelessWidget {
           keyboardType: keyboardType,
           maxLines: maxLines,
           onChanged: onChanged,
-          style: const TextStyle(fontSize: 13.5, color: kTextPrimary),
+          style: TextStyle(fontSize: 13.5, color: kTextPrimary),
           decoration: adminFilledInput('', icon: icon),
         ),
       ]),
@@ -356,8 +357,8 @@ class FormDropdown<T> extends StatelessWidget {
         DropdownButtonFormField<T>(
           initialValue: items.containsKey(value) ? value : null,
           isExpanded: true,
-          style: const TextStyle(fontSize: 13.5, color: kTextPrimary),
-          icon: const Icon(Icons.expand_more_rounded,
+          style: TextStyle(fontSize: 13.5, color: kTextPrimary),
+          icon: Icon(Icons.expand_more_rounded,
               size: 18, color: kTextMuted),
           decoration: adminFilledInput('Sélectionner'),
           items: items.entries
@@ -410,7 +411,7 @@ class FormCheckTile extends StatelessWidget {
             Expanded(
               child: Text(label,
                   style:
-                      const TextStyle(fontSize: 13, color: kTextPrimary)),
+                      TextStyle(fontSize: 13, color: kTextPrimary)),
             ),
           ]),
         ),
@@ -486,7 +487,7 @@ class ResumeCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: kBorder),
       ),
@@ -497,13 +498,13 @@ class ResumeCard extends StatelessWidget {
             Icon(icon, size: 16, color: kNavy),
             const SizedBox(width: 8),
             Text(title,
-                style: const TextStyle(
+                style: TextStyle(
                     fontWeight: FontWeight.w800,
                     color: kNavy,
                     fontSize: 14)),
             if (trailing != null) ...[const Spacer(), trailing!],
           ]),
-          const Divider(height: 14, color: kBorder),
+          Divider(height: 14, color: kBorder),
           ...rows.map((r) => Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Row(
@@ -512,7 +513,7 @@ class ResumeCard extends StatelessWidget {
                       SizedBox(
                         width: 150,
                         child: Text(r.$1,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 color: kTextMuted, fontSize: 13)),
                       ),
                       Expanded(
@@ -584,7 +585,7 @@ class _CycleLevelClassPickerState extends State<CycleLevelClassPicker> {
   Widget build(BuildContext context) {
     final entries = widget.entries;
     if (entries.isEmpty) {
-      return const Text('Aucune classe disponible.',
+      return Text('Aucune classe disponible.',
           style: TextStyle(color: kTextMuted, fontSize: 13));
     }
 
@@ -672,8 +673,8 @@ class _CycleLevelClassPickerState extends State<CycleLevelClassPicker> {
         },
       ),
       if (effLevel != null && inLevel.isEmpty)
-        const Padding(
-          padding: EdgeInsets.only(bottom: 14),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 14),
           child: Text('Aucune classe pour ce niveau.',
               style: TextStyle(color: kTextMuted, fontSize: 12.5)),
         ),

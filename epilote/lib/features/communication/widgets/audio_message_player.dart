@@ -188,7 +188,7 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
         constraints: const BoxConstraints(maxWidth: 260, minWidth: 200),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.mic_off_rounded, size: 20, color: kRed),
+          Icon(Icons.mic_off_rounded, size: 20, color: kRed),
           const SizedBox(width: 10),
           const Expanded(
             child: Text('Note vocale indisponible',

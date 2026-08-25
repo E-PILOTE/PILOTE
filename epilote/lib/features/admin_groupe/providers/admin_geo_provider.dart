@@ -17,8 +17,50 @@ import '../../../core/utils/app_logger.dart';
 //
 // En cas d'échec réseau : les assets restent définitivement → jamais de carte vide.
 
-const _kAgent    = 'E-PILOTE-Congo/1.0 (gestion-scolaire; libemessenger@gmail.com)';
-const _kOverpass = 'https://overpass-api.de/api/interpreter';
+const _kAgent = 'E-PILOTE-Congo/1.0 (gestion-scolaire; libemessenger@gmail.com)';
+
+// Miroirs Overpass essayés dans l'ordre. L'endpoint public principal
+// (overpass-api.de) est fréquemment saturé → 504 Gateway Timeout, ce qui faisait
+// que la couche Routes ne se chargeait jamais. On bascule sur un miroir dès
+// qu'un serveur renvoie une erreur/temporisation, ce qui rend le chargement
+// beaucoup plus fiable (kumi.systems est généralement le plus rapide).
+const _kOverpassMirrors = <String>[
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+];
+
+/// POST une requête Overpass en essayant chaque miroir jusqu'au premier succès.
+/// Renvoie le JSON décodé ; lève si TOUS les miroirs échouent (504/429/réseau/
+/// temporisation). `perTry` borne l'attente par miroir.
+Future<Map<String, dynamic>> _overpassPost(
+  String query, {
+  Duration perTry = const Duration(seconds: 90),
+}) async {
+  Object? lastErr;
+  for (final url in _kOverpassMirrors) {
+    try {
+      final resp = await http
+          .post(
+            Uri.parse(url),
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'User-Agent': _kAgent,
+            },
+            body: {'data': query},
+          )
+          .timeout(perTry);
+      if (resp.statusCode == 200) {
+        return jsonDecode(resp.body) as Map<String, dynamic>;
+      }
+      // 504/429/503 : miroir saturé → on tente le suivant.
+      lastErr = Exception('Overpass ${resp.statusCode} @ $url');
+    } catch (e) {
+      lastErr = e; // temporisation / réseau → miroir suivant
+    }
+  }
+  throw Exception('Overpass indisponible (tous les miroirs) : $lastErr');
+}
 
 // ─── Modèles ─────────────────────────────────────────────────────────────────
 
@@ -148,19 +190,7 @@ Future<List<GeoDepartment>> _fetchLiveDepts() async {
       'relation(area.cg)["boundary"="administrative"]["admin_level"="4"];\n'
       'out geom;';
 
-  final resp = await http
-      .post(
-        Uri.parse(_kOverpass),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': _kAgent,
-        },
-        body: {'data': query},
-      )
-      .timeout(const Duration(seconds: 125));
-  if (resp.statusCode != 200) throw Exception('Overpass ${resp.statusCode}');
-
-  final json = jsonDecode(resp.body) as Map<String, dynamic>;
+  final json = await _overpassPost(query, perTry: const Duration(seconds: 100));
   final elements = json['elements'] as List? ?? [];
 
   final result = <GeoDepartment>[];
@@ -207,25 +237,15 @@ Future<List<GeoDepartment>> _fetchLiveDepts() async {
 // ─── Fetch live Overpass (localités) ─────────────────────────────────────────
 
 Future<List<GeoPlace>> _fetchLivePlaces() async {
-  // Inclut tous les types jusqu'au hameau/localité pour couverture maximale Congo
+  // Couverture maximale : jusqu'au hameau/écart ET aux subdivisions urbaines
+  // (quartiers/faubourgs). Sans suburb|neighbourhood|quarter, un rafraîchissement
+  // live ÉCRASAIT l'asset et faisait disparaître les quartiers déjà embarqués.
   const query = '[out:json][timeout:90];\n'
       'relation(192794);map_to_area->.cg;\n'
-      r'node(area.cg)["place"~"^(city|town|village|hamlet|isolated_dwelling|locality)$"]["name"];'
+      r'node(area.cg)["place"~"^(city|town|village|hamlet|isolated_dwelling|locality|suburb|neighbourhood|quarter)$"]["name"];'
       '\nout body;';
 
-  final resp = await http
-      .post(
-        Uri.parse(_kOverpass),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': _kAgent,
-        },
-        body: {'data': query},
-      )
-      .timeout(const Duration(seconds: 95));
-  if (resp.statusCode != 200) throw Exception('Overpass ${resp.statusCode}');
-
-  final json = jsonDecode(resp.body) as Map<String, dynamic>;
+  final json = await _overpassPost(query, perTry: const Duration(seconds: 90));
   final elements = json['elements'] as List? ?? [];
 
   return elements.map((e) {
@@ -337,24 +357,16 @@ class _PlacesNotifier
 // Seule la couche affichage est ici ; les isochrones nécessitent un serveur OSRM.
 
 Future<List<CongoRoad>> _fetchLiveRoads() async {
+  // On exclut « tertiary » (voies locales très nombreuses) : inclure tertiary
+  // fait dépasser le budget Overpass → 504 Gateway Timeout systématique et la
+  // couche Routes ne s'affichait jamais. Le réseau stratégique (national/
+  // régional) = trunk/primary/secondary suffit pour le cockpit territorial.
   const query = '[out:json][timeout:120];\n'
       'relation(192794);map_to_area->.cg;\n'
-      'way(area.cg)["highway"~"^(trunk|primary|secondary|tertiary)\$"];\n'
+      'way(area.cg)["highway"~"^(trunk|primary|secondary)\$"];\n'
       'out geom;';
 
-  final resp = await http
-      .post(
-        Uri.parse(_kOverpass),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': _kAgent,
-        },
-        body: {'data': query},
-      )
-      .timeout(const Duration(seconds: 125));
-  if (resp.statusCode != 200) throw Exception('Overpass roads ${resp.statusCode}');
-
-  final json = jsonDecode(resp.body) as Map<String, dynamic>;
+  final json = await _overpassPost(query, perTry: const Duration(seconds: 100));
   final elements = json['elements'] as List? ?? [];
 
   final roads = <CongoRoad>[];
@@ -383,20 +395,15 @@ class _RoadsNotifier extends AutoDisposeAsyncNotifier<List<CongoRoad>> {
   @override
   Future<List<CongoRoad>> build() async {
     ref.keepAlive();
-    // Pas d'asset embarqué pour les routes (trop lourd) — débute vide
-    // puis charge en arrière-plan.
-    Future(_refreshLive);
-    return const [];
-  }
-
-  Future<void> _refreshLive() async {
+    // Pas d'asset embarqué pour les routes (trop lourd). On ATTEND le résultat
+    // live pour exposer un vrai état loading/erreur à l'UI (sinon « en cours »
+    // et « échec » seraient tous deux une liste vide, indistinguables).
     try {
-      final live = await _fetchLiveRoads();
-      state = AsyncData(live);
+      return await _fetchLiveRoads();
     } catch (e, st) {
-      // Pas d'asset routier embarqué → en cas d'échec la couche reste vide.
-      appLogger.w('Réseau routier live (Overpass) indisponible — '
-          'couche routes vide', error: e, stackTrace: st);
+      appLogger.w('Réseau routier live (Overpass) indisponible',
+          error: e, stackTrace: st);
+      rethrow; // → AsyncError : l'UI affiche « Routes indisponibles ».
     }
   }
 }

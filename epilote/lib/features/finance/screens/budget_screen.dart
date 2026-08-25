@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
@@ -9,6 +10,7 @@ import '../../structure/providers/academic_year_context.dart';
 import '../../vie_scolaire/widgets/vs_kit.dart';
 import '../../vie_scolaire/widgets/vs_form_chrome.dart';
 import '../providers/budget_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'budget_form.dart';
 
@@ -76,7 +78,7 @@ class _BodyState extends ConsumerState<_Body> {
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (all) {
         final budgeted = all.fold(0, (a, l) => a + l.budgeted);
         final actual = all.fold(0, (a, l) => a + l.actual);
@@ -156,7 +158,7 @@ class _BudgetCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: kBorder),
       ),
@@ -175,7 +177,7 @@ class _BudgetCard extends StatelessWidget {
           if (canEdit || canDelete)
             PopupMenuButton<String>(
               icon:
-                  const Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
+                  Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
               onSelected: (v) => v == 'edit' ? onEdit() : onDelete(),
               itemBuilder: (ctx) => [
                 if (canEdit)
@@ -187,11 +189,11 @@ class _BudgetCard extends StatelessWidget {
                         Text('Modifier'),
                       ])),
                 if (canDelete)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                       value: 'delete',
                       child: Row(children: [
                         Icon(Icons.delete_outline_rounded, size: 16, color: kRed),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Text('Supprimer', style: TextStyle(color: kRed)),
                       ])),
               ],
@@ -221,7 +223,7 @@ class _BudgetCard extends StatelessWidget {
           Text(l.notes!.trim(),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+              style: TextStyle(fontSize: 11.5, color: kTextMuted)),
         ],
       ]),
     );
@@ -240,7 +242,7 @@ class _AddBtn extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                   colors: [kNavyDark, kNavy],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight),

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/constants/routes.dart';
+
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -14,6 +18,7 @@ import '../providers/conseils_provider.dart';
 import '../providers/evaluation_overview_provider.dart';
 import '../services/conseil_pdf_service.dart';
 import 'evaluation_overview_widgets.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'conseils_parts.dart';
 part 'conseils_roster.dart';
@@ -35,6 +40,16 @@ class ConseilsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) => const ModuleScaffold(
         slug: _kSlug,
         title: 'Conseil de classe',
+        // Le conseil de fin d'année est la SUITE de celui-ci, pas un autre
+        // module : on y accède d'ici plutôt que par une entrée de sidebar de
+        // plus, qui laisserait croire à deux instances distinctes.
+        //
+        // Il vit dans la PAGE, en bas, et non dans la barre de titre : la barre
+        // est le chrome de l'application, partagé par tous les écrans. Y poser
+        // l'action la plus lourde de l'année — celle qui fait passer ou
+        // redoubler une promotion entière — la présentait comme un utilitaire
+        // de navigation, à portée de clic distrait, et sans un mot pour dire ce
+        // qu'elle déclenche.
         child: _Body(),
       );
 }
@@ -69,12 +84,29 @@ class _BodyState extends ConsumerState<_Body> {
     final p = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
     if (yearId == null) return;
+
+    // Un bulletin généré sans rattachement serait refusé à la remontée et
+    // emporterait le lot PowerSync entier — toute une classe de bulletins
+    // perdue sans message.
+    final missing = missingWriteIds(
+      groupId: p?.groupId,
+      schoolId: p?.schoolId,
+      actorId: p?.id,
+    );
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(writeIdentityMessage(missing)),
+        backgroundColor: kRed,
+        duration: const Duration(seconds: 6),
+      ));
+      return;
+    }
     setState(() => _busy = true);
     await runModuleWrite(context, () async {
       final comp = await ref.read(bulletinComputationProvider(_args).future);
       await generateBulletins(
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         academicYearId: yearId,
         trimesterId: _trimesterId!,
         comp: comp,
@@ -214,7 +246,7 @@ class _BodyState extends ConsumerState<_Body> {
               child: Center(child: CircularProgressIndicator())),
           error: (e, _) => Padding(
               padding: const EdgeInsets.only(top: 40),
-              child: Center(child: Text('Erreur : $e'))),
+              child: Center(child: Text(messageErreur(e)))),
           data: (ov) => _content(ov, canEdit, trims),
         ),
         const SizedBox(height: 24),
@@ -323,6 +355,10 @@ class _BodyState extends ConsumerState<_Body> {
           onOpen: (c) => setState(() => _openClassId = c.classId),
         ),
       ],
+      // En bas, et non en haut : c'est l'étape D'APRÈS. Placée avant les
+      // classes, elle aurait concurrencé le travail du trimestre en cours.
+      const SizedBox(height: 24),
+      const _PassageGateway(),
     ]);
   }
 

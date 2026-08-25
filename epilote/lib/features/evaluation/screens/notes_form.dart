@@ -67,7 +67,7 @@ class _EvaluationFormState extends ConsumerState<_EvaluationForm> {
       lastDate: DateTime(_date.year + 2),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx)
-            .copyWith(colorScheme: const ColorScheme.light(primary: kNavy)),
+            .copyWith(colorScheme: ColorScheme.light(primary: kNavy)),
         child: child!,
       ),
     );
@@ -89,6 +89,26 @@ class _EvaluationFormState extends ConsumerState<_EvaluationForm> {
     final p = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
     if (yearId == null) return;
+
+    // Une évaluation créée sans rattachement serait refusée à la remontée et
+    // emporterait le lot PowerSync entier. Seule la création est concernée :
+    // la modification ne touche pas aux identifiants de rattachement.
+    if (!_isEdit) {
+      final missing = missingWriteIds(
+        groupId: p?.groupId,
+        schoolId: p?.schoolId,
+        actorId: p?.id,
+      );
+      if (missing.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)),
+          backgroundColor: kRed,
+          duration: const Duration(seconds: 6),
+        ));
+        return;
+      }
+    }
+
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
@@ -105,8 +125,8 @@ class _EvaluationFormState extends ConsumerState<_EvaluationForm> {
           );
         } else {
           await createEvaluation(
-            groupId: p?.groupId ?? '',
-            schoolId: p?.schoolId ?? '',
+            groupId: p!.groupId!,
+            schoolId: p.schoolId!,
             academicYearId: yearId,
             classId: _classId!,
             subjectId: _subjectId!,
@@ -116,7 +136,7 @@ class _EvaluationFormState extends ConsumerState<_EvaluationForm> {
             date: _date,
             maxScore: max,
             coefficient: coef,
-            createdBy: p?.id ?? '',
+            createdBy: p.id,
           );
         }
       },
@@ -150,14 +170,14 @@ class _EvaluationFormState extends ConsumerState<_EvaluationForm> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: kBorder))),
             child: Row(children: [
-              const Icon(Icons.grade_rounded, size: 18, color: kNavy),
+              Icon(Icons.grade_rounded, size: 18, color: kNavy),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(_isEdit ? 'Modifier l\'évaluation' : 'Nouvelle évaluation',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 15.5,
                         fontWeight: FontWeight.w800,
                         color: kTextPrimary)),

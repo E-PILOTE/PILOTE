@@ -118,7 +118,7 @@ class _MiniAction extends StatelessWidget {
               Icon(icon, size: 15, color: kNavy),
               const SizedBox(width: 6),
               Text(label,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
                       color: kNavy)),
@@ -188,7 +188,7 @@ class _CycleSection extends StatelessWidget {
                     ? const BorderRadius.vertical(top: Radius.circular(12))
                     : BorderRadius.circular(12),
                 border: expanded
-                    ? const Border(bottom: BorderSide(color: kBorder))
+                    ? Border(bottom: BorderSide(color: kBorder))
                     : null,
               ),
               child: Row(children: [
@@ -319,7 +319,7 @@ class _CompletionBar extends StatelessWidget {
             size: 12, color: done ? kGreen : kTextMuted),
         const SizedBox(width: 4),
         Text('$c/$total ${total <= 1 ? 'niveau couvert' : 'niveaux couverts'}',
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: kTextMuted)),
@@ -363,14 +363,14 @@ class _NiveauGroup extends StatelessWidget {
           ),
           const SizedBox(width: 9),
           Text(levelLabel.toUpperCase(),
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.5,
                   color: kTextPrimary)),
           const SizedBox(width: 8),
           Text('· ${_pl(items.length, 'programme', 'programmes')}',
-              style: const TextStyle(fontSize: 11, color: kTextMuted)),
+              style: TextStyle(fontSize: 11, color: kTextMuted)),
         ]),
       ),
       for (var i = 0; i < items.length; i++)

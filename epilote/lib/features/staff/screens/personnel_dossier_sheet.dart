@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../communication/widgets/user_avatar.dart';
@@ -9,11 +10,62 @@ import '../../navigation/widgets/module_scaffold.dart';
 import '../../students/widgets/scope_drilldown_panel.dart' show scopeCycleName;
 import '../../user/widgets/staff_account_widgets.dart' show staffRoleLabel;
 import '../../vie_scolaire/widgets/vs_form_chrome.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
+import '../../structure/providers/academic_year_provider.dart';
 import '../providers/staff_dossier_provider.dart';
+import '../services/attestation_travail_pdf_service.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'personnel_dossier_forms.dart';
 
 const _kSlug = 'personnel';
+
+/// Délivre l'attestation de travail de l'agent.
+///
+/// Le signataire n'est proposé que si l'agent connecté dirige l'établissement :
+/// un secrétaire imprime le document, il ne le signe pas. Mieux vaut une ligne
+/// vide qu'un nom qui n'a pas qualité.
+Future<void> _attestationTravail(
+    BuildContext context, WidgetRef ref, StaffDossier d) async {
+  final school = ref.read(currentSchoolProvider).valueOrNull;
+  final moi = ref.read(authNotifierProvider).valueOrNull;
+  final dirige = moi?.role == 'directeur' || moi?.role == 'proviseur';
+  final nom = dirige ? '${moi?.firstName ?? ''} ${moi?.lastName ?? ''}'.trim() : '';
+
+  await showPdfPreviewDialog(
+    context,
+    title: 'Attestation de travail',
+    subtitle: '${d.fullName} · ${staffRoleLabel(d.role)}',
+    pdfFileName:
+        'attestation_travail_${d.lastName}_${d.firstName}.pdf'.replaceAll(' ', '_'),
+    build: (_) => AttestationTravailPdfService.build(
+      agent: AttestationAgent(
+        firstName: d.firstName,
+        lastName: d.lastName,
+        fonction: staffRoleLabel(d.role),
+        employeeNumber: d.employeeNumber,
+        employmentStatus: d.employmentStatus,
+        grade: d.grade,
+        echelon: d.echelon,
+        gender: d.gender,
+        birthPlace: d.birthPlace,
+        dateOfBirth:
+            d.dateOfBirth == null ? null : DateTime.tryParse(d.dateOfBirth!),
+        hireDate: d.hireDate == null ? null : DateTime.tryParse(d.hireDate!),
+      ),
+      schoolName: (school?['name'] as String?)?.trim().isNotEmpty ?? false
+          ? (school!['name'] as String).trim()
+          : 'l\'établissement',
+      city: (school?['city'] as String?) ?? (school?['department'] as String?),
+      signataire: nom.isEmpty ? null : nom,
+      fonctionSignataire: switch (moi?.role) {
+        'directeur' => 'Le Directeur',
+        'proviseur' => 'Le Proviseur',
+        _ => null,
+      },
+    ),
+  );
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 //  DOSSIER RH DE L'AGENT — feuille plein écran : identité étendue (lecture, du
@@ -53,13 +105,13 @@ class StaffDossierSheet extends ConsumerWidget {
       minChildSize: 0.5,
       maxChildSize: 0.96,
       builder: (ctx, scroll) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: kSurface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: async.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Erreur : $e')),
+          error: (e, _) => Center(child: Text(messageErreur(e))),
           data: (d) {
             if (d == null) {
               return const Center(child: Text('Agent introuvable'));
@@ -95,12 +147,13 @@ class _DossierBody extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
         child: Row(children: [
           UserAvatarCircle(
-              name: d.fullName, role: d.role, avatarUrl: d.avatarUrl, radius: 30),
+              name: d.fullName, role: d.role, avatarUrl: d.avatarUrl,
+              profileId: d.id, radius: 30),
           const SizedBox(width: 14),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(d.fullName,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
                       color: kTextPrimary)),
@@ -113,6 +166,14 @@ class _DossierBody extends ConsumerWidget {
               ]),
             ]),
           ),
+          // Le papier que tout agent finit par demander : banque, bailleur,
+          // visa, dossier de prêt. Il se retapait à la main, et la date
+          // d'entrée en service — celle qui fonde l'ancienneté — s'y
+          // recopiait de mémoire.
+          IconButton(
+              tooltip: 'Attestation de travail',
+              onPressed: () => _attestationTravail(context, ref, d),
+              icon: const Icon(Icons.workspace_premium_outlined, size: 20)),
           IconButton(
               onPressed: () => Navigator.pop(context),
               icon: const Icon(Icons.close_rounded, size: 20)),
@@ -170,7 +231,7 @@ class _IdentityCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: kBorder),
       ),
@@ -208,7 +269,7 @@ class _InfoRow extends StatelessWidget {
           Icon(icon, size: 17, color: kTextMuted),
           const SizedBox(width: 12),
           Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12.5, color: kTextMuted, fontWeight: FontWeight.w600)),
           const Spacer(),
           Flexible(
@@ -248,7 +309,7 @@ class _CareerSection extends ConsumerWidget {
           : null,
       child: async.when(
         loading: () => const _Loading(),
-        error: (e, _) => Text('Erreur : $e'),
+        error: (e, _) => Text(messageErreur(e)),
         data: (rows) {
           if (rows.isEmpty) return const _Empty('Aucun poste enregistré');
           return Column(
@@ -296,23 +357,23 @@ class _CareerCard extends StatelessWidget {
                 style: const TextStyle(
                     fontSize: 14, fontWeight: FontWeight.w800)),
           ),
-          if (c.isCurrent) const _Tag('Actuel', kGreen),
+          if (c.isCurrent) _Tag('Actuel', kGreen),
         ]),
         if ((c.organization ?? '').isNotEmpty) ...[
           const SizedBox(height: 2),
           Text(c.organization!,
-              style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
+              style: TextStyle(fontSize: 12.5, color: kTextMuted)),
         ],
         if (period.isNotEmpty) ...[
           const SizedBox(height: 3),
           Text(period,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11.5, fontWeight: FontWeight.w600, color: kNavy)),
         ],
         if ((c.notes ?? '').trim().isNotEmpty) ...[
           const SizedBox(height: 4),
           Text(c.notes!.trim(),
-              style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+              style: TextStyle(fontSize: 11.5, color: kTextMuted)),
         ],
       ]),
     );
@@ -341,7 +402,7 @@ class _DiplomaSection extends ConsumerWidget {
           : null,
       child: async.when(
         loading: () => const _Loading(),
-        error: (e, _) => Text('Erreur : $e'),
+        error: (e, _) => Text(messageErreur(e)),
         data: (rows) {
           if (rows.isEmpty) return const _Empty('Aucun diplôme enregistré');
           return Column(
@@ -394,7 +455,7 @@ class _DiplomaCard extends StatelessWidget {
         ]),
         if (sub.isNotEmpty) ...[
           const SizedBox(height: 3),
-          Text(sub, style: const TextStyle(fontSize: 12, color: kTextMuted)),
+          Text(sub, style: TextStyle(fontSize: 12, color: kTextMuted)),
         ],
       ]),
     );

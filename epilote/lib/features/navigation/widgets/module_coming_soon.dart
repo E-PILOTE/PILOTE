@@ -112,21 +112,21 @@ class StaffComingSoonScreen extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
                         color: kNavy,
                       ),
                     ),
                     const SizedBox(width: 10),
-                    const AdminBadge('En préparation', color: kAccent),
+                    AdminBadge('En préparation', color: kAccent),
                   ],
                 ),
                 const SizedBox(height: 10),
                 Text(
                   message,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13.5,
                     color: kTextMuted,
                     height: 1.55,
@@ -192,21 +192,21 @@ class ModuleComingSoonScreen extends ConsumerWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
                         color: kNavy,
                       ),
                     ),
                     const SizedBox(width: 10),
-                    const AdminBadge('En préparation', color: kAccent),
+                    AdminBadge('En préparation', color: kAccent),
                   ],
                 ),
                 const SizedBox(height: 10),
                 Text(
                   blurb,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13.5,
                     color: kTextMuted,
                     height: 1.55,
@@ -217,14 +217,14 @@ class ModuleComingSoonScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
                           Icon(
                             Icons.check_circle_rounded,
                             size: 18,
                             color: kGreen,
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'Accès déjà attribué à votre profil',
@@ -238,14 +238,14 @@ class ModuleComingSoonScreen extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      const Text(
+                      Text(
                         "Dès que l'écran sera activé, il apparaîtra ici sans "
                         'action de votre part.',
                         style: TextStyle(fontSize: 12, color: kTextMuted),
                       ),
                       if (caps.isNotEmpty) ...[
                         const SizedBox(height: 14),
-                        const Text(
+                        Text(
                           'Vos droits sur ce module',
                           style: TextStyle(
                             fontSize: 11.5,
@@ -277,7 +277,7 @@ class ModuleComingSoonScreen extends ConsumerWidget {
                                     const SizedBox(width: 5),
                                     Text(
                                       c.label,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 11.5,
                                         fontWeight: FontWeight.w600,
                                         color: kTextPrimary,

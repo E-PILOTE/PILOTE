@@ -23,9 +23,9 @@ class _BulletinDetailSheet extends ConsumerWidget {
       minChildSize: 0.5,
       maxChildSize: 0.95,
       builder: (ctx, scroll) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: kCardBg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(children: [
           const SizedBox(height: 10),
@@ -42,13 +42,13 @@ class _BulletinDetailSheet extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(student.studentName,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
                       Text(
                           '${className ?? ''} · ${student.rank == 0 ? '—' : '${student.rank}ᵉ/${student.totalStudents}'} · ${student.mention}',
-                          style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                          style: TextStyle(fontSize: 12, color: kTextMuted)),
                     ]),
               ),
               IconButton(
@@ -67,7 +67,7 @@ class _BulletinDetailSheet extends ConsumerWidget {
                     yearLabel: year?.label,
                   ),
                 ),
-                icon: const Icon(Icons.picture_as_pdf_outlined, color: kGreen),
+                icon: Icon(Icons.picture_as_pdf_outlined, color: kGreen),
               ),
               IconButton(
                   onPressed: () => Navigator.pop(context),
@@ -120,7 +120,7 @@ class _SummaryStrip extends StatelessWidget {
               const SizedBox(height: 2),
               Text(l,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 10, color: kTextMuted)),
+                  style: TextStyle(fontSize: 10, color: kTextMuted)),
             ]),
           ),
         );
@@ -159,9 +159,9 @@ class _CouncilCard extends StatelessWidget {
         border: Border.all(color: kNavy.withValues(alpha: 0.15)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+        Row(children: [
           Icon(Icons.how_to_vote_rounded, size: 15, color: kNavy),
-          SizedBox(width: 7),
+          const SizedBox(width: 7),
           Text('Conseil de classe',
               style: TextStyle(
                   fontSize: 12,
@@ -191,13 +191,13 @@ class _CouncilCard extends StatelessWidget {
         if (appr.isNotEmpty) ...[
           const SizedBox(height: 10),
           Text(appr,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 13, height: 1.45, color: kTextPrimary)),
         ],
         if (director.isNotEmpty) ...[
           const SizedBox(height: 8),
           Text('Synthèse : $director',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12, height: 1.4, color: kTextMuted)),
         ],
       ]),
@@ -230,9 +230,9 @@ class _LinesTable extends StatelessWidget {
       child: Column(children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: kSurface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
           ),
           child: Row(children: [
             cell('Matière', flex: 3, head: true),
@@ -248,7 +248,7 @@ class _LinesTable extends StatelessWidget {
             decoration: BoxDecoration(
               border: i == 0
                   ? null
-                  : const Border(top: BorderSide(color: kBorder, width: 0.5)),
+                  : Border(top: BorderSide(color: kBorder, width: 0.5)),
             ),
             child: Row(children: [
               cell(student.lines[i].subjectName, flex: 3, bold: true),

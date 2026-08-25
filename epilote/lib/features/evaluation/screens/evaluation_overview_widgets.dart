@@ -72,7 +72,7 @@ class EvalSectionLabel extends StatelessWidget {
         Icon(icon, size: 16, color: kNavy),
         const SizedBox(width: 8),
         Text(text,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 13.5, fontWeight: FontWeight.w800, color: kNavy)),
       ]);
 }
@@ -94,9 +94,9 @@ class EvalWorkflowGuide extends StatelessWidget {
         border: Border.all(color: kNavy.withValues(alpha: 0.12)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
+        Row(children: [
           Icon(Icons.route_rounded, size: 15, color: kNavy),
-          SizedBox(width: 7),
+          const SizedBox(width: 7),
           Text('Comment ça marche',
               style: TextStyle(
                   fontSize: 12,
@@ -112,8 +112,8 @@ class EvalWorkflowGuide extends StatelessWidget {
               Expanded(child: _StepTile(index: i + 1, step: steps[i])),
               if (i < steps.length - 1)
                 wide
-                    ? const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 4),
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
                         child: Icon(Icons.arrow_forward_rounded,
                             size: 18, color: kTextMuted))
                     : const SizedBox.shrink(),
@@ -167,7 +167,7 @@ class _StepTile extends StatelessWidget {
               child: Text(title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w800,
                       color: kTextPrimary)),
@@ -175,7 +175,7 @@ class _StepTile extends StatelessWidget {
           ]),
           const SizedBox(height: 2),
           Text(subtitle,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11.5, height: 1.25, color: kTextMuted)),
         ]),
       ),
@@ -203,7 +203,7 @@ class EvalTrimesterHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: kBorder),
       ),
@@ -211,13 +211,13 @@ class EvalTrimesterHeader extends StatelessWidget {
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(title,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                     color: kTextPrimary)),
             const SizedBox(height: 2),
             Text(subtitle,
-                style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
+                style: TextStyle(fontSize: 12.5, color: kTextMuted)),
           ]),
         ),
         const SizedBox(width: 16),
@@ -355,7 +355,7 @@ class _CoverageCard extends StatelessWidget {
             ? kGreen
             : (ok == 0 ? const Color(0xFFF59E0B) : const Color(0xFF0EA5E9)));
     return Material(
-      color: Colors.white,
+      color: kCardBg,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -387,7 +387,7 @@ class _CoverageCard extends StatelessWidget {
                           Text(c.className,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w800,
                                   color: kTextPrimary)),
@@ -396,7 +396,7 @@ class _CoverageCard extends StatelessWidget {
                               '${c.students} élèves',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 11.5, color: kTextMuted)),
                         ]),
                   ),
@@ -409,7 +409,7 @@ class _CoverageCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(7),
                       ),
                       child: Text('${c.classAverage!.toStringAsFixed(2)}/20',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
                               color: kNavy)),
@@ -435,11 +435,11 @@ class _CoverageCard extends StatelessWidget {
                   const Spacer(),
                   Row(children: [
                     Text(openLabel,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w700,
                             color: kNavy)),
-                    const Icon(Icons.chevron_right_rounded,
+                    Icon(Icons.chevron_right_rounded,
                         size: 16, color: kNavy),
                   ]),
                 ]),
@@ -466,17 +466,17 @@ class EvalScopeChip extends StatelessWidget {
             border: Border.all(color: kNavy.withValues(alpha: 0.25)),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.filter_alt_rounded, size: 14, color: kNavy),
+            Icon(Icons.filter_alt_rounded, size: 14, color: kNavy),
             const SizedBox(width: 6),
             Text(label,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12.5, fontWeight: FontWeight.w700, color: kNavy)),
             const SizedBox(width: 2),
             InkWell(
               onTap: onClear,
               borderRadius: BorderRadius.circular(20),
-              child: const Padding(
-                padding: EdgeInsets.all(3),
+              child: Padding(
+                padding: const EdgeInsets.all(3),
                 child: Icon(Icons.close_rounded, size: 15, color: kNavy),
               ),
             ),

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 
 import '../../../features/auth/providers/auth_provider.dart';
 
@@ -188,11 +189,11 @@ final adminAccessProvider =
   try {
     final cats = await client.from('module_categories')
         .select('id, name, slug, display_order')
-        .order('display_order') as List;
+        .order('display_order', ascending: true) as List;
     final mods = await client.from('modules')
         .select('id, name, slug, icon, category_id, display_order')
         .eq('is_active', true)
-        .order('display_order') as List;
+        .order('display_order', ascending: true) as List;
     for (final c in cats) {
       final cid = c['id'] as String;
       final catMods = mods.where((m) => m['category_id'] == cid).map((m) {
@@ -222,7 +223,7 @@ final adminAccessProvider =
     final rows = await client.from('access_profiles')
         .select('id, name, description, is_active, role_type')
         .eq('group_id', groupId)
-        .order('name') as List;
+        .order('name', ascending: true) as List;
     apRows.addAll(rows.cast<Map<String, dynamic>>());
   } catch (_) {}
 
@@ -360,11 +361,17 @@ class AdminAccessService {
   /// est en NO ACTION → supprimer un profil encore attribué échoue côté DB.
   Future<int> countMembers(String profileId) async {
     final client = _ref.read(supabaseClientProvider);
-    final rows = await client
+    // `count` serveur, pas `.length` d'une liste : PostgREST tronque une
+    // lecture de table à 1 000 lignes sans le signaler. Ici le compte SERT DE
+    // GARDE avant suppression — un profil attribué à 1 200 agents aurait
+    // rendu 1 000, ce qui n'aurait rien changé au refus ; mais le même
+    // raccourci ailleurs a déjà transformé 1 775 élèves en 1 000.
+    return client
         .from('profiles')
         .select('id')
-        .eq('access_profile_id', profileId) as List;
-    return rows.length;
+        .eq('access_profile_id', profileId)
+        .count(CountOption.exact)
+        .then((r) => r.count);
   }
 
   /// Supprime définitivement un profil d'accès.

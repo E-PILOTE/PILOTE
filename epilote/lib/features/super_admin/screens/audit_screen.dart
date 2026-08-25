@@ -1,25 +1,28 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../../core/widgets/app_shell.dart';
 import '../providers/audit_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
-const _kNavy    = Color(0xFF1E3A5F);
-const _kGreen   = Color(0xFF009A44);
-const _kGold    = Color(0xFFFBBC04);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
+Color get _kGold => kAccent;
 const _kOrange  = Color(0xFFFF6B35);
 const _kPurple  = Color(0xFF7C3AED);
 const _kBlue    = Color(0xFF0EA5E9);
 const _kRed     = Color(0xFFEF4444);
-const _kSurface = Color(0xFFF0F4F8);
-const _kBg      = Color(0xFFFFFFFF);
-const _kBorder  = Color(0xFFE2E8F0);
-const _kText    = Color(0xFF0F172A);
-const _kMuted   = Color(0xFF64748B);
+Color get _kSurface => kSurface;
+Color get _kBg => kCardBg;
+Color get _kBorder => kBorder;
+Color get _kText => kTextPrimary;
+Color get _kMuted => kTextMuted;
 
 // ─── Helpers action ───────────────────────────────────────────────────────────
 Color _actionColor(String a) => switch (a) {
@@ -119,9 +122,9 @@ class _AuditBodyState extends ConsumerState<_AuditBody> {
       loading: () => const _ShimmerSkeleton(),
       error: (e, _) => Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
+          Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
           const SizedBox(height: 12),
-          Text('Erreur : $e', style: const TextStyle(color: _kMuted)),
+          Text(messageErreur(e), style: TextStyle(color: _kMuted)),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => ref.invalidate(auditLogsProvider),
@@ -344,7 +347,7 @@ class _KpiCardState extends State<_KpiCard> with SingleTickerProviderStateMixin 
                             fontWeight: FontWeight.w900, letterSpacing: -0.5),
                             overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 2),
-                        Text(d.label, style: const TextStyle(color: _kMuted, fontSize: 11.5,
+                        Text(d.label, style: TextStyle(color: _kMuted, fontSize: 11.5,
                             fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
                         if (d.sub != null)
                           Text(d.sub!, style: TextStyle(color: d.color.withValues(alpha: 0.70),
@@ -397,7 +400,7 @@ class _ShimmerSkeleton extends StatelessWidget {
   const _ShimmerSkeleton();
   Widget _box(double w, double h, {double r = 10}) => Container(
     width: w, height: h,
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(r)),
+    decoration: BoxDecoration(color: kCardBg, borderRadius: BorderRadius.circular(r)),
   );
   @override
   Widget build(BuildContext context) => Shimmer.fromColors(
@@ -487,11 +490,11 @@ class _FilterBar extends StatelessWidget {
                 onChanged: onSearchChange,
                 decoration: InputDecoration(
                   hintText: 'Rechercher par table, action, utilisateur…',
-                  hintStyle: const TextStyle(color: _kMuted, fontSize: 13),
-                  prefixIcon: const Icon(Icons.search_rounded, color: _kMuted, size: 20),
+                  hintStyle: TextStyle(color: _kMuted, fontSize: 13),
+                  prefixIcon: Icon(Icons.search_rounded, color: _kMuted, size: 20),
                   suffixIcon: searchCtrl.text.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.close_rounded, size: 18, color: _kMuted),
+                          icon: Icon(Icons.close_rounded, size: 18, color: _kMuted),
                           onPressed: () { searchCtrl.clear(); onSearchChange(''); })
                       : null,
                   filled: true, fillColor: _kSurface,
@@ -517,7 +520,7 @@ class _FilterBar extends StatelessWidget {
                       color: _kSurface, borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: _kBorder),
                     ),
-                    child: const Icon(Icons.refresh_rounded, size: 20, color: _kNavy),
+                    child: Icon(Icons.refresh_rounded, size: 20, color: _kNavy),
                   ),
                 ),
               ),
@@ -618,7 +621,7 @@ class _FilterDropdown extends StatelessWidget {
     child: DropdownButtonHideUnderline(
       child: DropdownButton<String>(
         value: value,
-        dropdownColor: Colors.white,
+        dropdownColor: kCardBg,
         icon: Icon(Icons.arrow_drop_down, size: 18, color: active ? Colors.white : _kMuted),
         style: TextStyle(color: active ? Colors.white : _kMuted,
             fontSize: 12.5, fontWeight: FontWeight.w600),
@@ -662,10 +665,10 @@ class _ResultHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(children: [
     Text('$filtered événement${filtered > 1 ? "s" : ""}',
-        style: const TextStyle(color: _kText, fontSize: 14, fontWeight: FontWeight.w700)),
+        style: TextStyle(color: _kText, fontSize: 14, fontWeight: FontWeight.w700)),
     if (filtered < total) ...[
       const SizedBox(width: 8),
-      Text('sur $total', style: const TextStyle(color: _kMuted, fontSize: 13)),
+      Text('sur $total', style: TextStyle(color: _kMuted, fontSize: 13)),
     ],
   ]);
 }
@@ -683,7 +686,7 @@ class _TableView extends StatelessWidget {
 
   static Widget _hdr(String label, int flex) => Expanded(
     flex: flex,
-    child: Text(label, style: const TextStyle(color: _kMuted, fontSize: 11,
+    child: Text(label, style: TextStyle(color: _kMuted, fontSize: 11,
         fontWeight: FontWeight.w700, letterSpacing: 0.4), overflow: TextOverflow.ellipsis),
   );
 
@@ -704,21 +707,21 @@ class _TableView extends StatelessWidget {
             height: 38, color: _kSurface,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(children: [
-              const SizedBox(width: _actionW,
+              SizedBox(width: _actionW,
                 child: Text('Action', style: TextStyle(color: _kMuted, fontSize: 11,
                     fontWeight: FontWeight.w700, letterSpacing: 0.4))),
               _hdr('Table', 2),
               _hdr('Utilisateur', 2),
               _hdr('Rôle', 2),
               _hdr('ID enregistrement', 3),
-              const SizedBox(width: _timeW,
+              SizedBox(width: _timeW,
                 child: Text('Date & Heure', style: TextStyle(color: _kMuted, fontSize: 11,
                     fontWeight: FontWeight.w700, letterSpacing: 0.4))),
-              const SizedBox(width: _actionsW,
+              SizedBox(width: _actionsW,
                 child: Center(child: Text('', style: TextStyle(color: _kMuted, fontSize: 11)))),
             ]),
           ),
-          const Divider(height: 1, color: _kBorder),
+          Divider(height: 1, color: _kBorder),
           ...logs.asMap().entries.map((e) => _TableRow(
             log: e.value, isOdd: e.key.isOdd,
             actionW: _actionW, timeW: _timeW, actionsW: _actionsW,
@@ -795,22 +798,22 @@ class _TableRowState extends State<_TableRow> {
               onTap: widget.onView,
               behavior: HitTestBehavior.opaque,
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(l.tableLabel, style: const TextStyle(fontSize: 12.5,
+                Text(l.tableLabel, style: TextStyle(fontSize: 12.5,
                     fontWeight: FontWeight.w700, color: _kText), overflow: TextOverflow.ellipsis),
-                Text(l.tableName, style: const TextStyle(fontSize: 10, color: _kMuted,
+                Text(l.tableName, style: TextStyle(fontSize: 10, color: _kMuted,
                     fontFamily: 'monospace'), overflow: TextOverflow.ellipsis),
               ]),
             ),
           )),
           Expanded(flex: 2, child: Text(l.userEmail ?? '—',
-              style: const TextStyle(fontSize: 12, color: _kText), overflow: TextOverflow.ellipsis)),
+              style: TextStyle(fontSize: 12, color: _kText), overflow: TextOverflow.ellipsis)),
           Expanded(flex: 2, child: _RoleBadge(role: l.userRole)),
           Expanded(flex: 3, child: Text(l.recordId ?? '—',
-              style: const TextStyle(fontSize: 10.5, color: _kMuted, fontFamily: 'monospace'),
+              style: TextStyle(fontSize: 10.5, color: _kMuted, fontFamily: 'monospace'),
               overflow: TextOverflow.ellipsis)),
           SizedBox(
             width: widget.timeW,
-            child: Text(timeStr, style: const TextStyle(fontSize: 11.5, color: _kMuted,
+            child: Text(timeStr, style: TextStyle(fontSize: 11.5, color: _kMuted,
                 fontWeight: FontWeight.w600)),
           ),
           SizedBox(
@@ -921,7 +924,7 @@ class _LogCardState extends State<_LogCard> {
               ),
               const SizedBox(width: 10),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(l.tableLabel, style: const TextStyle(color: _kText, fontSize: 13,
+                Text(l.tableLabel, style: TextStyle(color: _kText, fontSize: 13,
                     fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis),
                 Text(l.actionLabel, style: TextStyle(color: color, fontSize: 11.5,
                     fontWeight: FontWeight.w700)),
@@ -933,16 +936,16 @@ class _LogCardState extends State<_LogCard> {
             ]),
             const Spacer(),
             Row(children: [
-              const Icon(Icons.person_outline_rounded, size: 12, color: _kMuted),
+              Icon(Icons.person_outline_rounded, size: 12, color: _kMuted),
               const SizedBox(width: 4),
               Flexible(child: Text(l.userEmail ?? '—',
-                  style: const TextStyle(fontSize: 11, color: _kMuted), overflow: TextOverflow.ellipsis)),
+                  style: TextStyle(fontSize: 11, color: _kMuted), overflow: TextOverflow.ellipsis)),
             ]),
             const SizedBox(height: 2),
             Row(children: [
-              const Icon(Icons.access_time_rounded, size: 12, color: _kMuted),
+              Icon(Icons.access_time_rounded, size: 12, color: _kMuted),
               const SizedBox(width: 4),
-              Text(timeStr, style: const TextStyle(fontSize: 11, color: _kMuted,
+              Text(timeStr, style: TextStyle(fontSize: 11, color: _kMuted,
                   fontWeight: FontWeight.w600)),
             ]),
           ]),
@@ -979,12 +982,12 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(vertical: 64), alignment: Alignment.center,
-    child: const Column(mainAxisSize: MainAxisSize.min, children: [
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
       Icon(Icons.history_rounded, size: 56, color: _kBorder),
-      SizedBox(height: 16),
+      const SizedBox(height: 16),
       Text('Aucun événement trouvé', style: TextStyle(
           color: _kText, fontSize: 16, fontWeight: FontWeight.w700)),
-      SizedBox(height: 6),
+      const SizedBox(height: 6),
       Text('Modifiez vos filtres pour afficher les logs.',
           style: TextStyle(color: _kMuted, fontSize: 13)),
     ]),
@@ -1009,7 +1012,7 @@ class _SubSectionTitle extends StatelessWidget {
   const _SubSectionTitle(this.text);
   final String text;
   @override
-  Widget build(BuildContext context) => Text(text, style: const TextStyle(
+  Widget build(BuildContext context) => Text(text, style: TextStyle(
       color: _kNavy, fontSize: 13, fontWeight: FontWeight.w800));
 }
 
@@ -1035,12 +1038,12 @@ class _DetailRow extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
     decoration: BoxDecoration(
-      border: last ? null : const Border(bottom: BorderSide(color: _kBorder)),
+      border: last ? null : Border(bottom: BorderSide(color: _kBorder)),
     ),
     child: Row(children: [
       Icon(icon, size: 15, color: _kNavy),
       const SizedBox(width: 10),
-      Text(label, style: const TextStyle(color: _kMuted, fontSize: 12, fontWeight: FontWeight.w600)),
+      Text(label, style: TextStyle(color: _kMuted, fontSize: 12, fontWeight: FontWeight.w600)),
       const Spacer(),
       Flexible(child: Text(value, style: TextStyle(
           color: _kText, fontSize: mono ? 11 : 13, fontWeight: FontWeight.w600,
@@ -1062,7 +1065,7 @@ class _DetailRow extends StatelessWidget {
               }
             },
             borderRadius: BorderRadius.circular(6),
-            child: const Padding(padding: EdgeInsets.all(2),
+            child: Padding(padding: const EdgeInsets.all(2),
                 child: Icon(Icons.copy_rounded, size: 13, color: _kNavy)),
           )),
         ),
@@ -1141,9 +1144,9 @@ class _AuditDetailModalState extends State<_AuditDetailModal>
           // Header
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 14, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            decoration: BoxDecoration(
+              color: kCardBg,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               border: Border(bottom: BorderSide(color: _kBorder)),
             ),
             child: Row(children: [
@@ -1158,7 +1161,7 @@ class _AuditDetailModalState extends State<_AuditDetailModal>
               ),
               const SizedBox(width: 14),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${l.actionLabel} · ${l.tableLabel}', style: const TextStyle(
+                Text('${l.actionLabel} · ${l.tableLabel}', style: TextStyle(
                     color: _kText, fontSize: 16, fontWeight: FontWeight.w800),
                     overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
@@ -1167,7 +1170,7 @@ class _AuditDetailModalState extends State<_AuditDetailModal>
                   _RoleBadge(role: l.userRole),
                 ]),
                 const SizedBox(height: 4),
-                Text(timeStr, style: const TextStyle(color: _kMuted, fontSize: 11.5)),
+                Text(timeStr, style: TextStyle(color: _kMuted, fontSize: 11.5)),
               ])),
               _ModalIconBtn(icon: Icons.close_rounded, color: _kMuted, tooltip: 'Fermer',
                   onTap: () => Navigator.pop(context)),
@@ -1192,7 +1195,7 @@ class _AuditDetailModalState extends State<_AuditDetailModal>
           // Footer
           Container(
             padding: const EdgeInsets.all(14),
-            decoration: const BoxDecoration(border: Border(top: BorderSide(color: _kBorder))),
+            decoration: BoxDecoration(border: Border(top: BorderSide(color: _kBorder))),
             child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
               ElevatedButton.icon(
                 onPressed: () => Navigator.pop(context),
@@ -1272,7 +1275,7 @@ class _AuditDetailTab extends StatelessWidget {
             width: double.infinity, padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(color: _kSurface, borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: _kBorder)),
-            child: Text(l.userAgent!, style: const TextStyle(
+            child: Text(l.userAgent!, style: TextStyle(
                 fontSize: 11, color: _kMuted, fontFamily: 'monospace', height: 1.5)),
           ),
         ],
@@ -1320,7 +1323,7 @@ class _AuditJsonTab extends StatelessWidget {
         if (l.oldValues == null && l.newValues == null)
           Container(
             padding: const EdgeInsets.all(24), alignment: Alignment.center,
-            child: const Text('Aucune donnée JSON disponible pour cet événement.',
+            child: Text('Aucune donnée JSON disponible pour cet événement.',
                 style: TextStyle(color: _kMuted, fontSize: 13)),
           ),
       ]),
@@ -1341,7 +1344,7 @@ class _JsonBox extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       border: Border.all(color: color.withValues(alpha: 0.20)),
     ),
-    child: SelectableText(content, style: const TextStyle(
+    child: SelectableText(content, style: TextStyle(
         fontSize: 11.5, color: _kText, fontFamily: 'monospace',
         height: 1.6)),
   );
@@ -1359,10 +1362,10 @@ class _CopyBtn extends StatelessWidget {
         onTap: () async {
           await Clipboard.setData(ClipboardData(text: text));
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('JSON copié'), backgroundColor: _kNavy,
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: const Text('JSON copié'), backgroundColor: _kNavy,
               behavior: SnackBarBehavior.floating,
-              duration: Duration(seconds: 2),
+              duration: const Duration(seconds: 2),
             ));
           }
         },
@@ -1373,9 +1376,9 @@ class _CopyBtn extends StatelessWidget {
             color: _kSurface, borderRadius: BorderRadius.circular(6),
             border: Border.all(color: _kBorder),
           ),
-          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.copy_rounded, size: 12, color: _kNavy),
-            SizedBox(width: 4),
+            const SizedBox(width: 4),
             Text('Copier', style: TextStyle(fontSize: 11, color: _kNavy, fontWeight: FontWeight.w600)),
           ]),
         ),

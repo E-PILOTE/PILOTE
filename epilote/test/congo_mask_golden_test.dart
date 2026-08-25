@@ -1,3 +1,11 @@
+// Marqué `golden` : ces tests comparent un RENDU à une image de référence.
+// L'image a été produite sous Linux ; le même widget sortirait avec un
+// antialiasing et un hinting de police différents sous Windows, et le test
+// échouerait sans qu'aucun défaut n'existe. La CI Windows les écarte donc,
+// la CI Linux — qui fait foi — les exécute.
+@Tags(['golden'])
+library;
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';

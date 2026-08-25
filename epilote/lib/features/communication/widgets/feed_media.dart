@@ -333,7 +333,7 @@ class _PdfFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.picture_as_pdf_rounded,
+          Icon(Icons.picture_as_pdf_rounded,
               size: 56, color: kNavy),
           const SizedBox(height: 12),
           Padding(
@@ -342,13 +342,13 @@ class _PdfFallback extends StatelessWidget {
                 maxLines: 2,
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: kTextPrimary)),
           ),
           const SizedBox(height: 4),
-          const Text('Appuyez pour ouvrir le document',
+          Text('Appuyez pour ouvrir le document',
               style: TextStyle(fontSize: 11.5, color: kTextMuted)),
         ]),
       );
@@ -530,7 +530,7 @@ class _FeedMediaCarouselState extends State<FeedMediaCarousel> {
                         height: 7,
                         decoration: BoxDecoration(
                           color: i == _index
-                              ? Colors.white
+                              ? kCardBg
                               : Colors.white.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(20),
                         ),

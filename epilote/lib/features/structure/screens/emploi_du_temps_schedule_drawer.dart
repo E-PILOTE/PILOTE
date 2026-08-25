@@ -17,7 +17,7 @@ class _SlotDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = _subjectColor(slot.subjectId);
     return Material(
-      color: Colors.white,
+      color: kCardBg,
       child: SizedBox(
         width: 380,
         height: double.infinity,
@@ -27,7 +27,7 @@ class _SlotDrawer extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 22, 14, 18),
             decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.10),
-                border: const Border(bottom: BorderSide(color: kBorder))),
+                border: Border(bottom: BorderSide(color: kBorder))),
             child: Row(children: [
               Container(width: 4, height: 38, color: color),
               const SizedBox(width: 12),
@@ -42,7 +42,7 @@ class _SlotDrawer extends StatelessWidget {
                               color: color)),
                       const SizedBox(height: 2),
                       Text('${frDays[slot.dayOfWeek]} · ${slot.timeLabel}',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 12.5, color: kTextMuted)),
                     ]),
               ),
@@ -63,9 +63,9 @@ class _SlotDrawer extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: kRed.withValues(alpha: 0.35)),
                     ),
-                    child: const Row(children: [
+                    child: Row(children: [
                       Icon(Icons.warning_amber_rounded, size: 16, color: kRed),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text('Ce créneau est en conflit',
                             style: TextStyle(
@@ -94,7 +94,7 @@ class _SlotDrawer extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration:
-                  const BoxDecoration(border: Border(top: BorderSide(color: kBorder))),
+                  BoxDecoration(border: Border(top: BorderSide(color: kBorder))),
               child: Column(children: [
                 if (onViewClass != null)
                   SizedBox(

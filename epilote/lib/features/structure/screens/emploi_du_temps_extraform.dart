@@ -53,12 +53,20 @@ class _ExtraSessionFormState extends ConsumerState<_ExtraSessionForm> {
     final p = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
     if (yearId == null) return;
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+      return;
+    }
+    final gid = p!.groupId!, sid = p.schoolId!, actor = p.id;
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
       () => createException(
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: gid,
+        schoolId: sid,
         academicYearId: yearId,
         date: widget.date,
         kind: 'extra',
@@ -69,7 +77,7 @@ class _ExtraSessionFormState extends ConsumerState<_ExtraSessionForm> {
         newStartTime: _start,
         newEndTime: _end,
         reason: _reason.text,
-        createdBy: p?.id,
+        createdBy: actor,
       ),
       success: 'Séance exceptionnelle ajoutée',
     );
@@ -90,13 +98,13 @@ class _ExtraSessionFormState extends ConsumerState<_ExtraSessionForm> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: kBorder))),
             child: Row(children: [
               const Icon(Icons.add_circle_outline_rounded,
                   size: 18, color: Color(0xFF14B8A6)),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text('Séance exceptionnelle',
                     style: TextStyle(
                         fontSize: 15.5,
@@ -209,7 +217,7 @@ class _TimeBox extends StatelessWidget {
         child: InputDecorator(
           decoration: adminFilledInput(label, icon: Icons.schedule_rounded),
           child: Text(value,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
         ),
       );

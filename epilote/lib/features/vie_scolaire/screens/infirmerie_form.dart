@@ -69,18 +69,25 @@ class _VisitFormState extends ConsumerState<_VisitForm> {
 
   Future<void> _save() async {
     if (_studentId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Choisissez un élève'), backgroundColor: kRed));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Choisissez un élève'), backgroundColor: kRed));
       return;
     }
     final p = ref.read(authNotifierProvider).valueOrNull;
+    final missing = missingWriteIds(
+        groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(writeIdentityMessage(missing)), backgroundColor: kRed));
+      return;
+    }
     setState(() => _saving = true);
     final ok = await runModuleWrite(
       context,
       () => saveVisit(
         id: widget.visit?.id,
-        groupId: p?.groupId ?? '',
-        schoolId: p?.schoolId ?? '',
+        groupId: p!.groupId!,
+        schoolId: p.schoolId!,
         studentId: _studentId!,
         date: _date.toIso8601String().substring(0, 10),
         time: _timeStr(_time),
@@ -92,7 +99,7 @@ class _VisitFormState extends ConsumerState<_VisitForm> {
         parentNotified: _parentNotified,
         followUpRequired: _followUpRequired,
         followUpNotes: _follow.text.trim().isEmpty ? null : _follow.text.trim(),
-        staffId: p?.id ?? '',
+        staffId: p.id,
       ),
       success: _isEdit ? 'Passage modifié' : 'Passage enregistré',
     );

@@ -71,8 +71,30 @@ class _AudioRecorderButtonState extends State<AudioRecorderButton> {
       final dir = await getTemporaryDirectory();
       final p =
           '${dir.path}/note_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      // ── LA NOTE VOCALE SE COMPRESSE À L'ENREGISTREMENT ────────────────────
+      // C'est le seul fichier de la plateforme qu'aucun compresseur ne peut
+      // reprendre après coup : `compressForUpload` ne sait traiter que ce qu'il
+      // sait décoder — images et vidéo. Un AAC déjà encodé lui passe entre les
+      // doigts et part tel quel.
+      //
+      // Le bon levier est donc ICI, au moment d'encoder. 96 kbps en STÉRÉO,
+      // c'est du réglage musical appliqué à une voix : deux canaux identiques
+      // et une bande passante dont la parole n'utilise pas le tiers. 32 kbps
+      // en MONO reste parfaitement intelligible pour un message parlé, et
+      // divise le poids par six — une minute passe d'environ 700 Ko à 120 Ko.
+      //
+      // Sur une école qui partage une clé 3G entre vingt agents, et dont les
+      // notes dorment parfois des jours dans `upload_outbox` avant de partir,
+      // c'est la différence entre une file qui se vide et un disque qui sature.
+      //
+      // `sampleRate` reste au défaut : l'abaisser fait échouer l'encodeur sur
+      // certaines plateformes de bureau, pour un gain déjà acquis autrement.
       await _rec.start(
-        const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 96000),
+        const RecordConfig(
+          encoder: AudioEncoder.aacLc,
+          bitRate: 32000,
+          numChannels: 1,
+        ),
         path: p,
       );
       _path = p;
@@ -211,12 +233,12 @@ class AudioRecordingBanner extends StatelessWidget {
         margin: const EdgeInsets.only(right: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-            color: Colors.white, borderRadius: BorderRadius.circular(22)),
+            color: kCardBg, borderRadius: BorderRadius.circular(22)),
         child: Row(children: [
           const _PulsingDot(),
           const SizedBox(width: 10),
           Text(_fmt,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: kTextPrimary)),
@@ -255,7 +277,7 @@ class _PulsingDotState extends State<_PulsingDot>
         child: Container(
           width: 11,
           height: 11,
-          decoration: const BoxDecoration(color: kRed, shape: BoxShape.circle),
+          decoration: BoxDecoration(color: kRed, shape: BoxShape.circle),
         ),
       );
 }

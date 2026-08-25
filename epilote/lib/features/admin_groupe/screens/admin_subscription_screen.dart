@@ -10,7 +10,9 @@ import '../../super_admin/providers/invoices_provider.dart' show InvoiceDetail;
 import '../../super_admin/providers/receipts_provider.dart' show ReceiptModel;
 import '../../super_admin/services/financial_pdf_service.dart';
 import '../providers/admin_subscription_provider.dart';
+import 'admin_subscription_renew_dialog.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/utils/message_erreur.dart';
 
 class AdminSubscriptionScreen extends ConsumerWidget {
   const AdminSubscriptionScreen({super.key});
@@ -23,7 +25,7 @@ class AdminSubscriptionScreen extends ConsumerWidget {
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,
         loading: () => const _SubscriptionSkeleton(),
-        error: (e, _) => Center(child: Text('Erreur : $e', style: const TextStyle(color: kTextMuted))),
+        error: (e, _) => Center(child: Text(messageErreur(e), style: TextStyle(color: kTextMuted))),
         data: (d) => _Body(data: d),
       ),
     );
@@ -38,7 +40,7 @@ class _SubscriptionSkeleton extends StatelessWidget {
         width: w,
         height: h,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: kCardBg,
           borderRadius: BorderRadius.circular(r),
         ),
       );
@@ -214,10 +216,10 @@ class _BillingSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final invoices = data.invoices;
     if (invoices.isEmpty) {
-      return const AdminCard(
+      return AdminCard(
         child: Row(children: [
           Icon(Icons.receipt_long_rounded, color: kTextMuted, size: 20),
-          SizedBox(width: 10),
+          const SizedBox(width: 10),
           Expanded(
             child: Text('Aucune facture émise pour le moment.',
                 style: TextStyle(color: kTextMuted, fontSize: 13)),
@@ -286,7 +288,7 @@ class _MiniStat extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: const TextStyle(fontSize: 11.5, color: kTextMuted, fontWeight: FontWeight.w600)),
+            Text(label, style: TextStyle(fontSize: 11.5, color: kTextMuted, fontWeight: FontWeight.w600)),
             const SizedBox(height: 2),
             Text(fmtXaf(value), maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color)),
@@ -390,14 +392,14 @@ class _InvoiceRowState extends State<_InvoiceRow> {
               Row(children: [
                 Flexible(
                   child: Text(i.invoiceNumber, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: kTextPrimary)),
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: kTextPrimary)),
                 ),
                 const SizedBox(width: 8),
                 AdminBadge(sl, color: sc),
               ]),
               const SizedBox(height: 3),
               Text('${_d(i.periodStart)} → ${_d(i.periodEnd)}',
-                  style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                  style: TextStyle(fontSize: 12, color: kTextMuted)),
             ]),
           ),
           const SizedBox(width: 12),
@@ -405,8 +407,8 @@ class _InvoiceRowState extends State<_InvoiceRow> {
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: sc)),
         ]);
         final actions = _busy
-            ? const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            ? Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 child: SizedBox(width: 18, height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2, color: kNavy)),
               )
@@ -469,21 +471,23 @@ class _CurrentPlanCard extends StatelessWidget {
                   children: [
                     Row(children: [
                       Text('Plan ${sub.planName}',
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: kTextPrimary)),
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: kTextPrimary)),
                       const SizedBox(width: 10),
                       AdminBadge(statusLabel(sub.status), color: statusColor(sub.status),
                           icon: Icons.circle, ),
                     ]),
                     const SizedBox(height: 2),
-                    Text(sub.priceXaf == 0 ? 'Gratuit' : '${fmtXaf(sub.priceXaf)} / an',
-                        style: const TextStyle(fontSize: 13, color: kTextMuted, fontWeight: FontWeight.w600)),
+                    Text(sub.priceXaf == 0
+                            ? 'Gratuit'
+                            : '${fmtXaf(sub.priceXaf)} / ${sub.periodSuffix}',
+                        style: TextStyle(fontSize: 13, color: kTextMuted, fontWeight: FontWeight.w600)),
                   ],
                 ),
               ],
             ),
             if (sub.description != null && sub.description!.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text(sub.description!, style: const TextStyle(fontSize: 13, color: kTextMuted, height: 1.5)),
+              Text(sub.description!, style: TextStyle(fontSize: 13, color: kTextMuted, height: 1.5)),
             ],
           ],
         );
@@ -496,16 +500,35 @@ class _CurrentPlanCard extends StatelessWidget {
             _PeriodLine(label: 'Échéance', date: sub.end),
             const SizedBox(height: 10),
             if (sub.expired)
-              const AdminBadge('Abonnement expiré', color: kRed, icon: Icons.error_rounded)
+              AdminBadge('Abonnement expiré', color: kRed, icon: Icons.error_rounded)
             else if (sub.expireSoon)
               AdminBadge('Expire dans ${sub.daysLeft} j', color: kAccent, icon: Icons.timelapse_rounded)
             else if (sub.daysLeft != null)
               AdminBadge('${sub.daysLeft} jours restants', color: kGreen, icon: Icons.check_circle_rounded),
+            // Réabonnement en libre-service : visible dès que l'échéance
+            // approche ou est dépassée. Génère une facture de renouvellement du
+            // MÊME plan (cf. showRenewSubscriptionDialog / create_renewal_invoice).
+            if (sub.expired || sub.expireSoon) ...[
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: () => showRenewSubscriptionDialog(context, sub),
+                icon: const Icon(Icons.autorenew_rounded, size: 17),
+                label: const Text('Renouveler mon abonnement'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: sub.expired ? kRed : kNavy,
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
           ],
         );
         if (narrow) {
           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            left, const SizedBox(height: 16), const Divider(color: kBorder), const SizedBox(height: 12), right,
+            left, const SizedBox(height: 16), Divider(color: kBorder), const SizedBox(height: 12), right,
           ]);
         }
         return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -527,8 +550,8 @@ class _PeriodLine extends StatelessWidget {
         ? '—'
         : '${date!.day.toString().padLeft(2, '0')}/${date!.month.toString().padLeft(2, '0')}/${date!.year}';
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      Text('$label : ', style: const TextStyle(fontSize: 12, color: kTextMuted)),
-      Text(txt, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
+      Text('$label : ', style: TextStyle(fontSize: 12, color: kTextMuted)),
+      Text(txt, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
     ]);
   }
 }
@@ -656,7 +679,7 @@ class _QuotaCardState extends State<_QuotaCard> with SingleTickerProviderStateMi
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kCardBg,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: kBorder),
               boxShadow: [BoxShadow(
@@ -685,7 +708,7 @@ class _QuotaCardState extends State<_QuotaCard> with SingleTickerProviderStateMi
                           fontWeight: FontWeight.w900, letterSpacing: -0.5,
                         )),
                         const SizedBox(height: 2),
-                        Text(d.label, style: const TextStyle(
+                        Text(d.label, style: TextStyle(
                           color: kTextMuted, fontSize: 11.5, fontWeight: FontWeight.w600,
                         ), overflow: TextOverflow.ellipsis),
                         if (d.sub != null)
@@ -796,10 +819,10 @@ class _QuotaChart extends StatelessWidget {
               color: kNavy.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(9),
             ),
-            child: const Icon(Icons.bar_chart_rounded, color: kNavy, size: 18),
+            child: Icon(Icons.bar_chart_rounded, color: kNavy, size: 18),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Analyse de consommation',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: kTextPrimary)),
@@ -833,7 +856,7 @@ class _QuotaChart extends StatelessWidget {
 
         if (limited.isEmpty) ...[
           const SizedBox(height: 16),
-          const Center(child: Text('Tous les quotas de ce plan sont illimités.',
+          Center(child: Text('Tous les quotas de ce plan sont illimités.',
               style: TextStyle(fontSize: 13, color: kTextMuted))),
           const SizedBox(height: 8),
         ] else ...[
@@ -846,7 +869,7 @@ class _QuotaChart extends StatelessWidget {
                     color: d.color, borderRadius: BorderRadius.circular(3))),
                 const SizedBox(width: 5),
                 Text('${d.label} : ${fmtInt(d.used)} / ${d.displayMax}  (${d.pct.toStringAsFixed(1)}%)',
-                    style: const TextStyle(fontSize: 11.5, color: kTextMuted, fontWeight: FontWeight.w600)),
+                    style: TextStyle(fontSize: 11.5, color: kTextMuted, fontWeight: FontWeight.w600)),
               ]),
             ],
           ]),
@@ -860,18 +883,18 @@ class _QuotaChart extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 0),
               // BarSeries transpose le rendu : primaryXAxis = catégories (labels String),
               // primaryYAxis = valeurs numériques. Ne pas inverser — erreur type cast.
-              primaryXAxis: const CategoryAxis(
-                majorGridLines: MajorGridLines(width: 0),
-                axisLine: AxisLine(width: 0),
+              primaryXAxis: CategoryAxis(
+                majorGridLines: const MajorGridLines(width: 0),
+                axisLine: const AxisLine(width: 0),
                 labelStyle: TextStyle(fontSize: 12, color: kTextMuted, fontWeight: FontWeight.w700),
               ),
               primaryYAxis: NumericAxis(
                 minimum: 0,
                 maximum: xMax,
                 labelFormat: '{value}%',
-                majorGridLines: const MajorGridLines(color: kBorder, width: 0.6),
+                majorGridLines: MajorGridLines(color: kBorder, width: 0.6),
                 axisLine: const AxisLine(width: 0),
-                labelStyle: const TextStyle(fontSize: 10.5, color: kTextMuted),
+                labelStyle: TextStyle(fontSize: 10.5, color: kTextMuted),
               ),
               tooltipBehavior: TooltipBehavior(
                 enable: true,
@@ -889,7 +912,7 @@ class _QuotaChart extends StatelessWidget {
                   borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
                   width: 0.45,
                   animationDuration: 700,
-                  dataLabelSettings: const DataLabelSettings(
+                  dataLabelSettings: DataLabelSettings(
                     isVisible: true,
                     labelAlignment: ChartDataLabelAlignment.outer,
                     textStyle: TextStyle(fontSize: 11, color: kTextPrimary, fontWeight: FontWeight.w800),
@@ -931,7 +954,7 @@ class _PlansGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (plans.isEmpty) {
-      return const AdminCard(child: Text('Aucune offre disponible pour le moment.',
+      return AdminCard(child: Text('Aucune offre disponible pour le moment.',
           style: TextStyle(color: kTextMuted)));
     }
     return LayoutBuilder(builder: (context, c) {
@@ -972,17 +995,20 @@ class _PlanCard extends ConsumerWidget {
           Row(children: [
             Expanded(
               child: Text(plan.name, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: kTextPrimary)),
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: kTextPrimary)),
             ),
             const SizedBox(width: 8),
-            if (current) const AdminBadge('Plan actuel', color: kGreen, icon: Icons.check_rounded),
+            if (current) AdminBadge('Plan actuel', color: kGreen, icon: Icons.check_rounded),
           ]),
           const SizedBox(height: 4),
           Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
             Text(plan.priceXaf == 0 ? 'Gratuit' : fmtXaf(plan.priceXaf),
                 style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: pColor)),
             if (plan.priceXaf != 0)
-              const Text(' / an', style: TextStyle(fontSize: 12.5, color: kTextMuted, fontWeight: FontWeight.w600)),
+              // La période vient du plan : « / an » en dur contredisait
+              // l'espace plateforme, qui affichait « / mois » pour le MÊME
+              // tarif. C'est cette divergence qu'on supprime.
+              Text(' / ${plan.periodSuffix}', style: TextStyle(fontSize: 12.5, color: kTextMuted, fontWeight: FontWeight.w600)),
           ]),
           const SizedBox(height: 12),
           _PlanFeature(icon: Icons.school_rounded, text: plan.unlimitedSchools ? 'Écoles illimitées' : '${plan.maxSchools} école${plan.maxSchools > 1 ? 's' : ''}'),
@@ -990,12 +1016,12 @@ class _PlanCard extends ConsumerWidget {
           _PlanFeature(icon: Icons.badge_rounded, text: plan.unlimitedStaff ? 'Personnel illimité' : '${fmtInt(plan.maxStaff)} personnels'),
           _PlanFeature(icon: Icons.extension_rounded, text: '${plan.moduleCount} modules'),
           const SizedBox(height: 8),
-          Text(plan.effectiveDescription, style: const TextStyle(fontSize: 12, color: kTextMuted, height: 1.4)),
+          Text(plan.effectiveDescription, style: TextStyle(fontSize: 12, color: kTextMuted, height: 1.4)),
           if (plan.categories.isNotEmpty) ...[
             const SizedBox(height: 12),
-            const Divider(color: kBorder, height: 1),
+            Divider(color: kBorder, height: 1),
             const SizedBox(height: 10),
-            const Text('Familles de modules', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: kTextMuted, letterSpacing: 0.4)),
+            Text('Familles de modules', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: kTextMuted, letterSpacing: 0.4)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 6, runSpacing: 6,
@@ -1022,7 +1048,7 @@ class _PlanCard extends ConsumerWidget {
         label: const Text('Plan en cours'),
         style: OutlinedButton.styleFrom(
           foregroundColor: kGreen,
-          side: const BorderSide(color: kBorder),
+          side: BorderSide(color: kBorder),
           padding: const EdgeInsets.symmetric(vertical: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -1035,7 +1061,7 @@ class _PlanCard extends ConsumerWidget {
         label: const Text('Demande en cours'),
         style: OutlinedButton.styleFrom(
           foregroundColor: kTextMuted,
-          side: const BorderSide(color: kBorder),
+          side: BorderSide(color: kBorder),
           padding: const EdgeInsets.symmetric(vertical: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -1091,7 +1117,7 @@ class _PlanFeature extends StatelessWidget {
       child: Row(children: [
         Icon(icon, size: 15, color: kTextMuted),
         const SizedBox(width: 8),
-        Expanded(child: Text(text, style: const TextStyle(fontSize: 13, color: kTextPrimary))),
+        Expanded(child: Text(text, style: TextStyle(fontSize: 13, color: kTextPrimary))),
       ]),
     );
   }
@@ -1122,7 +1148,7 @@ class _PendingRequestBanner extends StatelessWidget {
             Text('Une demande de changement de plan est $label.',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
             const SizedBox(height: 2),
-            const Text('Vous pourrez en soumettre une nouvelle une fois celle-ci traitée.',
+            Text('Vous pourrez en soumettre une nouvelle une fois celle-ci traitée.',
                 style: TextStyle(fontSize: 12, color: kTextMuted)),
           ]),
         ),
@@ -1149,7 +1175,13 @@ class _ComparisonMatrix extends StatelessWidget {
     }
 
     final rows = <_MatrixRow>[
-      _MatrixRow('Prix / an', Icons.payments_rounded, plans.map((p) => limit(p.priceXaf, money: true)).toList(), highlight: true),
+      _MatrixRow('Tarif', Icons.payments_rounded,
+          plans.map((p) => p.priceXaf == 0
+              ? 'Gratuit'
+              : '${limit(p.priceXaf, money: true)} / ${p.periodSuffix}').toList(),
+          highlight: true),
+      _MatrixRow('Périodicité', Icons.event_repeat_rounded,
+          plans.map((p) => p.periodLabel).toList()),
       _MatrixRow('Écoles', Icons.school_rounded, plans.map((p) => limit(p.maxSchools)).toList()),
       _MatrixRow('Élèves', Icons.groups_rounded, plans.map((p) => limit(p.maxStudents)).toList()),
       _MatrixRow('Personnel', Icons.badge_rounded, plans.map((p) => limit(p.maxStaff)).toList()),
@@ -1224,7 +1256,7 @@ class _MatrixHeaderRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(colors: [kNavyDark, kNavy]),
       ),
       child: Row(children: [
@@ -1287,7 +1319,7 @@ class _MatrixDataRow extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: zebra ? kSurface.withValues(alpha: 0.5) : kCardBg,
-        border: const Border(bottom: BorderSide(color: kBorder)),
+        border: Border(bottom: BorderSide(color: kBorder)),
       ),
       // IntrinsicHeight : indispensable car la matrice est rendue dans un
       // SingleChildScrollView vertical (hauteur non bornée). Sans cela,
@@ -1321,7 +1353,7 @@ class _MatrixDataRow extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
               decoration: BoxDecoration(
                 color: isCurrent ? kGreen.withValues(alpha: 0.06) : null,
-                border: const Border(left: BorderSide(color: kBorder)),
+                border: Border(left: BorderSide(color: kBorder)),
               ),
               child: Text(val,
                   textAlign: TextAlign.center,
@@ -1360,7 +1392,7 @@ class _TicketRow extends StatelessWidget {
           Row(children: [
             Expanded(
               child: Text(t.subject,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
             ),
             const SizedBox(width: 8),
             AdminBadge(label, color: color),
@@ -1368,7 +1400,7 @@ class _TicketRow extends StatelessWidget {
           if (t.body != null && t.body!.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(t.body!, maxLines: 2, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12.5, color: kTextMuted, height: 1.4)),
+                style: TextStyle(fontSize: 12.5, color: kTextMuted, height: 1.4)),
           ],
           if (t.response != null && t.response!.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -1380,9 +1412,9 @@ class _TicketRow extends StatelessWidget {
                 border: Border.all(color: kGreen.withValues(alpha: 0.2)),
               ),
               child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Icon(Icons.support_agent_rounded, size: 16, color: kGreen),
+                Icon(Icons.support_agent_rounded, size: 16, color: kGreen),
                 const SizedBox(width: 8),
-                Expanded(child: Text(t.response!, style: const TextStyle(fontSize: 12.5, color: kTextPrimary, height: 1.4))),
+                Expanded(child: Text(t.response!, style: TextStyle(fontSize: 12.5, color: kTextPrimary, height: 1.4))),
               ]),
             ),
           ],
@@ -1416,7 +1448,7 @@ class _DialogChip extends StatelessWidget {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(icon, size: 13, color: kTextMuted),
         const SizedBox(width: 5),
-        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: kTextPrimary)),
+        Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: kTextPrimary)),
       ]),
     );
   }
@@ -1508,9 +1540,11 @@ class _RequestPlanChangeDialogState extends ConsumerState<RequestPlanChangeDialo
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text('Plan ${widget.plan.name}', style: const TextStyle(fontWeight: FontWeight.w800, color: kTextPrimary)),
-                            Text(widget.plan.priceXaf == 0 ? 'Gratuit' : '${fmtXaf(widget.plan.priceXaf)} / an',
-                                style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                            Text('Plan ${widget.plan.name}', style: TextStyle(fontWeight: FontWeight.w800, color: kTextPrimary)),
+                            Text(widget.plan.priceXaf == 0
+                                ? 'Gratuit'
+                                : '${fmtXaf(widget.plan.priceXaf)} / ${widget.plan.periodSuffix}',
+                                style: TextStyle(fontSize: 12, color: kTextMuted)),
                           ]),
                         ),
                       ]),

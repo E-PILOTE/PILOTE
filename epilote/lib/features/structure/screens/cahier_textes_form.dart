@@ -85,6 +85,23 @@ class _LessonFormState extends ConsumerState<_LessonForm> {
     setState(() => _saving = true);
     final profile = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
+    // Garde-fou anti-perte silencieuse (création seulement) : refuser si le
+    // compte n'est pas rattaché ou sans année active, sinon le lot PowerSync
+    // entier est rejeté sans message.
+    if (!_isEdit) {
+      final missing = missingWriteIds(
+          groupId: profile?.groupId,
+          schoolId: profile?.schoolId,
+          actorId: profile?.id);
+      if (missing.isNotEmpty) {
+        setState(() => _saving = false);
+        return _snack(writeIdentityMessage(missing), kRed);
+      }
+      if (!isUsableId(yearId)) {
+        setState(() => _saving = false);
+        return _snack('Aucune année scolaire active.', kRed);
+      }
+    }
     final ok = await runModuleWrite(
       context,
       () async {
@@ -103,9 +120,9 @@ class _LessonFormState extends ConsumerState<_LessonForm> {
           );
         } else {
           await createLessonEntry(
-            groupId: profile?.groupId ?? '',
-            schoolId: profile?.schoolId ?? '',
-            academicYearId: yearId ?? '',
+            groupId: profile!.groupId!,
+            schoolId: profile.schoolId!,
+            academicYearId: yearId!,
             classId: _classId!,
             subjectId: _subjectId!,
             staffId: _staffId!,
@@ -168,7 +185,7 @@ class _LessonFormState extends ConsumerState<_LessonForm> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: kBorder))),
             child: Row(children: [
               Icon(_isEdit ? Icons.edit_rounded : Icons.add_rounded,
@@ -176,7 +193,7 @@ class _LessonFormState extends ConsumerState<_LessonForm> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(_isEdit ? 'Modifier la séance' : 'Nouvelle séance',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 15.5,
                         fontWeight: FontWeight.w800,
                         color: kTextPrimary)),
@@ -209,11 +226,11 @@ class _LessonFormState extends ConsumerState<_LessonForm> {
                                 border: Border.all(color: kBorder),
                               ),
                               child: Row(children: [
-                                const Icon(Icons.event_rounded,
+                                Icon(Icons.event_rounded,
                                     size: 16, color: kTextMuted),
                                 const SizedBox(width: 8),
                                 Text(dateStr,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w700,
                                         color: kTextPrimary)),
@@ -281,8 +298,8 @@ class _LessonFormState extends ConsumerState<_LessonForm> {
                   ),
                 ]),
                 if (_classId != null && !useProgram)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       'Aucune matière au programme de cette classe (page Matières). '
                       'Toutes les matières sont proposées.',
@@ -354,8 +371,8 @@ class _DropField extends StatelessWidget {
           DropdownButtonFormField<String>(
             initialValue: items.containsKey(value) ? value : null,
             isExpanded: true,
-            style: const TextStyle(fontSize: 13, color: kTextPrimary),
-            icon: const Icon(Icons.expand_more_rounded,
+            style: TextStyle(fontSize: 13, color: kTextPrimary),
+            icon: Icon(Icons.expand_more_rounded,
                 size: 18, color: kTextMuted),
             decoration: adminFilledInput(label, icon: icon),
             items: [
@@ -398,7 +415,7 @@ class _Lbl extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 7),
         child: Text(text,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
                 color: kTextPrimary)),
@@ -428,15 +445,15 @@ class _SeancePicker extends StatelessWidget {
     final dayName = _weekdayNames[(weekday - 1).clamp(0, 6)];
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        const Icon(Icons.calendar_view_week_rounded, size: 14, color: kNavy),
+        Icon(Icons.calendar_view_week_rounded, size: 14, color: kNavy),
         const SizedBox(width: 6),
         Text('Séance de l\'emploi du temps · $dayName',
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12.5, fontWeight: FontWeight.w700, color: kTextPrimary)),
       ]),
       const SizedBox(height: 8),
       if (slots.isEmpty)
-        const Text('Aucune séance programmée ce jour pour cette classe.',
+        Text('Aucune séance programmée ce jour pour cette classe.',
             style: TextStyle(fontSize: 11.5, color: kTextMuted))
       else
         Wrap(

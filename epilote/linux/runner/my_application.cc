@@ -52,11 +52,13 @@ static void my_application_activate(GApplication* application) {
     gtk_window_set_title(window, "epilote");
   }
 
-  gtk_window_set_default_size(window, 1280, 720);
-  // Démarrer maximisé : sur machine sans GPU GL (rendu logiciel forcé), le
-  // redimensionnement dynamique fait planter le renderer. Ouvrir d'emblée en
-  // pleine taille évite à l'utilisateur d'avoir à redimensionner.
-  gtk_window_maximize(window);
+  // Ouvre en FENÊTRE (pas maximisé : plein écran d'emblée fait « brut de
+  // décoffrage »). Taille confortable pour un tableau de bord dense, centrée à
+  // l'écran — l'utilisateur maximise s'il le souhaite. Le rendu GL matériel est
+  // garanti par le lanceur (GDK_SCALE=1, cf packaging), ce qui écarte le
+  // plantage de redimensionnement qui avait motivé l'ancien démarrage maximisé.
+  gtk_window_set_default_size(window, 1280, 800);
+  gtk_window_set_position(window, GTK_WIN_POS_CENTER);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(

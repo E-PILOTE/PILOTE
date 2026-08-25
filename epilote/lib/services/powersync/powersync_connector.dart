@@ -35,9 +35,30 @@ class UploadDropInfo {
 final ValueNotifier<UploadDropInfo?> lastFatalUploadError =
     ValueNotifier<UploadDropInfo?>(null);
 
-/// URL du service PowerSync Cloud E-PILOTE
-const String _powerSyncUrl =
+// ─── Instance PowerSync Cloud ───────────────────────────────────────────────
+//
+// ⚠️ Jusqu'au 2026-08-04, l'application pointait EN DUR sur l'instance
+// « Development ». Mille écoles se seraient synchronisées, le 2 octobre, sur
+// une instance de développement — pendant que l'instance « Production »,
+// créée mais jamais provisionnée, restait éteinte. Aucune bascule n'aurait
+// alors été possible sans republier tout le parc.
+//
+// Les deux instances répliquent la MÊME base Supabase : ce qui change est le
+// service de synchro, pas les données. Un poste qui bascule d'une instance à
+// l'autre retélécharge ses buckets — d'où l'intérêt de le faire maintenant,
+// tant que le parc tient sur un poste de recette.
+//
+// Surchargeable au build, pour tester sans toucher au code :
+//   flutter build linux --dart-define=POWERSYNC_URL=$kPowerSyncDevelopment
+const String kPowerSyncProduction =
+    'https://6a185943234fa2bf51a66759.powersync.journeyapps.com';
+const String kPowerSyncDevelopment =
     'https://6a185941234fa2bf51a66757.powersync.journeyapps.com';
+
+const String _powerSyncUrl = String.fromEnvironment(
+  'POWERSYNC_URL',
+  defaultValue: kPowerSyncProduction,
+);
 
 /// Colonnes Postgres `jsonb` stockées en TEXT dans SQLite : elles doivent être
 /// décodées avant l'upsert, sinon la colonne jsonb reçoit une CHAÎNE JSON au

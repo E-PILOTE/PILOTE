@@ -139,7 +139,7 @@ class RegionalTableQuery {
     this.search = '',
     this.sortKey = RegionalSortKey.students,
     this.ascending = false,
-    this.type, // null = tous, sinon 'public' | 'prive' | 'mixte'
+    this.type, // null = tous, sinon 'public' | 'prive'
     this.activeOnly = false,
     this.incompleteOnly = false,
     this.gap, // null = aucun ; sinon filtre sur un manque précis

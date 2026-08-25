@@ -61,9 +61,9 @@ class _FilterBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: kAccent.withValues(alpha: 0.30)),
             ),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.lock_clock_rounded, size: 15, color: kAccent),
-              SizedBox(width: 6),
+              const SizedBox(width: 6),
               Text('Année verrouillée',
                   style: TextStyle(
                       color: kAccent,
@@ -188,9 +188,9 @@ class _ResetChip extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: kRed.withValues(alpha: 0.25)),
             ),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.filter_alt_off_rounded, size: 14, color: kRed),
-              SizedBox(width: 5),
+              const SizedBox(width: 5),
               Text('Réinitialiser',
                   style: TextStyle(
                       color: kRed, fontSize: 12, fontWeight: FontWeight.w600)),
@@ -212,10 +212,10 @@ class _ResultHeader extends StatelessWidget {
         ? _pl(total, 'transfert', 'transferts')
         : '$filtered / ${_pl(total, 'transfert', 'transferts')}';
     return Row(children: [
-      const Icon(Icons.swap_horiz_rounded, size: 16, color: kTextMuted),
+      Icon(Icons.swap_horiz_rounded, size: 16, color: kTextMuted),
       const SizedBox(width: 8),
       Text(txt,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
       const Spacer(),
       if (onExportPdf != null) AdminPdfButton(onTap: onExportPdf!),
@@ -252,9 +252,9 @@ class _TransferTable extends StatelessWidget {
       child: Column(children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: kSurface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
           ),
           child: const Row(children: [
             _Th('ÉLÈVE', flex: 5),
@@ -285,7 +285,7 @@ class _Th extends StatelessWidget {
         flex: flex,
         child: Text(label,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.4,
@@ -308,7 +308,7 @@ class _TransferRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          border: last ? null : const Border(bottom: BorderSide(color: kBorder)),
+          border: last ? null : Border(bottom: BorderSide(color: kBorder)),
         ),
         child: Row(children: [
           Expanded(
@@ -331,13 +331,13 @@ class _TransferRow extends StatelessWidget {
                       Text(t.lastFirst,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 13.5,
                               fontWeight: FontWeight.w700,
                               color: kTextPrimary)),
                       Text(t.matricule,
                           style:
-                              const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                              TextStyle(fontSize: 11.5, color: kTextMuted)),
                     ]),
               ),
             ]),
@@ -348,14 +348,14 @@ class _TransferRow extends StatelessWidget {
                 ? Align(
                     alignment: Alignment.centerLeft,
                     child: AdminBadge(t.className!, color: kNavy))
-                : const Text('—', style: TextStyle(color: kTextMuted)),
+                : Text('—', style: TextStyle(color: kTextMuted)),
           ),
           Expanded(
             flex: 4,
             child: Text(t.toSchoolName ?? '—',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
                     color: kTextPrimary)),
@@ -363,7 +363,7 @@ class _TransferRow extends StatelessWidget {
           Expanded(
             flex: 2,
             child: Text(_fmtDate(t.transferDate),
-                style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                style: TextStyle(fontSize: 12, color: kTextMuted)),
           ),
           Expanded(
             flex: 2,
@@ -371,7 +371,7 @@ class _TransferRow extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: _StatusBadge(t.status)),
           ),
-          const SizedBox(
+          SizedBox(
             width: 40,
             child: Icon(Icons.chevron_right_rounded,
                 size: 18, color: kTextMuted),
@@ -436,12 +436,12 @@ class _TransferCard extends StatelessWidget {
                   Text(t.lastFirst,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.w800,
                           color: kTextPrimary)),
                   Text(t.matricule,
-                      style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                      style: TextStyle(fontSize: 11.5, color: kTextMuted)),
                 ]),
           ),
           _StatusBadge(t.status),
@@ -471,7 +471,7 @@ class _CardLine extends StatelessWidget {
           child: Text(text,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12.5, color: kTextPrimary)),
+              style: TextStyle(fontSize: 12.5, color: kTextPrimary)),
         ),
       ]);
 }

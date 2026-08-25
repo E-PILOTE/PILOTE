@@ -133,12 +133,12 @@ class _FilterDropdown extends StatelessWidget {
       child: DropdownButtonFormField<String>(
         initialValue: items.containsKey(value) ? value : null,
         isExpanded: true,
-        style: const TextStyle(fontSize: 13, color: kTextPrimary),
-        icon: const Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
+        style: TextStyle(fontSize: 13, color: kTextPrimary),
+        icon: Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
         decoration: adminFilledInput(hint),
         hint: Text(hint,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 13, color: kTextMuted)),
+            style: TextStyle(fontSize: 13, color: kTextMuted)),
         items: [
           DropdownMenuItem(value: null, child: Text(hint)),
           for (final e in items.entries)
@@ -175,7 +175,7 @@ class _ViewToggle extends StatelessWidget {
                 size: 16, color: kNavy),
             const SizedBox(width: 7),
             Text(isTable ? 'Cartes' : 'Table',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w600, color: kNavy)),
           ]),
         ),
@@ -194,10 +194,10 @@ class _ResultHeader extends StatelessWidget {
         ? _pl(total, 'classe', 'classes')
         : '$filtered / ${_pl(total, 'classe', 'classes')}';
     return Row(children: [
-      const Icon(Icons.class_outlined, size: 16, color: kTextMuted),
+      Icon(Icons.class_outlined, size: 16, color: kTextMuted),
       const SizedBox(width: 8),
       Text(txt,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
     ]);
   }
@@ -235,9 +235,9 @@ class _ClassTable extends StatelessWidget {
       child: Column(children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: kSurface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
           ),
           child: Row(children: [
             if (!readOnly) ...[
@@ -283,7 +283,7 @@ class _Check extends StatelessWidget {
           activeColor: kNavy,
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           visualDensity: VisualDensity.compact,
-          side: const BorderSide(color: kTextMuted, width: 1.5),
+          side: BorderSide(color: kTextMuted, width: 1.5),
         ),
       );
 }
@@ -300,7 +300,7 @@ class _Th extends StatelessWidget {
       Flexible(
         child: Text(label,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.4,
@@ -347,7 +347,7 @@ class _ClassRow extends StatelessWidget {
           color: selected ? kNavy.withValues(alpha: 0.04) : null,
           border: last
               ? null
-              : const Border(bottom: BorderSide(color: kBorder)),
+              : Border(bottom: BorderSide(color: kBorder)),
         ),
         child: Row(children: [
           if (!readOnly) ...[
@@ -370,7 +370,7 @@ class _ClassRow extends StatelessWidget {
                 child: Text(c.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w700,
                         color: kTextPrimary)),
@@ -386,7 +386,7 @@ class _ClassRow extends StatelessWidget {
                 child: Text(c.levelCode ?? '—',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12.5,
                         color: kTextPrimary,
                         fontWeight: FontWeight.w600)),
@@ -398,7 +398,7 @@ class _ClassRow extends StatelessWidget {
             child: Text(c.filiereLabel ?? '—',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
+                style: TextStyle(fontSize: 12.5, color: kTextMuted)),
           ),
           Expanded(flex: 2, child: _Effectif(c: c)),
           Expanded(
@@ -415,7 +415,7 @@ class _ClassRow extends StatelessWidget {
             child: Text(c.room ?? '—',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12.5, color: kTextMuted)),
+                style: TextStyle(fontSize: 12.5, color: kTextMuted)),
           ),
           SizedBox(
             width: 84,
@@ -423,7 +423,7 @@ class _ClassRow extends StatelessWidget {
               IconButton(
                 tooltip: 'Ouvrir',
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.visibility_outlined,
+                icon: Icon(Icons.visibility_outlined,
                     size: 18, color: kTextMuted),
                 onPressed: onView,
               ),
@@ -432,7 +432,7 @@ class _ClassRow extends StatelessWidget {
                   tooltip: 'Modifier',
                   visualDensity: VisualDensity.compact,
                   icon:
-                      const Icon(Icons.edit_outlined, size: 18, color: kNavy),
+                      Icon(Icons.edit_outlined, size: 18, color: kNavy),
                   onPressed: onEdit,
                 ),
             ]),
@@ -568,7 +568,7 @@ class _ClassGridCard extends StatelessWidget {
               Text(c.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
                       color: kTextPrimary)),
@@ -577,14 +577,14 @@ class _ClassGridCard extends StatelessWidget {
                       .join(' · '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                  style: TextStyle(fontSize: 12, color: kTextMuted)),
             ]),
           ),
           if (!readOnly)
             IconButton(
               tooltip: 'Modifier',
               visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.edit_outlined, size: 17, color: kNavy),
+              icon: Icon(Icons.edit_outlined, size: 17, color: kNavy),
               onPressed: onEdit,
             ),
         ]),
@@ -602,14 +602,14 @@ class _ClassGridCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.end,
-                  style: const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                  style: TextStyle(fontSize: 11.5, color: kTextMuted)),
             ),
         ]),
         const SizedBox(height: 8),
         _FillBar(ratio: ratio?.clamp(0.0, 1.0), color: fillCol),
         const SizedBox(height: 10),
         Row(children: [
-          const Icon(Icons.person_outline_rounded, size: 14, color: kTextMuted),
+          Icon(Icons.person_outline_rounded, size: 14, color: kTextMuted),
           const SizedBox(width: 5),
           Expanded(
             child: Text(teacher ?? 'Pas de prof. principal',
@@ -620,11 +620,11 @@ class _ClassGridCard extends StatelessWidget {
                     color: teacher == null ? kTextMuted : kTextPrimary)),
           ),
           if ((c.room ?? '').isNotEmpty) ...[
-            const Icon(Icons.meeting_room_outlined,
+            Icon(Icons.meeting_room_outlined,
                 size: 14, color: kTextMuted),
             const SizedBox(width: 4),
             Text(c.room!,
-                style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                style: TextStyle(fontSize: 12, color: kTextMuted)),
           ],
         ]),
       ]),
@@ -707,6 +707,27 @@ class _ClassFormSheetState extends ConsumerState<_ClassFormSheet> {
     setState(() => _saving = true);
     final profile = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
+    // Garde-fou anti-perte silencieuse : à la création, refuser franchement si
+    // le compte n'est pas rattaché (école/groupe) ou sans année active — sinon
+    // Postgres rejette la ligne et abandonne tout le lot PowerSync sans message.
+    if (!_isEdit) {
+      final missing = missingWriteIds(
+        groupId: profile?.groupId,
+        schoolId: profile?.schoolId,
+        actorId: profile?.id,
+      );
+      if (missing.isNotEmpty) {
+        _snack(writeIdentityMessage(missing), kRed);
+        setState(() => _saving = false);
+        return;
+      }
+      if (!isUsableId(yearId)) {
+        _snack('Aucune année scolaire active : impossible de créer une classe.',
+            kRed);
+        setState(() => _saving = false);
+        return;
+      }
+    }
     final ok = await runModuleWrite(
       context,
       () async {
@@ -723,9 +744,9 @@ class _ClassFormSheetState extends ConsumerState<_ClassFormSheet> {
           );
         } else {
           await createStructuredClass(
-            schoolId: profile?.schoolId ?? '',
-            groupId: profile?.groupId ?? '',
-            academicYearId: yearId ?? '',
+            schoolId: profile!.schoolId!,
+            groupId: profile.groupId!,
+            academicYearId: yearId!,
             name: name,
             levelId: _levelId!,
             cycleCode: _cycleCode ?? '',
@@ -926,7 +947,7 @@ class _Label extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 6),
         child: Text(text,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
                 color: kTextPrimary)),
@@ -967,12 +988,12 @@ class _Dropdown<T> extends StatelessWidget {
     return DropdownButtonFormField<T>(
       initialValue: items.containsKey(value) ? value : null,
       isExpanded: true,
-      style: const TextStyle(fontSize: 13.5, color: kTextPrimary),
-      icon: const Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
+      style: TextStyle(fontSize: 13.5, color: kTextPrimary),
+      icon: Icon(Icons.expand_more_rounded, size: 18, color: kTextMuted),
       decoration: adminFilledInput(hint),
       hint: Text(hint,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 13, color: kTextMuted)),
+          style: TextStyle(fontSize: 13, color: kTextMuted)),
       items: [
         if (nullable)
           DropdownMenuItem(value: null, child: Text(hint)),
@@ -1144,7 +1165,7 @@ class _ClassCharts extends StatelessWidget {
         title: 'Occupation par niveau',
         icon: Icons.bar_chart_rounded,
         child: levels.isEmpty
-            ? const SizedBox(
+            ? SizedBox(
                 height: 60,
                 child: Center(child: Text('—', style: TextStyle(color: kTextMuted))))
             : Column(
@@ -1194,7 +1215,7 @@ class _MiniChartCard extends StatelessWidget {
             Icon(icon, size: 16, color: kNavy),
             const SizedBox(width: 8),
             Text(title,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 14, fontWeight: FontWeight.w800, color: kNavy)),
           ]),
           const SizedBox(height: 14),
@@ -1225,7 +1246,7 @@ class _OccBar extends StatelessWidget {
           child: Text(label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
                   color: kTextPrimary)),

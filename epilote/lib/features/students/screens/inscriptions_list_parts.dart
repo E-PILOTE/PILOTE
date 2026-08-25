@@ -3,14 +3,26 @@ part of 'inscriptions_screen.dart';
 // ─── Barre d'actions groupées ────────────────────────────────────────────────
 class _BulkBar extends StatelessWidget {
   const _BulkBar({
+    super.key,
     required this.count,
     required this.onValidate,
     required this.onReject,
     required this.onExport,
+    required this.onFiches,
     required this.onClear,
+    required this.readOnly,
   });
   final int count;
-  final VoidCallback onValidate, onReject, onExport, onClear;
+  final VoidCallback onValidate, onReject, onExport, onFiches, onClear;
+
+  /// Année clôturée : plus aucune écriture. Les boutons de LECTURE (export,
+  /// fiches, désélection) restent, ceux qui écrivent disparaissent.
+  ///
+  /// ⚠️ Les actions de ligne et la fiche détail respectaient déjà `readOnly` ;
+  /// la barre groupée, non. Sur une année verrouillée, cocher trente lignes et
+  /// cliquer « Valider » lançait trente écritures que seule la base pouvait
+  /// encore refuser — un chemin d'écriture ouvert sans bouton visible ailleurs.
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -31,21 +43,31 @@ class _BulkBar extends StatelessWidget {
                   color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w800)),
         ),
         const SizedBox(width: 10),
-        const Text('sélectionné(s)',
+        Text('sélectionné(s)',
             style: TextStyle(
                 fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary)),
         const Spacer(),
         Wrap(spacing: 8, children: [
+          if (!readOnly) ...[
+            _BulkBtn(
+                icon: Icons.check_rounded,
+                label: 'Valider',
+                color: kGreen,
+                onTap: onValidate),
+            _BulkBtn(
+                icon: Icons.close_rounded,
+                label: 'Rejeter',
+                color: kRed,
+                onTap: onReject),
+          ],
+          // Le geste de la rentrée : quarante familles au guichet, quarante
+          // récépissés à remettre. Sans lui, la fiche ne s'obtenait qu'un
+          // dossier à la fois — et le secrétariat renonçait.
           _BulkBtn(
-              icon: Icons.check_rounded,
-              label: 'Valider',
-              color: kGreen,
-              onTap: onValidate),
-          _BulkBtn(
-              icon: Icons.close_rounded,
-              label: 'Rejeter',
-              color: kRed,
-              onTap: onReject),
+              icon: Icons.print_rounded,
+              label: 'Imprimer les fiches',
+              color: kNavy,
+              onTap: onFiches),
           _BulkBtn(
               icon: Icons.download_rounded,
               label: 'Exporter',
@@ -109,6 +131,7 @@ class _InscritsTable extends StatelessWidget {
     required this.onView,
     required this.onValidate,
     required this.onReject,
+    required this.onReopen,
     required this.readOnly,
   });
   final List<InscriptionRow> rows;
@@ -121,6 +144,7 @@ class _InscritsTable extends StatelessWidget {
   final ValueChanged<InscriptionRow> onView;
   final Future<void> Function(InscriptionRow) onValidate;
   final Future<void> Function(InscriptionRow) onReject;
+  final Future<void> Function(InscriptionRow) onReopen;
 
   int? get _sortIdx => switch (sort) {
         _SortBy.nom => 0,
@@ -134,19 +158,24 @@ class _InscritsTable extends StatelessWidget {
       padding: EdgeInsets.zero,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-                minWidth: MediaQuery.of(context).size.width - 96),
-            child: DataTable(
+        // La largeur de référence doit être celle DISPONIBLE, pas celle de
+        // l'écran : la zone de contenu est déjà amputée de la barre latérale.
+        // Avec `MediaQuery.size.width`, le tableau était toujours plus large
+        // que son conteneur et une barre de défilement horizontale s'installait
+        // à demeure, sur toutes les listes, même courtes.
+        child: LayoutBuilder(
+          builder: (context, cns) => SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: cns.maxWidth),
+              child: DataTable(
               sortColumnIndex: _sortIdx,
               sortAscending: sortAsc,
               showCheckboxColumn: true,
               onSelectAll: (v) => onSelectAll(v ?? false),
               headingRowColor:
                   WidgetStatePropertyAll(kNavy.withValues(alpha: 0.04)),
-              headingTextStyle: const TextStyle(
+              headingTextStyle: TextStyle(
                   fontWeight: FontWeight.w800, fontSize: 12, color: kNavy),
               dividerThickness: 0.6,
               columnSpacing: 26,
@@ -184,13 +213,13 @@ class _InscritsTable extends StatelessWidget {
                                 Text(r.lastFirst,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontWeight: FontWeight.w600,
                                         color: kTextPrimary)),
                                 Text(r.matricule,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 11,
                                         color: kTextMuted,
                                         fontFamily: 'monospace')),
@@ -215,7 +244,7 @@ class _InscritsTable extends StatelessWidget {
                       DataCell(Text(
                           r.enrollmentDate?.toIso8601String().substring(0, 10) ??
                               '—',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 11.5, color: kTextMuted))),
                       DataCell(_RowActions(
                         row: r,
@@ -223,10 +252,12 @@ class _InscritsTable extends StatelessWidget {
                         onView: () => onView(r),
                         onValidate: () => onValidate(r),
                         onReject: () => onReject(r),
+                        onReopen: () => onReopen(r),
                       )),
                     ],
                   ),
               ],
+              ),
             ),
           ),
         ),
@@ -242,14 +273,16 @@ class _RowActions extends StatelessWidget {
     required this.onView,
     required this.onValidate,
     required this.onReject,
+    required this.onReopen,
   });
   final InscriptionRow row;
   final bool readOnly;
-  final VoidCallback onView, onValidate, onReject;
+  final VoidCallback onView, onValidate, onReject, onReopen;
 
   @override
   Widget build(BuildContext context) {
     final pending = row.status == 'pending_validation';
+    final rejected = row.status == 'rejected';
     return Row(mainAxisSize: MainAxisSize.min, children: [
       if (pending && !readOnly) ...[
         AdminModalIconBtn(
@@ -263,6 +296,17 @@ class _RowActions extends StatelessWidget {
             color: kRed,
             tooltip: 'Rejeter',
             onTap: onReject),
+        const SizedBox(width: 6),
+      ],
+      // Un dossier rejeté n'était pas une impasse par hasard : la contrainte
+      // UNIQUE(élève, année) empêche d'en resaisir un second, et la seule
+      // sortie proposée était la suppression — donc l'effacement du rejet.
+      if (rejected && !readOnly) ...[
+        AdminModalIconBtn(
+            icon: Icons.restart_alt_rounded,
+            color: kAccent,
+            tooltip: 'Reprendre le dossier',
+            onTap: onReopen),
         const SizedBox(width: 6),
       ],
       AdminModalIconBtn(
@@ -333,7 +377,7 @@ class _InscritsCards extends StatelessWidget {
                         Text(r.lastFirst,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 13.5,
                                 color: kTextPrimary)),
@@ -341,7 +385,7 @@ class _InscritsCards extends StatelessWidget {
                         Text(r.matricule,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 11,
                                 color: kTextMuted,
                                 fontFamily: 'monospace')),
@@ -365,7 +409,7 @@ class _InscritsCards extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style:
-                            const TextStyle(fontSize: 11.5, color: kTextMuted)),
+                            TextStyle(fontSize: 11.5, color: kTextMuted)),
                   ),
                 ]),
                 const SizedBox(height: 8),
@@ -375,7 +419,7 @@ class _InscritsCards extends StatelessWidget {
                   Flexible(child: _TypeBadge(type: r.inscriptionType)),
                   if (r.isRepeating) ...[
                     const SizedBox(width: 6),
-                    const AdminBadge('Redoublant',
+                    AdminBadge('Redoublant',
                         color: kRed, icon: Icons.replay_rounded),
                   ],
                 ]),
@@ -415,6 +459,13 @@ class _SelectCircle extends StatelessWidget {
 }
 
 // ─── Avatar élève ────────────────────────────────────────────────────────────
+// ─── Pastille d'élève ────────────────────────────────────────────────────────
+//
+// L'affichage vit dans `core/widgets/photo_avatar.dart` : depuis que la photo
+// se prend HORS LIGNE, son URL publique peut désigner un fichier encore en file
+// d'envoi, et une copie qui l'ignore montre un avatar cassé à l'agent qui vient
+// pourtant de la prendre. Ce qui reste ici, c'est ce qui est PROPRE au guichet :
+// la teinte selon le sexe, que le registre n'applique pas.
 class _Avatar extends StatelessWidget {
   const _Avatar({required this.row, required this.size});
   final InscriptionRow row;
@@ -422,22 +473,16 @@ class _Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = row.gender == 'F' ? _kPink : kNavy;
-    final initials = (row.firstName.isNotEmpty ? row.firstName[0] : '') +
-        (row.lastName.isNotEmpty ? row.lastName[0] : '');
-    return CircleAvatar(
-      radius: size / 2,
-      backgroundColor: color.withValues(alpha: 0.12),
-      foregroundImage: (row.photoUrl != null && row.photoUrl!.isNotEmpty)
-          ? CachedNetworkImageProvider(row.photoUrl!)
-          : null,
-      child: Text(initials.toUpperCase(),
-          style: TextStyle(
-              color: color, fontWeight: FontWeight.w700, fontSize: size * 0.34)),
+    return PhotoAvatar(
+      name: '${row.firstName} ${row.lastName}',
+      photoUrl: row.photoUrl,
+      size: size,
+      background: color.withValues(alpha: 0.12),
+      foreground: color,
     );
   }
 }
 
-// ─── Badges ──────────────────────────────────────────────────────────────────
 class _TypeBadge extends StatelessWidget {
   const _TypeBadge({required this.type});
   final String type;
@@ -458,10 +503,16 @@ class _StatusBadge extends StatelessWidget {
   final String status;
   @override
   Widget build(BuildContext context) {
+    // Les trois statuts de SORTIE manquaient : le filtre « Sorties » les
+    // affiche pourtant, et l'écran rendait alors le code brut de la base —
+    // « transferred » en toutes lettres dans la colonne Statut.
     final (label, color, icon) = switch (status) {
       'active' => ('Validée', kGreen, Icons.check_circle_rounded),
       'pending_validation' => ('En attente', kAccent, Icons.hourglass_top_rounded),
       'rejected' => ('Rejetée', kRed, Icons.cancel_rounded),
+      'withdrawn' => ('Retirée', kTextMuted, Icons.logout_rounded),
+      'transferred' => ('Transférée', kNavy, Icons.swap_horiz_rounded),
+      'graduated' => ('Diplômée', kGreen, Icons.school_rounded),
       _ => (status, kTextMuted, Icons.help_outline_rounded),
     };
     return AdminBadge(label, color: color, icon: icon);

@@ -1,3 +1,5 @@
+import '../../core/utils/booleen_offline.dart';
+
 /// Matière scolaire CANONIQUE (table `subjects`, offline-first). Une matière est
 /// une IDENTITÉ unique (ex. « Mathématiques »), réutilisée dans tout
 /// l'établissement. Son niveau, son cycle et son coefficient EFFECTIF ne lui
@@ -25,7 +27,7 @@ class SubjectModel {
         name:         m['name'] as String? ?? '',
         slug:         m['slug'] as String? ?? '',
         coefficient:  (m['coefficient'] as num?)?.toInt() ?? 1,
-        isActive:     _b(m['is_active']),
+        isActive:     actifOffline(m['is_active']), // défaut VRAI
         schoolId:     m['school_id'] as String?,
         displayOrder: (m['display_order'] as num?)?.toInt() ?? 0,
         classCount:   (m['class_count'] as num?)?.toInt() ?? 0,
@@ -58,5 +60,4 @@ class SubjectModel {
         .toList();
   }
 
-  static bool _b(Object? v) => v == 1 || v == true;
 }

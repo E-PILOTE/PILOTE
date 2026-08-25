@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/routes.dart';
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/staff_ui.dart';
@@ -12,8 +13,12 @@ import '../../../features/auth/providers/auth_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
 import '../providers/academic_year_context.dart';
 import '../providers/academic_year_provider.dart';
+import '../providers/school_holidays_provider.dart';
+import 'edt_settings_screen.dart' show openEdtSettingsDrawer, kEdtSegCalendar;
+import '../../../core/utils/message_erreur.dart';
 
 part 'calendar_detail.dart';
+part 'calendar_holidays.dart';
 part 'calendar_rollover.dart';
 
 final _fmtDate = DateFormat('dd MMM yyyy', 'fr_FR');
@@ -23,7 +28,14 @@ const _kViewRoles = {'proviseur', 'directeur', 'directeur_etudes', 'secretaire'}
 /// Rôles autorisés à ÉDITER (chefs d'établissement uniquement).
 const _kEditRoles = {'proviseur', 'directeur'};
 
-/// Année sélectionnée dans la colonne de gauche.
+/// Année INSPECTÉE dans la colonne de gauche.
+///
+/// À NE PAS CONFONDRE avec [selectedYearIdProvider], la lentille globale qui
+/// scope toute l'application. Ici on feuillette l'historique sans rien changer
+/// à ce que le reste du logiciel affiche ; le passage de l'un à l'autre est un
+/// geste explicite (bouton « Afficher dans l'app »). Sans cette séparation,
+/// consulter l'an dernier basculerait la caisse et les notes en lecture seule
+/// dans le dos de l'utilisateur.
 final _selectedYearProvider = StateProvider.autoDispose<String?>((ref) => null);
 
 /// Calendrier scolaire — config NATIVE réservée à la direction (hors catalogue).
@@ -46,15 +58,15 @@ class SchoolCalendarScreen extends ConsumerWidget {
 class _Denied extends StatelessWidget {
   const _Denied();
   @override
-  Widget build(BuildContext context) => const Center(
+  Widget build(BuildContext context) => Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: const EdgeInsets.all(32),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.lock_outline_rounded, size: 56, color: kTextMuted),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text('Réservé à la direction',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: kNavy)),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text('La gestion du calendrier scolaire est réservée au chef d\'établissement.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, color: kTextMuted)),
@@ -72,12 +84,24 @@ class _Body extends ConsumerWidget {
     final yearsAsync = ref.watch(academicYearsProvider);
     return yearsAsync.when(
       loading: () => const SplitSkeleton(),
-      error: (e, _) => Center(child: Text('Erreur : $e', style: const TextStyle(color: kRed))),
+      error: (e, _) => Center(child: Text(messageErreur(e), style: TextStyle(color: kRed))),
       data: (years) {
         final selected = ref.watch(_selectedYearProvider);
-        final current = years.where((y) => y.isCurrent).toList();
-        final effId = selected ??
-            (current.isNotEmpty ? current.first.id : (years.isNotEmpty ? years.first.id : null));
+        // Défaut = l'année que l'application AFFICHE, pas l'année courante de
+        // l'établissement. Quelqu'un qui consulte 2024-2025 depuis le header et
+        // ouvre ce calendrier vient regarder 2024-2025 ; le poser sur l'année
+        // en cours l'obligerait à re-cliquer et lui ferait croire que sa
+        // bascule n'a pas pris.
+        final lensId = ref.watch(activeYearIdProvider);
+        final known = {for (final y in years) y.id};
+        final effId = [
+          selected,
+          lensId,
+          for (final y in years)
+            if (y.isCurrent) y.id,
+          years.isEmpty ? null : years.first.id,
+        ].firstWhere((id) => id != null && known.contains(id),
+            orElse: () => null);
         final matches = years.where((y) => y.id == effId);
         final selectedYear = matches.isEmpty ? null : matches.first;
 
@@ -101,13 +125,13 @@ class _Body extends ConsumerWidget {
 class _EmptyDetail extends StatelessWidget {
   const _EmptyDetail();
   @override
-  Widget build(BuildContext context) => const Center(
+  Widget build(BuildContext context) => Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.event_note_rounded, size: 56, color: kTextMuted),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           Text('Aucune année scolaire',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kNavy)),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text('Les années sont définies par le groupe et héritées par votre '
               'école. Aucune n\'est encore disponible.',
               textAlign: TextAlign.center,
@@ -126,23 +150,36 @@ class _YearsColumn extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const Padding(
-        padding: EdgeInsets.fromLTRB(16, 16, 12, 10),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 12, 10),
         child: Row(children: [
           Expanded(
-            child: Text('Années scolaires',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kNavy)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Années scolaires',
+                  style: TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w800, color: kNavy)),
+              const SizedBox(height: 2),
+              Text(
+                years.isEmpty
+                    ? 'Aucune année reçue'
+                    : '${years.length} année${years.length > 1 ? 's' : ''} '
+                        'héritée${years.length > 1 ? 's' : ''} du groupe',
+                style: TextStyle(fontSize: 11, color: kTextMuted),
+              ),
+            ]),
           ),
           Tooltip(
-            message: 'Les années sont définies par le groupe et héritées par votre école',
+            message: 'Les années, trimestres et séquences sont définis par le '
+                'groupe puis hérités par votre école.\n'
+                'Votre école y ajoute ses classes et ses jours non ouvrés.',
             child: Icon(Icons.cloud_done_outlined, size: 17, color: kTextMuted),
           ),
         ]),
       ),
-      const Divider(height: 1, color: kBorder),
+      Divider(height: 1, color: kBorder),
       Expanded(
         child: years.isEmpty
-            ? const Center(child: Text('—', style: TextStyle(color: kTextMuted)))
+            ? Center(child: Text('—', style: TextStyle(color: kTextMuted)))
             : ListView.builder(
                 padding: const EdgeInsets.all(10),
                 itemCount: years.length,
@@ -172,6 +209,12 @@ class _YearTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final counts = ref.watch(yearContentCountProvider(year.id)).valueOrNull;
+    // Cette année est-elle celle que l'application entière affiche ?
+    // L'information manquait totalement : on pouvait inspecter 2024-2025 en
+    // croyant que le reste du logiciel avait suivi, ou l'inverse.
+    final isLens = ref.watch(activeYearIdProvider) == year.id;
+    final empty = counts != null && counts.classes == 0;
+
     return InkWell(
       onTap: () => ref.read(_selectedYearProvider.notifier).state = year.id,
       borderRadius: BorderRadius.circular(10),
@@ -179,7 +222,7 @@ class _YearTile extends ConsumerWidget {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: selected ? kNavy.withValues(alpha: 0.06) : Colors.white,
+          color: selected ? kNavy.withValues(alpha: 0.06) : kCardBg,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: selected ? kNavy : kBorder, width: selected ? 1.4 : 1),
         ),
@@ -187,14 +230,26 @@ class _YearTile extends ConsumerWidget {
           Row(children: [
             Expanded(
               child: Text(year.label,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kNavy)),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kNavy)),
             ),
-            if (year.isCurrent) const _Tag(text: 'Courante', color: kGreen),
-            if (year.isLocked) ...[const SizedBox(width: 4), const _Tag(text: 'Archivée', color: kAccent)],
+            if (year.isCurrent) _Tag(text: 'Courante', color: kGreen),
+            if (year.isLocked) ...[const SizedBox(width: 4), _Tag(text: 'Archivée', color: kAccent)],
           ]),
           const SizedBox(height: 4),
           Text('${_fmtDate.format(year.startDate)} → ${_fmtDate.format(year.endDate)}',
-              style: const TextStyle(fontSize: 11, color: kTextMuted)),
+              style: TextStyle(fontSize: 11, color: kTextMuted)),
+          if (isLens) ...[
+            const SizedBox(height: 6),
+            Row(children: [
+              Icon(Icons.remove_red_eye_rounded, size: 12, color: kNavy),
+              const SizedBox(width: 5),
+              Text("Affichée dans l'application",
+                  style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: kNavy)),
+            ]),
+          ],
           const SizedBox(height: 6),
           // Contenu de l'année
           Row(children: [
@@ -202,21 +257,49 @@ class _YearTile extends ConsumerWidget {
             const SizedBox(width: 8),
             _CountChip(icon: Icons.people_rounded, value: counts?.eleves, label: 'élèves'),
           ]),
+          // Une année sans classe n'est pas « adoptée » : rien de l'école n'y
+          // existe encore. On le dit, plutôt que d'afficher deux zéros muets.
+          if (empty) ...[
+            const SizedBox(height: 6),
+            Text(
+              canEdit && !year.isLocked
+                  ? 'Année non préparée — recopiez vos classes pour l\'ouvrir.'
+                  : 'Année non préparée par votre école.',
+              style: TextStyle(
+                  fontSize: 10.5,
+                  color: kAccent,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3),
+            ),
+          ],
           const SizedBox(height: 8),
           Row(children: [
-            _MiniBtn(
-              label: 'Consulter',
-              icon: Icons.visibility_outlined,
-              color: kGreen,
-              onTap: () {
-                ref.read(selectedYearIdProvider.notifier).state = year.id;
-                context.go(Routes.userDashboard);
-              },
-            ),
+            if (isLens)
+              // Déjà la lentille : le bouton n'a plus rien à faire, il devient
+              // un état. Un « Consulter » qui ne consulte rien est un piège.
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.check_circle_rounded, size: 13, color: kGreen),
+                const SizedBox(width: 4),
+                Text('Année affichée',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: kGreen)),
+              ])
+            else
+              _MiniBtn(
+                label: "Afficher dans l'app",
+                icon: Icons.visibility_outlined,
+                color: kGreen,
+                onTap: () {
+                  ref.read(selectedYearIdProvider.notifier).select(year.id);
+                  context.go(Routes.userDashboard);
+                },
+              ),
             const Spacer(),
             if (canEdit && !year.isLocked)
               _MiniBtn(
-                label: 'Préparer mes classes',
+                label: empty ? 'Préparer' : 'Préparer mes classes',
                 icon: Icons.move_up_rounded,
                 onTap: () => showDialog<void>(
                   context: context,
@@ -249,7 +332,7 @@ class _CountChip extends StatelessWidget {
           Icon(icon, size: 12, color: kTextMuted),
           const SizedBox(width: 4),
           Text('${value ?? '…'} $label',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 10.5, fontWeight: FontWeight.w700, color: kTextMuted)),
         ]),
       );
@@ -268,12 +351,12 @@ class _Tag extends StatelessWidget {
 }
 
 class _MiniBtn extends StatelessWidget {
-  const _MiniBtn({
+  _MiniBtn({
     required this.label,
     required this.icon,
     required this.onTap,
-    this.color = kNavy,
-  });
+    Color? color,
+  }) : color = color ?? kNavy;
   final String label;
   final IconData icon;
   final VoidCallback onTap;

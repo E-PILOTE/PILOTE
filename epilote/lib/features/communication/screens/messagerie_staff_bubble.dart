@@ -218,8 +218,8 @@ class _Bubble extends StatelessWidget {
                           _highlightedBody(msg.body, highlight),
                         const SizedBox(width: 8),
                         if (msg.isEdited)
-                          const Padding(
-                            padding: EdgeInsets.only(right: 4),
+                          Padding(
+                            padding: const EdgeInsets.only(right: 4),
                             child: Text('modifié',
                                 style: TextStyle(
                                     fontSize: 10,
@@ -257,7 +257,7 @@ class _Bubble extends StatelessWidget {
   }
 
   Widget _highlightedBody(String text, String query) {
-    const base = TextStyle(fontSize: 14.2, height: 1.32, color: _waText);
+    final base = TextStyle(fontSize: 14.2, height: 1.32, color: _waText);
     final q = query.trim();
     if (q.isEmpty) return Text(text, style: base);
     final lower = text.toLowerCase();
@@ -336,7 +336,7 @@ class _QuotedPreview extends StatelessWidget {
           Text(preview,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, color: _waTime)),
+              style: TextStyle(fontSize: 12, color: _waTime)),
         ],
       ),
     );
@@ -366,7 +366,7 @@ class _ReactionChips extends StatelessWidget {
               decoration: BoxDecoration(
                 color: e.value.contains(myId)
                     ? kNavy.withValues(alpha: 0.12)
-                    : Colors.white,
+                    : kCardBg,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                     color: e.value.contains(myId) ? kNavy : kBorder,
@@ -377,7 +377,7 @@ class _ReactionChips extends StatelessWidget {
                 if (e.value.length > 1) ...[
                   const SizedBox(width: 3),
                   Text('${e.value.length}',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: kTextMuted)),
@@ -416,11 +416,11 @@ class _MetaStamp extends StatelessWidget {
       final by    = groupReadBy ?? 0;
       final allRead = total > 0 && by >= total;
       return Row(mainAxisSize: MainAxisSize.min, children: [
-        Text(clock, style: const TextStyle(fontSize: 11, color: _waTime)),
+        Text(clock, style: TextStyle(fontSize: 11, color: _waTime)),
         if (total > 0 && by > 0 && !allRead) ...[
           const SizedBox(width: 4),
           Text('$by/$total',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 10, fontWeight: FontWeight.w700, color: _waTime)),
         ],
         const SizedBox(width: 3),
@@ -438,7 +438,7 @@ class _MetaStamp extends StatelessWidget {
     }
     // ── Cas 1-à-1 ──────────────────────────────────────────────────────────────
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      Text(clock, style: const TextStyle(fontSize: 11, color: _waTime)),
+      Text(clock, style: TextStyle(fontSize: 11, color: _waTime)),
       if (mine) ...[
         const SizedBox(width: 3),
         Tooltip(
@@ -478,7 +478,7 @@ class _ComposeContextBar extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(8),
         border: const Border(
             left: BorderSide(color: Color(0xFF00A884), width: 3)),
@@ -503,14 +503,14 @@ class _ComposeContextBar extends StatelessWidget {
                 Text(preview.trim(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                    style: TextStyle(fontSize: 12, color: kTextMuted)),
             ],
           ),
         ),
         IconButton(
           visualDensity: VisualDensity.compact,
           onPressed: onCancel,
-          icon: const Icon(Icons.close_rounded, size: 18, color: kTextMuted),
+          icon: Icon(Icons.close_rounded, size: 18, color: kTextMuted),
         ),
       ]),
     );

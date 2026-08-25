@@ -1,27 +1,32 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../../../core/utils/billing_period.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../providers/plans_provider.dart';
 import '../services/plan_pdf_service.dart';
+import '../widgets/plan_period_fields.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
-const _kNavy    = Color(0xFF1E3A5F);
-const _kGreen   = Color(0xFF009A44);
-const _kGold    = Color(0xFFFBBC04);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
+Color get _kGold => kAccent;
 const _kOrange  = Color(0xFFFF6B35);
 const _kPurple  = Color(0xFF7C3AED);
 const _kBlue    = Color(0xFF0EA5E9);
 const _kRed     = Color(0xFFEF4444);
-const _kSurface = Color(0xFFF0F4F8);
-const _kBg      = Color(0xFFFFFFFF);
-const _kBorder  = Color(0xFFE2E8F0);
-const _kText    = Color(0xFF0F172A);
-const _kMuted   = Color(0xFF64748B);
+Color get _kSurface => kSurface;
+Color get _kBg => kCardBg;
+Color get _kBorder => kBorder;
+Color get _kText => kTextPrimary;
+Color get _kMuted => kTextMuted;
 
 // ─── Helpers slug ────────────────────────────────────────────────────────────
 const _slugLabels = {
@@ -146,7 +151,7 @@ class _PlansBodyState extends ConsumerState<_PlansBody> {
           .eq('id', p.id);
       ref.invalidate(plansProvider);
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError(messageErreur(e));
     }
   }
 
@@ -168,7 +173,7 @@ class _PlansBodyState extends ConsumerState<_PlansBody> {
       ref.invalidate(plansProvider);
       if (mounted) _showSuccess('Plan "${p.name}" supprimé.');
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError(messageErreur(e));
     }
   }
 
@@ -190,9 +195,9 @@ class _PlansBodyState extends ConsumerState<_PlansBody> {
       loading: () => const _ShimmerSkeleton(),
       error: (e, _) => Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
+          Icon(Icons.cloud_off_rounded, size: 48, color: _kMuted),
           const SizedBox(height: 12),
-          Text('Erreur : $e', style: const TextStyle(color: _kMuted)),
+          Text(messageErreur(e), style: TextStyle(color: _kMuted)),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => ref.invalidate(plansProvider),
@@ -429,7 +434,7 @@ class _KpiCardState extends State<_KpiCard> with SingleTickerProviderStateMixin 
                           fontWeight: FontWeight.w900, letterSpacing: -0.5,
                         ), overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 2),
-                        Text(d.label, style: const TextStyle(
+                        Text(d.label, style: TextStyle(
                           color: _kMuted, fontSize: 11.5, fontWeight: FontWeight.w600,
                         ), overflow: TextOverflow.ellipsis),
                         if (d.sub != null)
@@ -488,7 +493,7 @@ class _ShimmerSkeleton extends StatelessWidget {
   Widget _box(double w, double h, {double r = 10}) => Container(
     width: w, height: h,
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: kCardBg,
       borderRadius: BorderRadius.circular(r),
     ),
   );
@@ -574,11 +579,11 @@ class _FilterBar extends StatelessWidget {
                 onChanged: onSearchChange,
                 decoration: InputDecoration(
                   hintText: 'Rechercher par nom, type, description…',
-                  hintStyle: const TextStyle(color: _kMuted, fontSize: 13),
-                  prefixIcon: const Icon(Icons.search_rounded, color: _kMuted, size: 20),
+                  hintStyle: TextStyle(color: _kMuted, fontSize: 13),
+                  prefixIcon: Icon(Icons.search_rounded, color: _kMuted, size: 20),
                   suffixIcon: searchCtrl.text.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.close_rounded, size: 18, color: _kMuted),
+                          icon: Icon(Icons.close_rounded, size: 18, color: _kMuted),
                           onPressed: () { searchCtrl.clear(); onSearchChange(''); })
                       : null,
                   filled: true,
@@ -608,7 +613,7 @@ class _FilterBar extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: _kBorder),
                     ),
-                    child: const Icon(Icons.refresh_rounded, size: 20, color: _kMuted),
+                    child: Icon(Icons.refresh_rounded, size: 20, color: _kMuted),
                   ),
                 ),
               ),
@@ -621,13 +626,13 @@ class _FilterBar extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF1A2F5A), Color(0xFF1E3A5F)],
+                    gradient: LinearGradient(
+                      colors: [const Color(0xFF1A2F5A), kNavy],
                       begin: Alignment.topLeft, end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [BoxShadow(
-                      color: const Color(0xFF1E3A5F).withValues(alpha: 0.25),
+                      color: kNavy.withValues(alpha: 0.25),
                       blurRadius: 8, offset: const Offset(0, 3),
                     )],
                   ),
@@ -745,7 +750,7 @@ class _FilterDropdown extends StatelessWidget {
     child: DropdownButtonHideUnderline(
       child: DropdownButton<String>(
         value: value,
-        dropdownColor: Colors.white,
+        dropdownColor: kCardBg,
         icon: Icon(Icons.arrow_drop_down, size: 18,
             color: active ? Colors.white : _kMuted),
         style: TextStyle(
@@ -799,10 +804,10 @@ class _ResultHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(children: [
     Text('$filtered résultat${filtered > 1 ? "s" : ""}',
-        style: const TextStyle(color: _kText, fontSize: 14, fontWeight: FontWeight.w700)),
+        style: TextStyle(color: _kText, fontSize: 14, fontWeight: FontWeight.w700)),
     if (filtered < total) ...[
       const SizedBox(width: 8),
-      Text('sur $total', style: const TextStyle(color: _kMuted, fontSize: 13)),
+      Text('sur $total', style: TextStyle(color: _kMuted, fontSize: 13)),
     ],
   ]);
 }
@@ -829,7 +834,7 @@ class _TableView extends StatelessWidget {
     flex: flex,
     child: Align(
       alignment: center ? Alignment.center : Alignment.centerLeft,
-      child: Text(label, style: const TextStyle(
+      child: Text(label, style: TextStyle(
           color: _kMuted, fontSize: 11,
           fontWeight: FontWeight.w700, letterSpacing: 0.4),
           overflow: TextOverflow.ellipsis),
@@ -858,21 +863,25 @@ class _TableView extends StatelessWidget {
             child: Row(children: [
               const SizedBox(width: _iconW),
               _hdr('Plan',          3),
-              _hdr('Prix /mois',    2),
+              // Le tarif porte désormais sa période (« / an », « / mois ») :
+              // un en-tête qui l'impose serait faux dès le premier plan
+              // mensuel. Cf. `billing_period.dart`.
+              _hdr('Tarif',         2),
+              _hdr('Périodicité',   2),
               _hdr('Écoles max',    2),
               _hdr('Modules',       2),
               _hdr('Abonnés',       2),
-              const SizedBox(width: _statusW,
+              SizedBox(width: _statusW,
                 child: Text('Statut', style: TextStyle(
                     color: _kMuted, fontSize: 11,
                     fontWeight: FontWeight.w700, letterSpacing: 0.4))),
-              const SizedBox(width: _actionsW,
+              SizedBox(width: _actionsW,
                 child: Center(child: Text('Actions', style: TextStyle(
                     color: _kMuted, fontSize: 11,
                     fontWeight: FontWeight.w700, letterSpacing: 0.4)))),
             ]),
           ),
-          const Divider(height: 1, color: _kBorder),
+          Divider(height: 1, color: _kBorder),
           ...plans.asMap().entries.map((e) => _TableRow(
             plan:     e.value,
             isOdd:    e.key.isOdd,
@@ -953,7 +962,7 @@ class _TableRowState extends State<_TableRow> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(p.name,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kText),
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kText),
                       overflow: TextOverflow.ellipsis),
                   Row(children: [
                     if (p.isPublicPlan)
@@ -970,30 +979,34 @@ class _TableRowState extends State<_TableRow> {
               ),
             ),
           )),
-          Expanded(flex: 2, child: Text(p.priceLabel,
+          // Montant nu : la période a sa propre colonne juste à droite.
+          Expanded(flex: 2, child: Text(p.priceAmountLabel,
               style: TextStyle(fontSize: 12.5,
                   color: p.isFree ? _kMuted : _kText,
                   fontWeight: FontWeight.w700),
               overflow: TextOverflow.ellipsis)),
+          Expanded(flex: 2, child: Text(p.periodLabel,
+              style: TextStyle(fontSize: 12, color: _kMuted),
+              overflow: TextOverflow.ellipsis)),
           Expanded(flex: 2, child: Text(p.maxSchoolsLabel,
-              style: const TextStyle(fontSize: 12, color: _kText),
+              style: TextStyle(fontSize: 12, color: _kText),
               overflow: TextOverflow.ellipsis)),
           Expanded(flex: 2, child: Row(children: [
             const Icon(Icons.widgets_rounded, size: 13, color: _kPurple),
             const SizedBox(width: 4),
             Text('${p.linkedModules}',
-                style: const TextStyle(fontSize: 12.5, color: _kText,
+                style: TextStyle(fontSize: 12.5, color: _kText,
                     fontWeight: FontWeight.w600)),
           ])),
           Expanded(flex: 2, child: Row(children: [
-            const Icon(Icons.groups_rounded, size: 13, color: _kGold),
+            Icon(Icons.groups_rounded, size: 13, color: _kGold),
             const SizedBox(width: 4),
             Text('${p.subscribersTotal}',
-                style: const TextStyle(fontSize: 12.5, color: _kText,
+                style: TextStyle(fontSize: 12.5, color: _kText,
                     fontWeight: FontWeight.w600)),
             if (p.subscribersActive != p.subscribersTotal)
               Text(' (${p.subscribersActive})',
-                  style: const TextStyle(fontSize: 10.5, color: _kGreen)),
+                  style: TextStyle(fontSize: 10.5, color: _kGreen)),
           ])),
           SizedBox(
             width: widget.statusW,
@@ -1170,7 +1183,7 @@ class _PlanCardState extends State<_PlanCard> {
             Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(p.name, style: const TextStyle(
+                Text(p.name, style: TextStyle(
                     color: _kText, fontSize: 13.5, fontWeight: FontWeight.w800),
                     overflow: TextOverflow.ellipsis),
                 Text(p.priceLabel, style: TextStyle(
@@ -1246,7 +1259,7 @@ class _PlanCardState extends State<_PlanCard> {
     children: [
       Icon(icon, size: 12, color: color),
       const SizedBox(width: 4),
-      Text(label, style: const TextStyle(
+      Text(label, style: TextStyle(
           color: _kMuted, fontSize: 11.5, fontWeight: FontWeight.w600)),
     ],
   );
@@ -1305,12 +1318,12 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(vertical: 64),
     alignment: Alignment.center,
-    child: const Column(mainAxisSize: MainAxisSize.min, children: [
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
       Icon(Icons.inventory_2_rounded, size: 56, color: _kBorder),
-      SizedBox(height: 16),
+      const SizedBox(height: 16),
       Text('Aucun plan trouvé', style: TextStyle(
           color: _kText, fontSize: 16, fontWeight: FontWeight.w700)),
-      SizedBox(height: 6),
+      const SizedBox(height: 6),
       Text('Modifiez vos filtres ou créez un nouveau plan.',
           style: TextStyle(color: _kMuted, fontSize: 13)),
     ]),
@@ -1335,7 +1348,7 @@ class _SectionTitle extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Text(text,
-      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
           color: _kMuted, letterSpacing: 0.5));
 }
 
@@ -1365,7 +1378,7 @@ class _FormField extends StatelessWidget {
     keyboardType: keyboardType,
     maxLines:     maxLines,
     onChanged:    onChanged,
-    style: const TextStyle(fontSize: 13, color: _kText),
+    style: TextStyle(fontSize: 13, color: _kText),
     decoration: InputDecoration(
       labelText: label,
       hintText: hint,
@@ -1375,11 +1388,11 @@ class _FormField extends StatelessWidget {
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: _kBorder),
+        borderSide: BorderSide(color: _kBorder),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: _kNavy, width: 1.5),
+        borderSide: BorderSide(color: _kNavy, width: 1.5),
       ),
       contentPadding: const EdgeInsets.all(12),
     ),
@@ -1406,6 +1419,7 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
   final _descCtrl      = TextEditingController();
 
   String  _slug      = 'premium';
+  String  _period    = kDefaultBillingPeriod;
   bool    _isPublic  = false;
   bool    _isActive  = true;
   bool    _saving    = false;
@@ -1426,6 +1440,7 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
       _maxStaffCtrl.text    = p.maxStaff.toString();
       _descCtrl.text        = p.description ?? '';
       _slug                 = p.slug;
+      _period               = p.billingPeriod;
       _isPublic             = p.isPublicPlan;
       _isActive             = p.isActive;
       _loadingModules       = true;
@@ -1461,7 +1476,11 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
         'max_schools':    _parseInt(_maxSchoolsCtrl.text),
         'max_students':   _parseInt(_maxStudentsCtrl.text),
         'max_staff':      _parseInt(_maxStaffCtrl.text),
-        'module_count':   _selectedModules.length,
+        'billing_period': _period,
+        // `module_count` n'est PAS envoyé : depuis la migration 0076 il est
+        // recalculé par trigger à partir de `plan_modules`. Deux écrivains pour
+        // un même fait, c'était la dérive garantie — le plan « pro » annonçait
+        // 26 modules et en donnait 28.
         'description':    _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
         'is_public_plan': _isPublic,
         'is_active':      _isActive,
@@ -1494,7 +1513,7 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur : $e'),
+        content: Text(messageErreur(e)),
         backgroundColor: _kRed,
         behavior: SnackBarBehavior.floating,
       ));
@@ -1526,16 +1545,16 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
           // En-tête
           Container(
             padding: const EdgeInsets.fromLTRB(22, 16, 16, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            decoration: BoxDecoration(
+              color: kCardBg,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               border: Border(bottom: BorderSide(color: _kBorder)),
             ),
             child: Row(children: [
               Container(
                 width: 38, height: 38,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF1A2F5A), _kNavy]),
+                  gradient: LinearGradient(colors: [const Color(0xFF1A2F5A), _kNavy]),
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [BoxShadow(color: _kNavy.withValues(alpha: 0.25),
                       blurRadius: 8, offset: const Offset(0, 3))],
@@ -1549,11 +1568,11 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(
                   _isEditing ? 'Modifier le plan' : 'Nouveau plan',
-                  style: const TextStyle(color: _kText, fontSize: 15, fontWeight: FontWeight.w800),
+                  style: TextStyle(color: _kText, fontSize: 15, fontWeight: FontWeight.w800),
                 ),
                 Text(
                   _isEditing ? 'Mise à jour de la tarification' : 'Définissez tarifs et quotas',
-                  style: const TextStyle(color: _kMuted, fontSize: 11),
+                  style: TextStyle(color: _kMuted, fontSize: 11),
                 ),
               ]),
               const Spacer(),
@@ -1568,7 +1587,7 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: _kBorder),
                   ),
-                  child: const Icon(Icons.close_rounded, size: 15, color: _kMuted),
+                  child: Icon(Icons.close_rounded, size: 15, color: _kMuted),
                 ),
               ),
             ]),
@@ -1600,8 +1619,8 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
                       child: DropdownButton<String>(
                         value: _slug,
                         isExpanded: true,
-                        icon: const Icon(Icons.expand_more_rounded, size: 18, color: _kMuted),
-                        style: const TextStyle(color: _kText, fontSize: 13),
+                        icon: Icon(Icons.expand_more_rounded, size: 18, color: _kMuted),
+                        style: TextStyle(color: _kText, fontSize: 13),
                         items: _slugLabels.entries.map((e) => DropdownMenuItem(
                           value: e.key,
                           child: Row(children: [
@@ -1615,16 +1634,34 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _FormField(
-                    controller: _priceCtrl,
-                    label: 'Prix mensuel (FCFA) *',
-                    icon: Icons.payments_rounded,
-                    keyboardType: TextInputType.number,
-                    hint: '0 = gratuit',
-                    onChanged: (_) => setState(() {}),
-                    validator: (v) => int.tryParse(v!.trim().replaceAll(' ', '')) == null
-                        ? 'Nombre requis' : null,
-                  ),
+                  // Le tarif et sa durée vont ensemble : un montant sans période
+                  // ne veut rien dire, et c'est exactement l'ambiguïté qui
+                  // faisait facturer un « prix mensuel » pour douze mois.
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(
+                      flex: 3,
+                      child: _FormField(
+                        controller: _priceCtrl,
+                        label: 'Tarif (FCFA) *',
+                        icon: Icons.payments_rounded,
+                        keyboardType: TextInputType.number,
+                        hint: '0 = gratuit',
+                        onChanged: (_) => setState(() {}),
+                        validator: (v) =>
+                            int.tryParse(v!.trim().replaceAll(' ', '')) == null
+                                ? 'Nombre requis'
+                                : null,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(flex: 2, child: PlanPeriodPicker(
+                      value: _period,
+                      onChanged: (v) => setState(() => _period = v),
+                    )),
+                  ]),
+                  const SizedBox(height: 6),
+                  PlanPriceEquivalence(
+                      priceXaf: _parseInt(_priceCtrl.text), period: _period),
                   const SizedBox(height: 14),
                   const _SectionTitle('Quotas & Limites'),
                   const SizedBox(height: 10),
@@ -1635,7 +1672,7 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
                       icon: Icons.school_rounded,
                       keyboardType: TextInputType.number,
                       hint: '-1 = illimité',
-                      validator: (v) => int.tryParse(v!.trim()) == null ? 'Requis' : null,
+                      validator: validatePlanQuota,
                     )),
                     const SizedBox(width: 12),
                     Expanded(child: _FormField(
@@ -1643,7 +1680,8 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
                       label: 'Élèves max *',
                       icon: Icons.groups_rounded,
                       keyboardType: TextInputType.number,
-                      validator: (v) => int.tryParse(v!.trim()) == null ? 'Requis' : null,
+                      hint: '-1 = illimité',
+                      validator: validatePlanQuota,
                     )),
                   ]),
                   const SizedBox(height: 14),
@@ -1652,7 +1690,8 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
                     label: 'Personnel max *',
                     icon: Icons.badge_rounded,
                     keyboardType: TextInputType.number,
-                    validator: (v) => int.tryParse(v!.trim()) == null ? 'Requis' : null,
+                    hint: '-1 = illimité',
+                    validator: validatePlanQuota,
                   ),
                   const SizedBox(height: 14),
                   _SectionTitle('Modules inclus (${_selectedModules.length})'),
@@ -1700,10 +1739,10 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
           // Footer
           Container(
             padding: const EdgeInsets.fromLTRB(22, 12, 22, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: _kSurface,
               border: Border(top: BorderSide(color: _kBorder)),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
             ),
             child: Row(children: [
               MouseRegion(
@@ -1717,7 +1756,7 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
                       border: Border.all(color: _kBorder),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Text('Annuler', style: TextStyle(
+                    child: Text('Annuler', style: TextStyle(
                         color: _kMuted, fontSize: 13, fontWeight: FontWeight.w600)),
                   ),
                 ),
@@ -1784,9 +1823,9 @@ class _SwitchRow extends StatelessWidget {
       Icon(icon, size: 16, color: value ? _kGreen : _kMuted),
       const SizedBox(width: 10),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(
+        Text(label, style: TextStyle(
             color: _kText, fontSize: 13, fontWeight: FontWeight.w600)),
-        Text(sub, style: const TextStyle(color: _kMuted, fontSize: 11)),
+        Text(sub, style: TextStyle(color: _kMuted, fontSize: 11)),
       ])),
       Switch(
         value: value,
@@ -1819,7 +1858,7 @@ class _ModulePickerBox extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: _kBorder),
         ),
-        child: const Center(child: SizedBox(width: 22, height: 22,
+        child: Center(child: SizedBox(width: 22, height: 22,
             child: CircularProgressIndicator(strokeWidth: 2, color: _kNavy))),
       );
     }
@@ -1831,7 +1870,7 @@ class _ModulePickerBox extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: _kBorder),
         ),
-        child: const Text('Aucun module disponible.',
+        child: Text('Aucun module disponible.',
             style: TextStyle(color: _kMuted, fontSize: 12)),
       );
     }
@@ -1929,16 +1968,16 @@ class _PlanDetailModalState extends ConsumerState<_PlanDetailModal>
           // Header
           Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 14, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            decoration: BoxDecoration(
+              color: kCardBg,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               border: Border(bottom: BorderSide(color: _kBorder)),
             ),
             child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
               _PlanGlyph(slug: p.slug, size: 66),
               const SizedBox(width: 14),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(p.name, style: const TextStyle(
+                Text(p.name, style: TextStyle(
                     color: _kText, fontSize: 17, fontWeight: FontWeight.w800),
                     overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 5),
@@ -2005,7 +2044,7 @@ class _PlanDetailModalState extends ConsumerState<_PlanDetailModal>
           // Footer
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(top: BorderSide(color: _kBorder)),
             ),
             child: Row(children: [
@@ -2062,7 +2101,9 @@ class _PlanInfoTab extends StatelessWidget {
         const _PlanSectionTitle('Tarification'),
         const SizedBox(height: 8),
         _PlanDetailCard([
-          _PlanDetailRow(Icons.payments_outlined, 'Prix mensuel', p.priceLabel),
+          _PlanDetailRow(Icons.payments_outlined, 'Tarif', p.priceLabel),
+          _PlanDetailRow(Icons.event_repeat_rounded, 'Périodicité',
+              p.periodLabel),
           _PlanDetailRow(Icons.category_outlined, 'Type', _slugLabel(p.slug)),
           _PlanDetailRow(Icons.trending_up_rounded, 'Revenu mensuel généré',
               '${moneyXaf(p.monthlyRevenue)} FCFA', last: true),
@@ -2072,10 +2113,9 @@ class _PlanInfoTab extends StatelessWidget {
         const SizedBox(height: 8),
         _PlanDetailCard([
           _PlanDetailRow(Icons.school_rounded, 'Écoles max', p.maxSchoolsLabel),
-          _PlanDetailRow(Icons.groups_rounded, 'Élèves max',
-              p.maxStudents < 0 ? 'Illimité' : moneyXaf(p.maxStudents)),
-          _PlanDetailRow(Icons.badge_rounded, 'Personnel max',
-              p.maxStaff < 0 ? 'Illimité' : moneyXaf(p.maxStaff), last: true),
+          _PlanDetailRow(Icons.groups_rounded, 'Élèves max', p.maxStudentsLabel),
+          _PlanDetailRow(Icons.badge_rounded, 'Personnel max', p.maxStaffLabel,
+              last: true),
         ]),
         const SizedBox(height: 14),
         Row(children: [
@@ -2104,7 +2144,7 @@ class _PlanInfoTab extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: _kBorder),
             ),
-            child: Text(p.description!, style: const TextStyle(
+            child: Text(p.description!, style: TextStyle(
                 color: _kText, fontSize: 12.5, height: 1.5)),
           ),
         ],
@@ -2144,8 +2184,8 @@ class _PlanModulesTab extends ConsumerWidget {
           future: fetchPlanModuleIds(ref, p.id),
           builder: (context, snap) {
             if (!snap.hasData) {
-              return const Padding(
-                padding: EdgeInsets.all(20),
+              return Padding(
+                padding: const EdgeInsets.all(20),
                 child: Center(child: SizedBox(width: 22, height: 22,
                     child: CircularProgressIndicator(strokeWidth: 2, color: _kNavy))),
               );
@@ -2160,7 +2200,7 @@ class _PlanModulesTab extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: _kBorder),
                 ),
-                child: const Text('Aucun module rattaché à ce plan.',
+                child: Text('Aucun module rattaché à ce plan.',
                     style: TextStyle(color: _kMuted, fontSize: 12.5)),
               );
             }
@@ -2174,11 +2214,11 @@ class _PlanModulesTab extends ConsumerWidget {
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 const Icon(Icons.widgets_rounded, size: 13, color: _kPurple),
                 const SizedBox(width: 6),
-                Text(m.name, style: const TextStyle(
+                Text(m.name, style: TextStyle(
                     color: _kText, fontSize: 11.5, fontWeight: FontWeight.w600)),
                 if (m.categoryName.isNotEmpty) ...[
                   const SizedBox(width: 4),
-                  Text('· ${m.categoryName}', style: const TextStyle(
+                  Text('· ${m.categoryName}', style: TextStyle(
                       color: _kMuted, fontSize: 10)),
                 ],
               ]),
@@ -2301,12 +2341,12 @@ class _PlanDetailRow extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
     decoration: BoxDecoration(
-      border: last ? null : const Border(bottom: BorderSide(color: _kBorder)),
+      border: last ? null : Border(bottom: BorderSide(color: _kBorder)),
     ),
     child: Row(children: [
       Icon(icon, size: 15, color: _kNavy),
       const SizedBox(width: 10),
-      Text(label, style: const TextStyle(
+      Text(label, style: TextStyle(
           color: _kMuted, fontSize: 12, fontWeight: FontWeight.w600)),
       const Spacer(),
       Flexible(child: Text(value, style: TextStyle(
@@ -2334,8 +2374,8 @@ class _PlanDetailRow extends StatelessWidget {
                 }
               },
               borderRadius: BorderRadius.circular(6),
-              child: const Padding(
-                padding: EdgeInsets.all(2),
+              child: Padding(
+                padding: const EdgeInsets.all(2),
                 child: Icon(Icons.copy_rounded, size: 13, color: _kNavy),
               ),
             ),
@@ -2374,7 +2414,7 @@ class _PlanSectionTitle extends StatelessWidget {
   const _PlanSectionTitle(this.text);
   final String text;
   @override
-  Widget build(BuildContext context) => Text(text, style: const TextStyle(
+  Widget build(BuildContext context) => Text(text, style: TextStyle(
       color: _kNavy, fontSize: 13, fontWeight: FontWeight.w800));
 }
 
@@ -2401,7 +2441,7 @@ class _PlanPrintPreviewModalState extends State<_PlanPrintPreviewModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur impression : $e'),
+        content: Text(messageErreur(e, contexte: 'Impression')),
         backgroundColor: _kRed, behavior: SnackBarBehavior.floating,
       ));
       }
@@ -2432,7 +2472,7 @@ class _PlanPrintPreviewModalState extends State<_PlanPrintPreviewModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur téléchargement : $e'),
+        content: Text(messageErreur(e, contexte: 'Téléchargement')),
         backgroundColor: _kRed, behavior: SnackBarBehavior.floating,
       ));
       }
@@ -2460,9 +2500,9 @@ class _PlanPrintPreviewModalState extends State<_PlanPrintPreviewModal> {
         child: Column(children: [
           Container(
             padding: const EdgeInsets.fromLTRB(22, 14, 14, 14),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: _kNavy,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
             ),
             child: Row(children: [
               Container(
@@ -2510,9 +2550,9 @@ class _PlanPrintPreviewModalState extends State<_PlanPrintPreviewModal> {
           ),
           Container(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
+            decoration: BoxDecoration(
+              color: kCardBg,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(18)),
               border: Border(top: BorderSide(color: _kBorder)),
             ),
             child: Row(children: [
@@ -2527,9 +2567,9 @@ class _PlanPrintPreviewModalState extends State<_PlanPrintPreviewModal> {
                       border: Border.all(color: _kBorder),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.close_rounded, size: 13, color: _kMuted),
-                      SizedBox(width: 5),
+                      const SizedBox(width: 5),
                       Text('Fermer', style: TextStyle(
                           color: _kMuted, fontSize: 12.5, fontWeight: FontWeight.w600)),
                     ]),
@@ -2552,13 +2592,13 @@ class _PlanPrintPreviewModalState extends State<_PlanPrintPreviewModal> {
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       if (_printing)
-                        const SizedBox(width: 13, height: 13,
+                        SizedBox(width: 13, height: 13,
                             child: CircularProgressIndicator(strokeWidth: 2, color: _kNavy))
                       else
-                        const Icon(Icons.print_rounded, size: 14, color: _kNavy),
+                        Icon(Icons.print_rounded, size: 14, color: _kNavy),
                       const SizedBox(width: 6),
                       Text(_printing ? 'Impression…' : 'Imprimer',
-                          style: const TextStyle(color: _kNavy, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                          style: TextStyle(color: _kNavy, fontSize: 12.5, fontWeight: FontWeight.w700)),
                     ]),
                   ),
                 ),
@@ -2649,8 +2689,8 @@ class _DeletePlanDialogState extends State<_DeletePlanDialog> {
                   child: const Icon(Icons.warning_rounded, color: _kRed, size: 22),
                 ),
                 const SizedBox(width: 12),
-                const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Suppression du plan',
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Suppression du plan',
                       style: TextStyle(color: _kRed, fontSize: 16, fontWeight: FontWeight.w800)),
                   Text('Cette action est irréversible',
                       style: TextStyle(color: _kMuted, fontSize: 11.5)),
@@ -2668,9 +2708,9 @@ class _DeletePlanDialogState extends State<_DeletePlanDialog> {
                   _PlanGlyph(slug: p.slug, size: 42),
                   const SizedBox(width: 12),
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(p.name, style: const TextStyle(
+                    Text(p.name, style: TextStyle(
                         fontWeight: FontWeight.w700, fontSize: 14, color: _kText)),
-                    Text(p.priceLabel, style: const TextStyle(fontSize: 12, color: _kMuted)),
+                    Text(p.priceLabel, style: TextStyle(fontSize: 12, color: _kMuted)),
                     const SizedBox(height: 4),
                     _SlugBadge(slug: p.slug),
                   ]),
@@ -2710,7 +2750,7 @@ class _DeletePlanDialogState extends State<_DeletePlanDialog> {
                           : null,
                     ),
                     const SizedBox(width: 10),
-                    const Expanded(child: Text(
+                    Expanded(child: Text(
                       'Je confirme vouloir supprimer définitivement ce plan',
                       style: TextStyle(fontSize: 12.5, color: _kText),
                     )),
@@ -2730,7 +2770,7 @@ class _DeletePlanDialogState extends State<_DeletePlanDialog> {
                         border: Border.all(color: _kBorder),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text('Annuler', style: TextStyle(
+                      child: Text('Annuler', style: TextStyle(
                           color: _kMuted, fontSize: 13, fontWeight: FontWeight.w600)),
                     ),
                   ),

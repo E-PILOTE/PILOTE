@@ -3,28 +3,40 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../data/models/class_model.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/classes/providers/class_provider.dart';
 import '../../../features/structure/providers/academic_year_context.dart';
 import '../../../features/structure/providers/academic_year_provider.dart';
+import '../../navigation/widgets/module_scaffold.dart';
+import '../models/eleve_libelles.dart';
+import '../models/tutor_draft.dart';
+import '../widgets/fiche_inscription_actions.dart';
 import '../widgets/inscription_form_kit.dart';
+import '../widgets/national_lookup_panel.dart';
+import '../providers/frais_inscription_provider.dart';
 import '../providers/inscriptions_data_provider.dart';
 import '../providers/student_documents_provider.dart';
+import '../../../services/powersync/student_document_upload.dart'
+    show queueStudentDocumentFile;
 import '../providers/student_tutors_provider.dart';
+import '../providers/student_match_provider.dart';
 import '../providers/students_provider.dart';
+import '../../../services/powersync/powersync_service.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'add_inscription_steps_1_2.dart';
 part 'add_inscription_steps_3_5.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const _kNavy   = Color(0xFF1E3A5F);
-const _kGreen  = Color(0xFF009A44);
-const _kRed    = Color(0xFFDC2626);
-const _kMuted  = Color(0xFF64748B);
-const _kText   = Color(0xFF0F172A);
-const _kBorder = Color(0xFFE2E8F0);
+Color get _kNavy => kNavy;
+Color get _kGreen => kGreen;
+Color get _kRed => kRed;
+Color get _kMuted => kTextMuted;
+Color get _kText => kTextPrimary;
+Color get _kBorder => kBorder;
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -53,6 +65,27 @@ class _InscriptionState {
   String? bloodGroup;
   String? allergies;
 
+  /// Renseigné quand le secrétariat reconnaît un élève DÉJÀ présent dans
+  /// l'école : on n'écrit alors ni fiche élève ni tuteurs — seulement la
+  /// nouvelle inscription. C'est la vraie réinscription. Sans cela, le même
+  /// enfant repartait avec un second matricule et un dossier vierge.
+  String? existingStudentId;
+  String? existingStudentName;
+
+  bool get reusesExistingStudent => existingStudentId != null;
+
+  /// L'identifiant sous lequel l'inscription sera écrite.
+  String get effectiveStudentId => existingStudentId ?? studentId;
+
+  /// Identifiant national repris d'un élève reconnu dans une AUTRE école.
+  ///
+  /// Cas distinct de [existingStudentId] : là, l'enfant est déjà chez nous et
+  /// on réutilise sa fiche. Ici, il arrive d'ailleurs — on crée bien une fiche
+  /// neuve, mais elle porte l'identifiant qu'il avait déjà. C'est ce qui fait
+  /// que sa scolarité ne se coupe pas en deux au passage de la frontière entre
+  /// deux établissements.
+  String? claimedIne;
+
   // Étape 2 — Tuteurs
   final List<_TutorEntry> tutors = [
     _TutorEntry(isPrimary: true),
@@ -71,6 +104,25 @@ class _InscriptionState {
 
   // Étape 4 — Documents (pièces réellement téléversées du dossier élève)
   final Map<String, _DocEntry> uploadedDocs = {};
+
+  // ── CE QUI A DÉJÀ ÉTÉ ÉCRIT, SI UN ENREGISTREMENT A ÉCHOUÉ EN COURS ───────
+  //
+  // ⚠️ L'enregistrement écrit QUATRE choses à la suite : l'élève, ses tuteurs,
+  // l'inscription, ses pièces. Rien ne les réunit en transaction. Si la
+  // troisième échouait — classe supprimée entre-temps, quota, base verrouillée
+  // — l'élève et ses tuteurs étaient DÉJÀ écrits, et le bandeau invitait à
+  // réessayer. Le second essai rappelait `createStudent` avec le MÊME
+  // identifiant, généré à l'ouverture de l'assistant : violation de clé
+  // primaire, échec définitif. Le secrétariat n'avait plus qu'à fermer la
+  // fenêtre — en perdant toute la saisie — et l'école gardait un élève sans
+  // inscription, visible au registre et décompté du quota.
+  //
+  // On retient donc ce qui a abouti, pour que la reprise continue là où elle
+  // s'est arrêtée au lieu de tout rejouer.
+  bool studentWritten = false;
+  bool tutorsWritten = false;
+  String? enrollmentId;
+  final Set<String> docsWritten = {};
 }
 
 /// Une pièce du dossier téléversée (chemin Storage prêt à être persisté au submit).
@@ -84,19 +136,9 @@ class _DocEntry {
   final String typeSlug, label, fileName, path;
 }
 
-class _TutorEntry {
-  _TutorEntry({this.isPrimary = false});
-  String  firstName    = '';
-  String  lastName     = '';
-  String  relationship = 'mere';
-  String  phonePrimary = '';
-  String? phoneSecondary;
-  String? email;
-  String? profession;
-  String? address;
-  bool    isPrimary;
-  bool    isEmergency  = false;
-}
+/// La fiche tuteur et sa règle de validation vivent dans `models/tutor_draft.dart`
+/// pour être testables hors widget (perte silencieuse — cf. l'en-tête du fichier).
+typedef _TutorEntry = TutorDraft;
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -116,6 +158,15 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
   String? _error;
 
   static const _steps = ['Élève', 'Parents', 'Scolarité', 'Documents', 'Résumé'];
+
+  @override
+  void initState() {
+    super.initState();
+    // L'inscription porte l'année EN COURS, la seule dont l'étape 3 sait
+    // proposer les classes. On la fixe ici plutôt que de la faire choisir :
+    // le formulaire ne peut honorer aucun autre choix.
+    _state.academicYearId = ref.read(activeYearIdProvider);
+  }
 
   @override
   void dispose() {
@@ -156,6 +207,12 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
           return 'La date de naissance est obligatoire.';
         }
         return null;
+      // La règle est dans `models/tutor_draft.dart` : elle refuse une fiche
+      // entamée mais incomplète au lieu de la sauter en silence.
+      case 1:
+        // Un élève déjà connu a ses tuteurs en base : rien à exiger ici.
+        if (_state.reusesExistingStudent) return null;
+        return validateTutorDrafts(_state.tutors);
       case 2: // Scolarité — l'affectation porte l'année et la classe
         if (_state.academicYearId == null) {
           return "Sélectionnez l'année scolaire.";
@@ -200,30 +257,95 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
       return;
     }
 
+    // Verrou LICENCE : abonnement expiré au-delà de la grâce ⇒ lecture seule.
+    // L'assistant affiche ses erreurs dans son propre bandeau, pas en snackbar :
+    // un message qui disparaît au bout de quatre secondes derrière un modal
+    // plein écran n'est pas un refus, c'est un clignotement.
+    if (writeBlockedByLicense) {
+      setState(() {
+        _submitting = false;
+        _error = kReadOnlyWriteMessage;
+      });
+      return;
+    }
+
     // Dernier rempart : champs NOT NULL (identité + affectation) — évite la
     // perte silencieuse à la synchro si une étape a été contournée.
-    final missing = _validateStep(0) ?? _validateStep(2);
+    final missing =
+        _validateStep(0) ?? _validateStep(1) ?? _validateStep(2);
     if (missing != null) {
       setState(() { _submitting = false; _error = missing; });
       return;
     }
 
-    try {
-      // Vérifier quota avant création offline
-      final quotaError = await checkStudentQuota(
-        schoolId: profile.schoolId ?? '',
-        groupId:  profile.groupId  ?? '',
+    // Rattachement de l'agent : sans école ni groupe, l'élève, ses tuteurs ET
+    // son inscription partiraient avec des identifiants vides — le serveur
+    // rejetterait le lot PowerSync ENTIER, silencieusement. On refuse ici, en
+    // le disant.
+    final missingIds = missingWriteIds(
+      groupId:  profile.groupId,
+      schoolId: profile.schoolId,
+      actorId:  profile.id,
+    );
+    if (missingIds.isNotEmpty) {
+      setState(() {
+        _submitting = false;
+        _error      = writeIdentityMessage(missingIds);
+      });
+      return;
+    }
+
+    // ── RÉINSCRIPTION D'UN ÉLÈVE DÉJÀ CONNU ────────────────────────────────
+    // `class_enrollments` porte `UNIQUE (student_id, academic_year_id)`. Une
+    // seconde inscription du même élève sur la même année serait rejetée par
+    // le serveur (23505) — et un code fatal fait abandonner à PowerSync le LOT
+    // ENTIER : l'inscription, les pièces, et tout ce qui aurait été saisi dans
+    // la même fenêtre disparaîtraient sans un mot. On vérifie donc en local
+    // AVANT d'écrire quoi que ce soit.
+    if (_state.reusesExistingStudent) {
+      final existing = await db.getAll(
+        'SELECT status FROM class_enrollments '
+        'WHERE student_id = ? AND academic_year_id = ? LIMIT 1',
+        [_state.existingStudentId, _state.academicYearId],
       );
-      if (quotaError != null) {
-        setState(() { _submitting = false; _error = quotaError; });
+      if (existing.isNotEmpty) {
+        setState(() {
+          _submitting = false;
+          _error = '${_state.existingStudentName ?? 'Cet élève'} a déjà une '
+              'inscription pour cette année scolaire. Ouvrez son dossier depuis '
+              'la page Élèves pour le modifier.';
+        });
         return;
       }
+    }
 
-      // Créer l'élève (id généré en amont = chemin du dossier documentaire)
-      final studentId = await createStudent(
+    try {
+      // Le quota compte les ÉLÈVES : réinscrire un élève déjà présent n'en
+      // ajoute aucun, la vérification n'a donc pas lieu d'être.
+      if (!_state.reusesExistingStudent) {
+        final quotaError = await checkStudentQuota(
+          schoolId: profile.schoolId!,
+          groupId:  profile.groupId!,
+        );
+        if (quotaError != null) {
+          setState(() { _submitting = false; _error = quotaError; });
+          return;
+        }
+      }
+
+      // Créer l'élève (id généré en amont = chemin du dossier documentaire),
+      // sauf s'il s'agit d'un élève déjà présent : son identité et ses tuteurs
+      // existent, les réécrire créerait le doublon qu'on cherche à éviter.
+      //
+      // `studentWritten` couvre la REPRISE après un échec plus loin : l'élève
+      // est déjà en base, le réécrire échouerait sur sa clé primaire.
+      final studentId = _state.reusesExistingStudent || _state.studentWritten
+          ? _state.effectiveStudentId
+          : await createStudent(
         id:                 _state.studentId,
-        schoolId:           profile.schoolId ?? '',
-        groupId:            profile.groupId  ?? '',
+        schoolId:           profile.schoolId!,
+        groupId:            profile.groupId!,
+        claimedIne:         _state.claimedIne,
         firstName:          _state.firstName,
         lastName:           _state.lastName,
         dateOfBirth:        _state.dateOfBirth != null
@@ -246,15 +368,20 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
         socialAidType:      _state.socialAidType,
         isAffecte:          _state.isAffecte,
       );
+      _state.studentWritten = true;
 
-      // Créer les tuteurs
-      for (final t in _state.tutors) {
-        if (t.firstName.isEmpty || t.lastName.isEmpty || t.phonePrimary.isEmpty) {
-          continue;
-        }
+      // Créer les tuteurs — l'élève déjà connu a les siens.
+      // Seules les fiches JAMAIS remplies sont écartées : une fiche partielle
+      // a déjà été refusée à l'étape 2, elle ne peut plus se perdre ici.
+      for (final t in _state.reusesExistingStudent || _state.tutorsWritten
+          ? const <_TutorEntry>[]
+          : tutorsToPersist(_state.tutors)) {
         await addTutor(
           studentId:         studentId,
-          groupId:           profile.groupId ?? '',
+          groupId:           profile.groupId!,
+          // Non-nuls par construction : `missingWriteIds` en tête de `_save`
+          // a refusé l'enregistrement si l'un des deux manquait.
+          schoolId:          profile.schoolId!,
           firstName:         t.firstName,
           lastName:          t.lastName,
           relationship:      t.relationship,
@@ -267,12 +394,16 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
           isEmergencyContact: t.isEmergency,
         );
       }
+      _state.tutorsWritten = true;
 
       // Créer l'inscription (pending_validation)
-      if (_state.classId != null && _state.academicYearId != null) {
-        await enrollStudent(
-          schoolId:           profile.schoolId ?? '',
-          groupId:            profile.groupId  ?? '',
+      var enrollmentId = _state.enrollmentId;
+      if (enrollmentId == null &&
+          _state.classId != null &&
+          _state.academicYearId != null) {
+        enrollmentId = await enrollStudent(
+          schoolId:           profile.schoolId!,
+          groupId:            profile.groupId!,
           studentId:          studentId,
           classId:            _state.classId!,
           academicYearId:     _state.academicYearId!,
@@ -285,25 +416,45 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
           notes:              _state.notes,
           createdBy:          profile.id,
         );
+        _state.enrollmentId = enrollmentId;
       }
 
       // Persister les pièces du dossier déjà téléversées (offline-first).
+      // `docsWritten` évite qu'une reprise ne réinscrive en double les pièces
+      // déjà enregistrées — l'élève se retrouverait avec deux actes de
+      // naissance identiques dans son dossier.
       for (final d in _state.uploadedDocs.values) {
+        if (_state.docsWritten.contains(d.typeSlug)) continue;
         await insertStudentDocumentRow(
-          groupId:      profile.groupId ?? '',
-          schoolId:     profile.schoolId ?? '',
+          groupId:      profile.groupId!,
+          schoolId:     profile.schoolId!,
           studentId:    studentId,
           documentType: d.typeSlug,
           documentName: d.label,
           fileUrl:      d.path,
         );
+        _state.docsWritten.add(d.typeSlug);
+      }
+
+      // ── LA FAMILLE EST ENCORE DEVANT LE GUICHET ──────────────────────────
+      // L'assistant se refermait sur un message et rien d'autre. Pour obtenir
+      // le récépissé, il fallait retrouver le dossier dans la liste, l'ouvrir,
+      // cliquer — après le départ de la famille, le plus souvent. Le papier se
+      // propose donc AU MOMENT où il sert.
+      //
+      // ⚠️ AVANT la fermeture, et non par un bouton de bandeau : une fois
+      // l'assistant démonté, son `context` et son `ref` ne valent plus rien, et
+      // l'aperçu ne pourrait plus s'ouvrir. La proposition se refuse d'un clic ;
+      // c'est le prix d'un geste qui, lui, fonctionne.
+      if (mounted && enrollmentId != null) {
+        await _proposerFiche(enrollmentId);
       }
 
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Inscription créée — en attente de validation'),
+          SnackBar(
+            content: const Text('Inscription créée — en attente de validation'),
             backgroundColor: _kGreen,
           ),
         );
@@ -311,9 +462,54 @@ class _AddInscriptionScreenState extends ConsumerState<AddInscriptionScreen> {
     } catch (e) {
       setState(() {
         _submitting = false;
-        _error      = e.toString();
+        // `e.toString()` mettait une erreur SQLite ou PostgREST brute sous les
+        // yeux d'une secrétaire — « SqliteException(2067): UNIQUE constraint
+        // failed ». `messageErreur` est déjà importé ici et utilisé par les
+        // étapes 3 et 5 du même assistant ; seul le chemin d'enregistrement,
+        // celui qui échoue vraiment, ne s'en servait pas.
+        _error = _state.studentWritten
+            // Une reprise ne recommencera pas ce qui a abouti : on le dit,
+            // sinon « réessayer » ressemble à « créer un second dossier ».
+            ? '${messageErreur(e)}\n\nRien n\'est perdu : réessayez, '
+                'l\'enregistrement reprendra où il s\'est arrêté.'
+            : messageErreur(e);
       });
     }
+  }
+
+  /// Propose le récépissé sans l'imposer.
+  ///
+  /// L'inscription est DÉJÀ enregistrée quand cette boîte s'ouvre : refuser,
+  /// fermer, ou une panne d'impression ne peuvent plus rien lui faire.
+  Future<void> _proposerFiche(String enrollmentId) async {
+    final imprimer = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        icon: Icon(Icons.check_circle_rounded, color: _kGreen, size: 38),
+        title: const Text('Inscription enregistrée'),
+        content: const Text(
+          'Remettre la fiche d\'inscription à la famille ? Elle porte '
+          'l\'identifiant national de l\'élève, sa classe et le détail des '
+          'frais.',
+          textAlign: TextAlign.center,
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Plus tard')),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: _kGreen),
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.print_rounded, size: 18),
+            label: const Text('Imprimer la fiche'),
+          ),
+        ],
+      ),
+    );
+    if (imprimer != true || !mounted) return;
+    await ouvrirFichePourInscription(context, ref, enrollmentId);
   }
 
   @override

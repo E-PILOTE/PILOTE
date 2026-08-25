@@ -5,6 +5,8 @@ import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
 
+export '../../../core/utils/discipline_vocab.dart';
+
 const _uuid = Uuid();
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -14,34 +16,9 @@ const _uuid = Uuid();
 //  l'inscription active de l'élève. 100% offline.
 // ════════════════════════════════════════════════════════════════════════════
 
-const kIncidentTypes = <(String, String)>[
-  ('retard_repete', 'Retards répétés'),
-  ('absence_injustifiee', 'Absence injustifiée'),
-  ('indiscipline', 'Indiscipline en classe'),
-  ('violence', 'Violence / bagarre'),
-  ('triche', 'Tricherie'),
-  ('degradation', 'Dégradation de matériel'),
-  ('manque_respect', 'Manque de respect'),
-  ('autre', 'Autre'),
-];
-
-const kSanctions = <(String, String)>[
-  ('avertissement', 'Avertissement'),
-  ('travail_supplementaire', 'Travail supplémentaire'),
-  ('retenue', 'Retenue'),
-  ('exclusion_cours', 'Exclusion de cours'),
-  ('exclusion_temporaire', 'Exclusion temporaire'),
-  ('convocation_parents', 'Convocation des parents'),
-  ('conseil_discipline', 'Conseil de discipline'),
-  ('aucune', 'Aucune'),
-];
-
-String incidentTypeLabel(String? t) => kIncidentTypes
-    .firstWhere((e) => e.$1 == t, orElse: () => ('autre', 'Autre'))
-    .$2;
-String sanctionLabel(String? s) => s == null || s.isEmpty
-    ? '—'
-    : kSanctions.firstWhere((e) => e.$1 == s, orElse: () => (s, s)).$2;
+// Types d'incidents et sanctions : déplacés dans `core/utils/discipline_vocab`
+// pour que le ministère (online) puisse relire les mêmes libellés sans importer
+// PowerSync. Ré-exportés ici — les écrans Vie scolaire les voient inchangés.
 
 class DisciplineIncident {
   const DisciplineIncident({
@@ -165,4 +142,61 @@ Future<void> saveIncident({
 
 Future<void> deleteIncident(String id) async {
   await db.execute('DELETE FROM discipline_incidents WHERE id = ?', [id]);
+}
+
+// ─── L'exclusion définitive et l'inscription ────────────────────────────────
+// Une exclusion définitive met fin à la scolarité dans l'établissement. Tant
+// que rien ne fermait l'inscription, l'élève restait `active` : il continuait
+// de compter dans un effectif où il n'était plus, et le motif `exclusion`
+// (migration 0082) n'était jamais écrit — donc jamais compté nulle part.
+//
+// ⚠️ RIEN N'EST AUTOMATIQUE. Une exclusion est un acte de l'établissement : il
+// se prononce, il ne se déduit pas d'une case cochée. On PROPOSE, l'agent
+// décide, et il peut refuser sans que la sanction en soit affectée.
+
+/// L'inscription active de l'élève pour l'année, si elle existe.
+Future<({String id, String className})?> inscriptionActive(
+  String studentId,
+  String academicYearId,
+) async {
+  final rows = await db.getAll(
+    '''
+    SELECT e.id, COALESCE(c.name, '—') AS class_name
+      FROM class_enrollments e
+      LEFT JOIN classes c ON c.id = e.class_id
+     WHERE e.student_id = ? AND e.academic_year_id = ? AND e.status = 'active'
+     LIMIT 1
+    ''',
+    [studentId, academicYearId],
+  );
+  if (rows.isEmpty) return null;
+  return (
+    id: rows.first['id'] as String,
+    className: rows.first['class_name'] as String? ?? '—',
+  );
+}
+
+/// Ferme l'inscription à la suite d'une exclusion définitive.
+///
+/// Le motif est `exclusion` — celui de la nomenclature partagée avec le
+/// ministère. La date de la sanction fait foi quand elle est connue : c'est
+/// elle qui figure sur la décision, pas le jour de la saisie.
+Future<void> prononcerExclusion({
+  required String enrollmentId,
+  required String? sanctionDate,
+  String? motivation,
+}) async {
+  final now = DateTime.now().toIso8601String();
+  await db.execute(
+    '''
+    UPDATE class_enrollments
+       SET status            = 'withdrawn',
+           withdrawal_date   = ?,
+           withdrawal_motif  = 'exclusion',
+           withdrawal_reason = ?,
+           updated_at        = ?
+     WHERE id = ? AND status = 'active'
+    ''',
+    [sanctionDate ?? now.substring(0, 10), motivation, now, enrollmentId],
+  );
 }

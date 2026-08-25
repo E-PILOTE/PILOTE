@@ -2,21 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
-import '../../auth/providers/auth_provider.dart';
-import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
-import '../../structure/providers/academic_year_context.dart';
 import '../../vie_scolaire/widgets/vs_kit.dart';
-import '../../vie_scolaire/widgets/vs_form_chrome.dart';
 import '../providers/frais_provider.dart';
-
-part 'frais_form.dart';
+import '../../../core/utils/message_erreur.dart';
 
 const _kSlug = 'frais-scolarite';
 
 // ════════════════════════════════════════════════════════════════════════════
-//  FRAIS DE SCOLARITÉ — barèmes de frais de l'école. KPI hero → liste groupée
-//  par type → formulaire (nom, type, montant, échéance, niveau). 100% offline.
+//  FRAIS DE SCOLARITÉ — CONSULTATION.
+//
+//  Cet écran a créé, modifié et supprimé des barèmes jusqu'au 5 août 2026. Il
+//  ne fait plus que lire : un montant est un ACTE DU GROUPE (migration 0096,
+//  décision D2). Dans le public il vient d'un arrêté, dans le privé du siège —
+//  l'école est un exécutant.
+//
+//  Il affiche donc DEUX portées : le tarif du réseau (posé pour toutes les
+//  écoles) et celui posé pour cet établissement. Dans les deux cas l'auteur est
+//  le ministère. 100% offline.
 // ════════════════════════════════════════════════════════════════════════════
 class FraisScreen extends ConsumerWidget {
   const FraisScreen({super.key});
@@ -28,75 +31,42 @@ class FraisScreen extends ConsumerWidget {
       );
 }
 
-class _Body extends ConsumerStatefulWidget {
+class _Body extends ConsumerWidget {
   const _Body();
-  @override
-  ConsumerState<_Body> createState() => _BodyState();
-}
-
-class _BodyState extends ConsumerState<_Body> {
-  void _openForm({FeeStructure? fee}) => showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => _FeeForm(fee: fee),
-      );
-
-  Future<void> _delete(FeeStructure f) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: const Text('Supprimer ce barème ?'),
-        content: Text('« ${f.name} » (${fmtXaf(f.amount)}) sera retiré.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Annuler')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: kRed),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Supprimer'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-    await runModuleWrite(context, () => deleteFeeStructure(f.id),
-        success: 'Barème supprimé');
-  }
 
   int _maxOf(List<FeeStructure> all, String type) {
     final v = all.where((f) => f.feeType == type).map((f) => f.amount);
     return v.isEmpty ? 0 : v.reduce((a, b) => a > b ? a : b);
   }
 
+  /// Les frais annexes se CUMULENT — cantine, transport, tenue sont trois
+  /// choses, toutes dues (migration 0108). En afficher le maximum, comme pour
+  /// les autres types, annoncerait le plus cher des trois au lieu de leur
+  /// somme : le seul chiffre qui intéresse une famille du privé.
+  int _sommeAnnexes(List<FeeStructure> all) => all
+      .where((f) => f.feeType == 'autre')
+      .fold(0, (a, f) => a + f.amount);
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(feeStructuresProvider);
-    final canCreate = ref.watch(canProvider((slug: _kSlug, action: 'create')));
-    final canEdit = ref.watch(canProvider((slug: _kSlug, action: 'update')));
-    final canDelete = ref.watch(canProvider((slug: _kSlug, action: 'delete')));
-    final readOnly = ref.watch(yearReadOnlyProvider);
 
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (all) {
         return SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            VsHeader(
+            const VsHeader(
               title: 'Barèmes de frais',
-              subtitle: 'Frais de scolarité de l\'établissement (année en cours)',
-              trailing: (canCreate && !readOnly)
-                  ? _AddBtn(label: 'Barème', onTap: () => _openForm())
-                  : null,
+              subtitle: 'Tarifs définis par le ministère · consultation',
             ),
             const SizedBox(height: 20),
             VsHeroKpis(cards: [
               (Icons.request_quote_rounded, 'Barèmes', '${all.length}', kNavy,
-                  'actifs'),
+                  'applicables'),
               (Icons.how_to_reg_rounded, 'Inscription',
                   fmtCompact(_maxOf(all, 'inscription')),
                   const Color(0xFF0EA5E9), 'FCFA'),
@@ -105,31 +75,32 @@ class _BodyState extends ConsumerState<_Body> {
               (Icons.school_rounded, 'Examens',
                   fmtCompact(_maxOf(all, 'frais_examens')),
                   const Color(0xFF8B5CF6), 'FCFA'),
+              // Une carte de PLUS, jamais à la place d'une autre : masquer les
+              // examens dès qu'une école déclare une cantine lui retirerait un
+              // chiffre qu'elle lisait la veille.
+              if (_sommeAnnexes(all) > 0)
+                (Icons.local_dining_rounded, 'Frais annexes',
+                    fmtCompact(_sommeAnnexes(all)), kAccent, 'FCFA · total'),
             ]),
             const SizedBox(height: 18),
             if (all.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 30),
+              const Padding(
+                padding: EdgeInsets.only(top: 30),
+                // ⚠️ L'état vide doit DÉSIGNER QUI AGIT. Laisser l'école devant
+                // un mur, c'est la pousser à encaisser hors système — ce qui
+                // revient à ne rien encaisser du tout.
                 child: AdminEmptyState(
                   icon: Icons.request_quote_outlined,
-                  title: 'Aucun barème',
+                  title: 'Aucun tarif pour cette année',
                   message:
-                      'Définissez les frais de scolarité (inscription, mensualité, '
-                      'examens) pour pouvoir enregistrer les paiements des élèves.',
-                  actionLabel:
-                      (canCreate && !readOnly) ? 'Nouveau barème' : null,
-                  onAction: (canCreate && !readOnly) ? () => _openForm() : null,
+                      'Les frais de scolarité sont fixés par le ministère. Tant '
+                      'qu\'aucun tarif n\'est publié, aucun encaissement n\'est '
+                      'possible. Rapprochez-vous de votre administration de '
+                      'tutelle.',
                 ),
               )
             else
-              for (final f in all)
-                _FeeCard(
-                  fee: f,
-                  canEdit: canEdit && !readOnly,
-                  canDelete: canDelete && !readOnly,
-                  onEdit: () => _openForm(fee: f),
-                  onDelete: () => _delete(f),
-                ),
+              for (final f in all) _FeeCard(fee: f),
             const SizedBox(height: 24),
           ]),
         );
@@ -139,16 +110,29 @@ class _BodyState extends ConsumerState<_Body> {
 }
 
 class _FeeCard extends StatelessWidget {
-  const _FeeCard({
-    required this.fee,
-    required this.canEdit,
-    required this.canDelete,
-    required this.onEdit,
-    required this.onDelete,
-  });
+  const _FeeCard({required this.fee});
   final FeeStructure fee;
-  final bool canEdit, canDelete;
-  final VoidCallback onEdit, onDelete;
+
+  /// D'où vient ce tarif. L'école ne peut rien y changer, mais elle a le droit
+  /// de savoir si le montant vaut pour tout le réseau ou seulement pour elle —
+  /// c'est la première question posée quand un parent conteste.
+  Widget _puceScope(BaremeScope s) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+        decoration: BoxDecoration(
+          color: (s == BaremeScope.reseau ? kNavy : kAccent)
+              .withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Text(
+          s == BaremeScope.reseau ? 'Réseau' : 'Établissement',
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: s == BaremeScope.reseau ? kNavy : kAccent,
+          ),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final f = fee;
@@ -156,7 +140,7 @@ class _FeeCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: kCardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: kBorder),
       ),
@@ -167,7 +151,7 @@ class _FeeCard extends StatelessWidget {
           decoration: BoxDecoration(
               color: kNavy.withValues(alpha: 0.07),
               borderRadius: BorderRadius.circular(10)),
-          child: const Icon(Icons.request_quote_rounded, size: 20, color: kNavy),
+          child: Icon(Icons.request_quote_rounded, size: 20, color: kNavy),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -191,80 +175,38 @@ class _FeeCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(feeTypeLabel(f.feeType),
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w700,
                             color: kNavy)),
                   ),
+                  const SizedBox(width: 6),
+                  _puceScope(f.scope),
                 ]),
                 const SizedBox(height: 3),
                 Text(
                     '${f.levelName ?? 'Toute l\'école'}'
                     '${f.dueDay != null ? ' · échéance le ${f.dueDay}' : ''}',
-                    style: const TextStyle(fontSize: 12, color: kTextMuted)),
+                    style: TextStyle(fontSize: 12, color: kTextMuted)),
+                if (f.sourceReference != null &&
+                    f.sourceReference!.trim().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(f.sourceReference!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontStyle: FontStyle.italic,
+                            color: kTextMuted)),
+                  ),
               ]),
         ),
         Text(fmtXaf(f.amount),
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 15, fontWeight: FontWeight.w800, color: kGreen)),
-        if (canEdit || canDelete)
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
-            onSelected: (v) => v == 'edit' ? onEdit() : onDelete(),
-            itemBuilder: (ctx) => [
-              if (canEdit)
-                const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(children: [
-                      Icon(Icons.edit_outlined, size: 16),
-                      SizedBox(width: 8),
-                      Text('Modifier'),
-                    ])),
-              if (canDelete)
-                const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(children: [
-                      Icon(Icons.delete_outline_rounded, size: 16, color: kRed),
-                      SizedBox(width: 8),
-                      Text('Supprimer', style: TextStyle(color: kRed)),
-                    ])),
-            ],
-          )
-        else
-          const SizedBox(width: 12),
+        const SizedBox(width: 12),
       ]),
     );
   }
-}
-
-class _AddBtn extends StatelessWidget {
-  const _AddBtn({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) => MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                  colors: [kNavyDark, kNavy],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.add_rounded, size: 16, color: Colors.white),
-              const SizedBox(width: 6),
-              Text(label,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700)),
-            ]),
-          ),
-        ),
-      );
 }

@@ -1,0 +1,352 @@
+# ════════════════════════════════════════════════════════════════════════════
+#  Chaîne de livraison Windows — la plateforme de DÉPLOIEMENT du produit.
+#
+#  Le développement se fait sous Linux ; les établissements, eux, tournent sous
+#  Windows 10/11. On ne peut pas compiler Windows depuis un poste Linux : ce
+#  fichier est donc la SEULE façon de produire le binaire qui sera déployé, et
+#  la seule preuve continue que l'application compile pour sa cible.
+#
+#  Deux travaux DÉLIBÉRÉMENT indépendants :
+#    • `verification` (Linux)  — analyse et tests, dont les golden tests, qui
+#      sont calibrés sur le rendu de police Linux et échoueraient sous Windows
+#      pour des écarts d'antialiasing sans le moindre rapport avec un défaut.
+#    • `windows`               — la compilation et l'artefact.
+#  Le second ne dépend pas du premier : un test rouge ne doit pas nous priver de
+#  l'information « est-ce que ça compile ». Ce couplage sera resserré une fois
+#  la chaîne stabilisée, avant le déploiement.
+# ════════════════════════════════════════════════════════════════════════════
+
+name: Windows
+
+on:
+  push:
+    branches: [main, 'feat/**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+# Une nouvelle poussée sur la même branche annule la construction précédente :
+# la compilation Windows est longue, on ne fait pas la queue pour rien.
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Épinglée sur la version du poste de développement. Une montée de version de
+  # Flutter est une décision, jamais un effet de bord d'un runner mis à jour.
+  FLUTTER_VERSION: '3.44.0'
+
+jobs:
+  verification:
+    name: Analyse et tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Dépendances
+        working-directory: epilote
+        run: flutter pub get
+
+      - name: Analyse statique
+        working-directory: epilote
+        run: flutter analyze
+
+      - name: Tests
+        working-directory: epilote
+        run: flutter test
+
+  windows:
+    name: Construction Windows x64
+    runs-on: windows-latest
+    # Pour déposer le BROUILLON de publication (voir plus bas). Un brouillon
+    # n'est visible que des mainteneurs : rien n'atteint le parc ici.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Dépendances
+        working-directory: epilote
+        run: flutter pub get
+
+      # Les mêmes tests, mais exécutés SUR Windows. Ils n'y valident pas la
+      # logique — la CI Linux s'en charge — mais tout ce qui dépend en silence
+      # de la plateforme : séparateurs de chemin, encodage des accents, format
+      # des nombres et des dates sous une locale française.
+      # Les golden en sont écartés : leurs images de référence ont été rendues
+      # sous Linux et n'ont pas d'équivalent ici.
+      - name: Tests sur Windows
+        working-directory: epilote
+        run: flutter test --exclude-tags golden
+
+      - name: Compilation
+        working-directory: epilote
+        run: flutter build windows --release
+
+      # Vérification que l'identité de l'application est bien passée dans le
+      # binaire : c'est cette fiche que l'agent d'un établissement consulte
+      # avant d'installer, et c'est elle que le certificat de signature devra
+      # confirmer. Un « epilote / cg.epilote » ici signifierait que
+      # windows/runner/Runner.rc n'a pas été pris en compte.
+      - name: Identité du binaire
+        working-directory: epilote
+        shell: pwsh
+        run: |
+          $exe = 'build\windows\x64\runner\Release\E-PILOTE.exe'
+          if (-not (Test-Path $exe)) { throw "Binaire introuvable : $exe" }
+          (Get-Item $exe).VersionInfo | Format-List `
+            CompanyName, ProductName, FileDescription, FileVersion, ProductVersion
+          '{0:N1} Mo' -f ((Get-Item $exe).Length / 1MB)
+
+      # Le démarrage réel. Compiler ne prouve rien sur le chargement des DLL :
+      # une extension native absente ou incompatible — `powersync_x64.dll` pour
+      # la base hors ligne, `libmpv-2.dll` pour la vidéo — ne se manifeste qu'à
+      # l'exécution, par une fermeture immédiate. C'est exactement ce que cette
+      # étape attrape, et c'est ce qu'on aurait découvert sur le poste d'un
+      # établissement à défaut de le faire ici.
+      - name: Démarrage du binaire
+        working-directory: epilote
+        shell: pwsh
+        run: |
+          $exe = 'build\windows\x64\runner\Release\E-PILOTE.exe'
+          $p = Start-Process $exe -PassThru
+          Start-Sleep -Seconds 30
+          if ($p.HasExited) {
+            throw "L'application s'est arrêtée seule au démarrage " +
+                  "(code $($p.ExitCode)). Une bibliothèque native manque " +
+                  "ou refuse de se charger."
+          }
+          Write-Host "✓ Toujours en vie après 30 s (PID $($p.Id))"
+          Stop-Process -Id $p.Id -Force
+
+          # Un processus vivant ne prouve que le chargement des DLL. La
+          # présence de la base locale prouve bien plus : que l'extension
+          # SQLite native de PowerSync s'est chargée, qu'elle a su écrire, et
+          # que le dossier de support applicatif — où la base vient d'être
+          # déplacée depuis « Documents » — est bien celui que l'application
+          # utilise sous Windows.
+          $db = Get-ChildItem -Path $env:APPDATA -Recurse -Filter 'epilote_v3.db' `
+                              -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $db) {
+            throw "Aucune base locale créée sous `$env:APPDATA. PowerSync n'a " +
+                  "pas réussi à ouvrir sa base : l'application démarre, mais " +
+                  "le mode hors ligne ne fonctionne pas."
+          }
+          Write-Host "✓ Base hors ligne créée : $($db.FullName) ($($db.Length) o)"
+
+      # L'installateur. Le dossier « Release » brut n'est pas distribuable :
+      # 108 Mo en vingt-six DLL, dont personne dans un établissement ne saura
+      # quoi faire. Inno Setup en fait un unique .exe à double-cliquer.
+      - name: Installateur
+        shell: pwsh
+        run: |
+          $pubspec = Get-Content epilote\pubspec.yaml | Select-String '^version:'
+          # « 3.1.7+18 » -> « 3.1.7 » : Inno Setup n'accepte pas le « + ».
+          $version = ($pubspec -split ':')[1].Trim().Split('+')[0]
+          Write-Host "Version : $version"
+
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) {
+            Write-Host 'Inno Setup absent du runner — installation'
+            choco install innosetup --no-progress -y
+          }
+
+          & $iscc "/DAppVersion=$version" packaging\windows\epilote.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC a échoué ($LASTEXITCODE)" }
+
+          Get-ChildItem dist\*.exe | ForEach-Object {
+            '{0} — {1:N1} Mo' -f $_.Name, ($_.Length / 1MB)
+          }
+
+      # ── Signature de code ──────────────────────────────────────────────
+      # Le certificat n'existe pas encore : le Congo n'avait aucun système, il
+      # est à créer de toutes pièces. Cette étape est donc écrite MAINTENANT et
+      # reste INERTE tant que le secret est absent — le jour où le certificat
+      # arrive, il n'y a qu'un secret à poser, aucun code à écrire dans
+      # l'urgence d'une veille de déploiement.
+      #
+      # Secrets attendus : WINDOWS_CERT_PFX (base64 du .pfx) et
+      # WINDOWS_CERT_PASSWORD.
+      - name: Signer l'installateur
+        shell: pwsh
+        env:
+          CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+          CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          if (-not $env:CERT_PFX) {
+            Write-Host '::notice::Aucun certificat configure - installateur NON SIGNE.'
+            Write-Host 'Windows affichera un avertissement SmartScreen. Voir packaging/windows/INSTALL.md.'
+            exit 0
+          }
+          $pfx = Join-Path $env:RUNNER_TEMP 'epilote.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERT_PFX))
+          $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter signtool.exe |
+                      Where-Object { $_.FullName -like '*x64*' } | Select-Object -First 1
+          if (-not $signtool) { throw 'signtool.exe introuvable sur le runner.' }
+          Get-ChildItem dist\*.exe | ForEach-Object {
+            & $signtool.FullName sign /f $pfx /p $env:CERT_PASSWORD `
+              /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $_.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Signature echouee pour $($_.Name)" }
+          }
+          Remove-Item $pfx -Force
+          Write-Host 'Installateur signe'
+
+      # ── L'empreinte ────────────────────────────────────────────────────────
+      # Elle n'est pas décorative : l'application REFUSE d'installer un fichier
+      # dont l'empreinte diffère de celle publiée (table `app_releases`). La
+      # calculer ici évite de la retaper à la main — une empreinte recopiée de
+      # travers bloque toute mise à jour du parc, sans que personne comprenne.
+      - name: Empreinte et manifeste
+        shell: pwsh
+        run: |
+          $pubspec = Get-Content epilote\pubspec.yaml | Select-String '^version:'
+          $brut = ($pubspec -split ':')[1].Trim()
+          $version = $brut.Split('+')[0]
+          $build = $brut.Split('+')[1]
+          $exe = Get-ChildItem dist\*.exe | Select-Object -First 1
+          $sha = (Get-FileHash $exe.FullName -Algorithm SHA256).Hash.ToLower()
+
+          $manifeste = [ordered]@{
+            version      = $version
+            build_number = [int]$build
+            platform     = 'windows'
+            channel      = 'stable'
+            sha256       = $sha
+            size_bytes   = $exe.Length
+            download_url = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:GITHUB_REF_NAME/$($exe.Name)"
+          }
+          $manifeste | ConvertTo-Json | Set-Content dist\manifest.json -Encoding utf8
+          Write-Host "Version   : $version (build $build)"
+          Write-Host "Empreinte : $sha"
+
+      # ── LE BROUILLON ──────────────────────────────────────────────────────
+      # ⚠️ La publication ne passe PLUS par un artefact, et c'est délibéré.
+      #
+      # Un artefact vit sur un quota de 500 Mo qui ne se recalcule que toutes
+      # les 6 à 12 heures. Quand il est plein, le téléversement échoue — et
+      # c'est la LIVRAISON qui tombe, alors que les tests, la compilation,
+      # l'installateur et l'empreinte ont tous réussi. Une version prête est
+      # restée bloquée des heures pour une raison sans le moindre rapport avec
+      # le produit. Le quota n'a rien à faire sur le chemin d'une livraison.
+      #
+      # Les pièces jointes d'une PUBLICATION, elles, ne consomment pas ce
+      # quota. On dépose donc l'installateur directement sur la publication,
+      # en BROUILLON : invisible au parc, pièces non téléchargeables. Le
+      # travail `publication`, qui attend les tests, se contente de la lever.
+      # La barrière des tests est intacte — seul le transport change.
+      - name: Brouillon de publication
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $exe = (Get-ChildItem dist\*.exe | Select-Object -First 1).FullName
+          $manifeste = (Resolve-Path dist\manifest.json).Path
+          $sha = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
+
+          # Les notes vivent dans un fichier du dépôt : de la prose qui se
+          # relit comme du texte, et surtout aucun échappement de guillemets à
+          # traverser YAML puis PowerShell — c'est précisément là que ce genre
+          # de chaîne se casse, et en silence.
+          $modele = Get-Content packaging\windows\notes-de-version.md -Raw
+          Set-Content dist\notes.md -Encoding utf8 `
+            -Value $modele.Replace('__EMPREINTE__', $sha)
+
+          $etat = gh release view $tag --json isDraft --jq '.isDraft'
+          if ($LASTEXITCODE -eq 0) {
+            if ($etat.Trim() -ne 'true') {
+              throw "La version $tag est deja PUBLIEE. Remplacer ses pieces " +
+                    "changerait, sous les pieds des ecoles, l'installateur " +
+                    "qu'elles telechargent. Publier un nouveau tag."
+            }
+            Write-Host "Brouillon $tag deja present - pieces remplacees."
+            gh release upload $tag $exe $manifeste --clobber
+          } else {
+            gh release create $tag $exe $manifeste --draft --title "E-PILOTE CONGO $tag" --notes-file dist\notes.md
+          }
+          if ($LASTEXITCODE -ne 0) { throw "Depot du brouillon echoue." }
+          Write-Host "Brouillon pret : $tag"
+
+      # ── ⚠️ LE PIPELINE REMPLISSAIT SON PROPRE QUOTA ───────────────────────
+      # Chaque push sur `feat/**` téléversait l'installateur (~34 Mo) ET le
+      # dossier de compilation entier (~46 Mo), gardés 30 jours. À 500 Mo de
+      # quota, six commits suffisaient à saturer — et le message d'échec,
+      # « Artifact storage quota has been hit », tombe sur la PREMIÈRE étape de
+      # téléversement, donc sur l'installateur, donc sur la livraison.
+      #
+      # C'est ainsi qu'un dépôt sain, dont la compilation, les tests, l'
+      # installateur et l'empreinte passaient tous, ne pouvait plus publier une
+      # seule version.
+      #
+      # Depuis le brouillon ci-dessus, cet artefact ne sert plus qu'à une
+      # chose : récupérer l'installateur d'une branche de TRAVAIL, qui n'a pas
+      # de publication. Il n'est donc plus jamais bloquant — un quota plein ne
+      # doit pas faire échouer une construction par ailleurs saine.
+      - name: Artefact — installateur
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: E-PILOTE-installateur-${{ github.sha }}
+          path: |
+            dist/*.exe
+            dist/manifest.json
+          # 7 jours suffisent : une version PUBLIÉE garde son exécutable comme
+          # pièce jointe de release, indéfiniment et hors quota d'artefacts.
+          retention-days: 7
+          if-no-files-found: error
+
+      # Le dossier de compilation entier — l'exécutable seul ne démarre pas, il
+      # lui faut les DLL du moteur Flutter, celles des greffons natifs
+      # (PowerSync, media_kit) et le dossier `data/` des ressources Dart.
+      #
+      # ⚠️ SEULEMENT SUR UN TAG, et sans jamais faire échouer la construction :
+      # c'est une aide au DIAGNOSTIC, pas une entrée de la livraison. La
+      # publication ne lit que l'artefact ci-dessus. Un dossier de 46 Mo par
+      # commit de branche est précisément ce qui a saturé le quota, et il ne
+      # servait à personne.
+      - name: Artefact
+        if: startsWith(github.ref, 'refs/tags/v')
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: E-PILOTE-windows-x64-${{ github.sha }}
+          path: epilote/build/windows/x64/runner/Release/
+          retention-days: 7
+          if-no-files-found: error
+
+  publication:
+    name: Publication de la version
+    # Ici, et ici seulement, les tests CONDITIONNENT la livraison. L'artefact
+    # d'une branche de travail sert à diagnostiquer, même rouge ; une version
+    # publiée, non.
+    needs: [verification, windows]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Tout est déjà déposé sur le brouillon par le travail Windows :
+      # l'installateur, son manifeste et les notes portant l'empreinte. Il ne
+      # reste qu'à le rendre visible — un seul geste, qui ne peut pas échouer
+      # pour une raison de stockage.
+      - name: Lever le brouillon
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release edit "${GITHUB_REF_NAME}" --draft=false --latest
+          echo "Publiée : $(gh release view "${GITHUB_REF_NAME}" --json url --jq .url)"

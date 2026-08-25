@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/subscription_days.dart';
 import '../../admin_groupe/providers/subscription_access_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 
@@ -17,26 +18,24 @@ DunningBucket? bucketDunning({
   required String status,
   required DateTime? end,
   required DateTime now,
-  int graceDays = 15,
-  int soonDays = 7,
+  int graceDays = kSubscriptionGraceDays,
+  int soonDays = kSubscriptionAlertDays,
 }) {
-  if (end == null) return null;
-  final e = DateTime(end.year, end.month, end.day);
-  final n = DateTime(now.year, now.month, now.day);
-  final daysLeft = e.difference(n).inDays;
-
-  final entitling = status == 'active' || status == 'trial';
+  final daysLeft = daysUntilDate(end, now);
+  if (daysLeft == null) return null;
 
   if (daysLeft >= 0) {
-    if (entitling && daysLeft <= soonDays) return DunningBucket.expiringSoon;
+    if (isEntitlingStatus(status) && daysLeft <= soonDays) {
+      return DunningBucket.expiringSoon;
+    }
     return null; // actif et loin → hors recouvrement
   }
 
   // Échu. La grâce ne vaut que pour une expiration NATURELLE et récente ;
   // 'suspended' (impayé posé par le super_admin) et 'cancelled' → overdue direct.
-  final overdue = -daysLeft;
-  final naturalExpiry = status != 'suspended' && status != 'cancelled';
-  if (naturalExpiry && overdue <= graceDays) return DunningBucket.inGrace;
+  if (isNaturalExpiry(status) && -daysLeft <= graceDays) {
+    return DunningBucket.inGrace;
+  }
   return DunningBucket.overdue;
 }
 
@@ -67,8 +66,9 @@ final dunningProvider =
   ref.keepAlive();
   final client = ref.watch(supabaseClientProvider);
   final now = DateTime.now();
-  // Grâce réglable (super_admin), fail-soft 15 j — cohérente avec le soft-gate admin.
-  final graceDays = await ref.watch(subscriptionGraceDaysProvider.future);
+  // Grâce ET fenêtre « échéance proche » réglables (super_admin) — la vue
+  // recouvrement doit lister exactement les groupes qui voient le bandeau.
+  final settings = await ref.watch(subscriptionSettingsProvider.future);
 
   try {
     final groups = await client
@@ -97,13 +97,17 @@ final dunningProvider =
       final status = (m['subscription_status'] as String?) ?? 'active';
       final endRaw = m['subscription_end'] as String?;
       final end = endRaw != null ? DateTime.tryParse(endRaw) : null;
-      final bucket = bucketDunning(status: status, end: end, now: now, graceDays: graceDays);
+      final bucket = bucketDunning(
+        status: status,
+        end: end,
+        now: now,
+        graceDays: settings.graceDays,
+        soonDays: settings.alertDays,
+      );
       if (bucket == null) continue;
 
       final gid = m['id'] as String;
-      final e = end == null ? null : DateTime(end.year, end.month, end.day);
-      final daysLeft =
-          e?.difference(DateTime(now.year, now.month, now.day)).inDays;
+      final daysLeft = daysUntilDate(end, now);
       rows.add(DunningRow(
         groupId: gid,
         groupName: (m['name'] as String?) ?? '—',

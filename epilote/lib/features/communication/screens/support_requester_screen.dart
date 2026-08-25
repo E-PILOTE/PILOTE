@@ -10,6 +10,7 @@ import '../providers/support_requester_provider.dart';
 import '../providers/ticket_thread_provider.dart';
 import '../widgets/support_requester_widgets.dart';
 import '../widgets/ticket_thread_view.dart';
+import '../../../core/utils/message_erreur.dart';
 
 /// Espace Tickets — côté DEMANDEUR, partagé admin_groupe + personnel école.
 /// Mise en page maître-détail (liste à gauche, conversation inline à droite),
@@ -28,7 +29,7 @@ class SupportRequesterScreen extends ConsumerWidget {
         skipLoadingOnRefresh: true,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
-          child: Text('Erreur : $e', style: const TextStyle(color: kTextMuted)),
+          child: Text(messageErreur(e), style: TextStyle(color: kTextMuted)),
         ),
         data: (data) => _MasterDetail(data: data),
       ),
@@ -124,10 +125,10 @@ class _LeftHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 12, 10),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: kBorder))),
       child: Row(children: [
-        const Expanded(
+        Expanded(
           child: Text('Mes demandes',
               style: TextStyle(
                   fontSize: 15, fontWeight: FontWeight.w800, color: kTextPrimary)),
@@ -162,7 +163,7 @@ class _KpiBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: kBorder))),
       child: Row(children: [
         _KpiChip(label: 'Total',    value: '${data.total}',      color: kNavy),
@@ -198,7 +199,7 @@ class _KpiChip extends StatelessWidget {
             Text(label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 9, color: kTextMuted, fontWeight: FontWeight.w500)),
           ]),
         ),
@@ -227,7 +228,7 @@ class _FilterBarState extends ConsumerState<_FilterBar> {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: kBorder))),
       child: Column(children: [
         SizedBox(
@@ -239,9 +240,9 @@ class _FilterBarState extends ConsumerState<_FilterBar> {
                 ref.read(requesterSearchProvider.notifier).state = v,
             decoration: InputDecoration(
               hintText: 'Rechercher…',
-              hintStyle: const TextStyle(fontSize: 12, color: kTextMuted),
+              hintStyle: TextStyle(fontSize: 12, color: kTextMuted),
               prefixIcon:
-                  const Icon(Icons.search_rounded, size: 18, color: kTextMuted),
+                  Icon(Icons.search_rounded, size: 18, color: kTextMuted),
               isDense: true,
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -249,10 +250,10 @@ class _FilterBarState extends ConsumerState<_FilterBar> {
               fillColor: kSurface,
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: kBorder)),
+                  borderSide: BorderSide(color: kBorder)),
               enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: kBorder)),
+                  borderSide: BorderSide(color: kBorder)),
             ),
           ),
         ),
@@ -339,7 +340,7 @@ class _SortMenu extends ConsumerWidget {
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: kBorder),
         ),
-        child: const Icon(Icons.swap_vert_rounded, size: 16, color: kTextMuted),
+        child: Icon(Icons.swap_vert_rounded, size: 16, color: kTextMuted),
       ),
     );
   }
@@ -378,7 +379,7 @@ class _TicketTile extends StatelessWidget {
                 child: Text(ticket.subject,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
                         color: kTextPrimary)),
@@ -390,21 +391,21 @@ class _TicketTile extends StatelessWidget {
             Text(ticket.body,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11, color: kTextMuted)),
+                style: TextStyle(fontSize: 11, color: kTextMuted)),
             const SizedBox(height: 4),
             Row(children: [
               Expanded(
                 child: Text(cat,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 10, color: kTextMuted)),
+                    style: TextStyle(fontSize: 10, color: kTextMuted)),
               ),
               if (ticket.hasResponse) ...[
-                const Icon(Icons.mark_chat_read_rounded,
+                Icon(Icons.mark_chat_read_rounded,
                     size: 13, color: kGreen),
                 const SizedBox(width: 4),
               ],
-              Text(date, style: const TextStyle(fontSize: 10, color: kTextMuted)),
+              Text(date, style: TextStyle(fontSize: 10, color: kTextMuted)),
             ]),
           ],
         ),
@@ -444,7 +445,7 @@ class _TicketDetail extends ConsumerWidget {
                 Row(children: [
                   Expanded(
                     child: Text(ticket.subject,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
                             color: kTextPrimary)),
@@ -468,7 +469,7 @@ class _TicketDetail extends ConsumerWidget {
               ],
             ),
           ),
-          const Divider(height: 1, color: kBorder),
+          Divider(height: 1, color: kBorder),
           // Conversation inline
           Expanded(
             child: Padding(
@@ -510,11 +511,11 @@ class _NoSelection extends StatelessWidget {
           Icon(Icons.confirmation_num_outlined,
               size: 56, color: Colors.grey.shade300),
           const SizedBox(height: 12),
-          const Text('Sélectionnez une demande',
+          Text('Sélectionnez une demande',
               style: TextStyle(
                   fontSize: 15, fontWeight: FontWeight.w600, color: kTextMuted)),
           const SizedBox(height: 4),
-          const Text('Cliquez sur un ticket dans la liste pour le suivre',
+          Text('Cliquez sur un ticket dans la liste pour le suivre',
               style: TextStyle(fontSize: 12, color: kTextMuted)),
         ]),
       );
@@ -530,11 +531,11 @@ class _EmptyList extends StatelessWidget {
             Icon(Icons.support_agent_rounded,
                 size: 44, color: Colors.grey.shade300),
             const SizedBox(height: 10),
-            const Text('Aucune demande',
+            Text('Aucune demande',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, color: kTextMuted)),
             const SizedBox(height: 4),
-            const Text('Utilisez « Nouvelle » pour écrire au support',
+            Text('Utilisez « Nouvelle » pour écrire au support',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 11, color: kTextMuted)),
           ]),

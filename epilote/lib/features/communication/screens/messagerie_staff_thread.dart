@@ -1,13 +1,23 @@
 part of 'messagerie_staff.dart';
 
 // ─── Palette WhatsApp (zone conversation uniquement) ───────────────────────────
-const _waBg        = Color(0xFFECE5DD); // fond beige « papier peint »
-const _waOutgoing  = Color(0xFFD9FDD3); // bulle envoyée (vert clair)
-const _waIncoming  = Colors.white;      // bulle reçue
-const _waText      = Color(0xFF111B21); // texte des bulles (sombre)
-const _waTime      = Color(0xFF667781); // horodatage / méta
-const _waTickRead  = Color(0xFF53BDEB); // double coche « lu » (bleu)
-const _waInputBg   = Color(0xFFF0F2F5); // barre de saisie
+//
+// La zone de conversation garde son identité « messagerie » propre plutôt que
+// les jetons de la plateforme : c'est un choix de design assumé. Mais elle doit
+// suivre le thème, sinon elle reste un îlot blanc éclatant en Sombre/Melack.
+//
+// D'où deux jeux de valeurs plutôt qu'un mappage sur les jetons : le clair est
+// conservé au hex près (non-régression), le sombre reprend les vraies couleurs
+// sombres de WhatsApp — pas un gris dérivé qui trahirait l'identité.
+bool get _waDark => activePalette.brightness == Brightness.dark;
+
+Color get _waBg       => _waDark ? const Color(0xFF0B141A) : const Color(0xFFECE5DD);
+Color get _waOutgoing => _waDark ? const Color(0xFF005C4B) : const Color(0xFFD9FDD3);
+Color get _waIncoming => _waDark ? const Color(0xFF202C33) : Colors.white;
+Color get _waText     => _waDark ? const Color(0xFFE9EDEF) : const Color(0xFF111B21);
+Color get _waTime     => _waDark ? const Color(0xFF8696A0) : const Color(0xFF667781);
+Color get _waInputBg  => _waDark ? const Color(0xFF1F2C34) : const Color(0xFFF0F2F5);
+const _waTickRead  = Color(0xFF53BDEB); // double coche « lu » (bleu) — inchangé
 
 /// Fond « papier peint » WhatsApp : beige + motif de points très discret.
 class _ChatWallpaper extends StatelessWidget {
@@ -429,7 +439,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
     }
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: kCardBg,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (_) => SafeArea(
@@ -443,7 +453,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
                 const Icon(Icons.done_all_rounded, size: 18, color: _waTickRead),
                 const SizedBox(width: 8),
                 Text('Lu par ${read.length}/${others.length}',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
                         color: kTextPrimary)),
@@ -455,7 +465,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
                 const SizedBox(height: 8),
               ],
               if (notRead.isNotEmpty) ...[
-                const _ReadInfoLabel('Non lu', kTextMuted),
+                _ReadInfoLabel('Non lu', kTextMuted),
                 for (final mem in notRead) _ReadInfoRow(member: mem, read: false),
               ],
             ],
@@ -586,8 +596,8 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
     return Column(children: [
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: kCardBg,
           border: Border(bottom: BorderSide(color: kBorder)),
         ),
         child: Row(children: [
@@ -595,7 +605,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
             IconButton(
               onPressed: widget.onBack,
               tooltip: 'Retour',
-              icon: const Icon(Icons.arrow_back_rounded,
+              icon: Icon(Icons.arrow_back_rounded,
                   size: 20, color: kNavy),
             ),
           // En-tête tappable pour un groupe → ouvre « Infos du groupe ».
@@ -626,7 +636,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
                             child: Text(widget.conv.otherName,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w700,
                                     color: kTextPrimary)),
@@ -680,7 +690,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
                                       : baseSubject(widget.conv.first.subject)),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 11, color: kTextMuted)),
                       ],
                     ),
@@ -709,8 +719,8 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
             )
           else ...[
             if (archived)
-              const Padding(
-                padding: EdgeInsets.only(right: 8),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
                 child: AdminBadge('Archivée',
                     color: kTextMuted, icon: Icons.archive_outlined),
               ),
@@ -736,7 +746,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
       if (_searching)
         Container(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-          color: Colors.white,
+          color: kCardBg,
           child: TextField(
             controller: _searchCtrl,
             autofocus: true,
@@ -744,18 +754,18 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
             onChanged: (v) => setState(() => _searchQuery = v),
             decoration: InputDecoration(
               hintText: 'Rechercher dans la conversation…',
-              hintStyle: const TextStyle(fontSize: 12.5, color: kTextMuted),
+              hintStyle: TextStyle(fontSize: 12.5, color: kTextMuted),
               prefixIcon:
-                  const Icon(Icons.search_rounded, size: 18, color: kTextMuted),
+                  Icon(Icons.search_rounded, size: 18, color: kTextMuted),
               isDense: true,
               filled: true,
               fillColor: kSurface,
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: kBorder)),
+                  borderSide: BorderSide(color: kBorder)),
               enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: kBorder)),
+                  borderSide: BorderSide(color: kBorder)),
             ),
           ),
         ),
@@ -826,12 +836,12 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
                     decoration: InputDecoration(
                       hintText: 'Répondre à ${widget.conv.otherName}…',
                       hintStyle:
-                          const TextStyle(color: kTextMuted, fontSize: 13),
+                          TextStyle(color: kTextMuted, fontSize: 13),
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 12),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: kCardBg,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(22),
                         borderSide: BorderSide.none,
@@ -848,7 +858,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.attach_file_rounded,
+                      : Icon(Icons.attach_file_rounded,
                           size: 20, color: kTextMuted),
                 ),
                 // Photo / galerie d'images.
@@ -856,7 +866,7 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
                   onPressed:
                       _uploading ? null : () => _attach(imagesOnly: true),
                   tooltip: 'Envoyer une photo',
-                  icon: const Icon(Icons.image_outlined,
+                  icon: Icon(Icons.image_outlined,
                       size: 21, color: kTextMuted),
                 ),
               ],
@@ -949,17 +959,17 @@ class _ThreadMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) => PopupMenuButton<String>(
         tooltip: 'Plus',
-        icon: const Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
+        icon: Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
         onSelected: (v) {
           if (v == 'delete') onDelete();
         },
-        itemBuilder: (_) => const [
+        itemBuilder: (_) => [
           PopupMenuItem(
             value: 'delete',
             height: 42,
             child: Row(children: [
               Icon(Icons.delete_outline_rounded, size: 18, color: kRed),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               Text('Supprimer la discussion',
                   style: TextStyle(fontSize: 13, color: kRed)),
             ]),
@@ -1001,7 +1011,7 @@ class _ReadInfoRow extends StatelessWidget {
             child: Text(member.name ?? 'Membre',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w600,
                     color: kTextPrimary)),
@@ -1042,7 +1052,7 @@ class _DaySeparator extends StatelessWidget {
             ],
           ),
           child: Text(_label.toUpperCase(),
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.3,

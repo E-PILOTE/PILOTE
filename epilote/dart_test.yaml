@@ -1,0 +1,12 @@
+# Étiquettes de tests reconnues par `flutter test`.
+#
+# Sans cette déclaration, `--exclude-tags golden` échoue en signalant une
+# étiquette inconnue : le paquet `test` refuse les étiquettes non déclarées,
+# précisément pour qu'une faute de frappe ne fasse pas silencieusement passer
+# une suite entière à la trappe.
+tags:
+  golden:
+    description: >-
+      Comparaison d'un rendu à une image de référence. Dépend du moteur de
+      rendu de polices de la plateforme : à n'exécuter que sur Linux, où les
+      images de référence ont été produites.

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../logout_guard.dart';
+
 import '../admin_ui.dart' show kGreen, kAccent;
 import '../../constants/app_constants.dart';
 import '../../../data/models/profile_model.dart';
 import '../../../features/auth/providers/active_agent_provider.dart';
-import '../../../features/auth/providers/auth_provider.dart';
+import '../../../features/auth/providers/auth_provider.dart'
+    show modeHorsLigneProvider;
 import '../../../features/navigation/providers/module_navigation_provider.dart'
     show syncIndicatorProvider;
 import '../../../services/powersync/powersync_service.dart' show SyncUiState;
@@ -28,8 +31,14 @@ class SidebarFooter extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Offline-first : « synchronisé » dès qu'une synchro a réussi, pas seulement
-    // quand la connexion live est active.
-    final isSynced =
+    // quand la connexion live est active — une coupure d'une minute ne doit pas
+    // affoler une école.
+    //
+    // ⚠️ SAUF en reprise du poste : là, il n'y a plus de session serveur DU
+    // TOUT, et plus rien ne remontera avant une reconnexion. Afficher
+    // « Synchronisé » sous la bannière qui dit le contraire ferait douter de
+    // celle des deux qui dit vrai.
+    final isSynced = !ref.watch(modeHorsLigneProvider) &&
         ref.watch(syncIndicatorProvider) == SyncUiState.synced;
 
     return Container(
@@ -42,8 +51,62 @@ class SidebarFooter extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (_isStaff) _SyncStatus(expanded: expanded, isSynced: isSynced),
-          _LogoutButton(expanded: expanded, ref: ref),
+          // Poste scolaire partagé : l'action quotidienne est VERROUILLER, pas
+          // déconnecter. Déconnecter l'appareil lui retire son droit de
+          // travailler hors-ligne — c'est un acte d'administration, relégué au
+          // menu compte et à l'écran-verrou, jamais à portée de clic ici.
+          if (agentLockApplies(profile?.role))
+            _LockButton(expanded: expanded, ref: ref)
+          else
+            _LogoutButton(expanded: expanded, ref: ref),
         ],
+      ),
+    );
+  }
+}
+
+/// Verrouille le poste (retour à l'écran-verrou). Local, hors-ligne, sans risque.
+class _LockButton extends StatelessWidget {
+  const _LockButton({required this.expanded, required this.ref});
+  final bool expanded;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: expanded ? '' : 'Verrouiller le poste',
+      child: InkWell(
+        onTap: () => lockDevice(ref),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: double.infinity,
+          padding:
+              EdgeInsets.symmetric(horizontal: expanded ? 12 : 8, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.07),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+          ),
+          child: Row(
+            mainAxisAlignment:
+                expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
+            children: [
+              Icon(Icons.lock_outline_rounded,
+                  size: 15, color: Colors.white.withValues(alpha: 0.85)),
+              if (expanded) ...[
+                const SizedBox(width: 9),
+                Text(
+                  'Verrouiller',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -103,11 +166,8 @@ class _LogoutButton extends StatelessWidget {
     return Tooltip(
       message: expanded ? '' : 'Déconnexion',
       child: InkWell(
-        onTap: () async {
-          // Vraie déconnexion appareil : on oublie l'agent sélectionné.
-          ref.read(selectedAgentIdProvider.notifier).state = null;
-          await ref.read(authNotifierProvider.notifier).signOut();
-        },
+        // super_admin / admin_groupe : online par conception, rien à protéger.
+        onTap: () => guardedSignOut(context, ref, sharedDevice: false),
         borderRadius: BorderRadius.circular(8),
         child: Container(
           width: double.infinity,

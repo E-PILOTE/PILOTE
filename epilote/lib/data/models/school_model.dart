@@ -1,5 +1,5 @@
-// Helper : accepte bool (Supabase) et int 0/1 (SQLite PowerSync)
-bool _b(dynamic v) => v == true || v == 1;
+import '../../core/utils/booleen_offline.dart';
+
 
 /// Table `schools`
 class SchoolModel {
@@ -45,7 +45,7 @@ class SchoolModel {
       directorId:     map['director_id']  as String?,
       logoUrl:        map['logo_url']     as String?,
       schoolType:     map['school_type']  as String? ?? 'secondaire',
-      isActive:       _b(map['is_active']),
+      isActive:       actifOffline(map['is_active']), // défaut VRAI
       createdAt:      DateTime.parse(map['created_at'] as String),
       updatedAt:      DateTime.parse(map['updated_at'] as String),
     );

@@ -2,26 +2,41 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/utils/jours_non_ouvres.dart';
+import '../../../core/utils/message_erreur.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../providers/admin_academic_year_provider.dart';
+import '../providers/admin_calendar_service.dart';
+import 'admin_year_calendar_form.dart';
+
+part 'admin_year_calendar_cards.dart';
+part 'admin_year_holidays_section.dart';
 
 final _fmt = DateFormat('d MMM yyyy', 'fr_FR');
 
+/// Numéros autorisés par la base : `trimester_number` ∈ 1..3,
+/// `sequence_number` ∈ 1..6. L'écran ne proposait que 1 et 2 en séquence — la
+/// moitié du domaine était inatteignable depuis l'interface.
+const _kTrimesterNumbers = [1, 2, 3];
+const _kSequenceNumbers = [1, 2, 3, 4, 5, 6];
+
 /// Édition du calendrier d'une année (trimestres → séquences), niveau GROUPE.
+///
+/// [year] porte les bornes ET l'état de verrou : une année archivée s'ouvre en
+/// lecture seule. La version précédente n'inspectait jamais `isLocked` — on
+/// pouvait créer un trimestre dans une année pourtant « archivée ».
 class AdminYearCalendarDialog extends ConsumerWidget {
-  const AdminYearCalendarDialog({
-    super.key,
-    required this.yearId,
-    required this.yearLabel,
-  });
-  final String yearId;
-  final String yearLabel;
+  const AdminYearCalendarDialog({super.key, required this.year});
+
+  final AdminYear year;
+
+  bool get _readOnly => year.isLocked;
 
   Future<void> _run(BuildContext context, WidgetRef ref,
       Future<void> Function() op, String ok) async {
     try {
       await op();
-      ref.invalidate(adminYearCalendarProvider(yearId));
+      ref.invalidate(adminYearCalendarProvider(year.id));
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(backgroundColor: kGreen, content: Text(ok)));
@@ -29,429 +44,279 @@ class AdminYearCalendarDialog extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(backgroundColor: kRed, content: Text('Erreur : $e')));
+            SnackBar(backgroundColor: kRed, content: Text(messageErreur(e))));
       }
     }
   }
 
+  // ── Trimestres ────────────────────────────────────────────────────────────
+
+  Future<void> _ajouterTrimestre(
+      BuildContext context, WidgetRef ref, List<AdminTrimester> trims) async {
+    final pris = {for (final t in trims) t.number};
+    final r = await showCalendarEntryDialog(
+      context,
+      title: 'Nouveau trimestre',
+      subtitle: 'Année ${year.label}',
+      parentLabel: "l'année ${year.label}",
+      parentStart: year.startDate,
+      parentEnd: year.endDate,
+      availableNumbers:
+          _kTrimesterNumbers.where((n) => !pris.contains(n)).toList(),
+      occupied: [
+        for (final t in trims)
+          (start: t.startDate, end: t.endDate, label: t.label)
+      ],
+    );
+    if (r == null || !context.mounted) return;
+    await _run(
+        context,
+        ref,
+        () => ref.read(adminCalendarServiceProvider).createTrimester(
+            yearId: year.id,
+            label: r.label,
+            number: r.number,
+            start: r.start,
+            end: r.end),
+        'Trimestre créé');
+  }
+
+  Future<void> _modifierTrimestre(BuildContext context, WidgetRef ref,
+      AdminTrimester t, List<AdminTrimester> trims) async {
+    final pris = {for (final o in trims) if (o.id != t.id) o.number};
+    final r = await showCalendarEntryDialog(
+      context,
+      title: 'Modifier le trimestre',
+      subtitle: '${t.label} · année ${year.label}',
+      parentLabel: "l'année ${year.label}",
+      parentStart: year.startDate,
+      parentEnd: year.endDate,
+      availableNumbers:
+          _kTrimesterNumbers.where((n) => !pris.contains(n)).toList(),
+      occupied: [
+        for (final o in trims)
+          if (o.id != t.id)
+            (start: o.startDate, end: o.endDate, label: o.label)
+      ],
+      existing: (
+        label: t.label,
+        number: t.number,
+        start: t.startDate,
+        end: t.endDate
+      ),
+    );
+    if (r == null || !context.mounted) return;
+    await _run(
+        context,
+        ref,
+        () => ref.read(adminCalendarServiceProvider).updateTrimester(
+            id: t.id,
+            label: r.label,
+            number: r.number,
+            start: r.start,
+            end: r.end),
+        'Trimestre modifié');
+  }
+
+  Future<void> _supprimerTrimestre(
+      BuildContext context, WidgetRef ref, AdminTrimester t) async {
+    final n = t.sequences.length;
+    final ok = await showAdminConfirm(
+      context,
+      danger: true,
+      title: 'Supprimer ${t.label}',
+      confirmLabel: 'Supprimer',
+      message: n == 0
+          ? 'Le trimestre « ${t.label} » sera supprimé de l\'année '
+              '${year.label}.\n\nLes écoles le verront disparaître à leur '
+              'prochaine synchronisation.'
+          : 'Le trimestre « ${t.label} » et ses $n séquence'
+              '${n > 1 ? 's' : ''} seront supprimés de l\'année '
+              '${year.label}.\n\nLes notes et bulletins déjà rattachés à ces '
+              'périodes perdraient leur référence : ne le faites que sur un '
+              'calendrier non encore utilisé.',
+    );
+    if (!ok || !context.mounted) return;
+    await _run(
+        context,
+        ref,
+        () => ref.read(adminCalendarServiceProvider).deleteTrimester(t.id),
+        'Trimestre supprimé');
+  }
+
+  // ── Séquences ─────────────────────────────────────────────────────────────
+
+  Future<void> _ajouterSequence(
+      BuildContext context, WidgetRef ref, AdminTrimester t) async {
+    final pris = t.takenSequenceNumbers;
+    final r = await showCalendarEntryDialog(
+      context,
+      title: 'Nouvelle séquence',
+      subtitle: '${t.label} · année ${year.label}',
+      parentLabel: 'le trimestre « ${t.label} »',
+      parentStart: t.startDate,
+      parentEnd: t.endDate,
+      availableNumbers:
+          _kSequenceNumbers.where((n) => !pris.contains(n)).toList(),
+      occupied: [
+        for (final s in t.sequences)
+          (start: s.startDate, end: s.endDate, label: s.label)
+      ],
+    );
+    if (r == null || !context.mounted) return;
+    await _run(
+        context,
+        ref,
+        () => ref.read(adminCalendarServiceProvider).createSequence(
+            trimesterId: t.id,
+            label: r.label,
+            number: r.number,
+            start: r.start,
+            end: r.end),
+        'Séquence créée');
+  }
+
+  Future<void> _modifierSequence(BuildContext context, WidgetRef ref,
+      AdminTrimester t, AdminSequence s) async {
+    final pris = {for (final o in t.sequences) if (o.id != s.id) o.number};
+    final r = await showCalendarEntryDialog(
+      context,
+      title: 'Modifier la séquence',
+      subtitle: 'Séq. ${s.number} · ${t.label}',
+      parentLabel: 'le trimestre « ${t.label} »',
+      parentStart: t.startDate,
+      parentEnd: t.endDate,
+      availableNumbers:
+          _kSequenceNumbers.where((n) => !pris.contains(n)).toList(),
+      occupied: [
+        for (final o in t.sequences)
+          if (o.id != s.id)
+            (start: o.startDate, end: o.endDate, label: o.label)
+      ],
+      existing: (
+        label: s.label,
+        number: s.number,
+        start: s.startDate,
+        end: s.endDate
+      ),
+    );
+    if (r == null || !context.mounted) return;
+    await _run(
+        context,
+        ref,
+        () => ref.read(adminCalendarServiceProvider).updateSequence(
+            id: s.id,
+            label: r.label,
+            number: r.number,
+            start: r.start,
+            end: r.end),
+        'Séquence modifiée');
+  }
+
+  Future<void> _supprimerSequence(
+      BuildContext context, WidgetRef ref, AdminSequence s) async {
+    final ok = await showAdminConfirm(
+      context,
+      danger: true,
+      title: 'Supprimer la séquence ${s.number}',
+      confirmLabel: 'Supprimer',
+      message: 'La séquence « ${s.label} » sera supprimée.\n\n'
+          'Les notes déjà saisies sur cette séquence perdraient leur '
+          'référence.',
+    );
+    if (!ok || !context.mounted) return;
+    await _run(
+        context,
+        ref,
+        () => ref.read(adminCalendarServiceProvider).deleteSequence(s.id),
+        'Séquence supprimée');
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(adminYearCalendarProvider(yearId));
+    final async = ref.watch(adminYearCalendarProvider(year.id));
     final svc = ref.read(adminCalendarServiceProvider);
 
     return AdminFormDialog(
       icon: Icons.event_note_rounded,
-      title: 'Calendrier · $yearLabel',
-      subtitle: 'Trimestres & séquences (hérités par toutes les écoles)',
-      width: 620,
-      maxHeight: 660,
+      title: 'Calendrier · ${year.label}',
+      subtitle: _readOnly
+          ? 'Année archivée — consultation seule'
+          : 'Trimestres & séquences (hérités par toutes les écoles)',
+      accent: _readOnly ? kTextMuted : null,
+      width: 660,
+      maxHeight: 680,
       scrollable: false,
       bodyPadding: EdgeInsets.zero,
       footer: Row(children: [
         const Spacer(),
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Fermer', style: TextStyle(color: kTextMuted)),
+          child: Text('Fermer', style: TextStyle(color: kTextMuted)),
         ),
       ]),
       body: async.when(
         loading: () => const Padding(
             padding: EdgeInsets.all(40),
-            child: Center(child: CircularProgressIndicator(color: kNavy))),
+            child: Center(child: CircularProgressIndicator())),
         error: (e, _) => Padding(
             padding: const EdgeInsets.all(20),
-            child: AdminErrorBanner(message: '$e')),
+            child: AdminErrorBanner(message: messageErreur(e))),
         data: (trims) => ListView(
           padding: const EdgeInsets.all(18),
           children: [
-                  _CalendarSummary(trims: trims),
-                  const SizedBox(height: 14),
-                  if (trims.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(vertical: 30),
-                      decoration: BoxDecoration(
-                        color: kSurface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: kBorder),
-                      ),
-                      child: const Column(children: [
-                        Icon(Icons.event_busy_rounded,
-                            size: 38, color: kTextMuted),
-                        SizedBox(height: 10),
-                        Text('Aucun trimestre défini',
-                            style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: kTextPrimary)),
-                        SizedBox(height: 4),
-                        Text(
-                          "Ajoutez un trimestre pour structurer l'année\n"
-                          '(les écoles l\'hériteront par synchro).',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 12, color: kTextMuted),
-                        ),
-                      ]),
-                    )
-                  else
-                    ...trims.map((t) => _TrimCard(
-                          trim: t,
-                          onSetCurrent: () => _run(context, ref,
-                              () => svc.setCurrentTrimester(t.id, yearId),
-                              'Trimestre courant mis à jour'),
-                          onAddSequence: () async {
-                            final r = await _askEntry(context,
-                                title: 'Nouvelle séquence · ${t.label}',
-                                numbers: const [1, 2]);
-                            if (r != null && context.mounted) {
-                              await _run(
-                                  context,
-                                  ref,
-                                  () => svc.createSequence(
-                                      trimesterId: t.id,
-                                      label: r.label,
-                                      number: r.number,
-                                      start: r.start,
-                                      end: r.end),
-                                  'Séquence créée');
-                            }
-                          },
-                          onSetCurrentSeq: (sid) => _run(context, ref,
-                              () => svc.setCurrentSequence(sid, t.id),
-                              'Séquence courante mise à jour'),
-                        )),
-                  const SizedBox(height: 6),
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      final r = await _askEntry(context,
-                          title: 'Nouveau trimestre', numbers: const [1, 2, 3]);
-                      if (r != null && context.mounted) {
-                        await _run(
-                            context,
-                            ref,
-                            () => svc.createTrimester(
-                                yearId: yearId,
-                                label: r.label,
-                                number: r.number,
-                                start: r.start,
-                                end: r.end),
-                            'Trimestre créé');
-                      }
-                    },
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('Ajouter un trimestre'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: kNavy,
-              side: const BorderSide(color: kBorder),
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-            ),
-          ),
-        ],
-      ),
-    ),
-    );
-  }
-}
-
-// ─── Bandeau résumé du calendrier ──────────────────────────────────────────────
-class _CalendarSummary extends StatelessWidget {
-  const _CalendarSummary({required this.trims});
-  final List<AdminTrimester> trims;
-
-  @override
-  Widget build(BuildContext context) {
-    final nbSeq = trims.fold<int>(0, (a, t) => a + t.sequences.length);
-    AdminTrimester? cur;
-    for (final t in trims) {
-      if (t.isCurrent) {
-        cur = t;
-        break;
-      }
-    }
-    Widget stat(IconData ic, String value, String label, Color c) => Expanded(
-          child: Row(children: [
-            Container(
-              width: 34,
-              height: 34,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                  color: c.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(9)),
-              child: Icon(ic, size: 17, color: c),
-            ),
-            const SizedBox(width: 9),
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(value,
-                  style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: kTextPrimary)),
-              Text(label,
-                  style: const TextStyle(fontSize: 10.5, color: kTextMuted)),
-            ]),
-          ]),
-        );
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: kSurface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBorder),
-      ),
-      child: Row(children: [
-        stat(Icons.calendar_view_month_rounded, '${trims.length}', 'trimestres',
-            kNavy),
-        stat(Icons.layers_rounded, '$nbSeq', 'séquences', kGreen),
-        stat(
-            Icons.play_circle_rounded,
-            cur == null ? '—' : 'T${cur.number}',
-            cur == null ? 'aucun courant' : 'en cours',
-            cur == null ? kTextMuted : kAccent),
-      ]),
-    );
-  }
-}
-
-class _TrimCard extends StatelessWidget {
-  const _TrimCard({
-    required this.trim,
-    required this.onSetCurrent,
-    required this.onAddSequence,
-    required this.onSetCurrentSeq,
-  });
-  final AdminTrimester trim;
-  final VoidCallback onSetCurrent;
-  final VoidCallback onAddSequence;
-  final ValueChanged<String> onSetCurrentSeq;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: kCardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBorder),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-          child: Row(children: [
-            Container(
-              width: 34,
-              height: 34,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                  color: kNavy.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8)),
-              child: Text('T${trim.number}',
-                  style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w800, color: kNavy)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Text(trim.label,
-                      style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w700, color: kTextPrimary)),
-                  const SizedBox(width: 8),
-                  if (trim.isCurrent) const AdminBadge('Courant', color: kGreen),
-                ]),
-                const SizedBox(height: 2),
-                Text('${_fmt.format(trim.startDate)} → ${_fmt.format(trim.endDate)}',
-                    style: const TextStyle(fontSize: 11, color: kTextMuted)),
-              ]),
-            ),
-            if (!trim.isCurrent)
-              TextButton(
-                  onPressed: onSetCurrent,
-                  child: const Text('Définir courant',
-                      style: TextStyle(fontSize: 12))),
-            IconButton(
-              tooltip: 'Ajouter une séquence',
-              icon: const Icon(Icons.add_rounded, size: 18, color: kNavy),
-              onPressed: onAddSequence,
-            ),
-          ]),
-        ),
-        if (trim.sequences.isNotEmpty) ...[
-          const Divider(height: 1, color: kBorder),
-          ...trim.sequences.map((s) => Padding(
-                padding: const EdgeInsets.fromLTRB(18, 8, 14, 8),
-                child: Row(children: [
-                  const Icon(Icons.fiber_manual_record, size: 8, color: kTextMuted),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text('Séq. ${s.number} · ${s.label}',
-                        style: const TextStyle(fontSize: 12.5, color: kTextPrimary)),
-                  ),
-                  Text('${_fmt.format(s.startDate)} → ${_fmt.format(s.endDate)}',
-                      style: const TextStyle(fontSize: 10.5, color: kTextMuted)),
-                  if (s.isCurrent) ...[
-                    const SizedBox(width: 8),
-                    const AdminBadge('Courante', color: kGreen),
-                  ] else
-                    TextButton(
-                      onPressed: () => onSetCurrentSeq(s.id),
-                      child: const Text('Courante', style: TextStyle(fontSize: 11)),
-                    ),
-                ]),
-              )),
-          const SizedBox(height: 6),
-        ],
-      ]),
-    );
-  }
-}
-
-// ─── Petit formulaire (libellé + n° + dates) ───────────────────────────────────
-typedef _Entry = ({String label, int number, DateTime start, DateTime end});
-
-Future<_Entry?> _askEntry(BuildContext context,
-    {required String title, required List<int> numbers}) {
-  return showDialog<_Entry>(
-    context: context,
-    builder: (_) => _CalEntryDialog(title: title, numbers: numbers),
-  );
-}
-
-class _CalEntryDialog extends StatefulWidget {
-  const _CalEntryDialog({required this.title, required this.numbers});
-  final String title;
-  final List<int> numbers;
-  @override
-  State<_CalEntryDialog> createState() => _CalEntryDialogState();
-}
-
-class _CalEntryDialogState extends State<_CalEntryDialog> {
-  final _label = TextEditingController();
-  late int _number = widget.numbers.first;
-  DateTime? _start, _end;
-  String? _error;
-
-  @override
-  void dispose() {
-    _label.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    if (_label.text.trim().isEmpty || _start == null || _end == null) {
-      setState(() => _error = 'Libellé et dates requis');
-      return;
-    }
-    if (!_end!.isAfter(_start!)) {
-      setState(() => _error = 'La date de fin doit suivre le début');
-      return;
-    }
-    Navigator.pop(context,
-        (label: _label.text.trim(), number: _number, start: _start!, end: _end!));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AdminFormDialog(
-      icon: Icons.event_note_rounded,
-      title: widget.title,
-      width: 440,
-      submitLabel: 'Créer',
-      submitIcon: Icons.check_rounded,
-      onSubmit: _submit,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const AdminFormSectionLabel('IDENTIFICATION'),
-          const SizedBox(height: 14),
-          Row(children: [
-            Expanded(
-              flex: 2,
-              child: TextField(
-                  controller: _label,
-                  decoration: adminFilledInput('Libellé',
-                      icon: Icons.label_outline_rounded)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: DropdownButtonFormField<int>(
-                initialValue: _number,
-                decoration: adminFilledInput('N°'),
-                items: widget.numbers
-                    .map((n) => DropdownMenuItem(value: n, child: Text('$n')))
-                    .toList(),
-                onChanged: (v) => setState(() => _number = v ?? _number),
-              ),
-            ),
-          ]),
-          const AdminFormDivider(),
-          const AdminFormSectionLabel('PÉRIODE'),
-          const SizedBox(height: 14),
-          Row(children: [
-            Expanded(
-                child: _DateField(
-                    label: 'Début',
-                    value: _start,
-                    onPick: (d) => setState(() => _start = d))),
-            const SizedBox(width: 12),
-            Expanded(
-                child: _DateField(
-                    label: 'Fin',
-                    value: _end,
-                    onPick: (d) => setState(() => _end = d))),
-          ]),
-          if (_error != null) ...[
+            if (_readOnly) ...[
+              const _LockedBanner(),
+              const SizedBox(height: 14),
+            ],
+            _CalendarSummary(trims: trims, year: year),
             const SizedBox(height: 14),
-            AdminErrorBanner(message: _error!),
+            if (trims.isEmpty)
+              _CalendarEmpty(readOnly: _readOnly)
+            else
+              ...trims.map((t) => _TrimCard(
+                    trim: t,
+                    readOnly: _readOnly,
+                    onSetCurrent: () => _run(context, ref,
+                        () => svc.setCurrentTrimester(t.id),
+                        'Trimestre courant mis à jour'),
+                    onEdit: () => _modifierTrimestre(context, ref, t, trims),
+                    onDelete: () => _supprimerTrimestre(context, ref, t),
+                    onAddSequence: () => _ajouterSequence(context, ref, t),
+                    onEditSequence: (s) =>
+                        _modifierSequence(context, ref, t, s),
+                    onDeleteSequence: (s) =>
+                        _supprimerSequence(context, ref, s),
+                    onSetCurrentSeq: (sid) => _run(context, ref,
+                        () => svc.setCurrentSequence(sid),
+                        'Séquence courante mise à jour'),
+                  )),
+            if (!_readOnly) ...[
+              const SizedBox(height: 6),
+              OutlinedButton.icon(
+                onPressed: trims.length >= _kTrimesterNumbers.length
+                    ? null
+                    : () => _ajouterTrimestre(context, ref, trims),
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: Text(trims.length >= _kTrimesterNumbers.length
+                    ? 'Les 3 trimestres sont définis'
+                    : 'Ajouter un trimestre'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: kNavy,
+                  side: BorderSide(color: kBorder),
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+            const SizedBox(height: 22),
+            Divider(height: 1, color: kBorder),
+            const SizedBox(height: 18),
+            _HolidaysSection(year: year, readOnly: _readOnly),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-class _DateField extends StatelessWidget {
-  const _DateField({required this.label, required this.value, required this.onPick});
-  final String label;
-  final DateTime? value;
-  final ValueChanged<DateTime> onPick;
-  @override
-  Widget build(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label,
-          style: const TextStyle(
-              fontSize: 12, fontWeight: FontWeight.w600, color: kNavy)),
-      const SizedBox(height: 6),
-      InkWell(
-        onTap: () async {
-          final now = DateTime.now();
-          final picked = await showDatePicker(
-            context: context,
-            initialDate: value ?? now,
-            firstDate: DateTime(now.year - 2),
-            lastDate: DateTime(now.year + 4),
-          );
-          if (picked != null) onPick(picked);
-        },
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
-          decoration: BoxDecoration(
-            color: kSurface,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: kBorder),
-          ),
-          child: Row(children: [
-            const Icon(Icons.calendar_today_rounded, size: 15, color: kTextMuted),
-            const SizedBox(width: 8),
-            Text(value != null ? _fmt.format(value!) : 'Choisir…',
-                style: TextStyle(
-                    fontSize: 13, color: value != null ? kNavy : kTextMuted)),
-          ]),
         ),
       ),
-    ]);
+    );
   }
 }

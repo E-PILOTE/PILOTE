@@ -7,6 +7,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/services/official_pdf_kit.dart';
+import '../../../core/utils/ine.dart';
 import '../providers/students_registry_provider.dart';
 import 'enrollment_pdf_shared.dart';
 
@@ -76,7 +77,7 @@ class StudentsPdfService {
           OfficialPdfKit.empty('Aucun élève à exporter.', f.regular)
         else
           for (final k in cycleKeys) ...[
-            _cycleSection(k, byCycle[k]!, f),
+            ..._cycleSection(k, byCycle[k]!, f),
             pw.SizedBox(height: 14),
           ],
         pw.SizedBox(height: 8),
@@ -86,7 +87,7 @@ class StudentsPdfService {
     return doc.save();
   }
 
-  static pw.Widget _cycleSection(
+  static List<pw.Widget> _cycleSection(
       String code, List<StudentRow> items, PdfFonts f) {
     final color = cycleColorPdf(code);
     final name = cycleNamePdf(code);
@@ -102,7 +103,7 @@ class StudentsPdfService {
       byClass.putIfAbsent(r.className ?? 'Sans classe', () => []).add(r);
     }
 
-    return enrollmentCycleSection(
+    return enrollmentCycleBlocks(
       color: color,
       cycleName: name,
       count: items.length,
@@ -113,23 +114,30 @@ class StudentsPdfService {
         for (final e in byClass.entries)
           EnrollmentGroup(
             label: e.key,
-            table: OfficialPdfKit.table(
-              headers: const ['Matricule', 'Nom & prénom', 'Sexe', 'Âge',
-                'Interne', 'Boursier'],
-              rows: e.value
-                  .map((r) => [
-                        r.matricule,
-                        r.lastFirst,
-                        _sex(r.gender),
-                        r.age?.toString() ?? '—',
-                        r.isBoarder ? 'Oui' : '—',
-                        (r.hasScholarship || r.hasSocialAid) ? 'Oui' : '—',
-                      ])
-                  .toList(),
-              fonts: f,
-              flex: const [3, 6, 2, 2, 2, 2],
-              leftAlignCols: const {1},
-            ),
+            // ⚠️ L'IDENTIFIANT NATIONAL NE FIGURAIT PAS SUR CETTE LISTE.
+            // C'est pourtant le document qui sort de l'école — vers le
+            // ministère, vers l'archive — et l'INE est ce par quoi un enfant
+            // se retrouve d'un établissement à l'autre. Une liste nationale
+            // qui ne porte que le matricule interne de l'école n'est
+            // rapprochable de rien.
+            headers: const ['Matricule', 'Ident. national', 'Nom & prénom',
+              'Sexe', 'Âge', 'Interne', 'Boursier'],
+            rows: e.value
+                .map((r) => [
+                      r.matricule,
+                      // Un élève saisi hors ligne n'en a pas encore : le
+                      // serveur seul l'attribue. Un tiret se lirait comme un
+                      // oubli de saisie.
+                      r.ine == null ? 'en attente' : formatIne(r.ine),
+                      r.lastFirst,
+                      _sex(r.gender),
+                      r.age?.toString() ?? '—',
+                      r.isBoarder ? 'Oui' : '—',
+                      (r.hasScholarship || r.hasSocialAid) ? 'Oui' : '—',
+                    ])
+                .toList(),
+            flex: const [3, 3, 6, 2, 2, 2, 2],
+            leftAlignCols: const {2},
           ),
       ],
     );
