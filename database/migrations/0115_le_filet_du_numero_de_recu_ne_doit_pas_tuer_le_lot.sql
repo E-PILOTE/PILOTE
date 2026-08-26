@@ -1,0 +1,31 @@
+-- ════════════════════════════════════════════════════════════════════════════
+--  0115 — UN FILET DE SÉCURITÉ QUI DÉTRUISAIT PLUS QU'IL NE RATTRAPAIT
+--
+--  `trg_payment_receipt` (BEFORE INSERT sur `student_payments`) appelle
+--  `generate_receipt_number()` quand le numéro de reçu manque. Le rôle
+--  `authenticated` n'avait pas EXECUTE sur cette fonction : l'insertion
+--  revenait en **42501**.
+--
+--  Or 42501 fait partie des codes que `powersync_connector.dart` tient pour
+--  FATAUX : la transaction ENTIÈRE est abandonnée. Les notes, les présences et
+--  les inscriptions saisies dans la même fenêtre partaient avec l'encaissement.
+--  Un filet qui, en se déclenchant, coûtait plus cher que la chute.
+--
+--  ── POURQUOI PERSONNE NE L'AVAIT VU ────────────────────────────────────────
+--  L'application ne l'atteint jamais : `savePayment` fabrique le numéro sur le
+--  poste (`genererNumeroRecu`, format `REC-<code école>-…`) et le fournit
+--  toujours. La branche `IF NEW.receipt_number IS NULL` du trigger ne s'exécute
+--  donc pas depuis le client. Le défaut n'apparaît que pour un chemin qui
+--  oublierait le numéro : un import, une fonction Edge, ou une régression dans
+--  `genererNumeroRecu`.
+--
+--  Trouvé en rejouant les écritures avec les droits d'un compte ordinaire —
+--  pas avec ceux du service.
+--
+--  ⚠️ Les deux numérotations diffèrent : le poste produit `REC-<école>-…`, le
+--  serveur `REC-<année>-<séquence globale>`. C'est assumé — un reçu au format
+--  du serveur vaut mieux qu'un lot de travail perdu. Vérifié en production
+--  (transaction annulée) : le repli rend bien `REC-2026-001078`.
+-- ════════════════════════════════════════════════════════════════════════════
+
+GRANT EXECUTE ON FUNCTION public.generate_receipt_number() TO authenticated;
