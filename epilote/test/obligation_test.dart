@@ -15,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 // ════════════════════════════════════════════════════════════════════════════
 
 void main() {
+  _echeance();
   group('dû d\'un barème', () {
     test('un frais unique est dû en entier dès le premier jour', () {
       for (final t in [
@@ -190,6 +191,85 @@ void main() {
       for (final e in EtatObligation.values) {
         expect(libelleEtat(e), isNotEmpty);
       }
+    });
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  L'ÉCHÉANCE DU MOIS EN COURS (`due_day_of_month`)
+//
+//  Ce réglage était DÉCORATIF : le groupe le saisissait, l'école affichait
+//  « échéance le 5 », et aucun calcul ne s'en servait. Le 3 du mois, une
+//  famille apparaissait déjà débitrice du mois courant alors que l'école lui
+//  avait donné jusqu'au 5. Dans un établissement, cet écart finit par un
+//  enfant renvoyé chez lui pour une dette qui n'est pas encore exigible.
+// ════════════════════════════════════════════════════════════════════════════
+void _echeance() {
+  final rentree = DateTime(2025, 10, 1);
+  final finAnnee = DateTime(2026, 7, 31);
+
+  int mois(DateTime maintenant, {int? jour, DateTime? sortie}) => moisDus(
+        debutAnnee: rentree,
+        finAnnee: finAnnee,
+        maintenant: maintenant,
+        sortie: sortie,
+        jourEcheance: jour,
+      );
+
+  group('Le mois en cours n\'est dû qu\'à partir du jour d\'échéance', () {
+    test('sans échéance, rien ne change', () {
+      expect(mois(DateTime(2025, 12, 3)), 3); // oct, nov, déc
+    });
+
+    test('avant le jour dit, le mois courant ne compte pas', () {
+      expect(mois(DateTime(2025, 12, 3), jour: 5), 2,
+          reason: 'Le 3 décembre, l\'école a donné jusqu\'au 5 : la famille '
+              'doit octobre et novembre, pas décembre.');
+    });
+
+    test('le jour dit, il compte', () {
+      expect(mois(DateTime(2025, 12, 5), jour: 5), 3);
+    });
+
+    test('après, il compte aussi', () {
+      expect(mois(DateTime(2025, 12, 20), jour: 5), 3);
+    });
+
+    test('un mois déjà clos se doit en entier', () {
+      // Août 2026 : l'année scolaire est finie depuis juillet. Le compte
+      // s'arrête à juillet, mois clos — l'échéance n'a plus rien à retarder.
+      expect(mois(DateTime(2026, 8, 25), jour: 28), 10);
+    });
+
+    test('le dernier mois d\'un élève parti se doit en entier', () {
+      // Il est parti le 2 décembre, avant l'échéance du 5. Le mois de départ
+      // reste indivisible : on ne facture pas à la semaine.
+      expect(mois(DateTime(2025, 12, 20), jour: 5, sortie: DateTime(2025, 12, 2)),
+          3);
+    });
+
+    test('une échéance au 31 ne rend jamais février inexigible', () {
+      // Sans le ramener au dernier jour du mois, février ne deviendrait
+      // JAMAIS dû et la mensualité disparaîtrait de l'année.
+      expect(mois(DateTime(2026, 2, 28), jour: 31), 5,
+          reason: 'oct, nov, déc, jan, fév');
+    });
+
+    test('le premier mois d\'un élève arrivé après l\'échéance compte', () {
+      expect(
+          moisDus(
+            debutAnnee: rentree,
+            finAnnee: finAnnee,
+            maintenant: DateTime(2025, 10, 20),
+            entree: DateTime(2025, 10, 10),
+            jourEcheance: 5,
+          ),
+          1);
+    });
+
+    test('ne descend jamais sous zéro', () {
+      // Le 1er octobre, échéance le 10 : rien n'est encore dû.
+      expect(mois(DateTime(2025, 10, 1), jour: 10), 0);
     });
   });
 }

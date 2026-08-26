@@ -20,9 +20,12 @@ import 'package:epilote/features/finance/services/obligation.dart';
 //  les élèves en règle.
 // ════════════════════════════════════════════════════════════════════════════
 
-LigneBareme _b(String id, String type, int montant, {String? levelId}) => (
+LigneBareme _b(String id, String type, int montant,
+        {String? levelId, int? jourEcheance}) =>
+    (
       id: id,
       feeType: type,
+      jourEcheance: jourEcheance,
       nom: id,
       montant: montant,
       schoolId: null,
@@ -152,6 +155,7 @@ void main() {
           feeType: 'inscription',
           nom: 'ecole',
           montant: 20000,
+          jourEcheance: null,
           schoolId: 'e1',
           levelId: null,
         ),

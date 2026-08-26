@@ -180,6 +180,10 @@ Future<DecompteDu> _composer(
   final mois = calendrier.moisPour(
     entree: enr['enrollment_date'] as String?,
     sortie: enr['withdrawal_date'] as String?,
+    // Le reçu que la famille emporte doit compter les mêmes mois que l'écran
+    // de recouvrement : l'échéance de la mensualité s'y applique aussi.
+    jourEcheance:
+        jourEcheanceMensualite(baremes, levelId: enr['level_id'] as String?),
   );
 
   // ── Ce qui a été encaissé, par barème ──────────────────────────────────────

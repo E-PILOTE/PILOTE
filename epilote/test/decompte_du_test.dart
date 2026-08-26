@@ -18,9 +18,12 @@ import 'package:epilote/features/finance/services/obligation.dart';
 //  récents (présence, frais annexes, exonération) se combinent.
 // ════════════════════════════════════════════════════════════════════════════
 
-LigneBareme _b(String id, String type, int montant, {String nom = ''}) => (
+LigneBareme _b(String id, String type, int montant,
+        {String nom = '', int? jourEcheance}) =>
+    (
       id: id,
       feeType: type,
+      jourEcheance: jourEcheance,
       nom: nom,
       montant: montant,
       schoolId: null,
@@ -217,6 +220,7 @@ void main() {
         montant: 9000,
         schoolId: null,
         levelId: 'niveau-6e',
+        jourEcheance: null,
       );
       final d = composerDecompte(
         baremes: [...catalogue, autreNiveau],

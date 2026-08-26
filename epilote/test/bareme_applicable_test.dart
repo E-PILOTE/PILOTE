@@ -11,10 +11,11 @@ import 'package:flutter_test/flutter_test.dart';
 // ════════════════════════════════════════════════════════════════════════════
 
 LigneBareme l(String id, String type, int m,
-        {String? school, String? level, String nom = ''}) =>
+        {String? school, String? level, String nom = '', int? jourEcheance}) =>
     (
       id: id,
       feeType: type,
+      jourEcheance: jourEcheance,
       // Par défaut l'intitulé est vide : il ne pèse que sur les frais annexes
       // (cf. groupe « les frais annexes »), et le laisser vide ailleurs prouve
       // qu'il n'intervient PAS dans la résolution des autres types.

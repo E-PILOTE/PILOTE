@@ -11,10 +11,12 @@ LigneBareme _b(
   String? schoolId,
   String? levelId,
   String nom = '',
+  int? jourEcheance,
 }) =>
     (
       id: id,
       feeType: feeType,
+      jourEcheance: jourEcheance,
       nom: nom,
       montant: montant,
       schoolId: schoolId,

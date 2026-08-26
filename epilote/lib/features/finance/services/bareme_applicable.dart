@@ -19,6 +19,10 @@ typedef LigneBareme = ({
   int montant,
   String? schoolId,
   String? levelId,
+
+  /// `due_day_of_month` : le jour où la mensualité du mois en cours devient
+  /// exigible. `null` = dès le premier jour du mois. Cf. [moisDus].
+  int? jourEcheance,
 });
 
 /// Le type `autre` est la catégorie OUVERTE du barème : cantine, transport,
@@ -99,4 +103,20 @@ List<LigneBareme> baremesApplicables(
     }
   }
   return retenu.values.toList();
+}
+
+/// Le jour d'exigibilité de la mensualité qui s'applique à cet élève, ou `null`.
+///
+/// ⚠️ Il n'y a **qu'une seule** mensualité applicable : `mensualite` n'est pas
+/// un frais annexe, sa clé de résolution est le type lui-même. C'est ce qui
+/// autorise à résoudre l'échéance une fois par NIVEAU plutôt qu'une fois par
+/// barème — et donc à garder un seul compteur de mois par élève.
+int? jourEcheanceMensualite(
+  List<LigneBareme> visibles, {
+  required String? levelId,
+}) {
+  for (final b in baremesApplicables(visibles, levelId: levelId)) {
+    if (b.feeType == 'mensualite') return b.jourEcheance;
+  }
+  return null;
 }

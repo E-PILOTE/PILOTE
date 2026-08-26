@@ -54,6 +54,8 @@ final baremesApplicablesProvider =
            f.name,
            f.amount_xaf,
            f.school_id,
+           -- Le jour d'exigibilite de la mensualite du mois en cours.
+           f.due_day_of_month,
            COALESCE(f.applies_to_level_id, sl.id) AS level_id
       FROM fee_structures f
       LEFT JOIN school_levels sl
@@ -76,6 +78,7 @@ final baremesApplicablesProvider =
             montant: (r['amount_xaf'] as num?)?.round() ?? 0,
             schoolId: r['school_id'] as String?,
             levelId: r['level_id'] as String?,
+            jourEcheance: (r['due_day_of_month'] as num?)?.round(),
           ),
       ]);
 });
@@ -199,7 +202,7 @@ class CalendrierDu {
   /// [entree] et [sortie] arrivent telles que SQLite les rend : `YYYY-MM-DD`,
   /// ou nulles. Une date illisible est traitée comme absente — mieux vaut le
   /// dû de l'année entière qu'un plantage au guichet.
-  int moisPour({String? entree, String? sortie}) {
+  int moisPour({String? entree, String? sortie, int? jourEcheance}) {
     final d = debut, f = fin;
     // Dates d'année manquantes : un mois plutôt que zéro, pour qu'une
     // mensualité mal renseignée réclame quelque chose (un dû nul se lirait
@@ -211,6 +214,7 @@ class CalendrierDu {
       maintenant: DateTime.now(),
       entree: DateTime.tryParse(entree ?? ''),
       sortie: DateTime.tryParse(sortie ?? ''),
+      jourEcheance: jourEcheance,
     );
   }
 }

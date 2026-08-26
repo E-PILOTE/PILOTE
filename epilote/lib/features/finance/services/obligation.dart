@@ -65,24 +65,53 @@ String libelleEtat(EtatObligation e) => switch (e) {
 /// ⚠️ [entree] antérieure à la rentrée est ignorée : c'est le cas normal d'une
 /// réinscription saisie en août pour une année qui commence en octobre. La
 /// prendre au mot ferait payer des mois où l'école n'avait pas ouvert.
+/// ── [jourEcheance] : le mois EN COURS n'est dû qu'à partir de ce jour ───────
+///
+/// `fee_structures.due_day_of_month` était **décoratif** : le groupe le
+/// saisissait, l'école affichait « échéance le 5 », et aucun calcul ne s'en
+/// servait. Le 3 du mois, une famille apparaissait donc déjà débitrice du mois
+/// courant alors que l'école lui avait donné jusqu'au 5. Dans un
+/// établissement, cet écart finit par un enfant renvoyé chez lui pour une
+/// dette qui n'est pas encore exigible.
+///
+/// La remise n'est que TEMPORELLE : le mois entre dans le dû dès le jour dit.
+/// Elle ne s'applique qu'au mois **encore en cours** — un mois déjà clos, ou le
+/// dernier mois d'un élève parti, se doit en entier (cf. la règle du mois
+/// indivisible ci-dessus).
+///
+/// ⚠️ Une échéance au 31 est ramenée au dernier jour du mois : sans cela,
+/// février ne deviendrait JAMAIS exigible et la mensualité disparaîtrait.
 int moisDus({
   required DateTime debutAnnee,
   required DateTime finAnnee,
   required DateTime maintenant,
   DateTime? entree,
   DateTime? sortie,
+  int? jourEcheance,
 }) {
   final debut =
       (entree != null && entree.isAfter(debutAnnee)) ? entree : debutAnnee;
 
   var fin = maintenant.isBefore(finAnnee) ? maintenant : finAnnee;
-  if (sortie != null && sortie.isBefore(fin)) fin = sortie;
+  // Le mois de `fin` est-il encore en cours ? Seulement si rien — ni la fin de
+  // l'année, ni un départ — n'a arrêté le compte avant aujourd'hui.
+  var moisEnCours = identical(fin, maintenant);
+  if (sortie != null && sortie.isBefore(fin)) {
+    fin = sortie;
+    moisEnCours = false;
+  }
 
   // Comparaison au JOUR, pas au mois : une année qui démarre le 15 ne doit
   // rien le 1er. Règle héritée du compteur d'année, conservée telle quelle.
   if (fin.isBefore(debut)) return 0;
 
-  return (fin.year - debut.year) * 12 + (fin.month - debut.month) + 1;
+  final mois = (fin.year - debut.year) * 12 + (fin.month - debut.month) + 1;
+  if (jourEcheance == null || !moisEnCours) return mois;
+
+  final dernierJourDuMois = DateTime(fin.year, fin.month + 1, 0).day;
+  final exigibleLe =
+      jourEcheance > dernierJourDuMois ? dernierJourDuMois : jourEcheance;
+  return fin.day >= exigibleLe ? mois : (mois - 1).clamp(0, mois);
 }
 
 /// Les types de frais qu'une exonération de scolarité couvre.

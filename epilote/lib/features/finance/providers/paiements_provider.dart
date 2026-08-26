@@ -230,9 +230,13 @@ final paymentsOverviewProvider =
       final cid = e['cid'] as String;
       effectifParClasse[cid] = (effectifParClasse[cid] ?? 0) + 1;
       if (baremes.isEmpty) continue;
+      // L'echeance depend du NIVEAU, donc de la classe : une seule mensualite
+      // peut s'appliquer, elle est la meme pour tous les eleves de la classe.
       final mois = calendrier.moisPour(
         entree: e['entree'] as String?,
         sortie: e['sortie'] as String?,
+        jourEcheance:
+            jourEcheanceMensualite(baremes, levelId: niveauParClasse[cid]),
       );
       // La décision — dû après remise, état, « compte parmi les à jour » —
       // vit dans `recouvrementEleve`, verrouillée par `recouvrement_test.dart`.
@@ -433,6 +437,7 @@ StudentPayRow _ligneEleve(
     mois: calendrier.moisPour(
       entree: r['entree'] as String?,
       sortie: r['sortie'] as String?,
+      jourEcheance: jourEcheanceMensualite(baremes, levelId: niveau),
     ),
     verse: (r['paid'] as num?)?.round() ?? 0,
     exoneration: (r['exo'] as num?)?.round(),
