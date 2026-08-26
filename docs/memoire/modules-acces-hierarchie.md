@@ -40,4 +40,42 @@ metadata:
 - **1ʳᵉ tranche métier = Matières** (`features/structure/{providers/subjects_provider,screens/subjects_screen}` + `data/models/subject_model.dart`) : CRUD offline gaté, coefficient, slug anti-collision pré-validé. ⚠️ **Drift corrigé** : `powersync_schema` `subjects` avait un `code` fantôme + manquait `slug`(NOT NULL live)/`level_id`/`display_order`/timestamps → réécrit. ⚠️ **Le catalogue n'a PAS de module pour années/trimestres/séquences** (calendrier scolaire) → tranche calendrier = chantier suivant (nécessite soit un nouveau module catalogue super_admin, soit une zone direction fixe).
 - **Migration `0003_staff_profile_link.sql`** (staff_members.profile_id, pour own_classes) écrite mais **PAS appliquée** (DDL bloqué par le classifier auto-mode malgré l'allowedPrompt) → à appliquer par l'utilisateur (pooler ou SQL Editor) + ajouter au schema (déjà fait) ; sans elle own_classes = 0 classe (sûr).
 
+## 🩸 Verrou 4 — CHAQUE écran applique le périmètre de SON module (2026-08-25/27)
+
+**Seize écrans lisaient `classesProvider`** — donc le `data_scope` du module
+`classes`, pas le leur. Un commentaire l'affirmait même noir sur blanc :
+« `classesProvider` applique déjà le périmètre ». Il l'applique. Ce n'est pas
+le bon.
+
+Conséquence : le `data_scope` posé sur **Paiements, Notes, Bulletins, Conseils,
+Présences, Cantine, Orientation, Emploi du temps, Cahier de textes, Élèves,
+Inscriptions** n'avait **AUCUN effet**. L'administration affichait un cadenas
+fermé sur rien — le pire des défauts, celui qui rend compte d'un succès.
+
+⚠️ Aucune fuite mesurée en production : toutes les divergences tombent sur
+`own_school`, où le repli ouvre de toute façon. Mais **Vie scolaire n'a même
+pas le module `classes`** : son périmètre venait d'un module que ce profil ne
+détient pas.
+
+### La forme juste
+
+`classesForModuleProvider(slug)` (`classes/providers/class_provider.dart`).
+`classesProvider` n'en est plus qu'un relais pour le module `classes`.
+
+⚠️ `evaluationOverviewProvider` est partagé par TROIS écrans de slugs
+différents (notes, bulletins, conseils) : sa clé porte le slug de l'appelant.
+Un aperçu partagé ne peut pas avoir un périmètre unique.
+
+**Trois usages de `classesProvider` subsistent, commentés sur place** : l'écran
+du module `classes`, et les deux blocs du tableau de bord d'accueil — qui n'est
+pas un module et n'a donc pas de `data_scope` propre.
+
+### ⚠️ Le piège du passage à une FAMILLE
+
+Deux sites devenaient `ref.read(famille(...)).valueOrNull` — qui rend `null`
+quand rien n'écoute (le défaut B du même jour). Un garde existant a mordu sur
+ma propre correction. Forme obligatoire : `await ref.read(p.future)`.
+
+Garde : `test/perimetre_par_module_test.dart` (ex-`perimetre_finance_test`).
+
 Voir [[role-admin-groupe]], [[inscription-module-logique]], [[powersync-status]], [[catalogue-modules-v2]].
