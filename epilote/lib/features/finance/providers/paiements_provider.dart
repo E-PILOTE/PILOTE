@@ -14,6 +14,11 @@ import '../services/receipt_number.dart';
 
 const _uuid = Uuid();
 
+/// Le slug de CE module. Déclaré ici, à côté des requêtes qu'il doit borner,
+/// et importé par l'écran — la constante vivait en double, et c'est ce genre de
+/// littéral recopié qui laisse un périmètre dériver sans que rien ne le dise.
+const kSlugPaiements = 'paiements-eleves';
+
 // ════════════════════════════════════════════════════════════════════════════
 //  PAIEMENTS ÉLÈVES (table `student_payments`) — encaissements par élève (frais,
 //  montant, méthode, statut). Recouvrement par classe + historique par élève.
@@ -95,7 +100,10 @@ class PaymentsOverview {
 final paymentsOverviewProvider =
     FutureProvider.autoDispose<PaymentsOverview>((ref) async {
   ref.keepAlive();
-  final classes = ref.watch(classesProvider).valueOrNull;
+  // ⚠️ Le périmètre appliqué est celui de CE module, pas celui de `classes` —
+  // voir `classesForModuleProvider`. Auparavant, le `data_scope` de
+  // `paiements-eleves` n'avait aucun effet : il n'était lu nulle part.
+  final classes = ref.watch(classesForModuleProvider(kSlugPaiements)).valueOrNull;
   final yearId = ref.watch(activeYearIdProvider);
   final baremes = ref.watch(baremesApplicablesProvider).valueOrNull ?? const [];
   final calendrier = ref.watch(calendrierDuProvider);
@@ -308,12 +316,16 @@ final classPaymentsProvider = StreamProvider.autoDispose
   final yearId = ref.watch(activeYearIdProvider);
   final baremes = ref.watch(baremesApplicablesProvider).valueOrNull ?? const [];
   final calendrier = ref.watch(calendrierDuProvider);
-  final niveau = ref
-      .watch(classesProvider)
-      .valueOrNull
-      ?.where((c) => c.id == classId)
-      .firstOrNull
-      ?.levelId;
+  // ⚠️ FAIL-CLOSED : `classId` vient de la route, pas d'une liste déjà filtrée.
+  // Sans ce contrôle, connaître l'identifiant d'une classe hors périmètre
+  // suffisait à en obtenir les élèves et leurs versements — le SQL ci-dessous
+  // ne filtre que sur `ce.class_id = ?2`.
+  final classes =
+      ref.watch(classesForModuleProvider(kSlugPaiements)).valueOrNull;
+  if (classes == null) return Stream.value(const []);
+  final classe = classes.where((c) => c.id == classId).firstOrNull;
+  if (classe == null) return Stream.value(const []);
+  final niveau = classe.levelId;
   if (yearId == null) return Stream.value(const []);
   return db.watch(
     '''

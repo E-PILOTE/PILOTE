@@ -22,7 +22,10 @@ import '../../../core/utils/message_erreur.dart';
 part 'paiements_sheet.dart';
 part 'paiements_form.dart';
 
-const _kSlug = 'paiements-eleves';
+/// ⚠️ Une seule déclaration, dans le provider, à côté des requêtes que ce slug
+/// borne. Le littéral était recopié ici : deux endroits à changer, un seul
+/// changé, et le périmètre dérive sans bruit.
+const _kSlug = kSlugPaiements;
 
 // ════════════════════════════════════════════════════════════════════════════
 //  PAIEMENTS ÉLÈVES — encaissements. KPI hero (encaissé, paiements, reste dû,

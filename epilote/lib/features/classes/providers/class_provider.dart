@@ -13,39 +13,62 @@ import '../../../services/powersync/powersync_service.dart';
 const _uuid = Uuid();
 
 // ─── Verrou 4 : périmètre de données (own_school vs own_classes) ──────────────
-
-/// Restriction de périmètre pour le module [slug].
-/// • `null`  → aucune restriction (`own_school`) : toute l'école.
-/// • liste   → uniquement ces `class_id` (peut être vide = aucune classe).
-///
-/// Pendant le chargement des ids d'un périmètre `own_classes`, retourne une
-/// liste vide plutôt que `null` : on ne laisse JAMAIS fuiter toute l'école à un
-/// enseignant le temps que ses classes se résolvent.
-List<String>? _scopeRestriction(Ref ref, String slug) {
-  final perm = ref.watch(modulePermissionProvider(slug));
-  if (perm == null || !perm.isOwnClasses) return null; // own_school → tout
-  return ref.watch(scopedClassIdsProvider(slug)).valueOrNull ?? const <String>[];
-}
-
-/// `?,?,?` pour un `IN (...)` paramétré.
-String _placeholders(int n) => List.filled(n, '?').join(',');
+//
+// ⚠️ CE FICHIER RECALCULAIT LE PÉRIMÈTRE LUI-MÊME, ET IL LUI MANQUAIT UN GARDE.
+//
+// Il portait un `_scopeRestriction` privé, copie du helper canonique
+// `classScopeClause` (navigation/providers/permissions_provider.dart) — mais
+// figée AVANT que celui-ci ne soit durci. Il lui manquait la seule ligne qui
+// compte :
+//
+//     if (!permissionsLoaded(ref)) return (clause: 'AND 0 = 1', ...);
+//
+// `modulePermissionProvider` rend `null` dans DEUX cas que rien ne distingue :
+// « ce module n'est pas accordé » et « le profil d'accès n'est pas encore lu ».
+// Le doublon traitait les deux comme « aucune restriction ». Résultat : à chaque
+// démarrage, le temps que le profil se charge, un enseignant en `own_classes`
+// voyait TOUTES les classes de l'école et TOUS les effectifs. Pas un cas limite
+// — le chemin normal, à chaque ouverture de l'application.
+//
+// Les quatre requêtes ci-dessous passent désormais par le helper canonique, qui
+// traite « je ne sais pas » comme « restreint ». C'était le seul fichier du
+// dépôt à refaire ce calcul dans son coin ; il n'y en a plus.
+//
+// ⚠️ Ne jamais réintroduire de variante locale : c'est cette copie qui a fait
+// passer inaperçu le fait que Finance n'appliquait aucun périmètre propre.
 
 // ─── Liste des classes ────────────────────────────────────────────────────────
 
 /// Classes actives de l'école, avec le nombre d'élèves inscrits (actifs).
 /// Utilise un JOIN SQLite local — fonctionne 100% hors-ligne.
-final classesProvider =
-    StreamProvider.autoDispose<List<ClassModel>>((ref) {
+/// Les classes visibles **dans le périmètre du module [slug]**.
+///
+/// ── POURQUOI CE PARAMÈTRE EXISTE ──────────────────────────────────────────
+/// Il n'y avait qu'un `classesProvider`, verrouillé sur le module `classes`.
+/// Tout écran qui s'en servait héritait donc du périmètre d'un AUTRE module que
+/// le sien. Finance en vivait entièrement : le `data_scope` de
+/// `paiements-eleves` n'était lu nulle part, et le restreindre depuis
+/// l'interface d'administration ne produisait aucun effet — un cadenas qui
+/// annonce s'être fermé.
+///
+/// Le risque n'était pas que théorique, et il allait dans les deux sens. Donner
+/// un jour `classes = own_classes` à un comptable — geste anodin, pour limiter
+/// les listes qu'il parcourt — aurait rétréci son état de recouvrement EN
+/// SILENCE : « tout le monde a payé », parce que la moitié des classes avait
+/// disparu du calcul.
+///
+/// Chaque écran demande donc le périmètre de SON module, et d'aucun autre.
+final classesForModuleProvider =
+    StreamProvider.autoDispose.family<List<ClassModel>, String>((ref, slug) {
   final profile = ref.watch(authNotifierProvider).valueOrNull;
   final yearId  = ref.watch(activeYearIdProvider);
   if (profile?.schoolId == null || profile!.schoolId!.isEmpty || yearId == null) {
     return Stream.value([]);
   }
 
-  final scopeIds = _scopeRestriction(ref, 'classes');
-  if (scopeIds != null && scopeIds.isEmpty) return Stream.value([]);
-  final scopeClause =
-      scopeIds == null ? '' : 'AND c.id IN (${_placeholders(scopeIds.length)})';
+  final scope = classScopeClause(ref, slug, column: 'c.id');
+  final scopeClause = scope?.clause ?? '';
+  final scopeIds = scope?.params;
 
   return db
       .watch(
@@ -77,6 +100,18 @@ final classesProvider =
       )
       .map((rows) => rows.map(ClassModel.fromMap).toList());
 });
+
+/// Les classes de l'écran **Classes**. Raccourci historique, conservé pour les
+/// dizaines d'appelants qui parlent bien du module `classes`.
+///
+/// ⚠️ Ne pas l'utiliser depuis un autre module : passer par
+/// [classesForModuleProvider] avec le slug de CET écran, sans quoi le périmètre
+/// appliqué sera celui du module `classes`.
+/// Simple relais : il rend l'`AsyncValue` de la famille, sans requête de plus.
+/// Les 23 appelants continuent de faire `.valueOrNull`, `.when(...)`, comme
+/// avant — aucun ne réclamait l'API d'un `StreamProvider`, vérifié.
+final classesProvider = Provider.autoDispose<AsyncValue<List<ClassModel>>>(
+    (ref) => ref.watch(classesForModuleProvider('classes')));
 
 // ─── Classe par ID ────────────────────────────────────────────────────────────
 
@@ -144,10 +179,9 @@ final classCountProvider = StreamProvider.autoDispose<int>((ref) {
   if (profile?.schoolId == null || profile!.schoolId!.isEmpty || yearId == null) {
     return Stream.value(0);
   }
-  final scopeIds = _scopeRestriction(ref, 'classes');
-  if (scopeIds != null && scopeIds.isEmpty) return Stream.value(0);
-  final scopeClause =
-      scopeIds == null ? '' : 'AND id IN (${_placeholders(scopeIds.length)})';
+  final scope = classScopeClause(ref, 'classes', column: 'id');
+  final scopeClause = scope?.clause ?? '';
+  final scopeIds = scope?.params;
   return db
       .watch(
         'SELECT COUNT(*) AS cnt FROM classes '
@@ -165,10 +199,9 @@ final enrolledStudentCountProvider = StreamProvider.autoDispose<int>((ref) {
   if (profile?.schoolId == null || profile!.schoolId!.isEmpty || yearId == null) {
     return Stream.value(0);
   }
-  final scopeIds = _scopeRestriction(ref, 'eleves');
-  if (scopeIds != null && scopeIds.isEmpty) return Stream.value(0);
-  final scopeClause =
-      scopeIds == null ? '' : 'AND class_id IN (${_placeholders(scopeIds.length)})';
+  final scope = classScopeClause(ref, 'eleves', column: 'class_id');
+  final scopeClause = scope?.clause ?? '';
+  final scopeIds = scope?.params;
   return db
       .watch(
         'SELECT COUNT(*) AS cnt FROM class_enrollments '
@@ -328,10 +361,9 @@ final pendingEnrollmentsProvider =
   if (profile?.schoolId == null || profile!.schoolId!.isEmpty || yearId == null) {
     return Stream.value([]);
   }
-  final scopeIds = _scopeRestriction(ref, 'inscriptions');
-  if (scopeIds != null && scopeIds.isEmpty) return Stream.value([]);
-  final scopeClause =
-      scopeIds == null ? '' : 'AND ce.class_id IN (${_placeholders(scopeIds.length)})';
+  final scope = classScopeClause(ref, 'inscriptions', column: 'ce.class_id');
+  final scopeClause = scope?.clause ?? '';
+  final scopeIds = scope?.params;
   return db
       .watch(
         '''
