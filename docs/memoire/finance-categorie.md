@@ -26,3 +26,51 @@ metadata:
 **Catégories Dépenses/Budget non couvertes par un futur module** : Personnel (salaires) et Investissement (capex) passent volontairement par les Dépenses pour alimenter le Budget tant que RH/Paie n'existe pas.
 
 Reste roadmap : **RH** (paie, présences personnel, congés) — `staff_members.profile_id` dormant à brancher (cf [[staff-personnel-annuaire]] / [[profil-source-de-verite-droits]]).
+
+## 📋 Complétude déclarée — Finance face à `ANALYSE.md` (audit du 2026-08-25)
+
+Le cahier des charges annonce **FINANCE (7)** :
+`frais-scolarite` · `paiements-eleves` · `facturation-ecole` · `depenses` ·
+`budget` · `comptabilite` · `mobile-money`.
+
+**Quatre existent. Trois n'existent même pas comme LIGNES dans `modules`** —
+donc ni attribuables, ni au catalogue, ni signalés « à venir » :
+
+| Manquant | Ce que ce serait | Couvert ailleurs ? |
+|---|---|---|
+| `facturation-ecole` | émettre un avis d'échéance / une facture AVANT paiement | non — l'école ne sait produire qu'un REÇU, après |
+| `comptabilite` | comptabilité en partie double, grand-livre | non — `depenses` tient un livre de postes, pas une comptabilité |
+| `mobile-money` | encaissement par API MTN / Airtel | non — Phase 2 assumée par le cahier |
+
+✅ **Règle métier n°8, Phase 1 : satisfaite.** `kPaymentMethods` = espèces,
+MTN Money, Airtel Money. L'API (Phase 2) est absente, conformément au découpage.
+
+❌ **Règle métier n°4 — « Données financières : 5 ans » : AUCUNE implémentation.**
+Pas de purge, pas d'archivage, pas de politique de rétention nulle part.
+
+### ⚠️ `due_day_of_month` est décoratif
+
+Le groupe le saisit (`admin_fee_form_dialog`), l'école l'affiche
+(`frais_screen.dart:189` — « échéance le 5 ») et **aucun calcul ne s'en sert** :
+`moisDus` compte des mois ENTAMÉS. Conséquence concrète : le 3 du mois, une
+famille apparaît déjà débitrice de ce mois alors que l'école lui a donné
+jusqu'au 5. Dans un établissement, cela finit par un enfant renvoyé chez lui.
+
+⚠️ Arbitrer avant d'y toucher : s'en servir CHANGE ce qu'une famille doit un
+jour donné. Les deux modèles se défendent (`obligation.dart` assume « aucune
+table d'échéances »). Le défaut certain est l'incohérence : un réglage qui
+s'édite, s'affiche, et ne fait rien.
+
+### Autres manques nommés
+
+- **Aucun suivi des impayés** au-delà de la pastille de couleur par classe :
+  ni liste des débiteurs, ni export, ni relance. Le catalogue promet pourtant
+  « suivi des impayés » (`module_coming_soon.dart:46`).
+- **Deux soldes par famille** — scolarité dans Finance, examen dans Examens.
+  Mesuré à Ouésso : 4 000 F réellement encaissés, écran Paiements « Encaissé :
+  0 ». Voir [[chantier-bareme-classe-solde-eleve]].
+
+💡 Contradiction repérée en lisant le cahier, HORS Finance : `ANALYSE.md` §8.7
+donne les mentions à Excellent ≥16 / Très Bien 14 / Bien 12 / Assez Bien 10,
+là où `get_mention()` en base pose ≥18 / ≥16 / ≥14 / ≥12 / ≥10. À trancher lors
+de l'audit d'Évaluation.
