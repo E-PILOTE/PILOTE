@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/rang.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  ESPACE ADMIN_GROUPE — Analyses d'une année scolaire (online / Supabase).
@@ -151,7 +152,10 @@ class YearDepartmentDetail {
   int? rangDe(String schoolId) {
     final cible = ecoles.where((e) => e.id == schoolId).firstOrNull;
     if (cible == null) return null;
-    return 1 + ecoles.where((e) => e.eleves > cible.eleves).length;
+    // Même règle que le rang d'un bulletin, et un seul exemplaire :
+    // `core/utils/rang.dart`. Elle vivait ici en propre, et le bulletin ne
+    // l'appliquait pas — deux élèves à la même moyenne y recevaient 3 et 4.
+    return rangDeCompetition(cible.eleves, [for (final e in ecoles) e.eleves]);
   }
 
   /// Extrait un département d'une ventilation d'année.

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/utils/mention.dart';
+import '../../../core/utils/rang.dart';
 import '../../../services/powersync/powersync_service.dart';
 
 // Le barème des mentions vit dans `core/utils/mention.dart` — une seule copie,
@@ -248,6 +249,9 @@ final bulletinComputationProvider = FutureProvider.autoDispose
   }
 
   // 9) Rang par matière.
+  // ⚠️ Le rang se COMPTE (cf. `rangDeCompetition`), il ne se lit pas dans une
+  // liste triée : deux élèves à la même moyenne partagent le rang, et l'ordre
+  // d'un tri instable ne décide plus lequel passe devant.
   final subjRankMap = <String, Map<String, int>>{}; // subj → enr → rank
   for (final sid in subjCoef.keys) {
     final pairs = <(String, double)>[];
@@ -255,24 +259,21 @@ final bulletinComputationProvider = FutureProvider.autoDispose
       final a = (subjAvg[t.$1] ?? const {})[sid];
       if (a != null) pairs.add((t.$1, a));
     }
-    pairs.sort((x, y) => y.$2.compareTo(x.$2));
-    for (var i = 0; i < pairs.length; i++) {
-      (subjRankMap[sid] ??= {})[pairs[i].$1] = i + 1;
+    final valeurs = [for (final p in pairs) p.$2];
+    for (final p in pairs) {
+      (subjRankMap[sid] ??= {})[p.$1] = rangDeCompetition(p.$2, valeurs);
     }
   }
 
   // 10) Rang général.
-  final ranked = [...tmp]..sort((a, b) {
-      final av = a.$2, bv = b.$2;
-      if (av == null && bv == null) return 0;
-      if (av == null) return 1;
-      if (bv == null) return -1;
-      return bv.compareTo(av);
-    });
-  final overallRank = <String, int>{};
-  for (var i = 0; i < ranked.length; i++) {
-    if (ranked[i].$2 != null) overallRank[ranked[i].$1] = i + 1;
-  }
+  // Un élève sans aucune note n'a pas de rang — il n'est pas dernier : il n'est
+  // pas classé. Le compter parmi les autres ferait reculer tout le monde d'un
+  // cran, et l'accuserait d'un résultat qu'il n'a pas eu.
+  final notes = [for (final t in tmp) if (t.$2 != null) t.$2!];
+  final overallRank = <String, int>{
+    for (final t in tmp)
+      if (t.$2 != null) t.$1: rangDeCompetition(t.$2!, notes),
+  };
 
   final total = studentRows.length;
   final students = <StudentBulletin>[];
