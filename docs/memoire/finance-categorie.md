@@ -70,6 +70,53 @@ s'édite, s'affiche, et ne fait rien.
   Mesuré à Ouésso : 4 000 F réellement encaissés, écran Paiements « Encaissé :
   0 ». Voir [[chantier-bareme-classe-solde-eleve]].
 
+## 🩸 Depuis le MOINS PRIVILÉGIÉ — 0114 / 0115 / 0116 (2026-08-25)
+
+Tout avait été vérifié avec les droits d'un directeur ou du service. Rejoué en
+production avec ceux d'un compte ordinaire (transaction annulée), le tableau
+change.
+
+**`payments_tenant` était `FOR ALL` sur « même groupe, même école ».** Un
+ENSEIGNANT lisait, MODIFIAIT et SUPPRIMAIT chaque versement de son école par un
+simple appel PostgREST. 276 comptes : 202 enseignants, 37 surveillants,
+37 secrétaires. `expenses` / `budget_lines`, eux, étaient bien gardés.
+
+⚠️ **Le remède évident était FAUX.** `auth_sync_finance()` se calcule depuis
+`depenses, budget, personnel, presences-personnel, conges, paie` —
+`paiements-eleves` n'y figure PAS. Gater dessus aurait renvoyé 42501 à un
+caissier, code fatal ⇒ lot entier perdu.
+
+⚠️⚠️ **Et ma première correction (0114) était fausse aussi.** TROIS écrans
+encaissent, pas un :
+
+| Écran | Module | Qui le détient |
+|---|---|---|
+| `paiements_form.dart` | `paiements-eleves` | Comptabilité, Direction |
+| `inscriptions_frais_card.dart` | `inscriptions` | **Secrétariat** aussi |
+| `exam_payment_dialog.dart` | `examens` | **Secrétariat** aussi |
+
+Au Congo **le versement FAIT l'inscription** : la carte encaisse et imprime le
+reçu devant la famille. 0116 corrige — créer sur l'UN des trois. Mesuré après :
+Direction ✅ · Secrétariat ✅ · Enseignant ✗ · Vie scolaire ✗. 239 des 276
+comptes restent fermés.
+
+💡 **La leçon** : un droit d'écriture ne se déduit pas du NOM d'un module, mais
+des ÉCRANS qui écrivent. Chercher `savePayment` AVANT d'écrire la policy.
+
+**0115 — un filet qui détruisait plus que la chute.** `authenticated` n'avait
+pas EXECUTE sur `generate_receipt_number()`, appelée par le trigger quand le
+numéro de reçu manque ⇒ 42501 ⇒ lot entier perdu. Invisible parce que
+`savePayment` fournit toujours le numéro. Repli serveur vérifié :
+`REC-2026-001078` (format différent du client, `REC-<code école>-…` — assumé).
+
+⚠️ **La LECTURE reste ouverte à l'école, et c'est délibéré** : la carte des
+frais lit le décompte, et tous les profils ont `inscriptions`. Idem pour la
+sync-rule — `student_payments` RESTE dans `by_school`, décision examinée et
+documentée dans `sync-rules.yaml` : sans ces lignes sur le poste, la secrétaire
+verrait « rien versé » et réclamerait deux fois. Un défaut de confidentialité se
+répare ; une famille qui paie deux fois, non. Le levier est la configuration des
+profils d'accès, pas les sync-rules.
+
 💡 Contradiction repérée en lisant le cahier, HORS Finance : `ANALYSE.md` §8.7
 donne les mentions à Excellent ≥16 / Très Bien 14 / Bien 12 / Assez Bien 10,
 là où `get_mention()` en base pose ≥18 / ≥16 / ≥14 / ≥12 / ≥10. À trancher lors

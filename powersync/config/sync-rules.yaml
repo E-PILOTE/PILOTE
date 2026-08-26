@@ -303,6 +303,23 @@ bucket_definitions:
       - SELECT * FROM trimesters WHERE school_id = bucket.sid
       - SELECT * FROM sequences WHERE school_id = bucket.sid
       # Finance non sensible (frais + paiements élèves)
+      #
+      # ⚠️ DÉCISION EXAMINÉE ET MAINTENUE LE 2026-08-25 — ne pas la rouvrir sans
+      # lire ceci. Déplacer `student_payments` vers un bucket réservé à la
+      # caisse (comme `expenses` et `budget_lines`, gardés par `sync_finance`)
+      # paraît évident : le poste d'un enseignant porte aujourd'hui, hors ligne,
+      # tous les versements de son école — donc qui est en retard de paiement.
+      #
+      # Mais la carte des frais d'une INSCRIPTION lit le décompte de l'élève
+      # (`decompteDuProvider`), et **tous** les profils détiennent le module
+      # `inscriptions` — secrétariat, enseignant, vie scolaire compris. Sans ces
+      # lignes sur le poste, l'écran afficherait « rien versé » pour une famille
+      # qui a payé, et la secrétaire réclamerait deux fois. Un défaut de
+      # confidentialité se répare ; une famille qui paie deux fois, non.
+      #
+      # Le bon levier n'est donc PAS ici : c'est la configuration des profils
+      # d'accès (un surveillant a-t-il besoin d'`inscriptions` ?), qui appartient
+      # au groupe. L'écriture, elle, est fermée depuis les migrations 0114/0116.
       - SELECT * FROM fee_structures WHERE school_id = bucket.sid AND is_active = true
       - SELECT * FROM student_payments WHERE school_id = bucket.sid
       # Vie scolaire non sensible
