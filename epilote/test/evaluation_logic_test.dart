@@ -3,13 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:epilote/features/evaluation/providers/bulletins_provider.dart';
 
 // Vérifie la logique PURE du module Évaluation (sans base ni réseau) :
-//  • les seuils de mention alignés sur la fonction SQL `get_mention` (migration
+//  • les seuils de mention, dont `core/utils/mention.dart` est la SEULE
+//    autorité depuis la suppression de `get_mention()` en 0117 (migration
 //    0059, barème officiel) — le détail seuil par seuil vit dans
 //    `test/mention_test.dart` ;
 //  • la pondération moyenne /20 (barème + coefficients) telle qu'appliquée par
 //    le calcul des bulletins.
 void main() {
-  group('mentionFor — seuils alignés sur get_mention() en base', () {
+  group('mentionFor — le barème officiel du METP, source unique', () {
     test('bornes exactes (barème officiel, migration 0059)', () {
       expect(mentionFor(20), 'Excellent');
       expect(mentionFor(18), 'Excellent');

@@ -1,16 +1,22 @@
 // ════════════════════════════════════════════════════════════════════════════
 //  MENTIONS — barème officiel du METP, source unique.
 //
-//  Ce barème vivait en trois exemplaires : `GradeModel.mention`,
-//  `mentionFor()` dans le module Bulletins, et la fonction SQL `get_mention()`.
-//  Deux d'entre eux avaient dérivé de deux points, si bien qu'un bulletin
-//  affichait « Très Bien » pour 15/20 et — plus grave — « Passable » pour
-//  8/20, une note d'échec présentée comme une réussite.
+//  Ce barème vivait en QUATRE exemplaires : `GradeModel.mention`,
+//  `mentionFor()` dans le module Bulletins, `AppConstants.seuil*`, et la
+//  fonction SQL `get_mention()`. Deux d'entre eux avaient dérivé de deux
+//  points, si bien qu'un bulletin affichait « Très Bien » pour 15/20 et — plus
+//  grave — « Passable » pour 8/20, une note d'échec présentée comme une
+//  réussite.
 //
-//  D'où ce fichier : un seul endroit côté Dart, tenu identique à
-//  `database/migrations/0059_get_mention_bareme_officiel.sql`. Toute
-//  modification doit toucher les deux, sinon la mention change selon qu'on la
-//  lit à l'écran ou en base.
+//  D'où ce fichier, et il est désormais le SEUL. Les constantes mortes
+//  d'`AppConstants` et la fonction SQL `get_mention()` ont été supprimées le
+//  2026-08-25 (migration 0117) : aucune des deux n'avait d'appelant, donc
+//  aucun test — et une règle qu'on ne teste pas dérive en silence.
+//
+//  ⚠️ Ne pas recréer de copie « pour le serveur ». L'application est
+//  offline-first : elle doit savoir calculer une mention sans réseau, donc
+//  l'autorité est ici. Si un besoin SQL apparaît, il faudra un test qui
+//  compare les deux barèmes ligne à ligne.
 //
 //    Excellent    ≥ 18
 //    Très Bien    ≥ 16

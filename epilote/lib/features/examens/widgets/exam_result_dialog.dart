@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/mention.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/active_agent_provider.dart';
 import '../providers/exam_candidates_provider.dart';
@@ -133,7 +134,16 @@ class _State extends ConsumerState<_ExamResultDialog> {
                   decoration: InputDecoration(
                     labelText: 'Moyenne (facultatif)',
                     hintText: 'ex. 12,45',
-                    helperText: 'La mention est calculée par la base (get_mention).',
+                    // ⚠️ Ce texte annonçait « calculée par la base
+                    // (get_mention) ». C'était faux à deux titres : rien en
+                    // base ne l'appelait — ni trigger, ni colonne générée — et
+                    // `setResult` était appelé SANS `mention`, donc la colonne
+                    // recevait NULL. Un agent saisissait 15,20 en croyant la
+                    // mention acquise, et la répartition des mentions du
+                    // cockpit METP restait vide. Elle se calcule ici, par le
+                    // barème officiel, comme partout ailleurs.
+                    helperText: 'La mention se déduit de la moyenne '
+                        '(barème officiel).',
                     helperStyle: TextStyle(fontSize: 11, color: kTextMuted),
                     border: const OutlineInputBorder(),
                     isDense: true,
@@ -201,6 +211,9 @@ class _State extends ConsumerState<_ExamResultDialog> {
         widget.row.id,
         result: _result!,
         average: avg,
+        // Sans moyenne, pas de mention : `mentionFor` rendrait « — », qui
+        // s'inscrirait en base comme s'il s'agissait d'une mention.
+        mention: avg == null ? null : mentionFor(avg),
         decidedAt: _decidedAt,
         // Poste partagé : c'est l'AGENT ACTIF qui saisit, pas l'appareil.
         recordedBy: ref.read(activeAgentIdProvider),

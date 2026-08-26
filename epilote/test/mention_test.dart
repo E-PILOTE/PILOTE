@@ -12,7 +12,8 @@ import 'package:epilote/core/utils/mention.dart';
 //
 //  Ces tests fixent les SEUILS, y compris juste en dessous, parce que c'est
 //  exactement là qu'une dérive d'un point se cache. Ils doivent rester le
-//  miroir de `database/migrations/0059_get_mention_bareme_officiel.sql`.
+//  source unique : `get_mention()` en base a été supprimée en 0117, faute
+//  d'appelant — une règle non testée finit toujours par diverger.
 // ════════════════════════════════════════════════════════════════════════════
 
 void main() {

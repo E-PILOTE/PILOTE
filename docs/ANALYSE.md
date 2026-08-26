@@ -174,7 +174,14 @@ Récupérer : role + access_profile_id + school_id
 4. **Bulletins** : Conservés 10 ans · Données financières : 5 ans
 5. **Conflits sync** : Last-write-wins (timestamp `updated_at`)
 6. **Mode séquentiel** : 6 séquences/an (2 par trimestre) — optionnel
-7. **Mentions** : Excellent ≥16 · Très Bien 14-15.99 · Bien 12-13.99 · Assez Bien 10-11.99 · Passable 8-9.99 · Insuffisant <8
+7. **Mentions** : Excellent ≥18 · Très Bien ≥16 · Bien ≥14 · Assez Bien ≥12 · Passable ≥10 · Insuffisant <10
+   > ⚠️ **Corrigé le 2026-08-25.** Ce point donnait auparavant un barème décalé
+   > de deux points, qui plaçait « Passable » entre 8 et 10 — c'est-à-dire
+   > **sous la barre de réussite**, une note d'échec présentée comme une
+   > réussite. Le barème ci-dessus est celui du METP, et le seul en vigueur :
+   > `epilote/lib/core/utils/mention.dart`, source unique côté application
+   > (migration `0059_get_mention_bareme_officiel.sql`). Le code n'a jamais
+   > suivi le barème erroné ; c'est ce document qui avait dérivé.
 8. **Paiements** : MTN Money + Airtel Money + Espèces (Phase 1) · Intégration API Mobile Money (Phase 2)
 
 ---

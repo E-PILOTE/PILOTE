@@ -5,7 +5,8 @@ import '../../../core/utils/mention.dart';
 import '../../../services/powersync/powersync_service.dart';
 
 // Le barème des mentions vit dans `core/utils/mention.dart` — une seule copie,
-// tenue identique à la fonction SQL `get_mention()`. Il en existait ici une
+// l'unique autorité du barème (la fonction SQL `get_mention()` a été
+// supprimée en 0117, faute d'appelant). Il en existait ici une
 // version décalée de deux points : 8/20 ressortait « Passable » sur les
 // bulletins. On le ré-exporte pour ne pas casser les écrans qui l'importent
 // depuis ce provider.

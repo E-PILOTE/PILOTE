@@ -8,7 +8,7 @@ import 'package:powersync/powersync.dart';
 //
 //  Deux invariants, pour deux raisons différentes :
 //
-//  1. LA BARRE EST À 10/20. C'est la même que `mentionFor` et que `get_mention()`
+//  1. LA BARRE EST À 10/20. C'est la même que `mentionFor` (seule autorité
 //     en base. Ce barème avait DÉJÀ dérivé de deux points côté bulletins : un
 //     8/20 ressortait « Passable ». Sur une décision de passage, la même dérive
 //     ferait redoubler — ou passer — des enfants à tort.

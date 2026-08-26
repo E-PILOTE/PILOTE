@@ -1,0 +1,31 @@
+-- ════════════════════════════════════════════════════════════════════════════
+--  0117 — LE BARÈME DES MENTIONS N'A PLUS QU'UN SEUL EXEMPLAIRE
+--
+--  Il en existait QUATRE. Trois ont été unifiés dans `core/utils/mention.dart`
+--  (migration 0059) après que deux d'entre eux eurent dérivé de deux points :
+--  un bulletin affichait « Passable » pour 8/20 — une note d'échec présentée
+--  comme une réussite.
+--
+--  `get_mention()` était le quatrième. Vérifié ce jour : AUCUN appelant — ni
+--  trigger, ni vue, ni colonne générée, ni index, ni contrainte, ni valeur par
+--  défaut, ni RPC depuis le client, ni fonction Edge. Une règle qu'on n'appelle
+--  pas ne se teste pas, et dérive en silence : c'est exactement l'histoire
+--  ci-dessus.
+--
+--  ⚠️ L'application est offline-first : elle DOIT savoir calculer une mention
+--  sans serveur. L'autorité est donc `core/utils/mention.dart`, et elle seule.
+--
+--  Le barème officiel du METP, pour mémoire :
+--      Excellent    ≥ 18
+--      Très Bien    ≥ 16
+--      Bien         ≥ 14
+--      Assez Bien   ≥ 12
+--      Passable     ≥ 10
+--      Insuffisant  < 10   (la barre de réussite est 10/20)
+--
+--  Si un besoin SERVEUR apparaît un jour (vue ministérielle, export SQL), la
+--  recréer est trois lignes — mais il faudra alors un test qui la compare à
+--  `mentionFor`, sans quoi on rouvre le même piège.
+-- ════════════════════════════════════════════════════════════════════════════
+
+DROP FUNCTION IF EXISTS public.get_mention(numeric);
