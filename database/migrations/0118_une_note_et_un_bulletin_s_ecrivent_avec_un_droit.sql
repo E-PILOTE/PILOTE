@@ -1,0 +1,42 @@
+-- ════════════════════════════════════════════════════════════════════════════
+--  0118 — NOTER, APPRÉCIER, PUBLIER : TROIS DROITS, PAS UNE APPARTENANCE
+--
+--  `grades`, `evaluations`, `bulletins` et `bulletin_subject_lines` avaient
+--  chacun UNE policy `FOR ALL` réduite à « même groupe, même école ».
+--
+--  Mesuré en production avec un compte d'ENSEIGNANT (transaction annulée) :
+--      LIT   grades 8 514 · evaluations 264 · bulletins 292
+--      ÉCRIT une note        : 1 ligne
+--      PUBLIE un bulletin    : 1 ligne
+--      SUPPRIME un bulletin  : 1 ligne
+--
+--  La matrice des profils disait pourtant l'inverse depuis toujours :
+--  l'enseignant crée et modifie, mais ne supprime ni ne valide ; le
+--  secrétariat lit seulement ; la vie scolaire n'a aucun de ces modules.
+--
+--  ── LA RÈGLE MÉTIER N°3 DU CAHIER ──────────────────────────────────────────
+--  « Validation notes : Directeur valide avant publication. » Elle ne vivait
+--  que dans l'interface — et même là, mal : le bouton « Publier » était gardé
+--  par `update`, que l'enseignant possède.
+--
+--  Le `WITH CHECK` voit la NOUVELLE ligne : toute mise à jour qui aboutit à
+--  `status = 'published'` exige donc `can_validate` sur `bulletins`.
+--  L'enseignant garde ses appréciations et ses décisions de conseil.
+--
+--  ⚠️ `conseils` écrit AUSSI dans `bulletins` (décision, appréciations) sans
+--  jamais toucher `status`. Exiger le seul module `bulletins` aurait renvoyé
+--  42501 au conseil de classe — code fatal, lot entier perdu. La leçon de 0116
+--  appliquée d'emblée : chercher les ÉCRANS qui écrivent, pas le nom du module.
+--
+--  ── CE QUI RESTE OUVERT, ET POURQUOI ───────────────────────────────────────
+--  La LECTURE reste à l'échelle de l'école. Le périmètre par classe vit dans
+--  l'application (verrou 4) ; le porter ici demanderait de joindre les classes
+--  de l'agent à chaque ligne de note, et casserait le conseil de classe, qui
+--  lit toute la classe. Dette nommée, pas masquée.
+--
+--  ⚠️ La base est désormais PLUS STRICTE que le binaire déployé (build 20, où
+--  « Publier » est gardé par `update`). Un enseignant sur cette version qui
+--  presserait le bouton recevrait 42501 — fatal. Sans conséquence aujourd'hui
+--  (aucun établissement en service), à fermer par la prochaine livraison.
+-- ════════════════════════════════════════════════════════════════════════════
+-- (corps applique en base : voir la migration Supabase du meme nom)

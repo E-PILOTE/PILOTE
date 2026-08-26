@@ -148,6 +148,11 @@ class _BodyState extends ConsumerState<_Body> {
     final overview = ref.watch(evaluationOverviewProvider((slug: _kSlug, trimesterId: _trimesterId)));
     final canCreate = ref.watch(canProvider((slug: _kSlug, action: 'create')));
     final canUpdate = ref.watch(canProvider((slug: _kSlug, action: 'update')));
+    // ⚠️ PUBLIER N'EST PAS MODIFIER. Le cahier des charges pose que « le
+    // directeur valide avant publication » (§8.3) ; ce bouton était gardé par
+    // `update`, que l'enseignant possède. Il publiait donc lui-même — et rien
+    // en base ne l'en empêchait non plus (migration 0118).
+    final canValider = ref.watch(canProvider((slug: _kSlug, action: 'validate')));
     final readOnly = ref.watch(yearReadOnlyProvider);
 
     return SingleChildScrollView(
@@ -172,7 +177,7 @@ class _BodyState extends ConsumerState<_Body> {
           error: (e, _) => Padding(
               padding: const EdgeInsets.only(top: 40),
               child: Center(child: Text(messageErreur(e)))),
-          data: (ov) => _content(ov, canCreate, canUpdate, readOnly),
+          data: (ov) => _content(ov, canCreate, canUpdate, canValider, readOnly),
         ),
         const SizedBox(height: 24),
       ]),
@@ -180,7 +185,8 @@ class _BodyState extends ConsumerState<_Body> {
   }
 
   Widget _content(
-      EvaluationOverview ov, bool canCreate, bool canUpdate, bool readOnly) {
+      EvaluationOverview ov, bool canCreate, bool canUpdate,
+      bool canValider, bool readOnly) {
     if (ov.classes.isEmpty) {
       return const Padding(
         padding: EdgeInsets.only(top: 40),
@@ -238,7 +244,7 @@ class _BodyState extends ConsumerState<_Body> {
           className: _classNameFor(ov, _activeClassId!),
           busy: _busy,
           canGenerate: canCreate && !readOnly,
-          canPublish: canUpdate && !readOnly,
+          canPublish: canValider && !readOnly,
           onGenerate: _generate,
           onStatus: _setStatus,
           onOpen: (s, avg) =>

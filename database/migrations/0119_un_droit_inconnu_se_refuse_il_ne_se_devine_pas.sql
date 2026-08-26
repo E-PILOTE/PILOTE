@@ -1,0 +1,22 @@
+-- ════════════════════════════════════════════════════════════════════════════
+--  0119 — UN DROIT INCONNU SE REFUSE, IL NE SE DEVINE PAS
+--
+--  Correctif de mon propre helper, pris en défaut par la vérification qui
+--  suivait 0118.
+--
+--  `auth_module_permet` n'énumérait que `create`, `update` et `delete` ; son
+--  `ELSE` retombait sur `can_read`. Appelé avec `'validate'` — le droit qui
+--  garde la publication d'un bulletin — il rendait donc VRAI pour quiconque
+--  sait lire. Mesuré : après 0118, l'enseignant publiait encore.
+--
+--  Un prédicat de sécurité ne DEVINE pas. Les droits connus sont énumérés
+--  (read, create, update, delete, validate, approve, manage, export, import,
+--  write) ; tout le reste est refusé.
+--
+--  Vérifié après coup (transaction annulée) :
+--      Direction    noter OUI · apprécier OUI · PUBLIER OUI
+--      Enseignant   noter OUI · apprécier OUI · PUBLIER refusé (42501)
+--      Secrétariat  rien
+--      Vie scolaire rien
+-- ════════════════════════════════════════════════════════════════════════════
+-- (corps applique en base : voir la migration Supabase du meme nom)
