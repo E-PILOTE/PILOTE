@@ -30,6 +30,10 @@ import '../../../core/utils/message_erreur.dart';
 part 'add_inscription_steps_1_2.dart';
 part 'add_inscription_steps_3_5.dart';
 
+/// L'assistant inscrit : son périmètre est celui du module `inscriptions`,
+/// pas celui du module `classes` dont il empruntait la liste.
+const _kSlug = 'inscriptions';
+
 // ─── Design tokens ────────────────────────────────────────────────────────────
 Color get _kNavy => kNavy;
 Color get _kGreen => kGreen;

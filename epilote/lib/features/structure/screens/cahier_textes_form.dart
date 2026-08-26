@@ -144,7 +144,7 @@ class _LessonFormState extends ConsumerState<_LessonForm> {
 
   @override
   Widget build(BuildContext context) {
-    final classes = ref.watch(classesProvider).valueOrNull ?? const [];
+    final classes = ref.watch(classesForModuleProvider(_kSlug)).valueOrNull ?? const [];
     // Choix libre (un prof journalise pour n'importe quelle classe) : on ORDONNE
     // par niveau et on PRÉFIXE par le niveau → la structure reste lisible.
     final sortedClasses = [...classes]

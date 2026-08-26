@@ -14,7 +14,7 @@ import '../../../core/utils/message_erreur.dart';
 
 part 'presences_roll.dart';
 
-const _kSlug = 'presences-eleves';
+const _kSlug = kSlugPresences;
 
 // ════════════════════════════════════════════════════════════════════════════
 //  PRÉSENCES ÉLÈVES — appel quotidien. En-tête (date + période AM/PM) → KPI hero

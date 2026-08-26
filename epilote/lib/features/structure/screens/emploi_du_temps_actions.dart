@@ -200,7 +200,7 @@ extension _EdtActions on _EdtPageState {
 
   // Duplique l'emploi du temps de [from] vers une autre classe (sélection).
   Future<void> _duplicateTo(ClassModel from) async {
-    final classes = ref.read(classesProvider).valueOrNull ?? const <ClassModel>[];
+    final classes = ref.read(classesForModuleProvider(_kSlug)).valueOrNull ?? const <ClassModel>[];
     final others = classes.where((c) => c.id != from.id).toList()
       ..sort((a, b) {
         final o = (a.levelOrder ?? 999).compareTo(b.levelOrder ?? 999);

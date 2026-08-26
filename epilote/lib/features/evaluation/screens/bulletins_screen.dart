@@ -58,7 +58,7 @@ class _BodyState extends ConsumerState<_Body> {
       (classId: _activeClassId!, trimesterId: _trimesterId);
 
   void _refresh() {
-    ref.invalidate(evaluationOverviewProvider(_trimesterId));
+    ref.invalidate(evaluationOverviewProvider((slug: _kSlug, trimesterId: _trimesterId)));
     if (_activeClassId != null) {
       ref.invalidate(bulletinComputationProvider(_args));
     }
@@ -145,7 +145,7 @@ class _BodyState extends ConsumerState<_Body> {
     _trimesterId ??=
         trims.where((t) => t.isCurrent).map((t) => t.id).firstOrNull ??
             (trims.isNotEmpty ? trims.first.id : null);
-    final overview = ref.watch(evaluationOverviewProvider(_trimesterId));
+    final overview = ref.watch(evaluationOverviewProvider((slug: _kSlug, trimesterId: _trimesterId)));
     final canCreate = ref.watch(canProvider((slug: _kSlug, action: 'create')));
     final canUpdate = ref.watch(canProvider((slug: _kSlug, action: 'update')));
     final readOnly = ref.watch(yearReadOnlyProvider);

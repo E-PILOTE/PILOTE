@@ -57,7 +57,7 @@ class _Step3ScolariteState extends ConsumerState<_Step3Scolarite> {
   Widget build(BuildContext context) {
     final s            = widget.state;
     final yearsAsync   = ref.watch(academicYearsProvider);
-    final classesAsync = ref.watch(classesProvider);
+    final classesAsync = ref.watch(classesForModuleProvider(_kSlug));
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -493,7 +493,7 @@ class _Step5Resume extends ConsumerWidget {
     // seulement le type d'inscription. Or l'affectation est ce qui engage —
     // c'est elle qu'on relit avant d'enregistrer, et c'est la seule chose que
     // l'écran ne disait pas.
-    final classes = ref.watch(classesProvider).valueOrNull ?? const [];
+    final classes = ref.watch(classesForModuleProvider(_kSlug)).valueOrNull ?? const [];
     final klass = state.classId == null
         ? null
         : classes.where((c) => c.id == state.classId).firstOrNull;

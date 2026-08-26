@@ -15,7 +15,7 @@ import '../../../core/utils/message_erreur.dart';
 
 part 'orientation_sheet.dart';
 
-const _kSlug = 'orientation';
+const _kSlug = kSlugOrientation;
 
 // ════════════════════════════════════════════════════════════════════════════
 //  ORIENTATION — recommandations par élève × trimestre. En-tête (trimestre) →

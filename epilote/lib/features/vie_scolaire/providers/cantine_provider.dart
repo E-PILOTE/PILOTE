@@ -5,6 +5,10 @@ import '../../../services/powersync/powersync_service.dart';
 import '../../classes/providers/class_provider.dart';
 import '../widgets/vs_kit.dart';
 
+/// Le slug de CE module, déclaré à côté des requêtes qu'il borne — le
+/// littéral recopié dans deux fichiers est ce qui laisse un périmètre dériver.
+const kSlugCantine = 'cantine';
+
 const _uuid = Uuid();
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -40,7 +44,9 @@ class CanteenOverview {
 final canteenOverviewProvider = FutureProvider.autoDispose
     .family<CanteenOverview, MealDay>((ref, day) async {
   ref.keepAlive();
-  final classes = ref.watch(classesProvider).valueOrNull;
+  // Périmètre de CE module, jamais celui de `classes` : le `data_scope`
+  // posé sur ce module doit produire un effet.
+  final classes = ref.watch(classesForModuleProvider(kSlugCantine)).valueOrNull;
   if (classes == null || classes.isEmpty) {
     return const CanteenOverview(rows: [], served: 0, absent: 0, students: 0);
   }

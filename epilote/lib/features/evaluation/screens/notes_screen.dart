@@ -157,7 +157,7 @@ class _BodyState extends ConsumerState<_Body> {
         trims.where((t) => t.isCurrent).map((t) => t.id).firstOrNull ??
             (trims.isNotEmpty ? trims.first.id : null);
     final evalsAsync = ref.watch(evaluationsProvider);
-    final overview = ref.watch(evaluationOverviewProvider(_trimesterId));
+    final overview = ref.watch(evaluationOverviewProvider((slug: _kSlug, trimesterId: _trimesterId)));
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),

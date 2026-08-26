@@ -196,6 +196,8 @@ class _BodyState extends ConsumerState<_Body> {
 
   @override
   Widget build(BuildContext context) {
+    // L'écran du module `classes` lui-même : c'est le seul endroit où le
+    // périmètre du module `classes` EST celui de l'écran.
     final async = ref.watch(classesProvider);
     final readOnly = ref.watch(yearReadOnlyProvider);
     final teachers = {

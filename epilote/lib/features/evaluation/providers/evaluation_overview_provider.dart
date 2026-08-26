@@ -65,12 +65,21 @@ class EvaluationOverview {
 }
 
 /// Couverture de toutes les classes (du périmètre) pour un trimestre.
+/// ⚠️ La clé porte le SLUG de l'écran qui demande — Notes, Bulletins et
+/// Conseils partagent cet aperçu, et chacun a son propre périmètre.
+///
+/// Il lisait `classesProvider`, en croyant — son commentaire le disait — que
+/// « le périmètre est déjà appliqué ». Il l'est, mais c'est celui du module
+/// `classes`, pas celui de l'appelant. Un profil dont Notes serait restreint
+/// aux classes de l'enseignant, et `classes` ouvert à l'école, aurait vu
+/// TOUTES les classes — le verrou posé dans l'administration n'aurait rien
+/// changé, sans le moindre signal.
 final evaluationOverviewProvider = FutureProvider.autoDispose
-    .family<EvaluationOverview, String?>((ref, trimesterId) async {
+    .family<EvaluationOverview, ({String slug, String? trimesterId})>(
+        (ref, cle) async {
+  final trimesterId = cle.trimesterId;
   ref.keepAlive();
-  // `classesProvider` applique déjà le périmètre (4 verrous : own_school /
-  // own_classes), l'année active et le filtre actif → source des classes.
-  final classes = ref.watch(classesProvider).valueOrNull;
+  final classes = ref.watch(classesForModuleProvider(cle.slug)).valueOrNull;
   if (classes == null || classes.isEmpty) {
     return const EvaluationOverview(classes: [], schoolAverage: null);
   }

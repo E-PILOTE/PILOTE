@@ -356,7 +356,7 @@ class _ClassChooserDialogState extends ConsumerState<_ClassChooserDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final classesAsync = ref.watch(classesProvider);
+    final classesAsync = ref.watch(classesForModuleProvider(_kSlug));
     return AdminFormDialog(
       icon: Icons.swap_horiz_rounded,
       title: widget.title,

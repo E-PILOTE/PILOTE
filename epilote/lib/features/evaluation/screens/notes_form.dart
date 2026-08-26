@@ -149,7 +149,9 @@ class _EvaluationFormState extends ConsumerState<_EvaluationForm> {
 
   @override
   Widget build(BuildContext context) {
-    final classes = ref.watch(classesProvider).valueOrNull ?? const [];
+    // Périmètre de CE module, pas de `classes` — cf. `classesForModuleProvider`.
+    final classes =
+        ref.watch(classesForModuleProvider(_kSlug)).valueOrNull ?? const [];
     final sorted = [...classes]
       ..sort((a, b) => (a.levelOrder ?? 999).compareTo(b.levelOrder ?? 999));
     final program = _classId == null

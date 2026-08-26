@@ -163,7 +163,7 @@ class _EdtPageState extends ConsumerState<_EdtPage> {
 
   @override
   Widget build(BuildContext context) {
-    final classesAsync = ref.watch(classesProvider);
+    final classesAsync = ref.watch(classesForModuleProvider(_kSlug));
     final slotsAsync = ref.watch(timetableSlotsProvider);
     final periods = ref.watch(schoolPeriodsProvider).valueOrNull ?? const [];
     final rooms = ref.watch(roomsProvider).valueOrNull ?? const [];

@@ -214,7 +214,7 @@ class _SlotFormState extends ConsumerState<_SlotForm> {
 
     // Effectif de la classe (contrôle capacité salle).
     final klass = ref
-        .watch(classesProvider)
+        .watch(classesForModuleProvider(_kSlug))
         .valueOrNull
         ?.where((c) => c.id == widget.classId)
         .firstOrNull;

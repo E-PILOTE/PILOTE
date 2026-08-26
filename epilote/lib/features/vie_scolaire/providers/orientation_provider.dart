@@ -5,6 +5,10 @@ import '../../../services/powersync/powersync_service.dart';
 import '../../classes/providers/class_provider.dart';
 import '../widgets/vs_kit.dart';
 
+/// Le slug de CE module, déclaré à côté des requêtes qu'il borne — le
+/// littéral recopié dans deux fichiers est ce qui laisse un périmètre dériver.
+const kSlugOrientation = 'orientation';
+
 const _uuid = Uuid();
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -30,7 +34,9 @@ class OrientationOverview {
 final orientationOverviewProvider = FutureProvider.autoDispose
     .family<OrientationOverview, String?>((ref, trimesterId) async {
   ref.keepAlive();
-  final classes = ref.watch(classesProvider).valueOrNull;
+  // Périmètre de CE module, jamais celui de `classes` : le `data_scope`
+  // posé sur ce module doit produire un effet.
+  final classes = ref.watch(classesForModuleProvider(kSlugOrientation)).valueOrNull;
   if (classes == null || classes.isEmpty) {
     return const OrientationOverview(
         rows: [], oriented: 0, consulted: 0, students: 0);

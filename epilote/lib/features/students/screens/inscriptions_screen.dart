@@ -56,6 +56,10 @@ part 'inscriptions_frais_card.dart';
 part 'inscriptions_edit.dart';
 part 'inscriptions_edit_parts.dart';
 
+/// Le slug de CE module, déclaré une seule fois : un littéral recopié est
+/// ce qui laisse un périmètre dériver sans que rien ne le dise.
+const _kSlug = 'inscriptions';
+
 // ─── Accents de cycle ─────────────────────────────────────────────────────────
 const _kBlue = Color(0xFF0EA5E9);
 const _kPink = Color(0xFFEC4899);
@@ -83,7 +87,7 @@ class InscriptionsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return const ModuleScaffold(
-      slug: 'inscriptions',
+      slug: _kSlug,
       title: 'Inscriptions',
       child: _InscriptionsBody(),
     );

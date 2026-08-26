@@ -14,7 +14,7 @@ import '../../../core/utils/message_erreur.dart';
 
 part 'cantine_roll.dart';
 
-const _kSlug = 'cantine';
+const _kSlug = kSlugCantine;
 
 // ════════════════════════════════════════════════════════════════════════════
 //  CANTINE — pointage des repas. En-tête (date + type de repas) → KPI hero

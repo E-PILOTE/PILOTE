@@ -38,7 +38,12 @@ extension _InscriptionsActions on _InscriptionsBodyState {
 
   Future<void> _changeClass(InscriptionRow r) async {
     if (writeRefusedForLicense(context)) return;
-    final classes = ref.read(classesProvider).valueOrNull ?? const <ClassModel>[];
+    // ⚠️ `.future` : `.valueOrNull` sur une famille `autoDispose` non écoutée
+    // rendrait `null`, et l'écran annoncerait « aucune autre classe » alors
+    // qu'il y en a.
+    final classes = await ref.read(classesForModuleProvider(_kSlug).future);
+    // La lecture ci-dessus est asynchrone : l'écran a pu partir entre-temps.
+    if (!mounted) return;
     final others = classes.where((c) => c.id != r.classId).toList();
     if (others.isEmpty) {
       _snack('Aucune autre classe disponible.', kTextMuted);

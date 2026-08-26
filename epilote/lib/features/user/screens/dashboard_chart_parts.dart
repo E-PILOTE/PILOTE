@@ -6,6 +6,11 @@ class _ChartsRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // ⚠️ `classesProvider` est LÉGITIME ici, contrairement au reste de
+    // l'application : le tableau de bord d'accueil n'est pas un module et n'a
+    // donc pas de `data_scope` propre. Le périmètre du module `classes` est
+    // celui qui a du sens — « les classes que je vois ». Partout ailleurs, un
+    // écran doit passer par `classesForModuleProvider(sonSlug)`.
     final classesAsync = ref.watch(classesProvider);
     final gendersAsync = ref.watch(studentsByGenderProvider);
     final classes = classesAsync.valueOrNull ?? const <ClassModel>[];

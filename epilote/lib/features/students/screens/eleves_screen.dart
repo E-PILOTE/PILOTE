@@ -49,6 +49,10 @@ part 'eleves_actions_parts.dart';
 part 'eleves_edit.dart';
 part 'eleves_kpi_parts.dart';
 
+/// Le slug de CE module, déclaré une seule fois : un littéral recopié est
+/// ce qui laisse un périmètre dériver sans que rien ne le dise.
+const _kSlug = 'eleves';
+
 // ─── Référentiel cycles (couleur / nom / ordre) ──────────────────────────────
 Map<String, Color> get _cycleColors => <String, Color>{
   'prescolaire': const Color(0xFFEC4899),
@@ -82,7 +86,7 @@ class ElevesScreen extends ConsumerWidget {
   const ElevesScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) => const ModuleScaffold(
-        slug: 'eleves',
+        slug: _kSlug,
         title: 'Élèves',
         child: _Body(),
       );
@@ -229,8 +233,11 @@ class _BodyState extends ConsumerState<_Body> {
   /// élèves la portait à cinquante-quatre sans un mot, et la surcharge se
   /// découvrait dans la salle le jour de la rentrée.
   Future<bool> _confirmeDebordement(String classId, int aDeplacer) async {
-    final classes = ref.read(classesProvider).valueOrNull;
-    final cible = classes?.where((c) => c.id == classId).firstOrNull;
+    // ⚠️ `.future`, jamais `.valueOrNull` : sur une famille `autoDispose` que
+    // rien n'écoute, `.valueOrNull` rend `null` — et la surcharge de classe
+    // passerait sans un mot, ce qui est exactement le défaut qu'on prévient.
+    final classes = await ref.read(classesForModuleProvider(_kSlug).future);
+    final cible = classes.where((c) => c.id == classId).firstOrNull;
     if (cible == null) return true;
     final d = debordementApresDeplacement(
       className: cible.name,

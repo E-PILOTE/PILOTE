@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
-//  LE PÉRIMÈTRE DE FINANCE EST CELUI DE FINANCE
+//  CHAQUE MODULE APPLIQUE SON PROPRE PÉRIMÈTRE, ET PAS CELUI D'UN AUTRE
 //
 //  ── DEUX DÉFAUTS, TROUVÉS LE 2026-08-25, QUE RIEN N'AURAIT SIGNALÉS ─────────
 //
@@ -84,6 +84,37 @@ void main() {
       expect(corps.contains('AND 0 = 1'), isTrue,
           reason: 'Le doute se traduit par « aucune ligne », jamais par '
               '« aucune restriction ».');
+    });
+
+    test('aucun écran n\'emprunte le périmètre du module `classes`', () {
+      // ⚠️ CE MOTIF N'ÉTAIT PAS PROPRE À FINANCE. Une fois F1 corrigé, la
+      // même erreur restait dans quinze autres fichiers : Évaluation, Vie
+      // scolaire, Scolarité, Structure lisaient tous `classesProvider` en
+      // croyant — un commentaire le disait noir sur blanc — que « le périmètre
+      // est déjà appliqué ». Il l'est : celui du module `classes`, pas le leur.
+      // Le `data_scope` posé sur Notes, Présences ou Cantine n'avait donc
+      // aucun effet, et l'administration affichait un cadenas fermé sur rien.
+      //
+      // Trois exceptions, et trois seulement — chacune commentée sur place :
+      // l'écran du module `classes`, et les deux blocs du tableau de bord
+      // d'accueil, qui n'est pas un module et n'a pas de `data_scope` propre.
+      const permis = {
+        'features/classes/screens/classes_screen.dart',
+        'features/user/screens/dashboard_chart_parts.dart',
+        'features/user/screens/dashboard_kpi_parts.dart',
+      };
+      final motif = RegExp(r'(watch|read)\(\s*classesProvider\s*\)');
+      final fautes = <String>[];
+      for (final f in _dartsSous('lib')) {
+        final chemin = f.path.replaceAll(r'\', '/');
+        final relatif = chemin.substring(chemin.indexOf('lib/') + 4);
+        if (permis.contains(relatif)) continue;
+        if (motif.hasMatch(f.readAsStringSync())) fautes.add(relatif);
+      }
+      expect(fautes, isEmpty,
+          reason: 'Passer par `classesForModuleProvider(<slug de cet écran>)`. '
+              'Sans quoi le verrou de périmètre du module est inerte.\n\n'
+              '${fautes.join('\n')}');
     });
 
     test('`class_provider` ne réimplémente plus rien', () {

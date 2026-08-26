@@ -491,7 +491,7 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
 
   // ── Étape 2 — Scolarité (réaffectation + type + origine + notes) ────────────
   Widget _stepScolarite() {
-    final classesAsync = ref.watch(classesProvider);
+    final classesAsync = ref.watch(classesForModuleProvider(_kSlug));
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

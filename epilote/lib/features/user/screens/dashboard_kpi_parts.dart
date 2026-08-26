@@ -14,7 +14,9 @@ class _KpiGrid extends ConsumerWidget {
     final classCount = ref.watch(classCountProvider).valueOrNull;
     final eleveCount = ref.watch(enrolledStudentCountProvider).valueOrNull;
     final pending = ref.watch(pendingEnrollmentCountProvider).valueOrNull ?? 0;
-    final classes = ref.watch(classesProvider).valueOrNull ?? const <ClassModel>[];
+    // Même raison que le graphe d'accueil : l'accueil n'est pas un module.
+    final classes =
+        ref.watch(classesProvider).valueOrNull ?? const <ClassModel>[];
 
     final totalCap = classes.fold<int>(0, (s, c) => s + (c.capacity ?? 0));
     final totalStu = classes.fold<int>(0, (s, c) => s + (c.studentCount ?? 0));
