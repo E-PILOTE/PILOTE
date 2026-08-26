@@ -120,6 +120,23 @@ int duPourBareme({
 }) =>
     feeType == 'mensualite' ? montant * moisEcoules : montant;
 
+/// Ce que CET élève doit encore, jamais négatif.
+///
+/// ── POURQUOI CETTE RÈGLE A UN NOM ─────────────────────────────────────────
+/// Elle n'en avait pas, et elle s'est perdue en chemin. Le total de l'écran
+/// Paiements — et l'état de recouvrement IMPRIMÉ — valaient
+/// `(Σ dû) − (Σ versé)`, une soustraction de deux sommes. Une famille qui règle
+/// l'année d'avance efface alors la dette des autres : avec une mensualité à
+/// 21 000 F, en octobre le dû est d'UN mois ; la famille qui verse les dix mois
+/// pèse −189 000 F, soit exactement neuf familles qui n'ont rien payé. L'école
+/// lisait « Reste dû : 0 » en étant impayée, et le document partait ainsi à la
+/// direction départementale.
+///
+/// Le trop-versé d'un élève ne solde que SA dette. Additionner les restes,
+/// jamais les soldes.
+int resteEleve({required int du, required int verse}) =>
+    (du - verse).clamp(0, du);
+
 /// L'état d'un élève au vu de ce qu'il doit et de ce qu'il a versé.
 ///
 /// Le trop-versé reste « à jour » : le dépassement est un sujet de contrôle du

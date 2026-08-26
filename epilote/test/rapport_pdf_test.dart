@@ -71,6 +71,7 @@ LigneRecouvrement _r(int i) => (
       aJour: 30,
       du: 1350000,
       encaisse: 900000,
+      reste: 450000,
     );
 
 void main() {
@@ -148,6 +149,7 @@ void main() {
               aJour: 0,
               du: 0,
               encaisse: 0,
+              reste: 0,
             ),
         ],
         anneeLabel: '2025-2026',
@@ -220,21 +222,46 @@ void main() {
   });
 
   group('le reste dû par classe', () {
-    test('se déduit de l\'encaissé', () {
+    test('le document PORTE le reste, il ne le recalcule pas', () {
       expect(resteDe(_r(0)), 450000);
     });
 
-    test('ne passe jamais sous zéro', () {
-      // Un trop-perçu sur une classe ne crée pas une créance négative qui
-      // viendrait diminuer le reste dû de l'établissement.
-      const trop = (
+    test('une classe peut devoir de l\'argent alors qu\'elle a trop encaissé',
+        () {
+      // ⚠️ LE DÉFAUT QUI A MOTIVÉ CE CHANGEMENT.
+      //
+      // Le reste valait `(du − encaisse).clamp(0, du)`. Sur une classe où une
+      // famille règle l'année d'avance — cas courant quand la récolte tombe —
+      // cette soustraction efface la dette des autres.
+      //
+      // Ici : douze familles doivent 100 000 F en tout ; l'une a versé
+      // 250 000 F d'avance, les onze autres n'ont rien versé. L'école est bel
+      // et bien impayée, et l'ancienne formule imprimait « Reste dû : 0 » sur
+      // un document destiné à la direction départementale.
+      const avance = (
         className: '6e A',
+        effectif: 12,
+        aJour: 1,
+        du: 100000,
+        encaisse: 250000,
+        reste: 92000,
+      );
+      expect(resteDe(avance), 92000,
+          reason: 'Le reste se compte élève par élève, en amont — jamais en '
+              'soustrayant deux sommes.');
+    });
+
+    test('il ne passe jamais sous zéro', () {
+      // Garanti à la source : `(r.du - verse).clamp(0, r.du)` par élève.
+      const solde = (
+        className: '5e B',
         effectif: 10,
         aJour: 10,
         du: 100000,
         encaisse: 250000,
+        reste: 0,
       );
-      expect(resteDe(trop), 0);
+      expect(resteDe(solde), 0);
     });
   });
 }

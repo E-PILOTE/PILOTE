@@ -73,8 +73,10 @@ class PaymentsOverview {
     required this.students,
     this.duTotal = 0,
     this.aJour = 0,
+    this.resteDu = 0,
     this.duParClasse = const {},
     this.encaisseParClasse = const {},
+    this.resteParClasse = const {},
   });
   final List<VsCoverageRow> rows;
   final int collected, confirmedCount, pendingCount, payers, students;
@@ -91,8 +93,18 @@ class PaymentsOverview {
   /// direction départementale.
   final Map<String, int> duParClasse, encaisseParClasse;
 
+  /// Ce qui reste réellement à recouvrer : la somme, élève par élève, de
+  /// `max(dû − versé, 0)`.
+  ///
+  /// ⚠️ Ce n'est PAS `duTotal − collected`, et la nuance vaut de l'argent : une
+  /// famille qui règle l'année d'avance annulerait la dette de neuf autres, et
+  /// l'école lirait « Reste dû : 0 » en étant impayée. Voir le calcul.
+  final int resteDu;
+
+  /// Le même reste, ventilé par classe — l'état de recouvrement IMPRIMÉ le lit.
+  final Map<String, int> resteParClasse;
+
   bool get sansBareme => duTotal <= 0;
-  int get resteDu => (duTotal - collected).clamp(0, duTotal);
   int get classesTotal => rows.length;
 }
 
@@ -122,6 +134,15 @@ final paymentsOverviewProvider =
     'sp.refunded_amount_xaf AS remb, sp.status AS st '
     'FROM student_payments sp '
     "JOIN class_enrollments ce ON ce.student_id = sp.student_id AND ce.status = 'active' "
+    // ⚠️ LA MÊME POPULATION QUE LES INSCRITS, PLUS BAS.
+    //
+    // Ce filtre manquait ici et pas là-bas. Un élève retiré du registre
+    // (`students.is_active = 0`) sortait donc du dû et de l'effectif, mais ses
+    // versements restaient dans l'encaissé et dans le compte des payeurs :
+    // l'écran pouvait annoncer plus de payeurs que d'élèves, et la note
+    // d'encaissé d'une classe portait l'argent de quelqu'un qui n'y figurait
+    // plus. Deux nombres du même écran comptés sur deux ensembles.
+    'JOIN students s ON s.id = sp.student_id AND COALESCE(s.is_active, 1) <> 0 '
     'WHERE ce.class_id IN ($ph) AND sp.academic_year_id = ? '
     '${_horsFraisExamens('sp')}',
     [...ids, yearId],
@@ -173,7 +194,19 @@ final paymentsOverviewProvider =
   final aJourParClasse = <String, int>{};
   final effectifParClasse = <String, int>{};
   final duParClasse = <String, int>{};
-  var duTotal = 0;
+  // ⚠️ LE RESTE DÛ SE COMPTE ÉLÈVE PAR ÉLÈVE, JAMAIS EN SOUSTRAYANT DEUX SOMMES.
+  //
+  // Il valait `(Σ dû) − (Σ versé)`. Une famille qui règle l'année d'avance —
+  // cas courant quand la récolte tombe — efface alors la dette des autres :
+  // avec une mensualité à 21 000 F, en octobre le dû est d'UN mois ; la famille
+  // qui verse les dix mois (210 000 F) pèse −189 000 dans la soustraction,
+  // soit exactement neuf familles qui n'ont rien payé. L'écran annonçait
+  // « Reste dû : 0 », et le `.clamp(0, …)` finissait de masquer le signe.
+  //
+  // Le code faisait déjà la distinction pour UN élève — `etatObligation` dit
+  // que « le trop-versé reste à jour » — et la perdait en agrégeant.
+  final resteParClasse = <String, int>{};
+  var duTotal = 0, resteTotal = 0;
   {
     // ⚠️ Cette lecture a lieu MÊME sans barème : elle sert aussi d'effectif.
     // Une école publique sans tarif posé — il y en a une trentaine — verrait
@@ -203,15 +236,21 @@ final paymentsOverviewProvider =
       );
       // La décision — dû après remise, état, « compte parmi les à jour » —
       // vit dans `recouvrementEleve`, verrouillée par `recouvrement_test.dart`.
+      final verse = verseParEleve[e['sid'] as String] ?? 0;
       final r = recouvrementEleve(
         baremes,
         levelId: niveauParClasse[cid],
         mois: mois,
-        verse: verseParEleve[e['sid'] as String] ?? 0,
+        verse: verse,
         exoneration: (e['exo'] as num?)?.round(),
       );
       duTotal += r.du;
       duParClasse[cid] = (duParClasse[cid] ?? 0) + r.du;
+      // Ce que CET élève doit encore : jamais négatif, jamais compensé par
+      // l'avance d'un autre. La règle porte un nom pour cette raison.
+      final reste = resteEleve(du: r.du, verse: verse);
+      resteTotal += reste;
+      resteParClasse[cid] = (resteParClasse[cid] ?? 0) + reste;
       if (r.aJour) {
         aJourParClasse[cid] = (aJourParClasse[cid] ?? 0) + 1;
       }
@@ -254,8 +293,10 @@ final paymentsOverviewProvider =
     students: cov.fold(0, (a, c) => a + c.total),
     duTotal: duTotal,
     aJour: aJourParClasse.values.fold(0, (a, b) => a + b),
+    resteDu: resteTotal,
     duParClasse: duParClasse,
     encaisseParClasse: collectedByClass,
+    resteParClasse: resteParClasse,
   );
 });
 

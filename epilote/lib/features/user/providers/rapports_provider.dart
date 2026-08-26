@@ -132,9 +132,17 @@ typedef LigneRecouvrement = ({
   int aJour,
   int du,
   int encaisse,
+  int reste,
 });
 
-int resteDe(LigneRecouvrement l) => (l.du - l.encaisse).clamp(0, l.du);
+/// ⚠️ Le reste est PORTÉ par la ligne, il ne se recalcule pas ici.
+///
+/// Il valait `(du − encaisse).clamp(0, du)`. Sur une classe où une famille
+/// règle l'année d'avance, cette soustraction efface la dette des autres : le
+/// document partait à la direction départementale en annonçant « Reste dû : 0 »
+/// pour une classe impayée. Le reste se compte élève par élève, dans
+/// `paymentsOverviewProvider`, et ce document n'en est que le porteur.
+int resteDe(LigneRecouvrement l) => l.reste;
 
 /// L'état de recouvrement par classe.
 ///
@@ -154,6 +162,7 @@ final etatRecouvrementProvider =
         aJour: r.ok,
         du: o.duParClasse[r.classId] ?? 0,
         encaisse: o.encaisseParClasse[r.classId] ?? 0,
+        reste: o.resteParClasse[r.classId] ?? 0,
       ),
   ];
 });
