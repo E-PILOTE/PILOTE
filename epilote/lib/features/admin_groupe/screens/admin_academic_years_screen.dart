@@ -19,6 +19,7 @@ import '../services/admin_year_department_pdf_service.dart';
 import '../services/admin_year_pdf_service.dart';
 import 'admin_year_calendar_dialog.dart';
 import '../../../core/utils/message_erreur.dart';
+import '../../../core/utils/rang.dart';
 
 part 'admin_year_adoption.dart';
 part 'admin_year_analytics.dart';

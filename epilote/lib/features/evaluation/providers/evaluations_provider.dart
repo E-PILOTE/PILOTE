@@ -68,6 +68,14 @@ class Evaluation {
 
   bool get isPublished => status == 'published';
   bool get isDraft => status == 'draft';
+
+  /// Validée ou publiée : le chef d'établissement l'a ARRÊTÉE.
+  ///
+  /// Le cahier des charges (§8.3) réserve la validation à la direction. Tant
+  /// que ce mot n'a pas de conséquence, il ne veut rien dire : une évaluation
+  /// figée ne se modifie plus, ne se renote plus et ne se supprime plus — sauf
+  /// par qui détient précisément le droit `validate` sur `notes`.
+  bool get estFigee => status == 'validated' || status == 'published';
   bool get isComplete => studentCount > 0 && gradedCount >= studentCount;
 
   String get dateLabel {

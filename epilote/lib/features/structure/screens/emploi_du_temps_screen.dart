@@ -25,6 +25,7 @@ import '../services/emploi_du_temps_pdf_service.dart';
 import 'edt_settings_screen.dart';
 import 'emploi_du_temps_history.dart';
 import '../../../core/utils/message_erreur.dart';
+import '../../../core/utils/rang.dart';
 
 part 'emploi_du_temps_grid.dart';
 part 'emploi_du_temps_form.dart';

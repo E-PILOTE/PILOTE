@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/utils/passage_bareme.dart';
+import '../../../core/utils/rang.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -542,15 +543,19 @@ final passageSessionProvider =
           ? s.overallAverage
           : annualAverageOf(byTrimester[s.enrollmentId] ?? const []),
   };
-  final ordered = [
-    for (final s in roster.students)
-      if (annual[s.enrollmentId] != null) (s.enrollmentId, annual[s.enrollmentId]!)
-  ]..sort((a, b) => b.$2.compareTo(a.$2));
-  final ranks = {
-    for (var i = 0; i < ordered.length; i++) ordered[i].$1: i + 1,
-  };
-
   final values = annual.values.whereType<double>().toList();
+  // ⚠️ LE RANG SE COMPTE, IL NE SE LIT PAS DANS UN TRI. Il se lisait ici par
+  // position (`i + 1`) sur une liste triée — or `List.sort` n'est pas stable en
+  // Dart : deux moyennes annuelles égales étaient départagées au hasard, et
+  // deux postes pouvaient classer les mêmes élèves différemment. Sur la
+  // décision de PASSAGE, c'est-à-dire sur le redoublement d'un enfant.
+  // Même défaut que sur le bulletin (corrigé la veille) — celui-ci avait été
+  // manqué, le garde ne regardant qu'un seul fichier.
+  final ranks = {
+    for (final s in roster.students)
+      if (annual[s.enrollmentId] != null)
+        s.enrollmentId: rangDeCompetition(annual[s.enrollmentId]!, values),
+  };
   final entries = [
     for (final s in roster.students)
       PassageEntry(

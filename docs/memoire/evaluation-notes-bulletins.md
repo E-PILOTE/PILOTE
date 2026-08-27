@@ -30,3 +30,98 @@ metadata:
 ⚠️ 2 tests `admin_geo`/`congo_mask` échouent = **pré-existants, sans rapport** (données géo). Commit c6ba478 inclut aussi le build-out Enseignement (EDT/Cahier de textes) non commité car il partage le routeur. `modulesElements/` (dump SQL scratch) exclu.
 
 **Reste** : commit ; brancher Notes/Bulletins/Conseils au Dashboard et à l'Espace Parent (lecture seule publiés) ; puis Vie scolaire (présences/discipline), Finance, RH. Voir [[scolarite-pages-classes-matieres-eleves]] (design partagé) et [[enseignement-emploi-du-temps]] (EDT complet).
+
+## 🩸 AUDIT COMPLET DU MODULE — 2026-08-27 (5 axes)
+
+Le module était déclaré « complet ». Il l'était en surface. Cinq défauts, dont
+trois touchaient un document remis aux familles ou la perte de données.
+
+### 1. Le rang du bulletin se lisait dans un tri
+`rang = index + 1` sur une liste triée. Deux élèves à 14,50 recevaient 3 et 4.
+Et `List.sort` n'est pas stable en Dart : le même élève pouvait être 3ᵉ sur un
+poste et 4ᵉ sur un autre. Le projet appliquait DÉJÀ la bonne règle au rang
+départemental d'une école — pas au bulletin.
+→ `core/utils/rang.dart` : `rangDeCompetition(v, toutes) = 1 + (combien font
+strictement mieux)`. Aucun tri, donc aucune dépendance à sa stabilité. Un élève
+sans note n'est **pas classé** (pas dernier). Garde : `test/rang_test.dart`.
+
+### 2. Un enseignant publiait les bulletins (migrations 0118/0119)
+§8.3 « le directeur valide avant publication » ne vivait que dans l'écran, et
+mal : « Publier » était gardé par `update`. Mesuré : l'enseignant lisait 8 514
+notes, publiait ET supprimait des bulletins.
+→ 0118 sépare lecture / écritures gâtées par module, `WITH CHECK` exigeant
+`validate` pour `status='published'`. **0119 corrige mon propre helper** :
+`auth_module_permet` retombait sur `can_read` dans son `ELSE`, donc accordait
+`validate` à quiconque sait lire. Les droits connus sont désormais énumérés,
+l'inconnu refusé.
+
+### 3. « Publier » ne publiait RIEN (le pire des cinq)
+`bulletins_screen._setStatus` gardait sur `_scope.classId`, alors que le
+parcours que l'écran ENSEIGNE lui-même (« Ouvrez une classe » → carte
+« Ouvrir ») renseigne `_openClassId` et laisse `_scope.classId` NUL. La fonction
+rendait la main sans rien faire **et sans un message**. Le geste qui remet les
+bulletins aux familles était inerte sur le seul chemin documenté. Seul le
+déroulant du panneau marchait. `conseils_screen` appliquait déjà la bonne forme
+(`_activeClassId`) — Bulletins était seul à diverger.
+
+### 4. « Recalculer » jetait le lot hors ligne
+`generateBulletins` réécrivait TOUS les bulletins, publiés compris. Or (a) c'est
+un document déjà remis aux familles, (b) la base le refuse à qui n'a pas
+`validate` (0118) et **42501 est FATAL** pour le connecteur : lot entier jeté,
+saisies hors ligne perdues sans un mot. Mesuré en production : 474 bulletins
+publiés dans l'école témoin, refus confirmé pour le profil Enseignant.
+→ Un bulletin publié n'est **jamais** recalculé ; `generateBulletins` renvoie un
+`GenerationBulletins(calcules, publiesIntacts)` et les deux écrans disent ce
+qu'ils n'ont pas fait (« dépubliez la classe pour les recalculer »).
+Garde : `test/bulletin_publie_test.dart`.
+
+### 5. « Valider » ne voulait rien dire (migration 0121)
+Même défaut que #2, **un niveau plus haut, et c'est celui que la règle nomme** :
+§8.3 s'intitule « Validation NOTES ». La chaîne brouillon → soumise → VALIDÉE →
+PUBLIÉE était gardée de bout en bout par `update`. L'enseignant soumettait,
+validait et publiait son propre travail. Et une évaluation « validée » restait
+modifiable ET renotable.
+→ 0121 : brouillon/soumise = à l'enseignant (`update`) ; validée/publiée = à la
+direction (`validate`), y compris pour les `grades` (fonction
+`evaluation_ouverte`) et pour le retour en arrière. **Le verrou d'après-validation
+passe par le `USING`, pas le `WITH CHECK`** : l'UPDATE touche 0 ligne au lieu de
+lever 42501 — mode d'échec sûr pour PowerSync. Vérifié en production (annulé) :
+ENS soumet OUI / valide REFUS / publie REFUS / renote BLOQUÉ ; DIR tout OUI.
+Garde : `test/evaluation_validee_test.dart`.
+
+### 6. `GradeModel` : un fossile armé
+`lib/data/models/grade_model.dart` décrivait une table `grades` disparue — neuf
+champs inexistants (`value`, `sequence_id`, `trimester_id`, `grade_type`…),
+trois champs réels manquants (`evaluation_id`, `score`, `is_absent`). `fromMap`
+aurait levé sur la PREMIÈRE ligne venue. **Zéro appelant**, donc zéro test, donc
+personne pour s'en apercevoir : exactement le piège dormant de
+`AppConstants.roleUtilisateur`. **Supprimé.**
+
+### Et 0120, au passage
+`bulletin_subject_lines` n'exigeait que `bulletins` alors que sa table mère
+accepte `bulletins` OU `conseils` (deux écrans génèrent). Aucun profil ne tombe
+dans l'écart aujourd'hui — c'est la forme exacte du piège 0116, désamorcée
+avant qu'un groupe ne crée un profil « Conseil de classe » sans `bulletins`.
+
+## 📌 Ce qui reste OUVERT sur Évaluation, nommé
+
+- **La lecture reste à l'échelle de l'ÉCOLE** (RLS). Le périmètre par classe vit
+  dans l'application ; le porter en RLS casserait le conseil de classe, qui lit
+  toute la classe. Écrit dans l'en-tête de 0118.
+- **La base est plus stricte que le binaire déployé (build 20).** Sans
+  conséquence — aucun établissement en service — mais 0118/0121 doivent partir
+  avec la prochaine livraison, sinon un poste build 20 déclenche 42501 sur
+  « Valider »/« Publier » et perd son lot.
+- **§8.3 · notification push FCM : INEXISTANTE.** `firebase_core` /
+  `firebase_messaging` sont COMMENTÉS dans `pubspec.yaml` ; `profiles.fcm_token`
+  n'est jamais écrit. Les familles ne sont prévenues de rien.
+- **§8.6 · mode séquentiel : configurable mais INERTE.** L'admin groupe crée les
+  séquences (`set_current_sequence`) ; aucun écran du personnel ne rattache une
+  évaluation à une séquence — `evaluations.sequence_id` n'est écrit nulle part.
+- **§8.4 · rétention (bulletins 10 ans) : rien.** Aucune purge, aucun archivage
+  daté — même famille que le « 5 ans » financier.
+- **`bulletins.total_absences` / `total_lates` : écrits à 0 en dur**, jamais
+  affichés. Les données existent (`attendance_records`/`attendance_entries`).
+  Le bulletin officiel ne porte donc aucune absence.
+
+Voir [[modules-acces-hierarchie]], [[catalogue-modules-v2]], [[powersync-status]].

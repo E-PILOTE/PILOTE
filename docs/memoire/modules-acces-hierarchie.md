@@ -79,3 +79,35 @@ ma propre correction. Forme obligatoire : `await ref.read(p.future)`.
 Garde : `test/perimetre_par_module_test.dart` (ex-`perimetre_finance_test`).
 
 Voir [[role-admin-groupe]], [[inscription-module-logique]], [[powersync-status]], [[catalogue-modules-v2]].
+
+## 📐 CATALOGUE RÉEL — relevé le 2026-08-27 (l'ancien compte était périmé)
+
+Cette fiche annonçait « 8 catégories / 41 modules (40 actifs) » et des noms de
+catégories qui n'existent plus. Relevé en base (`module_categories` → `modules`) :
+
+**8 catégories · 30 modules**
+
+| Catégorie | n | Slugs |
+|---|---|---|
+| SCOLARITÉ | 6 | `eleves` `inscriptions` `transferts` `documents` `annuaire` `orientation` |
+| ENSEIGNEMENT | 6 | `classes` `matieres` `niveaux` `programmes` `emploi-du-temps` `cahier-textes` |
+| ÉVALUATION | 3 | `notes` `bulletins` `conseils` |
+| EXAMENS & CERTIFICATION | 1 | `examens` |
+| VIE SCOLAIRE | 5 | `presences-eleves` `discipline` `infirmerie` `cantine` `bibliotheque` |
+| FINANCE | 4 | `frais-scolarite` `paiements-eleves` `depenses` `budget` |
+| RESSOURCES HUMAINES | 4 | `personnel` `presences-personnel` `conges` `paie` |
+| FORMATION PROFESSIONNELLE | 1 | `stages` |
+
+**Plans (`subscription_plans`) — relevé le même jour** : Gratuit 0 XAF/**7** ·
+Premium 25 000/**16** · Pro 220 000/**28** · Institutionnel 2 500 000/**30**.
+`module_count` est exact : écart 0 avec `plan_modules` sur les quatre plans
+(`plan_referential_realtime.dart` le tient à jour).
+
+⚠️ `docs/ANALYSE.md` annonçait 38 modules et 0/150 000/350 000/900 000 XAF pour
+9/25/37/41 modules — **aucun des huit nombres ne correspondait**. Corrigé le
+2026-08-27 dans le document, avec la note datée.
+
+**La COMMUNICATION n'est PAS au catalogue** : annonces, messagerie,
+notifications et événements sont natifs (section épinglée hors verrou 2 dans
+`nav_config.dart`), donc livrés à tous les plans, Gratuit compris. Ce n'est pas
+un levier d'abonnement. Voir [[modules-natifs-communication]].

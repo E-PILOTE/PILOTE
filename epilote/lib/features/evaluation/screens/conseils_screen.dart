@@ -19,6 +19,7 @@ import '../providers/evaluation_overview_provider.dart';
 import '../services/conseil_pdf_service.dart';
 import 'evaluation_overview_widgets.dart';
 import '../../../core/utils/message_erreur.dart';
+import '../../../core/utils/rang.dart';
 
 part 'conseils_parts.dart';
 part 'conseils_roster.dart';
@@ -102,18 +103,34 @@ class _BodyState extends ConsumerState<_Body> {
       return;
     }
     setState(() => _busy = true);
-    await runModuleWrite(context, () async {
+    // Un bulletin déjà publié n'est pas recalculé (cf. `generateBulletins`) :
+    // le compte rendu doit le dire, sinon la délibération croit travailler sur
+    // des chiffres frais qui n'ont pas bougé.
+    GenerationBulletins? bilan;
+    final ok = await runModuleWrite(context, () async {
       final comp = await ref.read(bulletinComputationProvider(_args).future);
-      await generateBulletins(
+      bilan = await generateBulletins(
         groupId: p!.groupId!,
         schoolId: p.schoolId!,
         academicYearId: yearId,
         trimesterId: _trimesterId!,
         comp: comp,
       );
-    }, success: 'Bulletins générés — délibération prête');
+    });
     if (!mounted) return;
     setState(() => _busy = false);
+    final b = bilan;
+    if (ok && b != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: b.aLaisseIntact ? kAccent : kGreen,
+        duration: Duration(seconds: b.aLaisseIntact ? 6 : 3),
+        content: Text(b.aLaisseIntact
+            ? '${b.calcules} bulletin(s) calculé(s) · '
+                '${b.publiesIntacts} déjà publié(s), laissé(s) intact(s) — '
+                'dépubliez la classe pour les recalculer'
+            : 'Bulletins générés (${b.calcules}) — délibération prête'),
+      ));
+    }
     _refresh();
   }
 

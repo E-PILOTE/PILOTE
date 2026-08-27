@@ -21,12 +21,25 @@ import 'package:flutter_test/flutter_test.dart';
 // ════════════════════════════════════════════════════════════════════════════
 
 const _kBulletins = 'lib/features/evaluation/providers/bulletins_provider.dart';
+const _kPassage = 'lib/features/evaluation/providers/passage_provider.dart';
+
+/// TOUS les fichiers qui attribuent un rang. Le 2026-08-27, le garde ne
+/// regardait que le bulletin — et le rang ANNUEL du passage, celui qui décide
+/// d'un redoublement, gardait la forme fautive. Un garde qui ne regarde qu'un
+/// fichier ne garde qu'un fichier.
+const _kTousLesRangs = <String>[_kBulletins, _kPassage];
 
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('$chemin introuvable — tourner depuis `epilote/`.');
   return f.readAsStringSync();
 }
+
+List<File> _dartsSous(String chemin) => Directory(chemin)
+    .listSync(recursive: true)
+    .whereType<File>()
+    .where((f) => f.path.endsWith('.dart'))
+    .toList();
 
 void main() {
   group('Rang de compétition', () {
@@ -65,6 +78,70 @@ void main() {
       expect(rangDeCompetition(3.0, const [3.0]), 1,
           reason: 'Même avec une note faible : le rang dit une position, pas '
               'un mérite.');
+    });
+  });
+
+  group('Aucun rang ne se lit dans une liste triée', () {
+    test('la position dans un tri n\'attribue plus de rang, nulle part', () {
+      // `List.sort` n'est pas stable en Dart : deux valeurs égales sortent dans
+      // un ordre non garanti. Lire le rang dans cet ordre, c'est laisser deux
+      // postes classer différemment les mêmes élèves.
+      final fautifs = <String>[];
+      for (final chemin in _kTousLesRangs) {
+        final src = _lire(chemin);
+        if (RegExp(r'=\s*i\s*\+\s*1').hasMatch(src)) fautifs.add(chemin);
+        if (RegExp(r'ordered\[i\]').hasMatch(src)) fautifs.add(chemin);
+      }
+      expect(fautifs, isEmpty,
+          reason: 'Forme fautive retrouvée :\n${fautifs.join('\n')}');
+    });
+
+    test('chacun passe par le helper', () {
+      for (final chemin in _kTousLesRangs) {
+        expect(_lire(chemin).contains('rangDeCompetition('), isTrue,
+            reason: '$chemin doit COMPTER le rang, pas le lire.');
+      }
+    });
+
+    test('le rang annuel du passage décide d\'un redoublement', () {
+      // Ce n'est pas un détail d'affichage : `annualAverage` → rang → verdict
+      // passe/redouble/réoriente. Deux élèves à la même moyenne annuelle
+      // PARTAGENT le rang.
+      final src = _lire(_kPassage);
+      expect(src.contains('rangDeCompetition(annual[s.enrollmentId]!, values)'),
+          isTrue);
+    });
+  });
+
+  group('L\'ordinal français', () {
+    test('le premier ne se dit pas « 1e »', () {
+      expect(rangOrdinal(1), '1ᵉʳ');
+      expect(rangOrdinal(2), '2ᵉ');
+      expect(rangOrdinal(12), '12ᵉ');
+    });
+
+    test('un élève non classé n\'est pas « 0e »', () {
+      expect(rangOrdinal(0), '—');
+      expect(rangOrdinal(-1), '—');
+    });
+
+    test('plus personne ne recompose l\'ordinal à la main', () {
+      // La forme fautive : une interpolation suivie du seul exposant « e », qui
+      // écrit « 1e » pour le premier. On ignore les commentaires : les en-têtes
+      // de correctifs citent la faute pour l'expliquer.
+      final fautifs = <String>[];
+      for (final f in _dartsSous('lib')) {
+        final chemin = f.path.replaceAll(r'\', '/');
+        if (chemin.endsWith('core/utils/rang.dart')) continue;
+        final code = f
+            .readAsStringSync()
+            .split('\n')
+            .where((l) => !l.trimLeft().startsWith('//'))
+            .join('\n');
+        if (code.contains('}ᵉ')) fautifs.add(chemin);
+      }
+      expect(fautifs, isEmpty,
+          reason: 'Utiliser `rangOrdinal` :\n${fautifs.join('\n')}');
     });
   });
 

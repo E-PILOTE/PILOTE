@@ -99,7 +99,7 @@ class _DeliberationSheetState extends ConsumerState<_DeliberationSheet> {
                               fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
                       Text(
-                          '${e.rank == 0 ? '—' : '${e.rank}ᵉ/${e.totalStudents}'} · ${e.mention}'
+                          '${e.rank == 0 ? '—' : '${rangOrdinal(e.rank)}/${e.totalStudents}'} · ${e.mention}'
                           '${e.matricule != null ? ' · ${e.matricule}' : ''}',
                           style:
                               TextStyle(fontSize: 12, color: kTextMuted)),

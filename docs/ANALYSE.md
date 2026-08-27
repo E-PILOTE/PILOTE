@@ -11,7 +11,7 @@
 |---|---|
 | **Commanditaires** | MEPSA + METP (République du Congo) |
 | **Objectif** | SaaS national de gestion scolaire, public + privé |
-| **Périmètre** | 8 catégories · 38 modules · 4 plans d'abonnement |
+| **Périmètre** | 8 catégories · **30 modules** · 4 plans d'abonnement (mesuré en base le 2026-08-27 — cf. §5) |
 | **Définition Groupe Scolaire** | Tout opérateur gérant plusieurs écoles : ministère (MEPSA, METP), réseau privé, congrégation religieuse, promoteur individuel. Dès qu'il y a plusieurs écoles à gérer → c'est un Groupe Scolaire (public ou privé). |
 | **Phase actuelle** | Phase 1 (70% terminé) → démarrage Phase 2 |
 | **Devise** | Franc CFA — XAF |
@@ -75,41 +75,69 @@ Récupérer : role + access_profile_id + school_id
 
 | Plan | XAF/mois | Max Écoles | Max Élèves | Max Staff | Modules |
 |---|---|---|---|---|---|
-| **Gratuit** | 0 | 1 | 100 | 10 | 9 |
-| **Premium** | 150 000 | 5 | 2 000 | 200 | 25 |
-| **Pro** | 350 000 | 20 | 10 000 | 1 000 | 37 |
-| **Institutionnel** | 900 000 | ∞ | 50 000 | 5 000 | 41 |
+| **Gratuit** | 0 | 1 | 100 | 10 | 7 |
+| **Premium** | 25 000 | 5 | 2 000 | 200 | 16 |
+| **Pro** | 220 000 | 20 | 10 000 | 1 000 | 28 |
+| **Institutionnel** | 2 500 000 | ∞ | 50 000 | 5 000 | 30 |
+
+> ⚠️ **Corrigé le 2026-08-27 — tarifs et compteurs relevés dans
+> `subscription_plans` (base live).** Ce tableau annonçait auparavant
+> 0/150 000/350 000/900 000 XAF et 9/25/37/41 modules : **aucun des huit
+> nombres ne correspondait plus au produit.** Le colonne « Modules » est
+> vérifiée : `subscription_plans.module_count` est égal, pour les quatre plans,
+> au nombre réel de lignes `plan_modules` (écart 0 partout).
+>
+> La note ci-dessous sur les groupes publics reste vraie dans son mécanisme
+> (`group_type = 'public'` + `is_public_plan`) ; **son arithmétique, elle,
+> repose sur l'ancien tarif** — l'enveloppe annoncée est à réexaminer avec
+> 2 500 000 XAF/mois.
 
 > **Groupes publics (MEPSA, METP, académies régionales…)** : Plan Institutionnel **gratuit** (financé par l'État — 5 Mds XAF/an)
 > Un groupe public = `group_type = 'public'` + `is_public_plan = TRUE` sur le plan Institutionnel → abonnement activé sans facture de paiement.
 
 ---
 
-## 5. LES 38 MODULES PAR CATÉGORIE
+## 5. LES 30 MODULES PAR CATÉGORIE
 
-### 🎓 SCOLARISATION (8)
-`eleves` · `inscriptions` · `classes` · `matieres` · `transferts` · `documents` · `annuaire` · `niveaux`
+> ⚠️ **Relevé en base le 2026-08-27** (`module_categories` → `modules`).
+> La version précédente de cette section décrivait un catalogue qui n'existe
+> plus : elle annonçait 38 modules dans des catégories renommées ou disparues
+> (PÉDAGOGIE, SCOLARISATION, RESSOURCES, INTELLIGENCE ARTIFICIELLE), et des
+> slugs jamais créés (`evaluations`, `facturation-ecole`, `comptabilite`,
+> `mobile-money`, `espace-parent`, `rapport-ia`, `suggestions-ia`). C'est ce
+> document qui avait dérivé, pas la base.
 
-### 📚 PÉDAGOGIE (10)
-`notes` · `presences-eleves` · `bulletins` · `emploi-du-temps` · `cahier-textes` · `evaluations` · `conseils` · `programmes` + 2 autres
+### 🎓 SCOLARITÉ (6)
+`eleves` · `inscriptions` · `transferts` · `documents` · `annuaire` · `orientation`
 
-### 🏫 VIE SCOLAIRE (4)
-`discipline` · `orientation` · `infirmerie` · `cantine`
+### 📚 ENSEIGNEMENT (6)
+`classes` · `matieres` · `niveaux` · `programmes` · `emploi-du-temps` · `cahier-textes`
 
-### 💰 FINANCE (7)
-`frais-scolarite` · `paiements-eleves` · `facturation-ecole` · `depenses` · `budget` · `comptabilite` · `mobile-money`
+### 📝 ÉVALUATION (3)
+`notes` · `bulletins` · `conseils`
+
+### 🎓 EXAMENS & CERTIFICATION (1)
+`examens`
+
+### 🏫 VIE SCOLAIRE (5)
+`presences-eleves` · `discipline` · `infirmerie` · `cantine` · `bibliotheque`
+
+### 💰 FINANCE (4)
+`frais-scolarite` · `paiements-eleves` · `depenses` · `budget`
 
 ### 👥 RESSOURCES HUMAINES (4)
 `personnel` · `presences-personnel` · `conges` · `paie`
 
-### 📢 COMMUNICATION (5)
-`annonces` · `notifications` · `messagerie` · `evenements` · `espace-parent`
+### 🔧 FORMATION PROFESSIONNELLE (1)
+`stages`
 
-### 📖 RESSOURCES (1)
-`bibliotheque`
+### 📢 Et la communication ?
 
-### 🤖 INTELLIGENCE ARTIFICIELLE (2)
-`rapport-ia` · `suggestions-ia`
+**Elle n'est pas au catalogue, et c'est délibéré.** Annonces, messagerie,
+notifications et événements sont **natifs** : la section COMMUNICATION de la
+barre latérale est épinglée hors du verrou 2 (`nav_config.dart`), donc livrée à
+tous les plans, y compris Gratuit. Ce n'est **pas** un levier d'abonnement.
+(Sauvegarde mineurs conservée : les élèves n'ont pas la messagerie privée.)
 
 ---
 
@@ -171,9 +199,31 @@ Récupérer : role + access_profile_id + school_id
 1. **TenantGuard** : Chaque utilisateur n'accède qu'aux données de son `school_id` + `group_id`
 2. **QuotaGuard** : Vérification des limites du plan avant création d'école/élève
 3. **Validation notes** : Directeur valide avant publication → notification push FCM
+   > 🟡 **Moitié faite, mesuré le 2026-08-27.** La validation EST appliquée
+   > depuis le 2026-08-27 : le bouton « Publier » exige le droit `validate`
+   > (que l'enseignant n'a pas), et la base le refuse aussi — RLS `bulletins`,
+   > `WITH CHECK` sur `status = 'published'` (migrations `0118`/`0119`).
+   > Avant cela, un enseignant publiait lui-même, et rien ne l'en empêchait.
+   > **La notification push FCM, elle, n'existe pas** : `firebase_core` et
+   > `firebase_messaging` sont commentés dans `pubspec.yaml`, et la colonne
+   > `profiles.fcm_token` n'est jamais écrite. Les familles ne sont donc
+   > prévenues de rien — elles doivent ouvrir l'application.
 4. **Bulletins** : Conservés 10 ans · Données financières : 5 ans
+   > 🔴 **Non implémenté (2026-08-27).** Aucune rétention, aucune purge, aucun
+   > archivage daté nulle part — ni en base, ni dans l'application. Rien
+   > n'efface non plus : la règle est donc tenue « par défaut » tant que la
+   > plateforme est jeune, et deviendra fausse le jour où quelqu'un supprimera.
+   > À traiter comme une exigence à part entière (RGPD-like, engagement MEPSA).
 5. **Conflits sync** : Last-write-wins (timestamp `updated_at`)
 6. **Mode séquentiel** : 6 séquences/an (2 par trimestre) — optionnel
+   > 🟡 **Configurable mais inerte (2026-08-27).** L'admin groupe crée bien les
+   > séquences et désigne la séquence courante (`set_current_sequence`), et la
+   > colonne `evaluations.sequence_id` existe jusque dans le schéma PowerSync.
+   > Mais **aucun écran du personnel n'y rattache quoi que ce soit** : le
+   > formulaire d'évaluation n'offre pas la séquence, et `sequence_id` n'est
+   > écrit nulle part. Une école qui active le mode séquentiel ne verra donc
+   > aucune différence. Rattacher l'évaluation à la séquence à la saisie
+   > suffirait — c'est la seule pièce manquante.
 7. **Mentions** : Excellent ≥18 · Très Bien ≥16 · Bien ≥14 · Assez Bien ≥12 · Passable ≥10 · Insuffisant <10
    > ⚠️ **Corrigé le 2026-08-25.** Ce point donnait auparavant un barème décalé
    > de deux points, qui plaçait « Passable » entre 8 et 10 — c'est-à-dire
@@ -199,6 +249,8 @@ Récupérer : role + access_profile_id + school_id
    • `academic_years`  → Année scolaire 2026-2027 (start_date / end_date / is_current / is_locked)
    • `trimesters`      → 3 trimestres par année avec verrouillage en fin de période
    • `sequences`       → Mode séquentiel optionnel (6 séquences/an, 2 par trimestre)
+     ⚠️ la TABLE est implémentée et alimentée par l'admin groupe ; le mode, lui,
+     n'a aucun effet sur la saisie des notes — cf. la note du §8.6.
    Toutes les entités clés (classes, inscriptions, notes, bulletins, paiements…) sont rattachées à academic_year_id.
 
 *Analyse complète — Mai 2026 — E-PILOTE CONGO v3.0*

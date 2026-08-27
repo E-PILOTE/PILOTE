@@ -332,9 +332,38 @@ final bulletinComputationProvider = FutureProvider.autoDispose
 });
 
 // ─── Génération / persistance (offline-first) ────────────────────────────────
+
+/// Ce qu'une génération a fait : les bulletins (re)calculés, et ceux qu'elle a
+/// refusé de toucher parce qu'ils étaient déjà publiés.
+class GenerationBulletins {
+  const GenerationBulletins({
+    required this.calcules,
+    required this.publiesIntacts,
+  });
+  final int calcules;
+  final int publiesIntacts;
+
+  bool get aLaisseIntact => publiesIntacts > 0;
+}
+
 /// Persiste (ou met à jour) les bulletins calculés d'une classe pour un
 /// trimestre, avec leurs lignes-matières. Statut initial 'draft'.
-Future<int> generateBulletins({
+///
+/// ⚠️ UN BULLETIN PUBLIÉ N'EST JAMAIS RECALCULÉ. Deux raisons, et la première
+/// suffirait :
+///
+///  1. C'est un document remis aux familles. Le réécrire sous elles — moyenne,
+///     rang, mention — sans qu'aucune trace ne le dise est une falsification
+///     silencieuse. Pour le refaire, il faut d'abord le DÉPUBLIER : le geste
+///     existe, et il est réservé à qui peut publier.
+///
+///  2. La base refuse cette écriture à qui n'a pas `validate` (RLS `bulletins`,
+///     migration 0118) — et un refus 42501 est FATAL pour le connecteur
+///     PowerSync : il jette le LOT ENTIER en attente. Un enseignant qui
+///     appuyait sur « Recalculer » perdait donc, sans un mot, toutes ses
+///     saisies hors ligne du moment. Mesuré en production le 2026-08-27 :
+///     474 bulletins publiés dans l'école témoin, refus confirmé.
+Future<GenerationBulletins> generateBulletins({
   required String groupId,
   required String schoolId,
   required String academicYearId,
@@ -343,12 +372,18 @@ Future<int> generateBulletins({
 }) async {
   final now = DateTime.now().toIso8601String();
   var count = 0;
+  var publies = 0;
   for (final s in comp.students) {
     // Bulletin existant ?
     final ex = await db.getAll(
-      'SELECT id FROM bulletins WHERE enrollment_id = ? AND trimester_id = ?',
+      'SELECT id, status FROM bulletins '
+      'WHERE enrollment_id = ? AND trimester_id = ?',
       [s.enrollmentId, trimesterId],
     );
+    if (ex.isNotEmpty && (ex.first['status'] as String?) == 'published') {
+      publies++;
+      continue;
+    }
     final mention = mentionFor(s.overallAverage);
     String bulletinId;
     if (ex.isNotEmpty) {
@@ -395,7 +430,7 @@ Future<int> generateBulletins({
     }
     count++;
   }
-  return count;
+  return GenerationBulletins(calcules: count, publiesIntacts: publies);
 }
 
 /// Change le statut de tous les bulletins d'une classe×trimestre.

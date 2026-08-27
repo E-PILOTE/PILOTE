@@ -7,6 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../core/services/official_pdf_kit.dart';
 import '../providers/bulletins_provider.dart';
 import '../providers/conseils_provider.dart' show awardFor;
+import '../../../core/utils/rang.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  Service PDF : BULLETIN scolaire d'un élève pour un trimestre. Chrome officiel
@@ -134,7 +135,9 @@ class BulletinPdfService {
                   kPdfNavy),
               pw.SizedBox(width: 10),
               _summaryBox(f, 'RANG',
-                  student.rank == 0 ? '—' : '${student.rank}ᵉ / ${student.totalStudents}',
+                  student.rank == 0
+                      ? '—'
+                      : '${rangOrdinal(student.rank)} / ${student.totalStudents}',
                   kPdfGreen),
               pw.SizedBox(width: 10),
               _summaryBox(f, 'MENTION', student.mention, kPdfGold),

@@ -168,7 +168,7 @@ class _FocusBand extends StatelessWidget {
                   rang == null
                       ? _typeLabel(school.type)
                       : '${_typeLabel(school.type)} · '
-                          '$rang${rang == 1 ? 'ᵉʳ' : 'ᵉ'} sur '
+                          '${rangOrdinal(rang)} sur '
                           '${detail.ecolesTotal} par effectif',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

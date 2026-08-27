@@ -16,6 +16,7 @@ import '../providers/evaluation_overview_provider.dart';
 import '../services/bulletin_pdf_service.dart';
 import 'evaluation_overview_widgets.dart';
 import '../../../core/utils/message_erreur.dart';
+import '../../../core/utils/rang.dart';
 
 part 'bulletins_parts.dart';
 part 'bulletins_detail.dart';
@@ -86,30 +87,52 @@ class _BodyState extends ConsumerState<_Body> {
       return;
     }
     setState(() => _busy = true);
-    await runModuleWrite(
+    // Le compte rendu ne peut pas être écrit d'avance : un bulletin DÉJÀ PUBLIÉ
+    // n'est pas recalculé (cf. `generateBulletins`), et annoncer « générés (32) »
+    // quand 30 n'ont pas bougé serait le genre de succès qui ment.
+    GenerationBulletins? bilan;
+    final ok = await runModuleWrite(
       context,
-      () => generateBulletins(
-        groupId: p!.groupId!,
-        schoolId: p.schoolId!,
-        academicYearId: yearId,
-        trimesterId: _trimesterId!,
-        comp: comp,
-      ),
-      success: 'Bulletins générés (${comp.students.length})',
+      () async {
+        bilan = await generateBulletins(
+          groupId: p!.groupId!,
+          schoolId: p.schoolId!,
+          academicYearId: yearId,
+          trimesterId: _trimesterId!,
+          comp: comp,
+        );
+      },
     );
     if (!mounted) return;
     setState(() => _busy = false);
+    final b = bilan;
+    if (ok && b != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: b.aLaisseIntact ? kAccent : kGreen,
+        duration: Duration(seconds: b.aLaisseIntact ? 6 : 3),
+        content: Text(b.aLaisseIntact
+            ? '${b.calcules} bulletin(s) calculé(s) · '
+                '${b.publiesIntacts} déjà publié(s), laissé(s) intact(s) — '
+                'dépubliez la classe pour les recalculer'
+            : 'Bulletins générés (${b.calcules})'),
+      ));
+    }
     _refresh();
   }
 
   Future<void> _setStatus(String status) async {
-    if (_scope.classId == null || _trimesterId == null) return;
+    // ⚠️ `_activeClassId`, PAS `_scope.classId`. Le parcours que l'écran lui-même
+    // enseigne (« Ouvrez une classe » → carte « Ouvrir ») renseigne
+    // `_openClassId` et laisse `_scope.classId` NUL : la garde ci-dessous
+    // rendait la main sans rien faire et sans rien dire. Le bouton « Publier »
+    // — le geste qui remet les bulletins aux familles — ne publiait rien.
+    if (_activeClassId == null || _trimesterId == null) return;
     final actorId = ref.read(authNotifierProvider).valueOrNull?.id;
     setState(() => _busy = true);
     await runModuleWrite(
       context,
       () => setBulletinsStatus(
-        classId: _scope.classId!,
+        classId: _activeClassId!,
         trimesterId: _trimesterId!,
         status: status,
         actorId: actorId,

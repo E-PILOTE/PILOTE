@@ -50,7 +50,7 @@ String _ymd(DateTime d) =>
       final i = trimesterIndex.clamp(0, 2);
       final from = yStart.add(Duration(days: span3 * i));
       final to = i == 2 ? yEnd : yStart.add(Duration(days: span3 * (i + 1) - 1));
-      return (from: from, to: to, label: '${i + 1}ᵉ trimestre');
+      return (from: from, to: to, label: '${rangOrdinal(i + 1)} trimestre');
     case TtSpan.semestre:
       final midDays = yEnd.difference(yStart).inDays ~/ 2;
       final mid = yStart.add(Duration(days: midDays));

@@ -6,13 +6,14 @@ class _EvalList extends StatelessWidget {
     required this.items,
     required this.canEdit,
     required this.canDelete,
+    required this.canValidate,
     required this.onOpen,
     required this.onEdit,
     required this.onDelete,
     required this.onStatus,
   });
   final List<Evaluation> items;
-  final bool canEdit, canDelete;
+  final bool canEdit, canDelete, canValidate;
   final ValueChanged<Evaluation> onOpen, onEdit, onDelete;
   final void Function(Evaluation, String) onStatus;
 
@@ -25,6 +26,7 @@ class _EvalList extends StatelessWidget {
             e: e,
             canEdit: canEdit,
             canDelete: canDelete,
+            canValidate: canValidate,
             onOpen: () => onOpen(e),
             onEdit: () => onEdit(e),
             onDelete: () => onDelete(e),
@@ -40,13 +42,14 @@ class _EvalCard extends StatelessWidget {
     required this.e,
     required this.canEdit,
     required this.canDelete,
+    required this.canValidate,
     required this.onOpen,
     required this.onEdit,
     required this.onDelete,
     required this.onStatus,
   });
   final Evaluation e;
-  final bool canEdit, canDelete;
+  final bool canEdit, canDelete, canValidate;
   final VoidCallback onOpen, onEdit, onDelete;
   final ValueChanged<String> onStatus;
 
@@ -145,6 +148,7 @@ class _EvalCard extends StatelessWidget {
               e: e,
               canEdit: canEdit,
               canDelete: canDelete,
+              canValidate: canValidate,
               onEdit: onEdit,
               onDelete: onDelete,
               onStatus: onStatus,
@@ -179,22 +183,34 @@ class _CardMenu extends StatelessWidget {
     required this.e,
     required this.canEdit,
     required this.canDelete,
+    required this.canValidate,
     required this.onEdit,
     required this.onDelete,
     required this.onStatus,
   });
   final Evaluation e;
-  final bool canEdit, canDelete;
+  final bool canEdit, canDelete, canValidate;
   final VoidCallback onEdit, onDelete;
   final ValueChanged<String> onStatus;
 
   @override
   Widget build(BuildContext context) {
-    // Transition de statut suivante possible.
+    // ── QUI PEUT ENCORE TOUCHER CETTE ÉVALUATION ? ───────────────────────────
+    // Tant qu'elle est brouillon ou soumise, elle appartient à l'enseignant :
+    // `update` suffit. Validée ou publiée, elle appartient à la direction :
+    // seul `validate` rouvre quoi que ce soit — y compris le retour en
+    // brouillon, qui défait précisément l'acte du chef d'établissement.
+    final peutToucher = e.estFigee ? canValidate : canEdit;
+
+    // Transition de statut suivante possible, et le droit qu'elle EXIGE.
+    // ⚠️ « Valider » et « Publier » ne sont pas « Modifier » : ils étaient tous
+    // gardés par `update`, si bien qu'un enseignant soumettait, validait et
+    // publiait son propre travail (§8.3 — corrigé le 2026-08-27, avec la
+    // migration 0121 qui pose la même règle en base).
     final next = switch (e.status) {
-      'draft' => ('submitted', 'Soumettre'),
-      'submitted' => ('validated', 'Valider'),
-      'validated' => ('published', 'Publier'),
+      'draft' => canEdit ? ('submitted', 'Soumettre') : null,
+      'submitted' => canValidate ? ('validated', 'Valider') : null,
+      'validated' => canValidate ? ('published', 'Publier') : null,
       _ => null,
     };
     return PopupMenuButton<String>(
@@ -212,7 +228,7 @@ class _CardMenu extends StatelessWidget {
         }
       },
       itemBuilder: (ctx) => [
-        if (next != null && canEdit)
+        if (next != null)
           PopupMenuItem(
               value: next.$1,
               child: Row(children: [
@@ -220,7 +236,7 @@ class _CardMenu extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(next.$2),
               ])),
-        if (e.status != 'draft' && e.status != 'published' && canEdit)
+        if (e.status != 'draft' && e.status != 'published' && peutToucher)
           const PopupMenuItem(
               value: 'back',
               child: Row(children: [
@@ -228,7 +244,7 @@ class _CardMenu extends StatelessWidget {
                 SizedBox(width: 8),
                 Text('Repasser en brouillon'),
               ])),
-        if (canEdit && !e.isPublished)
+        if (peutToucher && !e.isPublished)
           const PopupMenuItem(
               value: 'edit',
               child: Row(children: [
@@ -236,7 +252,7 @@ class _CardMenu extends StatelessWidget {
                 SizedBox(width: 8),
                 Text('Modifier'),
               ])),
-        if (canDelete)
+        if (canDelete && (!e.estFigee || canValidate))
           PopupMenuItem(
               value: 'delete',
               child: Row(children: [

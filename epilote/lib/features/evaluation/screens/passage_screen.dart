@@ -18,6 +18,7 @@ import 'cloture_examen_section.dart';
 import 'non_revenus_section.dart';
 import 'evaluation_overview_widgets.dart';
 import '../../../core/utils/message_erreur.dart';
+import '../../../core/utils/rang.dart';
 
 part 'passage_parts.dart';
 

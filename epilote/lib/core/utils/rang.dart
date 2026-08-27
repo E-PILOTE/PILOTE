@@ -33,3 +33,12 @@
 /// cohérent — c'est le rang que la valeur OCCUPERAIT.
 int rangDeCompetition(num valeur, Iterable<num> toutes) =>
     1 + toutes.where((v) => v > valeur).length;
+
+/// Rang écrit à la française : « 1ᵉʳ », « 2ᵉ », « 3ᵉ »… et « — » si non classé.
+///
+/// Le premier ne se dit pas « 1ᵉ ». Sur un bulletin remis à une famille et lu
+/// par un conseil de classe, cette faute-là se voit. L'espace admin_groupe
+/// l'écrivait déjà correctement ; l'espace du personnel, non — même partage
+/// que le rang lui-même, dont la bonne règle vivait d'un seul côté.
+String rangOrdinal(int rang) =>
+    rang <= 0 ? '—' : '$rang${rang == 1 ? 'ᵉʳ' : 'ᵉ'}';

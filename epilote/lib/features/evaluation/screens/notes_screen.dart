@@ -100,9 +100,13 @@ class _BodyState extends ConsumerState<_Body> {
 
   void _openGrades(Evaluation e) {
     final readOnly = ref.read(yearReadOnlyProvider);
+    // ⚠️ VALIDER DOIT AVOIR UNE CONSÉQUENCE. La saisie restait ouverte sur une
+    // évaluation VALIDÉE : le directeur arrêtait les notes, l'enseignant les
+    // changeait ensuite. Après validation, seul qui peut valider touche encore.
+    final canValider = ref.read(canProvider((slug: _kSlug, action: 'validate')));
     final canGrade = ref.read(canProvider((slug: _kSlug, action: 'update'))) &&
         !readOnly &&
-        !e.isPublished;
+        (!e.estFigee || canValider);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -209,6 +213,12 @@ class _BodyState extends ConsumerState<_Body> {
     final canCreate = ref.watch(canProvider((slug: _kSlug, action: 'create')));
     final canUpdate = ref.watch(canProvider((slug: _kSlug, action: 'update')));
     final canDelete = ref.watch(canProvider((slug: _kSlug, action: 'delete')));
+    // ⚠️ VALIDER N'EST PAS MODIFIER — même défaut que sur les bulletins (0118).
+    // La chaîne brouillon → soumise → VALIDÉE → PUBLIÉE était gardée de bout en
+    // bout par `update`, que l'enseignant possède : il soumettait son travail,
+    // le validait lui-même, puis le publiait. Toute la cérémonie du §8.3
+    // (« le directeur valide avant publication ») tenait dans une seule main.
+    final canValider = ref.watch(canProvider((slug: _kSlug, action: 'validate')));
     final readOnly = ref.watch(yearReadOnlyProvider);
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -249,6 +259,7 @@ class _BodyState extends ConsumerState<_Body> {
           canCreate: canCreate && !readOnly,
           canEdit: canUpdate && !readOnly,
           canDelete: canDelete && !readOnly,
+          canValidate: canValider && !readOnly,
           onSearch: (_) => setState(() {}),
           onType: (v) => setState(() => _type = v),
           onStatus: (v) => setState(() => _status = v),

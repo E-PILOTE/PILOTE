@@ -250,6 +250,7 @@ class _ClassWorkspace extends StatelessWidget {
     required this.canCreate,
     required this.canEdit,
     required this.canDelete,
+    required this.canValidate,
     required this.onSearch,
     required this.onType,
     required this.onStatus,
@@ -264,7 +265,7 @@ class _ClassWorkspace extends StatelessWidget {
   final List<Evaluation> evals;
   final TextEditingController searchCtrl;
   final String? type, status;
-  final bool canCreate, canEdit, canDelete;
+  final bool canCreate, canEdit, canDelete, canValidate;
   final ValueChanged<String> onSearch;
   final ValueChanged<String?> onType, onStatus;
   final VoidCallback onReset, onAdd;
@@ -334,6 +335,7 @@ class _ClassWorkspace extends StatelessWidget {
             items: evals,
             canEdit: canEdit,
             canDelete: canDelete,
+            canValidate: canValidate,
             onOpen: onOpen,
             onEdit: onEdit,
             onDelete: onDelete,

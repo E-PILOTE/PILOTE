@@ -47,7 +47,7 @@ class _BulletinDetailSheet extends ConsumerWidget {
                               fontWeight: FontWeight.w800,
                               color: kTextPrimary)),
                       Text(
-                          '${className ?? ''} · ${student.rank == 0 ? '—' : '${student.rank}ᵉ/${student.totalStudents}'} · ${student.mention}',
+                          '${className ?? ''} · ${student.rank == 0 ? '—' : '${rangOrdinal(student.rank)}/${student.totalStudents}'} · ${student.mention}',
                           style: TextStyle(fontSize: 12, color: kTextMuted)),
                     ]),
               ),
