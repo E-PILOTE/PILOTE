@@ -87,5 +87,43 @@ déduit des ÉCRANS QUI ÉCRIVENT, pas du nom d'une table. C'est précisément c
 que produit l'audit module par module — chaque module apporte la liste de ses
 écrans, donc la liste juste des modules à admettre.
 
+## ✅ Ce qui a été refermé dans la foulée
+
+- **0126 — `students` + `class_enrollments`** (9 106 lignes chacune). La liste
+  des modules a été déduite des écrans qui écrivent : `class_enrollments` est
+  écrite par **cinq** modules (`inscriptions`, `eleves`, `conseils`,
+  `transferts`, `discipline` — l'exclusion pose `status='withdrawn'`).
+  N'admettre que `inscriptions` aurait cassé la Vie scolaire qui exclut et
+  l'enseignant qui pose une décision de passage — 42501, lot jeté.
+  ⚠️ Résidu nommé : une politique porte sur la TABLE, pas sur la COLONNE.
+- **0127 — `audit_logs` en lecture seule côté client.** Tout membre du
+  personnel pouvait insérer de fausses traces et effacer les siennes. Aucune
+  écriture client n'est légitime : le seul écrivain est un déclencheur
+  `SECURITY DEFINER`, qui ne passe pas par RLS. Vérifié : insertion refusée,
+  déclencheur intact (19 → 20 lignes).
+
+## 🔎 Déjà protégées — ne pas y retoucher
+
+`academic_years`, `trimesters`, `exam_official_results` ont déjà un
+`*_write_ministry` réservé à admin_groupe. `fee_structures` a ses quatre
+politiques. `infirmary_visits`, `discipline_incidents`, `payroll` sont gâtées
+par les drapeaux `auth_sync_medical / _discipline / _finance`, dérivés du profil
+d'accès par le déclencheur `profiles_sensitive_flags`.
+
+## ⏳ Restent ouvertes, par ordre de poids
+
+`class_subjects` (3 904 — les coefficients, donc les moyennes) ·
+`exam_candidates` (2 126 — inscription au BEPC/BAC) · `classes` (494) ·
+`subjects` (62) · et le reste des 52, presque toutes vides aujourd'hui.
+
+## 🚨 Deux trous nommés, non refermés
+
+1. **L'audit n'existe quasiment pas** (cf. 0127). Un seul déclencheur dans
+   toute la base.
+2. **`/user/audit` viole la règle centrale** : l'écran d'audit partagé
+   (`features/audit/providers/audit_data.dart`) lit par `SupabaseClient` +
+   realtime, alors qu'il est routé dans l'espace PERSONNEL, qui doit être
+   PowerSync uniquement. Hors ligne, cette page ne montre rien.
+
 Voir [[evaluation-notes-bulletins]], [[presences-appel-identite-deduite]],
 [[modules-acces-hierarchie]], [[sync-rules-data-protection]].
