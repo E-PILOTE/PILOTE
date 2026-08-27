@@ -631,9 +631,9 @@ class _VerdictSheetState extends State<_VerdictSheet> {
               e.annualAverage == null
                   ? 'Aucune note cette année'
                   : 'Moyenne annuelle ${e.annualAverage!.toStringAsFixed(2)}/20 '
-                      e.rank == 0
-                          ? '· non classé'
-                          : '· ${rangOrdinal(e.rank)} sur ${e.totalStudents}',
+                      // Un élève sans moyenne n'a pas de rang : il affichait
+                      // « 0ᵉ sur 32 », un classement qu'il n'a jamais eu.
+                      '${e.rank == 0 ? '· non classé' : '· ${rangOrdinal(e.rank)} sur ${e.totalStudents}'}',
               style: TextStyle(fontSize: 12.5, color: kTextMuted),
             ),
             const SizedBox(height: 3),

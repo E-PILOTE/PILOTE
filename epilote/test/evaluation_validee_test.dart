@@ -85,7 +85,7 @@ void main() {
           isTrue,
           reason: 'Repasser en brouillon défait l\'acte du chef '
               'd\'établissement : ce n\'est pas une modification ordinaire.');
-      expect(code.contains("&& peutToucher)"), isTrue);
+      expect(code.contains('&& peutToucher)'), isTrue);
     });
 
     test('supprimer une évaluation figée aussi', () {

@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
+import '../../../core/utils/identite_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../classes/providers/class_provider.dart';
 import '../widgets/vs_kit.dart';
@@ -8,8 +8,6 @@ import '../widgets/vs_kit.dart';
 /// Le slug de CE module, déclaré à côté des requêtes qu'il borne — le
 /// littéral recopié dans deux fichiers est ce qui laisse un périmètre dériver.
 const kSlugPresences = 'presences-eleves';
-
-const _uuid = Uuid();
 
 // ════════════════════════════════════════════════════════════════════════════
 //  PRÉSENCES ÉLÈVES (tables `attendance_records` + `attendance_entries`) — appel
@@ -180,6 +178,16 @@ final classRollProvider =
 
 /// Garantit l'existence du `attendance_record` (classe, date, période) et
 /// renvoie son id. Crée s'il manque.
+///
+/// ⚠️ L'IDENTIFIANT SE DÉDUIT DE LA CLÉ, il ne se tire pas au sort. Un appel
+/// est un fait unique : la 6ᵉ A, le 12 mars, au matin. Deux appareils hors
+/// ligne — le professeur principal et le surveillant — le saisissaient chacun
+/// avec son `v4()`, donc DEUX lignes remontaient pour un seul appel. La
+/// contrainte serveur ne les rattrape pas : elle porte aussi sur `subject_id`,
+/// resté NULL, et deux NULL ne sont pas égaux en SQL. La feuille d'appel joint
+/// alors les deux enregistrements et affiche CHAQUE ÉLÈVE DEUX FOIS, avec deux
+/// statuts contradictoires. Avec un identifiant déduit, les deux saisies
+/// portent le même `id` : le connecteur fait deux upserts sur la même ligne.
 Future<String> ensureAttendanceRecord({
   required String groupId,
   required String schoolId,
@@ -189,13 +197,12 @@ Future<String> ensureAttendanceRecord({
   required String period,
   required String recordedBy,
 }) async {
+  final id = idDeterministe('attendance_record', [classId, date, period]);
   final ex = await db.getAll(
-    'SELECT id FROM attendance_records WHERE class_id = ? AND record_date = ? '
-    'AND period = ? LIMIT 1',
-    [classId, date, period],
+    'SELECT id FROM attendance_records WHERE id = ? LIMIT 1',
+    [id],
   );
   if (ex.isNotEmpty) return ex.first['id'] as String;
-  final id = _uuid.v4();
   final now = DateTime.now().toIso8601String();
   await db.execute(
     '''
@@ -211,6 +218,20 @@ Future<String> ensureAttendanceRecord({
 }
 
 /// Pose / met à jour le statut d'un élève dans l'appel.
+///
+/// ⚠️ [existingEntryId] N'EST QU'UNE INDICATION, jamais la décision. Il vient
+/// d'un instantané du flux : deux appuis rapides sur la même ligne — « Absent »
+/// puis « Présent », le geste ordinaire d'un appel — arrivaient tous deux avec
+/// `entryId` nul et INSÉRAIENT deux fois. Or la base tient
+/// `UNIQUE (attendance_record_id, student_id)` : la seconde ligne se faisait
+/// refuser en 23505, code FATAL pour le connecteur, qui jette le LOT ENTIER en
+/// attente — l'appel du matin, mais aussi les paiements et les notes saisis
+/// dans la même heure.
+///
+/// On relit donc la ligne dans la base LOCALE (toutes les écritures y sont
+/// sérialisées : il n'y a pas de course), et l'identifiant d'une entrée se
+/// DÉDUIT de (appel, élève) — deux appareils qui pointent le même élève
+/// écrivent la même ligne au lieu d'en créer deux.
 Future<void> setAttendance({
   required String recordId,
   required String groupId,
@@ -222,11 +243,17 @@ Future<void> setAttendance({
   String? existingEntryId,
 }) async {
   final now = DateTime.now().toIso8601String();
-  if (existingEntryId != null) {
+  final vue = await db.getAll(
+    'SELECT id FROM attendance_entries '
+    'WHERE attendance_record_id = ? AND student_id = ? LIMIT 1',
+    [recordId, studentId],
+  );
+  final entryId = vue.isNotEmpty ? vue.first['id'] as String : existingEntryId;
+  if (entryId != null) {
     await db.execute(
       'UPDATE attendance_entries SET status = ?, arrival_time = ?, '
       'justification = ?, updated_at = ? WHERE id = ?',
-      [status, arrivalTime, justification, now, existingEntryId],
+      [status, arrivalTime, justification, now, entryId],
     );
   } else {
     await db.execute(
@@ -236,7 +263,8 @@ Future<void> setAttendance({
         arrival_time, justification, parent_notified, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
       ''',
-      [_uuid.v4(), recordId, studentId, groupId, schoolId, status, arrivalTime,
+      [idDeterministe('attendance_entry', [recordId, studentId]),
+       recordId, studentId, groupId, schoolId, status, arrivalTime,
        justification, now, now],
     );
   }
@@ -251,14 +279,27 @@ Future<void> finalizeAttendance(String recordId, bool finalized) async {
 }
 
 /// Pointe d'un coup tous les élèves non encore pointés comme « présents ».
+///
+/// ⚠️ « Non encore pointé » se lit dans la BASE, pas dans [rows]. Cette liste
+/// est un instantané du flux : après un premier « Tout présent », ou après un
+/// « Absent » posé la seconde d'avant, elle dit encore que personne n'est
+/// pointé — et le geste écrasait en « présent » un élève qu'on venait de
+/// déclarer absent.
 Future<void> markAllPresent({
   required String recordId,
   required String groupId,
   required String schoolId,
   required List<RollRow> rows,
 }) async {
+  final deja = {
+    for (final e in await db.getAll(
+      'SELECT student_id FROM attendance_entries WHERE attendance_record_id = ?',
+      [recordId],
+    ))
+      e['student_id'] as String
+  };
   for (final r in rows) {
-    if (r.recorded) continue;
+    if (r.recorded || deja.contains(r.studentId)) continue;
     await setAttendance(
       recordId: recordId,
       groupId: groupId,

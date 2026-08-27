@@ -67,7 +67,7 @@ void main() {
   group('Recalculer ne touche pas un bulletin publié', () {
     test('la génération lit le statut et passe son chemin', () {
       final code = _codeSeul(_kProvider);
-      expect(code.contains("SELECT id, status FROM bulletins"), isTrue,
+      expect(code.contains('SELECT id, status FROM bulletins'), isTrue,
           reason: 'Sans le statut, impossible de distinguer un publié.');
       expect(
           RegExp(r"==\s*'published'[\s\S]{0,80}continue;").hasMatch(code),

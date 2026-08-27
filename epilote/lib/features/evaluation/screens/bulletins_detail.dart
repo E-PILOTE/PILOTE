@@ -138,6 +138,14 @@ class _SummaryStrip extends StatelessWidget {
       box('Moy. classe',
           classAverage == null ? '—' : classAverage!.toStringAsFixed(2),
           const Color(0xFF0EA5E9)),
+      box(
+          'Assiduité',
+          student.absences == null && student.retards == null
+              ? '—'
+              : '${student.absences ?? 0}a · ${student.retards ?? 0}r',
+          student.absences == null
+              ? kTextMuted
+              : (student.absences! > 0 ? kRed : kGreen)),
     ]);
   }
 }

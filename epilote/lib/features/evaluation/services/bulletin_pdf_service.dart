@@ -144,6 +144,17 @@ class BulletinPdfService {
               pw.SizedBox(width: 10),
               _summaryBox(f, 'MOY. CLASSE', _avg(classAverage), kPdfMuted),
             ]),
+            // Assiduité — comptée depuis l'appel quotidien sur la fenêtre du
+            // trimestre. Le bulletin écrivait 0 en base sans jamais l'afficher :
+            // il affirmait sans rien dire, et sans rien avoir observé.
+            pw.SizedBox(height: 8),
+            pw.Row(children: [
+              pw.Text('ASSIDUITÉ  ',
+                  style: pw.TextStyle(
+                      font: f.bold, fontSize: 8, color: kPdfMuted)),
+              pw.Text(student.assiduiteLabel,
+                  style: pw.TextStyle(font: f.regular, fontSize: 9)),
+            ]),
             // Décision + appréciation du conseil de classe (si délibéré).
             if (awardFor(student.decision) != null ||
                 (student.councilAppreciation ?? '').trim().isNotEmpty) ...[

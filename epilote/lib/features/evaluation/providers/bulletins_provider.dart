@@ -55,6 +55,8 @@ class StudentBulletin {
     required this.lines,
     required this.persisted,
     required this.status,
+    required this.absences,
+    required this.retards,
     this.decision,
     this.councilAppreciation,
     this.directorComment,
@@ -66,12 +68,32 @@ class StudentBulletin {
   final List<SubjectLine> lines;
   final bool persisted; // un bulletin existe déjà en base
   final String status; // statut du bulletin persisté (ou 'draft')
+  // Assiduité comptée sur la fenêtre du trimestre depuis l'appel quotidien.
+  // NULL = AUCUN appel enregistré pour cet élève : inconnu — et surtout pas
+  // « aucune absence ». Le bulletin écrivait 0 en dur, ce qui affirmait sur
+  // chaque enfant un fait que personne n'avait observé (migration 0122).
+  final int? absences, retards;
   // Sortie du conseil de classe (délibération) — portée par le bulletin.
   final String? decision; // distinction attribuée (code, cf. conseils_provider)
   final String? councilAppreciation; // appréciation du conseil (teacher_comment)
   final String? directorComment; // synthèse / avis du chef d'établissement
 
   String get mention => mentionFor(overallAverage);
+
+  /// « 3 absences · 1 retard », ou l'aveu qu'aucun appel n'a été enregistré.
+  ///
+  /// Écrire « 0 absence » quand personne n'a fait l'appel serait une affirmation
+  /// sur un enfant que personne n'a vérifiée — sur un document que la famille
+  /// garde et qu'un conseil de classe lit.
+  String get assiduiteLabel {
+    final a = absences, r = retards;
+    if (a == null && r == null) return 'Non renseignée — aucun appel enregistré';
+    final bouts = <String>[
+      '${a ?? 0} absence${(a ?? 0) > 1 ? 's' : ''}',
+      '${r ?? 0} retard${(r ?? 0) > 1 ? 's' : ''}',
+    ];
+    return bouts.join(' · ');
+  }
 }
 
 class BulletinComputation {
@@ -275,6 +297,42 @@ final bulletinComputationProvider = FutureProvider.autoDispose
       if (t.$2 != null) t.$1: rangDeCompetition(t.$2!, notes),
   };
 
+  // 10 bis) Assiduité — comptée sur la FENÊTRE DU TRIMESTRE, depuis l'appel
+  // quotidien (`presences-eleves`). Un élève sans aucune entrée sur la période
+  // n'a pas « zéro absence » : on n'en sait rien, et le bulletin le dira.
+  final assiduite = <String, (int, int)>{};
+  if (args.trimesterId != null) {
+    final bornes = await db.getAll(
+      'SELECT start_date, end_date FROM trimesters WHERE id = ?',
+      [args.trimesterId],
+    );
+    if (bornes.isNotEmpty) {
+      final debut = bornes.first['start_date'] as String?;
+      final fin = bornes.first['end_date'] as String?;
+      final ids = [for (final st in studentRows) st['student_id'] as String];
+      if (debut != null && fin != null && ids.isNotEmpty) {
+        final ph = List.filled(ids.length, '?').join(',');
+        final compte = await db.getAll(
+          '''
+          SELECT e.student_id AS sid,
+                 SUM(CASE WHEN e.status = 'absent' THEN 1 ELSE 0 END) AS abs,
+                 SUM(CASE WHEN e.status = 'late'   THEN 1 ELSE 0 END) AS ret
+          FROM   attendance_entries e
+          JOIN   attendance_records r ON r.id = e.attendance_record_id
+          WHERE  e.student_id IN ($ph)
+            AND  r.record_date >= ? AND r.record_date <= ?
+          GROUP  BY e.student_id
+          ''',
+          [...ids, debut, fin],
+        );
+        for (final r in compte) {
+          assiduite[r['sid'] as String] =
+              ((r['abs'] as int?) ?? 0, (r['ret'] as int?) ?? 0);
+        }
+      }
+    }
+  }
+
   final total = studentRows.length;
   final students = <StudentBulletin>[];
   for (final st in studentRows) {
@@ -304,6 +362,8 @@ final bulletinComputationProvider = FutureProvider.autoDispose
       lines: lines,
       persisted: statusByEnr.containsKey(enr),
       status: statusByEnr[enr] ?? 'draft',
+      absences: assiduite[st['student_id'] as String]?.$1,
+      retards: assiduite[st['student_id'] as String]?.$2,
       decision: councilByEnr[enr]?.decision,
       councilAppreciation: councilByEnr[enr]?.appreciation,
       directorComment: councilByEnr[enr]?.director,
@@ -391,11 +451,12 @@ Future<GenerationBulletins> generateBulletins({
       await db.execute(
         '''
         UPDATE bulletins SET overall_average = ?, class_average = ?, rank = ?,
-          total_students = ?, mention = ?, updated_at = ?
+          total_students = ?, mention = ?, total_absences = ?, total_lates = ?,
+          updated_at = ?
         WHERE id = ?
         ''',
         [s.overallAverage, comp.classAverage, s.rank == 0 ? null : s.rank,
-         s.totalStudents, mention, now, bulletinId],
+         s.totalStudents, mention, s.absences, s.retards, now, bulletinId],
       );
       await db.execute(
           'DELETE FROM bulletin_subject_lines WHERE bulletin_id = ?',
@@ -408,11 +469,12 @@ Future<GenerationBulletins> generateBulletins({
           id, group_id, school_id, student_id, enrollment_id, academic_year_id,
           trimester_id, overall_average, class_average, rank, total_students,
           mention, total_absences, total_lates, status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 'draft', ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?)
         ''',
         [bulletinId, groupId, schoolId, s.studentId, s.enrollmentId,
          academicYearId, trimesterId, s.overallAverage, comp.classAverage,
-         s.rank == 0 ? null : s.rank, s.totalStudents, mention, now, now],
+         s.rank == 0 ? null : s.rank, s.totalStudents, mention,
+         s.absences, s.retards, now, now],
       );
     }
     for (final l in s.lines) {
