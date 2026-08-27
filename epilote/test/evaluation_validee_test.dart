@@ -100,5 +100,22 @@ void main() {
       expect(code.contains('canValidate: canValider && !readOnly'), isTrue,
           reason: 'Et l\'année archivée ferme tout, comme partout.');
     });
+
+    test('reconduire l\'année est réservé à qui peut valider', () {
+      // ⚠️ « Reconduire les classes » CRÉE la structure de l'année suivante et
+      // recopie ses coefficients : un acte d'établissement, pas un acte de
+      // professeur. Le bouton était gardé par `conseils.update`, que tout
+      // enseignant possède. La migration 0129 pose la même règle en base — les
+      // deux moitiés doivent rester ensemble, sinon 42501 et lot jeté.
+      final ecran =
+          _codeSeul('lib/features/evaluation/screens/passage_screen.dart');
+      final parts =
+          _codeSeul('lib/features/evaluation/screens/passage_parts.dart');
+      expect(ecran.contains('final canReconduire ='), isTrue);
+      expect(ecran.contains("action: 'validate'"), isTrue);
+      expect(parts.contains('!structureReady && canReconduire'), isTrue,
+          reason: 'Le bouton ne doit plus dépendre de `canEdit`.');
+      expect(parts.contains('!structureReady && canEdit'), isFalse);
+    });
   });
 }

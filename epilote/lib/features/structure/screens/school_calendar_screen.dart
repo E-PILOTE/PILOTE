@@ -16,6 +16,7 @@ import '../providers/academic_year_provider.dart';
 import '../providers/school_holidays_provider.dart';
 import 'edt_settings_screen.dart' show openEdtSettingsDrawer, kEdtSegCalendar;
 import '../../../core/utils/message_erreur.dart';
+import '../../../core/constants/app_constants.dart';
 
 part 'calendar_detail.dart';
 part 'calendar_holidays.dart';
@@ -24,7 +25,12 @@ part 'calendar_rollover.dart';
 final _fmtDate = DateFormat('dd MMM yyyy', 'fr_FR');
 
 /// Rôles autorisés à VOIR le calendrier (config direction/secrétariat).
-const _kViewRoles = {'proviseur', 'directeur', 'directeur_etudes', 'secretaire'};
+///
+/// ⚠️ C'était une COPIE littérale de `AppConstants.directionRoles`, dont le
+/// commentaire dit pourtant « ne jamais dupliquer la liste ». Les deux ont
+/// divergé le jour où l'une a perdu `directeur_etudes` — valeur que l'enum
+/// `user_role` ne contient pas. On lit désormais la source.
+const _kViewRoles = AppConstants.directionRoles;
 /// Rôles autorisés à ÉDITER (chefs d'établissement uniquement).
 const _kEditRoles = {'proviseur', 'directeur'};
 

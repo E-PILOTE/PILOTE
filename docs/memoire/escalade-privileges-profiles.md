@@ -110,11 +110,63 @@ politiques. `infirmary_visits`, `discipline_incidents`, `payroll` sont gâtées
 par les drapeaux `auth_sync_medical / _discipline / _finance`, dérivés du profil
 d'accès par le déclencheur `profiles_sensitive_flags`.
 
+## ✅ 0128 / 0129 — coefficients, classes, matières, candidats
+
+- **`class_subjects` (3 904)** : le COEFFICIENT d'une matière dans une classe.
+  Le changer change toutes les moyennes générales, donc tous les bulletins, les
+  rangs et les mentions — silencieusement.
+- **`exam_candidates` (2 126)** : retirer une inscription prive un enfant de son
+  examen. **`classes` (494)**, **`subjects` (62)**.
+
+⚠️ **Le Calendrier scolaire n'est PAS un module.** `school_calendar_screen`
+n'utilise pas `ModuleScaffold` : écran natif gardé par le RÔLE
+(`_kEditRoles = {proviseur, directeur}`). `auth_module_permet` ne peut pas le
+couvrir — d'où le helper `auth_est_chef_etablissement()`. L'ignorer aurait cassé
+la préparation de la rentrée par un 42501.
+
+⚠️ **0129 corrige un choix de 0128 que la vérification a révélé** : admettre
+`conseils` en écriture sur `classes`/`class_subjects` (à cause du rollover
+lancé depuis passage_screen) laissait tout enseignant créer des classes et
+réécrire des coefficients. Le bouton « Reconduire les classes » est désormais
+réservé à `conseils.validate`, dans l'écran ET en base.
+
+## ✅ 0130 — les pièces d'un enfant et sa famille
+
+`student_documents` (actes de naissance, certificats, photos, pièces d'examen
+et de stage) et `student_tutors` (parents et responsables : noms, téléphones,
+liens de parenté, adresses) étaient en tenancy seule. Ce sont des données
+personnelles de **mineurs et de tiers non employés par l'école**, et elles ne
+relèvent d'aucun drapeau `auth_sync_*` : rien ne les protégeait.
+
+**CINQ modules écrivent les pièces** (`documents`, `inscriptions`, `eleves`,
+`examens`, `stages`), **TROIS les tuteurs** (`inscriptions`, `eleves`,
+`annuaire`). Vérifié : Direction et Secrétariat oui, Enseignant et Vie scolaire
+refusés.
+
+## ⚖️ Ce qui relève de la CONFIGURATION, pas du code — à trancher
+
+1. **Le profil « Enseignant » livré détient `matieres` et `classes` en
+   create+update.** Un professeur peut donc changer un coefficient — celui qui
+   fixe toutes les moyennes de la classe — et créer une classe. Ce n'est plus un
+   défaut de RLS après 0129 : c'est un choix de profils d'accès.
+2. **Qui fait l'appel** (cf. [[presences-appel-identite-deduite]]) : l'enseignant
+   n'a aucun droit d'écriture sur les présences, alors que `ANALYSE.md` §7 en
+   fait la raison d'être du hors-ligne.
+3. **`directeur_etudes` n'est pas dans l'enum `user_role`.** Il figurait dans
+   `AppConstants.directionRoles` : un test de rôle qui ne pouvait jamais
+   réussir — le piège de `roleUtilisateur`, retiré le 2026-08-27. « Directeur
+   des Études » existe comme PROFIL D'ACCÈS (`access_profiles.role_type`), pas
+   comme rôle. La personne qui occupe ce poste reçoit donc un autre rôle, et si
+   c'est `enseignant`, elle n'atteint pas le Calendrier scolaire malgré son
+   profil. **Ajouter la valeur à l'enum, ou assumer qu'un D.E. porte
+   `directeur` ?**
+
 ## ⏳ Restent ouvertes, par ordre de poids
 
-`class_subjects` (3 904 — les coefficients, donc les moyennes) ·
-`exam_candidates` (2 126 — inscription au BEPC/BAC) · `classes` (494) ·
-`subjects` (62) · et le reste des 52, presque toutes vides aujourd'hui.
+Les grosses sont faites (0126, 0128, 0129). Le reste des 52 est presque
+entièrement vide aujourd'hui : `staff_*`, `timetable_*`, `library_*`,
+`canteen_*`, `internships`, `transmissions`, `rooms`, `lesson_entries`…
+Chacune se traitera avec son module, quand l'audit y arrivera.
 
 ## 🚨 Deux trous nommés, non refermés
 

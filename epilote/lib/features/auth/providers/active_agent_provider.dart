@@ -372,8 +372,15 @@ const Set<String> _nonAgentRoles = {
 bool agentLockApplies(String? role) =>
     role != null && role.isNotEmpty && !_nonAgentRoles.contains(role);
 
-/// Rôles de DIRECTION — seuls habilités à désenrôler un poste partagé.
-const Set<String> directionRoles = {
+/// Rôles habilités à DÉSENRÔLER un poste partagé — chefs d'établissement.
+///
+/// ⚠️ Ne PAS confondre avec `AppConstants.directionRoles`, qui porte le même
+/// nom mais pas la même liste : celle-là ouvre les écrans natifs de config et
+/// inclut le secrétariat. Désenrôler a un rayon de destruction bien plus large
+/// (cf. ci-dessous), d'où une liste plus courte. Deux noms identiques pour deux
+/// règles différentes finissent par être importés l'un pour l'autre : celui-ci
+/// dit ce qu'il fait.
+const Set<String> rolesDesenrolement = {
   AppConstants.roleDirecteur,
   AppConstants.roleProviseur,
 };
@@ -397,7 +404,7 @@ bool canUnenrollDevice({required String? role, required DeviceMode? mode}) {
   if (role == null || role.isEmpty) return false;
   if (!agentLockApplies(role)) return true; // super_admin / admin_groupe / parent
   if (mode == DeviceMode.personal) return true;
-  return directionRoles.contains(role);
+  return rolesDesenrolement.contains(role);
 }
 
 /// Décision pure : faut-il imposer l'écran-verrou ?

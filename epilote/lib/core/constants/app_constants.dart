@@ -43,11 +43,24 @@ class AppConstants {
 
   /// Rôles « direction » d'un établissement : seuls habilités à la config
   /// native de l'école (ex. Calendrier scolaire). Source UNIQUE — utilisée
-  /// par le garde du routeur ET la sidebar, ne jamais dupliquer la liste.
+  /// par le garde du routeur, la sidebar ET l'écran Calendrier.
+  ///
+  /// ⚠️ `'directeur_etudes'` figurait ici. **L'enum `user_role` ne le contient
+  /// pas** — aucun compte ne peut porter cette valeur, le test ne pouvait donc
+  /// jamais réussir. C'est exactement le piège de `roleUtilisateur`, retiré le
+  /// 2026-08-25 : une valeur morte dans un test de rôle, qui rassure sans rien
+  /// faire. Retiré le 2026-08-27.
+  ///
+  /// « Directeur des Études » existe bel et bien, mais comme **profil d'accès**
+  /// (`access_profiles.role_type`, proposé par l'espace admin groupe), pas
+  /// comme `user_role`. La personne qui occupe ce poste reçoit donc un rôle de
+  /// l'enum — et si on lui donne `enseignant`, elle n'atteindra pas le
+  /// Calendrier scolaire malgré son profil. **Question produit, à trancher :**
+  /// ajouter `directeur_etudes` à l'enum, ou assumer qu'un D.E. porte le rôle
+  /// `directeur`.
   static const Set<String> directionRoles = {
     roleProviseur,
     roleDirecteur,
-    'directeur_etudes',
     roleSecretaire,
   };
 }

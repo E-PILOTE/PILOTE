@@ -14,6 +14,7 @@ class _CampaignHeader extends StatelessWidget {
     required this.structureReady,
     required this.canEdit,
     required this.busy,
+    required this.canReconduire,
     required this.onRollover,
   });
 
@@ -21,6 +22,7 @@ class _CampaignHeader extends StatelessWidget {
   final String? nextLabel;
   final bool nextHasTrimesters;
   final bool structureReady, canEdit, busy;
+  final bool canReconduire;
   final VoidCallback onRollover;
 
   @override
@@ -56,7 +58,9 @@ class _CampaignHeader extends StatelessWidget {
               ),
             ]),
           ),
-          if (nextLabel != null && !structureReady && canEdit)
+          // `canReconduire`, pas `canEdit` : préparer la rentrée est un acte de
+          // structure, réservé à qui peut valider (migration 0128).
+          if (nextLabel != null && !structureReady && canReconduire)
             FilledButton.icon(
               onPressed: busy ? null : onRollover,
               style: FilledButton.styleFrom(backgroundColor: kNavy),

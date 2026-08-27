@@ -289,6 +289,14 @@ class _BodyState extends ConsumerState<_Body> {
       );
     }
     final canUpdate = ref.watch(canProvider((slug: _kSlug, action: 'update')));
+    // ⚠️ RECONDUIRE L'ANNÉE N'EST PAS DÉLIBÉRER. Ce geste CRÉE les classes de
+    // l'année suivante et recopie leurs coefficients : c'est un acte de
+    // structure, à l'échelle de l'établissement. Il était gardé par `update`,
+    // que tout enseignant possède sur `conseils` — n'importe lequel d'entre eux
+    // pouvait donc préparer la rentrée. On le réserve à qui peut valider, comme
+    // la publication des bulletins (§8.3).
+    final canReconduire =
+        ref.watch(canProvider((slug: _kSlug, action: 'validate')));
     final readOnly = ref.watch(yearReadOnlyProvider);
     final canEdit = canUpdate && !readOnly;
     final classes = ref.watch(passageClassesProvider(yearId));
@@ -334,7 +342,8 @@ class _BodyState extends ConsumerState<_Body> {
                 padding: const EdgeInsets.only(top: 40),
                 child: Center(child: Text(messageErreur(e)))),
             data: (rows) =>
-                _content(rows, yearId, year?.label ?? '', next, canEdit),
+                _content(rows, yearId, year?.label ?? '', next, canEdit,
+                    canReconduire && !readOnly),
           ),
         const SizedBox(height: 24),
       ]),
@@ -356,6 +365,9 @@ class _BodyState extends ConsumerState<_Body> {
     String yearLabel,
     NextYear? next,
     bool canEdit,
+    // Réservé à qui peut VALIDER : reconduire l'année crée la structure de
+    // l'année suivante, ce n'est pas un geste de délibération.
+    bool canReconduire,
   ) {
     // La structure d'accueil est prête dès qu'une classe existe l'an prochain.
     final structureReady = rows.isNotEmpty &&
@@ -376,6 +388,7 @@ class _BodyState extends ConsumerState<_Body> {
         nextHasTrimesters: next?.hasTrimesters ?? true,
         structureReady: structureReady,
         canEdit: canEdit,
+        canReconduire: canReconduire,
         busy: _busy,
         onRollover: () => next == null ? null : _rollover(yearId, next.id),
       ),
