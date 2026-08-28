@@ -83,6 +83,47 @@ publier le nouveau build rend « Reconduire les classes » fatal** : le bouton
 reste actif, la base refuse en 42501, et le connecteur PowerSync jette le lot
 d'écritures entier en attente sur le poste.
 
+## Inventaire de la dette de déploiement — mesuré le 2026-08-28
+
+**21 migrations** (`0120` → `0140`) sont appliquées en production ; le build
+publié reste `3.3.0+20`. 41 tables exigent désormais un verbe de module.
+
+La question n'est pas « la base est-elle plus stricte que le build » — elle l'est
+par construction. Elle est : **un écran du build publié laisse-t-il quelqu'un
+atteindre un bouton que la base refuse ?** Mesuré, écran par écran, en comparant
+les verbes lus dans `origin/main` aux verbes exigés par les politiques.
+
+| cas | verdict |
+|---|---|
+| écran gardé sur `update` seul, INSERT exigeant `create` (Présences, Cantine, Orientation, Caisse) | **aucun profil livré** n'a `update` sans `create` → inerte |
+| Présences Personnel gardé sur `create` seul, UPDATE exigeant `update` | seul le profil Direction a ce module, avec les deux → inerte |
+| **état vide offrant la création sans lire `create`** | **9 combinaisons, dont 2 ACTIVES** |
+
+### Les deux qui étaient actives — et ce qui a été fait
+
+`classes`, `eleves`, `inscriptions` : hors d'atteinte, les 37 écoles ont toutes
+des classes et des élèves — leur état vide ne s'affiche nulle part.
+
+`matieres` et `programmes` : **36 écoles sur 37 ont zéro matière et zéro
+programme**. L'état vide n'y est pas un cas limite, c'est l'écran du jour. Et le
+profil « Secrétariat » lit ces deux modules sans détenir `create`.
+
+Une secrétaire qui appuyait sur « Nouvelle matière » perdait donc **tout le lot
+d'écritures en attente sur son poste**, en silence.
+
+→ `0141` desserre ces deux `INSERT` (et eux seuls), le temps d'un build.
+→ `0142_APRES_LE_BUILD` les rétablit.
+
+Reculer plutôt que d'accorder le verbe au Secrétariat est délibéré : le
+catalogue lui donne la LECTURE de toute la structure pédagogique et l'ÉCRITURE à
+la Direction. C'est une décision, pas un accident ; on ne la retourne pas pour
+rattraper une erreur d'ordre de déploiement.
+
+### À appliquer APRÈS la publication, dans cet ordre
+
+1. `0139_APRES_LE_BUILD_annonces_et_evenements_par_le_verbe.sql`
+2. `0142_APRES_LE_BUILD_matieres_et_programmes_par_le_verbe.sql`
+
 ## Migration en attente : `0139` (communication)
 
 `database/migrations/0139_APRES_LE_BUILD_annonces_et_evenements_par_le_verbe.sql`
