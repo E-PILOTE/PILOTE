@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/erreur_metier.dart';
 
 // ════════════════════════════════════════════════════════════════════════
 // Système éducatif — République du Congo
@@ -347,7 +348,7 @@ class EducationService {
     int orderIndex = 900,
   }) async {
     final groupId = _groupId;
-    if (groupId == null) throw Exception('Groupe introuvable');
+    if (groupId == null) throw const ErreurMetier('Groupe introuvable');
     final row = await _ref
         .read(supabaseClientProvider)
         .from('education_programs')
@@ -398,7 +399,7 @@ class EducationService {
     int orderIndex = 900,
   }) async {
     final groupId = _groupId;
-    if (groupId == null) throw Exception('Groupe introuvable');
+    if (groupId == null) throw const ErreurMetier('Groupe introuvable');
     final row = await _ref
         .read(supabaseClientProvider)
         .from('education_levels')

@@ -205,7 +205,8 @@ class _LoanFormState extends ConsumerState<_LoanForm> {
           borrowDate: _key(_borrow),
           dueDate: _key(_due),
         );
-        if (error != null) throw Exception(error);
+        final e = error;
+        if (e != null) throw ErreurMetier(e);
       },
       success: 'Prêt enregistré',
     );

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/erreur_metier.dart';
 
 // ─── Service compte courant (admin_groupe édite SON propre profil) ───────────
 class AdminSelfService {
@@ -15,7 +16,7 @@ class AdminSelfService {
   }) async {
     final client = _ref.read(supabaseClientProvider);
     final uid = client.auth.currentUser?.id;
-    if (uid == null) throw Exception('Session invalide');
+    if (uid == null) throw const ErreurMetier('Session invalide');
     await client.from('profiles').update({
       'first_name': firstName,
       'last_name': lastName,
@@ -28,7 +29,7 @@ class AdminSelfService {
 
   Future<void> changePassword(String newPassword) async {
     if (newPassword.length < 6) {
-      throw Exception('Le mot de passe doit contenir au moins 6 caractères');
+      throw const ErreurMetier('Le mot de passe doit contenir au moins 6 caractères');
     }
     final client = _ref.read(supabaseClientProvider);
     await client.auth.updateUser(UserAttributes(password: newPassword));

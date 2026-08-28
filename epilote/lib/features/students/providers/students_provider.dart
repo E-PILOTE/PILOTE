@@ -5,6 +5,7 @@ import '../../../data/models/student_model.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/navigation/providers/permissions_provider.dart';
 import '../../../services/powersync/powersync_service.dart';
+import '../../../core/utils/erreur_metier.dart';
 
 const _uuid = Uuid();
 
@@ -81,7 +82,7 @@ Future<String> _matriculeLibre(String groupId) async {
   }
   // Cinq tirages tous pris : ce n'est plus du hasard, c'est un défaut. Mieux
   // vaut le dire que d'écrire une ligne que le serveur refusera fatalement.
-  throw StateError(
+  throw const ErreurMetier(
       'Impossible de générer un matricule libre pour ce groupe.');
 }
 
@@ -240,7 +241,7 @@ Future<String> createStudent({
       [schoolId, claimedIne.trim()],
     );
     if (pris.isNotEmpty) {
-      throw Exception(
+      throw const ErreurMetier(
           'Cet INE est déjà rattaché à un élève de l\'établissement.');
     }
   }

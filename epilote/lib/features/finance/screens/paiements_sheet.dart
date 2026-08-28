@@ -7,12 +7,15 @@ class _StudentPaymentsSheet extends ConsumerWidget {
   const _StudentPaymentsSheet({
     required this.row,
     required this.className,
+    required this.canCreate,
     required this.canEdit,
     required this.onChanged,
   });
   final StudentPayRow row;
   final String className;
-  final bool canEdit;
+  /// `create` : encaisser un nouveau paiement (INSERT).
+  /// `canEdit` (`update`) : rembourser ou annuler un paiement existant.
+  final bool canCreate, canEdit;
   final VoidCallback onChanged;
 
   /// Ouvre l'aperçu du reçu. Un paiement annulé imprime son annulation plutôt
@@ -155,7 +158,7 @@ class _StudentPaymentsSheet extends ConsumerWidget {
                   icon: const Icon(Icons.close_rounded, size: 20)),
             ]),
           ),
-          if (canEdit)
+          if (canCreate)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
               child: SizedBox(

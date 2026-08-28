@@ -9,6 +9,7 @@ import '../../../features/navigation/providers/permissions_provider.dart';
 import '../../../features/structure/providers/academic_year_context.dart';
 import '../../../core/utils/identite_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
+import '../../../core/utils/erreur_metier.dart';
 
 // ─── Verrou 4 : périmètre de données (own_school vs own_classes) ──────────────
 //
@@ -232,7 +233,7 @@ Future<String> createClass({
     [schoolId, academicYearId, name],
   );
   if (dup.isNotEmpty) {
-    throw Exception('Une classe « $name » existe déjà pour cette année scolaire.');
+    throw ErreurMetier('Une classe « $name » existe déjà pour cette année scolaire.');
   }
 
   // Déduit de `UNIQUE (school_id, academic_year_id, name)`. Le garde par nom
@@ -277,7 +278,7 @@ Future<String> createStructuredClass({
     [schoolId, academicYearId, name],
   );
   if (dup.isNotEmpty) {
-    throw Exception('Une classe « $name » existe déjà pour cette année scolaire.');
+    throw ErreurMetier('Une classe « $name » existe déjà pour cette année scolaire.');
   }
   // Déduit de `UNIQUE (school_id, academic_year_id, name)`. Le garde par nom
   // ci-dessus arrête le doublon SUR CE POSTE ; deux appareils qui préparent la
@@ -420,7 +421,7 @@ Future<String> enrollStudent({
     [studentId, academicYearId],
   );
   if (dup.isNotEmpty) {
-    throw Exception('Cet élève est déjà inscrit pour cette année scolaire.');
+    throw const ErreurMetier('Cet élève est déjà inscrit pour cette année scolaire.');
   }
 
   // Déduit de la clé de la contrainte : le garde ci-dessus arrête le doublon

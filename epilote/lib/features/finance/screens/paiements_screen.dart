@@ -61,7 +61,16 @@ class _BodyState extends ConsumerState<_Body> {
   String? get _activeClassId => _openClassId ?? _scope.classId;
 
   void _openStudent(StudentPayRow r, String className) {
+    // ⚠️ ENCAISSER, C'EST INSÉRER — REMBOURSER ET ANNULER, C'EST METTRE À JOUR.
+    // Un seul `canEdit`, lu sur `update`, ouvrait les trois. Or la RLS de
+    // `student_payments` réserve l'INSERT au verbe `create` : un profil doté
+    // d'`update` sans `create` voyait « Nouveau paiement », encaissait, et
+    // recevait un 42501 — code FATAL pour le connecteur, qui jette le LOT
+    // ENTIER en attente. Au guichet, ce lot, ce sont les encaissements de la
+    // matinée. Les deux verbes se lisent donc séparément.
     final readOnly = ref.read(yearReadOnlyProvider);
+    final canCreate =
+        ref.read(canProvider((slug: _kSlug, action: 'create'))) && !readOnly;
     final canEdit =
         ref.read(canProvider((slug: _kSlug, action: 'update'))) && !readOnly;
     showModalBottomSheet(
@@ -71,6 +80,7 @@ class _BodyState extends ConsumerState<_Body> {
       builder: (_) => _StudentPaymentsSheet(
         row: r,
         className: className,
+        canCreate: canCreate,
         canEdit: canEdit,
         onChanged: () => ref.invalidate(paymentsOverviewProvider),
       ),

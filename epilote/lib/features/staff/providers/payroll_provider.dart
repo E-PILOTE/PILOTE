@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/utils/identite_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/utils/erreur_metier.dart';
 
 const _uuid = Uuid();
 
@@ -129,7 +130,7 @@ Future<void> savePayroll({
   // base refuserait, et le refus coûterait le lot. On le dit ici, en clair —
   // `runModuleWrite` affiche le message.
   if (id != null && occupe != null && occupe != id) {
-    throw StateError(
+    throw ErreurMetier(
         'Une fiche de paie existe déjà pour cet agent sur $month/$year.');
   }
 

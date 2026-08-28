@@ -12,6 +12,7 @@ import '../providers/vs_students_provider.dart';
 import '../widgets/vs_kit.dart';
 import '../widgets/vs_form_chrome.dart';
 import '../widgets/vs_student_field.dart';
+import '../../../core/utils/erreur_metier.dart';
 
 part 'biblio_forms.dart';
 part 'biblio_cards.dart';

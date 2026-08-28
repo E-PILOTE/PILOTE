@@ -20,6 +20,7 @@ import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/session_morte.dart';
+import 'erreur_metier.dart';
 
 /// Message affichable à l'agent pour [erreur].
 ///
@@ -58,8 +59,32 @@ String _traduire(Object? erreur) {
     return 'Une donnée reçue n’a pas le format attendu.';
   }
 
+  // ── CE QUE L'APPLICATION DIT ELLE-MÊME PASSE TEL QUEL ─────────────────────
+  //
+  // Même convention que le HINT Postgrest plus bas : une `ErreurMetier` porte
+  // une phrase écrite POUR L'AGENT, en français, qui dit la cause et souvent
+  // quoi faire — « Une classe « 6e A » existe déjà pour cette année scolaire. »
+  //
+  // ⚠️ Elles étaient levées en `Exception` / `StateError` et tombaient toutes
+  // dans le repli final : « Une erreur inattendue est survenue. (_Exception) ».
+  // Les quarante gardes posés dans les modules — ceux qui pré-valident AVANT
+  // que la base ne refuse, justement pour éviter un code fatal à la synchro —
+  // parlaient donc dans le vide : l'agent voyait un générique et recommençait
+  // le même geste.
+  //
+  // Le TYPE fait la différence, pas une devinette sur le texte : un
+  // `StateError` venu d'une bibliothèque reste un détail interne et ne doit pas
+  // remonter (c'est ce que garde `message_erreur_test.dart` depuis l'origine).
+  if (erreur is ErreurMetier) return _termine(erreur.message);
+
   return 'Une erreur inattendue est survenue. (${_typeCourt(erreur)})';
 }
+
+/// Ponctue une phrase venue du code. Beaucoup de gardes écrivent
+/// « Groupe introuvable » sans point : dans une bulle d'alerte, la phrase doit
+/// se terminer.
+String _termine(String phrase) =>
+    RegExp(r'[.!?…:]$').hasMatch(phrase) ? phrase : '$phrase.';
 
 String _postgrest(PostgrestException e) {
   // Un HINT renseigné est, par convention en base, une phrase déjà rédigée pour

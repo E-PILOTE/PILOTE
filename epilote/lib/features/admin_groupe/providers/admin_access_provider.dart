@@ -5,6 +5,7 @@ import 'package:realtime_client/realtime_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/erreur_metier.dart';
 
 // ─── Modèles ────────────────────────────────────────────────────────────────
 class AccessProfile {
@@ -318,7 +319,7 @@ class AdminAccessService {
     final client = _ref.read(supabaseClientProvider);
     final groupId = _ref.read(authNotifierProvider).valueOrNull?.groupId;
     final uid = client.auth.currentUser?.id;
-    if (groupId == null) throw Exception('Groupe introuvable');
+    if (groupId == null) throw const ErreurMetier('Groupe introuvable');
     final row = await client.from('access_profiles').insert({
       'group_id':   groupId,
       'name':       name,
@@ -381,7 +382,7 @@ class AdminAccessService {
     final client = _ref.read(supabaseClientProvider);
     final attached = await countMembers(id);
     if (attached > 0) {
-      throw Exception(
+      throw ErreurMetier(
           '$attached membre${attached > 1 ? 's' : ''} encore rattaché'
           '${attached > 1 ? 's' : ''} à ce profil. Réattribuez-les avant suppression.');
     }

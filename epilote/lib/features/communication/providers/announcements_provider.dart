@@ -7,6 +7,7 @@ import '../../../features/auth/providers/auth_provider.dart';
 import '../../../services/powersync/powersync_service.dart';
 import 'communication_scope.dart';
 import 'messages_provider.dart' show MessageAttachment, parseAttachments;
+import '../../../core/utils/erreur_metier.dart';
 
 // ─── Modèle AnnouncementDetail ────────────────────────────────────────────────
 
@@ -530,7 +531,7 @@ Future<void> createAnnouncementScoped(
 }) async {
   final ctx = ref.read(communicationContextProvider);
   final me  = ref.read(authNotifierProvider).valueOrNull;
-  if (me == null) throw StateError('Session invalide.');
+  if (me == null) throw const ErreurMetier('Session invalide.');
   if (ctx.isSchool) {
     await createSchoolAnnouncementLocal(
       groupId: me.groupId!,
@@ -548,7 +549,7 @@ Future<void> createAnnouncementScoped(
     // super_admin → « Toutes les écoles » : diffusion à chaque groupe.
     if (ctx.isPlatform && groupIdOverride == kAllGroupsSentinel) {
       final groups = ref.read(announcementGroupsProvider);
-      if (groups.isEmpty) throw StateError('Aucun groupe destinataire.');
+      if (groups.isEmpty) throw const ErreurMetier('Aucun groupe destinataire.');
       for (final g in groups) {
         await createOnlineAnnouncement(
           client: client,
@@ -567,7 +568,7 @@ Future<void> createAnnouncementScoped(
     }
     final groupId = ctx.isGroup ? ctx.groupId : groupIdOverride;
     if (groupId == null || groupId.isEmpty) {
-      throw StateError('Choisissez un groupe destinataire.');
+      throw const ErreurMetier('Choisissez un groupe destinataire.');
     }
     await createOnlineAnnouncement(
       client: client,

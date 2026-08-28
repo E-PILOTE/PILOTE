@@ -81,7 +81,11 @@ class _BodyState extends ConsumerState<_Body> {
       error: (e, _) => Center(child: Text(messageErreur(e))),
       data: (all) {
         final budgeted = all.fold(0, (a, l) => a + l.budgeted);
-        final actual = all.fold(0, (a, l) => a + l.actual);
+        // Le réalisé vient des DÉPENSES, pas de la somme des lignes : une
+        // dépense sur un poste non budgété n'apparaissait nulle part, et deux
+        // lignes d'un même poste la comptaient deux fois.
+        final reel = ref.watch(budgetReelProvider);
+        final actual = reel.total;
         final gap = budgeted - actual;
         final rate = budgeted == 0 ? 0 : actual * 100 ~/ budgeted;
         return SingleChildScrollView(
@@ -99,7 +103,10 @@ class _BodyState extends ConsumerState<_Body> {
               (Icons.account_balance_wallet_rounded, 'Budgété',
                   fmtCompact(budgeted), kNavy, 'FCFA prévus'),
               (Icons.payments_rounded, 'Réalisé', fmtCompact(actual),
-                  const Color(0xFFF59E0B), 'FCFA engagés'),
+                  const Color(0xFFF59E0B),
+                  reel.horsBudget > 0
+                      ? 'dont ${fmtCompact(reel.horsBudget)} hors budget'
+                      : 'FCFA engagés'),
               (Icons.savings_rounded, 'Disponible', fmtCompact(gap),
                   gap < 0 ? kRed : kGreen, gap < 0 ? 'dépassement' : 'restant'),
               (Icons.speed_rounded, 'Exécution', '$rate%',

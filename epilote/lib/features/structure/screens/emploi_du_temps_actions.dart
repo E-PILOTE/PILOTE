@@ -322,7 +322,7 @@ extension _EdtActions on _EdtPageState {
           toClassId: target.id,
           versionId: versionId,
         );
-        if (n == 0) throw Exception('Aucun créneau à copier');
+        if (n == 0) throw const ErreurMetier('Aucun créneau à copier');
       },
       success: 'Emploi du temps dupliqué vers ${target.name}',
     );

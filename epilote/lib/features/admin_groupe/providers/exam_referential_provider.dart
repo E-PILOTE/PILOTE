@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/utils/erreur_metier.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  RÉFÉRENTIEL DES EXAMENS — le catalogue ET les règles qui le branchent.
@@ -295,7 +296,7 @@ Future<void> deleteNationalExam(SupabaseClient client, String id) async {
   final sessions =
       await client.from('exam_sessions').select('id').eq('exam_id', id).limit(1);
   if (sessions.isNotEmpty) {
-    throw Exception(
+    throw const ErreurMetier(
         'Examen non supprimable : une session lui est rattachée. Désactivez-le.');
   }
   // ⚠️ Ce contrôle ne voit que les classes VISIBLES de l'appelant : un
@@ -309,7 +310,7 @@ Future<void> deleteNationalExam(SupabaseClient client, String id) async {
       .or('exam_id.eq.$id,exam_override_id.eq.$id')
       .limit(1);
   if (classes.isNotEmpty) {
-    throw Exception(
+    throw const ErreurMetier(
         'Examen non supprimable : des classes y sont rattachées. Désactivez-le.');
   }
   try {
@@ -317,7 +318,7 @@ Future<void> deleteNationalExam(SupabaseClient client, String id) async {
   } catch (e) {
     final msg = '$e';
     if (msg.contains('foreign key') || msg.contains('violates')) {
-      throw Exception('Examen non supprimable : des données y sont rattachées '
+      throw const ErreurMetier('Examen non supprimable : des données y sont rattachées '
           '(classes, candidatures ou résultats). Désactivez-le.');
     }
     rethrow;

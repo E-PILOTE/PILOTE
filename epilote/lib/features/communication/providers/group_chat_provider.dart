@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'communication_scope.dart';
+import '../../../core/utils/erreur_metier.dart';
 import 'messages_provider.dart'
     show MessageAttachment, messagesProvider, groupAdminRecipient;
 
@@ -225,7 +226,7 @@ Future<String> createGroupConversationScoped(
 }) async {
   final ctx = ref.read(communicationContextProvider);
   final me  = ref.read(authNotifierProvider).valueOrNull;
-  if (me == null) throw StateError('Session invalide.');
+  if (me == null) throw const ErreurMetier('Session invalide.');
   final convId = const Uuid().v4();
   final now    = DateTime.now().toIso8601String();
 
@@ -241,7 +242,7 @@ Future<String> createGroupConversationScoped(
       final adminId = await groupAdminRecipient(client, gid);
       if (adminId != null && adminId != me.id) adminIds.add(adminId);
     }
-    if (anchorGroup == null) throw StateError('Aucun groupe sélectionné.');
+    if (anchorGroup == null) throw const ErreurMetier('Aucun groupe sélectionné.');
     await client.from('conversations').insert({
       'id':         convId,
       'group_id':   anchorGroup,

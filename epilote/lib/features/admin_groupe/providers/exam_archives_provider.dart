@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/utils/erreur_metier.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  ARCHIVES DES PUBLICATIONS DE LA DEC — côté ministère (online, Supabase).
@@ -403,7 +404,7 @@ class ArchiveActions {
     final client = _ref.read(supabaseClientProvider);
     final profile = _ref.read(authNotifierProvider).valueOrNull;
     final groupId = profile?.groupId;
-    if (groupId == null) throw StateError('Groupe introuvable');
+    if (groupId == null) throw const ErreurMetier('Groupe introuvable');
 
     // Empreinte calculée sur les octets déposés : c'est elle qui permettra,
     // des années plus tard, de prouver que la pièce n'a pas bougé.
@@ -569,7 +570,7 @@ class ArchiveActions {
     final client = _ref.read(supabaseClientProvider);
     final profile = _ref.read(authNotifierProvider).valueOrNull;
     final groupId = profile?.groupId;
-    if (groupId == null) throw StateError('Groupe introuvable');
+    if (groupId == null) throw const ErreurMetier('Groupe introuvable');
 
     final saved = await client.from('exam_official_results').upsert({
       'group_id': groupId,

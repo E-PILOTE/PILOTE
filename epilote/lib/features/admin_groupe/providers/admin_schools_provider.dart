@@ -9,6 +9,7 @@ import '../../../core/utils/plan_referential_realtime.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import 'admin_dashboard_provider.dart';
 import 'admin_regional_provider.dart';
+import '../../../core/utils/erreur_metier.dart';
 
 // ─── Détail d'une école ─────────────────────────────────────────────────────
 class SchoolDetail {
@@ -278,7 +279,7 @@ class AdminSchoolsService {
   }) async {
     final client  = _ref.read(supabaseClientProvider);
     final groupId = _ref.read(authNotifierProvider).valueOrNull?.groupId;
-    if (groupId == null) throw Exception('Groupe introuvable');
+    if (groupId == null) throw const ErreurMetier('Groupe introuvable');
     final row = await client.from('schools').insert({
       'group_id': groupId,
       'name': name,

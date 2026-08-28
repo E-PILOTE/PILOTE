@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/erreur_metier.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  ESPACE ADMIN_GROUPE — Mutations du calendrier national.
@@ -77,7 +78,7 @@ class AdminCalendarService {
 
   String get _groupId {
     final g = _ref.read(authNotifierProvider).valueOrNull?.groupId;
-    if (g == null) throw Exception('Groupe introuvable');
+    if (g == null) throw const ErreurMetier('Groupe introuvable');
     return g;
   }
 

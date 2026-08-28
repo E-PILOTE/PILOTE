@@ -7,6 +7,7 @@ import '../../user/providers/staff_support_provider.dart'
     show staffTicketsProvider, createStaffTicketLocal, staffTicketCategories;
 import 'communication_scope.dart';
 import 'messages_provider.dart' show MessageAttachment;
+import '../../../core/utils/erreur_metier.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Support — côté DEMANDEUR, partagé admin_groupe + personnel école.
@@ -170,7 +171,7 @@ Future<void> createRequesterTicket(
   final uid     = ref.read(currentUserProvider)?.id;
   final groupId = profile?.groupId;
   if (uid == null || groupId == null) {
-    throw StateError('Session invalide');
+    throw const ErreurMetier('Session invalide');
   }
 
   if (ctx.isGroup) {

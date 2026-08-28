@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/booleen_en_ligne.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/erreur_metier.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ESPACE ADMIN_GROUPE — Paramètres (online / Supabase direct, scope group_id)
@@ -721,7 +722,7 @@ class AdminSettingsService {
     final client  = _ref.read(supabaseClientProvider);
     final groupId = _ref.read(authNotifierProvider).valueOrNull?.groupId;
     final uid     = client.auth.currentUser?.id;
-    if (groupId == null || uid == null) throw Exception('Session invalide');
+    if (groupId == null || uid == null) throw const ErreurMetier('Session invalide');
     return (groupId: groupId, uid: uid);
   }
 

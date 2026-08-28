@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show SupabaseClient;
 
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/utils/erreur_metier.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  SESSIONS D'EXAMEN — administration du CALENDRIER NATIONAL.
@@ -271,7 +272,7 @@ Future<void> deleteExamSession(SupabaseClient client, String id) async {
       .eq('session_id', id)
       .limit(1);
   if (rows.isNotEmpty) {
-    throw Exception(
+    throw const ErreurMetier(
         'Session non supprimable : des candidatures y sont rattachées.');
   }
   await client.from('exam_sessions').delete().eq('id', id);

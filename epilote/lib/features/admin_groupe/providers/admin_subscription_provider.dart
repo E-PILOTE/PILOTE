@@ -9,6 +9,7 @@ import '../../../core/utils/plan_referential_realtime.dart';
 import '../../../core/utils/subscription_days.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../super_admin/providers/invoices_provider.dart' show InvoiceDetail;
+import '../../../core/utils/erreur_metier.dart';
 import 'subscription_access_provider.dart'
     show kSubscriptionAlertDays, subscriptionSettingsProvider;
 
@@ -454,12 +455,12 @@ class AdminSubscriptionService {
     final client  = _ref.read(supabaseClientProvider);
     final groupId = _ref.read(authNotifierProvider).valueOrNull?.groupId;
     final uid     = client.auth.currentUser?.id;
-    if (groupId == null || uid == null) throw Exception('Session invalide');
+    if (groupId == null || uid == null) throw const ErreurMetier('Session invalide');
 
     // Garde-fou : empêche une seconde demande tant qu'une est en cours.
     final pending = _ref.read(adminSubscriptionProvider).valueOrNull;
     if (pending != null && pending.hasPendingRequest) {
-      throw Exception('Une demande est déjà en cours de traitement.');
+      throw const ErreurMetier('Une demande est déjà en cours de traitement.');
     }
 
     final body = message.trim().isEmpty
@@ -488,7 +489,7 @@ class AdminSubscriptionService {
   Future<Map<String, dynamic>> requestRenewal() async {
     final client  = _ref.read(supabaseClientProvider);
     final groupId = _ref.read(authNotifierProvider).valueOrNull?.groupId;
-    if (groupId == null) throw Exception('Session invalide');
+    if (groupId == null) throw const ErreurMetier('Session invalide');
 
     final res = await client.rpc('create_renewal_invoice',
         params: {'p_group_id': groupId});

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/utils/erreur_metier.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  DOSSIER DE L'ÉLÈVE — vue ministère (admin_groupe, online, lecture seule).
@@ -272,7 +273,7 @@ final studentDossierProvider =
     FutureProvider.autoDispose.family<StudentDossier, String>((ref, id) async {
   final client = ref.watch(supabaseClientProvider);
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
-  if (groupId == null) throw StateError('Groupe introuvable');
+  if (groupId == null) throw const ErreurMetier('Groupe introuvable');
 
   final currentYears = await ref.watch(_dossierYearsProvider.future);
 
