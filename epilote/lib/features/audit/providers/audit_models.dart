@@ -61,6 +61,9 @@ class AuditEntry {
       'student_payments', 'group_invoices', 'grades', 'bulletins',
       'payroll', 'expenses', 'budget_lines', 'staff_members',
       'discipline_incidents', 'infirmary_visits',
+      // Modifier un coefficient ou une moyenne de passage ne touche AUCUN
+      // élève nommément — et les touche tous. C'est le contraire d'un détail.
+      'class_subjects', 'school_levels',
     };
     if (sensitiveEntities.contains(tableName)) return AuditSeverity.medium;
     return AuditSeverity.low;
@@ -156,6 +159,11 @@ String auditEntityLabel(String t) => switch (t) {
       'events' => 'Événement',
       'group_settings' => 'Paramètres',
       'student_documents' => 'Document élève',
+      // Deux réglages qui ne se voient pas et repèsent tout (migration 0144) :
+      // le coefficient repondère une moyenne entière, la moyenne de passage
+      // décide qui redouble.
+      'class_subjects' => 'Coefficient de matière',
+      'school_levels' => 'Seuils de passage',
       _ => t.replaceAll('_', ' '),
     };
 
