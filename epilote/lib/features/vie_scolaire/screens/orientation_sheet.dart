@@ -20,9 +20,11 @@ class _OrientationSheet extends ConsumerStatefulWidget {
 }
 
 class _OrientationSheetState extends ConsumerState<_OrientationSheet> {
-  late final _level = TextEditingController(text: widget.row.targetLevel ?? '');
-  late final _filiere =
-      TextEditingController(text: widget.row.targetFiliere ?? '');
+  // Des CODES du référentiel, plus du texte libre : voir l'en-tête de
+  // `orientation_provider.dart`. Une orientation qui ne s'agrège pas ne sert
+  // à personne au niveau national.
+  late String? _levelCode = widget.row.targetLevel;
+  late String? _filiereCode = widget.row.targetFiliere;
   late final _reco =
       TextEditingController(text: widget.row.recommendation ?? '');
   late bool _consulted = widget.row.parentConsulted;
@@ -30,10 +32,43 @@ class _OrientationSheetState extends ConsumerState<_OrientationSheet> {
 
   @override
   void dispose() {
-    _level.dispose();
-    _filiere.dispose();
     _reco.dispose();
     super.dispose();
+  }
+
+  /// Liste déroulante d'un référentiel, tolérante à une valeur qui n'y est
+  /// plus : une filière retirée du référentiel ne doit pas faire disparaître —
+  /// ni planter — la fiche d'un élève déjà orienté.
+  Widget _cibleField({
+    required String label,
+    required IconData icon,
+    required List<CibleOrientation> cibles,
+    required String? valeur,
+    required ValueChanged<String?> onChanged,
+  }) {
+    final codes = {for (final c in cibles) c.code};
+    final inconnu = valeur != null && valeur.isNotEmpty && !codes.contains(valeur);
+    return DropdownButtonFormField<String?>(
+      initialValue: valeur == null || valeur.isEmpty ? null : valeur,
+      isExpanded: true,
+      decoration: adminFilledInput(label, icon: icon),
+      onChanged: widget.canEdit ? onChanged : null,
+      items: [
+        const DropdownMenuItem<String?>(value: null, child: Text('—')),
+        if (inconnu)
+          DropdownMenuItem<String?>(
+            value: valeur,
+            child: Text('$valeur (hors référentiel)',
+                overflow: TextOverflow.ellipsis),
+          ),
+        for (final c in cibles)
+          DropdownMenuItem<String?>(
+            value: c.code,
+            child: Text(c.cycle == null ? c.nom : '${c.nom} · ${c.cycle}',
+                overflow: TextOverflow.ellipsis),
+          ),
+      ],
+    );
   }
 
   Future<void> _save() async {
@@ -58,8 +93,8 @@ class _OrientationSheetState extends ConsumerState<_OrientationSheet> {
         studentId: widget.row.studentId,
         trimesterId: widget.trimesterId,
         recommendation: _reco.text.trim().isEmpty ? null : _reco.text.trim(),
-        targetLevel: _level.text.trim().isEmpty ? null : _level.text.trim(),
-        targetFiliere: _filiere.text.trim().isEmpty ? null : _filiere.text.trim(),
+        targetLevel: _levelCode,
+        targetFiliere: _filiereCode,
         parentConsulted: _consulted,
         counselorId: p.id,
       ),
@@ -121,25 +156,23 @@ class _OrientationSheetState extends ConsumerState<_OrientationSheet> {
               controller: scroll,
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
               children: [
-                Row(children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _level,
-                      enabled: widget.canEdit,
-                      decoration: adminFilledInput('Niveau cible',
-                          icon: Icons.stairs_rounded),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: _filiere,
-                      enabled: widget.canEdit,
-                      decoration: adminFilledInput('Filière cible',
-                          icon: Icons.alt_route_rounded),
-                    ),
-                  ),
-                ]),
+                _cibleField(
+                  label: 'Niveau cible',
+                  icon: Icons.stairs_rounded,
+                  cibles:
+                      ref.watch(niveauxCiblesProvider).valueOrNull ?? const [],
+                  valeur: _levelCode,
+                  onChanged: (v) => setState(() => _levelCode = v),
+                ),
+                const SizedBox(height: 14),
+                _cibleField(
+                  label: 'Filière cible',
+                  icon: Icons.alt_route_rounded,
+                  cibles:
+                      ref.watch(filieresCiblesProvider).valueOrNull ?? const [],
+                  valeur: _filiereCode,
+                  onChanged: (v) => setState(() => _filiereCode = v),
+                ),
                 const SizedBox(height: 14),
                 TextField(
                   controller: _reco,

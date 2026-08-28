@@ -47,9 +47,16 @@ class _BodyState extends ConsumerState<_Body> {
   String? get _activeClassId => _openClassId ?? _scope.classId;
 
   void _openSheet(OrientationRow r) {
+    // ⚠️ ORIENTER UN ÉLÈVE POUR LA PREMIÈRE FOIS, C'EST INSÉRER. La base
+    // réserve l'INSERT au verbe `create` (RLS, migration 0131) ; garder l'écran
+    // sur le seul `update` laissait un profil doté d'`update` sans `create`
+    // ouvrir la fiche, appuyer, et recevoir un 42501 — code FATAL pour le
+    // connecteur, qui jette le LOT ENTIER en attente. Les deux moitiés doivent
+    // bouger ensemble.
     final readOnly = ref.read(yearReadOnlyProvider);
-    final canEdit =
-        ref.read(canProvider((slug: _kSlug, action: 'update'))) && !readOnly;
+    final canEdit = ref.read(canProvider((slug: _kSlug, action: 'create'))) &&
+        ref.read(canProvider((slug: _kSlug, action: 'update'))) &&
+        !readOnly;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -135,10 +142,16 @@ class _BodyState extends ConsumerState<_Body> {
             const Color(0xFF0EA5E9), '${ov.classesTotal} classes'),
         (Icons.family_restroom_rounded, 'Parents consultés', '${ov.consulted}',
             kGreen, 'sur ${ov.oriented}'),
-        (Icons.pending_actions_rounded, 'À orienter',
-            '${ov.students - ov.oriented}',
-            ov.students - ov.oriented == 0 ? kTextMuted : const Color(0xFFF59E0B),
-            null),
+        // ⚠️ « À orienter » comptait `effectif - orientés`, c'est-à-dire tous
+        // les élèves sans fiche : une 6ᵉ entière, en permanence, alors que
+        // l'orientation ne concerne que les fins de cycle. Un nombre qui ne
+        // descend jamais n'est pas une liste de travail, c'est du bruit — et
+        // il masquait la vraie : les enfants que le CONSEIL a réorientés et
+        // dont personne n'a encore dit vers quoi.
+        (Icons.pending_actions_rounded, 'Réorientés sans fiche',
+            '${ov.aOrienter}',
+            ov.aOrienter == 0 ? kTextMuted : kRed,
+            ov.aOrienter == 0 ? null : 'décidés en conseil'),
       ]),
       const SizedBox(height: 16),
       ScopeDrilldownPanel(
@@ -319,9 +332,16 @@ class _ClassOrientationState extends ConsumerState<_ClassOrientation> {
   }
 
   Widget _row(OrientationRow r) {
+    // La base stocke des CODES ; l'écran doit lire des noms. `nomDeCible`
+    // rend le code tel quel s'il n'est plus au referentiel, pour qu'une
+    // orientation ancienne reste lisible.
+    final niveaux = ref.watch(niveauxCiblesProvider).valueOrNull ?? const [];
+    final filieres = ref.watch(filieresCiblesProvider).valueOrNull ?? const [];
     final target = [
-      if ((r.targetLevel ?? '').isNotEmpty) r.targetLevel!,
-      if ((r.targetFiliere ?? '').isNotEmpty) r.targetFiliere!,
+      if (r.attendUneOrientation) 'Réorienté par le conseil — à orienter',
+      if ((r.targetLevel ?? '').isNotEmpty) nomDeCible(niveaux, r.targetLevel),
+      if ((r.targetFiliere ?? '').isNotEmpty)
+        nomDeCible(filieres, r.targetFiliere),
     ].join(' · ');
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
