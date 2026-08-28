@@ -10,6 +10,7 @@ import '../../../services/powersync/powersync_service.dart';
 import 'communication_scope.dart';
 import 'messages_provider.dart' show MessageAttachment, parseAttachments;
 import '../../../core/utils/erreur_metier.dart';
+import 'comm_droits.dart';
 
 // ─── Modèles ──────────────────────────────────────────────────────────────────
 
@@ -365,6 +366,9 @@ Future<void> saveEventScoped(
   List<MessageAttachment>? attachments,
   String? groupIdOverride,
 }) async {
+  // Créer ET modifier passent par ici : l'INSERT exige `create`, la mise à
+  // jour `update`. Un profil doté du seul `update` ne doit pas pouvoir créer.
+  exigerDroitComm(ref, kSlugEvenements, id == null ? 'create' : 'update');
   final ctx = ref.read(communicationContextProvider);
   final me  = ref.read(authNotifierProvider).valueOrNull;
   if (me == null) throw const ErreurMetier('Session invalide.');
@@ -425,6 +429,7 @@ Future<void> saveEventScoped(
 
 /// Suppression SCOPE-AWARE : école → local ; admin/super → online.
 Future<void> deleteEventScoped(WidgetRef ref, String id) async {
+  exigerDroitComm(ref, kSlugEvenements, 'delete');
   final ctx = ref.read(communicationContextProvider);
   if (ctx.isSchool) {
     await deleteSchoolEventLocal(id);

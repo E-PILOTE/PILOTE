@@ -8,6 +8,7 @@ import '../../../services/powersync/powersync_service.dart';
 import 'communication_scope.dart';
 import 'messages_provider.dart' show MessageAttachment, parseAttachments;
 import '../../../core/utils/erreur_metier.dart';
+import 'comm_droits.dart';
 
 // ─── Modèle AnnouncementDetail ────────────────────────────────────────────────
 
@@ -440,6 +441,7 @@ Future<void> deleteOnlineAnnouncement(dynamic client, String id) async =>
 
 Future<void> setAnnouncementPinnedScoped(
     WidgetRef ref, String id, bool pinned) async {
+  exigerDroitComm(ref, kSlugAnnonces, 'update');
   final ctx = ref.read(communicationContextProvider);
   if (ctx.isSchool) {
     await setAnnouncementPinnedLocal(id, pinned);
@@ -452,6 +454,7 @@ Future<void> setAnnouncementPinnedScoped(
 
 Future<void> setAnnouncementArchivedScoped(
     WidgetRef ref, String id, bool archived) async {
+  exigerDroitComm(ref, kSlugAnnonces, 'update');
   final ctx = ref.read(communicationContextProvider);
   if (ctx.isSchool) {
     await setAnnouncementArchivedLocal(id, archived);
@@ -463,6 +466,7 @@ Future<void> setAnnouncementArchivedScoped(
 }
 
 Future<void> deleteAnnouncementScoped(WidgetRef ref, String id) async {
+  exigerDroitComm(ref, kSlugAnnonces, 'delete');
   final ctx = ref.read(communicationContextProvider);
   if (ctx.isSchool) {
     await deleteSchoolAnnouncementLocal(id);
@@ -529,6 +533,7 @@ Future<void> createAnnouncementScoped(
   List<MessageAttachment> attachments = const [],
   String? groupIdOverride,
 }) async {
+  exigerDroitComm(ref, kSlugAnnonces, 'create');
   final ctx = ref.read(communicationContextProvider);
   final me  = ref.read(authNotifierProvider).valueOrNull;
   if (me == null) throw const ErreurMetier('Session invalide.');
@@ -596,6 +601,7 @@ Future<void> updateAnnouncementScoped(
   DateTime? expiresAt,
   List<MessageAttachment>? attachments,
 }) async {
+  exigerDroitComm(ref, kSlugAnnonces, 'update');
   final ctx = ref.read(communicationContextProvider);
   if (ctx.isSchool) {
     await updateSchoolAnnouncementLocal(

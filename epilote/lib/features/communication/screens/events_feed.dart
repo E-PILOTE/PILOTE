@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/app_constants.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/staff_ui.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -17,6 +16,7 @@ import '../widgets/staff_feed_ui.dart';
 import 'events_feed_cards.dart';
 import 'events_feed_form.dart';
 import '../../../core/utils/message_erreur.dart';
+import '../providers/comm_droits.dart';
 
 /// Agenda partagé scope-aware (onglet « Agenda » du module Annonces).
 /// • École → offline-first (`schoolEventsProvider`, SQLite local).
@@ -109,13 +109,19 @@ class _EventsAgendaBodyState extends ConsumerState<EventsAgendaBody> {
     final profile = ref.watch(authNotifierProvider).valueOrNull;
     final ctx = ref.watch(communicationContextProvider);
     final isAdmin = ctx.isPlatform || ctx.isGroup;
-    final isDirection =
-        !isAdmin && AppConstants.directionRoles.contains(profile?.role);
-    final canManage = isAdmin || isDirection;
+    // ⚠️ LE DROIT DE PUBLIER SE LISAIT SUR LE RÔLE, PAS SUR LE PROFIL.
+    // `directionRoles` = {proviseur, directeur, secretaire}, en dur : une école
+    // ne pouvait ni confier la publication à quelqu'un d'autre, ni la retirer à
+    // un adjoint. C'était le seul domaine du produit à décider ainsi — partout
+    // ailleurs, le profil d'accès décide. La migration 0138 a créé les modules
+    // `annonces` / `evenements` et reproduit EXACTEMENT ce partage par défaut :
+    // rien ne change pour personne, mais l'école peut désormais le régler.
+    final canManage = ref.watch(peutPublierEvenementProvider);
+    final peutModifier = ref.watch(peutModifierEvenementProvider);
     final mySchoolId = profile?.schoolId;
     bool manageable(EventModel e) => isAdmin
         ? true
-        : (isDirection && e.schoolId != null && e.schoolId == mySchoolId);
+        : (peutModifier && e.schoolId != null && e.schoolId == mySchoolId);
 
     final locations = {
       'tous': 'Tous les lieux',

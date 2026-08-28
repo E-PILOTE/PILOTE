@@ -83,6 +83,21 @@ publier le nouveau build rend « Reconduire les classes » fatal** : le bouton
 reste actif, la base refuse en 42501, et le connecteur PowerSync jette le lot
 d'écritures entier en attente sur le poste.
 
+## Migration en attente : `0139` (communication)
+
+`database/migrations/0139_APRES_LE_BUILD_annonces_et_evenements_par_le_verbe.sql`
+est **écrite et non appliquée**, volontairement.
+
+Elle durcit `announcements` et `events` par le verbe des modules `annonces` /
+`evenements`, créés par la migration `0138`. Le build qui porte les gardes
+correspondants (`exigerDroitComm`) n'est pas encore publié : appliquer `0139`
+maintenant rendrait la publication fatale pour tout profil sans le verbe.
+
+`0138`, elle, **est appliquée** — elle est purement additive (une catégorie,
+trois modules, 105 lignes de permissions reproduisant à l'identique le partage
+qui existait en dur dans le code). Rien ne change pour personne tant que le
+build n'est pas publié.
+
 ## L'ordre à respecter
 
 1. **Pousser les 12 commits et publier le build.** Il aligne les écrans sur la
