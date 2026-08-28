@@ -74,6 +74,13 @@ class _VisitFormState extends ConsumerState<_VisitForm> {
       return;
     }
     final p = ref.read(authNotifierProvider).valueOrNull;
+    final yearId = ref.read(activeYearIdProvider);
+    if (yearId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Aucune année scolaire active'),
+          backgroundColor: kRed));
+      return;
+    }
     final missing = missingWriteIds(
         groupId: p?.groupId, schoolId: p?.schoolId, actorId: p?.id);
     if (missing.isNotEmpty) {
@@ -89,6 +96,7 @@ class _VisitFormState extends ConsumerState<_VisitForm> {
         groupId: p!.groupId!,
         schoolId: p.schoolId!,
         studentId: _studentId!,
+        academicYearId: yearId,
         date: _date.toIso8601String().substring(0, 10),
         time: _timeStr(_time),
         symptoms: _symptoms.text.trim().isEmpty ? null : _symptoms.text.trim(),
@@ -130,6 +138,10 @@ class _VisitFormState extends ConsumerState<_VisitForm> {
                   enabled: !_isEdit,
                   onSelect: (id) => setState(() => _studentId = id),
                 ),
+                if (_studentId != null) ...[
+                  const SizedBox(height: 12),
+                  _AlerteMedicale(studentId: _studentId!),
+                ],
                 const SizedBox(height: 14),
                 Row(children: [
                   Expanded(
@@ -244,6 +256,80 @@ class _VisitFormState extends ConsumerState<_VisitForm> {
           vsFormActions(context, _saving, _save, _isEdit),
         ]),
       ),
+    );
+  }
+}
+
+// ═══ L'ALERTE MEDICALE ══════════════════════════════════════════
+//
+// Ce formulaire demande ce qu'on a administré à l'enfant. Il doit d'abord dire
+// ce qu'on sait de lui. `students.allergies` est saisie à l'inscription et
+// descend déjà sur le poste — l'écran ne la montrait nulle part.
+//
+// ⚠️ « Aucune allergie RENSEIGNÉE » n'est pas « aucune allergie ». Le dossier
+// est vide pour la quasi-totalité des élèves : afficher un rassurant « pas
+// d'allergie » serait pire que se taire. On dit ce qu'on sait, et on dit qu'on
+// ne sait pas.
+class _AlerteMedicale extends ConsumerWidget {
+  const _AlerteMedicale({required this.studentId});
+  final String studentId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final a = ref.watch(alerteMedicaleProvider(studentId)).valueOrNull;
+    final allergies = a?.allergies;
+    final groupe = a?.groupeSanguin;
+    final danger = allergies != null;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: danger ? kRed.withValues(alpha: 0.07) : kCardBg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+            color: danger ? kRed.withValues(alpha: 0.45) : kBorder,
+            width: danger ? 1.4 : 1),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(
+            danger
+                ? Icons.warning_amber_rounded
+                : Icons.info_outline_rounded,
+            size: 18,
+            color: danger ? kRed : kTextMuted),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (danger) ...[
+                  Text('ALLERGIES CONNUES',
+                      style: TextStyle(
+                          fontSize: 10.5,
+                          letterSpacing: 0.6,
+                          fontWeight: FontWeight.w800,
+                          color: kRed)),
+                  const SizedBox(height: 2),
+                  Text(allergies,
+                      style: const TextStyle(
+                          fontSize: 13.5,
+                          height: 1.35,
+                          fontWeight: FontWeight.w700)),
+                ] else
+                  Text('Aucune allergie renseignée au dossier de l\'élève',
+                      style: TextStyle(fontSize: 12.5, color: kTextMuted)),
+                if (groupe != null) ...[
+                  const SizedBox(height: 4),
+                  Text('Groupe sanguin : $groupe',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: kTextMuted)),
+                ],
+              ]),
+        ),
+      ]),
     );
   }
 }

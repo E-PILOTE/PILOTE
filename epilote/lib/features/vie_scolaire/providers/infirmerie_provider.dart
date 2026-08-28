@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
+import '../../structure/providers/academic_year_context.dart';
 
 const _uuid = Uuid();
 
@@ -49,7 +50,10 @@ final visitsProvider = StreamProvider.autoDispose<List<InfirmaryVisit>>((ref) {
   ref.keepAlive();
   final profile = ref.watch(authNotifierProvider).valueOrNull;
   final schoolId = profile?.schoolId;
-  if (schoolId == null || schoolId.isEmpty) return Stream.value(const []);
+  final yearId = ref.watch(activeYearIdProvider);
+  if (schoolId == null || schoolId.isEmpty || yearId == null) {
+    return Stream.value(const []);
+  }
 
   // Perimetre de CE module (verrou 4), ferme par defaut. Ce journal porte du
   // medical sur des mineurs : il servait l'ecole entiere a qui ouvrait l'ecran.
@@ -62,25 +66,23 @@ final visitsProvider = StreamProvider.autoDispose<List<InfirmaryVisit>>((ref) {
            c.level_code AS level_code, c.level_order AS level_order
     FROM infirmary_visits v
     JOIN students s ON s.id = v.student_id
-    -- Une seule ligne par passage, et la classe survit a la fermeture de
-    -- l'inscription : sur `status = 'active'` seul, le passage d'un eleve sorti
-    -- depuis perdait sa classe, donc sortait du filtre par classe.
-    -- ATTENTION : `infirmary_visits` n'a PAS d'`academic_year_id`. On ne peut
-    -- donc pas viser l'inscription de l'annee DU passage, comme le fait la
-    -- discipline. On prend la plus recente, active d'abord : un passage de 6e
-    -- relu en 3e affichera la classe d'aujourd'hui. Limite assumee, faute de
-    -- colonne -- pas un oubli.
+    -- La classe DU JOUR DES FAITS : l'inscription de l'annee du passage,
+    -- `active` d'abord, close acceptee ensuite -- sinon le passage d'un eleve
+    -- parti depuis perdrait sa classe, donc sortirait du filtre. Le
+    -- sous-select rend UNE ligne : une jointure sans annee en rendait deux
+    -- apres une reconduction, et le meme passage se comptait deux fois.
     LEFT JOIN classes c ON c.id = (
       SELECT ce.class_id FROM class_enrollments ce
        WHERE ce.student_id = v.student_id
+         AND ce.academic_year_id = v.academic_year_id
        ORDER BY CASE WHEN ce.status = 'active' THEN 0 ELSE 1 END,
                 ce.created_at DESC
        LIMIT 1)
-    WHERE v.school_id = ?
+    WHERE v.school_id = ? AND v.academic_year_id = ?
     ${scope?.clause ?? ''}
     ORDER BY v.visit_date DESC, v.visit_time DESC, v.created_at DESC
     ''',
-    parameters: [schoolId, ...?scope?.params],
+    parameters: [schoolId, yearId, ...?scope?.params],
   ).map((rows) => [
         for (final r in rows)
           InfirmaryVisit(
@@ -119,6 +121,7 @@ Future<void> saveVisit({
   required String groupId,
   required String schoolId,
   required String studentId,
+  required String academicYearId,
   required String date,
   String? time,
   String? symptoms,
@@ -154,17 +157,88 @@ Future<void> saveVisit({
         id, group_id, school_id, student_id, visit_date, visit_time, symptoms,
         diagnosis, treatment, medication, rest_period_hours, parent_notified,
         notified_at, follow_up_required, follow_up_notes, staff_id,
-        created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        academic_year_id, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ''',
       [_uuid.v4(), groupId, schoolId, studentId, date, time, symptoms, diagnosis,
        treatment, medication, restHours, parentNotified ? 1 : 0,
        parentNotified ? now : null,
-       followUpRequired ? 1 : 0, followUpNotes, staffId, now, now],
+       followUpRequired ? 1 : 0, followUpNotes, staffId, academicYearId,
+       now, now],
     );
   }
 }
 
 Future<void> deleteVisit(String id) async {
   await db.execute('DELETE FROM infirmary_visits WHERE id = ?', [id]);
+}
+
+// ═══ L'ALERTE MEDICALE ══════════════════════════════════════════
+//
+// ATTENTION -- CECI EST LE POINT LE PLUS SERIEUX DU MODULE. Le formulaire de
+// passage offre un champ « Medication » en texte libre : c'est la que
+// l'infirmier note ce qu'il a administre. `students.allergies` et
+// `students.blood_group` existent, se saisissent a l'inscription, et
+// DESCENDENT DEJA sur le poste (ils sont declares dans le schema PowerSync
+// local). L'ecran ne les montrait nulle part.
+//
+// Autrement dit : l'application connaissait l'allergie de l'enfant, l'avait
+// sous la main, hors ligne, et se taisait au moment exact ou quelqu'un allait
+// lui donner un medicament. Une infirmerie scolaire au Congo n'a pas de second
+// systeme pour verifier.
+//
+// Provider a part, et non deux champs de plus sur `VsStudent` : ce modele est
+// partage avec Discipline et Bibliotheque, qui n'ont aucune raison de porter
+// du medical dans leur memoire.
+typedef AlerteMedicale = ({String? allergies, String? groupeSanguin});
+
+final alerteMedicaleProvider =
+    StreamProvider.autoDispose.family<AlerteMedicale, String>((ref, studentId) {
+  if (studentId.isEmpty) {
+    return Stream.value((allergies: null, groupeSanguin: null));
+  }
+  return db.watch(
+    'SELECT allergies, blood_group FROM students WHERE id = ? LIMIT 1',
+    parameters: [studentId],
+  ).map((rows) {
+    if (rows.isEmpty) return (allergies: null, groupeSanguin: null);
+    String? net(Object? v) {
+      final t = (v as String?)?.trim();
+      return (t == null || t.isEmpty) ? null : t;
+    }
+
+    return (
+      allergies: net(rows.first['allergies']),
+      groupeSanguin: net(rows.first['blood_group']),
+    );
+  });
+});
+
+/// Clot un suivi : la case « Suivi requis » retombe, et ce qui a ete fait
+/// s'ajoute aux notes.
+///
+/// ATTENTION -- « Suivi requis » etait un compteur QUI NE REDESCENDAIT JAMAIS.
+/// L'infirmier cochait la case pour se souvenir de revoir l'enfant, et rien,
+/// nulle part, ne permettait de dire que c'etait fait : le KPI montait
+/// indefiniment jusqu'a ne plus rien vouloir dire, et un suivi reellement en
+/// attente se noyait dans les suivis deja traites. Un rappel qu'on ne peut pas
+/// eteindre cesse d'etre lu.
+Future<void> cloreSuivi(String id, {String? note}) async {
+  final now = DateTime.now().toIso8601String();
+  final ligne = note == null || note.trim().isEmpty
+      ? 'Suivi effectue le ${now.substring(0, 10)}'
+      : 'Suivi effectue le ${now.substring(0, 10)} : ${note.trim()}';
+  await db.execute(
+    '''
+    UPDATE infirmary_visits
+       SET follow_up_required = 0,
+           follow_up_notes = CASE
+             WHEN follow_up_notes IS NULL OR TRIM(follow_up_notes) = '' THEN ?
+             ELSE follow_up_notes || char(10) || ?
+           END,
+           updated_at = ?
+     WHERE id = ?
+    ''',
+    [ligne, ligne, now, id],
+  );
 }

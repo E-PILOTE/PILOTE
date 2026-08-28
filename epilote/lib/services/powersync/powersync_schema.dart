@@ -1003,6 +1003,10 @@ const schema = Schema([
     Column.text('group_id'),
     Column.text('school_id'),
     Column.text('student_id'),
+    // Ajoutee par la migration 0132. Sans elle, le journal cumulait toutes
+    // les promotions et la classe du passage ne pouvait pas etre celle du
+    // jour des faits.
+    Column.text('academic_year_id'),
     Column.text('visit_date'),
     Column.text('visit_time'),
     Column.text('symptoms'),

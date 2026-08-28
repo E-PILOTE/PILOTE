@@ -15,6 +15,7 @@ import '../widgets/vs_form_chrome.dart';
 import '../widgets/vs_student_field.dart';
 import '../../../core/utils/message_erreur.dart';
 
+part 'infirmerie_cards.dart';
 part 'infirmerie_form.dart';
 
 const _kSlug = kSlugInfirmerie;
@@ -44,6 +45,11 @@ class _BodyState extends ConsumerState<_Body> {
   final _search = TextEditingController();
   ScopeSel _scope = const ScopeSel();
 
+  /// N'afficher que les passages dont le suivi reste ouvert. Sans ce filtre,
+  /// le KPI « Suivis requis » annonçait un nombre que rien ne permettait
+  /// d'atteindre : un rappel qu'on ne peut pas ouvrir n'est pas un rappel.
+  bool _suiviSeul = false;
+
   @override
   void dispose() {
     _search.dispose();
@@ -56,10 +62,16 @@ class _BodyState extends ConsumerState<_Body> {
       if (_scope.cycle != null && v.cycleCode != _scope.cycle) return false;
       if (_scope.level != null && v.levelCode != _scope.level) return false;
       if (_scope.classId != null && v.classId != _scope.classId) return false;
+      if (_suiviSeul && !v.followUpRequired) return false;
       if (q.isEmpty) return true;
+      // Le traitement et la médication font partie de ce qu'on cherche :
+      // « qui a reçu de l'amoxicilline cette semaine ? » est la question d'un
+      // infirmier, et elle ne trouvait rien.
       return v.studentName.toLowerCase().contains(q) ||
           (v.symptoms ?? '').toLowerCase().contains(q) ||
-          (v.diagnosis ?? '').toLowerCase().contains(q);
+          (v.diagnosis ?? '').toLowerCase().contains(q) ||
+          (v.treatment ?? '').toLowerCase().contains(q) ||
+          (v.medication ?? '').toLowerCase().contains(q);
     }).toList();
   }
 
@@ -93,6 +105,47 @@ class _BodyState extends ConsumerState<_Body> {
         success: 'Passage supprimé');
   }
 
+  /// Clôt un suivi, en laissant dire ce qui a été fait.
+  Future<void> _cloreSuivi(InfirmaryVisit v) async {
+    final ctrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text('Suivi effectué'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(
+              'Le suivi de ${v.studentName} (passage du ${v.date}) sera marqué '
+              'comme effectué. Ce que vous écrivez ici s\'ajoute aux notes — '
+              'rien n\'est effacé.',
+              style: const TextStyle(fontSize: 13, height: 1.4)),
+          const SizedBox(height: 14),
+          TextField(
+            controller: ctrl,
+            maxLines: 2,
+            decoration: adminFilledInput('Ce qui a été fait (facultatif)',
+                icon: Icons.task_alt_rounded),
+          ),
+        ]),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: kGreen),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Marquer effectué'),
+          ),
+        ],
+      ),
+    );
+    final note = ctrl.text;
+    ctrl.dispose();
+    if (ok != true || !mounted) return;
+    await runModuleWrite(context, () => cloreSuivi(v.id, note: note),
+        success: 'Suivi clos');
+  }
+
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(visitsProvider);
@@ -116,12 +169,13 @@ class _BodyState extends ConsumerState<_Body> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             const VsHeader(
               title: 'Journal de l\'infirmerie',
-              subtitle: 'Passages par cycle, niveau et classe',
+              subtitle:
+                  'Passages par cycle, niveau et classe — année en cours',
             ),
             const SizedBox(height: 20),
             VsHeroKpis(cards: [
               (Icons.local_hospital_rounded, 'Passages', '${all.length}',
-                  kNavy, 'au total'),
+                  kNavy, 'cette année'),
               (Icons.today_rounded, 'Aujourd\'hui', '$todayCount',
                   todayCount == 0 ? kTextMuted : const Color(0xFF0EA5E9), null),
               (Icons.medical_services_rounded, 'Suivis requis', '$followUp',
@@ -154,10 +208,14 @@ class _BodyState extends ConsumerState<_Body> {
             _FilterBar(
               search: _search,
               canCreate: canCreate && !readOnly,
+              suiviSeul: _suiviSeul,
+              suivisOuverts: followUp,
+              onToggleSuivi: () => setState(() => _suiviSeul = !_suiviSeul),
               onSearch: (_) => setState(() {}),
               onReset: () => setState(() {
                 _search.clear();
                 _scope = const ScopeSel();
+                _suiviSeul = false;
               }),
               onAdd: () => _openForm(),
             ),
@@ -199,6 +257,7 @@ class _BodyState extends ConsumerState<_Body> {
                   canDelete: canDelete && !readOnly,
                   onEdit: () => _openForm(visit: v),
                   onDelete: () => _delete(v),
+                  onCloreSuivi: () => _cloreSuivi(v),
                 ),
             const SizedBox(height: 24),
           ]),
@@ -206,219 +265,4 @@ class _BodyState extends ConsumerState<_Body> {
       },
     );
   }
-}
-
-// ─── Barre de filtres ────────────────────────────────────────────────────────
-class _FilterBar extends StatelessWidget {
-  const _FilterBar({
-    required this.search,
-    required this.canCreate,
-    required this.onSearch,
-    required this.onReset,
-    required this.onAdd,
-  });
-  final TextEditingController search;
-  final bool canCreate;
-  final ValueChanged<String> onSearch;
-  final VoidCallback onReset, onAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: kCardBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: kBorder),
-      ),
-      child: Row(children: [
-        Expanded(
-          child: TextField(
-            controller: search,
-            onChanged: onSearch,
-            decoration: InputDecoration(
-              hintText: 'Rechercher (élève, symptôme, diagnostic)…',
-              hintStyle: TextStyle(color: kTextMuted, fontSize: 13),
-              prefixIcon:
-                  Icon(Icons.search_rounded, color: kTextMuted, size: 20),
-              filled: true,
-              fillColor: kSurface,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide.none,
-              ),
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        IconButton(
-          tooltip: 'Réinitialiser',
-          onPressed: onReset,
-          icon: Icon(Icons.filter_alt_off_outlined, color: kTextMuted),
-        ),
-        const SizedBox(width: 4),
-        if (canCreate)
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: onAdd,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                      colors: [kNavyDark, kNavy],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.add_rounded, size: 16, color: Colors.white),
-                  SizedBox(width: 6),
-                  Text('Passage',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700)),
-                ]),
-              ),
-            ),
-          ),
-      ]),
-    );
-  }
-}
-
-// ─── Carte passage ───────────────────────────────────────────────────────────
-class _VisitCard extends StatelessWidget {
-  const _VisitCard({
-    required this.visit,
-    required this.canEdit,
-    required this.canDelete,
-    required this.onEdit,
-    required this.onDelete,
-  });
-  final InfirmaryVisit visit;
-  final bool canEdit, canDelete;
-  final VoidCallback onEdit, onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final v = visit;
-    final line = [
-      if ((v.diagnosis ?? '').isNotEmpty) v.diagnosis!,
-      if ((v.treatment ?? '').isNotEmpty) 'Traitement : ${v.treatment}',
-    ].join(' · ');
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: kCardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBorder),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-                color: kRed.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10)),
-            child: Icon(Icons.local_hospital_rounded, size: 20, color: kRed),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(v.studentName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w800,
-                          color: kTextPrimary)),
-                  const SizedBox(height: 3),
-                  Text(
-                      '${v.date}${v.time != null ? ' · ${v.time!.substring(0, 5)}' : ''}'
-                      '${v.className != null ? ' · ${v.className}' : ''}'
-                      '${v.restHours != null ? ' · repos ${v.restHours}h' : ''}',
-                      style: TextStyle(fontSize: 12, color: kTextMuted)),
-                  if ((v.symptoms ?? '').trim().isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text('Symptômes : ${v.symptoms!.trim()}',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12.5, height: 1.35)),
-                  ],
-                  if (line.isNotEmpty) ...[
-                    const SizedBox(height: 3),
-                    Text(line,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontSize: 12, color: kTextMuted, height: 1.3)),
-                  ],
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    _Tag(
-                      v.parentNotified
-                          ? Icons.notifications_active_rounded
-                          : Icons.notifications_off_outlined,
-                      v.parentNotified ? 'Parents notifiés' : 'Parents non notifiés',
-                      v.parentNotified ? kGreen : kTextMuted,
-                    ),
-                    if (v.followUpRequired) ...[
-                      const SizedBox(width: 8),
-                      const _Tag(Icons.medical_services_rounded, 'Suivi requis',
-                          Color(0xFFF59E0B)),
-                    ],
-                  ]),
-                ]),
-          ),
-          if (canEdit || canDelete)
-            PopupMenuButton<String>(
-              icon:
-                  Icon(Icons.more_vert_rounded, size: 20, color: kTextMuted),
-              onSelected: (x) => x == 'edit' ? onEdit() : onDelete(),
-              itemBuilder: (ctx) => [
-                if (canEdit)
-                  const PopupMenuItem(
-                      value: 'edit',
-                      child: Row(children: [
-                        Icon(Icons.edit_outlined, size: 16),
-                        SizedBox(width: 8),
-                        Text('Modifier'),
-                      ])),
-                if (canDelete)
-                  PopupMenuItem(
-                      value: 'delete',
-                      child: Row(children: [
-                        Icon(Icons.delete_outline_rounded, size: 16, color: kRed),
-                        const SizedBox(width: 8),
-                        Text('Supprimer', style: TextStyle(color: kRed)),
-                      ])),
-              ],
-            ),
-        ]),
-      ),
-    );
-  }
-}
-
-class _Tag extends StatelessWidget {
-  const _Tag(this.icon, this.label, this.color);
-  final IconData icon;
-  final String label;
-  final Color color;
-  @override
-  Widget build(BuildContext context) =>
-      Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 13, color: color),
-        const SizedBox(width: 4),
-        Text(label,
-            style: TextStyle(
-                fontSize: 11, fontWeight: FontWeight.w600, color: color)),
-      ]);
 }
