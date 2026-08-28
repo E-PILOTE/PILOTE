@@ -279,6 +279,7 @@ class _AlerteMedicale extends ConsumerWidget {
     final a = ref.watch(alerteMedicaleProvider(studentId)).valueOrNull;
     final allergies = a?.allergies;
     final groupe = a?.groupeSanguin;
+    final anterieurs = a?.passagesAnterieurs ?? 0;
     final danger = allergies != null;
 
     return Container(
@@ -319,9 +320,15 @@ class _AlerteMedicale extends ConsumerWidget {
                 ] else
                   Text('Aucune allergie renseignée au dossier de l\'élève',
                       style: TextStyle(fontSize: 12.5, color: kTextMuted)),
-                if (groupe != null) ...[
+                if (groupe != null || anterieurs > 0) ...[
                   const SizedBox(height: 4),
-                  Text('Groupe sanguin : $groupe',
+                  Text(
+                      [
+                        if (groupe != null) 'Groupe sanguin : $groupe',
+                        if (anterieurs > 0)
+                          '$anterieurs passage${anterieurs > 1 ? 's' : ''} '
+                              'les années précédentes',
+                      ].join(' · '),
                       style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,

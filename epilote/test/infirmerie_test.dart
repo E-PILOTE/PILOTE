@@ -85,6 +85,16 @@ void main() {
   });
 
   group('Le journal est borné à l\'année scolaire', () {
+    test('le filtre d\'année ne fait pas disparaître le passé en silence', () {
+      // Borner le journal à l'année est juste pour les compteurs -- mais un
+      // enfant qui revenait chaque mois l'an dernier cesserait de le dire à
+      // quiconque. On ne réaffiche pas ces passages : on dit qu'ils existent.
+      final src = _lire(_kProvider);
+      expect(src.contains('passagesAnterieurs'), isTrue);
+      expect(_lire(_kForm).contains('les années précédentes'), isTrue,
+          reason: 'Le compte doit être VU, pas seulement calculé.');
+    });
+
     test('la lecture filtre sur l\'année active', () {
       final src = _lire(_kProvider);
       expect(src.contains('v.academic_year_id = ?'), isTrue,

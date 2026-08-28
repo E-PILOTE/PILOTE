@@ -190,18 +190,35 @@ Future<void> deleteVisit(String id) async {
 // Provider a part, et non deux champs de plus sur `VsStudent` : ce modele est
 // partage avec Discipline et Bibliotheque, qui n'ont aucune raison de porter
 // du medical dans leur memoire.
-typedef AlerteMedicale = ({String? allergies, String? groupeSanguin});
+typedef AlerteMedicale = ({
+  String? allergies,
+  String? groupeSanguin,
+  int passagesAnterieurs,
+});
 
+/// ⚠️ `passagesAnterieurs` REND CE QUE LE FILTRE D'ANNÉE RETIRE. Depuis 0132
+/// le journal ne montre que l'année en cours — c'est juste pour des compteurs,
+/// mais un enfant qui revenait chaque mois l'an dernier ne le disait plus à
+/// personne. On ne réaffiche pas ces passages ici (ils appartiennent à leur
+/// année) : on dit qu'ils existent, et combien. Le reste se lit en changeant
+/// d'année.
 final alerteMedicaleProvider =
     StreamProvider.autoDispose.family<AlerteMedicale, String>((ref, studentId) {
-  if (studentId.isEmpty) {
-    return Stream.value((allergies: null, groupeSanguin: null));
-  }
+  const vide = (allergies: null, groupeSanguin: null, passagesAnterieurs: 0);
+  final yearId = ref.watch(activeYearIdProvider);
+  if (studentId.isEmpty || yearId == null) return Stream.value(vide);
   return db.watch(
-    'SELECT allergies, blood_group FROM students WHERE id = ? LIMIT 1',
-    parameters: [studentId],
+    '''
+    SELECT s.allergies, s.blood_group,
+           (SELECT COUNT(*) FROM infirmary_visits v
+             WHERE v.student_id = s.id
+               AND COALESCE(v.academic_year_id, '') <> ?) AS anterieurs
+      FROM students s
+     WHERE s.id = ? LIMIT 1
+    ''',
+    parameters: [yearId, studentId],
   ).map((rows) {
-    if (rows.isEmpty) return (allergies: null, groupeSanguin: null);
+    if (rows.isEmpty) return vide;
     String? net(Object? v) {
       final t = (v as String?)?.trim();
       return (t == null || t.isEmpty) ? null : t;
@@ -210,6 +227,7 @@ final alerteMedicaleProvider =
     return (
       allergies: net(rows.first['allergies']),
       groupeSanguin: net(rows.first['blood_group']),
+      passagesAnterieurs: (rows.first['anterieurs'] as int?) ?? 0,
     );
   });
 });
