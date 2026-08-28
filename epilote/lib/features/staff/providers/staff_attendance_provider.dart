@@ -1,10 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
+import '../../../core/utils/identite_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
-
-const _uuid = Uuid();
 
 // ════════════════════════════════════════════════════════════════════════════
 //  PRÉSENCES DU PERSONNEL (table `staff_attendance`, staff_id -> profiles.id,
@@ -89,8 +87,13 @@ Future<void> setStaffAttendance({
         recorded_by, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ''',
-      [_uuid.v4(), groupId, schoolId, staffId, dateKey, status, recordedBy,
-       now, now],
+      // ⚠️ La relecture ci-dessus ne voit QUE ce poste. Deux appareils hors
+      // ligne qui pointent le même agent le même jour — le secrétariat et la
+      // direction — lisent chacun une base sans ligne, insèrent chacun, et le
+      // SECOND upload part en 23505 sur `UNIQUE(staff_id, record_date)` :
+      // code fatal, lot entier jeté. L'identité se déduit donc de la clé.
+      [idDeterministe('staff_attendance', [staffId, dateKey]),
+       groupId, schoolId, staffId, dateKey, status, recordedBy, now, now],
     );
   }
 }
@@ -140,8 +143,8 @@ Future<void> setStaffAttendanceBulk({
             recorded_by, created_at, updated_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           ''',
-          [_uuid.v4(), groupId, schoolId, sid, dateKey, status, recordedBy,
-           now, now],
+          [idDeterministe('staff_attendance', [sid, dateKey]),
+           groupId, schoolId, sid, dateKey, status, recordedBy, now, now],
         );
       }
     }

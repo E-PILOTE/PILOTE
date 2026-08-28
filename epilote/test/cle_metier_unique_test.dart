@@ -190,11 +190,13 @@ const _kSites = <Site>[
     garde: 'SELECT id, candidate_number FROM exam_candidates ',
   ),
   (
+    // La relecture locale existait — et, comme pour `exam_candidates`, elle ne
+    // voit que son propre poste. Le secrétariat et la direction qui pointent le
+    // même agent le même jour, hors ligne, produisaient deux lignes.
     table: 'staff_attendance',
     contrainte: 'staff_id, record_date',
     fichier: 'features/staff/providers/staff_attendance_provider.dart',
-    garde: 'SELECT id FROM staff_attendance WHERE school_id = ? '
-        'AND staff_id = ?',
+    garde: "idDeterministe('staff_attendance'",
   ),
   (
     table: 'students',

@@ -120,7 +120,14 @@ class _BodyState extends ConsumerState<_Body> {
   Widget build(BuildContext context) {
     final staff = ref.watch(staffDirectoryProvider);
     final marks = ref.watch(staffAttendanceForDateProvider(_key));
-    final canMark = ref.watch(canProvider((slug: _kSlug, action: 'create')));
+    // ⚠️ POINTER, C'EST INSÉRER PUIS METTRE À JOUR. Le premier appui sur un
+    // agent non pointé fait un INSERT ; se reprendre fait un UPDATE. Garder
+    // l'écran sur le seul `create` laissait un profil doté de `create` sans
+    // `update` corriger une erreur de pointage et recevoir un 42501 — code
+    // FATAL pour le connecteur, qui jette le LOT ENTIER en attente. Même
+    // défaut, même remède que les présences élèves.
+    final canMark = ref.watch(canProvider((slug: _kSlug, action: 'create'))) &&
+        ref.watch(canProvider((slug: _kSlug, action: 'update')));
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
