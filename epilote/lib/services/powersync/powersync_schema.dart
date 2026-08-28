@@ -121,16 +121,15 @@ const schema = Schema([
     Column.text('speciality'),
     Column.integer('is_active'),
     Column.text('last_login'),
-    // ⚠️ COLONNE EN ÉCRITURE SEULE. Le jeton push est une CLÉ D'APPAREIL :
-    // qui l'a peut envoyer une notification sur le téléphone de son collègue.
-    // Les sync-rules l'excluent donc explicitement de la projection `directory`
-    // — seule colonne de `profiles` à en être retirée. Elle est déclarée ici
-    // uniquement pour que l'appareil puisse écrire LE SIEN et le faire remonter.
-    //
-    // Elle sera donc TOUJOURS NULLE en local pour les collègues, et le plus
-    // souvent pour soi-même : ne jamais bâtir de fonctionnalité qui la LIT
-    // depuis la base locale. Verrouillé par `test/fcm_jeton_test.dart`.
-    Column.text('fcm_token'),
+    // ⚠️ `profiles.fcm_token` N'EST PLUS DÉCLARÉE ICI (2026-08-29).
+    // La plateforme n'a qu'un fournisseur — Supabase — donc aucun jeton
+    // Firebase ne sera jamais produit. La colonne subsiste en base (0 valeur
+    // sur 344 profils) et sera retirée par la migration 0146, une fois tous
+    // les postes passés sur cette version : un client qui enverrait encore
+    // `fcm_token` à une colonne disparue provoquerait un 42703, que le
+    // connecteur ne traite PAS comme fatal — il rejouerait le lot sans fin.
+    // La retirer du schéma local est donc l'étape qui rend le DROP sûr.
+    // Verrouillé par `test/notification_sans_firebase_test.dart`.
     // Reset PIN de poste par admin_groupe (migration 0033)
     Column.text('pin_reset_requested_at'),
     Column.text('created_at'),
@@ -1205,7 +1204,12 @@ const schema = Schema([
     Column.text('last_read_at'),
   ]),
 
-  // Notifications push (jsonb data stocké en TEXT)
+  // Notifications de l'application (jsonb data stocké en TEXT).
+  // C'est LE canal : alimentée par les déclencheurs `notify_on_announcement` /
+  // `notify_on_message`, synchronisée par PowerSync, lue par la cloche de
+  // l'en-tête. Elle fonctionne hors ligne et sur les quatre cibles — aucun
+  // fournisseur de push n'intervient (décision du 2026-08-29 : Supabase seul).
+  // `fcm_message_id` n'est volontairement PAS déclarée ici : voir migration 0146.
   Table('notifications', [
     Column.text('group_id'),
     Column.text('recipient_id'),
@@ -1216,7 +1220,6 @@ const schema = Schema([
     Column.integer('is_read'),
     Column.text('read_at'),
     Column.text('sent_at'),
-    Column.text('fcm_message_id'),
     Column.text('created_at'),
     Column.text('updated_at'),
   ]),

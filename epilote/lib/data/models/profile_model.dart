@@ -1,6 +1,11 @@
 import '../../core/constants/app_constants.dart';
 
-/// Modèle correspondant à la table `profiles` (Supabase)
+/// Modèle correspondant à la table `profiles` (Supabase).
+///
+/// ⚠️ Pas de `fcmToken` : la plateforme n'a qu'un fournisseur, Supabase
+/// (décision du 2026-08-29). La colonne `fcm_token` subsiste en base sans
+/// producteur et disparaîtra par la migration 0146 ; la porter ici ferait
+/// remonter une colonne condamnée dans chaque upsert de profil.
 class ProfileModel {
 
   const ProfileModel({
@@ -16,7 +21,6 @@ class ProfileModel {
     this.employeeNumber,
     required this.isActive,
     this.lastLogin,
-    this.fcmToken,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -41,7 +45,6 @@ class ProfileModel {
       employeeNumber:  map['employee_number']  as String?,
       isActive:        _asBool(map['is_active']),
       lastLogin:       _asDate(map['last_login']),
-      fcmToken:        map['fcm_token']        as String?,
       createdAt:       _asDate(map['created_at']) ?? DateTime.now(),
       updatedAt:       _asDate(map['updated_at']) ?? DateTime.now(),
     );
@@ -73,7 +76,6 @@ class ProfileModel {
   final String? employeeNumber;
   final bool isActive;
   final DateTime? lastLogin;
-  final String? fcmToken;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -107,7 +109,6 @@ class ProfileModel {
     String? phone,
     bool? isActive,
     String? accessProfileId,
-    String? fcmToken,
   }) {
     return ProfileModel(
       id:              id,
@@ -122,7 +123,6 @@ class ProfileModel {
       employeeNumber:  employeeNumber,
       isActive:        isActive         ?? this.isActive,
       lastLogin:       lastLogin,
-      fcmToken:        fcmToken         ?? this.fcmToken,
       createdAt:       createdAt,
       updatedAt:       DateTime.now(),
     );

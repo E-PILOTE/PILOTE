@@ -106,6 +106,7 @@
 - [EDT — refonte ERP](edt-refonte-v2.md) — 🚧 Vague 0 migs 0015→0019 NON déployée = gate
 
 ## Communication & support
+- [🟢 Un seul fournisseur : Supabase](un-seul-fournisseur-supabase.md) — Firebase/FCM écarté (2026-08-29) ; la cloche + PowerSync EST le canal ; ⚠️ mig 0146 seulement quand TOUT le parc est en ≥3.3.1+21 (sinon 42703 → synchro bloquée) ; espace élève/parent EN DERNIER
 - [Unification communication](communication-unification-plan.md) — 1 jeu de pages scope-aware partagé 3 espaces
 - [Refonte feed Annonces](annonces-feed-fixes.md) — causes racines = tables hors realtime + FK vers auth.users
 - [Accusés lecture + présence](communication-receipts-presence.md) — last_read_at, ✓✓, Realtime Presence

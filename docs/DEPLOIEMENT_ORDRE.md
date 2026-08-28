@@ -124,6 +124,37 @@ rattraper une erreur d'ordre de déploiement.
 1. `0139_APRES_LE_BUILD_annonces_et_evenements_par_le_verbe.sql`
 2. `0142_APRES_LE_BUILD_matieres_et_programmes_par_le_verbe.sql`
 
+### Et `0146`, qui n'attend PAS la même chose
+
+`0146_APRES_TOUS_LES_POSTES_retirer_les_colonnes_firebase.sql` retire
+`profiles.fcm_token` et `notifications.fcm_message_id` (décision du 2026-08-29 :
+un seul fournisseur, Supabase). Sa condition est **plus forte** que celle de
+`0139` / `0142`, et il ne faut pas les confondre :
+
+| | condition |
+|---|---|
+| `0139`, `0142` | le build est **publié** |
+| `0146` | **tous les postes** l'ont reçu |
+
+Les deux premières durcissent un verbe : un poste en retard se voit refuser une
+écriture par un `42501`, que le connecteur traite comme fatal — le lot est jeté,
+c'est grave mais la synchro repart.
+
+`0146` supprime une colonne que les postes en retard **envoient encore** dans
+leurs upserts `profiles`. PostgREST répond alors `42703`, que
+`_fatalResponseCodes` (`^22`, `^23`, `^42501`) **ne reconnaît pas** : le
+connecteur ne complète pas la transaction, il rejoue le lot indéfiniment. Ce
+poste n'envoie plus rien, jamais, sans aucun message à l'écran.
+
+Vérifier avant d'exécuter, et s'abstenir au moindre doute sur le parc :
+
+```sql
+SELECT count(*) FROM profiles WHERE fcm_token IS NOT NULL;   -- doit valoir 0
+```
+
+Deux colonnes nulles ne coûtent rien. Une école dont les inscriptions ne
+remontent plus coûte tout.
+
 ## Migration en attente : `0139` (communication)
 
 `database/migrations/0139_APRES_LE_BUILD_annonces_et_evenements_par_le_verbe.sql`

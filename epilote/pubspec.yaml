@@ -1,12 +1,12 @@
 name: epilote
 description: "E-PILOTE CONGO v3.0 — Plateforme de gestion scolaire multi-tenant"
 publish_to: 'none'
-# 3.2.0+19 (2026-08-14) — le « +19 » est ce que le parc COMPARE : la chaîne de
+# 3.3.1+21 (2026-08-29) — le « +21 » est ce que le parc COMPARE : la chaîne de
 # version ne sert qu'à l'affichage, `build_number` seul décide qu'un poste est
 # en retard (mig 0087). Il ne doit donc jamais reculer ni stagner entre deux
 # binaires différents — 3.1.7+18 a été livré deux fois, le 06/08 et le 14/08,
 # ce qui les rendait indistinguables pour le mécanisme de mise à jour.
-version: 3.3.0+20
+version: 3.3.1+21
 
 environment:
   sdk: ^3.12.0
@@ -100,9 +100,11 @@ dependencies:
   visibility_detector: ^0.4.0+2
   # path_provider: ^2.1.5       ← chemins fichiers
   # path: ^1.9.1
-  # firebase_core: ^3.13.0      ← notifications push
-  # firebase_messaging: ^15.2.5
-  # flutter_local_notifications: ^18.0.1
+  # Pas de firebase_core / firebase_messaging : décision du 2026-08-29, la
+  # plateforme n'a qu'un fournisseur, Supabase. Le canal de notification est la
+  # table `notifications` synchronisée par PowerSync + la cloche de l'en-tête,
+  # qui fonctionne hors ligne et sur les quatre cibles — ce que FCM ne fait pas
+  # (Android/iOS seulement, alors que les écoles sont sur Windows).
   # pdf: ^3.11.3                ← bulletins PDF
   # printing: ^5.13.1
   # flutter_animate: ^4.5.2     ← animations

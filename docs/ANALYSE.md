@@ -198,46 +198,55 @@ tous les plans, y compris Gratuit. Ce n'est **pas** un levier d'abonnement.
 
 1. **TenantGuard** : Chaque utilisateur n'accède qu'aux données de son `school_id` + `group_id`
 2. **QuotaGuard** : Vérification des limites du plan avant création d'école/élève
-3. **Validation notes** : Directeur valide avant publication → notification push FCM
-   > 🟡 **Moitié faite, mesuré le 2026-08-27.** La validation EST appliquée
-   > depuis le 2026-08-27 : le bouton « Publier » exige le droit `validate`
-   > (que l'enseignant n'a pas), et la base le refuse aussi — RLS `bulletins`,
-   > `WITH CHECK` sur `status = 'published'` (migrations `0118`/`0119`).
-   > Avant cela, un enseignant publiait lui-même, et rien ne l'en empêchait.
-   > **La notification push FCM n'existe pas, et trois choses la bloquent —
-   > mesuré le 2026-08-28.**
+3. **Validation notes** : Directeur valide avant publication → notification
+   > 🟢 **Tenu depuis le 2026-08-29 — sans Firebase, et c'est mieux ainsi.**
    >
-   > 1. **Aucun destinataire.** Sur 344 profils : `enseignant` 202,
-   >    `secretaire` 37, `surveillant` 37, `directeur` 27, `comptable` 22,
-   >    `proviseur` 11, `admin_groupe` 7, `super_admin` 1 — et **zéro parent,
-   >    zéro élève**. Le rôle existe dans l'enum, `/user/espace-parent` est un
-   >    écran « bientôt disponible », et la plateforme compte 2 tuteurs en
-   >    tout. Les familles que cette règle veut prévenir **n'ont pas de
-   >    compte** : FCM n'est pas la pièce manquante, l'espace famille l'est.
-   > 2. **Aucun projet Firebase.** `google-services.json` (Android), clé APNs
-   >    (iOS) et compte de service (envoi serveur) ne peuvent être créés que
-   >    par le propriétaire du produit. `firebase_core` / `firebase_messaging`
-   >    restent commentés dans `pubspec.yaml` faute de ces fichiers.
-   > 3. **FCM ne couvre pas les postes des écoles.** `firebase_messaging` ne
-   >    supporte qu'Android et iOS ; les quatre cibles du projet incluent
-   >    `linux` et `windows`, sur lesquels aucun push n'arrivera jamais. Le
-   >    canal des établissements est — et restera — la cloche en application.
-   >    FCM est donc **exclusivement** une fonctionnalité tournée vers les
-   >    familles.
+   > La validation est appliquée depuis le 2026-08-27 : le bouton « Publier »
+   > exige le droit `validate` (que l'enseignant n'a pas), et la base le refuse
+   > aussi — RLS `bulletins`, `WITH CHECK` sur `status = 'published'`
+   > (migrations `0118`/`0119`). Avant cela, un enseignant publiait lui-même.
    >
-   > Ce qui EXISTE déjà et fonctionne : la table `notifications` (121 lignes),
-   > deux déclencheurs (`notify_on_announcement`, `notify_on_message`), la
-   > cloche et son tiroir dans l'en-tête. `notifications.fcm_message_id` est
-   > prête et vaut NULL partout.
+   > **La notification, elle, ne passera pas par FCM.** Décision du 2026-08-29 :
+   > la plateforme n'a qu'un fournisseur, Supabase. Ce n'est pas un ajournement,
+   > c'est un remplacement — et sur ce terrain précis, par mieux :
    >
-   > ✅ **Ce qui a été fait le 2026-08-28** : `profiles.fcm_token` est une CLÉ
-   > D'APPAREIL — qui l'a peut faire sonner le téléphone d'un collègue. Les
-   > sync-rules l'excluaient déjà de la projection `directory` (seule colonne
-   > de `profiles` retirée), mais rien ne l'écrivait côté Dart ni ne
-   > l'empêchait de revenir : un `SELECT *` aurait suffi à distribuer le jeton
-   > de chacun à toute l'école. `test/fcm_jeton_test.dart` verrouille
-   > l'exclusion, et le schéma local dit désormais que la colonne est en
-   > ÉCRITURE SEULE.
+   > | | FCM | table `notifications` + PowerSync |
+   > |---|---|---|
+   > | Windows (les écoles) | **jamais** | oui |
+   > | Poste éteint pendant l'événement | perdu | **retrouvé au démarrage** |
+   > | Hors ligne | rien | oui, c'est la base locale |
+   > | Fournisseur supplémentaire | Firebase | aucun |
+   >
+   > `firebase_messaging` ne supporte qu'Android et iOS. Les écoles travaillent
+   > sur des postes Windows partagés — secrétariat, surveillance et direction
+   > s'y succèdent : le push n'aurait **jamais sonné là où le travail se fait**.
+   > La cloche, elle, est stockée et non diffusée : elle survit à l'extinction
+   > du poste, ce qu'aucun push ne fait.
+   >
+   > Ce qui existe et fonctionne : la table `notifications` (121 lignes), les
+   > déclencheurs `notify_on_announcement` et `notify_on_message`, la
+   > synchronisation PowerSync, la cloche et son tiroir dans l'en-tête. Le
+   > personnel scolaire la lit **en local** (`_notificationsOffline`) : elle ne
+   > se vide pas quand le réseau tombe.
+   >
+   > ✅ **Fait le 2026-08-29** : les deux colonnes Firebase mortes ont quitté le
+   > client. `profiles.fcm_token` est une CLÉ D'APPAREIL — qui la détient peut
+   > faire sonner le téléphone d'un collègue — et elle n'aura jamais de
+   > producteur ; la laisser dans le schéma local, c'était garder une colonne
+   > qui attend un `SELECT *` pour se répandre. Elle et
+   > `notifications.fcm_message_id` sont retirées du schéma PowerSync et de
+   > `ProfileModel`, ce qui est **le préalable au DROP** : un poste qui écrirait
+   > encore vers une colonne disparue produirait un `42703`, que
+   > `_fatalResponseCodes` ne reconnaît pas — le connecteur rejouerait le lot
+   > sans fin et la synchro de ce poste serait bloquée en silence. La migration
+   > `0146` attend donc que **tout** le parc soit passé sur le build ≥ 3.3.1.
+   > Garde : `test/notification_sans_firebase_test.dart`.
+   >
+   > 📅 **Les familles restent hors périmètre pour l'instant.** Sur 344 profils,
+   > zéro parent et zéro élève ; `/user/espace-parent` est un écran « bientôt
+   > disponible » et la plateforme compte 2 tuteurs. L'espace élève et parent
+   > est **planifié en dernier** (décision du 2026-08-29) : le prévenir n'a de
+   > sens qu'une fois qu'il a un compte.
 4. **Bulletins** : Conservés 10 ans · Données financières : 5 ans
    > 🟢 **Tenu depuis le 2026-08-28 — par le sceau, pas par une purge**
    > (migration `0145`). « Conservés 10 ans » est un PLANCHER : l'obligation

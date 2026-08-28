@@ -10,3 +10,30 @@ tags:
       Comparaison d'un rendu à une image de référence. Dépend du moteur de
       rendu de polices de la plateforme : à n'exécuter que sur Linux, où les
       images de référence ont été produites.
+
+# ── Pourquoi les goldens s'excluent d'eux-mêmes sous Windows ────────────────
+# La CI Windows passait déjà `--exclude-tags golden` ; la machine de
+# développement, elle, ne le passait pas. Un `flutter test` local finissait
+# donc invariablement sur cinq échecs rouges — cinq échecs qu'il fallait savoir
+# ignorer.
+#
+# C'est le pire état possible pour une suite de tests : elle apprend à ne pas
+# la croire. Le jour où un SIXIÈME test casse pour une vraie raison, il se perd
+# dans un décor déjà rouge.
+#
+# L'exclusion appartient donc au dépôt, pas à la ligne de commande de chacun.
+# Sous Linux — la plateforme qui fait foi, celle où les images de référence ont
+# été rendues — rien ne change : les goldens s'exécutent.
+on_os:
+  windows:
+    tags:
+      golden:
+        skip: >-
+          Images de référence rendues sous Linux : l'antialiasing et le hinting
+          de police diffèrent sous Windows, l'écart ne signale aucun défaut.
+  mac-os:
+    tags:
+      golden:
+        skip: >-
+          Images de référence rendues sous Linux : le rendu de police diffère
+          sous macOS, l'écart ne signale aucun défaut.
