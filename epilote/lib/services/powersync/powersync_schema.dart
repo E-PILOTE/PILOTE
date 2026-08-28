@@ -121,6 +121,15 @@ const schema = Schema([
     Column.text('speciality'),
     Column.integer('is_active'),
     Column.text('last_login'),
+    // ⚠️ COLONNE EN ÉCRITURE SEULE. Le jeton push est une CLÉ D'APPAREIL :
+    // qui l'a peut envoyer une notification sur le téléphone de son collègue.
+    // Les sync-rules l'excluent donc explicitement de la projection `directory`
+    // — seule colonne de `profiles` à en être retirée. Elle est déclarée ici
+    // uniquement pour que l'appareil puisse écrire LE SIEN et le faire remonter.
+    //
+    // Elle sera donc TOUJOURS NULLE en local pour les collègues, et le plus
+    // souvent pour soi-même : ne jamais bâtir de fonctionnalité qui la LIT
+    // depuis la base locale. Verrouillé par `test/fcm_jeton_test.dart`.
     Column.text('fcm_token'),
     // Reset PIN de poste par admin_groupe (migration 0033)
     Column.text('pin_reset_requested_at'),
