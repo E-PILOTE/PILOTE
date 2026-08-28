@@ -17,7 +17,7 @@ import '../../../core/utils/message_erreur.dart';
 
 part 'discipline_form.dart';
 
-const _kSlug = 'discipline';
+const _kSlug = kSlugDiscipline;
 
 // ════════════════════════════════════════════════════════════════════════════
 //  DISCIPLINE — registre des incidents (sensible). KPI hero → panneau Cycle ▸

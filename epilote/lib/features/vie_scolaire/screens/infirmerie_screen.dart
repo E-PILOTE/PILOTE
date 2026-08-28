@@ -17,7 +17,7 @@ import '../../../core/utils/message_erreur.dart';
 
 part 'infirmerie_form.dart';
 
-const _kSlug = 'infirmerie';
+const _kSlug = kSlugInfirmerie;
 
 // ════════════════════════════════════════════════════════════════════════════
 //  INFIRMERIE — journal des passages (sensible). KPI hero → panneau Cycle ▸

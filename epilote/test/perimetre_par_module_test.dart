@@ -166,4 +166,141 @@ void main() {
               'liste vide, jamais la classe demandée.');
     });
   });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  VIE SCOLAIRE — LE MÊME OUBLI, SUR LES DONNÉES LES PLUS SENSIBLES
+  //
+  //  ── TROUVÉ LE 2026-08-28 ──────────────────────────────────────────────────
+  //  Trois modules sur six ne lisaient AUCUN périmètre : Discipline, Infirmerie
+  //  et Bibliothèque interrogeaient l'école entière. Présences, Cantine et
+  //  Orientation passaient bien par `classesForModuleProvider`. Les trois
+  //  manquants étaient précisément ceux qui portent le disciplinaire et le
+  //  médical de mineurs.
+  //
+  //  Et la fuite passait aussi par une porte de service : `vsStudentsProvider`,
+  //  le SÉLECTEUR D'ÉLÈVE des formulaires Discipline, Infirmerie et
+  //  Bibliothèque, listait tous les élèves de l'école — nom, matricule, classe.
+  //  Un surveillant restreint à ses classes pouvait donc lire le registre
+  //  complet, et ouvrir un incident disciplinaire sur n'importe quel enfant.
+  //  Un provider partagé qui ignore le périmètre le fait fuir pour tous ses
+  //  appelants d'un coup.
+  // ══════════════════════════════════════════════════════════════════════════
+  group('Vie scolaire borne ses requêtes par SON slug', () {
+    const vs = 'lib/features/vie_scolaire';
+
+    /// Occurrences du littéral `'slug'` qui ne sont pas un simple mot français
+    /// échappé dans un titre (`'Journal de l\'infirmerie'`).
+    int compteLitteral(String src, String slug) =>
+        "'$slug'".allMatches(src).length -
+        "\\'$slug'".allMatches(src).length;
+
+    const modules = <String, String>{
+      'discipline': 'discipline_provider.dart',
+      'infirmerie': 'infirmerie_provider.dart',
+      'cantine': 'cantine_provider.dart',
+      'bibliotheque': 'biblio_provider.dart',
+      'orientation': 'orientation_provider.dart',
+      'presences-eleves': 'presences_provider.dart',
+    };
+
+    test('chaque provider borne ses lignes par un périmètre', () {
+      final fautes = <String>[];
+      for (final e in modules.entries) {
+        final src = _lire('$vs/providers/${e.value}');
+        final borne = src.contains('classScopeClause(') ||
+            src.contains('classesForModuleProvider(');
+        if (!borne) fautes.add('${e.value} (module `${e.key}`)');
+      }
+      expect(fautes, isEmpty,
+          reason: 'Un module dont le provider ne lit aucun périmètre sert '
+              'l\'école entière, et son `data_scope` est un cadenas fermé sur '
+              'rien.\n\n${fautes.join('\n')}');
+    });
+
+    test('le slug de chaque module n\'est déclaré qu\'une fois', () {
+      // Deux endroits à changer, un seul changé : c\'est ainsi qu\'un
+      // périmètre dérive sans bruit. Cf. le même garde côté Finance.
+      final fautes = <String>[];
+      for (final slug in modules.keys) {
+        var n = 0;
+        for (final f in _dartsSous(vs)) {
+          n += compteLitteral(f.readAsStringSync(), slug);
+        }
+        if (n != 1) fautes.add('`$slug` déclaré $n fois');
+      }
+      expect(fautes, isEmpty,
+          reason: 'Un seul `const kSlug… = \'…\';`, dans le provider ; les '
+              'écrans le lisent.\n\n${fautes.join('\n')}');
+    });
+
+    test('le sélecteur d\'élève partagé exige le slug de son appelant', () {
+      final src = _lire('$vs/providers/vs_students_provider.dart');
+      expect(src.contains('classScopeClause('), isTrue,
+          reason: 'C\'est le formulaire qui écrit : sans périmètre ici, le '
+              'verrou ne tient nulle part.');
+      expect(RegExp(r'family<List<VsStudent>,\s*String>').hasMatch(src), isTrue,
+          reason: 'Le périmètre appliqué doit être celui du module APPELANT — '
+              'un même agent peut être `own_classes` en discipline et '
+              '`own_school` en infirmerie.');
+
+      // Aucun appel nu : `vsStudentsProvider)` sans argument ne compile plus,
+      // mais le garde dit POURQUOI si quelqu\'un revient en arrière.
+      final fautes = <String>[];
+      for (final f in _dartsSous('lib')) {
+        final chemin = f.path.replaceAll(r'\', '/');
+        if (chemin.endsWith('vs_students_provider.dart')) continue;
+        if (RegExp(r'vsStudentsProvider\s*\)')
+            .hasMatch(f.readAsStringSync())) {
+          fautes.add(chemin.substring(chemin.indexOf('lib/') + 4));
+        }
+      }
+      expect(fautes, isEmpty, reason: fautes.join('\n'));
+    });
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  UNE NOTIFICATION AUX PARENTS PORTE SA DATE
+  //
+  //  `discipline_incidents` et `infirmary_visits` ont toutes deux une colonne
+  //  `notified_at` — déclarée jusque dans le schéma SQLite local, donc
+  //  synchronisée — que RIEN n'écrivait. On savait QUE les parents avaient été
+  //  prévenus, jamais QUAND.
+  //
+  //  Dans un dossier disciplinaire, c'est la date qui fait le délai : c'est
+  //  elle qu'on oppose à une famille qui conteste une sanction prise sans
+  //  qu'elle ait été informée. Pour un enfant reparti de l'infirmerie après un
+  //  malaise, c'est la même question, en plus urgent.
+  // ══════════════════════════════════════════════════════════════════════════
+  group('Une notification aux parents porte sa date', () {
+    test('`parentNotified` ne s\'écrit jamais sans `notified_at`', () {
+      final fautes = <String>[];
+      for (final f in _dartsSous('lib')) {
+        final src = f.readAsStringSync();
+        // On vise l'ÉCRITURE, pas l'affichage : un écran qui montre la
+        // case, un PDF qui l'imprime, n'ont pas de date à poser.
+        final ecrit = src.contains('parentNotified ? 1 : 0') ||
+            RegExp(r'parent_notified\s*=\s*\?').hasMatch(src);
+        if (!ecrit) continue;
+        if (src.contains('notified_at')) continue;
+        final chemin = f.path.replaceAll(r'\', '/');
+        fautes.add(chemin.substring(chemin.indexOf('lib/') + 4));
+      }
+      expect(fautes, isEmpty,
+          reason: 'Une case cochée sans date ne prouve rien. Poser la date '
+              'quand la case passe à vrai, l\'effacer quand elle repasse à '
+              'faux.\n\n${fautes.join('\n')}');
+    });
+
+    test('la date se pose une fois et ne se réécrit pas', () {
+      // Rouvrir un incident un mois plus tard pour corriger une faute de
+      // frappe ne doit pas redater la notification aux parents.
+      for (final p in const [
+        'lib/features/vie_scolaire/providers/discipline_provider.dart',
+        'lib/features/vie_scolaire/providers/infirmerie_provider.dart',
+      ]) {
+        expect(_lire(p).contains('COALESCE(notified_at, ?)'), isTrue,
+            reason: '$p doit conserver la date déjà posée.');
+      }
+    });
+  });
 }

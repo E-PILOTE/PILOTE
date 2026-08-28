@@ -3,8 +3,12 @@ import 'package:uuid/uuid.dart';
 
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../navigation/providers/permissions_provider.dart';
 
 const _uuid = Uuid();
+
+/// Le slug de CE module, declare a cote des requetes qu'il borne.
+const kSlugBibliotheque = 'bibliotheque';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  BIBLIOTHÈQUE (tables `library_items` + `library_loans`) — catalogue d'ouvrages
@@ -84,6 +88,11 @@ final libraryLoansProvider =
   final profile = ref.watch(authNotifierProvider).valueOrNull;
   final schoolId = profile?.schoolId;
   if (schoolId == null || schoolId.isEmpty) return Stream.value(const []);
+
+  // Perimetre de CE module (verrou 4). Un pret nomme un eleve : la liste
+  // complete des emprunteurs est la liste complete des eleves.
+  final scope = classScopeClause(ref, kSlugBibliotheque, column: 'c.id');
+
   return db.watch(
     '''
     SELECT l.*, it.title AS item_title,
@@ -91,10 +100,17 @@ final libraryLoansProvider =
     FROM library_loans l
     LEFT JOIN library_items it ON it.id = l.item_id
     LEFT JOIN students s ON s.id = l.borrower_id
+    LEFT JOIN classes c ON c.id = (
+      SELECT ce.class_id FROM class_enrollments ce
+       WHERE ce.student_id = l.borrower_id
+       ORDER BY CASE WHEN ce.status = 'active' THEN 0 ELSE 1 END,
+                ce.created_at DESC
+       LIMIT 1)
     WHERE l.school_id = ?
+    ${scope?.clause ?? ''}
     ORDER BY (l.return_date IS NOT NULL), l.due_date
     ''',
-    parameters: [schoolId],
+    parameters: [schoolId, ...?scope?.params],
   ).map((rows) => [
         for (final r in rows)
           LibraryLoan(

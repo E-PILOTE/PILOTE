@@ -3,11 +3,16 @@ import 'package:uuid/uuid.dart';
 
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../navigation/providers/permissions_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
 
 export '../../../core/utils/discipline_vocab.dart';
 
 const _uuid = Uuid();
+
+/// Le slug de CE module, déclaré à côté des requêtes qu'il borne — le littéral
+/// recopié dans deux fichiers est ce qui laisse un périmètre dériver.
+const kSlugDiscipline = 'discipline';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  DISCIPLINE (table `discipline_incidents`, SENSIBLE — gatée par la capacité
@@ -58,6 +63,12 @@ final incidentsProvider =
   final schoolId = profile?.schoolId;
   final yearId = ref.watch(activeYearIdProvider);
   if (schoolId == null || schoolId.isEmpty) return Stream.value(const []);
+
+  // Périmètre de CE module (verrou 4), fermé par défaut. Un incident
+  // disciplinaire est une donnée sensible : `own_classes` doit produire ici
+  // le même effet qu'ailleurs, or ce registre servait l'école entière.
+  final scope = classScopeClause(ref, kSlugDiscipline, column: 'c.id');
+
   return db.watch(
     '''
     SELECT di.*, s.first_name, s.last_name,
@@ -65,13 +76,25 @@ final incidentsProvider =
            c.level_code AS level_code, c.level_order AS level_order
     FROM discipline_incidents di
     JOIN students s ON s.id = di.student_id
-    LEFT JOIN class_enrollments ce
-      ON ce.student_id = di.student_id AND ce.status = 'active'
-    LEFT JOIN classes c ON c.id = ce.class_id
+    -- La classe DES FAITS, pas celle d'aujourd'hui : l'inscription de l'année
+    -- de l'incident, `active` d'abord, close acceptée ensuite. Sur
+    -- `status = 'active'` seul, l'incident qui a CAUSÉ une exclusion perdait
+    -- sa classe à la seconde où l'inscription se fermait — il sortait du
+    -- filtre par classe, donc du dossier, précisément quand il compte le plus.
+    -- Le sous-select rend UNE ligne : un JOIN sans année pouvait en rendre
+    -- deux après une reconduction, et le même incident se comptait deux fois.
+    LEFT JOIN classes c ON c.id = (
+      SELECT ce.class_id FROM class_enrollments ce
+       WHERE ce.student_id = di.student_id
+         AND ce.academic_year_id = di.academic_year_id
+       ORDER BY CASE WHEN ce.status = 'active' THEN 0 ELSE 1 END,
+                ce.created_at DESC
+       LIMIT 1)
     WHERE di.school_id = ? AND di.academic_year_id = ?
+    ${scope?.clause ?? ''}
     ORDER BY di.incident_date DESC, di.created_at DESC
     ''',
-    parameters: [schoolId, yearId ?? ''],
+    parameters: [schoolId, yearId ?? '', ...?scope?.params],
   ).map((rows) => [
         for (final r in rows)
           DisciplineIncident(
@@ -97,6 +120,19 @@ final incidentsProvider =
 });
 
 // ─── Mutations ───────────────────────────────────────────────────────────────
+//
+// ⚠️ `parent_notified` SANS `notified_at` NE DIT RIEN D'UTILE. La colonne
+// existait et restait vide : on savait QUE les parents avaient été prévenus,
+// jamais QUAND. Or dans un dossier disciplinaire, c'est la date qui fait le
+// délai — et c'est le délai qu'on oppose à une famille qui conteste une
+// sanction prise sans qu'elle ait été informée. La date se pose au moment où
+// la case passe à vrai, et ne bouge plus : rouvrir l'incident un mois plus
+// tard pour corriger une faute de frappe ne doit pas réécrire l'histoire.
+// Décocher la case efface la date — il n'y a plus rien à dater.
+//
+// L'identifiant reste un `v4()`, à dessein : deux incidents le même jour pour
+// le même élève sont DEUX incidents. Voir `core/utils/identite_offline.dart`,
+// section « quand ne pas s'en servir ».
 Future<void> saveIncident({
   String? id,
   required String groupId,
@@ -118,11 +154,12 @@ Future<void> saveIncident({
       '''
       UPDATE discipline_incidents SET incident_date = ?, incident_type = ?,
         description = ?, sanction = ?, sanction_date = ?, parent_notified = ?,
+        notified_at = CASE WHEN ? = 1 THEN COALESCE(notified_at, ?) ELSE NULL END,
         follow_up_notes = ?, updated_at = ?
       WHERE id = ?
       ''',
       [date, type, description, sanction, sanctionDate, parentNotified ? 1 : 0,
-       followUp, now, id],
+       parentNotified ? 1 : 0, now, followUp, now, id],
     );
   } else {
     await db.execute(
@@ -130,12 +167,12 @@ Future<void> saveIncident({
       INSERT INTO discipline_incidents (
         id, group_id, school_id, student_id, academic_year_id, incident_date,
         incident_type, description, sanction, sanction_date, reported_by,
-        parent_notified, follow_up_notes, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        parent_notified, notified_at, follow_up_notes, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ''',
       [_uuid.v4(), groupId, schoolId, studentId, academicYearId, date, type,
        description, sanction, sanctionDate, reportedBy, parentNotified ? 1 : 0,
-       followUp, now, now],
+       parentNotified ? now : null, followUp, now, now],
     );
   }
 }

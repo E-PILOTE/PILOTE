@@ -110,7 +110,7 @@ class _VisitFormState extends ConsumerState<_VisitForm> {
 
   @override
   Widget build(BuildContext context) {
-    final students = ref.watch(vsStudentsProvider).valueOrNull ?? const [];
+    final students = ref.watch(vsStudentsProvider(_kSlug)).valueOrNull ?? const [];
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(

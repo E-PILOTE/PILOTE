@@ -3,8 +3,12 @@ import 'package:uuid/uuid.dart';
 
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../navigation/providers/permissions_provider.dart';
 
 const _uuid = Uuid();
+
+/// Le slug de CE module, declare a cote des requetes qu'il borne.
+const kSlugInfirmerie = 'infirmerie';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  INFIRMERIE (table `infirmary_visits`, SENSIBLE — gatée par `sync_medical`).
@@ -46,6 +50,11 @@ final visitsProvider = StreamProvider.autoDispose<List<InfirmaryVisit>>((ref) {
   final profile = ref.watch(authNotifierProvider).valueOrNull;
   final schoolId = profile?.schoolId;
   if (schoolId == null || schoolId.isEmpty) return Stream.value(const []);
+
+  // Perimetre de CE module (verrou 4), ferme par defaut. Ce journal porte du
+  // medical sur des mineurs : il servait l'ecole entiere a qui ouvrait l'ecran.
+  final scope = classScopeClause(ref, kSlugInfirmerie, column: 'c.id');
+
   return db.watch(
     '''
     SELECT v.*, s.first_name, s.last_name,
@@ -53,13 +62,25 @@ final visitsProvider = StreamProvider.autoDispose<List<InfirmaryVisit>>((ref) {
            c.level_code AS level_code, c.level_order AS level_order
     FROM infirmary_visits v
     JOIN students s ON s.id = v.student_id
-    LEFT JOIN class_enrollments ce
-      ON ce.student_id = v.student_id AND ce.status = 'active'
-    LEFT JOIN classes c ON c.id = ce.class_id
+    -- Une seule ligne par passage, et la classe survit a la fermeture de
+    -- l'inscription : sur `status = 'active'` seul, le passage d'un eleve sorti
+    -- depuis perdait sa classe, donc sortait du filtre par classe.
+    -- ATTENTION : `infirmary_visits` n'a PAS d'`academic_year_id`. On ne peut
+    -- donc pas viser l'inscription de l'annee DU passage, comme le fait la
+    -- discipline. On prend la plus recente, active d'abord : un passage de 6e
+    -- relu en 3e affichera la classe d'aujourd'hui. Limite assumee, faute de
+    -- colonne -- pas un oubli.
+    LEFT JOIN classes c ON c.id = (
+      SELECT ce.class_id FROM class_enrollments ce
+       WHERE ce.student_id = v.student_id
+       ORDER BY CASE WHEN ce.status = 'active' THEN 0 ELSE 1 END,
+                ce.created_at DESC
+       LIMIT 1)
     WHERE v.school_id = ?
+    ${scope?.clause ?? ''}
     ORDER BY v.visit_date DESC, v.visit_time DESC, v.created_at DESC
     ''',
-    parameters: [schoolId],
+    parameters: [schoolId, ...?scope?.params],
   ).map((rows) => [
         for (final r in rows)
           InfirmaryVisit(
@@ -88,6 +109,11 @@ final visitsProvider = StreamProvider.autoDispose<List<InfirmaryVisit>>((ref) {
 });
 
 // ─── Mutations ───────────────────────────────────────────────────────────────
+// ATTENTION : `parent_notified` SANS `notified_at` NE DIT RIEN D'UTILE -- la
+// colonne existait et restait vide. Un enfant reparti chez lui apres un
+// malaise : on savait QUE les parents avaient ete prevenus, jamais QUAND. La
+// date se pose quand la case passe a vrai et ne bouge plus ; la decocher
+// l'efface. Meme defaut, meme correctif que `discipline_provider`.
 Future<void> saveVisit({
   String? id,
   required String groupId,
@@ -111,12 +137,15 @@ Future<void> saveVisit({
       '''
       UPDATE infirmary_visits SET visit_date = ?, visit_time = ?, symptoms = ?,
         diagnosis = ?, treatment = ?, medication = ?, rest_period_hours = ?,
-        parent_notified = ?, follow_up_required = ?, follow_up_notes = ?,
+        parent_notified = ?,
+        notified_at = CASE WHEN ? = 1 THEN COALESCE(notified_at, ?) ELSE NULL END,
+        follow_up_required = ?, follow_up_notes = ?,
         updated_at = ?
       WHERE id = ?
       ''',
       [date, time, symptoms, diagnosis, treatment, medication, restHours,
-       parentNotified ? 1 : 0, followUpRequired ? 1 : 0, followUpNotes, now, id],
+       parentNotified ? 1 : 0, parentNotified ? 1 : 0, now,
+       followUpRequired ? 1 : 0, followUpNotes, now, id],
     );
   } else {
     await db.execute(
@@ -124,11 +153,13 @@ Future<void> saveVisit({
       INSERT INTO infirmary_visits (
         id, group_id, school_id, student_id, visit_date, visit_time, symptoms,
         diagnosis, treatment, medication, rest_period_hours, parent_notified,
-        follow_up_required, follow_up_notes, staff_id, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        notified_at, follow_up_required, follow_up_notes, staff_id,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ''',
       [_uuid.v4(), groupId, schoolId, studentId, date, time, symptoms, diagnosis,
        treatment, medication, restHours, parentNotified ? 1 : 0,
+       parentNotified ? now : null,
        followUpRequired ? 1 : 0, followUpNotes, staffId, now, now],
     );
   }

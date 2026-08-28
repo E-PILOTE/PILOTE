@@ -16,7 +16,7 @@ import '../widgets/vs_student_field.dart';
 part 'biblio_forms.dart';
 part 'biblio_cards.dart';
 
-const _kSlug = 'bibliotheque';
+const _kSlug = kSlugBibliotheque;
 
 // ════════════════════════════════════════════════════════════════════════════
 //  BIBLIOTHÈQUE — catalogue + emprunts. KPI hero → segments Catalogue / Emprunts.

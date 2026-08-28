@@ -218,7 +218,7 @@ class _LoanFormState extends ConsumerState<_LoanForm> {
   Widget build(BuildContext context) {
     final items = ref.watch(libraryItemsProvider).valueOrNull ?? const [];
     final available = [for (final it in items) if (it.available > 0) it];
-    final students = ref.watch(vsStudentsProvider).valueOrNull ?? const [];
+    final students = ref.watch(vsStudentsProvider(_kSlug)).valueOrNull ?? const [];
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(

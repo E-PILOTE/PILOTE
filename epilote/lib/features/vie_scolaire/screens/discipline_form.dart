@@ -121,7 +121,7 @@ class _IncidentFormState extends ConsumerState<_IncidentForm> {
     if (!mounted) return;
     if (insc == null) return; // rien d'ouvert à fermer
 
-    final eleve = ref.read(vsStudentsProvider).valueOrNull
+    final eleve = ref.read(vsStudentsProvider(_kSlug)).valueOrNull
         ?.where((s) => s.id == _studentId)
         .map((s) => s.name)
         .firstOrNull;
@@ -169,7 +169,7 @@ class _IncidentFormState extends ConsumerState<_IncidentForm> {
 
   @override
   Widget build(BuildContext context) {
-    final students = ref.watch(vsStudentsProvider).valueOrNull ?? const [];
+    final students = ref.watch(vsStudentsProvider(_kSlug)).valueOrNull ?? const [];
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
