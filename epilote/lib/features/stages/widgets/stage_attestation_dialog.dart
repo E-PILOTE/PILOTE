@@ -8,6 +8,7 @@ import '../../structure/providers/academic_year_provider.dart'
 import '../providers/stage_actions.dart';
 import '../providers/stages_provider.dart';
 import '../services/stage_export_service.dart';
+import '../../../core/utils/date_scolaire.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  ATTESTATION DE FIN DE STAGE — la pièce du dossier de baccalauréat.
@@ -285,22 +286,20 @@ class _Why extends StatelessWidget {
       );
 }
 
-class _IssueDate extends StatelessWidget {
+// Une attestation se délivre DANS l'année du stage, et jamais d'avance : le
+// plafond au jour même est conservé, la borne de l'année s'y ajoute.
+class _IssueDate extends ConsumerWidget {
   const _IssueDate({required this.value, required this.onPick});
   final DateTime value;
   final ValueChanged<DateTime> onPick;
 
   @override
-  Widget build(BuildContext context) => OutlinedButton.icon(
+  Widget build(BuildContext context, WidgetRef ref) => OutlinedButton.icon(
         onPressed: () async {
-          final now = DateTime.now();
-          final d = await showDatePicker(
-            context: context,
-            initialDate: value,
-            firstDate: DateTime(now.year - 3),
-            lastDate: now,
-            helpText: 'Date de délivrance',
-          );
+          final d = await choisirDateScolaire(context, ref,
+              initiale: value,
+              plafond: DateTime.now(),
+              aide: 'Date de délivrance');
           if (d != null) onPick(d);
         },
         icon: Icon(Icons.event_available_rounded, size: 16, color: kTextMuted),

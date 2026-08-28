@@ -5,6 +5,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../providers/stage_actions.dart';
 import '../providers/stages_provider.dart';
 import 'stage_student_picker.dart';
+import '../../../core/utils/date_scolaire.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  NOUVEAU STAGE — le formulaire qui manquait.
@@ -392,7 +393,12 @@ class _Text extends StatelessWidget {
       );
 }
 
-class _DateField extends StatelessWidget {
+// ⚠️ Les dates d'un stage partent sur `internships`, qui porte
+// `academic_year_id` : le repli « année civile ± 3 » laissait dater un stage
+// hors de l'année scolaire qui le porte. Même défaut que les huit formulaires
+// relevés ce jour — celui-ci m'avait échappé parce que ma requête interrogeait
+// une liste de tables écrite à la main, où `internships` ne figurait pas.
+class _DateField extends ConsumerWidget {
   const _DateField({
     required this.label,
     required this.value,
@@ -404,7 +410,7 @@ class _DateField extends StatelessWidget {
   final ValueChanged<DateTime?> onPick;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final text = value == null
         ? label
         : '${value!.day.toString().padLeft(2, '0')}/'
@@ -412,14 +418,8 @@ class _DateField extends StatelessWidget {
 
     return OutlinedButton.icon(
       onPressed: () async {
-        final now = DateTime.now();
-        final d = await showDatePicker(
-          context: context,
-          initialDate: value ?? now,
-          firstDate: DateTime(now.year - 3),
-          lastDate: DateTime(now.year + 2),
-          helpText: label,
-        );
+        final d = await choisirDateScolaire(context, ref,
+            initiale: value ?? DateTime.now(), aide: label);
         if (d != null) onPick(d);
       },
       icon: Icon(Icons.event_rounded, size: 15, color: kTextMuted),

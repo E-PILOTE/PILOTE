@@ -95,8 +95,19 @@ class _BodyState extends ConsumerState<_Body> {
     // 26 autres écrans de l'espace école. Le module stages en était le seul
     // absent : on pouvait enregistrer un stage dans une année close.
     final readOnly = ref.watch(yearReadOnlyProvider);
-    final canEdit =
+    // ⚠️ ENREGISTRER UN STAGE ET DÉLIVRER UNE ATTESTATION SONT DEUX GESTES.
+    // Un seul drapeau, lu sur `create`, ouvrait les deux — alors que délivrer
+    // (ou retirer) une attestation est un UPDATE sur un stage existant. Depuis
+    // la migration 0143, la base exige le verbe correspondant : un profil doté
+    // du seul `create` verrait le bouton d'attestation et son ordre ne
+    // toucherait aucune ligne, en silence.
+    //
+    // Et l'attestation n'est pas un détail : sans elle, le dossier de bac
+    // technique est irrecevable (note METP).
+    final canCreate =
         ref.watch(canProvider((slug: _kSlug, action: 'create'))) && !readOnly;
+    final canEdit =
+        ref.watch(canProvider((slug: _kSlug, action: 'update'))) && !readOnly;
     // KPI selon le profil d'accès (capacité brute, indépendante de l'abonnement) :
     // les KPI d'ACTION ne ressortent que pour qui peut agir sur les stages.
     final perm = ref.watch(modulePermissionProvider(_kSlug));
@@ -130,7 +141,7 @@ class _BodyState extends ConsumerState<_Body> {
         ];
 
         if (o.internships.isEmpty) {
-          slivers.add(_pad(_EmptyStages(canEdit: canEdit)));
+          slivers.add(_pad(_EmptyStages(canEdit: canCreate)));
         } else {
           slivers.add(_pad(ListFilterBar(
             searchCtrl: _search,
@@ -138,7 +149,7 @@ class _BodyState extends ConsumerState<_Body> {
             isTableView: _isTable,
             addLabel: 'Nouveau stage',
             addIcon: Icons.add_rounded,
-            onAdd: canEdit ? () => showStageFormDialog(context) : null,
+            onAdd: canCreate ? () => showStageFormDialog(context) : null,
             onSearchChange: (_) => setState(() {}),
             onToggleView: () => setState(() => _isTable = !_isTable),
             onReset: () => setState(() {

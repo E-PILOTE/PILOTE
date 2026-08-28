@@ -1,7 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../services/powersync/powersync_service.dart';
+import '../../navigation/providers/permissions_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
+
+/// Slug du module — le périmètre se lit sur CE module, jamais sur un autre.
+const kSlugStages = 'stages';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  STAGES — espace école, 100 % offline.
@@ -131,6 +135,12 @@ final stagesOverviewProvider =
     return const StagesOverview(internships: [], blocked: []);
   }
 
+  // Le périmètre se pose des DEUX côtés, ici comme ailleurs. Les deux profils
+  // du catalogue qui ouvrent ce module sont en `own_school` — mais un
+  // établissement peut confier le suivi des stages au professeur d'atelier,
+  // en `own_classes` : sans cette clause il verrait toute l'école.
+  final scope = classScopeClause(ref, kSlugStages, column: 'i.class_id');
+
   final rows = await db.getAll(
     'SELECT i.id, i.title, i.start_date, i.end_date, i.status, '
     '       i.attestation_issued_at, i.convention_signed_at, '
@@ -142,8 +152,9 @@ final stagesOverviewProvider =
     '  LEFT JOIN classes c ON c.id = i.class_id '
     '  LEFT JOIN internship_companies co ON co.id = i.company_id '
     ' WHERE i.academic_year_id = ? '
+    '${scope?.clause ?? ''} '
     ' ORDER BY i.start_date DESC',
-    [yearId],
+    [yearId, ...?scope?.params],
   );
 
   // Le croisement qui fait le module : élèves en classe de bac technique/pro
