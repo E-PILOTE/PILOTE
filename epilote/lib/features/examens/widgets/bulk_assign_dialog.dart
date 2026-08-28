@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../providers/exam_candidates_provider.dart';
 import '../providers/exam_registration_provider.dart';
+import '../../../core/utils/message_erreur.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  ATTRIBUER LES NUMÉROS DE CANDIDAT — en masse.
@@ -247,7 +248,7 @@ class _State extends ConsumerState<_BulkAssignDialog> {
       for (var i = 0; i < widget.candidates.length && i < lines.length; i++) {
         if (lines[i].isNotEmpty) map[widget.candidates[i].id] = lines[i];
       }
-      final n = await assignCandidateNumbers(map);
+      final n = await assignCandidateNumbers(map, sessionId: widget.sessionId);
 
       ref.invalidate(sessionCandidatesProvider(widget.sessionId));
       if (mounted) {
@@ -255,7 +256,7 @@ class _State extends ConsumerState<_BulkAssignDialog> {
         Navigator.of(context).pop(true);
       }
     } catch (e) {
-      if (mounted) setState(() => _error = '$e');
+      if (mounted) setState(() => _error = messageErreur(e));
     } finally {
       if (mounted) setState(() => _saving = false);
     }

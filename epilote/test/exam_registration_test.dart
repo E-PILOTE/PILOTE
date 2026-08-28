@@ -31,6 +31,8 @@ ClassRegistration _reg({
   int? maxAge,
   DateTime? ageReference,
   String? sessionId = 'sess-1',
+  String? sessionStatus = 'open',
+  DateTime? closesAt,
 }) =>
     ClassRegistration(
       sessionId: sessionId,
@@ -38,12 +40,72 @@ ClassRegistration _reg({
       yearLabel: '2025-2026',
       maxAge: maxAge,
       ageReference: ageReference,
-      registrationClosesAt: DateTime(2026, 2, 14),
+      registrationClosesAt: closesAt ?? DateTime(2026, 2, 14),
+      sessionStatus: sessionStatus,
       requiredDocuments: const [],
       students: students,
     );
 
 void main() {
+  // ══════════════════════════════════════════════════════════════════════════
+  //  LA FENÊTRE D'INSCRIPTION SE DIT, ELLE NE S'IMPOSE PAS (2026-08-28)
+  //
+  //  `registration_closes_at` était LU, AFFICHÉ au milieu d'un sous-titre, et
+  //  jamais signalé. Une école pouvait inscrire en mars des candidats pour une
+  //  session close en février : elle ne l'apprenait qu'au rejet de la
+  //  transmission, des semaines plus tard.
+  //
+  //  On avertit sans interdire — même raison que l'âge (piège n°2) : la DEC
+  //  prolonge, accorde des dérogations, et l'horloge d'un poste hors ligne peut
+  //  avoir dérivé. Et la base ne l'exige pas non plus : aucun déclencheur sur
+  //  `exam_candidates`.
+  // ══════════════════════════════════════════════════════════════════════════
+  group('ClassRegistration.inscriptionsCloses', () {
+    final demain = DateTime.now().add(const Duration(days: 30));
+    final hier = DateTime.now().subtract(const Duration(days: 30));
+
+    test('une session ouverte dont la date court n\'alerte pas', () {
+      expect(
+          _reg(students: const [], sessionStatus: 'open', closesAt: demain)
+              .inscriptionsCloses,
+          isFalse);
+    });
+
+    test('la date passée suffit, même si la session se dit ouverte', () {
+      expect(
+          _reg(students: const [], sessionStatus: 'open', closesAt: hier)
+              .inscriptionsCloses,
+          isTrue);
+    });
+
+    test('le statut suffit, même sans date', () {
+      for (final st in ['closed', 'running']) {
+        expect(
+            _reg(students: const [], sessionStatus: st, closesAt: demain)
+                .inscriptionsCloses,
+            isTrue,
+            reason: 'Une session « $st » n\'accepte plus de dépôt.');
+      }
+    });
+
+    test('sans date ni statut connus, on n\'invente pas une clôture', () {
+      // « Je ne sais pas » ne se traite pas comme « c'est fermé » : ici,
+      // l'avertissement serait faux et ferait douter d'une inscription valide.
+      final r = const ClassRegistration(
+        sessionId: 'sess-1',
+        examShortName: 'BET',
+        yearLabel: '2025-2026',
+        maxAge: null,
+        ageReference: null,
+        registrationClosesAt: null,
+        sessionStatus: null,
+        requiredDocuments: [],
+        students: [],
+      );
+      expect(r.inscriptionsCloses, isFalse);
+    });
+  });
+
   group('ExamStudentRow.ageAt', () {
     // Épreuves écrites du BET : 23 juin 2026.
     final ref = DateTime(2026, 6, 23);

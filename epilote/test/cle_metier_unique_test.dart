@@ -170,10 +170,24 @@ const _kSites = <Site>[
         'AND user_id = ?',
   ),
   (
+    // Le contrôle local existait — et il ne voit QUE son propre poste. Deux
+    // appareils hors ligne qui inscrivent la même classe au BAC lisent chacun
+    // une base sans doublon, insèrent chacun, et le SECOND upload part en
+    // 23505. L'identité se déduit donc aussi de la clé.
     table: 'exam_candidates',
     contrainte: 'session_id, student_id',
     fichier: 'features/examens/providers/exam_registration_provider.dart',
-    garde: 'SELECT student_id FROM exam_candidates ',
+    garde: "idDeterministe('exam_candidate'",
+  ),
+  (
+    // La SECONDE contrainte de la même table, et elle est NATIONALE : une
+    // session reçoit les listes de plusieurs écoles. Le collage positionnel de
+    // la DEC peut donc porter un numéro déjà pris — ou le répéter deux fois
+    // dans la liste collée si l'opérateur décale d'une ligne.
+    table: 'exam_candidates',
+    contrainte: 'session_id, candidate_number',
+    fichier: 'features/examens/providers/exam_registration_provider.dart',
+    garde: 'SELECT id, candidate_number FROM exam_candidates ',
   ),
   (
     table: 'staff_attendance',

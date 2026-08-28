@@ -130,6 +130,7 @@ class _State extends ConsumerState<_ExamRegisterDialog> {
         if (!reg.hasSession)
           _noSession()
         else ...[
+          if (reg.inscriptionsCloses) _clotureWarning(reg),
           if (reg.overAge.isNotEmpty) _ageWarning(reg),
           if (reg.requiredDocuments.isNotEmpty) _piecesPreview(reg),
           Flexible(
@@ -172,6 +173,44 @@ class _State extends ConsumerState<_ExamRegisterDialog> {
 
   /// Avertissement d'âge : consultatif. On n'empêche PAS l'inscription —
   /// des dérogations existent et la date d'appréciation n'est pas établie.
+  /// La fenêtre d'inscription est passée — dit, jamais imposé.
+  ///
+  /// ⚠️ La date de clôture s'affichait au milieu du sous-titre, entre le nom de
+  /// l'examen et l'année. Une école pouvait donc inscrire en mars des candidats
+  /// pour une session close en février sans que rien ne le signale : elle ne
+  /// l'apprenait qu'au rejet de la transmission, des semaines plus tard, quand
+  /// plus rien n'était rattrapable.
+  ///
+  /// On n'INTERDIT pas pour autant — même raison que l'âge : la DEC prolonge,
+  /// accorde des dérogations, et l'horloge d'un poste hors ligne peut avoir
+  /// dérivé. Bloquer sur cette base coûterait des candidatures légitimes.
+  Widget _clotureWarning(ClassRegistration reg) => Container(
+        margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: kRed.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: kRed.withValues(alpha: 0.35)),
+        ),
+        child: Row(children: [
+          Icon(Icons.event_busy_rounded, size: 17, color: kRed),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              reg.registrationClosesAt != null
+                  ? 'Les inscriptions à cette session étaient closes le '
+                      '${formatDate(reg.registrationClosesAt)}. Vous pouvez '
+                      'tout de même inscrire — vérifiez d\'abord auprès de la '
+                      'DEC que le dépôt sera accepté.'
+                  : 'Cette session n\'accepte plus d\'inscriptions. Vous pouvez '
+                      'tout de même inscrire — vérifiez d\'abord auprès de la '
+                      'DEC que le dépôt sera accepté.',
+              style: TextStyle(fontSize: 11.5, color: kTextMuted, height: 1.4),
+            ),
+          ),
+        ]),
+      );
+
   Widget _ageWarning(ClassRegistration reg) => Container(
         margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
         padding: const EdgeInsets.all(12),

@@ -1,14 +1,13 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
+import '../../../core/utils/erreur_metier.dart';
+import '../../../core/utils/identite_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/active_agent_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/exam_dossier_piece.dart';
-
-const _uuid = Uuid();
 
 // ════════════════════════════════════════════════════════════════════════════
 //  INSCRIPTION AUX EXAMENS — écritures offline (db.execute).
@@ -18,8 +17,26 @@ const _uuid = Uuid();
 //  local ne l'applique pas : un doublon inséré hors ligne partirait à l'upload,
 //  serait rejeté par Postgres, et la transaction PowerSync serait abandonnée —
 //  emportant AUSSI les inscriptions valides du même lot. D'où le contrôle
-//  anti-doublon LOCAL avant insertion (fiable : les candidatures de l'école
-//  sont intégralement synchronisées par by_school).
+//  anti-doublon LOCAL avant insertion (les candidatures de l'école sont
+//  intégralement synchronisées par by_school).
+//
+//  ⚠️ MAIS CE CONTRÔLE NE VOIT QUE SON PROPRE POSTE. Deux appareils hors ligne
+//  qui inscrivent la même classe au BAC — le secrétariat et la direction, le
+//  même après-midi — ne se voient pas l'un l'autre : chacun lit une base locale
+//  sans doublon, chacun insère, et le SECOND upload se fait refuser en 23505.
+//  Le lot entier part avec. C'est le mode de défaillance NORMAL de
+//  l'offline-first, pas un cas tordu.
+//
+//  L'identifiant se déduit donc de la clé métier (`idDeterministe`, UUID v5) :
+//  les deux postes calculent le MÊME `id`, le connecteur fait deux upserts sur
+//  la même ligne, et il ne reste qu'une candidature. Le contrôle local reste —
+//  il évite un aller-retour inutile et garde le compte rendu juste.
+//
+//  ── PIÈGE N°1 bis : LE NUMÉRO DE CANDIDAT ──────────────────────────────────
+//  `UNIQUE(session_id, candidate_number)` existe AUSSI, et une session est
+//  NATIONALE : deux écoles y collent leurs listes. Le collage positionnel de la
+//  DEC peut donc porter un numéro déjà attribué — ou le même numéro deux fois
+//  dans la liste collée. Voir `assignCandidateNumbers`.
 //
 //  ── PIÈGE N°2 : L'ÂGE NE DOIT JAMAIS BLOQUER ────────────────────────────────
 //  max_age est RÉGLEMENTAIRE (24 bacs / 20 BET-CAP / 21 autres brevets) mais des
@@ -73,6 +90,7 @@ class ClassRegistration {
     required this.maxAge,
     required this.ageReference,
     required this.registrationClosesAt,
+    required this.sessionStatus,
     required this.requiredDocuments,
     required this.students,
   });
@@ -83,10 +101,31 @@ class ClassRegistration {
   final int? maxAge;
   final DateTime? ageReference;
   final DateTime? registrationClosesAt;
+
+  /// `open` | `closed` | `running` | … tel que la DEC le publie.
+  final String? sessionStatus;
+
   final List<Map<String, dynamic>> requiredDocuments;
   final List<ExamStudentRow> students;
 
   bool get hasSession => sessionId != null;
+
+  /// La fenêtre d'inscription est-elle passée ?
+  ///
+  /// ⚠️ CONSULTATIF, comme l'âge (piège n°2). La DEC prolonge, accorde des
+  /// dérogations, et l'horloge d'un poste hors ligne peut avoir dérivé :
+  /// bloquer sur cette base empêcherait des inscriptions légitimes, et la base
+  /// ne l'exige pas non plus (aucun déclencheur sur `exam_candidates`).
+  ///
+  /// Mais le silence n'était pas mieux : la date de clôture s'affichait au
+  /// milieu d'un sous-titre, et une école pouvait inscrire des candidats en
+  /// mars pour une session close en février sans que rien ne le dise. Elle ne
+  /// l'apprenait qu'au rejet de la transmission, des semaines plus tard.
+  bool get inscriptionsCloses {
+    if (sessionStatus == 'closed' || sessionStatus == 'running') return true;
+    final fin = registrationClosesAt;
+    return fin != null && DateTime.now().isAfter(fin);
+  }
 
   List<ExamStudentRow> get pending =>
       students.where((s) => !s.isRegistered).toList();
@@ -157,6 +196,7 @@ final classRegistrationProvider = FutureProvider.autoDispose
     maxAge: s?['max_age'] as int?,
     ageReference: _date(s?['age_reference_date']) ?? _date(s?['written_from']),
     registrationClosesAt: _date(s?['registration_closes_at']),
+    sessionStatus: s?['status'] as String?,
     requiredDocuments: docs,
     students: [
       for (final r in studentRows)
@@ -225,7 +265,11 @@ Future<int> registerCandidates(
       ' result, created_by, created_at, updated_at'
       ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
-        _uuid.v4(), sessionId, sid, groupId, schoolId, classId,
+        // Deux postes hors ligne qui inscrivent le même élève à la même
+        // session écrivent la MÊME ligne, au lieu d'en créer deux que le
+        // serveur refuserait en 23505 — code fatal, lot entier jeté.
+        idDeterministe('exam_candidate', [sessionId, sid]),
+        sessionId, sid, groupId, schoolId, classId,
         // Le dossier naît INCOMPLET : toutes les pièces requises sont dues.
         'incomplet', docs, 0, now,
         'en_attente', author, now, now,
@@ -329,11 +373,52 @@ Future<void> clearResult(String candidateId) async {
 /// ressaisir. Les numéros vides sont ignorés — ils n'effacent pas un numéro
 /// déjà attribué, car une ligne blanche dans un collage est une distraction,
 /// pas une décision.
-Future<int> assignCandidateNumbers(Map<String, String> numbersByCandidateId) async {
+Future<int> assignCandidateNumbers(
+  Map<String, String> numbersByCandidateId, {
+  required String sessionId,
+}) async {
   final entries = numbersByCandidateId.entries
       .where((e) => e.value.trim().isNotEmpty)
       .toList();
   if (entries.isEmpty) return 0;
+
+  // ⚠️ `UNIQUE(session_id, candidate_number)` — ET UNE SESSION EST NATIONALE.
+  // Deux façons très ordinaires de la violer, aucune détectable localement
+  // (SQLite ne porte pas cet index) :
+  //   • un collage décalé d'une ligne répète un numéro dans la liste collée ;
+  //   • le numéro est déjà porté par un candidat de la session — une autre
+  //     école, ou un précédent collage de la nôtre.
+  // Le refus arrive à l'upload, en 23505 : code FATAL pour le connecteur, qui
+  // jette le LOT ENTIER en attente. On perdrait l'attribution complète, et tout
+  // ce qui attendait avec elle. Un collage de la DEC se vérifie AVANT.
+  final vus = <String, String>{}; // numéro → id du candidat qui le prend
+  for (final e in entries) {
+    final numero = e.value.trim();
+    final deja = vus[numero];
+    if (deja != null) {
+      throw ErreurMetier(
+          'Le numéro « $numero » apparaît deux fois dans la liste collée. '
+          'Vérifiez l\'alignement des lignes avant d\'attribuer.');
+    }
+    vus[numero] = e.key;
+  }
+
+  final ph = List.filled(vus.length, '?').join(',');
+  final pris = await db.getAll(
+    'SELECT id, candidate_number FROM exam_candidates '
+    'WHERE session_id = ? AND candidate_number IN ($ph)',
+    [sessionId, ...vus.keys],
+  );
+  for (final r in pris) {
+    final numero = r['candidate_number'] as String;
+    // Réattribuer le MÊME numéro au MÊME candidat est sans effet : on laisse
+    // passer, sinon recoller la liste inchangée serait refusé.
+    if (vus[numero] != r['id']) {
+      throw ErreurMetier(
+          'Le numéro « $numero » est déjà attribué à un autre candidat de '
+          'cette session. Aucun numéro n\'a été enregistré.');
+    }
+  }
 
   final now = DateTime.now().toIso8601String();
   await db.writeTransaction((tx) async {
