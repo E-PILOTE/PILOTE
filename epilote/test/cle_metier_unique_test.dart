@@ -34,6 +34,12 @@ import 'package:flutter_test/flutter_test.dart';
 //  contraintes d'unicité métier relevées en production, et le point d'écriture
 //  qui doit les respecter.
 //
+//  ⚠️ DEUX FAMILLES, ET LA SECONDE M'AVAIT ÉCHAPPÉ. Un premier relevé n'avait
+//  interrogé que `pg_constraint` (contype = 'u'). Les index uniques PARTIELS
+//  (`CREATE UNIQUE INDEX … WHERE …`) n'y figurent pas — et c'est l'un d'eux,
+//  `uq_library_loans_item_en_cours`, qui interdisait de prêter plus d'un
+//  exemplaire d'un ouvrage possédé en cinq. Les deux familles sont ici.
+//
 //  ⚠️ AJOUTER UNE CONTRAINTE `UNIQUE` MÉTIER EN BASE, C'EST DEVOIR AJOUTER UNE
 //  LIGNE ICI. C'est le prix, et il est petit devant un lot perdu en silence.
 // ════════════════════════════════════════════════════════════════════════════
@@ -191,6 +197,47 @@ const _kSites = <Site>[
   ),
 ];
 
+/// ── INDEX UNIQUES PARTIELS (`CREATE UNIQUE INDEX … WHERE …`) ───────────────
+/// Relevé de `pg_indexes` le 2026-08-28. Seuls figurent ici ceux qu'un chemin
+/// OFFLINE écrit : sur le chemin en ligne d'admin groupe (`supabase.from`), un
+/// 23505 est une erreur affichée à l'agent, pas un lot d'écritures perdu.
+/// Écartés à ce titre, après vérification : `uq_ay_current_*`,
+/// `staff_affectations_courante_key`, `school_levels_ecole_niveau_uniq`,
+/// `schools_dec_code_uniq`, `education_*_code_global_ux`,
+/// `exam_official_results_uniq`, et les quatre `uniq_fee_structure_*`.
+const _kIndexPartiels = <Site>[
+  (
+    table: 'library_loans',
+    contrainte: 'item_id, borrower_id WHERE return_date IS NULL',
+    fichier: 'features/vie_scolaire/providers/biblio_provider.dart',
+    garde: 'SELECT id FROM library_loans ',
+  ),
+  (
+    table: 'class_enrollments',
+    contrainte: "student_id, academic_year_id WHERE status = 'active'",
+    fichier: 'features/classes/providers/class_provider.dart',
+    garde: "idDeterministe('class_enrollment'",
+  ),
+  (
+    table: 'student_payments',
+    contrainte: 'school_id, receipt_number WHERE receipt_number IS NOT NULL',
+    fichier: 'features/finance/providers/paiements_provider.dart',
+    garde: 'SELECT receipt_number FROM student_payments ',
+  ),
+  (
+    table: 'students',
+    contrainte: 'ine, school_id WHERE ine IS NOT NULL',
+    fichier: 'features/students/providers/students_provider.dart',
+    garde: 'SELECT id FROM students WHERE school_id = ? AND ine = ?',
+  ),
+  (
+    table: 'academic_years',
+    contrainte: 'group_id / school_id WHERE is_current',
+    fichier: 'features/structure/providers/academic_year_provider.dart',
+    garde: 'uq_ay_current_group',
+  ),
+];
+
 List<File> _dartsSous(String chemin) => Directory(chemin)
     .listSync(recursive: true)
     .whereType<File>()
@@ -206,7 +253,7 @@ String _relatif(File f) {
 void main() {
   test('chaque écriture sur une clé métier unique porte son garde', () {
     final fautes = <String>[];
-    for (final s in _kSites) {
+    for (final s in [..._kSites, ..._kIndexPartiels]) {
       final f = File('lib/${s.fichier}');
       if (!f.existsSync()) {
         fautes.add('${s.fichier} : fichier introuvable (déplacé ? renommé ?)');
@@ -229,8 +276,15 @@ void main() {
     // Le garde ci-dessus vérifie les points d'écriture connus. Celui-ci
     // attrape le suivant : un second chemin d'insertion ouvert ailleurs, qui
     // n'aurait aucune raison de connaître la contrainte.
-    final tables = {for (final s in _kSites) s.table};
-    final connus = <String>{for (final s in _kSites) '${s.table}|${s.fichier}'};
+    // Les tables des index partiels dont la clé pleine n'est pas déjà listée.
+    final tables = {
+      for (final s in _kSites) s.table,
+      'library_loans',
+      'student_payments',
+    };
+    final connus = <String>{
+      for (final s in [..._kSites, ..._kIndexPartiels]) '${s.table}|${s.fichier}'
+    };
     final motif = RegExp(r'INSERT\s+INTO\s+([a-z_0-9]+)', caseSensitive: false);
     final fautes = <String>[];
     for (final f in _dartsSous('lib')) {

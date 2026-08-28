@@ -229,6 +229,22 @@ Future<String> createStudent({
   bool isAffecte = false,
 }) async {
   final sid        = id ?? _uuid.v4();
+  // ⚠️ `students_ine_ecole_key (ine, school_id) WHERE ine IS NOT NULL` : un INE
+  // revendiqué deux fois dans la même école — deux dossiers ouverts sur le même
+  // enfant transféré, ce que le panneau de recherche nationale rend facile — se
+  // fait refuser en 23505, code FATAL : le connecteur jette le LOT ENTIER en
+  // attente. On le dit ici, en clair, avant d'écrire.
+  if (claimedIne != null && claimedIne.trim().isNotEmpty) {
+    final pris = await db.getAll(
+      'SELECT id FROM students WHERE school_id = ? AND ine = ? LIMIT 1',
+      [schoolId, claimedIne.trim()],
+    );
+    if (pris.isNotEmpty) {
+      throw Exception(
+          'Cet INE est déjà rattaché à un élève de l\'établissement.');
+    }
+  }
+
   final matricule  = await _matriculeLibre(groupId);
   final now        = DateTime.now().toIso8601String();
 

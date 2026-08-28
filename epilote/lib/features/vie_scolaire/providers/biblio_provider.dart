@@ -13,7 +13,22 @@ const kSlugBibliotheque = 'bibliotheque';
 // ════════════════════════════════════════════════════════════════════════════
 //  BIBLIOTHÈQUE (tables `library_items` + `library_loans`) — catalogue d'ouvrages
 //  (titre, auteur, ISBN, catégorie, exemplaires) et prêts (emprunteur, dates,
-//  statut). Disponibilité gérée à l'emprunt/retour. 100% offline.
+//  statut). 100% offline.
+//
+//  ── ⚠️ LA DISPONIBILITÉ NE SE STOCKE PAS, ELLE SE CALCULE ──────────────────
+//  `available_quantity` était tenu par INCRÉMENTS : `- 1` au prêt, `+ 1` au
+//  retour. Faux ici, et silencieusement. Le connecteur ne rejoue pas le SQL, il
+//  remonte la VALEUR RÉSULTANTE : deux postes hors ligne passent chacun 5 à 4 et
+//  envoient « 4 » — deux prêts enregistrés, un exemplaire disparu du compte. Le
+//  compteur ne se recalculait nulle part, donc il ne revenait jamais : tombé à
+//  zéro, il refuse de prêter un livre posé sur l'étagère.
+//
+//  On lit désormais la disponibilité comme ce qu'elle est : `quantity` moins les
+//  prêts en cours. Les lignes de prêt, elles, convergent — elles ne s'écrasent
+//  pas. Le serveur tient la même formule par déclencheur (migration 0133) pour
+//  les lecteurs SQL ; le client la recalcule localement parce que, hors ligne,
+//  le déclencheur n'a pas encore tourné et l'écran doit dire vrai tout de suite.
+//  Une seule formule, deux endroits, aucun incrément.
 // ════════════════════════════════════════════════════════════════════════════
 class LibraryItem {
   const LibraryItem({
@@ -63,9 +78,17 @@ final libraryItemsProvider =
   final schoolId = profile?.schoolId;
   if (schoolId == null || schoolId.isEmpty) return Stream.value(const []);
   return db.watch(
-    'SELECT * FROM library_items '
-    'WHERE school_id = ? AND COALESCE(is_active, 1) <> 0 '
-    'ORDER BY title',
+    '''
+    SELECT i.*,
+           MAX(0, COALESCE(i.quantity, 0) - (
+             SELECT COUNT(*) FROM library_loans l
+              WHERE l.item_id = i.id
+                AND l.return_date IS NULL
+                AND COALESCE(l.status, 'active') <> 'returned')) AS dispo
+    FROM library_items i
+    WHERE i.school_id = ? AND COALESCE(i.is_active, 1) <> 0
+    ORDER BY i.title
+    ''',
     parameters: [schoolId],
   ).map((rows) => [
         for (final r in rows)
@@ -76,7 +99,7 @@ final libraryItemsProvider =
             isbn: r['isbn'] as String?,
             category: r['category'] as String?,
             quantity: (r['quantity'] as int?) ?? 0,
-            available: (r['available_quantity'] as int?) ?? 0,
+            available: (r['dispo'] as int?) ?? 0,
             location: r['location'] as String?,
           ),
       ]);
@@ -141,33 +164,28 @@ Future<void> saveItem({
   required int quantity,
   String? location,
 }) async {
+  // `available_quantity` n'est PAS écrite : c'est une valeur dérivée. Le bloc
+  // qui la « rattrapait » ici (ancienne dispo → nombre emprunté → nouvelle
+  // dispo) reposait sur un compteur déjà faux, et propageait donc son erreur à
+  // chaque modification de fiche. Seul `quantity` — le nombre d'exemplaires
+  // physiques, saisi par un humain — s'écrit.
   final now = DateTime.now().toIso8601String();
   if (id != null) {
-    // Ajuste la dispo en gardant le nombre déjà emprunté.
-    final ex = await db.getAll(
-      'SELECT quantity, available_quantity FROM library_items WHERE id = ?',
-      [id],
-    );
-    final oldQty = (ex.firstOrNull?['quantity'] as int?) ?? quantity;
-    final oldAvail = (ex.firstOrNull?['available_quantity'] as int?) ?? quantity;
-    final borrowed = oldQty - oldAvail;
-    final newAvail = (quantity - borrowed).clamp(0, quantity);
     await db.execute(
       'UPDATE library_items SET title = ?, author = ?, isbn = ?, category = ?, '
-      'quantity = ?, available_quantity = ?, location = ?, updated_at = ? '
-      'WHERE id = ?',
-      [title, author, isbn, category, quantity, newAvail, location, now, id],
+      'quantity = ?, location = ?, updated_at = ? WHERE id = ?',
+      [title, author, isbn, category, quantity, location, now, id],
     );
   } else {
     await db.execute(
       '''
       INSERT INTO library_items (
         id, group_id, school_id, title, author, isbn, category, quantity,
-        available_quantity, location, is_active, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+        location, is_active, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
       ''',
       [_uuid.v4(), groupId, schoolId, title, author, isbn, category, quantity,
-       quantity, location, now, now],
+       location, now, now],
     );
   }
 }
@@ -189,10 +207,35 @@ Future<String?> createLoan({
   required String borrowDate,
   required String dueDate,
 }) async {
+  // Le plafond se COMPTE, il ne se lit pas dans un compteur : voir l'en-tête.
   final ex = await db.getAll(
-    'SELECT available_quantity FROM library_items WHERE id = ?', [itemId]);
-  final avail = (ex.firstOrNull?['available_quantity'] as int?) ?? 0;
-  if (avail <= 0) return 'Aucun exemplaire disponible';
+    '''
+    SELECT COALESCE(quantity, 0) AS q,
+           (SELECT COUNT(*) FROM library_loans l
+             WHERE l.item_id = ?
+               AND l.return_date IS NULL
+               AND COALESCE(l.status, 'active') <> 'returned') AS sortis
+      FROM library_items WHERE id = ?
+    ''',
+    [itemId, itemId],
+  );
+  final q = (ex.firstOrNull?['q'] as int?) ?? 0;
+  final sortis = (ex.firstOrNull?['sortis'] as int?) ?? 0;
+  if (q - sortis <= 0) return 'Aucun exemplaire disponible';
+
+  // ⚠️ `UNIQUE (item_id, borrower_id) WHERE return_date IS NULL` (0134) : un
+  // élève ne peut pas avoir deux fois le même ouvrage en cours. Le dire ici en
+  // clair, plutôt que de laisser l'index le dire en 23505 — code fatal, lot
+  // PowerSync entier jeté. Ce garde attrape aussi le double appui sur
+  // « Enregistrer », qui insérait deux prêts pour un seul livre remis.
+  final deja = await db.getAll(
+    'SELECT id FROM library_loans '
+    'WHERE item_id = ? AND borrower_id = ? AND return_date IS NULL '
+    "AND COALESCE(status, 'active') <> 'returned' LIMIT 1",
+    [itemId, borrowerId],
+  );
+  if (deja.isNotEmpty) return 'Cet emprunteur a déjà cet ouvrage en prêt';
+
   final now = DateTime.now().toIso8601String();
   await db.execute(
     '''
@@ -204,11 +247,6 @@ Future<String?> createLoan({
     [_uuid.v4(), groupId, schoolId, itemId, borrowerId, borrowDate, dueDate,
      now, now],
   );
-  await db.execute(
-    'UPDATE library_items SET available_quantity = available_quantity - 1, '
-    'updated_at = ? WHERE id = ?',
-    [now, itemId],
-  );
   return null;
 }
 
@@ -218,10 +256,5 @@ Future<void> returnLoan(LibraryLoan loan) async {
     'UPDATE library_loans SET status = \'returned\', return_date = ?, '
     'updated_at = ? WHERE id = ?',
     [now.substring(0, 10), now, loan.id],
-  );
-  await db.execute(
-    'UPDATE library_items SET available_quantity = '
-    'MIN(quantity, available_quantity + 1), updated_at = ? WHERE id = ?',
-    [now, loan.itemId],
   );
 }
