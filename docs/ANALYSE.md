@@ -209,11 +209,29 @@ tous les plans, y compris Gratuit. Ce n'est **pas** un levier d'abonnement.
    > `profiles.fcm_token` n'est jamais écrite. Les familles ne sont donc
    > prévenues de rien — elles doivent ouvrir l'application.
 4. **Bulletins** : Conservés 10 ans · Données financières : 5 ans
-   > 🔴 **Non implémenté (2026-08-27).** Aucune rétention, aucune purge, aucun
-   > archivage daté nulle part — ni en base, ni dans l'application. Rien
-   > n'efface non plus : la règle est donc tenue « par défaut » tant que la
-   > plateforme est jeune, et deviendra fausse le jour où quelqu'un supprimera.
-   > À traiter comme une exigence à part entière (RGPD-like, engagement MEPSA).
+   > 🟢 **Tenu depuis le 2026-08-28 — par le sceau, pas par une purge**
+   > (migration `0145`). « Conservés 10 ans » est un PLANCHER : l'obligation
+   > est de NE PAS PERDRE, pas d'effacer. Mais interdire toute suppression
+   > pendant dix ans serait faux dans l'autre sens — une comptable qui saisit
+   > une dépense de travers doit pouvoir la retirer le jour même.
+   >
+   > D'où la règle de toute comptabilité : **on corrige dans l'exercice ouvert,
+   > la clôture scelle.** `academic_years.is_locked` scelle désormais les
+   > bulletins, les dépenses et les encaissements de son année ; le plancher
+   > est tenu par une propriété plus sûre qu'une purge — rien, nulle part, ne
+   > supprime en masse (`epilote/test/retention_test.dart`).
+   >
+   > ⚠️ `payroll` n'est pas scellée : elle ne porte pas d'`academic_year_id`,
+   > et son écran ne lit pas l'année. Un sceau y produirait une suppression qui
+   > ne supprime rien, sans message. À traiter quand la paie sera rattachée à
+   > l'exercice.
+   >
+   > ⚠️ **Aucune purge automatique n'existe, et c'est délibéré.** L'écran
+   > « Conservation des données » de l'admin groupe proposait quatre réglages
+   > (rétention dossiers 60 mois, journaux 24 mois, archivage auto, seuil) que
+   > **rien ne lisait** : un administrateur croyait la plateforme tenue par son
+   > choix. La section énonce maintenant ce qui est réellement tenu. Effacer
+   > les données d'un enfant reste une décision juridique, pas un réglage.
 5. **Conflits sync** : Last-write-wins (timestamp `updated_at`)
 6. **Mode séquentiel** : 6 séquences/an (2 par trimestre) — optionnel
    > 🟡 **Configurable mais inerte (2026-08-27).** L'admin groupe crée bien les

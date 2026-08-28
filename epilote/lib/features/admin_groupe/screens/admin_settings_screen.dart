@@ -1929,56 +1929,20 @@ class _SecurityCardState extends ConsumerState<_SecurityCard> {
         ]),
       ),
       const SizedBox(height: 20),
-      // ── Conservation & archivage des données ───────────────────────────────
-      AdminCard(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const AdminSectionTitle('Conservation des données',
-              icon: Icons.inventory_2_outlined,
-              subtitle: 'Durée de rétention et archivage automatique'),
-          const SizedBox(height: 4),
-          _NumberStepper(
-            icon: Icons.folder_special_outlined,
-            title: 'Rétention des dossiers',
-            subtitle: 'Conservation des données élèves',
-            value: _s.dataRetentionMonths,
-            min: 12,
-            max: 120,
-            step: 6,
-            suffix: 'mois',
-            onChanged: (v) => setState(() => _s = _s.copyWith(dataRetentionMonths: v)),
-          ),
-          _NumberStepper(
-            icon: Icons.history_edu_outlined,
-            title: 'Rétention des journaux',
-            subtitle: "Conservation de l'historique d'audit",
-            value: _s.auditRetentionMonths,
-            min: 6,
-            max: 84,
-            step: 6,
-            suffix: 'mois',
-            onChanged: (v) => setState(() => _s = _s.copyWith(auditRetentionMonths: v)),
-          ),
-          _ToggleRow(
-            icon: Icons.archive_outlined,
-            title: 'Archivage automatique',
-            subtitle: 'Archiver les comptes inactifs',
-            value: _s.autoArchiveInactive,
-            onChanged: (v) => setState(() => _s = _s.copyWith(autoArchiveInactive: v)),
-          ),
-          if (_s.autoArchiveInactive)
-            _NumberStepper(
-              icon: Icons.schedule_rounded,
-              title: "Seuil d'inactivité",
-              subtitle: 'Archiver après cette période sans connexion',
-              value: _s.archiveAfterMonths,
-              min: 3,
-              max: 36,
-              step: 3,
-              suffix: 'mois',
-              onChanged: (v) => setState(() => _s = _s.copyWith(archiveAfterMonths: v)),
-            ),
-        ]),
-      ),
+      // ── Conservation des données ───────────────────────────────────────────
+      //
+      // ⚠️ CETTE SECTION PROPOSAIT QUATRE RÉGLAGES QUE RIEN NE LISAIT.
+      // « Rétention des dossiers » (60 mois par défaut), « Rétention des
+      // journaux » (24 mois), « Archivage automatique » et son seuil : les
+      // valeurs partaient bien dans `group_settings`, et AUCUN code, nulle
+      // part, ne s'en servait. Un administrateur réglait la conservation des
+      // dossiers d'élèves d'un ministère et croyait la plateforme tenue par
+      // son choix.
+      //
+      // Une case qui ne fait rien est pire qu'une case absente : elle fait
+      // prendre une décision qui n'aura pas lieu. La section dit maintenant ce
+      // que la plateforme TIENT réellement (migration 0145).
+      const _ConservationCard(),
       const SizedBox(height: 20),
       _SaveBar(saving: _saving, onSave: _save, error: _error),
       const SizedBox(height: 24),
@@ -2394,4 +2358,79 @@ class _RequestUpdateDialogState extends ConsumerState<_RequestUpdateDialog> {
       ),
     );
   }
+}
+
+/// Ce que la plateforme tient réellement en matière de conservation.
+///
+/// Aucun réglage ici : la conservation n'est pas un préréglage d'interface,
+/// c'est un engagement. On l'énonce, on ne le propose pas.
+class _ConservationCard extends StatelessWidget {
+  const _ConservationCard();
+
+  @override
+  Widget build(BuildContext context) => const AdminCard(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          AdminSectionTitle('Conservation des données',
+              icon: Icons.inventory_2_outlined,
+              subtitle: 'Ce que la plateforme garantit'),
+          SizedBox(height: 10),
+          _ReglePermanente(
+            icon: Icons.workspace_premium_outlined,
+            titre: 'Bulletins — 10 ans',
+            texte: 'Aucun bulletin n\'est supprimé. Clôturer une année '
+                'scolaire scelle définitivement les siens.',
+          ),
+          _ReglePermanente(
+            icon: Icons.receipt_long_outlined,
+            titre: 'Données financières — 5 ans',
+            texte: 'Encaissements et dépenses se corrigent tant que l\'année '
+                'est ouverte ; sa clôture les scelle.',
+          ),
+          _ReglePermanente(
+            icon: Icons.history_edu_outlined,
+            titre: 'Journal d\'audit — conservé',
+            texte: 'Il n\'est effaçable depuis aucun écran, y compris '
+                'celui-ci : un journal que l\'audité peut vider n\'est '
+                'pas un journal.',
+          ),
+          _ReglePermanente(
+            icon: Icons.delete_forever_outlined,
+            titre: 'Aucune purge automatique',
+            texte: 'Rien n\'efface de dossier au bout d\'un délai. '
+                'Effacer les données d\'un enfant est une décision '
+                'juridique, pas un réglage — elle se demande au support.',
+          ),
+        ]),
+      );
+}
+
+class _ReglePermanente extends StatelessWidget {
+  const _ReglePermanente(
+      {required this.icon, required this.titre, required this.texte});
+  final IconData icon;
+  final String titre, texte;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, size: 18, color: kNavy),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(titre,
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: kTextPrimary)),
+                  const SizedBox(height: 3),
+                  Text(texte,
+                      style: TextStyle(
+                          fontSize: 12, color: kTextMuted, height: 1.4)),
+                ]),
+          ),
+        ]),
+      );
 }
