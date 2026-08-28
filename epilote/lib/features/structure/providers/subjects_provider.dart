@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../../../data/models/subject_model.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../services/powersync/powersync_service.dart';
+import 'academic_year_context.dart';
 
 const _uuid = Uuid();
 
@@ -17,25 +18,39 @@ const _uuid = Uuid();
 /// local. Le niveau/cycle/coefficient effectif vit sur `class_subjects`.
 final subjectsProvider = StreamProvider.autoDispose<List<SubjectModel>>((ref) {
   final profile = ref.watch(authNotifierProvider).valueOrNull;
+  final yearId = ref.watch(activeYearIdProvider);
   if (profile?.schoolId == null || profile!.schoolId!.isEmpty) {
     return Stream.value([]);
   }
+  // ⚠️ « Classes » et « Niveaux » COMPTAIENT TOUTES LES ANNÉES. `class_subjects`
+  // ne porte pas d'année ; `classes` en porte une. Sans le filtre, l'empreinte
+  // d'une matière additionnait les classes de cette année et celles de toutes
+  // les précédentes : au premier renouvellement d'année, chaque matière
+  // annonçait le double de classes — y compris dans l'export CSV, colonne
+  // « Classes ». Un compteur qui grossit tout seul n'est pas un compteur.
   return db
       .watch(
         '''
         SELECT s.*,
                (SELECT COUNT(*) FROM class_subjects cs
-                  WHERE cs.subject_id = s.id) AS class_count,
+                  JOIN classes c ON c.id = cs.class_id
+                  WHERE cs.subject_id = s.id
+                    AND c.school_id = ? AND c.academic_year_id = ?) AS class_count,
                (SELECT GROUP_CONCAT(DISTINCT c.level_code)
                   FROM class_subjects cs
                   JOIN classes c ON c.id = cs.class_id
                   WHERE cs.subject_id = s.id
+                    AND c.school_id = ? AND c.academic_year_id = ?
                     AND c.level_code IS NOT NULL) AS niveaux
         FROM   subjects s
         WHERE  s.school_id = ? AND COALESCE(s.is_active, 1) <> 0
         ORDER  BY s.display_order, s.name
         ''',
-        parameters: [profile.schoolId],
+        parameters: [
+          profile.schoolId, yearId ?? '',
+          profile.schoolId, yearId ?? '',
+          profile.schoolId,
+        ],
       )
       .map((rows) => rows.map(SubjectModel.fromMap).toList());
 });

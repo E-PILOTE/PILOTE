@@ -193,7 +193,9 @@ final bulletinComputationProvider = FutureProvider.autoDispose
 
   // 5) Persistance existante (bulletins déjà générés) pour le statut.
   final existing = await db.getAll(
-    'SELECT enrollment_id, status, decision, teacher_comment, director_comment '
+    'SELECT id, enrollment_id, status, decision, teacher_comment, '
+    'director_comment, overall_average, class_average, rank, total_students, '
+    'total_absences, total_lates '
     'FROM bulletins WHERE '
     '${args.trimesterId != null ? 'trimester_id = ?' : '1=1'} '
     'AND enrollment_id IN (SELECT id FROM class_enrollments WHERE class_id = ?)',
@@ -213,6 +215,68 @@ final bulletinComputationProvider = FutureProvider.autoDispose
         director: r['director_comment'] as String?,
       )
   };
+
+  // ── 5 bis) UN BULLETIN PUBLIÉ EST UN DOCUMENT, PAS UNE VUE ────────────────
+  //
+  // ⚠️ `bulletin_subject_lines` était ÉCRITE ET JAMAIS LUE — ni par cet écran,
+  // ni par le PDF, ni par le conseil, ni par le passage. Tout repartait de ce
+  // calcul, en direct. `generateBulletins` refusait pourtant de retoucher un
+  // bulletin publié : il protégeait des lignes que personne ne regardait.
+  //
+  // Conséquence : corriger une note, ou changer un coefficient de matière,
+  // réécrivait un bulletin DÉJÀ REMIS aux parents et déjà signé. Le même
+  // trimestre réimprimé en septembre ne donnait plus les mêmes moyennes qu'en
+  // juillet, ni le même rang — et rien ne le signalait. Le conseil de classe
+  // délibérait sur des chiffres qui pouvaient bouger après sa décision.
+  //
+  // Publier FIGE. On relit le document tel qu'il a été arrêté ; seules les
+  // pièces qui vivent légitimement après coup (décision du conseil,
+  // appréciations) restent en direct. Les brouillons, eux, se recalculent —
+  // c'est ce qu'on attend d'un brouillon.
+  final publies = <String, String>{
+    for (final r in existing)
+      if ((r['status'] as String?) == 'published')
+        r['enrollment_id'] as String: r['id'] as String
+  };
+  final figeByEnr = <String, Map<String, Object?>>{
+    for (final r in existing)
+      if ((r['status'] as String?) == 'published') r['enrollment_id'] as String: r
+  };
+  final lignesFigees = <String, List<SubjectLine>>{};
+  if (publies.isNotEmpty) {
+    final ids = publies.values.toList();
+    final ph = List.filled(ids.length, '?').join(',');
+    final rows = await db.getAll(
+      '''
+      SELECT bl.bulletin_id, bl.subject_id, bl.average, bl.class_average,
+             bl.rank, bl.coefficient, s.name AS subject_name
+      FROM   bulletin_subject_lines bl
+      LEFT JOIN subjects s ON s.id = bl.subject_id
+      WHERE  bl.bulletin_id IN ($ph)
+      ''',
+      ids,
+    );
+    final parBulletin = <String, List<SubjectLine>>{};
+    for (final r in rows) {
+      (parBulletin[r['bulletin_id'] as String] ??= []).add(SubjectLine(
+        subjectId: (r['subject_id'] as String?) ?? '',
+        // Le nom vient du référentiel ; s'il a été archivé depuis, la ligne
+        // reste lisible plutôt que de disparaître du bulletin.
+        subjectName: (r['subject_name'] as String?) ?? '—',
+        coefficient: (r['coefficient'] as num?)?.toInt() ?? 1,
+        average: (r['average'] as num?)?.toDouble(),
+        classAverage: (r['class_average'] as num?)?.toDouble(),
+        rank: (r['rank'] as num?)?.toInt(),
+      ));
+    }
+    for (final e in publies.entries) {
+      final l = parBulletin[e.value];
+      // Un bulletin publié SANS ligne enregistrée (généré avant ce correctif,
+      // ou génération interrompue) retombe sur le calcul : mieux vaut un
+      // bulletin recalculé qu'un bulletin vide.
+      if (l != null && l.isNotEmpty) lignesFigees[e.key] = l;
+    }
+  }
 
   // 6) Moyenne par matière par élève.
   final subjAvg = <String, Map<String, double>>{}; // enr → subj → avg/20
@@ -347,6 +411,8 @@ final bulletinComputationProvider = FutureProvider.autoDispose
           rank: subjRankMap[l.subjectId]?[enr],
         ),
     ];
+    // Publié ⇒ on rend le document arrêté, pas le recalcul du jour.
+    final fige = figeByEnr[enr];
     students.add(StudentBulletin(
       enrollmentId: enr,
       studentId: st['student_id'] as String,
@@ -354,14 +420,18 @@ final bulletinComputationProvider = FutureProvider.autoDispose
               '${(st['first_name'] as String?) ?? ''}'
           .trim(),
       matricule: st['matricule'] as String?,
-      overallAverage: t.$2,
-      rank: overallRank[enr] ?? 0,
-      totalStudents: total,
-      lines: lines,
+      overallAverage:
+          (fige?['overall_average'] as num?)?.toDouble() ?? t.$2,
+      rank: (fige?['rank'] as num?)?.toInt() ?? (overallRank[enr] ?? 0),
+      totalStudents:
+          (fige?['total_students'] as num?)?.toInt() ?? total,
+      lines: lignesFigees[enr] ?? lines,
       persisted: statusByEnr.containsKey(enr),
       status: statusByEnr[enr] ?? 'draft',
-      absences: assiduite[st['student_id'] as String]?.$1,
-      retards: assiduite[st['student_id'] as String]?.$2,
+      absences: (fige?['total_absences'] as num?)?.toInt() ??
+          assiduite[st['student_id'] as String]?.$1,
+      retards: (fige?['total_lates'] as num?)?.toInt() ??
+          assiduite[st['student_id'] as String]?.$2,
       decision: councilByEnr[enr]?.decision,
       councilAppreciation: councilByEnr[enr]?.appreciation,
       directorComment: councilByEnr[enr]?.director,
@@ -378,9 +448,18 @@ final bulletinComputationProvider = FutureProvider.autoDispose
     for (final s in students)
       if (s.overallAverage != null) s.overallAverage!
   ];
-  final classAvg = classVals.isEmpty
-      ? null
-      : classVals.reduce((a, b) => a + b) / classVals.length;
+  // La moyenne de classe imprimée sur un bulletin publié est celle qui y
+  // figure. `setBulletinsStatus` publie la classe ENTIÈRE d'un trimestre :
+  // dès qu'un bulletin est publié, ils le sont tous, et le document porte sa
+  // propre moyenne de classe.
+  final figeeClasse = figeByEnr.values
+      .map((r) => (r['class_average'] as num?)?.toDouble())
+      .whereType<double>()
+      .firstOrNull;
+  final classAvg = figeeClasse ??
+      (classVals.isEmpty
+          ? null
+          : classVals.reduce((a, b) => a + b) / classVals.length);
 
   return BulletinComputation(
     students: students,

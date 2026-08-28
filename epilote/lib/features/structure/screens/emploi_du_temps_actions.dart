@@ -199,8 +199,23 @@ extension _EdtActions on _EdtPageState {
   }
 
   // Duplique l'emploi du temps de [from] vers une autre classe (sélection).
+  //
+  // ⚠️ DUPLIQUER, C'EST REMPLACER — PAS AJOUTER. La copie s'empilait sur les
+  // créneaux existants de la classe cible : choisir une classe déjà pourvue
+  // doublait toutes ses heures, deux cours au même moment, et la grille entière
+  // passait en conflit. Rien ne le disait avant, rien ne l'annulait après —
+  // « Vider l'emploi du temps » efface aussi ce qui était légitime.
+  //
+  // « L'EDT de 6e A vers 6e B » veut dire que B ressemble à A, jamais à A + B.
+  // La liste annonce donc ce que chaque classe contient déjà, et un
+  // remplacement se confirme en nommant ce qui sera perdu.
   Future<void> _duplicateTo(ClassModel from) async {
     final classes = ref.read(classesForModuleProvider(_kSlug)).valueOrNull ?? const <ClassModel>[];
+    final all = ref.read(timetableSlotsProvider).valueOrNull ?? const <TimetableSlot>[];
+    final compte = <String, int>{};
+    for (final s in all) {
+      compte[s.classId] = (compte[s.classId] ?? 0) + 1;
+    }
     final others = classes.where((c) => c.id != from.id).toList()
       ..sort((a, b) {
         final o = (a.levelOrder ?? 999).compareTo(b.levelOrder ?? 999);
@@ -225,6 +240,15 @@ extension _EdtActions on _EdtPageState {
                   Icon(Icons.groups_2_rounded, size: 18, color: kNavy),
                   const SizedBox(width: 10),
                   Expanded(child: Text(c.name)),
+                  Text(
+                    (compte[c.id] ?? 0) == 0
+                        ? 'vide'
+                        : '${compte[c.id]} créneaux — seront remplacés',
+                    style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: (compte[c.id] ?? 0) == 0 ? kTextMuted : kAccent),
+                  ),
                 ]),
               ),
             ),
@@ -232,6 +256,32 @@ extension _EdtActions on _EdtPageState {
       ),
     );
     if (target == null || !mounted) return;
+    final aRemplacer = compte[target.id] ?? 0;
+    if (aRemplacer > 0) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          title: Text('Remplacer l\'emploi du temps de ${target.name} ?'),
+          content: Text(
+              '${target.name} a déjà $aRemplacer créneau'
+              '${aRemplacer > 1 ? 'x' : ''}. '
+              'Ils seront supprimés, puis remplacés par une copie de '
+              '${from.name}. Cette action est irréversible.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Annuler')),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: kRed),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Remplacer'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+    }
     final profile = ref.read(authNotifierProvider).valueOrNull;
     final yearId = ref.read(activeYearIdProvider);
     final missing = missingWriteIds(
@@ -257,6 +307,13 @@ extension _EdtActions on _EdtPageState {
           academicYearId: aid,
           createdBy: actor,
         );
+        if (aRemplacer > 0) {
+          await clearClassTimetable(
+            schoolId: sid,
+            academicYearId: aid,
+            classId: target.id,
+          );
+        }
         final n = await duplicateClassTimetable(
           groupId: gid,
           schoolId: sid,

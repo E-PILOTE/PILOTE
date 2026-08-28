@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/utils/identite_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'academic_year_context.dart';
@@ -174,6 +175,7 @@ final activeTimetableVersionProvider =
     '''
     SELECT id, status, label FROM timetable_versions
     WHERE school_id = ? AND academic_year_id = ? AND COALESCE(is_active, 1) <> 0
+    ORDER BY created_at, id
     LIMIT 1
     ''',
     parameters: [schoolId, yearId ?? ''],
@@ -315,11 +317,20 @@ Future<String> ensureActiveVersionId({
 }) async {
   final existing = await db.getAll(
     'SELECT id FROM timetable_versions WHERE school_id = ? AND academic_year_id = ? '
-    'AND COALESCE(is_active, 1) <> 0 LIMIT 1',
+    'AND COALESCE(is_active, 1) <> 0 ORDER BY created_at, id LIMIT 1',
     [schoolId, academicYearId],
   );
   if (existing.isNotEmpty) return existing.first['id'] as String;
-  final id = _uuid.v4();
+  // ⚠️ UNE SEULE VERSION PAR ÉCOLE ET PAR ANNÉE. C'est le modèle : rien, dans
+  // tout le code, ne met `is_active` à 0 ni n'insère une seconde version —
+  // publier et dépublier retournent le statut de CETTE ligne. Un tirage au
+  // sort laissait pourtant deux postes hors ligne en créer une chacun le
+  // premier jour ; aucune contrainte en base ne l'attrape, donc rien ne
+  // prévient. Les deux devenaient « actives », le `LIMIT 1` en choisissait une
+  // AU HASARD, et les créneaux se répartissaient entre elles : la direction
+  // publiait une version, les enseignants en recevaient une autre.
+  // L'identité se déduit de la clé métier — deux postes écrivent la même ligne.
+  final id = idDeterministe('timetable_version', [schoolId, academicYearId]);
   final now = DateTime.now().toIso8601String();
   await db.execute(
     '''
@@ -361,6 +372,7 @@ final classRequiredHoursProvider =
   ref.keepAlive();
   final profile = ref.watch(authNotifierProvider).valueOrNull;
   final schoolId = profile?.schoolId;
+  final yearId = ref.watch(activeYearIdProvider);
   if (schoolId == null || schoolId.isEmpty) return Stream.value(const {});
   return db.watch(
     '''
@@ -369,9 +381,10 @@ final classRequiredHoursProvider =
     FROM   class_subjects cs
     JOIN   classes c ON c.id = cs.class_id
     WHERE  c.school_id = ?
+      AND  c.academic_year_id = ?
     GROUP  BY cs.class_id
     ''',
-    parameters: [schoolId],
+    parameters: [schoolId, yearId ?? ''],
   ).map((rows) => {
         for (final r in rows)
           (r['class_id'] as String): ((r['req'] as num?)?.toInt() ?? 0),

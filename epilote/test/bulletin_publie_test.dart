@@ -96,6 +96,79 @@ void main() {
     });
   });
 
+  // ══════════════════════════════════════════════════════════════════════════
+  //  DÉFAUT 3 (2026-08-28) : la protection gardait une porte que personne
+  //  n'empruntait.
+  //
+  //  `generateBulletins` refusait de retoucher un bulletin publié — et
+  //  `bulletin_subject_lines`, la table qu'elle protégeait ainsi, était ÉCRITE
+  //  ET JAMAIS LUE. Ni l'écran, ni le PDF, ni le conseil, ni le passage ne
+  //  l'ouvraient : tous repartaient de `bulletinComputationProvider`, qui
+  //  recalcule tout en direct depuis les notes et les coefficients.
+  //
+  //  Donc corriger une note, ou changer le coefficient d'une matière,
+  //  réécrivait un bulletin DÉJÀ REMIS aux familles et déjà signé. Réimprimé
+  //  en septembre, le trimestre de juillet ne donnait plus les mêmes moyennes
+  //  ni le même rang, et rien ne le disait. Le conseil de classe délibérait sur
+  //  des chiffres qui pouvaient encore bouger après sa décision.
+  //
+  //  Les deux moitiés se contredisaient : soit le bulletin est un document et
+  //  il se relit, soit il est une vue et la protection n'a pas de sens. Un
+  //  bulletin remis à un parent est un document.
+  // ══════════════════════════════════════════════════════════════════════════
+  group('Un bulletin publié se RELIT, il ne se recalcule pas', () {
+    test('le calcul ouvre les lignes enregistrées', () {
+      final code = _codeSeul(_kProvider);
+      expect(code.contains('FROM   bulletin_subject_lines bl'), isTrue,
+          reason: 'La table était écrite et jamais lue : la protection de la '
+              'génération gardait des lignes que personne n\'ouvrait.');
+      expect(code.contains("(r['status'] as String?) == 'published'"), isTrue,
+          reason: 'Seul un bulletin PUBLIÉ est figé ; un brouillon doit se '
+              'recalculer — c\'est ce qu\'on attend d\'un brouillon.');
+    });
+
+    test('les valeurs rendues viennent du document, pas du recalcul', () {
+      final code = _codeSeul(_kProvider);
+      for (final champ in [
+        'overall_average',
+        'total_students',
+        'total_absences',
+        'total_lates',
+      ]) {
+        expect(code.contains("fige?['$champ']"), isTrue,
+            reason: '`$champ` doit être relu du bulletin publié : c\'est ce '
+                'chiffre-là qui est imprimé sur le document remis.');
+      }
+      expect(code.contains('lines: lignesFigees[enr] ?? lines'), isTrue,
+          reason: 'Les lignes du document priment sur celles du jour.');
+      expect(code.contains("(fige?['rank'] as num?)?.toInt()"), isTrue,
+          reason: 'Le rang aussi : il change dès qu\'une note bouge ailleurs '
+              'dans la classe, sans que l\'élève y soit pour rien.');
+      // La moyenne de CLASSE n'est pas une valeur d'élève : elle se relit une
+      // fois pour le trimestre. `setBulletinsStatus` publie la classe entière,
+      // donc dès qu'un bulletin est publié le document porte la sienne.
+      expect(code.contains('final classAvg = figeeClasse ??'), isTrue,
+          reason: 'La moyenne de classe imprimée doit être celle du document.');
+    });
+
+    test('un bulletin publié sans ligne enregistrée reste lisible', () {
+      // Les bulletins publiés AVANT ce correctif n'ont pas forcément leurs
+      // lignes. Un document vide serait pire que le recalcul.
+      final code = _codeSeul(_kProvider);
+      expect(code.contains('if (l != null && l.isNotEmpty)'), isTrue,
+          reason: 'Le repli doit être le calcul, jamais un bulletin vide.');
+    });
+
+    test('ce qui vit après la publication reste en direct', () {
+      // La décision du conseil et les appréciations s'écrivent APRÈS que les
+      // moyennes sont arrêtées : les figer les effacerait.
+      final code = _codeSeul(_kProvider);
+      expect(code.contains('decision: councilByEnr[enr]?.decision'), isTrue);
+      expect(code.contains("fige?['decision']"), isFalse,
+          reason: 'Figer la décision du conseil la rendrait insaisissable.');
+    });
+  });
+
   group('Le modèle fossile `GradeModel` ne revient pas', () {
     test('il n\'existe plus', () {
       // Il décrivait une table `grades` disparue : neuf de ses champs
