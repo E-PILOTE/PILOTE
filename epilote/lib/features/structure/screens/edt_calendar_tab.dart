@@ -47,8 +47,18 @@ class _CalendarTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(schoolHolidaysProvider);
     final year = ref.watch(activeYearProvider);
-    final canCreate = ref.watch(canProvider((slug: _kSlug, action: 'create')));
-    final canDelete = ref.watch(canProvider((slug: _kSlug, action: 'delete')));
+    // ⚠️ UNE ANNÉE ARCHIVÉE NE SE MODIFIE PLUS, ET LE DIRE ICI ÉVITE UN LOT
+    // PERDU. Le déclencheur `fn_guard_locked_year` refuse toute écriture sur le
+    // calendrier d'une année verrouillée — en 42501, code FATAL pour le
+    // connecteur PowerSync, qui jette le LOT ENTIER d'écritures en attente.
+    // Cet onglet lisait bien les verbes du module, mais pas l'état de l'année :
+    // il était le seul écran d'écriture du produit à ne pas consulter
+    // `yearReadOnlyProvider`.
+    final readOnly = ref.watch(yearReadOnlyProvider);
+    final canCreate =
+        ref.watch(canProvider((slug: _kSlug, action: 'create'))) && !readOnly;
+    final canDelete =
+        ref.watch(canProvider((slug: _kSlug, action: 'delete'))) && !readOnly;
 
     return async.when(
       skipLoadingOnReload: true,
@@ -311,9 +321,25 @@ class _HolidayFormState extends ConsumerState<_HolidayForm> {
   }
 
   Future<void> _pickDate(bool start) async {
+    // ⚠️ FERMÉ PAR DÉFAUT. Le repli `année ± 1` n'avait aucun rapport avec
+    // l'année scolaire : il laissait choisir une date hors bornes. Or le
+    // déclencheur `fn_check_holiday_period` refuse en 23514 une vacance qui
+    // sort de l'année — et `23xxx` figure dans `_fatalResponseCodes` du
+    // connecteur : le LOT ENTIER d'écritures en attente est jeté, pas
+    // seulement cette ligne. `_save` exige déjà l'année, mais il la lit d'un
+    // AUTRE provider : entre les deux lectures, la fenêtre pouvait s'ouvrir
+    // grande puis l'écriture partir. « Je ne sais pas » se traite comme
+    // « pas maintenant », jamais comme « sans limite ».
     final year = ref.read(activeYearProvider);
-    final first = year?.startDate ?? DateTime(DateTime.now().year - 1);
-    final last = year?.endDate ?? DateTime(DateTime.now().year + 1);
+    if (year == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text(
+              'Année scolaire pas encore chargée — réessayez dans un instant.'),
+          backgroundColor: kRed));
+      return;
+    }
+    final first = year.startDate;
+    final last = year.endDate;
     final base = (start ? _start : _end) ?? _start ?? DateTime.now();
     final init = base.isBefore(first)
         ? first

@@ -40,6 +40,16 @@ import 'package:flutter_test/flutter_test.dart';
 //  `uq_library_loans_item_en_cours`, qui interdisait de prêter plus d'un
 //  exemplaire d'un ouvrage possédé en cinq. Les deux familles sont ici.
 //
+//  ⚠️ TROISIÈME FAMILLE : LES CONTRAINTES QUI LÈVENT. `CHECK` et déclencheurs
+//  `RAISE` produisent eux aussi un code fatal — 23514 pour un `check_violation`,
+//  et `fn_ay_raise` va jusqu'à lever un 42501. Le mécanisme est le même : le lot
+//  entier part. Relevé du 2026-08-28 sur la base de production : 16 déclencheurs
+//  qui lèvent, dont TROIS seulement sur le chemin hors ligne (les autres ne sont
+//  écrits que par l'espace admin groupe, en ligne, où un refus est une erreur
+//  affichée à l'agent) ; et 16 contraintes `CHECK` sur les tables écrites hors
+//  ligne, presque toutes sur des valeurs que l'écran impose par une liste.
+//  Les gardes qui restent nécessaires sont assertés dans le dernier groupe.
+//
 //  ⚠️ AJOUTER UNE CONTRAINTE `UNIQUE` MÉTIER EN BASE, C'EST DEVOIR AJOUTER UNE
 //  LIGNE ICI. C'est le prix, et il est petit devant un lot perdu en silence.
 // ════════════════════════════════════════════════════════════════════════════
@@ -322,5 +332,65 @@ void main() {
         reason: 'Toutes les lignes de ces fichiers portent une clé métier '
             'unique : aucun identifiant ne doit s\'y tirer au '
             'sort.\n\n${fautes.join('\n')}');
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  LES CONTRAINTES QUI LÈVENT — CE QUI DOIT LES DEVANCER CÔTÉ ÉCRAN
+  //
+  //  Une contrainte `CHECK` ou un déclencheur `RAISE` coûtent le lot entier,
+  //  exactement comme un doublon de clé. La différence : ils se déclenchent sur
+  //  une saisie ORDINAIRE — un enfant de plus que le quota, des vacances hors
+  //  de l'année, une année archivée. L'écran doit donc le dire AVANT.
+  // ══════════════════════════════════════════════════════════════════════════
+  group('Ce qui lèverait un 23xxx se dit d\'abord à l\'écran', () {
+    test('le quota d\'élèves se vérifie avant la création', () {
+      // `fn_enforce_student_quota` lève un `check_violation` (23514) BEFORE
+      // INSERT ON students : inscrire un enfant de trop jetterait le lot.
+      final prov = File('lib/features/students/providers/students_provider.dart')
+          .readAsStringSync();
+      expect(prov.contains('checkStudentQuota'), isTrue);
+      final ecran =
+          File('lib/features/students/screens/add_inscription_screen.dart')
+              .readAsStringSync();
+      expect(ecran.contains('await checkStudentQuota('), isTrue,
+          reason: 'Le garde doit être APPELÉ, pas seulement défini.');
+    });
+
+    test('« absent » efface la note, comme l\'exige `chk_score_or_absent`', () {
+      // CHECK ((is_absent AND score IS NULL) OR (NOT is_absent AND score IS
+      // NOT NULL)) : garder 12 en cochant « absent » lèverait un 23514.
+      final src = File('lib/features/evaluation/screens/notes_grades.dart')
+          .readAsStringSync();
+      expect(src.contains('score: isAbsent ? null : score'), isTrue);
+    });
+
+    test('le calendrier ferme quand il ne connaît pas l\'année', () {
+      // `fn_check_holiday_period` refuse une vacance hors des bornes de
+      // l'année. Le repli « année ± 1 » du sélecteur ouvrait grand.
+      final src = File('lib/features/structure/screens/edt_calendar_tab.dart')
+          .readAsStringSync();
+      expect(src.contains('final first = year.startDate;'), isTrue,
+          reason: 'Les bornes doivent venir de l\'année, jamais d\'un repli.');
+      expect(src.contains('year ?? DateTime('), isFalse);
+    });
+
+    test('le calendrier tient l\'ordre des dates', () {
+      // CHECK (end_date >= start_date).
+      final src = File('lib/features/structure/screens/edt_calendar_tab.dart')
+          .readAsStringSync();
+      expect(src.contains('if (_end == null || _end!.isBefore(picked)) _end = picked;'),
+          isTrue);
+      expect(src.contains('if (_start == null || _start!.isAfter(picked)) _start = picked;'),
+          isTrue);
+    });
+
+    test('une année archivée verrouille le calendrier', () {
+      // `fn_guard_locked_year` lève un 42501 sur une année verrouillée. Cet
+      // onglet était le SEUL écran d'écriture à ne pas lire l'état de l'année.
+      final src = File('lib/features/structure/screens/edt_calendar_tab.dart')
+          .readAsStringSync();
+      expect(src.contains('yearReadOnlyProvider'), isTrue);
+      expect(src.contains('&& !readOnly'), isTrue);
+    });
   });
 }
