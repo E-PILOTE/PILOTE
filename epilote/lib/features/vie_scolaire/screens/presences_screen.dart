@@ -11,6 +11,7 @@ import '../../students/widgets/scope_drilldown_panel.dart';
 import '../providers/presences_provider.dart';
 import '../widgets/vs_kit.dart';
 import '../../../core/utils/message_erreur.dart';
+import '../../../core/utils/date_scolaire.dart';
 
 part 'presences_roll.dart';
 
@@ -52,17 +53,8 @@ class _BodyState extends ConsumerState<_Body> {
   String? get _activeClassId => _openClassId ?? _scope.classId;
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _date,
-      firstDate: DateTime(_date.year - 1),
-      lastDate: DateTime.now().add(const Duration(days: 1)),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx)
-            .copyWith(colorScheme: ColorScheme.light(primary: kNavy)),
-        child: child!,
-      ),
-    );
+    final picked = await choisirDateScolaire(context, ref,
+        initiale: _date, plafond: DateTime.now().add(const Duration(days: 1)));
     if (picked != null) {
       setState(() {
         _date = picked;

@@ -52,17 +52,8 @@ class _IncidentFormState extends ConsumerState<_IncidentForm> {
       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
   String _key(DateTime d) => d.toIso8601String().substring(0, 10);
 
-  Future<DateTime?> _pick(DateTime init) => showDatePicker(
-        context: context,
-        initialDate: init,
-        firstDate: DateTime(init.year - 1),
-        lastDate: DateTime.now().add(const Duration(days: 365)),
-        builder: (ctx, child) => Theme(
-          data: Theme.of(ctx)
-              .copyWith(colorScheme: ColorScheme.light(primary: kNavy)),
-          child: child!,
-        ),
-      );
+  Future<DateTime?> _pick(DateTime init) =>
+      choisirDateScolaire(context, ref, initiale: init);
 
   Future<void> _save() async {
     if (_studentId == null) {

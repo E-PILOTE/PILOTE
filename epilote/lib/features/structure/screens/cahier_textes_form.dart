@@ -53,12 +53,7 @@ class _LessonFormState extends ConsumerState<_LessonForm> {
   }
 
   Future<void> _pickDate() async {
-    final d = await showDatePicker(
-      context: context,
-      initialDate: _date,
-      firstDate: DateTime(DateTime.now().year - 1),
-      lastDate: DateTime(DateTime.now().year + 1, 12, 31),
-    );
+    final d = await choisirDateScolaire(context, ref, initiale: _date);
     if (d != null) setState(() => _date = d);
   }
 

@@ -367,10 +367,17 @@ void main() {
     test('le calendrier ferme quand il ne connaît pas l\'année', () {
       // `fn_check_holiday_period` refuse une vacance hors des bornes de
       // l'année. Le repli « année ± 1 » du sélecteur ouvrait grand.
+      //
+      // Le calcul des bornes vivait ici, en propre. Le relevé du 2026-08-28 a
+      // trouvé HUIT autres formulaires avec le même repli : il est devenu
+      // `choisirDateScolaire` (core/utils/date_scolaire.dart), partagé et
+      // testé à part (`date_scolaire_test.dart`). Le garde suit la logique là
+      // où elle est allée.
       final src = File('lib/features/structure/screens/edt_calendar_tab.dart')
           .readAsStringSync();
-      expect(src.contains('final first = year.startDate;'), isTrue,
+      expect(src.contains('choisirDateScolaire(context, ref'), isTrue,
           reason: 'Les bornes doivent venir de l\'année, jamais d\'un repli.');
+      expect(src.contains('showDatePicker('), isFalse);
       expect(src.contains('year ?? DateTime('), isFalse);
     });
 

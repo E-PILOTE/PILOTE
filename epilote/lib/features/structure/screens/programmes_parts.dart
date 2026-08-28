@@ -446,8 +446,11 @@ class _ProgTable extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final canEdit = ref.watch(canProvider((slug: _kSlug, action: 'update')));
-    final canDelete = ref.watch(canProvider((slug: _kSlug, action: 'delete')));
+    final readOnly = ref.watch(yearReadOnlyProvider);
+    final canEdit =
+        ref.watch(canProvider((slug: _kSlug, action: 'update'))) && !readOnly;
+    final canDelete =
+        ref.watch(canProvider((slug: _kSlug, action: 'delete'))) && !readOnly;
     final canBulk = canEdit || canDelete;
     final allSel =
         rows.isNotEmpty && rows.every((p) => selected.contains(p.id));
@@ -656,8 +659,11 @@ class _ProgCards extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final canEdit = ref.watch(canProvider((slug: _kSlug, action: 'update')));
-    final canDelete = ref.watch(canProvider((slug: _kSlug, action: 'delete')));
+    final readOnly = ref.watch(yearReadOnlyProvider);
+    final canEdit =
+        ref.watch(canProvider((slug: _kSlug, action: 'update'))) && !readOnly;
+    final canDelete =
+        ref.watch(canProvider((slug: _kSlug, action: 'delete'))) && !readOnly;
     return LayoutBuilder(builder: (ctx, cns) {
       final w = cns.maxWidth;
       final cols = w >= 1180 ? 3 : (w >= 760 ? 2 : 1);
@@ -766,7 +772,11 @@ class _ProgBulkBar extends StatelessWidget {
     required this.onClear,
   });
   final int count;
-  final VoidCallback onDelete, onExport, onClear;
+  // Nullable : un profil doté du seul `update` peut sélectionner (pour
+  // exporter) sans pouvoir supprimer. Un bouton toujours offert envoyait un
+  // DELETE que la RLS refuse en 42501 — code FATAL pour le connecteur.
+  final VoidCallback? onDelete;
+  final VoidCallback onExport, onClear;
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -783,10 +793,11 @@ class _ProgBulkBar extends StatelessWidget {
                 fontWeight: FontWeight.w700)),
         const Spacer(),
         _BulkBtn(icon: Icons.download_rounded, label: 'Exporter', onTap: onExport),
-        _BulkBtn(
-            icon: Icons.delete_outline_rounded,
-            label: 'Supprimer',
-            onTap: onDelete),
+        if (onDelete != null)
+          _BulkBtn(
+              icon: Icons.delete_outline_rounded,
+              label: 'Supprimer',
+              onTap: onDelete!),
         const SizedBox(width: 4),
         IconButton(
           tooltip: 'Désélectionner',

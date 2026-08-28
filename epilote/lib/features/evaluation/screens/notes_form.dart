@@ -60,17 +60,7 @@ class _EvaluationFormState extends ConsumerState<_EvaluationForm> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _date,
-      firstDate: DateTime(_date.year - 2),
-      lastDate: DateTime(_date.year + 2),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx)
-            .copyWith(colorScheme: ColorScheme.light(primary: kNavy)),
-        child: child!,
-      ),
-    );
+    final picked = await choisirDateScolaire(context, ref, initiale: _date);
     if (picked != null) setState(() => _date = picked);
   }
 

@@ -8,6 +8,7 @@ import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../data/models/class_model.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
 import '../../structure/providers/academic_structure_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
@@ -15,6 +16,8 @@ import '../providers/class_provider.dart';
 import '../../../core/utils/message_erreur.dart';
 
 part 'classes_parts.dart';
+
+const _kSlug = 'classes';
 
 // ─── Accents par cycle (cohérents avec Inscriptions / Structure) ─────────────
 Map<String, Color> get _cycleColors => <String, Color>{
@@ -58,7 +61,7 @@ class ClassesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => const ModuleScaffold(
-        slug: 'classes',
+        slug: _kSlug,
         title: 'Classes',
         child: _Body(),
       );
@@ -200,6 +203,12 @@ class _BodyState extends ConsumerState<_Body> {
     // périmètre du module `classes` EST celui de l'écran.
     final async = ref.watch(classesProvider);
     final readOnly = ref.watch(yearReadOnlyProvider);
+    // Un état vide n'est pas une porte ouverte : la barre d'outils passe par
+    // le verbe `create`, l'`AdminEmptyState` doit le faire aussi. La RLS
+    // exige ce verbe à l'INSERT ; un refus est un 42501, code FATAL pour le
+    // connecteur PowerSync — le lot d'écritures entier est jeté.
+    final canCreate =
+        ref.watch(canProvider((slug: _kSlug, action: 'create'))) && !readOnly;
     final teachers = {
       for (final t in ref.watch(schoolTeachersProvider).valueOrNull ??
           const <SchoolTeacher>[])
@@ -286,8 +295,8 @@ class _BodyState extends ConsumerState<_Body> {
                     message:
                         'Créez la première classe pour structurer les effectifs '
                         'et démarrer les inscriptions.',
-                    actionLabel: readOnly ? null : 'Nouvelle classe',
-                    onAction: readOnly ? null : () => _openForm(),
+                    actionLabel: canCreate ? 'Nouvelle classe' : null,
+                    onAction: canCreate ? () => _openForm() : null,
                   ),
                 )
               else if (filtered.isEmpty)

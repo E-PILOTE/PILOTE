@@ -27,13 +27,8 @@ class _NewTransferDialogState extends ConsumerState<_NewTransferDialog> {
   }
 
   Future<void> _pickDate() async {
-    final d = await showDatePicker(
-      context: context,
-      initialDate: _date,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-      helpText: 'Date du transfert',
-    );
+    final d = await choisirDateScolaire(context, ref,
+        initiale: _date, aide: 'Date du transfert');
     if (d != null) setState(() => _date = d);
   }
 

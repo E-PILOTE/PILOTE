@@ -3,9 +3,14 @@ import 'package:uuid/uuid.dart';
 
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../navigation/providers/permissions_provider.dart';
 import 'academic_year_context.dart';
 
 const _uuid = Uuid();
+
+/// Slug du module — le périmètre (`own_school` / `own_classes`) se lit sur CE
+/// module, jamais sur un autre.
+const kSlugCahierTextes = 'cahier-textes';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  CAHIER DE TEXTES (table `lesson_entries`) — journal des séances : ce qui a
@@ -50,7 +55,14 @@ class LessonEntry {
 DateTime? _d(Object? v) =>
     (v is String && v.isNotEmpty) ? DateTime.tryParse(v) : null;
 
-/// Toutes les séances de l'école (année active), jointes aux libellés.
+/// Les séances de l'année active, DANS LE PÉRIMÈTRE du membre.
+///
+/// ⚠️ Ce flux servait « toutes les séances de l'école » : un enseignant en
+/// `own_classes` — qui ne voit que ses classes partout ailleurs — recevait ici
+/// le cahier de textes de l'établissement entier. Le formulaire, lui, était
+/// déjà borné (`classesForModuleProvider`) : on pouvait donc lire ce qu'on ne
+/// pouvait pas écrire. Le périmètre se pose des DEUX côtés, ou il ne sert à
+/// rien.
 final lessonEntriesProvider =
     StreamProvider.autoDispose<List<LessonEntry>>((ref) {
   ref.keepAlive();
@@ -58,6 +70,7 @@ final lessonEntriesProvider =
   final schoolId = profile?.schoolId;
   final yearId = ref.watch(activeYearIdProvider);
   if (schoolId == null || schoolId.isEmpty) return Stream.value(const []);
+  final scope = classScopeClause(ref, kSlugCahierTextes, column: 'l.class_id');
   return db
       .watch(
         '''
@@ -73,9 +86,10 @@ final lessonEntriesProvider =
         LEFT JOIN profiles p  ON p.id = l.staff_id
         WHERE  l.school_id = ?
           AND  l.academic_year_id = ?
+               ${scope?.clause ?? ''}
         ORDER  BY l.entry_date DESC, l.created_at DESC
         ''',
-        parameters: [schoolId, yearId ?? ''],
+        parameters: [schoolId, yearId ?? '', ...?scope?.params],
       )
       .map((rows) => [
             for (final r in rows)

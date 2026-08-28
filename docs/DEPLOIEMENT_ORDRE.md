@@ -15,7 +15,40 @@
 C'est exactement le mode de défaillance que ces migrations éliminent — il faut
 donc être précis sur ce qui est vraiment exposé.
 
-## Ce qui est exposé aujourd'hui : rien
+## ⚠️ Ce qui était exposé, et que cette page affirmait à tort ne pas l'être
+
+> Corrigé le 2026-08-28, quelques heures après la première rédaction.
+
+La section ci-dessous concluait « rien n'est exposé aujourd'hui » à partir d'une
+seule requête : les profils détenant `update` **sans** `create`. La requête était
+juste. Elle ne couvrait pas le cas inverse, et c'est celui qui était ouvert :
+
+**un profil qui LIT un module, devant un écran qui offre la CRÉATION à
+quiconque sait lire.**
+
+Cinq écrans gardaient leur barre d'outils par `PermissionGate(create)` mais
+laissaient leur `AdminEmptyState` — le second chemin vers le même formulaire —
+gardé par `readOnly` seul, ou par rien. Or l'état vide est celui d'une école qui
+démarre : c'est le premier écran que tout le monde voit, et le seul où l'action
+est au centre, en gros.
+
+| écran | table | verbe exigé depuis | profil livré qui lit sans créer |
+|---|---|---|---|
+| Matières | `subjects` | 0131 | Secrétariat |
+| Programmes | `school_programs` | 0135 | Secrétariat |
+| Classes | `classes` | 0129 | Secrétariat |
+| Élèves | `students` | 0131 | Comptabilité, Enseignant, Vie scolaire |
+| Inscriptions | `class_enrollments` | 0131 | les mêmes |
+
+Chacune de ces portes produisait un **42501**, code fatal : le lot d'écritures
+entier en attente sur le poste était jeté. Les cinq sont fermées, et le garde
+`test/porte_de_creation_test.dart` les tient.
+
+**La leçon est sur la méthode, pas sur la base** : une sonde ne prouve que ce
+qu'elle interroge. Vérifier `update sans create` ne dit rien de `read sans
+create`, et un écran peut offrir une écriture par plusieurs portes.
+
+## Ce qui reste vrai du premier relevé
 
 Mesuré profil par profil sur la base de production :
 
@@ -81,3 +114,20 @@ HAVING bool_or(pp.can_update) AND NOT bool_or(pp.can_create);
 
 Toute ligne rendue par cette requête est un 42501 en attente — donc un lot
 d'écritures perdu, en silence, sur le poste de quelqu'un.
+
+Et **la même requête sur `can_read`**, qui manquait :
+
+```sql
+SELECT ap.name, m.slug
+FROM access_profiles ap
+JOIN profile_permissions pp ON pp.profile_id = ap.id
+JOIN modules m ON m.id = pp.module_id
+GROUP BY ap.name, m.slug
+HAVING bool_or(pp.can_read) AND NOT bool_or(pp.can_create);
+```
+
+Ses lignes ne sont pas des défauts en soi — lire sans créer est un réglage
+légitime, et c'est même le plus courant. Elles ne deviennent un 42501 que si un
+écran du module offre la création sans lire le verbe. C'est ce croisement-là
+qu'il faut refaire après chaque nouvel écran, et que le garde
+`test/porte_de_creation_test.dart` automatise du côté du code.

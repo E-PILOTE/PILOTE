@@ -349,6 +349,12 @@ class _BodyState extends ConsumerState<_Body> {
   Widget build(BuildContext context) {
     final async = ref.watch(studentsRegistryProvider('eleves'));
     final readOnly = ref.watch(yearReadOnlyProvider);
+    // Un état vide n'est pas une porte ouverte : la barre d'outils passe par
+    // le verbe `create`, l'`AdminEmptyState` doit le faire aussi. La RLS
+    // exige ce verbe à l'INSERT ; un refus est un 42501, code FATAL pour le
+    // connecteur PowerSync — le lot d'écritures entier est jeté.
+    final canCreate =
+        ref.watch(canProvider((slug: _kSlug, action: 'create'))) && !readOnly;
 
     return async.when(
       skipLoadingOnReload: true,
@@ -453,8 +459,8 @@ class _BodyState extends ConsumerState<_Body> {
                     message:
                         'Les élèves apparaissent ici une fois leur inscription '
                         'VALIDÉE (depuis la page Inscriptions).',
-                    actionLabel: readOnly ? null : 'Nouvel élève',
-                    onAction: readOnly ? null : _openAdd,
+                    actionLabel: canCreate ? 'Nouvel élève' : null,
+                    onAction: canCreate ? _openAdd : null,
                   ),
                 )
               else if (filtered.isEmpty)

@@ -195,6 +195,13 @@ class _BodyState extends ConsumerState<_Body> {
       ),
       data: (all) {
         final filtered = _apply(all);
+        // Un état vide n'est pas une porte ouverte : la barre d'outils passe
+        // par le verbe `create`, l'`AdminEmptyState` doit le faire aussi. La
+        // RLS exige ce verbe à l'INSERT ; un refus est un 42501, code FATAL
+        // pour le connecteur PowerSync — le lot d'écritures entier est jeté.
+        final canCreate =
+            ref.watch(canProvider((slug: _kSlug, action: 'create'))) &&
+                !ref.watch(yearReadOnlyProvider);
         return SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -244,8 +251,8 @@ class _BodyState extends ConsumerState<_Body> {
                     message:
                         'Créez les matières enseignées ; vous les affecterez '
                         'ensuite aux classes avec leur coefficient propre.',
-                    actionLabel: 'Nouvelle matière',
-                    onAction: () => _openForm(),
+                    actionLabel: canCreate ? 'Nouvelle matière' : null,
+                    onAction: canCreate ? () => _openForm() : null,
                   ),
                 )
               else if (filtered.isEmpty)

@@ -11,6 +11,7 @@ import '../../vie_scolaire/widgets/vs_kit.dart';
 import '../../vie_scolaire/widgets/vs_form_chrome.dart';
 import '../providers/depenses_provider.dart';
 import '../../../core/utils/message_erreur.dart';
+import '../../../core/utils/date_scolaire.dart';
 
 part 'depenses_form.dart';
 

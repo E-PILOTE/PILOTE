@@ -254,6 +254,19 @@ class _BodyState extends ConsumerState<_Body> {
   Widget build(BuildContext context) {
     final async = ref.watch(programmesProvider);
     final readOnly = ref.watch(yearReadOnlyProvider);
+    // ⚠️ L'ÉTAT VIDE CONTOURNAIT LA GARDE DU BOUTON. La barre d'outils passe
+    // par `PermissionGate(create)` ; l'`AdminEmptyState`, lui, n'était gardé
+    // que par `readOnly` — et l'état vide est précisément celui d'une école qui
+    // démarre, donc celui que tout le monde voit en premier. Depuis la
+    // migration 0135, la RLS de `school_programs` exige le verbe `create`, et
+    // le profil « Secrétariat » livré au catalogue lit les programmes sans
+    // pouvoir en créer : un appui produisait un 42501, code FATAL pour le
+    // connecteur PowerSync — le lot d'écritures entier en attente sur le poste
+    // est jeté, en silence.
+    final canCreate =
+        ref.watch(canProvider((slug: _kSlug, action: 'create'))) && !readOnly;
+    final canDelete =
+        ref.watch(canProvider((slug: _kSlug, action: 'delete'))) && !readOnly;
     return async.when(
       skipLoadingOnReload: true,
       skipLoadingOnRefresh: true,
@@ -323,7 +336,7 @@ class _BodyState extends ConsumerState<_Body> {
               if (_selected.isNotEmpty)
                 _ProgBulkBar(
                   count: _selected.length,
-                  onDelete: () => _bulkDelete(filtered),
+                  onDelete: canDelete ? () => _bulkDelete(filtered) : null,
                   onExport: () => _bulkExport(filtered),
                   onClear: _clearSel,
                 )
@@ -344,8 +357,8 @@ class _BodyState extends ConsumerState<_Body> {
                     message:
                         'Définissez le programme (syllabus) de chaque matière par '
                         'niveau et par trimestre — officiel ou propre à l\'école.',
-                    actionLabel: readOnly ? null : 'Nouveau programme',
-                    onAction: readOnly ? null : () => _openForm(),
+                    actionLabel: canCreate ? 'Nouveau programme' : null,
+                    onAction: canCreate ? () => _openForm() : null,
                   ),
                 )
               else if (filtered.isEmpty)

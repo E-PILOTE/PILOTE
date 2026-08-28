@@ -23,8 +23,11 @@ class _ProgByCycleState extends ConsumerState<_ProgByCycle> {
 
   @override
   Widget build(BuildContext context) {
-    final canEdit = ref.watch(canProvider((slug: _kSlug, action: 'update')));
-    final canDelete = ref.watch(canProvider((slug: _kSlug, action: 'delete')));
+    final readOnly = ref.watch(yearReadOnlyProvider);
+    final canEdit =
+        ref.watch(canProvider((slug: _kSlug, action: 'update'))) && !readOnly;
+    final canDelete =
+        ref.watch(canProvider((slug: _kSlug, action: 'delete'))) && !readOnly;
 
     final structure =
         ref.watch(academicStructureProvider).valueOrNull ?? AcademicStructure.empty;

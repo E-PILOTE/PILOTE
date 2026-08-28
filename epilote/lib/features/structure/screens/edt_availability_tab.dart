@@ -54,8 +54,14 @@ class _AvailabilityTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(teacherAvailabilityProvider);
-    final canCreate = ref.watch(canProvider((slug: _kSlug, action: 'create')));
-    final canDelete = ref.watch(canProvider((slug: _kSlug, action: 'delete')));
+    // `teacher_availability` porte `academic_year_id` : une année close ne se
+    // réécrit pas. Les salles et les périodes, elles, n'en portent pas —
+    // leur onglet a donc raison de ne pas lire `yearReadOnlyProvider`.
+    final readOnly = ref.watch(yearReadOnlyProvider);
+    final canCreate =
+        ref.watch(canProvider((slug: _kSlug, action: 'create'))) && !readOnly;
+    final canDelete =
+        ref.watch(canProvider((slug: _kSlug, action: 'delete'))) && !readOnly;
 
     return async.when(
       skipLoadingOnReload: true,

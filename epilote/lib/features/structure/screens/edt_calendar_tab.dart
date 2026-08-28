@@ -330,33 +330,8 @@ class _HolidayFormState extends ConsumerState<_HolidayForm> {
     // AUTRE provider : entre les deux lectures, la fenêtre pouvait s'ouvrir
     // grande puis l'écriture partir. « Je ne sais pas » se traite comme
     // « pas maintenant », jamais comme « sans limite ».
-    final year = ref.read(activeYearProvider);
-    if (year == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: const Text(
-              'Année scolaire pas encore chargée — réessayez dans un instant.'),
-          backgroundColor: kRed));
-      return;
-    }
-    final first = year.startDate;
-    final last = year.endDate;
-    final base = (start ? _start : _end) ?? _start ?? DateTime.now();
-    final init = base.isBefore(first)
-        ? first
-        : base.isAfter(last)
-            ? last
-            : base;
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: init,
-      firstDate: first,
-      lastDate: last,
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-            colorScheme: ColorScheme.light(primary: kNavy)),
-        child: child!,
-      ),
-    );
+    final picked = await choisirDateScolaire(context, ref,
+        initiale: (start ? _start : _end) ?? _start ?? DateTime.now());
     if (picked == null) return;
     setState(() {
       if (start) {

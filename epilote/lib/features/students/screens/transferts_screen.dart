@@ -11,6 +11,7 @@ import '../providers/transfers_provider.dart';
 import '../services/transfers_pdf_service.dart';
 import '../widgets/transfer_destination_picker.dart';
 import '../../../core/utils/message_erreur.dart';
+import '../../../core/utils/date_scolaire.dart';
 
 part 'transferts_parts.dart';
 part 'transferts_form.dart';
@@ -177,6 +178,12 @@ class _BodyState extends ConsumerState<_Body> {
   Widget build(BuildContext context) {
     final async = ref.watch(transfersProvider);
     final readOnly = ref.watch(yearReadOnlyProvider);
+    // Un état vide n'est pas une porte ouverte : la barre d'outils passe par
+    // le verbe `create`, l'`AdminEmptyState` doit le faire aussi. La RLS
+    // exige ce verbe à l'INSERT ; un refus est un 42501, code FATAL pour le
+    // connecteur PowerSync — le lot d'écritures entier est jeté.
+    final canCreate =
+        ref.watch(canProvider((slug: _kSlug, action: 'create'))) && !readOnly;
     return async.when(
       skipLoadingOnReload: true,
       skipLoadingOnRefresh: true,
@@ -226,8 +233,8 @@ class _BodyState extends ConsumerState<_Body> {
                         'Enregistrez le départ d\'un élève vers un autre '
                         'établissement. Le suivi (approbation, sortie de '
                         'l\'effectif) se fait ici.',
-                    actionLabel: readOnly ? null : 'Nouveau transfert',
-                    onAction: readOnly ? null : _openForm,
+                    actionLabel: canCreate ? 'Nouveau transfert' : null,
+                    onAction: canCreate ? _openForm : null,
                   ),
                 )
               else if (filtered.isEmpty)

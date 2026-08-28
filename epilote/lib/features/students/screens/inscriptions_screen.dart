@@ -11,6 +11,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/photo_avatar.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../../data/models/class_model.dart';
+import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/classes/providers/class_provider.dart';
@@ -331,6 +332,12 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
   Widget build(BuildContext context) {
     final async = ref.watch(inscriptionsDataProvider);
     final readOnly = ref.watch(yearReadOnlyProvider);
+    // Un état vide n'est pas une porte ouverte : la barre d'outils passe par
+    // le verbe `create`, l'`AdminEmptyState` doit le faire aussi. La RLS
+    // exige ce verbe à l'INSERT ; un refus est un 42501, code FATAL pour le
+    // connecteur PowerSync — le lot d'écritures entier est jeté.
+    final canCreate =
+        ref.watch(canProvider((slug: _kSlug, action: 'create'))) && !readOnly;
 
     return async.when(
       skipLoadingOnReload: true,
@@ -554,8 +561,8 @@ class _InscriptionsBodyState extends ConsumerState<_InscriptionsBody> {
                         message:
                             'Toutes les inscriptions de l\'année sont traitées. '
                             'Les effectifs se consultent dans « Élèves ».',
-                        actionLabel: readOnly ? null : 'Inscrire un élève',
-                        onAction: readOnly ? null : _openAdd,
+                        actionLabel: canCreate ? 'Inscrire un élève' : null,
+                        onAction: canCreate ? _openAdd : null,
                       ),
                     )
                   else if (filtered.isEmpty)

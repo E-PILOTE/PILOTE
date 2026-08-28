@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/date_scolaire.dart';
 import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -18,7 +19,7 @@ import '../../../core/utils/message_erreur.dart';
 part 'cahier_textes_parts.dart';
 part 'cahier_textes_form.dart';
 
-const _kSlug = 'cahier-textes';
+const _kSlug = kSlugCahierTextes;
 
 // ════════════════════════════════════════════════════════════════════════════
 //  PAGE CAHIER DE TEXTES — journal des séances (ce qui a été fait en classe).
@@ -85,8 +86,15 @@ class _BodyState extends ConsumerState<_Body> {
       );
 
   void _openDetail(LessonEntry e) {
-    final canUpdate = ref.read(canProvider((slug: _kSlug, action: 'update')));
-    final canDelete = ref.read(canProvider((slug: _kSlug, action: 'delete')));
+    // Une année archivée se consulte, elle ne se réécrit pas. Le bouton
+    // « Nouvelle séance » lisait déjà `yearReadOnlyProvider` ; « Modifier » et
+    // « Supprimer » ne le lisaient pas — on interdisait donc d'ajouter une
+    // séance à une année close, tout en laissant en effacer une.
+    final readOnly = ref.read(yearReadOnlyProvider);
+    final canUpdate =
+        ref.read(canProvider((slug: _kSlug, action: 'update'))) && !readOnly;
+    final canDelete =
+        ref.read(canProvider((slug: _kSlug, action: 'delete'))) && !readOnly;
     showDialog(
       context: context,
       builder: (_) => _LessonDetail(

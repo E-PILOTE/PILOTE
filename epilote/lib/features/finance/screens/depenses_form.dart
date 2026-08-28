@@ -133,12 +133,8 @@ class _ExpenseFormState extends ConsumerState<_ExpenseForm> {
                   Expanded(
                     child: InkWell(
                       onTap: () async {
-                        final d = await showDatePicker(
-                          context: context,
-                          initialDate: _date,
-                          firstDate: DateTime(_date.year - 1),
-                          lastDate: DateTime.now(),
-                        );
+                        final d = await choisirDateScolaire(context, ref,
+                            initiale: _date, plafond: DateTime.now());
                         if (d != null) setState(() => _date = d);
                       },
                       borderRadius: BorderRadius.circular(8),
