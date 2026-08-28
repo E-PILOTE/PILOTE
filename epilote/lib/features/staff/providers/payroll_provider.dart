@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/utils/identite_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
 
@@ -111,6 +112,41 @@ Future<void> savePayroll({
   final now = DateTime.now().toIso8601String();
   final net = base + bonuses - deductions;
   final payDate = status == 'confirmed' ? now.substring(0, 10) : null;
+
+  // ⚠️ `UNIQUE (staff_id, period_month, period_year)` : une seule fiche de paie
+  // par agent et par mois. Deux créations pour le même mois — deux appuis, ou
+  // deux postes hors ligne — se font refuser en 23505, code FATAL : le
+  // connecteur jette le LOT ENTIER en attente. De l'argent, et pas seulement
+  // celui-là.
+  final vue = await db.getAll(
+    'SELECT id FROM payroll WHERE staff_id = ? AND period_month = ? '
+    'AND period_year = ? LIMIT 1',
+    [staffId, month, year],
+  );
+  final occupe = vue.isNotEmpty ? vue.first['id'] as String : null;
+
+  // Déplacer une fiche EXISTANTE sur un mois déjà occupé par une autre : la
+  // base refuserait, et le refus coûterait le lot. On le dit ici, en clair —
+  // `runModuleWrite` affiche le message.
+  if (id != null && occupe != null && occupe != id) {
+    throw StateError(
+        'Une fiche de paie existe déjà pour cet agent sur $month/$year.');
+  }
+
+  // Création alors que la fiche existe déjà (le flux n'avait pas rafraîchi) :
+  // on met à jour celle qui est là plutôt que d'en créer une seconde.
+  if (id == null && occupe != null) {
+    await db.execute(
+      'UPDATE payroll SET base_salary_xaf = ?, bonuses_xaf = ?, '
+      'deductions_xaf = ?, net_salary_xaf = ?, payment_method = ?, '
+      'status = ?, payment_reference = ?, notes = ?, updated_at = ? '
+      'WHERE id = ?',
+      [base, bonuses, deductions, net, method, status, reference, notes,
+       now, occupe],
+    );
+    return;
+  }
+
   if (id != null) {
     await db.execute(
       'UPDATE payroll SET staff_id = ?, period_month = ?, period_year = ?, '
@@ -130,7 +166,8 @@ Future<void> savePayroll({
         created_by, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ''',
-      [_uuid.v4(), groupId, schoolId, staffId, month, year, base, bonuses,
+      [idDeterministe('payroll', [staffId, '$month', '$year']),
+       groupId, schoolId, staffId, month, year, base, bonuses,
        deductions, net, payDate, method, reference, status, notes, createdBy,
        now, now],
     );

@@ -1,10 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/utils/identite_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
-
-const _uuid = Uuid();
 
 /// Une affectation « matière dispensée dans une classe » (table `class_subjects`),
 /// enrichie du coefficient effectif, du professeur (via teacher_subjects) et de
@@ -167,7 +165,12 @@ Future<void> assignSubjectToClass({
       coefficient, weekly_hours, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''',
-    [_uuid.v4(), groupId, schoolId, classId, subjectId,
+    // Deduit de `UNIQUE (class_id, subject_id)` : depuis que les classes
+    // portent un identifiant deduit, deux postes hors ligne produisent LA
+    // MEME classe -- donc la meme cle ici. Sans identifiant deduit, la
+    // collision se serait simplement deplacee d'une table a l'autre.
+    [idDeterministe('class_subject', [classId, subjectId]),
+     groupId, schoolId, classId, subjectId,
      coefficient, weeklyHours, now, now],
   );
 }
@@ -235,7 +238,10 @@ Future<void> setAssignmentTeacher({
         academic_year_id, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ''',
-      [_uuid.v4(), groupId, schoolId, teacherId, subjectId, classId,
+      // `UNIQUE (staff_id, subject_id, class_id, academic_year_id)`.
+      [idDeterministe('teacher_subject',
+          [teacherId, subjectId, classId, yearId]),
+       groupId, schoolId, teacherId, subjectId, classId,
        yearId, now, now],
     );
   }

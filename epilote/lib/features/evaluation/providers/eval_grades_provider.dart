@@ -1,9 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
+import '../../../core/utils/identite_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
-
-const _uuid = Uuid();
 
 // ════════════════════════════════════════════════════════════════════════════
 //  NOTES D'UNE ÉVALUATION (table `grades`) — une ligne par élève inscrit dans la
@@ -85,21 +83,33 @@ Future<void> upsertGrade({
 }) async {
   final now = DateTime.now().toIso8601String();
 
+  // ⚠️ [existingGradeId] n'est qu'une INDICATION : il vient d'un instantané du
+  // flux. Saisir 12, se reprendre et saisir 14 dans la seconde — le geste
+  // ordinaire d'une grille de notes — arrivait deux fois avec `null`, et
+  // INSÉRAIT deux lignes. La base tient `UNIQUE (evaluation_id, student_id)` :
+  // 23505, code fatal, LOT ENTIER jeté. On relit donc la note dans la base
+  // locale sur sa clé métier.
+  final vue = await db.getAll(
+    'SELECT id FROM grades WHERE evaluation_id = ? AND student_id = ? LIMIT 1',
+    [evaluationId, studentId],
+  );
+  final gradeId = vue.isNotEmpty ? vue.first['id'] as String : existingGradeId;
+
   // Ni note ni absence → on retire la ligne existante (note effacée).
   if (score == null && !isAbsent) {
-    if (existingGradeId != null) {
-      await db.execute('DELETE FROM grades WHERE id = ?', [existingGradeId]);
+    if (gradeId != null) {
+      await db.execute('DELETE FROM grades WHERE id = ?', [gradeId]);
     }
     return;
   }
 
-  if (existingGradeId != null) {
+  if (gradeId != null) {
     await db.execute(
       '''
       UPDATE grades SET score = ?, is_absent = ?, appreciation = ?, updated_at = ?
       WHERE id = ?
       ''',
-      [score, isAbsent ? 1 : 0, appreciation?.trim(), now, existingGradeId],
+      [score, isAbsent ? 1 : 0, appreciation?.trim(), now, gradeId],
     );
   } else {
     await db.execute(
@@ -109,7 +119,8 @@ Future<void> upsertGrade({
         score, is_absent, appreciation, created_by, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ''',
-      [_uuid.v4(), groupId, schoolId, evaluationId, studentId, enrollmentId,
+      [idDeterministe('grade', [evaluationId, studentId]),
+       groupId, schoolId, evaluationId, studentId, enrollmentId,
        score, isAbsent ? 1 : 0, appreciation?.trim(), createdBy, now, now],
     );
   }

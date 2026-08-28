@@ -2,15 +2,13 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../data/models/class_model.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/navigation/providers/permissions_provider.dart';
 import '../../../features/structure/providers/academic_year_context.dart';
+import '../../../core/utils/identite_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
-
-const _uuid = Uuid();
 
 // ─── Verrou 4 : périmètre de données (own_school vs own_classes) ──────────────
 //
@@ -237,7 +235,11 @@ Future<String> createClass({
     throw Exception('Une classe « $name » existe déjà pour cette année scolaire.');
   }
 
-  final id  = _uuid.v4();
+  // Déduit de `UNIQUE (school_id, academic_year_id, name)`. Le garde par nom
+  // ci-dessus arrête le doublon SUR CE POSTE ; deux appareils qui préparent la
+  // rentrée hors ligne tiraient deux identifiants au sort pour la même classe,
+  // et le serveur en refusait un en 23505 — code fatal, lot entier jeté.
+  final id  = idDeterministe('class', [schoolId, academicYearId, name]);
   final now = DateTime.now().toIso8601String();
   await db.execute(
     '''
@@ -277,7 +279,11 @@ Future<String> createStructuredClass({
   if (dup.isNotEmpty) {
     throw Exception('Une classe « $name » existe déjà pour cette année scolaire.');
   }
-  final id  = _uuid.v4();
+  // Déduit de `UNIQUE (school_id, academic_year_id, name)`. Le garde par nom
+  // ci-dessus arrête le doublon SUR CE POSTE ; deux appareils qui préparent la
+  // rentrée hors ligne tiraient deux identifiants au sort pour la même classe,
+  // et le serveur en refusait un en 23505 — code fatal, lot entier jeté.
+  final id  = idDeterministe('class', [schoolId, academicYearId, name]);
   final now = DateTime.now().toIso8601String();
   await db.execute(
     '''
@@ -417,7 +423,11 @@ Future<String> enrollStudent({
     throw Exception('Cet élève est déjà inscrit pour cette année scolaire.');
   }
 
-  final id    = _uuid.v4();
+  // Déduit de la clé de la contrainte : le garde ci-dessus arrête le doublon
+  // SUR CE POSTE, mais deux appareils hors ligne inscrivant le même élève
+  // tiraient deux identifiants au sort — le serveur en refusait un en 23505,
+  // code fatal. Avec un identifiant déduit, les deux écrivent la même ligne.
+  final id    = idDeterministe('class_enrollment', [studentId, academicYearId]);
   final now   = DateTime.now().toIso8601String();
   final today = now.substring(0, 10);
   await db.execute(

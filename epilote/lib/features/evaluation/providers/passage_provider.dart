@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../core/utils/passage_bareme.dart';
 import '../../../core/utils/rang.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/utils/identite_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'bulletins_provider.dart';
@@ -57,8 +57,6 @@ export '../../../core/utils/passage_bareme.dart'
 //  (`class_enrollments.promotion_*`, migration 0074). Une note corrigée en
 //  août ne réécrit pas une délibération de juin.
 // ════════════════════════════════════════════════════════════════════════════
-
-const _uuid = Uuid();
 
 /// Verdict annuel. Le `code` est stocké dans `class_enrollments.promotion_decision`.
 class PassageVerdict {
@@ -869,6 +867,19 @@ Future<int> reenrollDecided({
           (repeating ? session.repeatClass?.id : session.upperClass?.id);
       if (target == null) continue;
 
+      // ⚠️ `UNIQUE (student_id, academic_year_id)` : un élève n'a qu'une
+      // inscription par année. Relancer la réinscription — deux appuis, une
+      // reprise après coupure, ou deux postes hors ligne — réinsérait la même
+      // inscription : 23505, code FATAL, le connecteur jette le LOT ENTIER en
+      // attente. On relit dans la transaction, et l'identifiant se DÉDUIT de la
+      // clé pour que deux postes écrivent la même ligne au lieu d'en créer deux.
+      final deja = await tx.getAll(
+        'SELECT id FROM class_enrollments '
+        'WHERE student_id = ? AND academic_year_id = ? LIMIT 1',
+        [e.studentId, yearId],
+      );
+      if (deja.isNotEmpty) continue;
+
       final currentClass = await tx.getAll(
         'SELECT class_id FROM class_enrollments WHERE id = ?',
         [e.enrollmentId],
@@ -880,7 +891,7 @@ Future<int> reenrollDecided({
         '  previous_class_id, inscription_type, created_by, created_at, updated_at) '
         'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
-          _uuid.v4(),
+          idDeterministe('class_enrollment', [e.studentId, yearId]),
           groupId,
           schoolId,
           e.studentId,

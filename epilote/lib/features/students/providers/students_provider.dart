@@ -42,13 +42,47 @@ const _uuid = Uuid();
 // annoncent un de plus. Écrire `COALESCE(is_active, 1) <> 0`, toujours.
 // Vérifié par `test/offline_booleen_test.dart`.
 
-/// Génère un matricule collision-safe pour création offline.
-/// Format : {YEAR}-{8 premiers chars UUID} — ex. 2026-A3F7C2B1
-/// Le serveur peut normaliser/remplacer à la sync si besoin.
+/// Génère un matricule pour une création hors ligne.
+/// Format : {ANNÉE}-{12 premiers chars UUID} — ex. 2026-A3F7C2B1D4E5
+///
+/// ── ⚠️ 8 CARACTÈRES N'ÉTAIENT PAS « COLLISION-SAFE » ────────────────────────
+/// L'en-tête l'affirmait ; l'arithmétique dit le contraire. 8 chars hexa = 32
+/// bits. Sur les 9 106 élèves d'aujourd'hui, le paradoxe des anniversaires
+/// donne déjà ~1 % de chance qu'un groupe porte deux fois le même suffixe ; à
+/// 100 000 élèves — l'échelle visée — la collision devient quasi certaine.
+///
+/// Et une collision ne se voit pas : la base tient
+/// `UNIQUE (group_id, matricule)`, donc le second élève est refusé en 23505,
+/// code FATAL pour le connecteur, qui jette le LOT ENTIER en attente. Un
+/// enfant inscrit qui disparaît, et les paiements de la matinée avec lui.
+///
+/// 12 chars = 48 bits : à 100 000 élèves, une chance sur ~55 000. Le format
+/// n'est lu nulle part (vérifié : aucun `substring`, aucune `RegExp` sur
+/// `matricule` dans le dépôt), l'élargir ne casse rien.
 String _generateMatricule() {
   final year   = DateTime.now().year;
-  final suffix = _uuid.v4().replaceAll('-', '').substring(0, 8).toUpperCase();
+  final suffix = _uuid.v4().replaceAll('-', '').substring(0, 12).toUpperCase();
   return '$year-$suffix';
+}
+
+/// Un matricule que le groupe ne porte pas déjà.
+///
+/// Le tirage large rend la collision improbable ; la relecture la rend
+/// impossible CONTRE CE QUI EST DÉJÀ LÀ — c'est le terme dominant, puisque tout
+/// élève déjà synchronisé est dans la base locale.
+Future<String> _matriculeLibre(String groupId) async {
+  for (var i = 0; i < 5; i++) {
+    final m = _generateMatricule();
+    final pris = await db.getAll(
+      'SELECT 1 FROM students WHERE group_id = ? AND matricule = ? LIMIT 1',
+      [groupId, m],
+    );
+    if (pris.isEmpty) return m;
+  }
+  // Cinq tirages tous pris : ce n'est plus du hasard, c'est un défaut. Mieux
+  // vaut le dire que d'écrire une ligne que le serveur refusera fatalement.
+  throw StateError(
+      'Impossible de générer un matricule libre pour ce groupe.');
 }
 
 // ─── Providers lecture ────────────────────────────────────────────────────────
@@ -195,7 +229,7 @@ Future<String> createStudent({
   bool isAffecte = false,
 }) async {
   final sid        = id ?? _uuid.v4();
-  final matricule  = _generateMatricule();
+  final matricule  = await _matriculeLibre(groupId);
   final now        = DateTime.now().toIso8601String();
 
   await db.execute(

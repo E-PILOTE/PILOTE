@@ -1,11 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../data/models/academic_year_model.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/identite_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
 
-const _uuid = Uuid();
 String get _now => DateTime.now().toIso8601String();
 
 // ─── Année académique courante ────────────────────────────────────────────────
@@ -235,7 +234,10 @@ Future<int> copySchoolClassesToYear({
           main_teacher_id, room, level_id, is_active, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)''',
       [
-        _uuid.v4(), schoolId, groupId, targetYearId, c['name'], c['capacity'],
+        // Deduit de `UNIQUE (school_id, academic_year_id, name)`.
+        idDeterministe('class',
+            [schoolId, targetYearId, (c['name'] as String).trim()]),
+        schoolId, groupId, targetYearId, c['name'], c['capacity'],
         c['main_teacher_id'], c['room'], c['level_id'], _now, _now,
       ],
     );

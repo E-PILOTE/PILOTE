@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../core/utils/mention.dart';
 import '../../../core/utils/rang.dart';
+import '../../../core/utils/identite_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
 
 // Le barème des mentions vit dans `core/utils/mention.dart` — une seule copie,
@@ -12,8 +12,6 @@ import '../../../services/powersync/powersync_service.dart';
 // bulletins. On le ré-exporte pour ne pas casser les écrans qui l'importent
 // depuis ce provider.
 export '../../../core/utils/mention.dart' show mentionFor;
-
-const _uuid = Uuid();
 
 // ════════════════════════════════════════════════════════════════════════════
 //  BULLETINS (tables `bulletins` + `bulletin_subject_lines`) — relevés de notes
@@ -437,8 +435,12 @@ Future<GenerationBulletins> generateBulletins({
     // Bulletin existant ?
     final ex = await db.getAll(
       'SELECT id, status FROM bulletins '
-      'WHERE enrollment_id = ? AND trimester_id = ?',
-      [s.enrollmentId, trimesterId],
+      // ⚠️ SUR LA CLÉ DE LA CONTRAINTE, pas sur l'inscription. La base tient
+      // `UNIQUE (student_id, trimester_id)` ; chercher par `enrollment_id`
+      // manquait le bulletin d'un élève ayant changé de classe en cours
+      // d'année — deux inscriptions, deux bulletins tentés, 23505 fatal.
+      'WHERE student_id = ? AND trimester_id = ?',
+      [s.studentId, trimesterId],
     );
     if (ex.isNotEmpty && (ex.first['status'] as String?) == 'published') {
       publies++;
@@ -462,7 +464,10 @@ Future<GenerationBulletins> generateBulletins({
           'DELETE FROM bulletin_subject_lines WHERE bulletin_id = ?',
           [bulletinId]);
     } else {
-      bulletinId = _uuid.v4();
+      // Déduit de la clé : deux postes qui génèrent le même trimestre hors
+      // ligne écrivent la même ligne, au lieu d'en créer deux que le serveur
+      // refuserait en 23505 — code fatal, lot entier jeté.
+      bulletinId = idDeterministe('bulletin', [s.studentId, trimesterId]);
       await db.execute(
         '''
         INSERT INTO bulletins (
@@ -486,7 +491,8 @@ Future<GenerationBulletins> generateBulletins({
           created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''',
-        [_uuid.v4(), bulletinId, l.subjectId, groupId, schoolId, l.average,
+        [idDeterministe('bulletin_subject_line', [bulletinId, l.subjectId]),
+         bulletinId, l.subjectId, groupId, schoolId, l.average,
          l.classAverage, l.rank, l.coefficient, l.weighted, now, now],
       );
     }

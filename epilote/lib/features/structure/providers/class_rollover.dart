@@ -1,5 +1,5 @@
-import 'package:uuid/uuid.dart';
 
+import '../../../core/utils/identite_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -43,8 +43,6 @@ import '../../../services/powersync/powersync_service.dart';
 //  se retrouver avec deux « 6ème A ».
 // ════════════════════════════════════════════════════════════════════════════
 
-const _uuid = Uuid();
-
 class RolloverResult {
   const RolloverResult({required this.created, required this.skipped});
   final int created, skipped;
@@ -87,7 +85,10 @@ Future<RolloverResult> rolloverClasses({
         skipped++;
         continue;
       }
-      final newId = _uuid.v4();
+      // Deduits de leurs cles uniques : deux postes qui reconduisent
+      // l'annee hors ligne ecrivent LES MEMES lignes au lieu d'en creer
+      // deux que le serveur refuserait en 23505 -- code fatal, lot jete.
+      final newId = idDeterministe('class', [schoolId, toYearId, name]);
       await tx.execute(
         'INSERT INTO classes (id, group_id, school_id, academic_year_id, '
         '  level_id, name, capacity, room, is_active, cycle_code, level_code, '
@@ -126,7 +127,8 @@ Future<RolloverResult> rolloverClasses({
           '  subject_id, coefficient, weekly_hours, created_at, updated_at) '
           'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [
-            _uuid.v4(),
+            idDeterministe('class_subject',
+                [newId, s['subject_id'] as String]),
             groupId,
             schoolId,
             newId,

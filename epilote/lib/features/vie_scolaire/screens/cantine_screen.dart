@@ -71,9 +71,16 @@ class _BodyState extends ConsumerState<_Body> {
   }
 
   void _openMeal(VsCoverageRow r) {
+    // ⚠️ POINTER, C'EST INSÉRER PUIS METTRE À JOUR. Le premier appui sur un
+    // élève non pointé fait un INSERT, que la base réserve au verbe `create`
+    // (RLS). Garder l'écran sur le seul `update` laissait un profil doté
+    // d'`update` sans `create` voir une feuille active, appuyer, et recevoir un
+    // 42501 — code FATAL pour le connecteur : le LOT ENTIER en attente est
+    // jeté. Les deux moitiés doivent bouger ensemble.
     final readOnly = ref.read(yearReadOnlyProvider);
-    final canEdit =
-        ref.read(canProvider((slug: _kSlug, action: 'update'))) && !readOnly;
+    final canEdit = ref.read(canProvider((slug: _kSlug, action: 'create'))) &&
+        ref.read(canProvider((slug: _kSlug, action: 'update'))) &&
+        !readOnly;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
