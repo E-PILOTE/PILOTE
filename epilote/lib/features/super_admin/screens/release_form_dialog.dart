@@ -71,7 +71,14 @@ class _FormState extends ConsumerState<_ReleaseFormDialog> {
       _champFautif = null;
     });
     try {
-      final m = jsonDecode(_colle.text) as Map<String, dynamic>;
+      // ⚠️ Le BOM. `manifest.json` est écrit par la CI avec
+      // `Set-Content -Encoding utf8`, qui sous Windows PowerShell pose un BOM
+      // UTF-8 (EF BB BF) en tête. Ouvrir le fichier, tout sélectionner, coller
+      // ici : `jsonDecode` refuse dès le caractère 0, et son message ne parle
+      // évidemment pas de BOM. C'est la CI qui produit ce fichier — le piège
+      // est donc SUR le chemin normal de publication, pas au bord.
+      final brut = _colle.text.trim().replaceFirst(RegExp('^﻿'), '');
+      final m = jsonDecode(brut) as Map<String, dynamic>;
       String? s(String k) => m[k]?.toString();
       setState(() {
         _version.text = s('version') ?? _version.text;

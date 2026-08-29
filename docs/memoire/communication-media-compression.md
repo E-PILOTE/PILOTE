@@ -23,7 +23,7 @@ metadata:
 - Vidéos → `video_compress` (Android/iOS only, gardé par `videoCompressionSupported`) : MediumQuality ~720p. Ailleurs (desktop/web) = original.
 - Point d'entrée unique `compressForUpload()` branché dans `pickAndUploadAttachments()` (comm_attachments.dart) AVANT le contrôle des 25 Mo → partagé par les 5 composeurs (messagerie, thread, annonces, événements, stories).
 
-**Décision archi : PAS de MUX.** MUX = streaming, incompatible avec l'offline-first (cœur école). Le vrai gain WhatsApp = compression à la source (fait) + FCM push (à faire) + buckets privés/signed URLs (à faire — actuellement `getPublicUrl` = pièces jointes publiques, faille confidentialité). MUX/Cloudflare Stream seulement si un jour vidéo longue broadcast online (Phase 2).
+**Décision archi : PAS de MUX.** MUX = streaming, incompatible avec l'offline-first (cœur école). Le vrai gain WhatsApp = compression à la source (fait) + ~~FCM push~~ ⚠️ **PÉRIMÉ le 2026-08-29 : Firebase est SORTI du projet** — le canal est la table `notifications` + PowerSync + la cloche, voir [[powersync-status]] et le garde `notification_sans_firebase_test.dart` + buckets privés/signed URLs (à faire — actuellement `getPublicUrl` = pièces jointes publiques, faille confidentialité). MUX/Cloudflare Stream seulement si un jour vidéo longue broadcast online (Phase 2).
 
 **Fix création de groupe (RLS)** : migration `fix_group_creation_member_insert_rls`. La policy `conv_members_insert` exigeait `is_conversation_member()` qui ne voit pas la ligne du créateur dans le même INSERT batch → tous les autres membres rejetés. Ajout fonction `is_conversation_creator(conv_id)` + policy l'autorise. Code `createGroupConversationScoped` réordonné : créateur d'abord, puis les autres.
 
