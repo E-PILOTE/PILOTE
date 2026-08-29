@@ -7,6 +7,7 @@ import '../../structure/providers/academic_year_context.dart';
 import '../providers/cartes_provider.dart';
 import '../services/cartes_actions.dart';
 import 'cartes_parts.dart';
+import 'import_photos_dialog.dart';
 
 const String kSlugCartes = 'cartes';
 
@@ -132,6 +133,12 @@ class _BodyState extends ConsumerState<_Body> {
         onToggle: () => setState(() =>
             _classeOuverte = _classeOuverte == c.classId ? null : c.classId),
         onImprimerClasse: () => _imprimerClasse(c),
+        onImporterPhotos: () => ouvrirImportPhotos(
+          context,
+          ref,
+          classId: c.classId,
+          className: c.className,
+        ),
       ));
       out.add(const SizedBox(height: 8));
     }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/photo_avatar.dart';
+import '../../navigation/providers/permissions_provider.dart' show canProvider;
 import '../../navigation/widgets/module_scaffold.dart' show PermissionGate;
 import '../providers/cartes_provider.dart';
 import '../services/cartes_actions.dart';
@@ -145,11 +146,12 @@ class TuileClasseCartes extends ConsumerWidget {
     required this.ouverte,
     required this.onToggle,
     required this.onImprimerClasse,
+    required this.onImporterPhotos,
   });
 
   final CarteClasse classe;
   final bool ouverte;
-  final VoidCallback onToggle, onImprimerClasse;
+  final VoidCallback onToggle, onImprimerClasse, onImporterPhotos;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -194,6 +196,29 @@ class TuileClasseCartes extends ConsumerWidget {
                     : Icons.photo_camera_back_rounded,
               ),
               const SizedBox(width: 10),
+              // ⚠️ L'IMPORT DE PHOTOS SE GARDE SUR `eleves.update`, PAS SUR UN
+              // VERBE DU MODULE CARTES. Il écrit `students.photo_url`, et la
+              // RLS de `students` exige `auth_module_permet(['eleves',
+              // 'inscriptions'], 'update')`. Un bouton gardé par le seul
+              // `cartes.import` laisserait un profil écrire EN LOCAL puis se
+              // faire refuser au téléversement — 42501, code fatal, qui EMPORTE
+              // tout le lot d'écritures en attente du poste.
+              //
+              // `cartes.import` s'y ajoute : le module dit qu'on importe ici,
+              // la base dit qu'on peut toucher un élève. Les deux, ou rien.
+              if (ref.watch(canProvider(
+                      (slug: 'eleves', action: 'update'))) &&
+                  ref.watch(canProvider((slug: 'cartes', action: 'import'))))
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: OutlinedButton.icon(
+                    onPressed: onImporterPhotos,
+                    icon: const Icon(Icons.add_photo_alternate_outlined,
+                        size: 16),
+                    label: Text(classe.complet ? 'Photos' : 'Photos'
+                        ' (${classe.sansPhoto})'),
+                  ),
+                ),
               // L'impression est un EXPORT : c'est le verbe que la base
               // reconnaît pour « sortir de la donnée », et il se règle
               // séparément de la consultation.

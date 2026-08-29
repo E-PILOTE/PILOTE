@@ -92,13 +92,53 @@ carte_scolaire_pdf_service.dart`. Module `cartes` créé par la migration
 — vérifié). Comme [[passage-devient-un-module]], elle s'applique **AVANT** le
 build.
 
+## L'import de masse des photos (2026-08-29, même jour)
+
+`features/cartes/services/appariement_photos.dart` (pur, testé) +
+`providers/import_photos_provider.dart` (l'écriture) +
+`screens/import_photos_dialog.dart` / `_parts.dart` (quatre temps : choix →
+revue → écriture → rapport).
+
+**⚠️ LA RÈGLE : EXACT, OU RIEN.** Une photo posée sur le mauvais élève est pire
+que pas de photo — la carte devient un faux qui circule, et *personne ne le
+cherche* : elle a l'air normale. Donc **aucune** distance d'édition, aucun
+préfixe, aucun « meilleur candidat ». Et l'unicité est **symétrique** : il ne
+suffit pas qu'un fichier désigne un seul élève, il faut qu'aucun autre fichier
+ne désigne le même (deux homonymes, deux prises → on n'en écrit aucune).
+
+Correspondance sur matricule / INE / nom (les deux ordres), via
+`normaliserEntete` — la normalisation de l'import de listes, pas une seconde.
+Chaque clé est indexée espacée **et** compactée : `M-2024/0137`, `M 2024 0137`
+et `m20240137` sont la même chaîne écrite autrement, pas de l'approximation.
+
+**Le chemin principal est manuel**, et c'est assumé : l'école vide sa carte
+mémoire et obtient quarante `IMG_0042.JPG`. L'écran de revue les met **en
+premier**, vignette à côté d'un menu des élèves encore libres.
+
+⚠️ **`withData: false`** au sélecteur : six cents photos de téléphone tiennent
+plusieurs gigaoctets, et l'appariement n'a besoin que du **nom**. Les octets se
+lisent un par un au moment d'écrire.
+
+⚠️ **Le bouton se garde sur `eleves.update`, pas sur un verbe du module.**
+L'import écrit `students.photo_url`, et `students_update` exige
+`auth_module_permet(['eleves','inscriptions'], 'update')`. Le garder sur le seul
+`cartes.import` laisserait un profil écrire en local puis se faire refuser au
+téléversement — **42501, fatal, tout le lot en attente part avec**. Les deux
+droits sont exigés : le module dit qu'on importe ici, la base dit qu'on peut
+toucher un élève.
+
+Autres garde-fous : plafond de **15 Mo** par fichier (`compressAvatar` retombe
+en silence sur les octets d'origine quand elle ne sait pas décoder — à l'unité
+c'est le bon choix, sur six cents fichiers c'est des Go sur le disque d'une
+école) ; un échec isolé n'emporte pas le lot ; le rapport **nomme** les fichiers
+qui ont manqué.
+
 ## Reste à faire
 
-- **Import de masse des photos** (une école photographie une classe et dépose
-  un dossier de fichiers nommés par matricule). C'est le vrai chantier suivant :
-  sans lui, la carte reste sans visage.
 - **Le journal des documents délivrés** — qui a délivré quoi, quand. Aucune
   table ne le trace, ni pour la carte ni pour les attestations.
+- Prise de photo **à la webcam** depuis la fiche élève (aujourd'hui : fichier
+  seulement).
 
 Liens : [[attestations-emises]] · [[ine-identifiant-national-eleve]] ·
 [[fichiers-hors-ligne-et-compression]] · [[passage-devient-un-module]]
