@@ -352,15 +352,30 @@ résout plus vers aucune organisation : le PAT a été révoqué côté compte �
 était précisément la consigne de sécurité après la session du 28/08. Rien à
 réparer, il faut en refaire un.
 
-**Étape 1 — ouvrir une session CLI (à faire par un humain, une seule fois) :**
+**Étape 0 — effacer le jeton mort, qui dort en clair sur le disque :**
 
 ```
-powersync login
+powersync logout
 ```
 
-La commande demande le jeton et le range dans le stockage sécurisé du poste.
-⚠️ **Ne jamais coller un PAT dans une conversation** : c'est exactement ce qui a
-brûlé le précédent. Le jeton se crée sur le tableau de bord PowerSync Cloud.
+Il est dans `~/.config/powersync/config.yaml`, en texte simple. La doc de la CLI
+annonce « secure storage, e.g. macOS Keychain » ; sur Windows, c'est un YAML
+lisible par n'importe quel processus du compte. C'est pourquoi la règle du dépôt
+([[powersync-deploiement-cli]]) est **de ne pas utiliser `powersync login`** —
+elle a été contournée le 28/08, d'où ce fichier.
+
+**Étape 1 — fournir le jeton à la session de terminal, pas au disque :**
+
+```
+export PS_ADMIN_TOKEN='jpt_…'
+```
+
+(PowerShell : `$env:PS_ADMIN_TOKEN = 'jpt_…'`.) La CLI lit cette variable avant
+toute autre source. Elle meurt avec la fenêtre.
+
+⚠️ **Ne jamais coller un PAT dans une conversation, un ticket ou un commit** :
+c'est ce qui a brûlé le précédent. Le jeton se crée sur le tableau de bord
+PowerSync Cloud, et se révoque au même endroit.
 
 **Étape 2 — déployer, depuis la racine du dépôt :**
 

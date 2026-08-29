@@ -1,6 +1,6 @@
 ---
 name: powersync-deploiement-cli
-description: "🚀 Les sync-rules se déploient en ligne de commande (`npx powersync deploy sync-config`) — plus besoin du dashboard ; ⚠️ l'app pointe sur l'instance DEVELOPMENT, la PRODUCTION n'est pas provisionnée"
+description: "🚀 Déployer les sync-rules en CLI (`powersync deploy sync-config`) — l'app pointe sur PRODUCTION (…66759), seule instance vivante ; ⚠️ jeton par `PS_ADMIN_TOKEN`, jamais `powersync login` ; celui du disque est RÉVOQUÉ (500 « Resource does not exist »)"
 metadata: 
   node_type: memory
   type: reference
@@ -72,6 +72,31 @@ Development doit être arrêtée (`powersync stop`, réversible par redeploy).
 PAT `jpt_…` = base64 de `{i: id, n: secret, u: user}`. Passer par
 `PS_ADMIN_TOKEN` (jamais `powersync login`, qui l'écrit sur disque).
 Un PAT collé dans une conversation est **à révoquer** ensuite.
+
+### ⚠️ 2026-08-29 — la règle a été contournée, et le jeton est mort
+
+`~/.config/powersync/config.yaml` contient un jeton en **texte clair** : quelqu'un
+a lancé `powersync login`. La doc de la CLI promet « secure storage, e.g. macOS
+Keychain » — sur Windows c'est un YAML lisible par tout processus du compte.
+`powersync logout` l'efface.
+
+Ce jeton-là ne sert plus. Comment le savoir sans le divulguer — trois requêtes
+sur `accounts.powersync.com/api/accounts/v5/organizations/list` :
+
+| envoyé | réponse |
+|---|---|
+| jeton bidon, ou pas d'en-tête `Authorization` | `401 ACCESS_DENIED` |
+| chemin d'API inexistant | `404` (HTML JourneyApps) |
+| **le jeton du disque** | **`500 — Resource does not exist`** |
+
+Il franchit le contrôle d'authentification mais ne résout plus vers aucune
+organisation : **révoqué côté compte**, comme demandé après la session du 28/08.
+Un 500 « Resource does not exist » sur TOUS les endpoints, quels que soient les
+paramètres, se lit donc « jeton révoqué », pas « API cassée ».
+
+Conséquence : les deux lignes de sync-rules en attente ne peuvent pas être
+déployées depuis ce poste. Procédure complète dans
+`docs/DEPLOIEMENT_ORDRE.md` → *Comment le déployer*.
 
 Liens : [[sync-config-divergence]] · [[statut-emploi-personnel]] ·
 [[powersync-status]]
