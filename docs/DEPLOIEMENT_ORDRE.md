@@ -134,7 +134,7 @@ un seul fournisseur, Supabase). Sa condition est **plus forte** que celle de
 | | condition |
 |---|---|
 | `0139`, `0142` | le build est **publié** |
-| `0146` | **tous les postes** l'ont reçu |
+| `0146` | **tous les postes** l'ont reçu (build ≥ 23) — ⚠️ invérifiable aujourd'hui, voir plus bas |
 
 Les deux premières durcissent un verbe : un poste en retard se voit refuser une
 écriture par un `42501`, que le connecteur traite comme fatal — le lot est jeté,
@@ -145,6 +145,34 @@ leurs upserts `profiles`. PostgREST répond alors `42703`, que
 `_fatalResponseCodes` (`^22`, `^23`, `^42501`) **ne reconnaît pas** : le
 connecteur ne complète pas la transaction, il rejoue le lot indéfiniment. Ce
 poste n'envoie plus rien, jamais, sans aucun message à l'écran.
+
+### ⚠️ Le seuil n'est plus 3.3.1+21 — et il n'est pas OBSERVABLE (2026-08-29)
+
+Deux constats faits en interrogeant la base et le dépôt de distribution :
+
+**1. Le seuil correct est `build_number ≥ 23`, pas 21.** `app_releases` ne
+contient qu'une ligne — **3.3.0 build 20** — et le dépôt public
+`E-PILOTE/telechargements` ne porte qu'une publication, `v3.3.0`. Les builds
+**3.3.1+21 et 3.4.0+22 n'ont JAMAIS été distribués**. Le premier binaire sans
+les colonnes Firebase que le parc puisse réellement recevoir est donc
+**3.4.0+23**. Écrire 21 dans une consigne enverrait quelqu'un vérifier un seuil
+qu'aucun poste n'a jamais pu franchir.
+
+**2. Rien ne dit quelle version tourne où.** Aucune table n'enregistre la
+version d'un poste : `build_number` n'existe que dans `app_releases`, c'est-à-
+dire ce qui est PROPOSÉ, jamais ce qui est INSTALLÉ. La condition « tous les
+postes l'ont reçu » n'est donc, aujourd'hui, **pas vérifiable**.
+
+Et elle n'est pas non plus forçable : `is_mandatory` / `min_build` rendent la
+bannière rouge et non refermable, mais **ne bloquent pas l'application** — un
+poste peut travailler indéfiniment sur une version ancienne.
+
+Conséquence pratique : `0146` ne doit pas être appliquée sur une impression.
+Tant qu'il n'existe pas de relevé des versions installées, la seule position
+tenable est de **ne pas exécuter `0146`** — les deux colonnes sont vides
+(0 valeur sur 344 profils, 0 sur 121 notifications) et ne coûtent rien à
+laisser en place. Le gain du DROP est cosmétique ; le risque est une synchro
+morte en silence sur les postes retardataires.
 
 Vérifier avant d'exécuter, et s'abstenir au moindre doute sur le parc :
 
@@ -273,7 +301,7 @@ que `0147`.
 | `0148` carte scolaire = module | ✅ appliquée (avant le build) |
 | `0139` annonces/événements par le verbe | ⏳ **après** la publication du build |
 | `0142` matières/programmes par le verbe | ⏳ **après** la publication du build |
-| `0146` retrait des colonnes Firebase | ⏳ après que **TOUS** les postes soient en ≥ 3.3.1+21 |
+| `0146` retrait des colonnes Firebase | 🛑 **suspendue** — seuil réel ≥ build 23, et aucun relevé des versions installées n'existe pour le vérifier |
 
 ⚠️ Les deux familles ne s'attendent pas au même signal : `0139`/`0142` attendent
 que le build soit **publié** ; `0146` attend qu'il soit **reçu partout** — une

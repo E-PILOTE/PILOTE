@@ -86,10 +86,36 @@ Réinstaller par-dessus, avec le nouvel installateur. L'`AppId` étant figé,
 Windows reconnaît l'installation existante et la remplace — il n'y a pas deux
 E-PILOTE sur le poste, et le raccourci reste le même.
 
-> ⚠️ **Il n'existe pas encore de mise à jour automatique.** Sur mille écoles
-> souvent hors ligne, la diffusion d'un correctif est aujourd'hui manuelle.
-> C'est une lacune connue du déploiement, pas un oubli : voir la tâche
-> « Fabriquer l'installeur Windows et la mise à jour ».
+### La mise à jour automatique existe (corrigé le 2026-08-29)
+
+Ce paragraphe annonçait le contraire. **C'était faux**, et c'était le document
+que lit celui qui déploie.
+
+Le poste interroge la RPC `derniere_version` **une fois par session**, compare
+le `build_number` publié dans `app_releases` à celui du binaire, et affiche une
+bannière discrète. L'agent accepte, l'application **télécharge**, **vérifie
+l'empreinte SHA-256 avant tout lancement**, puis lance l'installateur — ce qui
+ferme l'application, d'où l'avertissement préalable.
+
+Hors ligne, la requête échoue en silence et rien ne s'affiche : c'est voulu.
+
+⚠️ **Ce qui n'est PAS automatique, et qu'il ne faut pas confondre :**
+
+| | |
+|---|---|
+| détection, téléchargement, vérification | automatiques |
+| déclenchement de l'installation | **l'agent doit accepter** |
+| publication d'une version au parc | **manuelle** — tag `v*`, puis une ligne dans `app_releases` |
+
+Une version construite et même publiée sur GitHub **n'atteint aucune école**
+tant que la ligne `app_releases` n'est pas écrite : c'est elle, et elle seule,
+que le poste interroge.
+
+⚠️ **`is_mandatory` / `min_build` ne bloquent pas l'application.** Ils rendent
+la bannière rouge et non refermable. Un poste peut donc continuer à travailler
+sur une version ancienne indéfiniment — c'est délibéré (un secrétariat en
+pleine rentrée doit pouvoir finir sa saisie), mais cela veut dire qu'aucune
+migration ne peut *supposer* que le parc a suivi.
 
 ---
 
