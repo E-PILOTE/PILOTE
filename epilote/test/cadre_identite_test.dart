@@ -112,7 +112,10 @@ void main() {
         () async {
       final source = _jpeg(1100, 1400);
       final apres = await recadrerEnIdentite(source);
-      expect(identical(apres, source) || apres.length == source.length, isTrue,
+      // `compute` recopie les octets d'un isolat à l'autre : l'identité est
+      // impossible ici, c'est l'égalité octet pour octet qui prouve qu'on n'a
+      // pas ré-encodé.
+      expect(apres, equals(source),
           reason: 'Ré-encoder pour rien empile des artefacts JPEG sur un '
               'visage qui repassera ensuite par compressAvatar.');
     });

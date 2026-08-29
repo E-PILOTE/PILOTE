@@ -6,6 +6,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../utils/media_compression.dart' show kMaxPdfLogoEdge;
+
 // ════════════════════════════════════════════════════════════════════════════
 //  KIT DOCUMENT OFFICIEL — chrome partagé de tous les exports PDF de l'espace
 //  école (bandeau tricolore, emblème, en-tête « RÉPUBLIQUE DU CONGO », pied de
@@ -100,9 +102,31 @@ class OfficialPdfKit {
     return _cached = fonts;
   }
 
+  /// L'emblème par défaut, rastérisé une fois par session.
+  ///
+  /// ⚠️ Deux raisons de le garder, et une de le garder PETIT.
+  ///
+  /// Le cache suit celui des polices, et pour la même raison : rejouer le
+  /// rendu vectoriel à chaque export ralentit chaque impression pour un
+  /// résultat identique. Réutiliser une `pw.MemoryImage` d'un document à
+  /// l'autre est sûr — le greffon reconstruit l'objet quand le document change
+  /// (`ImageProvider.resolve`).
+  ///
+  /// La taille est [kMaxPdfLogoEdge] et non 320 px : un PDF n'a pas de filtre
+  /// PNG, il stocke des pixels bruts recompressés en Flate, donc le poids suit
+  /// le nombre de pixels. Le plus grand emplacement du dépôt fait 54 pt, où
+  /// 256 px valent déjà ~340 dpi.
+  static pw.MemoryImage? _logo;
+  static bool _logoCharge = false;
+
   static Future<pw.MemoryImage?> loadLogo() async {
-    final bytes = await _rasterizeSvg('assets/icons/logo.svg', 320);
-    return bytes != null ? pw.MemoryImage(bytes) : null;
+    if (_logoCharge) return _logo;
+    final bytes = await _rasterizeSvg(
+      'assets/icons/logo.svg',
+      kMaxPdfLogoEdge.toDouble(),
+    );
+    _logoCharge = true;
+    return _logo = bytes != null ? pw.MemoryImage(bytes) : null;
   }
 
   // ── Émetteur courant ───────────────────────────────────────────────────────

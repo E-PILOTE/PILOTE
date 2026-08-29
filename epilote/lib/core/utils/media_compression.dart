@@ -192,6 +192,95 @@ CompressedMedia compressLogoBytes({
   );
 }
 
+// ─── Logos EMBARQUÉS DANS UN PDF ────────────────────────────────────────────
+//
+//  ⚠️ POURQUOI UN SECOND SEUIL, PLUS BAS QUE `kMaxLogoEdge`
+//
+//  Un PDF n'a pas de filtre PNG. Une image PNG posée dans un document n'y est
+//  donc PAS rangée telle quelle : le greffon la décode en pixels bruts et les
+//  recompresse en Flate. Mesuré sur un dégradé 512 × 512 :
+//
+//    fichier PNG source :   2 Ko   →   dans le PDF :  95 Ko
+//    le même en 128 px  :   0 Ko   →   dans le PDF :  34 Ko
+//    un JPEG 512 px     :  19 Ko   →   dans le PDF :  20 Ko  (embarqué tel quel)
+//
+//  Le coût suit donc le nombre de PIXELS, pas le poids du fichier source. Un
+//  logo deux fois trop grand coûte quatre fois trop cher — et il le coûte dans
+//  CHAQUE document produit par la plateforme, bulletins compris.
+//
+//  Le plus grand emplacement de logo du dépôt fait 54 pt (en-tête officiel) ;
+//  256 px y valent environ 340 dpi, au-dessus de ce qu'une imprimante rend.
+//  512 px, le seuil de l'interface, n'y apporterait rien de visible.
+
+/// Plus long côté (px) d'un logo embarqué dans un PDF.
+const int kMaxPdfLogoEdge = 256;
+
+/// Prépare un logo pour être embarqué dans un PDF : ≤ [kMaxPdfLogoEdge], et
+/// dans le format qui coûte le moins **une fois dans le document**.
+///
+/// ⚠️ **Ne comparez pas le poids des fichiers ici.** C'est l'erreur naturelle,
+/// et elle annule tout le gain : un PNG de 2 Ko coûte 95 Ko dans un PDF, un
+/// JPEG de 19 Ko en coûte 20. Ce qui compte est le nombre de pixels et le
+/// format d'arrivée, jamais la taille du fichier de départ.
+///
+/// D'où la règle : un logo **opaque** part en JPEG même s'il grossit sur le
+/// disque (le PDF l'embarque alors tel quel, en DCTDecode) ; un logo **détouré**
+/// reste en PNG, parce qu'aplatir sa transparence sur du blanc poserait un
+/// carré blanc sur le bandeau tricolore de l'en-tête.
+///
+/// Rend les octets d'origine si l'image ne se décode pas, ou si elle est déjà
+/// petite ET déjà au bon format — un document sans logo serait pire qu'un
+/// document un peu gras.
+Future<Uint8List> compressLogoForPdf(Uint8List bytes) async {
+  try {
+    return await compute(_compressLogoForPdfIsolate, bytes);
+  } catch (_) {
+    return bytes;
+  }
+}
+
+/// Signature JPEG (SOI).
+bool _estJpeg(Uint8List b) => b.length > 3 && b[0] == 0xFF && b[1] == 0xD8;
+
+/// Signature PNG.
+bool _estPng(Uint8List b) =>
+    b.length > 8 &&
+    b[0] == 0x89 &&
+    b[1] == 0x50 &&
+    b[2] == 0x4E &&
+    b[3] == 0x47;
+
+Uint8List _compressLogoForPdfIsolate(Uint8List bytes) {
+  img.Image? decoded;
+  try {
+    decoded = img.decodeImage(bytes);
+  } catch (_) {
+    decoded = null;
+  }
+  if (decoded == null) return bytes;
+
+  final detoure = decoded.hasAlpha && _hasTransparency(decoded);
+  final longest =
+      decoded.width > decoded.height ? decoded.width : decoded.height;
+  final dejaPetit = longest <= kMaxPdfLogoEdge;
+  final dejaAuBonFormat = detoure ? _estPng(bytes) : _estJpeg(bytes);
+  if (dejaPetit && dejaAuBonFormat) return bytes;
+
+  final out = dejaPetit
+      ? decoded
+      : decoded.width >= decoded.height
+          ? img.copyResize(decoded,
+              width: kMaxPdfLogoEdge, interpolation: img.Interpolation.average)
+          : img.copyResize(decoded,
+              height: kMaxPdfLogoEdge,
+              interpolation: img.Interpolation.average);
+
+  final encoded = detoure
+      ? img.encodePng(out, level: 9)
+      : img.encodeJpg(out, quality: kLogoJpegQuality);
+  return Uint8List.fromList(encoded);
+}
+
 /// Vrai dès qu'un pixel n'est pas totalement opaque (logo détouré).
 bool _hasTransparency(img.Image im) {
   for (final p in im) {

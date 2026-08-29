@@ -8,6 +8,8 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../utils/media_compression.dart' show compressLogoForPdf;
+
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/structure/providers/academic_year_provider.dart';
 import 'official_pdf_kit.dart';
@@ -82,7 +84,11 @@ Future<pw.MemoryImage?> _logoImage(String? url) async {
   final bytes = await _logoBytes(url);
   if (bytes == null) return null;
   try {
-    return pw.MemoryImage(bytes);
+    // ⚠️ Réduit AVANT d'entrer dans le PDF. Le logo du groupe est stocké à
+    // 512 px pour l'interface ; embarqué tel quel, il coûterait quatre fois
+    // plus de pixels — donc quatre fois plus d'octets — dans CHAQUE document
+    // que l'école produit. Voir `kMaxPdfLogoEdge`.
+    return pw.MemoryImage(await compressLogoForPdf(bytes));
   } catch (e) {
     debugPrint('ℹ️ Logo de l\'émetteur illisible ($e) — export sans logo.');
     return null;

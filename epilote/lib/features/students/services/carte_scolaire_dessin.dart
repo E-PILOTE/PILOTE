@@ -11,6 +11,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/services/official_pdf_kit.dart';
+import '../../../core/utils/cadre_identite.dart';
 import '../../../core/utils/ine.dart';
 import 'carte_scolaire_modele.dart';
 
@@ -107,12 +108,23 @@ pw.Widget _enTete(
 /// n'identifie personne, et celui qui la découpe doit le savoir avant de la
 /// remettre à l'élève.
 pw.Widget _photo(CarteEleve e, PdfFonts f) {
-  // Proportions d'une photo d'identité (22 × 28 mm). À cette taille, les
-  // 256 px du côté long produits par `compressAvatar` valent environ 295 dpi
-  // — la limite basse de ce qu'une impression rend proprement, et la raison
-  // pour laquelle il ne faut pas descendre la compression des avatars.
-  const l = 22.0 * PdfPageFormat.mm;
-  const h = 28.0 * PdfPageFormat.mm;
+  // Proportions d'une photo d'identité — `kPhotoIdentiteLargeurMm/HauteurMm`,
+  // les MÊMES constantes que le recadrage (`core/utils/cadre_identite.dart`) :
+  // deux rapports qui divergent rogneraient la photo deux fois.
+  //
+  // Définition obtenue : les 256 px du plus long côté produits par
+  // `compressAvatar` tombent sur les 28 mm de hauteur, soit **232 dpi**. C'est
+  // en dessous des 300 dpi d'une impression idéale, et suffisant pour une carte
+  // d'identification. Le chiffre de 295 dpi qui figurait ici supposait les
+  // 256 px sur la LARGEUR (22 mm) — ce qui n'arrive jamais sur une photo
+  // portrait.
+  //
+  // ⚠️ Ne pas relever `kMaxAvatarEdge` pour gagner ces dpi : 320 px donnerait
+  // 290 dpi mais ~50 % d'octets en plus sur CHAQUE avatar, synchronisés vers
+  // chaque poste de mille écoles. Le gain d'impression ne vaut pas ce transfert.
+  // Le vrai levier est le cadrage à la prise de vue, qui ne coûte rien.
+  const l = kPhotoIdentiteLargeurMm * PdfPageFormat.mm;
+  const h = kPhotoIdentiteHauteurMm * PdfPageFormat.mm;
   final octets = e.photo;
 
   return pw.Container(
