@@ -50,6 +50,7 @@
 - [📊 État statistique de rentrée](etat-statistique-rentree.md) — ⚠️ âge à la DATE D'OUVERTURE, jamais « aujourd'hui » ; aucun élève réparti au hasard ; part de filles sur le total NON RENSEIGNÉS COMPRIS ; `schools.tutelle` ajoutée au schéma local
 - [🔍 Non revenus + exclusion définitive](non-revenus-et-exclusion.md) — 3e onglet du Passage ; ⚠️ garde-fou 30 % ; ⚠️ `academic_years.school_id` est NULL (années portées par le GROUPE)
 - [🪪 Carte scolaire — le module](carte-scolaire-module.md) — ISO ID-1, 10/A4, verso MIROITÉ ; import de masse des photos : **exact ou rien**, unicité SYMÉTRIQUE ; ⚠️ garder sur `eleves.update` (RLS `students`), pas sur `cartes.import` ; mig 0148 AVANT le build
+- [📷 Photo à la webcam + cadre d'identité](photo-webcam-cadre-identite.md) — ⚠️ RECADRER AVANT `compressAvatar` (~130 dpi → ~232 sur la carte) ; `camera_windows` se déclare À PART (non endossé) ; Linux n'a rien ; demande une NOUVELLE construction
 - [⚠️ Le Passage n'avait aucun verrou](passage-devient-un-module.md) — slug absent de `_moduleRoutes` = « route native » = zéro verrou ; mig 0147 recopie `conseils` ; ⚠️ `can_write` est GÉNÉRÉE (428C9)
 - [🚪 Motifs de sortie d'élève](motifs-de-sortie-eleve.md) — mig 0082 ; abandon économique ≠ abandon familial ; ⚠️ liste à faire valider
 - [💾 La base hors ligne quitte Documents](base-hors-ligne-hors-documents.md) — OneDrive corrompt une SQLite ouverte ; le `-wal` part avec la base

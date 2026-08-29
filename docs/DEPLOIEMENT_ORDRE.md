@@ -409,3 +409,18 @@ non déployé produit exactement la panne qu'il prétend empêcher. Il n'y a pas
 d'automatisme possible ici : seule l'étape 3 le dit.
 
 **Avant la publication du build.**
+
+## ⚠️ La prise de photo à la webcam demande une NOUVELLE construction
+
+Le greffon `camera` + `camera_windows` est entré dans `pubspec.yaml` le
+2026-08-29. **Il n'est pas dans le build 3.3.1 déjà produit.** Ce qui en dépend
+— le bouton « Prendre la photo » sur les trois fiches de personne — n'existera
+qu'à la construction suivante.
+
+Rien d'autre n'en dépend : sans le greffon, les fiches ouvraient le sélecteur de
+fichiers, et elles le font toujours. Cette fonction n'a donc aucune place dans
+l'ordre de déploiement — elle attend simplement le prochain build.
+
+Vérifié : `camera_windows_plugin.dll` est produit, `flutter build windows` sort
+à 0, et le binaire construit s'ouvre et synchronise (un greffon qui plante à
+l'enregistrement empêcherait l'application d'ouvrir entièrement).
