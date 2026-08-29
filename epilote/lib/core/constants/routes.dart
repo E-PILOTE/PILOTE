@@ -88,6 +88,7 @@ class Routes {
   static const String inscriptions    = '/user/inscriptions';
   static const String transferts      = '/user/transferts';
   static const String documents       = '/user/documents';
+  static const String cartes          = '/user/cartes'; // cartes scolaires
   static const String annuaire        = '/user/annuaire';
   static const String structure       = '/user/structure'; // structure académique (module 'niveaux')
   static const String classes         = '/user/classes';

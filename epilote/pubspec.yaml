@@ -33,6 +33,12 @@ dependencies:
   cupertino_icons: ^1.0.8
   shimmer: ^3.0.0
   cached_network_image: ^3.4.1
+  # Déjà dans l'arbre (transitif de cached_network_image), déclaré ici parce
+  # qu'on le lit DIRECTEMENT : `core/utils/photo_octets.dart` va chercher dans
+  # le cache disque les octets d'une photo pour les poser sur une carte
+  # scolaire. C'est ce qui rend l'impression possible sans réseau — le
+  # secrétariat a consulté ses listes, les visages sont déjà sur le poste.
+  flutter_cache_manager: ^3.4.1
   # Backend SQLite pour flutter_cache_manager (cache de cached_network_image)
   # sur desktop Linux/Windows — sans lui, les avatars/logos échouent en dev.
   sqflite_common_ffi: ^2.3.3

@@ -15,6 +15,7 @@ const Map<String, String> _moduleRoutes = {
   'inscriptions':     Routes.inscriptions,
   'transferts':       Routes.transferts,
   'documents':        Routes.documents,
+  'cartes':           Routes.cartes,
   'annuaire':         Routes.annuaire,
   'niveaux':          Routes.structure,
   'classes':          Routes.classes,
@@ -80,6 +81,7 @@ IconData moduleIcon(String slug) => switch (slug) {
       'stages'            => Icons.engineering_rounded,
       'transferts'        => Icons.swap_horiz_rounded,
       'documents'         => Icons.folder_rounded,
+      'cartes'            => Icons.badge_rounded,
       'annuaire'          => Icons.contacts_rounded,
       // Enseignement
       'classes'           => Icons.class_rounded,

@@ -56,6 +56,7 @@ import '../../features/admin_groupe/screens/admin_modules_screen.dart';
 import '../../features/students/screens/inscriptions_screen.dart';
 import '../../features/students/screens/eleves_screen.dart';
 import '../../features/students/screens/annuaire_screen.dart';
+import '../../features/cartes/screens/cartes_screen.dart';
 import '../../features/students/screens/documents_screen.dart';
 import '../../features/students/screens/transferts_screen.dart';
 import '../../features/structure/screens/subjects_screen.dart';
@@ -581,6 +582,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.documents,
         builder: (_, _) => const DocumentsScreen(),
+      ),
+      GoRoute(
+        path: Routes.cartes,
+        builder: (_, _) => const CartesScreen(),
       ),
       GoRoute(
         path: Routes.annuaire,

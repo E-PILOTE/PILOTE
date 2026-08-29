@@ -46,6 +46,8 @@
 - [⚠️ Un graphe et un KPI doivent dire le même nombre](graphe-effectif-vs-kpi.md) — `is_active` + périmètre de classes + mois creux comblés
 - [📜 Attestations émises par l'école](attestations-emises.md) — scolarité/radiation/travail ; `AttestationKit` ; ⚠️ `pw.Page` jamais `MultiPage` ; le REFUS est la fonctionnalité
 - [🔍 Non revenus + exclusion définitive](non-revenus-et-exclusion.md) — 3e onglet du Passage ; ⚠️ garde-fou 30 % ; ⚠️ `academic_years.school_id` est NULL (années portées par le GROUPE)
+- [🪪 Carte scolaire — le module](carte-scolaire-module.md) — ISO ID-1, 10/A4, verso MIROITÉ ; ⚠️ le vrai sujet est la PHOTO (0 sur 9 106) ; mig 0148 AVANT le build
+- [⚠️ Le Passage n'avait aucun verrou](passage-devient-un-module.md) — slug absent de `_moduleRoutes` = « route native » = zéro verrou ; mig 0147 recopie `conseils` ; ⚠️ `can_write` est GÉNÉRÉE (428C9)
 - [🚪 Motifs de sortie d'élève](motifs-de-sortie-eleve.md) — mig 0082 ; abandon économique ≠ abandon familial ; ⚠️ liste à faire valider
 - [💾 La base hors ligne quitte Documents](base-hors-ligne-hors-documents.md) — OneDrive corrompt une SQLite ouverte ; le `-wal` part avec la base
 

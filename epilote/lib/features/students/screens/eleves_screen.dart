@@ -9,6 +9,8 @@ import '../../../core/widgets/photo_avatar.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../../data/models/class_model.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../cartes/providers/cartes_provider.dart' show CarteEleveRow;
+import '../../cartes/services/cartes_actions.dart' show imprimerCarteEleve;
 import '../../classes/providers/class_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';

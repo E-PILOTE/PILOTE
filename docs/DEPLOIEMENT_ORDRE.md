@@ -253,3 +253,29 @@ Garde côté code : `test/toute_page_ecole_est_un_module_test.dart` — il ne
 surveille pas `passage`, il surveille **la classe entière du défaut** : toute
 route `/user/*` est un module, ou figure dans la liste des routes natives avec
 sa raison écrite.
+
+## `0148` — carte scolaire, même ordre que `0147` (2026-08-29)
+
+Nouveau module `cartes` (SCOLARITÉ), qui reçoit **à l'identique** les plans et
+les droits de `documents` : 35 lignes, 35 en lecture, 14 en export — mêmes
+chiffres des deux côtés. Aucune RLS touchée : le module ne fait que LIRE
+`students` et `class_enrollments`, il n'écrit rien, donc il ne peut pas
+produire de 42501.
+
+**Appliquée en production le 2026-08-29**, avant le build, pour la même raison
+que `0147`.
+
+### État des migrations en attente, après ce tour
+
+| migration | quand |
+|---|---|
+| `0147` délibération = module | ✅ appliquée (avant le build) |
+| `0148` carte scolaire = module | ✅ appliquée (avant le build) |
+| `0139` annonces/événements par le verbe | ⏳ **après** la publication du build |
+| `0142` matières/programmes par le verbe | ⏳ **après** la publication du build |
+| `0146` retrait des colonnes Firebase | ⏳ après que **TOUS** les postes soient en ≥ 3.3.1+21 |
+
+⚠️ Les deux familles ne s'attendent pas au même signal : `0139`/`0142` attendent
+que le build soit **publié** ; `0146` attend qu'il soit **reçu partout** — une
+condition strictement plus forte. `0147`/`0148`, elles, devaient PRÉCÉDER la
+publication, et c'est fait.

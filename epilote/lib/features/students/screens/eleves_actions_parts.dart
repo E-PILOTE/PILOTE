@@ -174,6 +174,30 @@ class _DwActionBar extends ConsumerWidget {
     );
   }
 
+  /// La carte que l'élève PORTE — duplicata au guichet. Elle se recompose
+  /// depuis le dossier : réimprimée après un changement de classe, elle porte
+  /// la nouvelle, ce qu'une carte stockée ne saurait pas faire.
+  Future<void> _carteScolaire(BuildContext context, WidgetRef ref) async {
+    await imprimerCarteEleve(
+      context,
+      ref,
+      eleve: CarteEleveRow(
+        studentId: row.id,
+        firstName: row.firstName,
+        lastName: row.lastName,
+        matricule: row.matricule,
+        className: row.className ?? '—',
+        status: row.enrollmentStatus ?? '',
+        ine: row.ine,
+        gender: row.gender,
+        dateOfBirth: row.dateOfBirth,
+        placeOfBirth: row.placeOfBirth,
+        isBoarder: row.isBoarder,
+        photoUrl: row.photoUrl,
+      ),
+    );
+  }
+
   Future<bool?> _confirm(BuildContext context, String title, String body,
           String ok, Color c) =>
       showDialog<bool>(
@@ -233,6 +257,8 @@ class _DwActionBar extends ConsumerWidget {
             switch (v) {
               case 'certificat':
                 _certificatScolarite(context, ref);
+              case 'carte':
+                _carteScolaire(context, ref);
               case 'class':
                 _changeClass(context, ref);
               case 'revert':
@@ -251,6 +277,13 @@ class _DwActionBar extends ConsumerWidget {
                 child: _MenuRow(
                     icon: Icons.workspace_premium_outlined,
                     label: 'Certificat de scolarité')),
+            // Le duplicata : un élève perd sa carte en cours d'année et se
+            // présente au guichet. La fabrication de MASSE, elle, est le
+            // module « Cartes scolaires » — pas ce tiroir.
+            const PopupMenuItem(
+                value: 'carte',
+                child: _MenuRow(
+                    icon: Icons.badge_outlined, label: 'Carte scolaire')),
             // Le séparateur ne se dessine que s'il sépare quelque chose : sur
             // une année clôturée, le certificat est seul et le trait pendait.
             if (canUpdate || canDelete) const PopupMenuDivider(),
