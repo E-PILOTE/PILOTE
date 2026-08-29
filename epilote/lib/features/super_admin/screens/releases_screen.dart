@@ -16,6 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
+import '../widgets/parc_section.dart';
 import '../providers/releases_provider.dart';
 import 'release_form_dialog.dart';
 import '../../../core/utils/message_erreur.dart';
@@ -44,6 +45,10 @@ class _ReleasesBody extends ConsumerWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const _Avertissement(),
         const SizedBox(height: 18),
+        // Le parc AVANT le catalogue : ce qui tourne réellement se lit avant ce
+        // qu'on propose. L'ordre inverse laisserait croire que publier suffit.
+        const ParcSection(),
+        const SizedBox(height: 24),
         Row(children: [
           Expanded(
             child: Text(

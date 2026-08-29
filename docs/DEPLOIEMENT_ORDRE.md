@@ -134,7 +134,7 @@ un seul fournisseur, Supabase). Sa condition est **plus forte** que celle de
 | | condition |
 |---|---|
 | `0139`, `0142` | le build est **publié** |
-| `0146` | **tous les postes** l'ont reçu (build ≥ 23) — ⚠️ invérifiable aujourd'hui, voir plus bas |
+| `0146` | **tous les postes** l'ont reçu (build ≥ 24) — mesurable depuis `0150`, voir plus bas |
 
 Les deux premières durcissent un verbe : un poste en retard se voit refuser une
 écriture par un `42501`, que le connecteur traite comme fatal — le lot est jeté,
@@ -150,18 +150,27 @@ poste n'envoie plus rien, jamais, sans aucun message à l'écran.
 
 Deux constats faits en interrogeant la base et le dépôt de distribution :
 
-**1. Le seuil correct est `build_number ≥ 23`, pas 21.** `app_releases` ne
+**1. Le seuil correct est `build_number ≥ 24`, pas 21.** `app_releases` ne
 contient qu'une ligne — **3.3.0 build 20** — et le dépôt public
 `E-PILOTE/telechargements` ne porte qu'une publication, `v3.3.0`. Les builds
-**3.3.1+21 et 3.4.0+22 n'ont JAMAIS été distribués**. Le premier binaire sans
-les colonnes Firebase que le parc puisse réellement recevoir est donc
-**3.4.0+23**. Écrire 21 dans une consigne enverrait quelqu'un vérifier un seuil
+**3.3.1+21 et 3.4.0+22 n'ont JAMAIS été distribués**. Le premier binaire sans les colonnes
+Firebase que le parc puisse réellement recevoir — et qui sache en outre se
+signaler — est donc **3.4.0+24**. Écrire 21 dans une consigne enverrait quelqu'un vérifier un seuil
 qu'aucun poste n'a jamais pu franchir.
 
-**2. Rien ne dit quelle version tourne où.** Aucune table n'enregistre la
-version d'un poste : `build_number` n'existe que dans `app_releases`, c'est-à-
-dire ce qui est PROPOSÉ, jamais ce qui est INSTALLÉ. La condition « tous les
-postes l'ont reçu » n'est donc, aujourd'hui, **pas vérifiable**.
+**2. Rien ne disait quelle version tourne où — corrigé par la migration 0150.**
+`build_number` n'existait que dans `app_releases`, c'est-à-dire ce qui est
+PROPOSÉ, jamais ce qui est INSTALLÉ.
+
+`0150` ajoute `app_installations` et la RPC `signaler_version()`, appelée une
+fois par session au même endroit que la vérification de mise à jour. L'écran
+**super_admin → Versions** montre le relevé, et refuse de conclure tant qu'un
+seul profil n'a rien signalé.
+
+⚠️ **L'absence de signalement EST le signal.** Les builds antérieurs à 24 n'ont
+pas ce code : ils n'apparaîtront jamais. Un profil absent est donc soit sur une
+version ancienne, soit jamais revenu — deux risques pour `0146`, indiscernables,
+donc comptés ensemble. Ne jamais lire « à jour » sans « n'ont rien signalé ».
 
 Et elle n'est pas non plus forçable : `is_mandatory` / `min_build` rendent la
 bannière rouge et non refermable, mais **ne bloquent pas l'application** — un
@@ -301,7 +310,7 @@ que `0147`.
 | `0148` carte scolaire = module | ✅ appliquée (avant le build) |
 | `0139` annonces/événements par le verbe | ⏳ **après** la publication du build |
 | `0142` matières/programmes par le verbe | ⏳ **après** la publication du build |
-| `0146` retrait des colonnes Firebase | 🛑 **suspendue** — seuil réel ≥ build 23, et aucun relevé des versions installées n'existe pour le vérifier |
+| `0146` retrait des colonnes Firebase | 🛑 **suspendue** — seuil réel ≥ build 24 ; le relevé existe depuis `0150`, il faut maintenant qu'il soit **complet** (zéro profil muet) |
 
 ⚠️ Les deux familles ne s'attendent pas au même signal : `0139`/`0142` attendent
 que le build soit **publié** ; `0146` attend qu'il soit **reçu partout** — une

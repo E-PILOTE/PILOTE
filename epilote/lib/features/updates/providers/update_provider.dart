@@ -24,10 +24,12 @@
 //  guichet national de l'élève.
 // ════════════════════════════════════════════════════════════════════════════
 
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../auth/providers/auth_provider.dart';
 
@@ -126,6 +128,21 @@ final miseAJourProvider = FutureProvider<EtatMiseAJour>((ref) async {
 
   try {
     final client = ref.read(supabaseClientProvider);
+
+    // ── Dire quelle version on est, avant de demander laquelle existe ───────
+    //  Le geste symétrique de la question posée juste après, au même instant
+    //  et sur le même réseau. Sans lui, `docs/DEPLOIEMENT_ORDRE.md` fait
+    //  dépendre la migration 0146 d'une condition — « tous les postes l'ont
+    //  reçu » — que RIEN ne permettait d'observer.
+    //
+    //  ⚠️ NON ATTENDU, et dans son propre `try`. Deux raisons, la seconde
+    //  étant la vraie : un serveur qui ne connaîtrait pas encore
+    //  `signaler_version` (migration 0150 non appliquée) ne doit pas emporter
+    //  la vérification de mise à jour avec lui, et un réseau lent ne doit pas
+    //  retarder d'un aller-retour la seule chose qui compte ici — savoir qu'un
+    //  correctif existe. Se signaler est utile ; l'apprendre l'est davantage.
+    unawaited(_signalerVersion(client, info.version, build));
+
     final row = await client.rpc('derniere_version', params: {
       'p_platform': plateformeCourante(),
       'p_channel': 'stable',
@@ -143,6 +160,29 @@ final miseAJourProvider = FutureProvider<EtatMiseAJour>((ref) async {
     return EtatMiseAJour(buildInstalle: build, versionInstallee: installee);
   }
 });
+
+/// Signale au serveur la version exécutée par ce poste. **N'échoue jamais.**
+///
+/// Le serveur ne reçoit que la version, le build et la plateforme : il dérive
+/// lui-même le profil, le groupe et l'école de la session. Aucun identifiant
+/// d'appareil, aucune adresse, aucune caractéristique matérielle — la question
+/// posée est « quelle version tourne », pas « qui est derrière quel écran ».
+Future<void> _signalerVersion(
+  SupabaseClient client,
+  String version,
+  int build,
+) async {
+  try {
+    await client.rpc('signaler_version', params: {
+      'p_version': version,
+      'p_build': build,
+      'p_platform': plateformeCourante(),
+    });
+  } catch (_) {
+    // Hors ligne, RPC absente, session expirée : un relevé d'exploitation ne
+    // justifie jamais d'empêcher quelqu'un de travailler.
+  }
+}
 
 /// La plateforme telle que la table la nomme.
 ///
