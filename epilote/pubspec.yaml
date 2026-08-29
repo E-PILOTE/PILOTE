@@ -121,6 +121,11 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   build_runner: ^2.4.14
   riverpod_generator: ^2.6.1
+  # Test-only : le garde `sync_rules_publient_le_schema_local_test.dart` lit
+  # `powersync/config/sync-rules.yaml`. Un scanner d'indentation maison
+  # laisserait passer les entrées repliées (`- >-`) — un garde qui ment est
+  # pire que pas de garde.
+  yaml: ^3.1.3
 
 flutter:
   uses-material-design: true

@@ -336,6 +336,61 @@ Tant que le déploiement n'a pas eu lieu, une école qui aurait archivé un él�
 verrait donc l'avertissement plutôt qu'un registre faussement complet. C'est un
 filet, pas une dispense de déployer.
 
-Le déploiement se fait par le tableau de bord PowerSync Cloud, ou la CLI avec un
-jeton valide (celui de la session du 28/08 est à révoquer et régénérer). **Avant
-la publication du build.**
+### Comment le déployer (procédure vérifiée le 2026-08-29)
+
+⚠️ **Le jeton stocké sur ce poste ne fonctionne plus.** Diagnostic fait, sans
+ambiguïté possible :
+
+| requête envoyée à `accounts.powersync.com` | réponse |
+|---|---|
+| jeton bidon, ou aucun en-tête `Authorization` | `401 ACCESS_DENIED` |
+| chemin d'API inexistant | `404` |
+| **le jeton de `~/.config/powersync/config.yaml`** | **`500 — Resource does not exist`** |
+
+Il franchit donc le contrôle d'authentification (ce n'est pas un 401) mais ne
+résout plus vers aucune organisation : le PAT a été révoqué côté compte — ce qui
+était précisément la consigne de sécurité après la session du 28/08. Rien à
+réparer, il faut en refaire un.
+
+**Étape 1 — ouvrir une session CLI (à faire par un humain, une seule fois) :**
+
+```
+powersync login
+```
+
+La commande demande le jeton et le range dans le stockage sécurisé du poste.
+⚠️ **Ne jamais coller un PAT dans une conversation** : c'est exactement ce qui a
+brûlé le précédent. Le jeton se crée sur le tableau de bord PowerSync Cloud.
+
+**Étape 2 — déployer, depuis la racine du dépôt :**
+
+```
+powersync deploy sync-config --sync-config-file-path powersync/config/sync-rules.yaml
+```
+
+`powersync/cli.yaml` pointe déjà sur l'instance de **production** (…66759) — pas
+sur Development (…66757). Ne pas le modifier sans relire son en-tête.
+
+**Étape 3 — vérifier ce qui tourne réellement**, plutôt que ce qu'on croit avoir
+envoyé :
+
+```
+powersync pull instance --instance-id 6a185943234fa2bf51a66759
+```
+
+Écrit `powersync/sync-fetched.yaml` (gitignoré). Les deux lignes du tableau
+ci-dessus doivent y figurer, et `FROM students` ne doit **pas** porter
+`AND is_active = true`.
+
+### Ce que le dépôt garde tout seul
+
+`epilote/test/sync_rules_publient_le_schema_local_test.dart` confronte
+`powersync_schema.dart` et `sync-rules.yaml` dans les deux sens : une table
+déclarée en local que personne ne publie fait échouer les tests, et
+réciproquement. Au 2026-08-29 : **86 tables des deux côtés, aucun écart**.
+
+⚠️ **Ce garde lit le FICHIER, pas les règles DÉPLOYÉES.** Un fichier juste et
+non déployé produit exactement la panne qu'il prétend empêcher. Il n'y a pas
+d'automatisme possible ici : seule l'étape 3 le dit.
+
+**Avant la publication du build.**
