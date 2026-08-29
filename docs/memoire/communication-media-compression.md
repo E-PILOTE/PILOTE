@@ -18,12 +18,28 @@ metadata:
 - `audio_message_player.dart` : (a) **télécharge** les octets du Storage privé puis joue depuis un **fichier temp local** (`setSourceDeviceFile`) — bien plus fiable que le streaming HTTP signé sur Linux/GStreamer ; détecte aussi le fichier vide (`<1500` octets) → état « Note vocale indisponible » + bouton réessayer ; cache `cacheKey→tempPath` pour relecture instantanée. (b) **`setReleaseMode(ReleaseMode.stop)`** (en initState ET au début de `_toggle`, idempotent → s'applique même à une instance déjà créée après hot reload) + `seek(0)` à la fin de lecture et avant une relance si la tête est en fin de piste → **rejouer marche**.
 **Règle** : sur desktop Linux, lire l'audio depuis un fichier local téléchargé, pas via URL signée streamée ; et toujours `ReleaseMode.stop` pour autoriser la relecture. Voir [[communication-receipts-presence]].
 
-**Compression upload (« effet WhatsApp »)** : `features/communication/widgets/media_compression.dart`.
+**Compression upload (« effet WhatsApp »)** : `core/utils/media_compression.dart` (⚠️ la fiche indiquait `features/communication/widgets/` — le fichier a été remonté dans `core/`, il sert désormais tout le dépôt).
 - Images → pur Dart `image` (universel, marche sur Linux dev) : resize ≤1600px + JPEG q80, exécuté en isolate `compute()` (pas de jank). Photo 8 Mo → ~400 Ko.
 - Vidéos → `video_compress` (Android/iOS only, gardé par `videoCompressionSupported`) : MediumQuality ~720p. Ailleurs (desktop/web) = original.
 - Point d'entrée unique `compressForUpload()` branché dans `pickAndUploadAttachments()` (comm_attachments.dart) AVANT le contrôle des 25 Mo → partagé par les 5 composeurs (messagerie, thread, annonces, événements, stories).
 
-**Décision archi : PAS de MUX.** MUX = streaming, incompatible avec l'offline-first (cœur école). Le vrai gain WhatsApp = compression à la source (fait) + ~~FCM push~~ ⚠️ **PÉRIMÉ le 2026-08-29 : Firebase est SORTI du projet** — le canal est la table `notifications` + PowerSync + la cloche, voir [[powersync-status]] et le garde `notification_sans_firebase_test.dart` + buckets privés/signed URLs (à faire — actuellement `getPublicUrl` = pièces jointes publiques, faille confidentialité). MUX/Cloudflare Stream seulement si un jour vidéo longue broadcast online (Phase 2).
+**Décision archi : PAS de MUX.** MUX = streaming, incompatible avec
+l'offline-first (cœur école). Confirmé par le fondateur le 2026-08-29 : « il n'y
+a pas mux et on n'en a pas besoin ». Les vidéos vont dans Supabase Storage.
+MUX/Cloudflare Stream seulement si un jour vidéo longue broadcast online
+(Phase 2).
+
+⚠️ **Cette phrase portait deux affirmations périmées, corrigées le 2026-08-29 :**
+
+- « FCM push (à faire) » → **Firebase est SORTI du projet.** Le canal est la
+  table `notifications` + PowerSync + la cloche. Voir
+  [[powersync-status]] et le garde `notification_sans_firebase_test.dart`.
+- « buckets privés / signed URLs (à faire — `getPublicUrl` = pièces jointes
+  publiques, faille confidentialité) » → **c'était FAUX depuis le 2026-06-14**,
+  et le dernier paragraphe de cette même fiche le disait déjà. Vérifié dans le
+  code : `messages_provider.dart` n'appelle plus que `createSignedUrl`. Une
+  fiche qui annonce une faille refermée depuis deux mois fait perdre une
+  demi-journée, ou déclenche une panique pour rien.
 
 **Fix création de groupe (RLS)** : migration `fix_group_creation_member_insert_rls`. La policy `conv_members_insert` exigeait `is_conversation_member()` qui ne voit pas la ligne du créateur dans le même INSERT batch → tous les autres membres rejetés. Ajout fonction `is_conversation_creator(conv_id)` + policy l'autorise. Code `createGroupConversationScoped` réordonné : créateur d'abord, puis les autres.
 
