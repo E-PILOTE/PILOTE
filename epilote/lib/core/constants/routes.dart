@@ -96,6 +96,7 @@ class Routes {
   // rattachement est de toute façon juste — c'est un document que l'école
   // produit, tenu par les mêmes mains que les pièces du dossier.
   static const String registreMatricule = '/user/documents/registre-matricule';
+  static const String etatRentree     = '/user/documents/etat-rentree';
   static const String cartes          = '/user/cartes'; // cartes scolaires
   static const String annuaire        = '/user/annuaire';
   static const String structure       = '/user/structure'; // structure académique (module 'niveaux')

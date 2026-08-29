@@ -181,7 +181,14 @@ const schema = Schema([
   Table('schools', [
     Column.text('group_id'),
     Column.text('name'),
-    Column.text('school_type'),
+    Column.text('school_type'),   // public | prive
+    // Ministère de tutelle (mepsa | metp). Ajoutée pour l'état statistique de
+    // rentrée : c'est le premier champ de la fiche d'identification, celui qui
+    // décide à quelle administration l'état est remonté. La colonne existe en
+    // base depuis l'origine — la déclarer ici ne peut donc pas produire de
+    // 42703, et le poste école n'écrit JAMAIS `schools` (vérifié : aucun
+    // `UPDATE schools` dans `lib/`), donc rien ne peut l'écraser.
+    Column.text('tutelle'),
     Column.text('school_code'),
     Column.text('address'),
     Column.text('city'),
