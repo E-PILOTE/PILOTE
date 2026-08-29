@@ -48,6 +48,11 @@ class DocumentsScreen extends ConsumerWidget {
         // sans aucune trace.
         actions: [
           TextButton.icon(
+            onPressed: () => context.push(Routes.registreMatricule),
+            icon: const Icon(Icons.menu_book_outlined, size: 17),
+            label: const Text('Registre matricule'),
+          ),
+          TextButton.icon(
             onPressed: () => context.push(Routes.registreDocuments),
             icon: const Icon(Icons.history_edu_outlined, size: 17),
             label: const Text('Documents délivrés'),

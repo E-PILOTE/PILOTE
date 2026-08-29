@@ -238,7 +238,19 @@ bucket_definitions:
       - SELECT * FROM transmission_items WHERE school_id = bucket.sid
       # Stages (migration 0048) — nominatif : filtré par école.
       - SELECT * FROM internships WHERE school_id = bucket.sid
-      - SELECT * FROM students WHERE school_id = bucket.sid AND is_active = true
+      # ⚠️ PLUS DE FILTRE `is_active` (2026-08-29). Il paraissait économe : ne
+      # descendre que les élèves présents. Mais `deactivateStudent` met
+      # `is_active = 0`, l'élève sort alors du bucket et DISPARAÎT de tous les
+      # postes — dossier compris. Or le REGISTRE MATRICULE est le grand livre
+      # réglementaire : il doit porter tous ceux qui ont été inscrits, y compris
+      # ceux qui sont partis. Un registre qui perd une ligne n'est plus un
+      # registre, et l'école ne s'en apercevrait qu'à l'inspection.
+      #
+      # Le coût est nul aujourd'hui (0 élève inactif sur 9 106) et reste
+      # négligeable ensuite : quelques milliers de lignes texte par école, à vie.
+      # Les écrans, eux, filtrent déjà `is_active` dans leurs propres requêtes —
+      # un archivé ne réapparaît donc nulle part, sauf là où on le demande.
+      - SELECT * FROM students WHERE school_id = bucket.sid
       # Coordonnées des familles (migration 0110). La donnée la plus
       # identifiante de la plateforme : nom des parents, deux téléphones,
       # e-mail, adresse, profession. Elle suit désormais l'ÉCOLE de l'enfant —

@@ -313,3 +313,29 @@ voulu le noter. C'est la règle de la migration `0144`, appliquée ailleurs.
 Le contrôle d'accès reste là où il a un sens : l'écran de consultation
 (`/user/documents/registre`) vit sous le module `documents` — sous-chemin, donc
 même verrou, sans une ligne de plus au catalogue.
+
+## Le déploiement des sync-rules porte maintenant DEUX changements
+
+Un seul déploiement, deux lignes — les deux dans le bucket `by_school` de
+`powersync/config/sync-rules.yaml`, déjà écrites dans le dépôt :
+
+| ligne | pourquoi | si on ne déploie pas |
+|---|---|---|
+| `SELECT * FROM issued_documents WHERE school_id = bucket.sid` | le registre des documents délivrés doit redescendre | l'écran s'affiche **vide** alors que la donnée existe au serveur |
+| `SELECT * FROM students WHERE school_id = bucket.sid` — **sans `AND is_active = true`** | un élève archivé quittait le bucket et **disparaissait de tous les postes** | le **registre matricule perd des lignes**, et l'école ne s'en aperçoit qu'à l'inspection |
+
+Le second point n'est pas une amélioration, c'est une **fuite** : `is_active`
+est un drapeau d'archivage, pas de suppression, et la sync-rule le traitait
+comme une suppression. Coût du retrait : nul aujourd'hui (0 archivé sur 9 106),
+négligeable ensuite — quelques milliers de lignes texte par école, à vie. Les
+écrans filtrent déjà `is_active` dans leurs propres requêtes.
+
+⚠️ **Le registre matricule sait dire qu'il est incomplet** : il compte les
+inscriptions dont l'élève est introuvable en local et l'écrit sur le document.
+Tant que le déploiement n'a pas eu lieu, une école qui aurait archivé un élève
+verrait donc l'avertissement plutôt qu'un registre faussement complet. C'est un
+filet, pas une dispense de déployer.
+
+Le déploiement se fait par le tableau de bord PowerSync Cloud, ou la CLI avec un
+jeton valide (celui de la session du 28/08 est à révoquer et régénérer). **Avant
+la publication du build.**

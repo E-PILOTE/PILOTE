@@ -91,6 +91,11 @@ class Routes {
   // Sous-chemin de `documents` : `moduleSlugForLocation` reconnaît les
   // sous-chemins, l'écran hérite donc du même verrou sans module supplémentaire.
   static const String registreDocuments = '/user/documents/registre';
+  // ⚠️ Sous `documents`, et NON sous `eleves` : `/user/eleves/:id` capterait
+  // « /user/eleves/registre-matricule » comme un identifiant d'élève. Le
+  // rattachement est de toute façon juste — c'est un document que l'école
+  // produit, tenu par les mêmes mains que les pièces du dossier.
+  static const String registreMatricule = '/user/documents/registre-matricule';
   static const String cartes          = '/user/cartes'; // cartes scolaires
   static const String annuaire        = '/user/annuaire';
   static const String structure       = '/user/structure'; // structure académique (module 'niveaux')

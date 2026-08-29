@@ -46,6 +46,7 @@
 - [⚠️ Un graphe et un KPI doivent dire le même nombre](graphe-effectif-vs-kpi.md) — `is_active` + périmètre de classes + mois creux comblés
 - [📜 Attestations émises par l'école](attestations-emises.md) — scolarité/radiation/travail ; `AttestationKit` ; ⚠️ `pw.Page` jamais `MultiPage` ; le REFUS est la fonctionnalité
 - [🧾 Registre des documents délivrés](registre-documents-delivres.md) — `issued_documents` IMMUABLE par trigger `RETURN OLD` ; ⚠️ l'INSERT n'exige AUCUN verbe (sinon 42501 fatal) ; ⚠️ sans la ligne sync-rules, l'écran MENT
+- [📖 Registre matricule — le grand livre](registre-matricule.md) — ⚠️ le filtre `is_active` des sync-rules faisait DISPARAÎTRE les archivés de tous les postes (retiré) ; le registre compte ses LACUNES et les imprime ; `compareMatricule` : M-9 avant M-10
 - [🔍 Non revenus + exclusion définitive](non-revenus-et-exclusion.md) — 3e onglet du Passage ; ⚠️ garde-fou 30 % ; ⚠️ `academic_years.school_id` est NULL (années portées par le GROUPE)
 - [🪪 Carte scolaire — le module](carte-scolaire-module.md) — ISO ID-1, 10/A4, verso MIROITÉ ; import de masse des photos : **exact ou rien**, unicité SYMÉTRIQUE ; ⚠️ garder sur `eleves.update` (RLS `students`), pas sur `cartes.import` ; mig 0148 AVANT le build
 - [⚠️ Le Passage n'avait aucun verrou](passage-devient-un-module.md) — slug absent de `_moduleRoutes` = « route native » = zéro verrou ; mig 0147 recopie `conseils` ; ⚠️ `can_write` est GÉNÉRÉE (428C9)
