@@ -18,11 +18,11 @@
 //  sur la fiche d'autrui, et un refus serveur emporterait le lot entier.
 // ════════════════════════════════════════════════════════════════════════════
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/capture_webcam.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../communication/widgets/user_avatar.dart';
 import '../../user/widgets/staff_account_widgets.dart' show staffRoleLabel;
@@ -92,14 +92,12 @@ class _State extends ConsumerState<_AgentFicheDialog> {
   }
 
   Future<void> _choisirPhoto() async {
-    final res = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: kAvatarExtensions,
-      withData: true,
-    );
-    final f = res?.files.firstOrNull;
-    final bytes = f?.bytes;
-    if (f == null || bytes == null) return;
+    // Webcam ou fichier. Un agent nouvellement recruté est dans le bureau du
+    // chef au moment où sa fiche se crée : la photo se prend là, ou jamais.
+    final choix =
+        await choisirPhotoPersonne(context, extensions: kAvatarExtensions);
+    if (choix == null) return;
+    final bytes = choix.octets;
 
     final schoolId = ref.read(authNotifierProvider).valueOrNull?.schoolId;
     if (schoolId == null || schoolId.isEmpty) {
@@ -115,7 +113,7 @@ class _State extends ConsumerState<_AgentFicheDialog> {
         client: ref.read(supabaseClientProvider),
         schoolId: schoolId,
         profileId: widget.agent.id,
-        fileName: f.name,
+        fileName: choix.nomFichier,
         bytes: bytes,
       );
       if (mounted) {

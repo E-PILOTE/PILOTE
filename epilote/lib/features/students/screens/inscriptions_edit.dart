@@ -146,14 +146,12 @@ class _EditStudentModalState extends ConsumerState<_EditStudentModal> {
   }
 
   Future<void> _pickPhoto() async {
-    final res = await FilePicker.platform
-        .pickFiles(type: FileType.image, withData: true);
-    if (res == null || res.files.isEmpty) return;
-    final f = res.files.first;
-    if (f.bytes == null) return;
+    // Webcam ou fichier — voir `eleves_edit.dart`, même geste, même raison.
+    final choix = await choisirPhotoPersonne(context);
+    if (choix == null) return;
     setState(() {
-      _photoBytes = f.bytes;
-      _photoExt = (f.extension ?? 'jpg').toLowerCase();
+      _photoBytes = choix.octets;
+      _photoExt = extensionPhoto(choix.nomFichier);
     });
   }
 

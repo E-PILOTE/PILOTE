@@ -90,6 +90,8 @@ dependencies:
   # fl_chart: ^0.69.0           ← graphiques
   # reactive_forms: ^17.0.1     ← formulaires avancés
   # image_picker: ^1.1.2        ← photo élèves
+  camera: ^0.11.0             # prise de photo à la webcam (fiche élève/agent)
+  camera_windows: ^0.2.6      # ⚠️ NON endossé par `camera` : à déclarer à part
   file_picker: ^8.1.7         # upload logos groupes
   pdf: ^3.12.0                # génération PDF
   printing: ^5.14.3           # impression + téléchargement PDF
