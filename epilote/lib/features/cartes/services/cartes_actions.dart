@@ -27,6 +27,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
 import '../../structure/providers/academic_year_provider.dart';
 import '../../students/services/carte_scolaire_pdf_service.dart';
+import '../../students/services/registre_documents.dart';
 import '../providers/cartes_provider.dart';
 
 /// Ce que l'établissement met sur la carte.
@@ -115,6 +116,21 @@ Future<void> imprimerPlancheCartes(
   final planches =
       (prep.cartes.length + kCartesParPlanche - 1) ~/ kCartesParPlanche;
 
+  // Une ligne de registre PAR ÉLÈVE, pas une par planche. Le registre répond à
+  // « combien de cartes cet enfant a-t-il reçues ? » — la question des
+  // duplicatas — et une ligne « classe de 40 » n'y répondrait pas.
+  for (final e in actifs) {
+    await noterDocumentEmis(
+      ref,
+      documentType: TypeDocument.carteScolaire,
+      studentId: e.studentId,
+      recipientName: e.fullName,
+      recipientRef: '${e.className} · ${e.matricule}',
+      purpose: titre,
+    );
+  }
+  if (!context.mounted) return;
+
   await showPdfPreviewDialog(
     context,
     title: 'Cartes scolaires — $titre',
@@ -157,6 +173,15 @@ Future<void> imprimerCarteEleve(
   if (!context.mounted) return;
 
   final em = emetteurCarte(ref);
+  await noterDocumentEmis(
+    ref,
+    documentType: TypeDocument.carteScolaire,
+    studentId: eleve.studentId,
+    recipientName: eleve.fullName,
+    recipientRef: '${eleve.className} · ${eleve.matricule}',
+    purpose: 'Duplicata au guichet',
+  );
+  if (!context.mounted) return;
   await showPdfPreviewDialog(
     context,
     title: 'Carte scolaire',

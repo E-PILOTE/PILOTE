@@ -1,8 +1,10 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/constants/routes.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../../services/powersync/student_document_upload.dart'
@@ -38,10 +40,20 @@ class DocumentsScreen extends ConsumerWidget {
   const DocumentsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => const ModuleScaffold(
+  Widget build(BuildContext context, WidgetRef ref) => ModuleScaffold(
         slug: _kSlug,
         title: 'Documents',
-        child: _Body(),
+        // Cet écran suit les pièces que l'école REÇOIT. Le registre suit celles
+        // qu'elle ÉMET — l'autre face du même métier, et jusqu'ici la seule
+        // sans aucune trace.
+        actions: [
+          TextButton.icon(
+            onPressed: () => context.push(Routes.registreDocuments),
+            icon: const Icon(Icons.history_edu_outlined, size: 17),
+            label: const Text('Documents délivrés'),
+          ),
+        ],
+        child: const _Body(),
       );
 }
 

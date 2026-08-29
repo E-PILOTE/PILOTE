@@ -1281,6 +1281,38 @@ const schema = Schema([
     Column.text('updated_at'),
   ]),
 
+  // ── Registre des documents DÉLIVRÉS (migration 0149) ─────────────────────
+  //  Ne pas confondre avec `student_documents`, qui suit les pièces que
+  //  l'école REÇOIT. Celle-ci note les papiers qu'elle ÉMET : certificat de
+  //  scolarité, radiation, carte scolaire, attestation de travail.
+  //
+  //  ⚠️ Aucune colonne pour le PDF, et il n'en faut pas : le registre note
+  //  l'ACTE. Entreposer chaque certificat, ce serait des milliers de pièces
+  //  portant identité, date de naissance et adresse d'enfants, sur le disque
+  //  de chaque poste de l'école.
+  //
+  //  ⚠️ La table est IMMUABLE côté serveur (trigger `RETURN OLD`) : un rejeu
+  //  de lot après coupure passe sans erreur et ne change rien. Ne jamais
+  //  écrire d'UPDATE dessus depuis le client — ce serait sans effet, donc un
+  //  mensonge à l'écran.
+  Table('issued_documents', [
+    Column.text('group_id'),
+    Column.text('school_id'),
+    Column.text('academic_year_id'),
+    Column.text('document_type'),
+    Column.text('student_id'),
+    Column.text('staff_profile_id'),
+    // Figés à l'émission : un registre doit dire ce qui a été écrit ce
+    // jour-là, pas ce que la base contient aujourd'hui.
+    Column.text('recipient_name'),
+    Column.text('recipient_ref'),
+    Column.text('issued_by'),
+    Column.text('issued_by_name'),
+    Column.text('issued_at'),
+    Column.text('purpose'),
+    Column.text('created_at'),
+  ]),
+
   Table('student_orientations', [
     Column.text('group_id'),
     Column.text('school_id'),

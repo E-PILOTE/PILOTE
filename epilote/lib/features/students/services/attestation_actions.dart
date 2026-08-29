@@ -20,6 +20,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
 import '../../structure/providers/academic_year_provider.dart';
 import 'attestations_pdf_service.dart';
+import 'registre_documents.dart';
 
 /// Ce que l'établissement met sur le papier : son nom, sa ville, le signataire.
 class _Emetteur {
@@ -70,6 +71,7 @@ Future<void> delivrerCertificatScolarite(
   WidgetRef ref, {
   required AttestationEleve eleve,
   required String? enrollmentStatus,
+  String? studentId,
 }) async {
   if (!peutDelivrerScolarite(enrollmentStatus)) {
     _refus(
@@ -79,6 +81,16 @@ Future<void> delivrerCertificatScolarite(
     return;
   }
   final e = _emetteur(ref);
+  // Le registre note l'ACTE : le document est produit au nom d'une personne
+  // nommée, et l'établissement en répond. Ne lève jamais — le certificat passe
+  // avant son enregistrement.
+  await noterDocumentEmis(
+    ref,
+    documentType: TypeDocument.certificatScolarite,
+    studentId: studentId,
+    recipientName: eleve.fullName,
+    recipientRef: '${eleve.className} · ${eleve.matricule ?? '—'}',
+  );
   if (!context.mounted) return;
   await showPdfPreviewDialog(
     context,
@@ -111,6 +123,7 @@ Future<void> delivrerCertificatRadiation(
   required String? motif,
   DateTime? dateSortie,
   String? observations,
+  String? studentId,
 }) async {
   if (!peutDelivrerRadiation(enrollmentStatus)) {
     _refus(
@@ -120,6 +133,14 @@ Future<void> delivrerCertificatRadiation(
     return;
   }
   final e = _emetteur(ref);
+  await noterDocumentEmis(
+    ref,
+    documentType: TypeDocument.certificatRadiation,
+    studentId: studentId,
+    recipientName: eleve.fullName,
+    recipientRef: '${eleve.className} · ${eleve.matricule ?? '—'}',
+    purpose: motif,
+  );
   if (!context.mounted) return;
   await showPdfPreviewDialog(
     context,

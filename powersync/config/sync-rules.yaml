@@ -328,6 +328,14 @@ bucket_definitions:
       - SELECT * FROM library_loans WHERE school_id = bucket.sid
       # Documents & mobilité
       - SELECT * FROM student_documents WHERE school_id = bucket.sid
+      # Registre des documents DÉLIVRÉS (migration 0149) — l'acte, jamais le
+      # PDF. Écrit au guichet, souvent hors ligne, et consulté par la direction
+      # sur un autre poste : il lui faut donc redescendre. Sans cette ligne, les
+      # écritures remontent bien vers Postgres mais n'appartiennent à aucun
+      # bucket : la copie locale disparaît au checkpoint suivant et l'écran
+      # s'affiche vide alors que la donnée existe. Volume : quelques milliers de
+      # lignes par école et par an.
+      - SELECT * FROM issued_documents WHERE school_id = bucket.sid
       - SELECT * FROM student_orientations WHERE school_id = bucket.sid
       - SELECT * FROM leave_requests WHERE school_id = bucket.sid
 

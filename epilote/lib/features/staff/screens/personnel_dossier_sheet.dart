@@ -7,6 +7,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../communication/widgets/user_avatar.dart';
 import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
+import '../../students/services/registre_documents.dart';
 import '../../students/widgets/scope_drilldown_panel.dart' show scopeCycleName;
 import '../../user/widgets/staff_account_widgets.dart' show staffRoleLabel;
 import '../../vie_scolaire/widgets/vs_form_chrome.dart';
@@ -31,6 +32,18 @@ Future<void> _attestationTravail(
   final moi = ref.read(authNotifierProvider).valueOrNull;
   final dirige = moi?.role == 'directeur' || moi?.role == 'proviseur';
   final nom = dirige ? '${moi?.firstName ?? ''} ${moi?.lastName ?? ''}'.trim() : '';
+
+  // Au registre comme les papiers d'élèves : une attestation de travail sert à
+  // ouvrir un compte, obtenir un prêt, justifier un revenu. L'établissement
+  // doit pouvoir dire qui l'a délivrée. Ne lève jamais.
+  await noterDocumentEmis(
+    ref,
+    documentType: TypeDocument.attestationTravail,
+    staffProfileId: d.id,
+    recipientName: d.fullName,
+    recipientRef: staffRoleLabel(d.role),
+  );
+  if (!context.mounted) return;
 
   await showPdfPreviewDialog(
     context,

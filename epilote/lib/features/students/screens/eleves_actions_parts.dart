@@ -129,6 +129,7 @@ class _DwActionBar extends ConsumerWidget {
           dateOfBirth: row.dateOfBirth,
         ),
         enrollmentStatus: status,
+        studentId: row.id,
         motif: res.motif,
         dateSortie: DateTime.now(),
         observations: res.reason,
@@ -171,6 +172,7 @@ class _DwActionBar extends ConsumerWidget {
         placeOfBirth: lieu.isEmpty ? null : lieu,
       ),
       enrollmentStatus: row.enrollmentStatus,
+      studentId: row.id,
     );
   }
 

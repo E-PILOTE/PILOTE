@@ -88,6 +88,9 @@ class Routes {
   static const String inscriptions    = '/user/inscriptions';
   static const String transferts      = '/user/transferts';
   static const String documents       = '/user/documents';
+  // Sous-chemin de `documents` : `moduleSlugForLocation` reconnaît les
+  // sous-chemins, l'écran hérite donc du même verrou sans module supplémentaire.
+  static const String registreDocuments = '/user/documents/registre';
   static const String cartes          = '/user/cartes'; // cartes scolaires
   static const String annuaire        = '/user/annuaire';
   static const String structure       = '/user/structure'; // structure académique (module 'niveaux')

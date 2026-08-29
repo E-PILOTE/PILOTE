@@ -279,3 +279,37 @@ que `0147`.
 que le build soit **publié** ; `0146` attend qu'il soit **reçu partout** — une
 condition strictement plus forte. `0147`/`0148`, elles, devaient PRÉCÉDER la
 publication, et c'est fait.
+
+## `0149` — registre des documents délivrés : ⚠️ elle a une DEUXIÈME condition
+
+Appliquée en production le 2026-08-29 (table `issued_documents`, immuable par
+trigger, RLS posée). Mais **la migration seule ne suffit pas** — et c'est le
+premier cas du dépôt où une migration dépend d'un déploiement PowerSync.
+
+| ce qu'il faut | fait ? | si on l'oublie |
+|---|---|---|
+| migration `0149` | ✅ appliquée | — |
+| **ligne dans les sync-rules** (`by_school`) | ⏳ **à déployer** | les écritures remontent bien vers Postgres, mais n'appartiennent à aucun bucket : la copie locale disparaît au checkpoint suivant et **l'écran s'affiche vide alors que la donnée existe**. Rien n'est perdu — l'écran ment. |
+| build publié | ⏳ | — |
+
+La ligne est déjà écrite dans `powersync/config/sync-rules.yaml` :
+
+```yaml
+- SELECT * FROM issued_documents WHERE school_id = bucket.sid
+```
+
+Elle se déploie par le tableau de bord PowerSync Cloud (ou la CLI avec un jeton
+valide — celui de la session du 28/08 doit être révoqué et régénéré). **À faire
+avant de publier le build**, pour la même raison que `0147`/`0148`.
+
+### Pourquoi l'INSERT du registre n'exige AUCUN verbe de module
+
+Contrairement à toutes les autres écritures du dépôt. L'écriture du registre
+ACCOMPAGNE la délivrance : elle est faite par quiconque vient de produire le
+document. Exiger un droit que l'agent n'a pas ferait échouer l'insertion en
+**42501 — fatal** : le journal détruirait le travail de la journée pour avoir
+voulu le noter. C'est la règle de la migration `0144`, appliquée ailleurs.
+
+Le contrôle d'accès reste là où il a un sens : l'écran de consultation
+(`/user/documents/registre`) vit sous le module `documents` — sous-chemin, donc
+même verrou, sans une ligne de plus au catalogue.
