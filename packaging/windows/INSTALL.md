@@ -153,6 +153,14 @@ tire lui aussi son `FILEVERSION` de `pubspec.yaml`.
 > Installé par winget, Inno Setup atterrit dans
 > `%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe` et non sous `Program Files`.
 
+> ⚠️ **Les notes de version, à la main, sous Windows PowerShell 5.1.** La CI
+> tourne en `pwsh` 7, où `Get-Content` lit l'UTF-8 par défaut. `powershell.exe`
+> (5.1) lit en ANSI : substituer l'empreinte dans `notes-de-version.md` puis
+> réécrire en UTF-8 double-encode tous les accents (« Télécharger » →
+> « TÃ©lÃ©charger »), et la publication part avec des notes illisibles. Passer
+> par `[IO.File]::ReadAllText(chemin, [Text.Encoding]::UTF8)` plutôt que
+> `Get-Content -Raw`. Rencontré le 2026-08-29.
+
 ⚠️ **Ne jamais reconstruire deux binaires différents sous le même `+build`.**
 Le canal de mise à jour compare `build_number`, un entier, et lui seul : deux
 livraisons partageant le même numéro sont indistinguables pour le parc, et la
