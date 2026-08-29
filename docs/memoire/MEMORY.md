@@ -64,7 +64,7 @@
 - [Enum user_role](db-user-role-enum.md) — ⚠️ PAS de 'utilisateur' ; staff = role≠super_admin/admin_groupe
 - [BUG PowerSync role](bug-powersync-role-utilisateur.md) — ✅ résolu par `_isStaffRole()`
 - [PowerSync](powersync-status.md) — Cloud configuré
-- [🚀 Déployer les sync-rules en CLI](powersync-deploiement-cli.md) — `powersync deploy sync-config` sur Production (…66759) ; ⚠️ 2026-08-29 : le jeton du disque est RÉVOQUÉ (500 « Resource does not exist » ≠ API cassée) — passer par `PS_ADMIN_TOKEN`
+- [🚀 Déployer les sync-rules en CLI](powersync-deploiement-cli.md) — ✅ **déployées le 2026-08-29** sur Production (…66759) : `pull` avant, deploy, `pull` après, puis lancer le binaire pour voir les checkpoints passer ; ⚠️ jeton par `PS_ADMIN_TOKEN` jamais sur disque ; un 500 « Resource does not exist » = jeton révoqué
 - [Déploiement sync-rules](sync-config-divergence.md) — LIVE = `bucket_definitions` ; `sync-config.yaml` MORT
 - [Sync-rules data-protection](sync-rules-data-protection.md) — tables sensibles gatées
 - [Profil = source de vérité des droits](profil-source-de-verite-droits.md) — la donnée sensible suit le PROFIL, pas le rôle

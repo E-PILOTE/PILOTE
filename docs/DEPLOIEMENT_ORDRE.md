@@ -289,7 +289,7 @@ premier cas du dépôt où une migration dépend d'un déploiement PowerSync.
 | ce qu'il faut | fait ? | si on l'oublie |
 |---|---|---|
 | migration `0149` | ✅ appliquée | — |
-| **ligne dans les sync-rules** (`by_school`) | ⏳ **à déployer** | les écritures remontent bien vers Postgres, mais n'appartiennent à aucun bucket : la copie locale disparaît au checkpoint suivant et **l'écran s'affiche vide alors que la donnée existe**. Rien n'est perdu — l'écran ment. |
+| **ligne dans les sync-rules** (`by_school`) | ✅ **déployée le 2026-08-29** | les écritures remontent bien vers Postgres, mais n'appartiennent à aucun bucket : la copie locale disparaît au checkpoint suivant et **l'écran s'affiche vide alors que la donnée existe**. Rien n'est perdu — l'écran ment. |
 | build publié | ⏳ | — |
 
 La ligne est déjà écrite dans `powersync/config/sync-rules.yaml` :
@@ -314,7 +314,30 @@ Le contrôle d'accès reste là où il a un sens : l'écran de consultation
 (`/user/documents/registre`) vit sous le module `documents` — sous-chemin, donc
 même verrou, sans une ligne de plus au catalogue.
 
-## Le déploiement des sync-rules porte maintenant DEUX changements
+## ✅ Les sync-rules ont été déployées le 2026-08-29
+
+Un seul déploiement, deux lignes, sur l'instance de **production**
+(…66759). Déroulé et vérifications :
+
+1. `pull instance` avant de toucher à quoi que ce soit. Le diff LIVE ↔ dépôt
+   ne montrait **que les deux lignes attendues** : personne n'avait modifié la
+   configuration au tableau de bord, rien à préserver.
+2. `deploy sync-config --sync-config-file-path powersync/config/sync-rules.yaml`
+   — validation passée, déploiement terminé.
+3. `pull instance` de nouveau, pour lire ce qui tourne **réellement** plutôt
+   que ce qu'on croit avoir envoyé. Diff LIVE ↔ dépôt : **vide**.
+4. Le binaire construit lancé sur ce poste : PowerSync se connecte, valide et
+   applique ses checkpoints, **zéro erreur**. Une règle cassée se serait vue
+   là.
+
+⚠️ Le jeton utilisé a été fourni pour ce seul déploiement et **doit être
+révoqué** au tableau de bord PowerSync Cloud. Il n'a pas été écrit sur le
+disque (`PS_ADMIN_TOKEN` en variable de session, jamais `powersync login`).
+
+`powersync/sync-config.yaml` garde la copie de la configuration telle qu'elle
+était **avant** ce déploiement : c'est le retour arrière.
+
+## Ce que portait ce déploiement
 
 Un seul déploiement, deux lignes — les deux dans le bucket `by_school` de
 `powersync/config/sync-rules.yaml`, déjà écrites dans le dépôt :
@@ -336,10 +359,12 @@ Tant que le déploiement n'a pas eu lieu, une école qui aurait archivé un él�
 verrait donc l'avertissement plutôt qu'un registre faussement complet. C'est un
 filet, pas une dispense de déployer.
 
-### Comment le déployer (procédure vérifiée le 2026-08-29)
+### Comment déployer (procédure exécutée le 2026-08-29)
 
-⚠️ **Le jeton stocké sur ce poste ne fonctionne plus.** Diagnostic fait, sans
-ambiguïté possible :
+⚠️ **Le jeton stocké sur ce poste ne fonctionnait plus** — celui du 28/08, bien
+révoqué. Un jeton neuf a été fourni pour le déploiement du 29/08 et doit être
+révoqué à son tour. Le diagnostic reste noté ici parce qu'il se reproduira, et
+que la réponse du serveur ne dit pas d'elle-même « jeton révoqué » :
 
 | requête envoyée à `accounts.powersync.com` | réponse |
 |---|---|

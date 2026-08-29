@@ -1,6 +1,6 @@
 ---
 name: powersync-deploiement-cli
-description: "🚀 Déployer les sync-rules en CLI (`powersync deploy sync-config`) — l'app pointe sur PRODUCTION (…66759), seule instance vivante ; ⚠️ jeton par `PS_ADMIN_TOKEN`, jamais `powersync login` ; celui du disque est RÉVOQUÉ (500 « Resource does not exist »)"
+description: "🚀 Déployer les sync-rules en CLI (`powersync deploy sync-config`) — l'app pointe sur PRODUCTION (…66759), seule instance vivante ; ⚠️ jeton par `PS_ADMIN_TOKEN`, jamais `powersync login` ; un 500 « Resource does not exist » sur TOUS les endpoints = jeton révoqué, pas API cassée ; ✅ sync-rules déployées le 29/08"
 metadata: 
   node_type: memory
   type: reference
@@ -94,9 +94,20 @@ organisation : **révoqué côté compte**, comme demandé après la session du 
 Un 500 « Resource does not exist » sur TOUS les endpoints, quels que soient les
 paramètres, se lit donc « jeton révoqué », pas « API cassée ».
 
-Conséquence : les deux lignes de sync-rules en attente ne peuvent pas être
-déployées depuis ce poste. Procédure complète dans
-`docs/DEPLOIEMENT_ORDRE.md` → *Comment le déployer*.
+### ✅ 2026-08-29 — les deux lignes SONT déployées
+
+Un jeton neuf a été fourni pour ce seul déploiement (`PS_ADMIN_TOKEN`, jamais
+sur disque), et doit être révoqué à son tour.
+
+Déroulé qui vaut d'être répété : **`pull instance` AVANT** (le diff LIVE ↔ dépôt
+ne montrait que les deux lignes attendues — donc rien à préserver du tableau de
+bord), déploiement, **`pull instance` APRÈS** (diff vide : la production porte
+exactement le fichier du dépôt), puis le binaire lancé sur ce poste pour voir
+PowerSync appliquer ses checkpoints sans une erreur. Une règle cassée se serait
+vue à cette dernière étape, pas aux précédentes.
+
+`powersync/sync-config.yaml` garde la configuration d'AVANT : c'est le retour
+arrière. Détail dans `docs/DEPLOIEMENT_ORDRE.md`.
 
 Liens : [[sync-config-divergence]] · [[statut-emploi-personnel]] ·
 [[powersync-status]]
