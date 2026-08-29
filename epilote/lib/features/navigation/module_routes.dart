@@ -25,6 +25,13 @@ const Map<String, String> _moduleRoutes = {
   'notes':            Routes.notes,
   'bulletins':        Routes.bulletins,
   'conseils':         Routes.conseils,
+  // La délibération de fin d'année. Longtemps absente de cette table — donc
+  // « route native » pour le garde de routes, c'est-à-dire SANS verrou de
+  // profil, de plan ni d'impayé, alors qu'elle décide qui passe et qui
+  // redouble. Le droit `conseils.update` gardait le bouton d'entrée, pas la
+  // page. Voir migration 0147, qui crée le module et lui recopie à
+  // l'identique les droits de `conseils`.
+  'passage':          Routes.passage,
   'examens':          Routes.examens,
   'stages':           Routes.stages,
   'presences-eleves': Routes.presences,
@@ -85,6 +92,7 @@ IconData moduleIcon(String slug) => switch (slug) {
       'notes'             => Icons.grade_rounded,
       'bulletins'         => Icons.assignment_rounded,
       'conseils'          => Icons.groups_rounded,
+      'passage'           => Icons.upgrade_rounded,
       // Vie scolaire
       'presences-eleves'  => Icons.fact_check_rounded,
       'discipline'        => Icons.gavel_rounded,

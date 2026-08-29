@@ -218,3 +218,38 @@ légitime, et c'est même le plus courant. Elles ne deviennent un 42501 que si u
 écran du module offre la création sans lire le verbe. C'est ce croisement-là
 qu'il faut refaire après chaque nouvel écran, et que le garde
 `test/porte_de_creation_test.dart` automatise du côté du code.
+
+---
+
+## `0147` — celle qui va AVANT le build (2026-08-29)
+
+Les autres migrations en attente attendent la publication. **Celle-ci la
+précède**, et l'ordre inverse casse la délibération dans toutes les écoles.
+
+L'écran Passage (`/user/passage`) n'était dans aucun catalogue. Le garde de
+routes n'arme ses verrous que si `moduleSlugForLocation()` reconnaît la page ;
+un slug inconnu vaut « route native », comme le Tableau de bord — donc **ni
+verrou d'impayé, ni verrou de plan, ni verrou de profil d'accès**, sur l'écran
+qui décide qui passe et qui redouble. Le droit `conseils.update` gardait le
+bouton d'entrée, pas la page.
+
+`0147` crée le module `passage` et lui **recopie à l'identique** les droits et
+les plans de `conseils`. Personne ne gagne ni ne perd un droit — vérifié :
+
+| slug | lignes | lecture | création | m.à j. | suppr. | `own_classes` | plans |
+|---|---|---|---|---|---|---|---|
+| `conseils` | 21 | 21 | 14 | 14 | 7 | 7 | institutionnel, pro |
+| `passage`  | 21 | 21 | 14 | 14 | 7 | 7 | institutionnel, pro |
+
+| ordre | conséquence |
+|---|---|
+| **base d'abord** ✅ | l'ancien build gagne une entrée « Passage » qui mène au gîte `/user/m/passage` (« en cours de développement »). Le vrai écran reste atteignable par le bouton des Conseils. Coût : une ligne redondante chez 33 écoles, jusqu'à la publication. |
+| build d'abord ❌ | le nouveau build exige `passage.can_read`, que personne n'a encore : « Ouvrir la délibération » renvoie tout le monde au tableau de bord. La délibération devient impossible partout. |
+
+**Appliquée en production le 2026-08-29.** Le build qui l'accompagne
+(`_moduleRoutes['passage']`) est dans `main`, non publié.
+
+Garde côté code : `test/toute_page_ecole_est_un_module_test.dart` — il ne
+surveille pas `passage`, il surveille **la classe entière du défaut** : toute
+route `/user/*` est un module, ou figure dans la liste des routes natives avec
+sa raison écrite.
