@@ -279,7 +279,7 @@ String statusFromDates(DateTime? start, DateTime? end) {
 /// pour générer les documents officiels. Lecture offline pure (db.getAll).
 Future<StageDetail?> fetchStageDetail(String internshipId) async {
   final rows = await db.getAll(
-    'SELECT i.id, i.student_id, i.group_id, i.school_id, '
+    'SELECT i.id, i.student_id, i.group_id, i.school_id, i.company_id, '
     '       i.title, i.start_date, i.end_date, i.status, '
     '       i.company_tutor_name, i.company_tutor_phone, '
     '       i.convention_signed_at, i.attestation_issued_at, '
@@ -318,6 +318,7 @@ Future<StageDetail?> fetchStageDetail(String internshipId) async {
     gender: nz(r['gender']),
     className: nz(r['class_name']),
     filiereLabel: nz(r['filiere_label']),
+    companyId: nz(r['company_id']),
     companyName: nz(r['company_name']),
     companySector: nz(r['sector']),
     companyAddress: nz(r['address']),

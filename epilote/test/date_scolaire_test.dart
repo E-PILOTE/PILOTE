@@ -57,10 +57,31 @@ AcademicYearModel _annee({
       updatedAt: DateTime(2025, 6, 1),
     );
 
+/// Lit un fichier **et les `part` qu'il déclare**.
+///
+/// ⚠️ Sans cela, découper un formulaire devenu trop long suffit à aveugler ce
+/// garde : le sélecteur de date part dans le fichier de champs, la sonde ne
+/// regarde plus que la moitié qui décide, et elle passe au vert sur un
+/// formulaire qui bornerait de nouveau sur l'année civile.
+///
+/// C'est arrivé le 2026-08-30, en découpant `stage_form_dialog.dart` — et
+/// c'est mot pour mot la leçon que l'en-tête de ce fichier énonce déjà : une
+/// sonde ne prouve que ce qu'elle interroge.
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('$chemin introuvable — tourner depuis `epilote/`.');
-  return f.readAsStringSync();
+  final src = f.readAsStringSync();
+  final dossier = chemin.substring(0, chemin.lastIndexOf('/') + 1);
+  final parts = RegExp(r"^part\s+'([^']+)';", multiLine: true)
+      .allMatches(src)
+      .map((m) => m.group(1)!)
+      .where((nom) => !nom.endsWith('.g.dart'));
+  return [
+    src,
+    for (final nom in parts)
+      if (File('$dossier$nom').existsSync())
+        File('$dossier$nom').readAsStringSync(),
+  ].join('\n');
 }
 
 void main() {

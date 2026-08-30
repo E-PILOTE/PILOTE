@@ -13,6 +13,8 @@ import '../../structure/providers/academic_year_provider.dart'
 import '../models/stage_detail.dart';
 import '../providers/stage_actions.dart';
 import '../providers/stage_documents.dart';
+import '../providers/stages_provider.dart';
+import 'stage_form_dialog.dart';
 import '../services/stage_export_service.dart';
 import '../../../core/utils/message_erreur.dart';
 
@@ -138,7 +140,7 @@ class _State extends ConsumerState<_StageFileDialog> {
             ),
           ),
           Divider(height: 1, color: kBorder),
-          _actions(s),
+          _actions(s, canEdit),
         ],
       );
 
@@ -204,13 +206,31 @@ class _State extends ConsumerState<_StageFileDialog> {
     );
   }
 
-  Widget _actions(StageDetail s) => Padding(
+  Widget _actions(StageDetail s, bool canEdit) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
         child: Wrap(
             spacing: 8,
             runSpacing: 6,
             alignment: WrapAlignment.end,
             children: [
+              // ⚠️ CORRIGER se garde sur `update`, SUPPRIMER sur `delete`.
+              // Ce ne sont pas le même geste : réparer une date de frappe et
+              // effacer la trace d'un stage n'engagent pas la même
+              // responsabilité, et la base distingue déjà les deux verbes.
+              if (canEdit)
+                OutlinedButton.icon(
+                  onPressed: () => _corriger(s),
+                  icon: const Icon(Icons.edit_rounded, size: 16),
+                  label: const Text('Corriger'),
+                  style: OutlinedButton.styleFrom(foregroundColor: kNavy),
+                ),
+              if (ref.watch(canProvider((slug: _kSlug, action: 'delete'))))
+                OutlinedButton.icon(
+                  onPressed: () => _supprimer(s),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                  label: const Text('Supprimer'),
+                  style: OutlinedButton.styleFrom(foregroundColor: kRed),
+                ),
               OutlinedButton.icon(
                 onPressed: () => _pdf(s, convention: true),
                 icon: const Icon(Icons.description_rounded, size: 16),
@@ -227,6 +247,78 @@ class _State extends ConsumerState<_StageFileDialog> {
       );
 
   // ─── Gestes ───────────────────────────────────────────────────────────────
+
+  /// Rouvre le formulaire, prérempli, sur ce stage.
+  Future<void> _corriger(StageDetail s) async {
+    final modifie = await showStageFormDialog(context, stage: s);
+    if (!modifie || !mounted) return;
+    ref.invalidate(stageDetailProvider(s.id));
+  }
+
+  /// Effacer un stage — un doublon, une ligne créée sur le mauvais élève.
+  ///
+  /// ⚠️ La confirmation NOMME l'élève. « Supprimer ce stage ? » sur une fiche
+  /// qu'on vient d'ouvrir par erreur se valide sans lire ; le nom force à
+  /// vérifier qu'on est bien sur la bonne ligne.
+  ///
+  /// ⚠️ Et elle prévient quand une ATTESTATION a été délivrée : la pièce est
+  /// peut-être déjà dans un dossier de bac, où elle continuera d'exister
+  /// pendant que le stage aura disparu de l'école.
+  Future<void> _supprimer(StageDetail s) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        backgroundColor: kCardBg,
+        title: const Text('Supprimer ce stage ?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Le stage de ${s.studentName}'
+              '${s.companyName == null ? '' : ' chez ${s.companyName}'} sera '
+              'effacé. Les pièces déjà générées ne le seront pas.',
+              style: const TextStyle(fontSize: 13.5, height: 1.45),
+            ),
+            if (s.hasAttestation) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(11),
+                decoration: BoxDecoration(
+                  color: kRed.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Une attestation a été délivrée pour ce stage. Elle est '
+                  'peut-être déjà dans un dossier de baccalauréat, où elle '
+                  'restera — alors que le stage, lui, aura disparu de l’école.',
+                  style: TextStyle(fontSize: 12, color: kRed, height: 1.4),
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: Text('Annuler', style: TextStyle(color: kTextMuted)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            style: FilledButton.styleFrom(backgroundColor: kRed),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    await _run('suppression', () async {
+      await deleteInternship(s.id);
+      ref.invalidate(stagesOverviewProvider);
+      if (mounted) Navigator.pop(context);
+    });
+  }
 
   Future<void> _run(String key, Future<void> Function() action) async {
     setState(() {

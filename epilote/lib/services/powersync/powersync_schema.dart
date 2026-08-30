@@ -755,6 +755,22 @@ const schema = Schema([
     Column.text('subject_id'),
     Column.text('academic_year_id'),
     Column.text('trimester_id'),
+    // ⚠️ `sequence_id` est DÉCLARÉE ET JAMAIS ÉCRITE — vérifié le 2026-08-30.
+    //
+    // Ce n'est pas un oubli, et surtout pas un « mode séquentiel » à moitié
+    // fait : il n'existe aucun réglage de mode d'évaluation dans le produit,
+    // et les bulletins ne groupent jamais par séquence. Le type d'évaluation
+    // « Séquence » (`kEvaluationTypes`) est un simple libellé, il n'attache
+    // rien à une ligne de `sequences`.
+    //
+    // Les séquences déclarées par le groupe s'AFFICHENT bien — l'écran
+    // Calendrier scolaire les lit — mais en lecture seule, et aucun écran ne
+    // prétend qu'une évaluation y est rattachée. Une colonne déclarée en trop
+    // reste vide et n'a jamais coûté que sa ligne ici.
+    //
+    // À retirer, ou à câbler, le jour où une école demandera des bulletins par
+    // séquence (usage camerounais). Pas avant : l'y préparer sans demande
+    // ajouterait un mode que personne n'a réglé.
     Column.text('sequence_id'),
     Column.text('title'),
     Column.text('evaluation_type'),

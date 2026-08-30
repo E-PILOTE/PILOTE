@@ -13,6 +13,7 @@ class StageDetail {
     required this.gender,
     required this.className,
     required this.filiereLabel,
+    required this.companyId,
     required this.companyName,
     required this.companySector,
     required this.companyAddress,
@@ -44,6 +45,11 @@ class StageDetail {
   final String? gender;
   final String? className;
   final String? filiereLabel;
+
+  /// ⚠️ Nécessaire pour CORRIGER le stage : le formulaire d'édition doit
+  /// repositionner le sélecteur d'entreprise, et un nom ne suffit pas à
+  /// désigner une ligne.
+  final String? companyId;
 
   final String? companyName;
   final String? companySector;
