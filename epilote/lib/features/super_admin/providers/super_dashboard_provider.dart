@@ -7,6 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/booleen_en_ligne.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
+import '../../../core/constants/app_constants.dart';
+import '../../user/widgets/staff_account_widgets.dart' show staffRoleLabel;
 
 import '../../../features/auth/providers/auth_provider.dart';
 
@@ -498,15 +500,27 @@ final superDashboardProvider =
 
 // ─── Helpers rôles & statuts ──────────────────────────────────────────────────
 
+/// ⚠️ CE SWITCH PORTAIT DEUX VALEURS QUI N'EXISTENT PAS (corrigé 2026-08-30).
+///
+/// `directeur_ecole` et `directeur_etudes` ne sont pas des `user_role` — l'enum
+/// dit `directeur`, et le D.E. est un profil d'accès, pas un rôle. Ces deux
+/// branches ne pouvaient donc jamais s'exécuter, pendant que six rôles bien
+/// réels — `directeur`, `proviseur`, `cpe`, `parent`, `eleve`,
+/// `responsable_cantine` — tombaient dans le cas par défaut et s'affichaient
+/// en minuscules, tels quels : « responsable cantine ».
+///
+/// C'est la troisième fois que ce défaut apparaît, après `roleUtilisateur` et
+/// `directeur_etudes` dans `directionRoles` : une valeur morte dans un
+/// aiguillage sur le rôle, qui rassure sans rien faire. D'où le garde
+/// `test/roles_connus_test.dart`.
+///
+/// L'étiquetage du personnel vit dans `staffRoleLabel`, complet et unique ;
+/// seuls les deux rôles de plateforme sont traités ici, parce que ce tableau de
+/// bord est le seul écran qui les liste.
 String _shortenRole(String role) => switch (role) {
-  'directeur_ecole'  => 'Directeur',
-  'directeur_etudes' => 'Dir. études',
-  'enseignant'       => 'Enseignant',
-  'secretaire'       => 'Secrétaire',
-  'comptable'        => 'Comptable',
-  'surveillant'      => 'Surveillant',
-  'infirmier'        => 'Infirmier',
-  _                  => role.replaceAll('_', ' '),
+  AppConstants.roleSuperAdmin  => 'Super admin',
+  AppConstants.roleAdminGroupe => 'Admin groupe',
+  _                            => staffRoleLabel(role),
 };
 
 String _shortenStatus(String s) => switch (s) {

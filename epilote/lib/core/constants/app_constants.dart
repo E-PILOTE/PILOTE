@@ -41,6 +41,28 @@ class AppConstants {
   static const String roleInfirmier = 'infirmier';
   static const String roleResponsableCantine = 'responsable_cantine';
 
+  /// Les treize valeurs de l'enum `user_role`, et rien d'autre.
+  ///
+  /// Sert de référence aux gardes : un aiguillage sur le rôle qui contient une
+  /// valeur absente d'ici ne s'exécutera JAMAIS, et un rôle absent de
+  /// l'aiguillage tombe dans son cas par défaut. Les deux se voient mal à la
+  /// lecture — d'où `test/roles_connus_test.dart`.
+  static const Set<String> tousLesRoles = {
+    roleSuperAdmin,
+    roleAdminGroupe,
+    roleDirecteur,
+    roleProviseur,
+    roleEnseignant,
+    roleCpe,
+    roleComptable,
+    roleSecretaire,
+    roleSurveillant,
+    roleParent,
+    roleEleve,
+    roleInfirmier,
+    roleResponsableCantine,
+  };
+
   /// Rôles « direction » d'un établissement : seuls habilités à la config
   /// native de l'école (ex. Calendrier scolaire). Source UNIQUE — utilisée
   /// par le garde du routeur, la sidebar ET l'écran Calendrier.
@@ -51,13 +73,25 @@ class AppConstants {
   /// 2026-08-25 : une valeur morte dans un test de rôle, qui rassure sans rien
   /// faire. Retiré le 2026-08-27.
   ///
-  /// « Directeur des Études » existe bel et bien, mais comme **profil d'accès**
-  /// (`access_profiles.role_type`, proposé par l'espace admin groupe), pas
-  /// comme `user_role`. La personne qui occupe ce poste reçoit donc un rôle de
-  /// l'enum — et si on lui donne `enseignant`, elle n'atteindra pas le
-  /// Calendrier scolaire malgré son profil. **Question produit, à trancher :**
-  /// ajouter `directeur_etudes` à l'enum, ou assumer qu'un D.E. porte le rôle
-  /// `directeur`.
+  /// ── DIRECTEUR DES ÉTUDES : TRANCHÉ LE 2026-08-30 ────────────────────────
+  /// **`directeur_etudes` n'entre PAS dans l'enum.** Le poste existe, mais
+  /// comme **profil d'accès** (`access_profiles.role_type`), et ce profil
+  /// fonctionne déjà : `role_type` ne contraint aucune affectation, un D.E.
+  /// reçoit donc le préréglage « Directeur des Études » quel que soit son rôle,
+  /// et en tire exactement les pouvoirs pédagogiques décrits — programmes,
+  /// évaluations, bulletins, conseils.
+  ///
+  /// Le Calendrier scolaire n'est délibérément PAS de ceux-là : déclarer les
+  /// trimestres et les vacances d'un établissement est l'acte de son chef, pas
+  /// du pilote pédagogique. Le préréglage D.E. ne demande pas cette catégorie.
+  /// Il n'y a donc rien à réparer — seulement une question qui restait ouverte.
+  ///
+  /// Ce qui a emporté la décision : personne, en production, ne porte ce rôle
+  /// et aucun profil d'accès ne l'utilise. Ajouter une valeur à un enum
+  /// national à la veille d'un déploiement obligerait à la traiter dans CHAQUE
+  /// aiguillage — tableau de bord du routeur, sidebar, RLS, étiquettes — et en
+  /// oublier un poserait un D.E. devant un écran vide, pour zéro utilisateur
+  /// gagné.
   static const Set<String> directionRoles = {
     roleProviseur,
     roleDirecteur,
