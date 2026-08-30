@@ -181,10 +181,18 @@ class _TableRowState extends State<_TableRow> {
             Text(s.name,
                 style: TextStyle(color: kTextPrimary, fontSize: 13, fontWeight: FontWeight.w700),
                 overflow: TextOverflow.ellipsis),
-            if (s.code != null)
-              Text('Code : ${s.code}',
-                  style: TextStyle(color: kTextMuted, fontSize: 11),
-                  overflow: TextOverflow.ellipsis),
+            // Le type d'établissement passe AVANT le code : « CET » se lit,
+            // un code administratif se vérifie. Et sans lui, deux écoles d'un
+            // même groupe se ressemblent dans une liste de trente.
+            if (s.institutionTypeShort != null || s.code != null)
+              Text(
+                [
+                  if (s.institutionTypeShort != null) s.institutionTypeShort!,
+                  if (s.code != null) 'code ${s.code}',
+                ].join(' · '),
+                style: TextStyle(color: kTextMuted, fontSize: 11),
+                overflow: TextOverflow.ellipsis,
+              ),
           ])),
           Expanded(child: _TypeBadge(type: s.type)),
           Expanded(child: Text(s.department ?? '—',
@@ -397,6 +405,9 @@ class _SchoolCardState extends State<_SchoolCard> {
               const SizedBox(height: 12),
               Wrap(spacing: 8, runSpacing: 8, children: [
                 _TypeBadge(type: s.type),
+                if (s.institutionTypeShort != null)
+                  AdminBadge(s.institutionTypeShort!,
+                      color: _kPurple, icon: Icons.school_outlined),
                 if (s.city != null) AdminBadge(s.city!, color: kTextMuted, icon: Icons.location_on_outlined),
                 if (!s.isActive) AdminBadge('Inactive', color: kRed, icon: Icons.block_rounded),
               ]),

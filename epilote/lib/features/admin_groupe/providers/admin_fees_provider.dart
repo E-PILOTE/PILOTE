@@ -321,10 +321,17 @@ final adminFeeLevelsProvider = FutureProvider.autoDispose
 /// code (« BAC ») autant que le nom, parce que c'est le code qui figure sur
 /// les arrêtés.
 ///
-/// ⚠️ La liste n'est PAS filtrée par tutelle, et c'est voulu : `school_groups`
-/// ne porte pas de tutelle, et surtout un groupe privé présente des candidats
-/// aux examens des DEUX ministères. Filtrer lui retirerait la moitié de ses
-/// examens. La tutelle est affichée, pas imposée.
+/// ⚠️ La liste n'est PAS filtrée par tutelle, et c'est TOUJOURS voulu — mais
+/// plus pour la raison qui était écrite ici. Le groupe porte désormais sa
+/// tutelle (migration 0153) : l'argument « `school_groups` ne porte pas de
+/// tutelle » est périmé, il ne justifie plus rien.
+///
+/// Ce qui justifie encore de ne pas filtrer : un frais d'examen doit pouvoir
+/// viser TOUT examen auquel l'établissement présente effectivement des
+/// candidats. Une liste trop étroite ne produit pas une erreur visible — elle
+/// produit un frais MANQUANT, que personne ne remarque avant l'encaissement.
+/// La tutelle est donc AFFICHÉE en clair sur chaque ligne, pour informer le
+/// choix sans le restreindre.
 final adminNationalExamsProvider =
     FutureProvider.autoDispose<List<OptionRef>>((ref) async {
   final client = ref.watch(supabaseClientProvider);

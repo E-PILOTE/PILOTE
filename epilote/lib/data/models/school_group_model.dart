@@ -9,6 +9,7 @@ class SchoolGroupModel {
     required this.name,
     this.slug,
     required this.groupType,
+    this.tutelle,
     this.department,
     required this.planId,
     required this.subscriptionStatus,
@@ -32,6 +33,7 @@ class SchoolGroupModel {
       name:               map['name']                as String,
       slug:               map['slug']                as String?,
       groupType:          map['group_type']          as String? ?? 'prive',
+      tutelle:            map['tutelle']             as String?,
       department:         map['department']          as String?,
       planId:             map['plan_id']             as String,
       subscriptionStatus: map['subscription_status'] as String? ?? 'trial',
@@ -64,6 +66,12 @@ class SchoolGroupModel {
   final String name;
   final String? slug;
   final String groupType;       // 'public' | 'prive' | 'catholique' | 'islamique' | …
+
+  /// Ministère de tutelle (`mepsa` | `metp`), migration 0153. Le groupe le
+  /// porte, l'école en hérite. `null` tant qu'un groupe ancien n'a pas été
+  /// renseigné — ne jamais retomber sur `mepsa` par défaut : ce serait ranger
+  /// un lycée technique sous le mauvais ministère sans que personne le voie.
+  final String? tutelle;
   final String? department;
   final String planId;
   final String subscriptionStatus; // 'trial' | 'active' | 'suspended' | 'cancelled'
@@ -88,10 +96,17 @@ class SchoolGroupModel {
   bool get isSubscriptionActive => subscriptionStatus == 'active';
   bool get isOnTrial            => subscriptionStatus == 'trial';
 
+  /// ⚠️ N'EST LE CHEMIN D'ÉCRITURE D'AUCUN POSTE. `school_groups` est écrite en
+  /// ligne, par le super_admin uniquement (RLS `groups_insert`), et la migration
+  /// 0154 y a même ajouté un déclencheur de liste blanche. Cette carte sert de
+  /// représentation complète du modèle — d'où `tutelle`, qui doit y figurer :
+  /// une carte d'insertion qui omet une colonne est exactement ce qui a fait
+  /// naître des écoles sans ministère.
   Map<String, dynamic> toInsertMap() => {
     'name':                name,
     'slug':                slug,
     'group_type':          groupType,
+    'tutelle':             tutelle,
     'department':          department,
     'plan_id':             planId,
     'subscription_status': subscriptionStatus,

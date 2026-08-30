@@ -22,6 +22,7 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../../core/constants/tutelle.dart';
 import '../../../core/services/official_pdf_kit.dart';
 import '../providers/etat_rentree_provider.dart';
 
@@ -44,12 +45,6 @@ class EnTeteEtablissement {
 String _libelleType(String? t) => switch (t) {
       'public' => 'Public',
       'prive' => 'Privé',
-      _ => '—',
-    };
-
-String _libelleTutelle(String? t) => switch (t) {
-      'mepsa' => 'MEPSA',
-      'metp' => 'METP',
       _ => '—',
     };
 
@@ -180,7 +175,7 @@ class EtatRentreePdfService {
           champ('Établissement', e.nom),
           champ('Code', e.code),
           champ('Statut', _libelleType(e.type)),
-          champ('Tutelle', _libelleTutelle(e.tutelle)),
+          champ('Tutelle', sigleTutelleOuTiret(e.tutelle)),
         ]),
         pw.SizedBox(height: 8),
         pw.Row(children: [

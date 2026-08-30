@@ -47,6 +47,16 @@ void applyPalette(EpilotePalette p) {
   kBorder = p.border;
 }
 
+/// Couleur du ministère de tutelle. METP en violet, MEPSA au bleu de la
+/// marque : c'est déjà le code que lisent les tableaux de bord d'examens, on
+/// le conserve pour ne pas réapprendre au lecteur ce qu'il sait déjà lire.
+///
+/// ⚠️ Fonction et non constante : `kNavy` change avec le thème (voir
+/// l'avertissement en tête de fichier). Les libellés, eux, vivent dans
+/// `core/constants/tutelle.dart`.
+Color couleurTutelle(String? t) =>
+    (t ?? '').toLowerCase().contains('metp') ? const Color(0xFF7C3AED) : kNavy;
+
 // ─── Formateurs ─────────────────────────────────────────────────────────────
 
 /// 1500000 → "1 500 000"

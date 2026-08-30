@@ -3,6 +3,25 @@
 > Relevé le 2026-08-28. À relire **avant** de toucher aux profils d'accès d'un
 > groupe, et **avant** de publier le prochain build.
 
+## `0151` → `0154` — le référentiel congolais et la tutelle (2026-08-30)
+
+Toutes **AVANT_LE_BUILD**, toutes **appliquées**. Aucune n'attend un build : ce
+sont des ajouts et des corrections côté serveur.
+
+| migration | ce qu'elle fait | attend un build ? |
+|---|---|---|
+| `0151` | `institution_types`, `statut_reglementaire`, colonnes de parcours | non |
+| `0152` | durées, `BT`, passerelles réécrites sur source | non |
+| `0153` | `school_groups.tutelle` + héritage par déclencheur | non |
+| `0154` | l'admin groupe peut enregistrer barème et opt-in partenaires | **non — et elle RÉPARE le build déjà déployé** |
+
+### ⚠️ Ce qui reste suspendu à une ADOPTION, pas à une publication
+
+| | condition |
+|---|---|
+| `school_groups.tutelle` → `NOT NULL` | build qui la renseigne **publié ET adopté**. La passer NOT NULL maintenant casserait la création de groupe depuis le build déployé (23502, famille fatale). |
+| `schools.tutelle` → suppression | **jamais tant qu'un poste peut l'envoyer.** Ce serait la faute `0146` : 42703 n'est pas dans `_fatalResponseCodes`, donc rejeu silencieux et infini. Elle reste une copie tenue par déclencheur. |
+
 ## L'état du jour
 
 | | où | état |

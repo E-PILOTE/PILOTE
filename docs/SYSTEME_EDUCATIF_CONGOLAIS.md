@@ -4,7 +4,9 @@
 > scolaire étrangère ne sert de modèle. Ce document dit ce que la plateforme
 > affirme, sur quelle source, et ce qu'elle refuse encore d'affirmer.
 
-Migrations : `0151` (structure), `0152` (parcours corrigés sur source).
+Migrations : `0151` (structure), `0152` (parcours corrigés sur source),
+`0153` (la tutelle appartient au groupe), `0154` (l'admin groupe peut régler
+son groupe).
 
 ---
 
@@ -163,6 +165,32 @@ et ils sont la majorité du marché — il faudra un numéro d'agrément, son ty
 (provisoire / définitif), sa date, et son ministère émetteur. Sans quoi une
 école découvrira le problème au moment d'inscrire ses élèves à l'examen.
 
+### ⚠️ Trouvé en posant l'écran : l'admin groupe ne pouvait rien enregistrer
+
+`school_groups` n'avait qu'UNE politique UPDATE — `is_super_admin()`. Or deux
+écrans de l'espace admin_groupe écrivent dans cette table : le **barème de
+passage** (la barre au-dessus de laquelle un élève passe en classe supérieure)
+et l'**opt-in partenaires**.
+
+Un UPDATE qui ne satisfait pas le `USING` d'une politique ne lève pas d'erreur :
+il met à jour **zéro ligne**, et PostgREST répond 204. L'écran affichait donc
+« enregistré », et rien ne l'était.
+
+**Mesuré, pas supposé** — sondé sous l'identité d'un admin_groupe réel :
+`lignes_maj = 0`, `avant = 10.00`, `apres = 10.00`.
+
+La migration `0154` ajoute une politique pour SON groupe **plus un déclencheur
+de liste blanche** — les deux sont indissociables : une politique ne sait pas
+restreindre des colonnes, et sans la garde l'admin groupe aurait pu s'offrir le
+plan Premium ou changer de ministère. Vérifié dans les deux sens après
+application : barème et partenaires passent (1 ligne) ; nom, plan, statut, fin
+d'abonnement et tutelle sont refusés (42501) ; un autre groupe que le sien
+reste hors d'atteinte (0 ligne) ; le super_admin est inchangé.
+
+⚠️ Le remède est côté SERVEUR seul, sans une ligne de Dart : le build **déjà
+déployé** se met à fonctionner dès l'application de la migration. Une RPC
+`SECURITY DEFINER` aurait exigé d'attendre un nouveau build.
+
 ## 6. Ce qui reste à faire
 
 - [ ] **Charger la nomenclature officielle** des filières depuis l'arrêté
@@ -172,9 +200,16 @@ et ils sont la majorité du marché — il faudra un numéro d'agrément, son ty
       plupart et se tromperait pour quelques-unes — et une école mal typée
       remonterait ses effectifs dans la mauvaise colonne d'un état ministériel.
       C'est à l'admin groupe de le déclarer.
-- [ ] **Écrans** : tutelle à la création du GROUPE ; sélection en cascade
-      secteur → cycle → type d'établissement → filière → diplôme ; passerelles
-      dans l'orientation.
+- [x] **Écran — tutelle à la création du GROUPE** ✅ Deux choix exclusifs,
+      obligatoires, avec ce que chaque ministère recouvre écrit sous son nom.
+      En édition, un avertissement dit combien d'écoles changeront de ministère.
+- [x] **Écran — type d'établissement sur la fiche d'ÉCOLE** ✅ La liste est
+      réduite aux types du ministère du groupe : huit deviennent quatre, et
+      « lycée technique » n'est plus proposé à un groupe MEPSA. La fiche
+      affiche désormais TROIS lignes distinctes — secteur (hérité), ministère
+      (hérité), type (déclaré).
+- [ ] **Écrans restants** : sélection en cascade cycle → filière → diplôme ;
+      passerelles dans l'orientation.
 - [ ] **`school_groups.tutelle` NOT NULL**, après publication ET adoption du
       build qui la renseigne.
 - [ ] **L'agrément des établissements privés** — numéro, type, date, ministère.

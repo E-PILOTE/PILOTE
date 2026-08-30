@@ -115,10 +115,6 @@ class _ExamBars extends StatelessWidget {
   Widget build(BuildContext context) {
     final maxV = bars.fold<int>(0, (m, b) => b.candidates > m ? b.candidates : m);
     if (maxV == 0) return const SizedBox.shrink();
-    Color tutColor(String? t) => (t ?? '').toUpperCase().contains('METP')
-        ? const Color(0xFF8B5CF6)
-        : kNavy;
-
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text('Candidats par examen · toutes écoles',
           style: TextStyle(
@@ -148,13 +144,13 @@ class _ExamBars extends StatelessWidget {
                   builder: (ctx, v, _) => Stack(children: [
                     Container(
                         height: 12,
-                        color: tutColor(b.tutelle).withValues(alpha: 0.10)),
+                        color: couleurTutelle(b.tutelle).withValues(alpha: 0.10)),
                     FractionallySizedBox(
                       widthFactor: v.clamp(0.0, 1.0),
                       child: Container(
                         height: 12,
                         decoration: BoxDecoration(
-                          color: tutColor(b.tutelle),
+                          color: couleurTutelle(b.tutelle),
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -171,7 +167,7 @@ class _ExamBars extends StatelessWidget {
                   style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: tutColor(b.tutelle))),
+                      color: couleurTutelle(b.tutelle))),
             ),
           ]),
         ),

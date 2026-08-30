@@ -38,6 +38,9 @@ class SchoolDetail {
     this.latitude,
     this.longitude,
     this.locationSource,
+    this.institutionTypeId,
+    this.institutionTypeName,
+    this.institutionTypeShort,
   });
   final String id;
   final String name;
@@ -64,6 +67,26 @@ class SchoolDetail {
   final double? longitude;
   final String? locationSource; // 'gps' | 'geocoded' | 'manual'
 
+  /// Type d'établissement (CEG, CET, lycée technique…) — migration 0151.
+  ///
+  /// ⚠️ Rien à voir avec [type], qui vaut `public` ou `prive` : celui-là est le
+  /// STATUT JURIDIQUE, celui-ci dit ce que l'école EST. `null` tant que
+  /// l'administrateur ne l'a pas déclaré, et c'est volontaire : le deviner
+  /// d'après le nom (« CEG de Moungali ») marcherait le plus souvent et se
+  /// tromperait parfois — et une école mal typée remonte ses effectifs dans la
+  /// mauvaise colonne d'un état ministériel.
+  final String? institutionTypeId;
+
+  /// Libellés du type, joints depuis `institution_types`. Portés par la fiche
+  /// plutôt que relus ailleurs : la liste des écoles les affiche, et une école
+  /// dont on n'a que l'identifiant ne s'affiche pas.
+  final String? institutionTypeName, institutionTypeShort;
+
+  /// Libellé affichable du type d'établissement — `null` si non déclaré.
+  /// ⚠️ Volontairement distinct de [type] (public / privé) : les confondre est
+  /// exactement l'erreur que la migration 0151 est venue rendre impossible.
+  String? get institutionTypeLabel => institutionTypeName;
+
   /// Taux d'occupation = effectif / capacité. null si capacité non renseignée.
   double? get occupancy =>
       (capacity != null && capacity! > 0) ? students / capacity! : null;
@@ -79,6 +102,7 @@ class AdminSchoolsData {
     required this.planName,
     required this.totalStudents,
     required this.groupType,
+    this.tutelle,
   });
   final List<SchoolDetail> schools;
   final int maxSchools;
@@ -89,6 +113,13 @@ class AdminSchoolsData {
   /// Secteur du groupe (`public` | `prive`). Une école en hérite : son secteur
   /// n'est jamais saisi, il suit celui du groupe (verrou en base, migration 0060).
   final String groupType;
+
+  /// Ministère de tutelle du groupe (`mepsa` | `metp`) — migration 0153.
+  /// Même logique que [groupType] : l'école en hérite par déclencheur, elle ne
+  /// le saisit pas. Il sert ici à ne proposer QUE les types d'établissement de
+  /// ce ministère. `null` = groupe pas encore renseigné : la fiche le dit au
+  /// lieu de choisir à sa place.
+  final String? tutelle;
 
   bool get quotaReached => maxSchools > 0 && schools.length >= maxSchools;
 
@@ -145,10 +176,12 @@ final adminSchoolsProvider =
   String groupType = 'prive';
   final g = await client
       .from('school_groups')
-      .select('group_type, subscription_plans!plan_id(name, max_schools, max_students)')
+      .select('group_type, tutelle, '
+          'subscription_plans!plan_id(name, max_schools, max_students)')
       .eq('id', groupId)
       .maybeSingle();
   groupType = g?['group_type'] as String? ?? 'prive';
+  final tutelle = g?['tutelle'] as String?;
   final plan = g?['subscription_plans'] as Map<String, dynamic>?;
   planName    = plan?['name'] as String? ?? '—';
   maxSchools  = (plan?['max_schools']  as int?) ?? 0;
@@ -195,7 +228,8 @@ final adminSchoolsProvider =
             'id, name, school_type, school_code, address, city, province, '
             'arrondissement, department, phone, email, website, motto, '
             'founded_year, director_id, logo_url, is_active, capacity, '
-            'latitude, longitude, location_source')
+            'latitude, longitude, location_source, institution_type_id, '
+            'institution_types(name, short_name)')
         .eq('group_id', groupId)
         // ⚠️ `name` seul n'est pas un ordre TOTAL : des écoles homonymes
         // existent (« École Primaire de Kinkala » revient d'un département à
@@ -228,6 +262,11 @@ final adminSchoolsProvider =
         latitude:       (s['latitude']  as num?)?.toDouble(),
         longitude:      (s['longitude'] as num?)?.toDouble(),
         locationSource: s['location_source'] as String?,
+        institutionTypeId: s['institution_type_id'] as String?,
+        institutionTypeName:
+            (s['institution_types'] as Map?)?['name'] as String?,
+        institutionTypeShort:
+            (s['institution_types'] as Map?)?['short_name'] as String?,
         isActive:       s['is_active'] as bool? ?? true,
         students:       stu[id] ?? 0,
         staff:          sta[id] ?? 0,
@@ -243,6 +282,7 @@ final adminSchoolsProvider =
     totalStudents: totalStudents,
     planName: planName,
     groupType: groupType,
+    tutelle: tutelle,
   );
 });
 
@@ -276,6 +316,7 @@ class AdminSchoolsService {
     int? foundedYear,
     String? logoUrl,
     int? capacity,
+    String? institutionTypeId,
   }) async {
     final client  = _ref.read(supabaseClientProvider);
     final groupId = _ref.read(authNotifierProvider).valueOrNull?.groupId;
@@ -297,6 +338,11 @@ class AdminSchoolsService {
       if (logoUrl != null && logoUrl.isNotEmpty) 'logo_url': logoUrl,
       'capacity': ?capacity,
       'founded_year': ?foundedYear,
+      // ⚠️ Omise si nulle, jamais envoyée à null : une école non typée l'est
+      // parce que personne ne l'a déclarée, pas parce qu'on a effacé la
+      // réponse. Et `tutelle` n'apparaît PAS ici — c'est un déclencheur qui la
+      // pose depuis le groupe (migration 0153).
+      'institution_type_id': ?institutionTypeId,
     }).select('id').single();
     _refreshAll();
     return row['id'] as String;
@@ -319,6 +365,7 @@ class AdminSchoolsService {
     int? foundedYear,
     String? logoUrl,
     int? capacity,
+    String? institutionTypeId,
   }) async {
     final client = _ref.read(supabaseClientProvider);
     await client.from('schools').update({
@@ -337,6 +384,11 @@ class AdminSchoolsService {
       'logo_url': (logoUrl != null && logoUrl.isNotEmpty) ? logoUrl : null,
       'founded_year': foundedYear,
       'capacity': capacity,
+      // Ici on écrit la valeur telle quelle, `null` compris : sur une ÉDITION,
+      // vider le champ est une intention explicite de l'administrateur — à la
+      // différence de la création, où l'absence n'est qu'un champ pas encore
+      // rempli.
+      'institution_type_id': institutionTypeId,
       'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', id);
     _refreshAll();

@@ -141,6 +141,13 @@ const schema = Schema([
     Column.text('name'),
     Column.text('slug'),
     Column.text('group_type'),
+    // Ministère de tutelle du groupe (mepsa | metp) — migration 0153. C'est la
+    // SOURCE DE VÉRITÉ ; `schools.tutelle` en est une copie tenue par
+    // déclencheur. La déclarer ici ne peut pas produire de 42703 (la colonne
+    // existe en base) et rien ne peut l'écraser : aucun poste hors ligne
+    // n'écrit `school_groups` (vérifié — pas un seul `db.execute` sur cette
+    // table dans `lib/`), et la RLS la réserve au super_admin.
+    Column.text('tutelle'),
     Column.text('department'),
     Column.text('plan_id'),
     Column.text('subscription_status'),

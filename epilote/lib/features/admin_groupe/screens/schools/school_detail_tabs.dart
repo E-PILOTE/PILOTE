@@ -344,7 +344,13 @@ class _SchoolInfoTab extends StatelessWidget {
         const AdminModalSectionTitle('Identité'),
         const SizedBox(height: 8),
         AdminDetailCard([
-          AdminDetailRow(Icons.business_outlined, 'Type', _schoolTypeLabel(s.type)),
+          // DEUX lignes, deux notions distinctes : le SECTEUR juridique
+          // (public / privé) et le TYPE d'établissement (CEG, CET, lycée…).
+          // Les fondre en une seule était précisément l'ambiguïté que la
+          // migration 0151 est venue lever.
+          AdminDetailRow(Icons.business_outlined, 'Secteur', _schoolTypeLabel(s.type)),
+          AdminDetailRow(Icons.school_outlined, "Type d'établissement",
+              s.institutionTypeLabel ?? 'Non déclaré'),
           AdminDetailRow(Icons.tag_rounded, 'Code établissement', s.code ?? '—'),
           AdminDetailRow(Icons.history_edu_outlined, 'Année de fondation',
               s.foundedYear?.toString() ?? '—'),

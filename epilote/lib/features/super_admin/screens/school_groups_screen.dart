@@ -18,6 +18,15 @@ import 'package:flutter_animated_button/flutter_animated_button.dart';
 import '../services/group_pdf_service.dart';
 import '../widgets/plan_change_notice.dart';
 import '../../../core/utils/message_erreur.dart';
+import '../../../core/constants/tutelle.dart';
+
+// Le formulaire de groupe vit dans ses propres fichiers : cet écran dépassait
+// 3 600 lignes et le modal en pesait 511 à lui seul. `part` plutôt que des
+// fichiers autonomes parce qu'ils s'appuient sur les jetons et les petits
+// widgets privés (`_FormLabel`, `_LogoUploadBox`, `_inputDeco`) déclarés ici.
+part 'groups/group_form_modal.dart';
+part 'groups/group_tutelle_selector.dart';
+part 'groups/group_form_footer.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 Color get _kNavy => kNavy;
@@ -1185,8 +1194,9 @@ class _GroupCardState extends State<_GroupCard> {
             const SizedBox(height: 12),
 
             // ─ Badges ─────────────────────────────────────────────────────────
-            Wrap(spacing: 6, children: [
+            Wrap(spacing: 6, runSpacing: 4, children: [
               _TypeBadge(type: g.groupType, label: g.groupTypeLabel),
+              _TutelleBadge(tutelle: g.tutelle),
               _PlanBadge(plan: g.planName, price: g.priceXaf),
             ]),
             const SizedBox(height: 10),
@@ -1352,6 +1362,43 @@ class _TypeBadge extends StatelessWidget {
   );
 }
 
+/// Pastille du ministère de tutelle.
+///
+/// ⚠️ Elle NE DISPARAÎT PAS quand la tutelle manque : elle affiche « Sans
+/// ministère » en rouge. Une pastille absente se confond avec un écran qui n'en
+/// affiche pas ; une pastille qui dit le manque se voit dans une liste de
+/// mille groupes, et c'est le seul endroit où la lacune peut encore être
+/// corrigée avant qu'elle ne bloque une inscription à un examen d'État.
+class _TutelleBadge extends StatelessWidget {
+  const _TutelleBadge({required this.tutelle});
+  final String? tutelle;
+
+  @override
+  Widget build(BuildContext context) {
+    final connue = tutelleConnue(tutelle);
+    final couleur = connue ? couleurTutelle(tutelle) : _kRed;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: couleur.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: connue ? null : Border.all(color: couleur.withValues(alpha: 0.4)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        if (!connue) ...[
+          Icon(Icons.error_outline_rounded, size: 11, color: couleur),
+          const SizedBox(width: 4),
+        ],
+        Text(
+          connue ? sigleTutelle(tutelle)! : 'Sans ministère',
+          style: TextStyle(
+              color: couleur, fontSize: 11, fontWeight: FontWeight.w700),
+        ),
+      ]),
+    );
+  }
+}
+
 class _PlanBadge extends StatelessWidget {
   const _PlanBadge({required this.plan, required this.price});
   final String plan;
@@ -1489,6 +1536,7 @@ class _GroupDetailModalState extends State<_GroupDetailModal>
                     _StatusBadge(status: g.subscriptionStatus,
                         label: g.statusLabel),
                     _TypeBadge(type: g.groupType, label: g.groupTypeLabel),
+                    _TutelleBadge(tutelle: g.tutelle),
                     _PlanBadge(plan: g.planName, price: g.priceXaf),
                   ]),
                   const SizedBox(height: 5),
@@ -1643,6 +1691,11 @@ class _InfoTab extends StatelessWidget {
         const SizedBox(height: 8),
         _DetailCard([
           _DetailRow(Icons.business_outlined, 'Type', g.groupTypeLabel),
+          // « Non renseignée » plutôt qu'un tiret : l'absence de tutelle est
+          // une lacune à combler, pas une case vide sans conséquence — un
+          // groupe sans ministère ne remonte dans aucun état ministériel.
+          _DetailRow(Icons.account_balance_outlined, 'Tutelle',
+              g.tutelleLabel ?? 'Non renseignée'),
           if (g.foundedYear != null)
             _DetailRow(Icons.history_edu_outlined, 'Fondé en',
                 g.foundedYear.toString()),
@@ -2106,517 +2159,6 @@ class _SaveButtonState extends State<_SaveButton>
   }
 }
 
-// ─── Modal Formulaire (Créer / Modifier) ──────────────────────────────────────
-
-class _GroupFormModal extends ConsumerStatefulWidget {
-  const _GroupFormModal({
-    required this.plans,
-    required this.onSaved,
-    this.existing,
-  });
-  final List<PlanInfo> plans;
-  final GroupDetail?   existing;
-  final VoidCallback   onSaved;
-
-  @override
-  ConsumerState<_GroupFormModal> createState() => _GroupFormModalState();
-}
-
-class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
-  final _formKey        = GlobalKey<FormState>();
-  final _name           = TextEditingController();
-  final _email          = TextEditingController();
-  final _phone          = TextEditingController();
-  final _address        = TextEditingController();
-  final _notes          = TextEditingController();
-  final _foundedYearCtrl = TextEditingController();
-
-  String  _groupType    = 'prive';
-  String? _department;
-  String? _planId;
-  bool    _saving       = false;
-
-  // Logo upload
-  String?    _uploadedLogoUrl;  // URL finale (après upload ou URL existante)
-  Uint8List? _logoPreviewBytes; // aperçu local avant upload
-  bool       _uploadingLogo = false;
-
-  static const _types = {
-    'public':     'Public',
-    'prive':      'Privé',
-    'catholique': 'Catholique',
-    'islamique':  'Islamique',
-    'protestant': 'Protestant',
-  };
-
-  static const _depts = [
-    'Brazzaville', 'Pointe-Noire', 'Dolisie', 'Ouesso', 'Impfondo',
-    'Owando', 'Gamboma', 'Kinkala', 'Madingou', 'Sibiti',
-    'Mossendjo', 'Djambala', 'Ewo', 'Fort-Rousset',
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    final g = widget.existing;
-    if (g != null) {
-      _name.text          = g.name;
-      _email.text         = g.adminEmail;
-      _phone.text         = g.phone       ?? '';
-      _address.text       = g.address     ?? '';
-      _notes.text         = g.notes       ?? '';
-      _uploadedLogoUrl    = g.logoUrl;
-      _groupType          = g.groupType;
-      _department         = g.department;
-      _planId             = g.planId;
-      if (g.foundedYear != null) {
-        _foundedYearCtrl.text = g.foundedYear.toString();
-      }
-    } else {
-      _planId = widget.plans.isNotEmpty ? widget.plans.first.id : null;
-    }
-  }
-
-  @override
-  void dispose() {
-    _name.dispose(); _email.dispose();
-    _phone.dispose(); _address.dispose(); _notes.dispose();
-    _foundedYearCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickAndUploadLogo() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      allowMultiple: false,
-      withData: true,
-    );
-    if (result == null || result.files.isEmpty) return;
-    final file = result.files.first;
-    if (file.bytes == null) return;
-
-    setState(() {
-      _logoPreviewBytes = file.bytes;
-      _uploadingLogo = true;
-    });
-
-    try {
-      final client = ref.read(supabaseClientProvider);
-
-      // ⚠️ Le logo partait BRUT vers le stockage : un fichier sorti d'un
-      // téléphone ou d'un scanner (3 à 8 Mo) était transféré tel quel pour être
-      // affiché… en 38 pixels dans la liste des groupes. Sur les connexions
-      // congolaises, cet envoi pouvait ne jamais aboutir — et chaque affichage
-      // le retéléchargeait. La fiche ÉCOLE compressait déjà, pas celle du
-      // GROUPE : deux formulaires jumeaux, un seul des deux corrigé.
-      final media = await compressLogo(
-        bytes: file.bytes!,
-        fileName: file.name,
-        mime: mimeForImageExtension(file.extension),
-      );
-
-      final ext = media.fileName.split('.').last;
-      final fileName = 'logo_${DateTime.now().millisecondsSinceEpoch}.$ext';
-      final path = 'groups/$fileName';
-
-      await client.storage.from('group-logos').uploadBinary(
-        path,
-        media.bytes,
-        fileOptions: FileOptions(
-          contentType: media.mime,
-          upsert: true,
-        ),
-      );
-
-      final url = client.storage
-          .from('group-logos')
-          .getPublicUrl(path);
-
-      setState(() => _uploadedLogoUrl = url);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(messageErreur(e, contexte: 'Envoi du fichier')),
-          backgroundColor: _kRed,
-          behavior: SnackBarBehavior.floating,
-        ));
-        setState(() => _logoPreviewBytes = null);
-      }
-    } finally {
-      if (mounted) setState(() => _uploadingLogo = false);
-    }
-  }
-
-  Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _saving = true);
-
-    try {
-      final client = ref.read(supabaseClientProvider);
-      final yearStr = _foundedYearCtrl.text.trim();
-      final int? foundedYear = yearStr.isNotEmpty ? int.tryParse(yearStr) : null;
-
-      final payload = {
-        'name':         _name.text.trim(),
-        'group_type':   _groupType,
-        'department':   _department,
-        'plan_id':      _planId,
-        'admin_email':  _email.text.trim(),
-        'phone':        _phone.text.trim().isNotEmpty ? _phone.text.trim() : null,
-        'address':      _address.text.trim().isNotEmpty ? _address.text.trim() : null,
-        'logo_url':     _uploadedLogoUrl,
-        'notes':        _notes.text.trim().isNotEmpty ? _notes.text.trim() : null,
-        'founded_year': foundedYear,
-      };
-
-      if (widget.existing != null) {
-        await client.from('school_groups')
-            .update(payload).eq('id', widget.existing!.id);
-      } else {
-        await client.from('school_groups').insert({
-          ...payload,
-          'subscription_status': 'trial',
-          'is_active': true,
-        });
-      }
-
-      if (mounted) {
-        Navigator.pop(context);
-        widget.onSaved();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(messageErreur(e)),
-          backgroundColor: _kRed,
-          behavior: SnackBarBehavior.floating,
-        ));
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isEdit = widget.existing != null;
-
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 80, vertical: 36),
-      child: Container(
-        width: 700,
-        constraints: const BoxConstraints(maxHeight: 760),
-        decoration: BoxDecoration(
-          color: _kBg,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.14),
-                blurRadius: 40, offset: const Offset(0, 12)),
-          ],
-        ),
-        child: Column(children: [
-          // ── Header ────────────────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.fromLTRB(22, 16, 16, 16),
-            decoration: BoxDecoration(
-              color: kCardBg,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-              border: Border(bottom: BorderSide(color: _kBorder)),
-            ),
-            child: Row(children: [
-              Container(
-                width: 38, height: 38,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                      colors: [const Color(0xFF1A2F5A), _kNavy]),
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [BoxShadow(color: _kNavy.withValues(alpha: 0.25),
-                      blurRadius: 8, offset: const Offset(0, 3))],
-                ),
-                child: Icon(
-                  isEdit ? Icons.edit_note_rounded : Icons.domain_add_rounded,
-                  color: Colors.white, size: 19,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(
-                  isEdit ? 'Modifier le groupe' : 'Nouveau groupe scolaire',
-                  style: TextStyle(color: _kText, fontSize: 15,
-                      fontWeight: FontWeight.w800),
-                ),
-                Text(
-                  isEdit ? 'Mise à jour des informations'
-                      : 'Remplissez les champs requis',
-                  style: TextStyle(color: _kMuted, fontSize: 11),
-                ),
-              ]),
-              const Spacer(),
-              InkWell(
-                onTap: () => Navigator.pop(context),
-                borderRadius: BorderRadius.circular(8),
-                mouseCursor: SystemMouseCursors.click,
-                child: Container(
-                  width: 30, height: 30,
-                  decoration: BoxDecoration(
-                    color: _kSurface,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: _kBorder),
-                  ),
-                  child: Icon(Icons.close_rounded, size: 15, color: _kMuted),
-                ),
-              ),
-            ]),
-          ),
-
-          // ── Body — colonne unique scrollable ───────────────────────────
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ─ IDENTITÉ ─────────────────────────────────────────
-                    const _FormLabel('IDENTITÉ DU GROUPE'),
-                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      // ── Logo upload ──────────────────────────────────
-                      _LogoUploadBox(
-                        name: _name.text.isNotEmpty ? _name.text : 'G',
-                        logoUrl: _uploadedLogoUrl,
-                        previewBytes: _logoPreviewBytes,
-                        uploading: _uploadingLogo,
-                        onPick: _pickAndUploadLogo,
-                        onRemove: () => setState(() {
-                          _uploadedLogoUrl = null;
-                          _logoPreviewBytes = null;
-                        }),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextFormField(
-                            controller: _name,
-                            onChanged: (_) => setState(() {}),
-                            decoration: _inputDeco('Nom complet du groupe *'),
-                            style: const TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.w600),
-                            validator: (v) =>
-                                v?.trim().isEmpty == true ? 'Champ requis' : null,
-                          ),
-                          const SizedBox(height: 8),
-                          // Année de création
-                          TextFormField(
-                            controller: _foundedYearCtrl,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(4),
-                            ],
-                            decoration: _inputDeco('Année de création (ex : 1998)').copyWith(
-                              prefixIcon: Icon(Icons.calendar_today_rounded,
-                                  size: 15, color: _kMuted),
-                            ),
-                            validator: (v) {
-                              if (v == null || v.isEmpty) return null;
-                              final y = int.tryParse(v);
-                              if (y == null || y < 1800 || y > DateTime.now().year) {
-                                return 'Année invalide';
-                              }
-                              return null;
-                            },
-                          ),
-                        ],
-                      )),
-                    ]),
-                    const SizedBox(height: 14),
-                    Row(children: [
-                      Expanded(child: DropdownButtonFormField<String>(
-                        initialValue: _groupType,
-                        decoration: _inputDeco('Type de groupe *'),
-                        items: _types.entries.map((e) => DropdownMenuItem(
-                            value: e.key,
-                            child: Row(children: [
-                              Icon(_typeIcon(e.key), size: 15, color: _kNavy),
-                              const SizedBox(width: 8),
-                              Text(e.value),
-                            ]))).toList(),
-                        onChanged: (v) => setState(() => _groupType = v!),
-                      )),
-                      const SizedBox(width: 12),
-                      Expanded(child: DropdownButtonFormField<String?>(
-                        initialValue: _department,
-                        decoration: _inputDeco('Département'),
-                        items: [
-                          const DropdownMenuItem(
-                              value: null, child: Text('— Aucun —')),
-                          ..._depts.map((d) =>
-                              DropdownMenuItem(value: d, child: Text(d))),
-                        ],
-                        onChanged: (v) => setState(() => _department = v),
-                      )),
-                    ]),
-
-                    const _FormDivider(),
-
-                    // ─ CONTACT ─────────────────────────────────────────
-                    const _FormLabel('CONTACT'),
-                    Row(children: [
-                      Expanded(child: TextFormField(
-                        controller: _email,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: _inputDeco('Email administrateur *'),
-                        validator: (v) {
-                          if (v?.trim().isEmpty == true) return 'Champ requis';
-                          if (!v!.contains('@')) return 'Email invalide';
-                          return null;
-                        },
-                      )),
-                      const SizedBox(width: 12),
-                      Expanded(child: TextFormField(
-                        controller: _phone,
-                        decoration: _inputDeco('Téléphone'),
-                        keyboardType: TextInputType.phone,
-                      )),
-                    ]),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _address,
-                      decoration: _inputDeco('Adresse complète'),
-                      maxLines: 2,
-                    ),
-
-                    const _FormDivider(),
-
-                    // ─ ABONNEMENT ─────────────────────────────────────
-                    const _FormLabel("PLAN D'ABONNEMENT"),
-                    DropdownButtonFormField<String>(
-                      initialValue: _planId,
-                      decoration: _inputDeco('Plan *'),
-                      items: widget.plans.map((p) => DropdownMenuItem(
-                        value: p.id,
-                        child: Row(children: [
-                          Container(
-                            width: 8, height: 8,
-                            margin: const EdgeInsets.only(right: 8),
-                            decoration: BoxDecoration(
-                              color: _planDotColor(p.name),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          Text(p.name, style: const TextStyle(
-                              fontWeight: FontWeight.w600)),
-                          const SizedBox(width: 8),
-                          Text(
-                            p.priceXaf == 0
-                                ? 'Gratuit'
-                                : '${_fmtXaf(p.priceXaf.toDouble())}/${p.periodSuffix}',
-                            style: TextStyle(
-                                color: _kMuted, fontSize: 12),
-                          ),
-                        ]),
-                      )).toList(),
-                      onChanged: (v) => setState(() => _planId = v),
-                      validator: (v) =>
-                          v == null ? 'Sélectionner un plan' : null,
-                    ),
-                    PlanChangeNotice(
-                      existing: widget.existing,
-                      plans: widget.plans,
-                      selectedPlanId: _planId,
-                    ),
-
-                    const _FormDivider(),
-
-                    // ─ NOTES ──────────────────────────────────────────
-                    const _FormLabel('NOTES INTERNES'),
-                    TextFormField(
-                      controller: _notes,
-                      decoration: _inputDeco(
-                          'Remarques, contexte, historique…'),
-                      maxLines: 3,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // ── Footer ─────────────────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.fromLTRB(22, 12, 22, 12),
-            decoration: BoxDecoration(
-              color: kCardBg,
-              borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(18)),
-              border: Border(top: BorderSide(color: _kBorder)),
-            ),
-            child: Row(children: [
-              TextButton.icon(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close_rounded, size: 15),
-                label: const Text('Annuler'),
-                style: TextButton.styleFrom(
-                  foregroundColor: _kMuted,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
-                ),
-              ),
-              const Spacer(),
-              if (_saving)
-                Container(
-                  height: 40,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  decoration: BoxDecoration(
-                    color: _kNavy.withValues(alpha: 0.75),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                    SizedBox(width: 15, height: 15,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white)),
-                    SizedBox(width: 10),
-                    Text('Enregistrement…',
-                        style: TextStyle(color: Colors.white,
-                            fontWeight: FontWeight.w700, fontSize: 13)),
-                  ]),
-                )
-              else
-                MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: SizedBox(
-                  width: isEdit ? 230 : 200,
-                  child: AnimatedButton(
-                    onPress: _save,
-                    text: isEdit ? 'Enregistrer' : 'Créer le groupe',
-                    isReverse: true,
-                    selectedBackgroundColor: Colors.white,
-                    selectedTextColor: _kNavy,
-                    backgroundColor: _kNavy,
-                    borderRadius: 8,
-                    borderColor: _kNavy,
-                    borderWidth: 2,
-                    height: 42,
-                    transitionType: TransitionType.LEFT_TO_RIGHT,
-                    textStyle: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                ),
-                ),
-            ]),
-          ),
-        ]),
-      ),
-    );
-  }
-}
 
 // ─── Aide latérale formulaire ─────────────────────────────────────────────────
 

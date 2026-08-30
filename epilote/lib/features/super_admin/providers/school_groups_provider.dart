@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
+import '../../../core/constants/tutelle.dart';
 import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/booleen_en_ligne.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
@@ -34,6 +35,7 @@ class GroupDetail {
     this.subscriptionStart,
     this.subscriptionEnd,
     this.foundedYear,
+    this.tutelle,
   });
 
   factory GroupDetail.fromMap(Map<String, dynamic> m, int schoolCount) {
@@ -65,6 +67,7 @@ class GroupDetail {
       isActive:    actifEnLigne(m['is_active']),
       notes:       m['notes']        as String?,
       foundedYear: m['founded_year'] as int?,
+      tutelle:     m['tutelle']      as String?,
       schoolCount: schoolCount,
       createdAt:   DateTime.parse(m['created_at'] as String),
       updatedAt:   DateTime.parse(m['updated_at'] as String),
@@ -80,6 +83,21 @@ class GroupDetail {
   /// Suffixe de période à accoler au tarif — « an », « mois ».
   String get periodSuffix => billingPeriodSuffix(billingPeriod);
   final int?    foundedYear;
+
+  /// Ministère de tutelle du GROUPE — `mepsa` (enseignement général) ou `metp`
+  /// (technique et professionnel). Les écoles en héritent par déclencheur et ne
+  /// peuvent pas le contredire : un groupe n'est jamais mixte (migration 0153).
+  ///
+  /// `null` = groupe créé avant la colonne, ou dont les écoles portaient des
+  /// tutelles divergentes au rétro-remplissage. À renseigner, pas à deviner :
+  /// un groupe sans ministère ne remonte dans aucun état ministériel.
+  final String? tutelle;
+
+  /// Libellé court affichable — délégué au référentiel unique. `null` reste
+  /// `null` : ne jamais inventer « MEPSA » par défaut, ce serait ranger
+  /// d'office un lycée technique sous le mauvais ministère.
+  String? get tutelleLabel => sigleTutelle(tutelle);
+
   final bool    isActive;
   final DateTime  createdAt, updatedAt;
   final DateTime? subscriptionStart, subscriptionEnd;
@@ -116,11 +134,13 @@ class GroupDetail {
     String? name, String? groupType, String? department, String? adminEmail,
     String? phone, String? address, String? planId, String? planName,
     int? priceXaf, int? maxSchools, int? maxStudents, String? notes,
-    bool? isActive, String? subscriptionStatus,
+    bool? isActive, String? subscriptionStatus, String? tutelle,
   }) => GroupDetail(
     id: id, slug: slug, createdAt: createdAt, updatedAt: DateTime.now(),
     logoUrl: logoUrl, schoolCount: schoolCount,
     subscriptionStart: subscriptionStart, subscriptionEnd: subscriptionEnd,
+    foundedYear: foundedYear,
+    tutelle:            tutelle            ?? this.tutelle,
     name:               name               ?? this.name,
     groupType:          groupType          ?? this.groupType,
     department:         department         ?? this.department,
@@ -253,7 +273,7 @@ final schoolGroupsProvider =
     final rows = await client.from('school_groups').select(
       'id, name, slug, group_type, department, plan_id, subscription_status, '
       'subscription_start, subscription_end, admin_email, phone, address, '
-      'logo_url, is_active, notes, founded_year, created_at, updated_at, '
+      'logo_url, is_active, notes, founded_year, tutelle, created_at, updated_at, '
       'subscription_plans!plan_id(name, price_xaf, billing_period, max_schools, max_students)',
     ).order('created_at', ascending: false) as List;
 

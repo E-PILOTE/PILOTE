@@ -16,6 +16,7 @@ import '../providers/admin_users_provider.dart' show roleLabel;
 import '../providers/school_geocoder_provider.dart';
 import '../providers/subscription_access_provider.dart';
 import '../providers/education_provider.dart';
+import '../providers/institution_types_provider.dart';
 import '../providers/structure_modeles.dart';
 // Reconnaître qu'un niveau créé ici double une entrée nationale : « 6ème » et
 // « Sixième (6e) » ne se ressemblent pas mais désignent la même année.
@@ -23,6 +24,7 @@ import '../services/rang_niveau.dart';
 import '../widgets/school_location_picker.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/utils/message_erreur.dart';
+import '../../../core/constants/tutelle.dart';
 
 part 'schools/schools_kpi.dart';
 part 'schools/schools_filters.dart';
@@ -34,6 +36,7 @@ part 'schools/school_locality_field.dart';
 part 'schools/school_contact_section.dart';
 part 'schools/school_education_section.dart';
 part 'schools/school_form_widgets.dart';
+part 'schools/school_institution_type_field.dart';
 
 // ─── Couleurs locales (complètent admin_ui.dart) ─────────────────────────────
 const _kPurple = Color(0xFF7C3AED);

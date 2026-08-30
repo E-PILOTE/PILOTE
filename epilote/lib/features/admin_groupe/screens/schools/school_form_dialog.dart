@@ -28,6 +28,10 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
   late final TextEditingController _capacity;
   late final TextEditingController _motto;
   String  _type       = 'prive';
+
+  /// Type d'établissement (CEG, CET, lycée technique…). ⚠️ Rien à voir avec
+  /// [_type], qui est le statut juridique public/privé.
+  String? _institutionTypeId;
   String? _department;
   bool    _saving     = false;
   String? _error;
@@ -69,6 +73,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
     _motto          = TextEditingController(text: s?.motto ?? '');
     _logoUrl        = s?.logoUrl;
     _type = s?.type ?? 'prive';
+    _institutionTypeId = s?.institutionTypeId;
     _department = (s?.department != null && _kDepartements.contains(s!.department))
         ? s.department
         : null;
@@ -169,7 +174,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
           department: _department, phone: _phone.text.trim(),
           email: _email.text.trim(), website: _website.text.trim(),
           motto: _motto.text.trim(), foundedYear: year, logoUrl: _logoUrl,
-          capacity: cap,
+          capacity: cap, institutionTypeId: _institutionTypeId,
         );
         schoolId = widget.school!.id;
       } else {
@@ -180,7 +185,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
           department: _department, phone: _phone.text.trim(),
           email: _email.text.trim(), website: _website.text.trim(),
           motto: _motto.text.trim(), foundedYear: year, logoUrl: _logoUrl,
-          capacity: cap,
+          capacity: cap, institutionTypeId: _institutionTypeId,
         );
       }
       await _persistLocation(schoolId);
@@ -353,22 +358,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
                       ),
                       const SizedBox(height: 12),
                       Row(children: [
-                        // Secteur = celui du groupe (public XOR privé). Hérité,
-                        // non modifiable : une école ne peut pas être d'un autre
-                        // secteur que son propriétaire (verrou base, mig 0060).
-                        Expanded(child: Builder(builder: (_) {
-                          final sector = ref
-                                  .watch(adminSchoolsProvider)
-                                  .valueOrNull
-                                  ?.groupType ??
-                              _type;
-                          return TextFormField(
-                            enabled: false,
-                            initialValue:
-                                sector == 'public' ? 'Public' : 'Privé',
-                            decoration: _inputDec('Type (hérité du groupe)'),
-                          );
-                        })),
+                        const Expanded(child: SchoolSecteurHerite()),
                         const SizedBox(width: 12),
                         Expanded(child: TextFormField(
                           controller: _code,
@@ -378,6 +368,11 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
                     ],
                   )),
                 ]),
+                const _SchFormDivider(),
+                SchoolInstitutionTypeField(
+                  value: _institutionTypeId,
+                  onChanged: (v) => setState(() => _institutionTypeId = v),
+                ),
                 const _SchFormDivider(),
                 const _SchFormLabel('LOCALISATION'),
                 const SizedBox(height: 14),
