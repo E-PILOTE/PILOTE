@@ -34,9 +34,24 @@ class CarteClasse {
     required this.cycleName,
     required this.eleves,
     required this.avecPhoto,
+    this.cycleCode,
+    this.levelCode,
+    this.levelOrder = 999,
+    this.filiereLabel,
   });
 
   final String classId, className, cycleName;
+
+  /// Codes de la hiérarchie — ce que `ScopeDrilldownPanel` attend pour bâtir
+  /// ses KPI par cycle et ses déroulants Niveau / Classe.
+  final String? cycleCode, levelCode;
+  final int levelOrder;
+
+  /// Filière — lycée technique et formation professionnelle. `null` au collège
+  /// et au primaire, où la notion n'existe pas : c'est une ABSENCE, pas un
+  /// « Non renseigné » à corriger, et l'écran ne doit pas la présenter comme
+  /// une lacune.
+  final String? filiereLabel;
 
   /// Inscriptions ACTIVES. Une carte ne se délivre qu'à qui est présent
   /// ([peutDelivrerCarte]) : compter les autres donnerait une planche plus
@@ -56,7 +71,8 @@ final cartesClassesProvider = StreamProvider.autoDispose
   return db
       .watch(
         '''
-        SELECT c.id, c.name,
+        SELECT c.id, c.name, c.cycle_code, c.level_order, c.filiere_label,
+               c.level_code,
                COALESCE(ec.name, 'Autres') AS cycle_name,
                COALESCE(ec.order_index, 9) AS cycle_order,
                COUNT(e.id) AS eleves,
@@ -68,7 +84,8 @@ final cartesClassesProvider = StreamProvider.autoDispose
                  ON e.class_id = c.id AND e.status = 'active'
           LEFT JOIN students s ON s.id = e.student_id
          WHERE c.academic_year_id = ? AND COALESCE(c.is_active, 1) <> 0
-         GROUP BY c.id, c.name, ec.name, ec.order_index, c.level_order
+         GROUP BY c.id, c.name, c.cycle_code, c.level_code, c.level_order,
+                  c.filiere_label, ec.name, ec.order_index
          ORDER BY cycle_order, c.level_order, c.name
         ''',
         parameters: [yearId],
@@ -79,6 +96,13 @@ final cartesClassesProvider = StreamProvider.autoDispose
                 classId: r['id'] as String,
                 className: r['name'] as String? ?? '—',
                 cycleName: r['cycle_name'] as String? ?? 'Autres',
+                cycleCode: r['cycle_code'] as String?,
+                levelCode: r['level_code'] as String?,
+                levelOrder: (r['level_order'] as int?) ?? 999,
+                filiereLabel: (r['filiere_label'] as String?)?.trim().isEmpty ??
+                        true
+                    ? null
+                    : (r['filiere_label'] as String).trim(),
                 eleves: (r['eleves'] as int?) ?? 0,
                 avecPhoto: (r['avec_photo'] as int?) ?? 0,
               ),

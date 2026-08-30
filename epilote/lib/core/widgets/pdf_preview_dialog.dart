@@ -1,5 +1,7 @@
+import 'dart:io' show Platform;
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart' show PdfPageFormat;
 import 'package:printing/printing.dart';
@@ -15,6 +17,9 @@ import '../../core/utils/message_erreur.dart';
 
 typedef PdfBuilder = Future<Uint8List> Function(PdfPageFormat format);
 
+/// Vrai là où `sharePdf` ouvre réellement une feuille de partage.
+bool get _partageMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
 Future<void> showPdfPreviewDialog(
   BuildContext context, {
   required String title,
@@ -22,6 +27,8 @@ Future<void> showPdfPreviewDialog(
   required PdfBuilder build,
   required String pdfFileName,
   Future<String?> Function()? onDownload,
+  /// Ajoute le bouton « Ouvrir / Partager ». Voir [_PdfPreviewDialog].
+  bool partage = false,
   // Résolu au corps, pas en défaut : une valeur par défaut doit être une
   // constante de compilation, or les jetons suivent désormais le thème.
   Color? accent,
@@ -38,6 +45,7 @@ Future<void> showPdfPreviewDialog(
       builder: build,
       pdfFileName: pdfFileName,
       onDownload: onDownload,
+      partage: partage,
       accent: acc,
     ),
   );
@@ -50,6 +58,7 @@ class _PdfPreviewDialog extends StatelessWidget {
     required this.builder,
     required this.pdfFileName,
     required this.onDownload,
+    required this.partage,
     required this.accent,
   });
   final String title;
@@ -57,6 +66,16 @@ class _PdfPreviewDialog extends StatelessWidget {
   final PdfBuilder builder;
   final String pdfFileName;
   final Future<String?> Function()? onDownload;
+
+  /// ⚠️ LE LIBELLÉ SUIT LA PLATEFORME, PARCE QUE LE GESTE DIFFÈRE.
+  ///
+  /// `Printing.sharePdf` ouvre une feuille de partage sur mobile. **Sous
+  /// Windows — la plateforme de déploiement — elle écrit le PDF dans `%TEMP%`
+  /// et lance `ShellExecute "open"` : elle OUVRE le document dans le lecteur
+  /// par défaut.** C'est utile (de là on l'attache à un courriel, on le met sur
+  /// une clé), mais ce n'est pas partager. Annoncer « Partager » sur un poste
+  /// d'école promettrait une fenêtre qui n'existe pas.
+  final bool partage;
   final Color accent;
 
   @override
@@ -195,6 +214,29 @@ class _PdfPreviewDialog extends StatelessWidget {
                         messenger.showSnackBar(SnackBar(
                             backgroundColor: kRed,
                             content: Text(messageErreur(e, contexte: 'Enregistrement'))));
+                      }
+                    },
+                  ),
+                if (partage)
+                  PdfPreviewAction(
+                    icon: Icon(_partageMobile
+                        ? Icons.share_rounded
+                        : Icons.open_in_new_rounded),
+                    onPressed: (ctx, build, format) async {
+                      final messenger = ScaffoldMessenger.of(ctx);
+                      try {
+                        await Printing.sharePdf(
+                          bytes: await build(format),
+                          filename: pdfFileName,
+                        );
+                      } catch (e) {
+                        messenger.showSnackBar(SnackBar(
+                          backgroundColor: kRed,
+                          content: Text(messageErreur(e,
+                              contexte: _partageMobile
+                                  ? 'Partage'
+                                  : 'Ouverture')),
+                        ));
                       }
                     },
                   ),

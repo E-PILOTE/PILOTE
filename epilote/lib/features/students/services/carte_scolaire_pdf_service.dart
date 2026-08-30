@@ -33,8 +33,10 @@
 //  scolarité, elle ne se délivre qu'à qui est présent.
 // ══════════════════════════════════════════════════════════════════════════════
 
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
@@ -48,6 +50,36 @@ import 'carte_scolaire_modele.dart';
 export 'carte_scolaire_modele.dart';
 
 class CarteScolairePdfService {
+  /// Enregistre des octets déjà fabriqués là où l'agent choisit.
+  ///
+  /// Rend le chemin retenu, ou `null` si l'agent a renoncé — ce `null` n'est
+  /// PAS une erreur, et l'appelant ne doit rien annoncer dans ce cas.
+  ///
+  /// ⚠️ On réécrit le fichier quand le sélecteur l'a créé vide. Certaines
+  /// implémentations de `saveFile` ne posent que le chemin sans écrire les
+  /// octets ; sans ce filet, l'école se retrouverait avec un PDF de 0 octet
+  /// portant le bon nom — et ne s'en apercevrait qu'en l'ouvrant, souvent
+  /// devant les familles.
+  static Future<String?> enregistrer({
+    required Uint8List octets,
+    required String nomFichier,
+    String titreDialogue = 'Enregistrer les cartes',
+  }) async {
+    final chemin = await FilePicker.platform.saveFile(
+      dialogTitle: titreDialogue,
+      fileName: nomFichier,
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      bytes: octets,
+    );
+    if (chemin == null) return null;
+    final f = File(chemin);
+    if (!await f.exists() || await f.length() == 0) {
+      await f.writeAsBytes(octets);
+    }
+    return chemin;
+  }
+
   /// Une planche A4 de cartes, recto puis verso (verso miroité pour le
   /// recto-verso). Rendue vide si [eleves] est vide.
   static Future<Uint8List> planche({

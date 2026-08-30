@@ -18,6 +18,8 @@
 //  ne l'apprenne aux ciseaux.
 // ══════════════════════════════════════════════════════════════════════════════
 
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -131,20 +133,28 @@ Future<void> imprimerPlancheCartes(
   }
   if (!context.mounted) return;
 
+  final nomFichier =
+      'cartes_scolaires_${titre}_${em.yearLabel}.pdf'.replaceAll(' ', '_');
+  Future<Uint8List> fabriquer() => CarteScolairePdfService.planche(
+        eleves: prep.cartes,
+        schoolName: em.schoolName,
+        yearLabel: em.yearLabel,
+        city: em.city,
+      );
+
   await showPdfPreviewDialog(
     context,
     title: 'Cartes scolaires — $titre',
     subtitle: '${prep.cartes.length} carte'
         '${prep.cartes.length > 1 ? 's' : ''} · $planches planche'
         '${planches > 1 ? 's' : ''} A4 recto-verso',
-    pdfFileName:
-        'cartes_scolaires_${titre}_${em.yearLabel}.pdf'.replaceAll(' ', '_'),
-    build: (_) => CarteScolairePdfService.planche(
-      eleves: prep.cartes,
-      schoolName: em.schoolName,
-      yearLabel: em.yearLabel,
-      city: em.city,
+    pdfFileName: nomFichier,
+    build: (_) => fabriquer(),
+    onDownload: () async => CarteScolairePdfService.enregistrer(
+      octets: await fabriquer(),
+      nomFichier: nomFichier,
     ),
+    partage: true,
   );
 }
 
@@ -182,19 +192,27 @@ Future<void> imprimerCarteEleve(
     purpose: 'Duplicata au guichet',
   );
   if (!context.mounted) return;
+  final nom = 'carte_scolaire_${eleve.lastName}_${eleve.firstName}.pdf'
+      .replaceAll(' ', '_');
+  Future<Uint8List> fabriquer() => CarteScolairePdfService.carteUnique(
+        eleve: prep.cartes.first,
+        schoolName: em.schoolName,
+        yearLabel: em.yearLabel,
+        city: em.city,
+      );
+
   await showPdfPreviewDialog(
     context,
     title: 'Carte scolaire',
     subtitle: '${eleve.fullName} · ${eleve.className}',
-    pdfFileName:
-        'carte_scolaire_${eleve.lastName}_${eleve.firstName}.pdf'
-            .replaceAll(' ', '_'),
-    build: (_) => CarteScolairePdfService.carteUnique(
-      eleve: prep.cartes.first,
-      schoolName: em.schoolName,
-      yearLabel: em.yearLabel,
-      city: em.city,
+    pdfFileName: nom,
+    build: (_) => fabriquer(),
+    onDownload: () async => CarteScolairePdfService.enregistrer(
+      octets: await fabriquer(),
+      nomFichier: nom,
+      titreDialogue: 'Enregistrer la carte',
     ),
+    partage: true,
   );
 }
 

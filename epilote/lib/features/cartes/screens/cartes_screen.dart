@@ -4,8 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../navigation/widgets/module_scaffold.dart';
 import '../../structure/providers/academic_year_context.dart';
+import '../../students/widgets/scope_drilldown_panel.dart';
+import '../providers/cartes_filtres.dart';
 import '../providers/cartes_provider.dart';
 import '../services/cartes_actions.dart';
+import 'cartes_filtres_barre.dart';
 import 'cartes_parts.dart';
 import 'import_photos_dialog.dart';
 
@@ -23,6 +26,12 @@ const String kSlugCartes = 'cartes';
 //  L'avancement des photos est donc l'INFORMATION PRINCIPALE, avant la liste
 //  des classes : c'est le travail qui reste, et c'est le seul que la
 //  plateforme ne peut pas faire à la place de l'école.
+//
+//  ── LE BILAN SUIT LE FILTRE, ET LE DIT ─────────────────────────────────────
+//  Filtrer sur « Comptabilité » puis lire un bandeau qui compte encore l'école
+//  entière n'aurait aucun sens : on filtre justement pour savoir où en est
+//  CETTE filière. Le bandeau suit donc la sélection — et il affiche en clair
+//  sur quoi il porte, sans quoi un chiffre partiel se lirait comme un total.
 //
 //  ── L'IMPRESSION N'EST JAMAIS INTERDITE ────────────────────────────────────
 //  Une école peut vouloir des cartes sans photo — accès cantine, prêt de
@@ -49,6 +58,7 @@ class _Body extends ConsumerStatefulWidget {
 
 class _BodyState extends ConsumerState<_Body> {
   String? _classeOuverte;
+  FiltreCartes _filtre = FiltreCartes.aucun;
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +73,6 @@ class _BodyState extends ConsumerState<_Body> {
     }
 
     final classesAsync = ref.watch(cartesClassesProvider(year.id));
-    final bilan = ref.watch(cartesBilanProvider(year.id));
 
     return classesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -79,27 +88,82 @@ class _BodyState extends ConsumerState<_Body> {
           );
         }
 
+        final visibles = filtrerClasses(peuplees, _filtre);
+        final eleves = visibles.fold(0, (n, c) => n + c.eleves);
+        final photos = visibles.fold(0, (n, c) => n + c.avecPhoto);
+        final filieres = bilansFilieres(peuplees);
+
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
             CampagneCartes(
-              eleves: bilan.eleves,
-              avecPhoto: bilan.avecPhoto,
-              classes: bilan.classes,
+              eleves: eleves,
+              avecPhoto: photos,
+              classes: visibles.length,
               yearLabel: year.label,
             ),
+            if (_filtre.actif) ...[
+              const SizedBox(height: 8),
+              _PorteeDuBilan(libelle: _libelleFiltre()),
+            ],
             const SizedBox(height: 18),
-            const AdminSectionTitle(
-              'Classes',
-              icon: Icons.class_rounded,
-              subtitle: 'Une planche A4 porte 10 cartes, recto-verso',
+            ScopeDrilldownPanel(
+              units: unitesDepuisClasses(peuplees),
+              title: 'Répartition',
+              metricLabel: 'Avec photo',
+              selected: _filtre.scope,
+              onSelect: (s) => setState(() => _filtre = _filtre.avecScope(s)),
+            ),
+            if (filieres.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              FilieresCartes(
+                bilans: filieres,
+                choisie: _filtre.filiere,
+                onChoisir: (f) =>
+                    setState(() => _filtre = _filtre.avecFiliere(f)),
+              ),
+            ],
+            const SizedBox(height: 18),
+            BarreEtatPhoto(
+              etat: _filtre.photo,
+              onEtat: (e) => setState(() => _filtre = _filtre.avecPhoto(e)),
+              filtreActif: _filtre.actif,
+              onEffacer: () => setState(() => _filtre = FiltreCartes.aucun),
+              resume: '${visibles.length} classe'
+                  '${visibles.length > 1 ? 's' : ''} · $eleves élève'
+                  '${eleves > 1 ? 's' : ''}',
+            ),
+            const SizedBox(height: 16),
+            _EnTeteClasses(
+              nbClasses: visibles.length,
+              nbEleves: eleves,
+              onImprimerSelection:
+                  visibles.isEmpty ? null : () => _imprimerSelection(visibles),
             ),
             const SizedBox(height: 10),
-            ..._parCycle(peuplees),
+            if (visibles.isEmpty)
+              const AdminEmptyState(
+                icon: Icons.filter_alt_off_rounded,
+                title: 'Aucune classe dans cette sélection',
+                message: 'Le filtre ne laisse passer aucune classe. Élargissez-'
+                    'le, ou effacez-le pour revoir toute la campagne.',
+              )
+            else
+              ..._parCycle(visibles),
           ],
         );
       },
     );
+  }
+
+  String _libelleFiltre() {
+    final bouts = <String>[
+      if (_filtre.scope.active && _filtre.scope.label.isNotEmpty)
+        _filtre.scope.label,
+      if (_filtre.filiere != null) _filtre.filiere!,
+      if (_filtre.photo != EtatPhoto.toutes) _filtre.photo.libelle,
+    ];
+    return bouts.isEmpty ? 'sélection en cours' : bouts.join(' · ');
   }
 
   /// Les classes, groupées par cycle. `level_order` repart à 1 dans chaque
@@ -154,5 +218,85 @@ class _BodyState extends ConsumerState<_Body> {
       eleves: eleves,
       titre: c.className,
     );
+  }
+
+  /// Toute la sélection en une planche.
+  ///
+  /// ⚠️ L'ordre suit celui de l'écran — cycle, niveau, classe — et pas l'ordre
+  /// d'arrivée des requêtes. Une planche qui mélangerait les classes se
+  /// découperait en tas qu'il faudrait retrier à la main.
+  Future<void> _imprimerSelection(List<CarteClasse> classes) async {
+    final tous = <CarteEleveRow>[];
+    for (final c in classes) {
+      tous.addAll(await ref.read(cartesElevesProvider(c.classId).future));
+    }
+    if (!mounted) return;
+    await imprimerPlancheCartes(
+      context,
+      ref,
+      eleves: tous,
+      titre: classes.length == 1
+          ? classes.first.className
+          : _filtre.actif
+              ? _libelleFiltre()
+              : 'Établissement',
+    );
+  }
+}
+
+/// Sur quoi porte le bandeau quand un filtre est actif.
+///
+/// Sans cette ligne, un chiffre partiel se lirait comme le total de l'école —
+/// et une campagne à moitié faite passerait pour terminée.
+class _PorteeDuBilan extends StatelessWidget {
+  const _PorteeDuBilan({required this.libelle});
+  final String libelle;
+
+  @override
+  Widget build(BuildContext context) => Row(children: [
+        Icon(Icons.filter_alt_rounded, size: 15, color: kAccent),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            'Ces chiffres portent sur : $libelle — pas sur toute l’école.',
+            style: TextStyle(
+                fontSize: 12.5, color: kAccent, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ]);
+}
+
+class _EnTeteClasses extends StatelessWidget {
+  const _EnTeteClasses({
+    required this.nbClasses,
+    required this.nbEleves,
+    required this.onImprimerSelection,
+  });
+
+  final int nbClasses, nbEleves;
+  final VoidCallback? onImprimerSelection;
+
+  @override
+  Widget build(BuildContext context) {
+    final planches = (nbEleves + 9) ~/ 10;
+    return Row(children: [
+      const Expanded(
+        child: AdminSectionTitle(
+          'Classes',
+          icon: Icons.class_rounded,
+          subtitle: 'Une planche A4 porte 10 cartes, recto-verso',
+        ),
+      ),
+      if (onImprimerSelection != null)
+        FilledButton.icon(
+          onPressed: onImprimerSelection,
+          style: FilledButton.styleFrom(backgroundColor: kNavy),
+          icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+          label: Text(nbClasses == 1
+              ? 'Éditer la classe'
+              : 'Éditer la sélection ($planches planche'
+                  '${planches > 1 ? 's' : ''})'),
+        ),
+    ]);
   }
 }
