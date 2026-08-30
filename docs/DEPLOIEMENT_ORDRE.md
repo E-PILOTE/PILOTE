@@ -207,6 +207,32 @@ trois modules, 105 lignes de permissions reproduisant à l'identique le partage
 qui existait en dur dans le code). Rien ne change pour personne tant que le
 build n'est pas publié.
 
+### ⚠️ « Publié » ne veut pas dire « installé » (2026-08-30)
+
+Le build 3.4.0+24 est publié : la publication GitHub est levée, et la ligne
+`app_releases` est écrite. La condition littérale de `0139` / `0142` est donc
+remplie — **et il ne faut pourtant pas les appliquer aujourd'hui.**
+
+La condition « le build est publié » avait été écrite quand rien ne permettait
+d'observer le parc. Elle servait de substitut à la vraie question : *les postes
+qui écrivent ont-ils la garde `exigerDroitComm` ?* Le jour de la publication, la
+réponse est **non pour tout le monde** — la bannière vient d'apparaître, personne
+n'a encore installé.
+
+Appliquer `0139` maintenant rendrait l'écriture fatale (42501) pour tout profil
+sans le verbe sur un poste resté en 3.3.0 : le lot est jeté, la synchro repart,
+mais **le travail de ce lot est perdu**.
+
+Le relevé du parc (`0150`) permet enfin de poser la vraie question. La règle
+devient :
+
+| migration | condition réelle |
+|---|---|
+| `0139`, `0142` | le parc a **majoritairement** adopté le build ≥ 24, et les retardataires sont identifiés |
+| `0146` | **zéro** profil muet et **zéro** en retard — aucune tolérance |
+
+Voir **super_admin → Versions**, encart « Le parc ».
+
 ## L'ordre à respecter
 
 1. **Pousser les 12 commits et publier le build.** Il aligne les écrans sur la
@@ -308,7 +334,7 @@ que `0147`.
 |---|---|
 | `0147` délibération = module | ✅ appliquée (avant le build) |
 | `0148` carte scolaire = module | ✅ appliquée (avant le build) |
-| `0139` annonces/événements par le verbe | ⏳ **après** la publication du build |
+| `0139` annonces/événements par le verbe | ⏳ build **publié le 2026-08-30** — mais attendre l'ADOPTION, voir ci-dessous |
 | `0142` matières/programmes par le verbe | ⏳ **après** la publication du build |
 | `0146` retrait des colonnes Firebase | 🛑 **suspendue** — seuil réel ≥ build 24 ; le relevé existe depuis `0150`, il faut maintenant qu'il soit **complet** (zéro profil muet) |
 
@@ -350,6 +376,33 @@ voulu le noter. C'est la règle de la migration `0144`, appliquée ailleurs.
 Le contrôle d'accès reste là où il a un sens : l'écran de consultation
 (`/user/documents/registre`) vit sous le module `documents` — sous-chemin, donc
 même verrou, sans une ligne de plus au catalogue.
+
+## ✅ 3.4.0+24 est publiée au parc (2026-08-30)
+
+La chaîne complète, et chaque maillon vérifié :
+
+| étape | état |
+|---|---|
+| migrations `0147` · `0148` · `0149` · `0150` | ✅ appliquées |
+| sync-rules déployées | ✅ 2026-08-29, diff LIVE ↔ dépôt vide |
+| build `3.4.0+24` | ✅ construit, 1 821 tests verts, binaire lancé |
+| publication GitHub `v3.4.0` | ✅ levée sur `E-PILOTE/telechargements` |
+| ligne `app_releases` | ✅ écrite, `is_mandatory = false` |
+
+**Vérification qui compte** : le fichier téléchargé depuis l'adresse publique a
+été confronté au manifeste et au binaire local — les **trois empreintes SHA-256
+concordent** (`966f2175…`), et la taille annoncée (35 894 292 o) est la taille
+réelle. Le poste refuse d'installer un fichier dont l'empreinte diffère ; une
+valeur retapée de travers aurait bloqué toute mise à jour du parc sans que
+personne comprenne pourquoi.
+
+`derniere_version('windows','stable')` rend bien 3.4.0 build 24.
+
+⚠️ La mise à jour est **non obligatoire** : la bannière est refermable. Un
+secrétariat en pleine saisie de rentrée la ferme et continue ; il la reverra à
+la session suivante. Pour forcer, poser `is_mandatory = true` — mais cela ne
+bloque toujours pas l'application, cela rend seulement la bannière rouge et
+non refermable.
 
 ## ✅ Les sync-rules ont été déployées le 2026-08-29
 
