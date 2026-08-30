@@ -125,6 +125,44 @@ une invention comme une nomenclature d'État.
 
 ---
 
+## 5 bis. Groupe, école, ministère — qui porte quoi
+
+**La tutelle appartient au GROUPE.** L'école en hérite et ne peut pas la
+contredire — exactement comme `group_type` (public / privé), que l'écran de
+création d'école n'offre déjà plus au choix.
+
+Trois faits l'établissent :
+
+- **Chaque ministère agrée ses propres établissements privés**, par sa propre
+  commission. Le MEPSA a examiné **1 192 dossiers** d'enseignement général
+  (783 en agrément provisoire, 409 en définitif) ; le METP en a examiné **108**
+  puis **151** pour le technique et professionnel. Un établissement privé
+  relève d'UNE commission.
+- **Les groupes privés congolais couvrent des NIVEAUX, pas des ministères** —
+  « de la maternelle au lycée ». Aucun contre-exemple trouvé.
+- **Sur nos propres données** : les 7 groupes ont chacun une seule tutelle.
+  Zéro groupe mixte.
+
+`schools.tutelle` **n'est pas supprimée** : ce serait la faute de la migration
+0146 — un poste en retard l'enverrait encore, PostgREST répondrait 42703, non
+reconnu comme fatal, et la synchro de ce poste mourrait en silence. Elle
+devient une **copie dénormalisée**, tenue par déclencheur depuis le groupe.
+
+⚠️ `school_groups.tutelle` reste **nullable** : la passer NOT NULL maintenant
+casserait la création de groupe depuis le build déployé, qui ne l'envoie pas
+(23502, famille fatale). Elle le deviendra une fois le build publié ET adopté.
+
+### ⚠️ L'agrément est une donnée d'ÉTABLISSEMENT, et elle manque
+
+Le MEPSA accorde **trois ans** aux établissements privés pour se mettre en
+conformité, après quoi **les inscriptions aux examens d'État seront
+conditionnées à un agrément valide**.
+
+La plateforme ne stocke aujourd'hui aucun agrément. Pour ses clients privés —
+et ils sont la majorité du marché — il faudra un numéro d'agrément, son type
+(provisoire / définitif), sa date, et son ministère émetteur. Sans quoi une
+école découvrira le problème au moment d'inscrire ses élèves à l'examen.
+
 ## 6. Ce qui reste à faire
 
 - [ ] **Charger la nomenclature officielle** des filières depuis l'arrêté
@@ -134,8 +172,14 @@ une invention comme une nomenclature d'État.
       plupart et se tromperait pour quelques-unes — et une école mal typée
       remonterait ses effectifs dans la mauvaise colonne d'un état ministériel.
       C'est à l'admin groupe de le déclarer.
-- [ ] **Écrans** : sélection en cascade secteur → cycle → type d'établissement →
-      filière → diplôme, et affichage des passerelles dans l'orientation.
+- [ ] **Écrans** : tutelle à la création du GROUPE ; sélection en cascade
+      secteur → cycle → type d'établissement → filière → diplôme ; passerelles
+      dans l'orientation.
+- [ ] **`school_groups.tutelle` NOT NULL**, après publication ET adoption du
+      build qui la renseigne.
+- [ ] **L'agrément des établissements privés** — numéro, type, date, ministère.
+      Échéance réglementaire : trois ans, puis blocage des inscriptions aux
+      examens d'État.
 - [ ] **Vérifier les Conseils des ministres postérieurs** à janvier 2026.
 
 ---
