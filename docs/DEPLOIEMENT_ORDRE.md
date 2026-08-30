@@ -14,6 +14,42 @@ sont des ajouts et des corrections côté serveur.
 | `0152` | durées, `BT`, passerelles réécrites sur source | non |
 | `0153` | `school_groups.tutelle` + héritage par déclencheur | non |
 | `0154` | l'admin groupe peut enregistrer barème et opt-in partenaires | **non — et elle RÉPARE le build déjà déployé** |
+| `0155` | le référentiel national des examens est réservé aux ministères | non |
+| `0156` | `search_path` figé sur nos fonctions | non |
+| `0157` | relancer un ticket le rouvre vraiment | **non — répare aussi le build déployé** |
+
+### `0155` → `0157` — la chasse aux écritures muettes (2026-08-30)
+
+Toutes **AVANT_LE_BUILD**, appliquées et vérifiées. Aucune n'attend un build ;
+deux d'entre elles **réparent le build déjà déployé**.
+
+| migration | ce qu'elle corrige | mesuré avant |
+|---|---|---|
+| `0154` | l'admin groupe n'enregistrait ni barème ni opt-in partenaires | `0 ligne`, `10.00 → 10.00` |
+| `0155` | n'importe quel admin de groupe **privé** écrivait le référentiel NATIONAL | BAC modifié, **35 sessions** réécrites, règle d'un autre groupe supprimée |
+| `0156` | `search_path` non figé sur 33 fonctions, dont la garde RLS de la messagerie | — |
+| `0157` | relancer un ticket résolu ne le rouvrait pas | `0 ligne`, statut reste `resolved` |
+
+#### La règle à retenir
+
+> **Un UPDATE ou un DELETE que le `USING` d'une politique écarte ne lève PAS
+> d'erreur.** Zéro ligne, réponse 204. L'écran affiche « enregistré ».
+> Seul un INSERT refusé par un `WITH CHECK` lève 42501.
+
+Conséquence pratique : **fermer une table ne suffit pas** — il faut aussi
+retirer le bouton, sinon on échange une destruction silencieuse contre un clic
+silencieux. C'est pourquoi `0155` s'accompagne d'un passage en lecture seule
+côté Flutter pour les groupes qui n'administrent pas le référentiel.
+
+Le garde `test/ecritures_postgrest_test.dart` oblige désormais à inscrire toute
+NOUVELLE table écrite depuis l'application, après contrôle de ses politiques.
+
+#### `subscription_reminder_log` : l'alerte est un faux positif
+
+L'analyseur la signale « RLS activée, aucune politique ». C'est **voulu** :
+elle n'est écrite que par le job `pg_cron` (donc en `postgres`), et aucune ligne
+de Dart ne la lit. Deny-all pour `authenticated` est l'état correct — lui
+ajouter une politique l'ouvrirait sans raison.
 
 ### ⚠️ Ce qui reste suspendu à une ADOPTION, pas à une publication
 

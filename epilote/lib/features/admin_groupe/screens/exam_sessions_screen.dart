@@ -6,6 +6,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/exam_sessions_admin_provider.dart';
+import '../providers/referentiel_national_provider.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../widgets/exam_sessions_views.dart';
 import 'exam_session_form_dialog.dart';
@@ -114,6 +115,9 @@ class _BodyState extends ConsumerState<_Body> {
             children: [
               KpiGrid(items: _kpis(rows)),
               const SizedBox(height: 20),
+              // Ne s'affiche que si le droit manque (migration 0155).
+              const ReferentielLectureSeuleBandeau(quoi: 'Ces sessions'),
+              const SizedBox(height: 20),
               _CandidatesChart(rows: rows),
               const SizedBox(height: 20),
               ListFilterBar(
@@ -124,7 +128,9 @@ class _BodyState extends ConsumerState<_Body> {
                 addIcon: Icons.event_available_rounded,
                 onSearchChange: (_) => setState(() {}),
                 onToggleView: () => setState(() => _isTable = !_isTable),
-                onAdd: () => showExamSessionForm(context),
+                onAdd: _peutEcrire
+                    ? () => showExamSessionForm(context)
+                    : null,
                 onReset: () => setState(() {
                   _search.clear();
                   _tutelle = 'toutes';
@@ -275,9 +281,30 @@ class _BodyState extends ConsumerState<_Body> {
     ];
   }
 
-  void _edit(ExamSessionAdminRow r) => showExamSessionForm(context, existing: r);
+  /// ⚠️ Voir `referentiel_national_provider.dart` : un refus de RLS sur UPDATE
+  /// ou DELETE est MUET (zéro ligne, 204). Sans cette garde, « Supprimer »
+  /// ne dirait rien du tout.
+  bool get _peutEcrire =>
+      ref.watch(groupeAdministreReferentielProvider).valueOrNull ?? false;
+
+  bool _refuseSiLectureSeule() {
+    if (ref.read(groupeAdministreReferentielProvider).valueOrNull ?? false) {
+      return false;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text("Les sessions d'examen sont nationales : elles sont "
+          'tenues par le ministère de tutelle.'),
+    ));
+    return true;
+  }
+
+  void _edit(ExamSessionAdminRow r) {
+    if (_refuseSiLectureSeule()) return;
+    showExamSessionForm(context, existing: r);
+  }
 
   Future<void> _delete(ExamSessionAdminRow r) async {
+    if (_refuseSiLectureSeule()) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(

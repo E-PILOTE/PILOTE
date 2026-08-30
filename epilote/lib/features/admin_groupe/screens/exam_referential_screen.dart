@@ -6,6 +6,7 @@ import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/exam_referential_provider.dart';
+import '../providers/referentiel_national_provider.dart';
 import '../widgets/exam_referential_views.dart';
 import 'exam_rules_panel.dart';
 import 'national_exam_form_dialog.dart';
@@ -113,6 +114,8 @@ class _BodyState extends ConsumerState<_Body> {
             children: [
               KpiGrid(items: _kpis(d)),
               const SizedBox(height: 20),
+              // Ne s'affiche que si le droit manque (migration 0155).
+              const ReferentielLectureSeuleBandeau(quoi: 'Ces examens'),
               if (d.inertExams.isNotEmpty) ...[
                 _InertBanner(exams: d.inertExams, onOpen: _openRules),
                 const SizedBox(height: 20),
@@ -125,7 +128,7 @@ class _BodyState extends ConsumerState<_Body> {
                 addIcon: Icons.workspace_premium_rounded,
                 onSearchChange: (_) => setState(() {}),
                 onToggleView: () => setState(() => _isTable = !_isTable),
-                onAdd: _create,
+                onAdd: _peutEcrire ? _create : null,
                 onReset: () => setState(() {
                   _search.clear();
                   _tutelle = 'toutes';
@@ -283,6 +286,7 @@ class _BodyState extends ConsumerState<_Body> {
   // ── Gestes ────────────────────────────────────────────────────────────────
 
   Future<void> _create() async {
+    if (_refuseSiLectureSeule()) return;
     final created = await showNationalExamForm(context);
     if (created == null || !mounted) return;
     ref.invalidate(examReferentialProvider);
@@ -297,8 +301,28 @@ class _BodyState extends ConsumerState<_Body> {
   }
 
   Future<void> _edit(NationalExamRow row) async {
+    if (_refuseSiLectureSeule()) return;
     final changed = await showNationalExamForm(context, existing: row);
     if (changed != null) ref.invalidate(examReferentialProvider);
+  }
+
+  /// ⚠️ Lu en `watch` depuis `build` — jamais dans un callback : c'est le
+  /// bandeau et le bouton « Nouvel examen » qui en dépendent à l'affichage.
+  bool get _peutEcrire =>
+      ref.watch(groupeAdministreReferentielProvider).valueOrNull ?? false;
+
+  /// Garde de dernier recours pour les actions déjà affichées.
+  ///
+  /// ⚠️ Sans elle, un refus de RLS sur UPDATE ou DELETE serait MUET : zéro
+  /// ligne, réponse 204, aucune erreur. L'utilisateur cliquerait « Supprimer »
+  /// et ne saurait pas que rien ne s'est passé.
+  bool _refuseSiLectureSeule() {
+    if (ref.read(groupeAdministreReferentielProvider).valueOrNull ?? false) {
+      return false;
+    }
+    _toast('Le référentiel national est tenu par le ministère de tutelle. '
+        'Vous le consultez, vous ne le modifiez pas.');
+    return true;
   }
 
   Future<void> _openRules(NationalExamRow row) async {
@@ -307,6 +331,7 @@ class _BodyState extends ConsumerState<_Body> {
   }
 
   Future<void> _toggle(NationalExamRow row) async {
+    if (_refuseSiLectureSeule()) return;
     final turningOff = row.isActive;
     if (turningOff) {
       final ok = await showAdminConfirm(
@@ -331,6 +356,7 @@ class _BodyState extends ConsumerState<_Body> {
   }
 
   Future<void> _delete(NationalExamRow row) async {
+    if (_refuseSiLectureSeule()) return;
     final ok = await showAdminConfirm(
       context,
       title: 'Supprimer ${row.shortName} ?',

@@ -6,6 +6,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/list_chrome.dart' show kListOrange, kListPurple;
 import '../../auth/providers/auth_provider.dart';
 import '../providers/exam_referential_provider.dart';
+import '../providers/referentiel_national_provider.dart';
 import 'exam_rule_form_dialog.dart';
 
 final _fmtDay = DateFormat('dd/MM/yyyy', 'fr_FR');
@@ -117,6 +118,28 @@ class _RulesPanel extends ConsumerWidget {
     );
   }
 
+  /// Une règle NATIONALE (`group_id IS NULL`) s'applique à toute la
+  /// plateforme : seul le ministère de tutelle y touche (migration 0155). Une
+  /// règle propre au groupe reste modifiable par son admin — c'est l'usage
+  /// prévu, et il ne sort pas de son périmètre.
+  ///
+  /// ⚠️ Sans cette garde, le refus serait MUET : la politique écarte la ligne
+  /// par son `USING`, donc zéro ligne touchée et réponse 204. Le bouton
+  /// « Supprimer » ne dirait rien du tout.
+  bool _refuseSiNationale(
+      BuildContext context, WidgetRef ref, ExamRuleRow rule) {
+    if (!rule.isNational) return false;
+    if (ref.read(groupeAdministreReferentielProvider).valueOrNull ?? false) {
+      return false;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('Cette règle est NATIONALE : elle vaut pour toutes les '
+          'écoles du pays et relève du ministère de tutelle. Vous pouvez en '
+          'créer une propre à votre groupe.'),
+    ));
+    return true;
+  }
+
   Future<void> _add(
       BuildContext context, WidgetRef ref, NationalExamRow row) async {
     final saved = await showExamRuleForm(context, exam: row);
@@ -125,12 +148,14 @@ class _RulesPanel extends ConsumerWidget {
 
   Future<void> _edit(BuildContext context, WidgetRef ref, NationalExamRow row,
       ExamRuleRow rule) async {
+    if (_refuseSiNationale(context, ref, rule)) return;
     final saved = await showExamRuleForm(context, exam: row, existing: rule);
     if (saved) ref.invalidate(examReferentialProvider);
   }
 
   Future<void> _delete(
       BuildContext context, WidgetRef ref, ExamRuleRow rule) async {
+    if (_refuseSiNationale(context, ref, rule)) return;
     // Capturé AVANT la confirmation : après l'attente, le contexte de la
     // feuille peut avoir disparu.
     final messenger = ScaffoldMessenger.of(context);
