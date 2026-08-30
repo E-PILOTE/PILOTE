@@ -6,7 +6,8 @@
 
 Migrations : `0151` (structure), `0152` (parcours corrigés sur source),
 `0153` (la tutelle appartient au groupe), `0154` (l'admin groupe peut régler
-son groupe).
+son groupe), `0155` (le référentiel national est réservé aux ministères),
+`0158` (agrément du groupe + vue de tutelle).
 
 ---
 
@@ -191,6 +192,68 @@ reste hors d'atteinte (0 ligne) ; le super_admin est inchangé.
 déployé** se met à fonctionner dès l'application de la migration. Une RPC
 `SECURITY DEFINER` aurait exigé d'attendre un nouveau build.
 
+## 5 ter. Le ministère porte DEUX casquettes
+
+Un ministère de l'éducation congolais est à la fois :
+
+- **EXPLOITANT** — il possède et gère ses propres écoles. Relation
+  `schools.group_id`. C'est un groupe scolaire comme un autre.
+- **TUTELLE** — il supervise TOUTES les écoles de son ministère, y compris
+  celles qu'il ne possède pas. Relation `schools.tutelle`.
+
+Le modèle ne connaissait que la première. **Fait mesuré : le MEPSA ne voyait
+que 14 des 25 écoles placées sous sa tutelle** — quatre publiques dans
+d'autres groupes, sept privées. Côté METP le trou était invisible (12 sur 12),
+mais le premier CET privé inscrit l'aurait ouvert aussitôt.
+
+C'est aussi cette confusion qui avait laissé la brèche de `0155` : la base
+n'avait aucun moyen de distinguer « le ministère » d'« un groupe privé ».
+
+### La règle de visibilité, tranchée le 2026-08-30
+
+| | ce que la tutelle voit |
+|---|---|
+| **Établissements et groupes** | **tout** — identité, implantation, offre, agrément, effectifs, chef d'établissement |
+| **Personnes** | des **agrégats** : effectifs, part de filles, personnel, classes |
+| **Abonnements** | **rien.** Ce qu'un groupe privé paie à E-PILOTE ne regarde pas son ministère |
+
+Une seule donnée nominative, et elle est administrative : **le chef
+d'établissement**. C'est l'interlocuteur officiel de la tutelle ; un ministère
+qui ignore qui dirige une école de son réseau ne peut ni la convoquer ni lui
+écrire.
+
+⚠️ Aucun nom d'élève, aucune note, aucune absence, aucun paiement. Deux raisons
+qui ne sont pas des scrupules : les parents d'une école privée n'ont pas
+consenti à ce que l'État lise les notes de leur enfant, et un groupe privé
+n'adoptera pas une plateforme qui livre son registre d'inscription. On peut
+ouvrir plus tard ; on ne peut pas refermer.
+
+**Comment c'est tenu** : deux RPC `SECURITY DEFINER` (`tutelle_groupes`,
+`tutelle_ecoles`), et non un élargissement des politiques RLS de vingt tables.
+Une fonction décide en UN endroit, lisible, ce qui sort. Vérifié : MEPSA voit
+6 groupes / 25 écoles / 7 330 élèves ; METP 1 groupe / 12 écoles / 1 776
+élèves ; un groupe privé reçoit 42501 sur les deux.
+
+### L'agrément : une MENTION, pas une procédure
+
+⚠️ **E-PILOTE ne délivre aucun agrément**, ne l'instruit pas, ne le valide pas,
+ne l'expire pas. La commission du ministère le fait, hors de tout logiciel.
+Trois colonnes de saisie — numéro, type (provisoire / définitif), date — et
+**aucun workflow, aucun statut calculé, aucun blocage**.
+
+Il se saisit **à la création du GROUPE** ; les écoles en héritent par
+déclencheur, comme le secteur et la tutelle.
+
+À quoi il sert, honnêtement : **imprimer** (le numéro figure sur les
+attestations d'un établissement privé) et **compter** (« combien d'écoles de
+ma tutelle ont déclaré un agrément ? »). Rien d'autre — le champ ne vaut que
+rempli.
+
+⚠️ L'interface dit **« non déclaré »**, jamais « non agréé ». Une école sans
+numéro peut être parfaitement en règle et n'avoir rien saisi. Faire porter par
+un logiciel une accusation qu'il n'a aucun moyen d'établir, à côté du nom d'un
+établissement réel, serait une faute.
+
 ## 6. Ce qui reste à faire
 
 - [ ] **Charger la nomenclature officielle** des filières depuis l'arrêté
@@ -212,9 +275,13 @@ déployé** se met à fonctionner dès l'application de la migration. Une RPC
       passerelles dans l'orientation.
 - [ ] **`school_groups.tutelle` NOT NULL**, après publication ET adoption du
       build qui la renseigne.
-- [ ] **L'agrément des établissements privés** — numéro, type, date, ministère.
-      Échéance réglementaire : trois ans, puis blocage des inscriptions aux
-      examens d'État.
+- [x] **L'agrément des établissements privés** ✅ Saisi sur le GROUPE, hérité
+      par les écoles (migration `0158`). Une mention, pas une procédure — voir
+      §5 ter. ⚠️ Ne JAMAIS s'en servir pour bloquer une inscription : la règle
+      des trois ans est du ressort du ministère, pas du logiciel.
+- [x] **Écran de tutelle** ✅ « Réseau sous tutelle » : tous les groupes et
+      toutes les écoles du ministère, filtrables par secteur, département,
+      type d'établissement et agrément.
 - [ ] **Vérifier les Conseils des ministres postérieurs** à janvier 2026.
 
 ---

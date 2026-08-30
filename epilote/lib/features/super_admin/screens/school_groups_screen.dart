@@ -27,6 +27,7 @@ import '../../../core/constants/tutelle.dart';
 part 'groups/group_form_modal.dart';
 part 'groups/group_tutelle_selector.dart';
 part 'groups/group_form_footer.dart';
+part 'groups/group_agrement_fields.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 Color get _kNavy => kNavy;
@@ -1696,6 +1697,13 @@ class _InfoTab extends StatelessWidget {
           // groupe sans ministère ne remonte dans aucun état ministériel.
           _DetailRow(Icons.account_balance_outlined, 'Tutelle',
               g.tutelleLabel ?? 'Non renseignée'),
+          // ⚠️ « Non déclaré », jamais « non agréé » : E-PILOTE enregistre une
+          // mention, elle n'instruit aucun dossier.
+          _DetailRow(Icons.verified_outlined, 'Agrément',
+              !g.aDeclareUnAgrement
+                  ? 'Non déclaré'
+                  : '${g.agrementNumero}'
+                      '${g.agrementType == null ? '' : ' · ${g.agrementType == 'definitif' ? 'définitif' : 'provisoire'}'}'),
           if (g.foundedYear != null)
             _DetailRow(Icons.history_edu_outlined, 'Fondé en',
                 g.foundedYear.toString()),

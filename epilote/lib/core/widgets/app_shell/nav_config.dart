@@ -8,6 +8,7 @@ import '../../../features/admin_groupe/providers/admin_nav_provider.dart';
 import '../../../features/navigation/module_routes.dart';
 import '../../../features/navigation/providers/module_navigation_provider.dart';
 import '../../../features/navigation/providers/permissions_provider.dart';
+import '../../../features/admin_groupe/providers/referentiel_national_provider.dart';
 import 'nav_models.dart';
 
 /// Construit les sections de navigation pour le profil donné.
@@ -144,6 +145,12 @@ List<NavSection> _adminGroupeSections(WidgetRef ref) {
   final catalog = ref.watch(adminModulesCatalogProvider).valueOrNull;
   final hasModules = catalog != null && catalog.categories.isNotEmpty;
 
+  // Un MINISTÈRE reçoit une section de plus. Un groupe ordinaire ne doit pas
+  // même voir l'entrée : elle ne lui rendrait rien (les RPC refusent en 42501)
+  // et lui laisserait croire qu'il lui manque un droit.
+  final estTutelle =
+      ref.watch(groupeAdministreReferentielProvider).valueOrNull ?? false;
+
   return [
     const NavSection(title: '', pinnedTop: true, entries: [
       NavEntry.item(
@@ -152,6 +159,18 @@ List<NavSection> _adminGroupeSections(WidgetRef ref) {
         route: Routes.adminDashboard,
       ),
     ]),
+    // ⚠️ AVANT « GESTION », et c'est délibéré. Pour un ministère, la question
+    // du jour est « combien d'élèves dans MON MINISTÈRE », pas « combien dans
+    // mes quatorze écoles ». La section porte le mot TUTELLE pour qu'aucun
+    // lecteur ne confonde les deux périmètres.
+    if (estTutelle)
+      const NavSection(title: 'TUTELLE', entries: [
+        NavEntry.item(
+          icon: Icons.hub_rounded,
+          label: 'Réseau sous tutelle',
+          route: Routes.adminTutelle,
+        ),
+      ]),
     // Ordre workflow : créer les écoles → les profils → assigner les utilisateurs.
     NavSection(title: 'GESTION', entries: [
       const NavEntry.item(

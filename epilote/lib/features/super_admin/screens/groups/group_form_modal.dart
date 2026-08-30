@@ -32,6 +32,11 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
   /// un lycée technique sous le mauvais ministère, et personne ne le verrait
   /// avant l'inscription aux examens d'État.
   String? _tutelle;
+
+  /// Agrément : SAISI, jamais instruit. Trois champs, aucun workflow.
+  final _agrementNum = TextEditingController();
+  String? _agrementType;
+  DateTime? _agrementDate;
   String? _department;
   String? _planId;
   bool    _saving       = false;
@@ -68,6 +73,9 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
       _uploadedLogoUrl    = g.logoUrl;
       _groupType          = g.groupType;
       _tutelle            = g.tutelle;
+      _agrementNum.text   = g.agrementNumero ?? '';
+      _agrementType       = g.agrementType;
+      _agrementDate       = g.agrementDate;
       _department         = g.department;
       _planId             = g.planId;
       if (g.foundedYear != null) {
@@ -83,6 +91,7 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
     _name.dispose(); _email.dispose();
     _phone.dispose(); _address.dispose(); _notes.dispose();
     _foundedYearCtrl.dispose();
+    _agrementNum.dispose();
     super.dispose();
   }
 
@@ -164,6 +173,15 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
         // déclencheur (migration 0153) la propage à toutes ses écoles. Envoyer
         // `schools.tutelle` depuis ici serait écrire dans une copie.
         'tutelle':      _tutelle,
+        // ⚠️ Écrit sur le GROUPE seulement : un déclencheur le recopie sur
+        // toutes ses écoles (migration 0158). L'écrire sur `schools` depuis
+        // ici serait écrire dans une copie.
+        'agrement_numero': _agrementNum.text.trim().isEmpty
+            ? null
+            : _agrementNum.text.trim(),
+        'agrement_type': _agrementType,
+        'agrement_date':
+            _agrementDate?.toIso8601String().split('T').first,
         'department':   _department,
         'plan_id':      _planId,
         'admin_email':  _email.text.trim(),
@@ -374,6 +392,14 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
                       onChanged: (v) => setState(() => _tutelle = v),
                       ecolesConcernees: widget.existing?.schoolCount ?? 0,
                       valeurInitiale: widget.existing?.tutelle,
+                    ),
+
+                    _AgrementFields(
+                      numero: _agrementNum,
+                      type: _agrementType,
+                      date: _agrementDate,
+                      onType: (v) => setState(() => _agrementType = v),
+                      onDate: (v) => setState(() => _agrementDate = v),
                     ),
 
                     const _FormDivider(),

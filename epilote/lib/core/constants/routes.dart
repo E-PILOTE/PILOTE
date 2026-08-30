@@ -42,6 +42,10 @@ class Routes {
   // ── Admin Groupe ─────────────────────────────────────────────────────────
   static const String adminDashboard    = '/admin/dashboard';
   static const String adminEcoles       = '/admin/ecoles';
+  /// Le réseau SOUS TUTELLE — à ne pas confondre avec `adminEcoles`, qui
+  /// montre les écoles que le groupe POSSÈDE. Pour un ministère les deux
+  /// nombres diffèrent (le MEPSA possède 14 des 25 écoles de sa tutelle).
+  static const String adminTutelle      = '/admin/tutelle';
   static const String adminEcoleDetail  = '/admin/ecoles/:id';
   static const String adminUtilisateurs = '/admin/utilisateurs';
   static const String adminEleves       = '/admin/eleves';

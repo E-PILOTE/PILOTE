@@ -36,6 +36,9 @@ class GroupDetail {
     this.subscriptionEnd,
     this.foundedYear,
     this.tutelle,
+    this.agrementNumero,
+    this.agrementType,
+    this.agrementDate,
   });
 
   factory GroupDetail.fromMap(Map<String, dynamic> m, int schoolCount) {
@@ -68,6 +71,11 @@ class GroupDetail {
       notes:       m['notes']        as String?,
       foundedYear: m['founded_year'] as int?,
       tutelle:     m['tutelle']      as String?,
+      agrementNumero: m['agrement_numero'] as String?,
+      agrementType:   m['agrement_type']   as String?,
+      agrementDate: m['agrement_date'] == null
+          ? null
+          : DateTime.tryParse(m['agrement_date'] as String),
       schoolCount: schoolCount,
       createdAt:   DateTime.parse(m['created_at'] as String),
       updatedAt:   DateTime.parse(m['updated_at'] as String),
@@ -97,6 +105,19 @@ class GroupDetail {
   /// `null` : ne jamais inventer « MEPSA » par défaut, ce serait ranger
   /// d'office un lycée technique sous le mauvais ministère.
   String? get tutelleLabel => sigleTutelle(tutelle);
+
+  /// Agrément délivré par la commission du ministère de tutelle.
+  ///
+  /// ⚠️ ENREGISTRÉ, jamais instruit : la plateforme ne délivre, ne valide ni
+  /// n'expire aucun agrément. Ces trois champs sont une mention administrative
+  /// — comme un numéro sur un en-tête —, et les écoles du groupe en héritent
+  /// par déclencheur (migration 0158).
+  final String? agrementNumero, agrementType;
+  final DateTime? agrementDate;
+
+  /// ⚠️ « rien de saisi » n'est PAS « pas agréé ». Un groupe parfaitement en
+  /// règle peut n'avoir simplement rien renseigné.
+  bool get aDeclareUnAgrement => (agrementNumero ?? '').trim().isNotEmpty;
 
   final bool    isActive;
   final DateTime  createdAt, updatedAt;
@@ -141,6 +162,8 @@ class GroupDetail {
     subscriptionStart: subscriptionStart, subscriptionEnd: subscriptionEnd,
     foundedYear: foundedYear,
     tutelle:            tutelle            ?? this.tutelle,
+    agrementNumero: agrementNumero, agrementType: agrementType,
+    agrementDate: agrementDate,
     name:               name               ?? this.name,
     groupType:          groupType          ?? this.groupType,
     department:         department         ?? this.department,
@@ -273,7 +296,8 @@ final schoolGroupsProvider =
     final rows = await client.from('school_groups').select(
       'id, name, slug, group_type, department, plan_id, subscription_status, '
       'subscription_start, subscription_end, admin_email, phone, address, '
-      'logo_url, is_active, notes, founded_year, tutelle, created_at, updated_at, '
+      'logo_url, is_active, notes, founded_year, tutelle, '
+      'agrement_numero, agrement_type, agrement_date, created_at, updated_at, '
       'subscription_plans!plan_id(name, price_xaf, billing_period, max_schools, max_students)',
     ).order('created_at', ascending: false) as List;
 

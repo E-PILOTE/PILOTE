@@ -106,7 +106,7 @@ const _kEcrituresConnues = <String, Set<String>>{
 /// d'écriture. Le saut de ligne compte : `dart format` coupe volontiers là.
 final _motif = RegExp(
     r"\.from\(\s*'([a-z_0-9]+)'\s*\)\s*(?:\r?\n\s*)?"
-    r"\.(update|insert|upsert|delete)\b");
+    r'\.(update|insert|upsert|delete)\b');
 
 String _espaceDe(String chemin) {
   if (chemin.contains('/features/super_admin/')) return 'super_admin';
