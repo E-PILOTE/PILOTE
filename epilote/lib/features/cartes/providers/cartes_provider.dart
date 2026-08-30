@@ -47,10 +47,13 @@ class CarteClasse {
   final String? cycleCode, levelCode;
   final int levelOrder;
 
-  /// Filière — lycée technique et formation professionnelle. `null` au collège
-  /// et au primaire, où la notion n'existe pas : c'est une ABSENCE, pas un
-  /// « Non renseigné » à corriger, et l'écran ne doit pas la présenter comme
-  /// une lacune.
+  /// Filière de la classe. `null` quand la voie n'en définit pas — c'est une
+  /// ABSENCE, pas un « Non renseigné » à corriger.
+  ///
+  /// ⚠️ Ne pas la déduire du NIVEAU : le collège technique (CET, tutelle METP)
+  /// est organisé par métier dès le premier cycle et mène au CAP. Le
+  /// référentiel `education_programs` porte `college_technique` au cycle
+  /// `college`.
   final String? filiereLabel;
 
   /// Inscriptions ACTIVES. Une carte ne se délivre qu'à qui est présent

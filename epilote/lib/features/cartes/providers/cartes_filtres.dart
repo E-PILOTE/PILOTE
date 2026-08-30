@@ -15,11 +15,27 @@ import 'cartes_provider.dart';
 //  qui sortira sur la planche, sans quoi l'agent croirait imprimer sa filière
 //  et sortirait l'école entière.
 //
-//  ── LA FILIÈRE N'EST PAS UNE DONNÉE MANQUANTE ─────────────────────────────
-//  `filiere_label` est nulle au primaire et au collège : la notion n'y existe
-//  pas. Une classe sans filière n'est donc pas une classe « à compléter », et
-//  l'écran ne doit jamais l'afficher comme une lacune — c'est la différence
-//  entre un rappel utile et un reproche absurde fait à une école primaire.
+//  ── ⚠️ LA FILIÈRE NE DÉPEND PAS DU NIVEAU, MAIS DE LA VOIE ────────────────
+//  Une première version de ce fichier affirmait « au primaire et au collège la
+//  notion n'existe pas ». C'est FAUX, et c'est faux précisément pour l'un des
+//  deux ministères qui commandent la plateforme.
+//
+//  En enseignement GÉNÉRAL (MEPSA) : pas de filière au collège, séries A/C/D au
+//  lycée. En enseignement TECHNIQUE (METP) : le collège technique — le CET —
+//  est organisé PAR MÉTIER dès le premier cycle (menuiserie, maçonnerie,
+//  électricité, soudure, couture, secrétariat…), s'entre après le CEPE et mène
+//  au CAP. Le référentiel de la plateforme le dit lui-même : au cycle
+//  `college`, `education_programs` porte `college_general` ET
+//  `college_technique`. Et 12 des 37 écoles de la base sont sous tutelle METP.
+//
+//  Le code, lui, était juste : il n'a jamais regardé que `filiere_label`,
+//  jamais le cycle. Une classe de CET avec sa filière est donc comptée
+//  correctement. C'était la JUSTIFICATION qui était fausse — le genre d'erreur
+//  qui ne casse rien aujourd'hui et qui fait « optimiser » de travers demain.
+//
+//  La règle juste : une classe sans filière n'est pas une classe à compléter,
+//  non pas parce que « son niveau n'en a pas », mais parce que toutes les voies
+//  n'en définissent pas.
 // ════════════════════════════════════════════════════════════════════════════
 
 /// L'état des photos d'une classe, tel qu'on filtre dessus.
@@ -113,7 +129,7 @@ List<ScopeUnit> unitesDepuisClasses(List<CarteClasse> classes) => [
 class BilanFiliere {
   BilanFiliere(this.libelle);
 
-  /// `null` pour « Sans filière » (primaire, collège).
+  /// `null` pour « Sans filière » — une voie qui n'en définit pas.
   final String? libelle;
   int classes = 0, eleves = 0, avecPhoto = 0;
 

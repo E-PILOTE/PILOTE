@@ -9,8 +9,9 @@ import '../providers/cartes_filtres.dart';
 //  `ScopeDrilldownPanel` couvre déjà cycle / niveau / classe, et il est partagé
 //  avec Documents et Annuaire. Ce fichier n'ajoute que ce qu'il ne sait pas
 //  faire : la FILIÈRE, qui n'est pas un étage de la hiérarchie mais une coupe
-//  en travers — au lycée technique, une même filière traverse la 2nde, la 1ère
-//  et la Terminale.
+//  en travers — au lycée technique une même filière traverse la 2nde, la 1ère
+//  et la Terminale ; au collège technique (CET) elle traverse les quatre
+//  années qui mènent au CAP.
 //
 //  ── CHAQUE PASTILLE PORTE SON AVANCEMENT ──────────────────────────────────
 //  Une pastille qui ne dirait que « Comptabilité » obligerait à cliquer pour
@@ -19,8 +20,9 @@ import '../providers/cartes_filtres.dart';
 //  lit, pas un menu qu'on explore.
 // ════════════════════════════════════════════════════════════════════════════
 
-/// Les filières, en pastilles cliquables. Ne s'affiche pas si l'école n'en a
-/// aucune (primaire, collège) — voir [bilansFilieres].
+/// Les filières, en pastilles cliquables. Ne s'affiche pas si AUCUNE classe de
+/// l'école n'en porte — voir [bilansFilieres]. Ne jamais conditionner cet
+/// affichage au niveau : le collège technique en a.
 class FilieresCartes extends StatelessWidget {
   const FilieresCartes({
     super.key,
@@ -79,8 +81,12 @@ class _Pastille extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ⚠️ « Sans filière » n'est PAS un manque : au primaire et au collège la
-    // notion n'existe pas. Gris neutre, jamais rouge.
+    // ⚠️ « Sans filière » n'est PAS un manque : toutes les voies n'en
+    // définissent pas. Gris neutre, jamais rouge.
+    //
+    // Ne PAS déduire cela du niveau : le collège technique (CET, tutelle METP)
+    // est organisé par métier dès le premier cycle et mène au CAP. Le
+    // référentiel porte d'ailleurs `college_technique` au cycle `college`.
     final sansFiliere = bilan.libelle == null;
     final couleur = sansFiliere
         ? kTextMuted
