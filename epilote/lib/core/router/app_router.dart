@@ -16,6 +16,7 @@ import '../../features/super_admin/screens/school_groups_screen.dart';
 import '../../features/super_admin/screens/administrators_screen.dart';
 import '../../features/super_admin/screens/modules_screen.dart';
 import '../../features/super_admin/screens/releases_screen.dart';
+import '../../features/super_admin/screens/economie_screen.dart';
 import '../../features/super_admin/screens/plans_screen.dart';
 import '../../features/super_admin/screens/subscriptions_screen.dart';
 import '../../features/super_admin/screens/audit_screen.dart';
@@ -43,6 +44,8 @@ import '../../features/admin_groupe/screens/admin_reports_screen.dart';
 import '../../features/admin_groupe/screens/admin_exams_screen.dart';
 import '../../features/admin_groupe/screens/exam_referential_screen.dart';
 import '../../features/tutelle/screens/tutelle_reseau_screen.dart';
+import '../../features/communication/screens/circulaires_emises_screen.dart';
+import '../../features/communication/screens/circulaires_recues_screen.dart';
 import '../../features/admin_groupe/screens/exam_sessions_screen.dart';
 import '../../features/admin_groupe/screens/admin_exam_results_screen.dart';
 import '../../features/admin_groupe/screens/admin_merit_screen.dart';
@@ -357,6 +360,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.superVersions,
         builder: (_, _) => const ReleasesScreen(),
       ),
+      GoRoute(
+          path: Routes.superEconomie,
+          builder: (_, _) => const EconomieScreen()),
       GoRoute(path: Routes.superPlans, builder: (_, _) => const PlansScreen()),
       GoRoute(
         path: Routes.superAbonnements,
@@ -462,6 +468,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.adminTutelle,
         builder: (_, _) => const TutelleReseauScreen(),
+      ),
+      // Même raisonnement : l'écran refuse lui-même, et la RPC de publication
+      // refuse en base (42501). Une route absente donnerait un 404 au moment
+      // précis où le droit vient d'être accordé.
+      GoRoute(
+        path: Routes.adminCirculairesEmises,
+        builder: (_, _) => const CirculairesEmisesScreen(),
+      ),
+      GoRoute(
+        path: Routes.adminCirculaires,
+        builder: (_, _) => const CirculairesRecuesScreen(),
       ),
       GoRoute(
         path: Routes.adminReferentiel,

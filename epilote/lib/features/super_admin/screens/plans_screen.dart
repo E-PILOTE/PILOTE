@@ -13,6 +13,9 @@ import '../providers/plans_provider.dart';
 import '../services/plan_pdf_service.dart';
 import '../widgets/plan_period_fields.dart';
 import '../../../core/utils/message_erreur.dart';
+import '../../../core/utils/tarif_ecoles.dart';
+
+part 'plans/plan_tranches_fields.dart';
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
 Color get _kNavy => kNavy;
@@ -1413,6 +1416,10 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
   final _formKey       = GlobalKey<FormState>();
   final _nameCtrl      = TextEditingController();
   final _priceCtrl     = TextEditingController();
+  final _t2a5Ctrl      = TextEditingController(text: '0');
+  final _t6a10Ctrl     = TextEditingController(text: '0');
+  final _t11a20Ctrl    = TextEditingController(text: '0');
+  final _t21pCtrl      = TextEditingController(text: '0');
   final _maxSchoolsCtrl= TextEditingController();
   final _maxStudentsCtrl=TextEditingController();
   final _maxStaffCtrl  = TextEditingController();
@@ -1435,6 +1442,10 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
     if (p != null) {
       _nameCtrl.text        = p.name;
       _priceCtrl.text       = p.priceXaf.toString();
+      _t2a5Ctrl.text        = p.extra2a5.toString();
+      _t6a10Ctrl.text       = p.extra6a10.toString();
+      _t11a20Ctrl.text      = p.extra11a20.toString();
+      _t21pCtrl.text        = p.extra21p.toString();
       _maxSchoolsCtrl.text  = p.maxSchools.toString();
       _maxStudentsCtrl.text = p.maxStudents.toString();
       _maxStaffCtrl.text    = p.maxStaff.toString();
@@ -1454,6 +1465,10 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
   void dispose() {
     _nameCtrl.dispose();
     _priceCtrl.dispose();
+    _t2a5Ctrl.dispose();
+    _t6a10Ctrl.dispose();
+    _t11a20Ctrl.dispose();
+    _t21pCtrl.dispose();
     _maxSchoolsCtrl.dispose();
     _maxStudentsCtrl.dispose();
     _maxStaffCtrl.dispose();
@@ -1473,6 +1488,12 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
         'name':           _nameCtrl.text.trim(),
         'slug':           _slug,
         'price_xaf':      _parseInt(_priceCtrl.text),
+        // Les quatre tranches : c'est ici que se décide le prix de TOUS les
+        // clients du plan au-delà de leur première école.
+        'extra_school_2_5_xaf':   _parseInt(_t2a5Ctrl.text),
+        'extra_school_6_10_xaf':  _parseInt(_t6a10Ctrl.text),
+        'extra_school_11_20_xaf': _parseInt(_t11a20Ctrl.text),
+        'extra_school_21p_xaf':   _parseInt(_t21pCtrl.text),
         'max_schools':    _parseInt(_maxSchoolsCtrl.text),
         'max_students':   _parseInt(_maxStudentsCtrl.text),
         'max_staff':      _parseInt(_maxStaffCtrl.text),
@@ -1662,6 +1683,16 @@ class _PlanFormModalState extends ConsumerState<_PlanFormModal> {
                   const SizedBox(height: 6),
                   PlanPriceEquivalence(
                       priceXaf: _parseInt(_priceCtrl.text), period: _period),
+                  const SizedBox(height: 14),
+                  _TranchesEcoles(
+                    base: _parseInt(_priceCtrl.text),
+                    period: _period,
+                    t2a5: _t2a5Ctrl,
+                    t6a10: _t6a10Ctrl,
+                    t11a20: _t11a20Ctrl,
+                    t21p: _t21pCtrl,
+                    onChanged: () => setState(() {}),
+                  ),
                   const SizedBox(height: 14),
                   const _SectionTitle('Quotas & Limites'),
                   const SizedBox(height: 10),

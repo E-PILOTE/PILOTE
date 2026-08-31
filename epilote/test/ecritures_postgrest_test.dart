@@ -76,6 +76,11 @@ const _kEcrituresConnues = <String, Set<String>>{
     'modules',
     'payment_configs',
     'plan_modules',
+    // Donnees de FONDATEUR (migration 0160). RLS : super_admin seul, en
+    // lecture comme en ecriture. Verifie : `platform_costs_super_admin`
+    // et `tutelle_licences_super_admin`, FOR ALL, USING + WITH CHECK.
+    'platform_costs',
+    'tutelle_licences',
     'platform_partners',
     'platform_service_messages',
     'platform_settings',
@@ -87,6 +92,13 @@ const _kEcrituresConnues = <String, Set<String>>{
   // Module communication — partagé, scope-aware, en ligne lui aussi.
   'autre': {
     'announcement_comments',
+    // Circulaires de tutelle (migration 0161). Emission par la seule tutelle
+    // emettrice : politique `circulaires_emetteur`, FOR ALL, USING ET
+    // WITH CHECK sur `auth_peut_superviser() AND emetteur_group_id =
+    // auth_group_id()`. ⚠️ La PUBLICATION et l'ACCUSE ne passent PAS par
+    // PostgREST : ce sont deux RPC SECURITY DEFINER, precisement pour qu'un
+    // refus LEVE au lieu de toucher zero ligne en silence.
+    'circulaires',
     'announcement_reactions',
     'announcements',
     'conversation_members',

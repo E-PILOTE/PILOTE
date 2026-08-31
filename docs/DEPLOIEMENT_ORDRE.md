@@ -17,6 +17,50 @@ sont des ajouts et des corrections côté serveur.
 | `0155` | le référentiel national des examens est réservé aux ministères | non |
 | `0156` | `search_path` figé sur nos fonctions | non |
 | `0157` | relancer un ticket le rouvre vraiment | **non — répare aussi le build déployé** |
+| `0158` | l'agrément du groupe + les deux RPC de tutelle | non |
+| `0159` | le prix suit le nombre d'écoles | **OUI — le build doit lire les 4 colonnes de tranche** |
+| `0160` | licence annuelle de tutelle + coûts d'exploitation réels | oui (écrans neufs) |
+| `0161` | la circulaire de tutelle | oui (écrans neufs) |
+| `0162` | une fonction de déclencheur n'est pas une API | non |
+
+### `0159` → `0162` — la grille, la licence, la circulaire (2026-08-31)
+
+| migration | ce qu'elle change | mesuré |
+|---|---|---|
+| `0159` | la falaise Pro→Institutionnel (**×11,4 à la 11ᵉ école**) disparaît ; prix = base + tranches dégressives | grille vérifiée en base : 1=30 000 · 2=40 000 · 10=110 000 · 21=174 000 |
+| `0160` | `tutelle_licences` (montants libres) + `platform_costs` (ce que l'infra coûte) | Supabase Pro 25 $/mois + PowerSync Cloud Pro 49 $/mois ≈ **45 140 XAF/mois** |
+| `0161` | circulaire descendante + accusé de lecture par établissement | MEPSA publie → **25 établissements / 6 groupes** ; un groupe privé émet → `42501` |
+| `0162` | 51 fonctions de déclencheur n'étaient plus appelables par `anon` | `triggers_ouverts_a_anon : 0`, héritage tutelle + agrément toujours OK |
+
+#### ⚠️ `0159` attend le build
+
+Quatre colonnes neuves (`extra_school_*_xaf`) portent le prix au-delà de la
+première école. **Un build antérieur ne les lit pas** : il afficherait la base
+seule — 30 000 pour un groupe de trois écoles qui en doit 50 000. La facture,
+elle, est déjà juste (les quatre fonctions de facturation ont été réécrites).
+L'écart est donc *visible* et non destructeur, mais il faut publier vite.
+
+#### Deux règles mesurées ce jour-là
+
+> **`REVOKE ... FROM anon, authenticated` ne suffit pas.** PostgreSQL accorde
+> `EXECUTE` à **PUBLIC** par défaut, et les deux rôles en héritent. Après un
+> REVOKE nommé, `has_function_privilege('authenticated', …)` renvoyait encore
+> `true`. C'est `FROM PUBLIC` qui fait le travail.
+
+> **Retirer `EXECUTE` n'empêche pas un déclencheur de tourner.** Le privilège
+> est contrôlé à la CRÉATION du déclencheur, pas à chaque déclenchement.
+> Vérifié : privilège retiré, `updated_at` passe quand même de 2000-01-01 à
+> maintenant.
+
+#### Ce qui reste NON déployé
+
+Les deux flux PowerSync qui feraient descendre les circulaires jusqu'au chef
+d'établissement **hors ligne** sont écrits **en commentaire** dans
+`powersync/config/sync-rules.yaml`. Ils n'ont pas été validés contre le moteur
+(`circulaires` n'est pas filtrable par `school_id` sans JOIN en paramètres).
+À reprendre au tableau de bord PowerSync Cloud : coller, **Validate**, puis
+**Deploy** — jamais à l'aveugle. Aujourd'hui la circulaire est reçue par
+l'**administrateur de groupe**, en ligne.
 
 ### `0155` → `0157` — la chasse aux écritures muettes (2026-08-30)
 

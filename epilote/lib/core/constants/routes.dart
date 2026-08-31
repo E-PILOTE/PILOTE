@@ -19,6 +19,10 @@ class Routes {
   static const String superGroupeDetail    = '/super/groupes/:id';
   static const String superAdministrateurs = '/super/administrateurs';
   static const String superModules         = '/super/modules';
+  /// Ce qui rentre, ce qui sort, l'écart — et les licences annuelles de
+  /// tutelle. Écran de FONDATEUR : `platform_costs` est fermée au super_admin
+  /// par RLS, aucun groupe scolaire ne voit ce que coûte l'infrastructure.
+  static const String superEconomie     = '/super/economie';
   static const String superPlans        = '/super/plans';
   static const String superAbonnements  = '/super/abonnements';
   static const String superFactures     = '/super/factures';
@@ -46,6 +50,11 @@ class Routes {
   /// montre les écoles que le groupe POSSÈDE. Pour un ministère les deux
   /// nombres diffèrent (le MEPSA possède 14 des 25 écoles de sa tutelle).
   static const String adminTutelle      = '/admin/tutelle';
+  /// Les circulaires ÉMISES par une tutelle vers son réseau.
+  static const String adminCirculairesEmises = '/admin/tutelle/circulaires';
+  /// Les circulaires REÇUES de sa tutelle — tout groupe en a, un ministère
+  /// compris (il est sous sa propre tutelle).
+  static const String adminCirculaires  = '/admin/circulaires';
   static const String adminEcoleDetail  = '/admin/ecoles/:id';
   static const String adminUtilisateurs = '/admin/utilisateurs';
   static const String adminEleves       = '/admin/eleves';

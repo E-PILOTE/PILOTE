@@ -397,3 +397,38 @@ bucket_definitions:
       WHERE id = request.user_id() AND school_id IS NOT NULL AND sync_medical = true
     data:
       - SELECT * FROM infirmary_visits WHERE school_id = bucket.sid
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  ⚠️ NON DÉPLOYÉ — CIRCULAIRES DE TUTELLE (migration 0161)
+#
+#  Aujourd'hui la circulaire est reçue par l'ADMIN DE GROUPE, en ligne. Pour
+#  que le chef d'établissement la reçoive HORS LIGNE, il faut les deux flux
+#  ci-dessous. Ils sont écrits ici et LAISSÉS EN COMMENTAIRE, délibérément :
+#
+#   1. je ne peux ni les valider ni les déployer depuis le dépôt — le
+#      déploiement passe par le tableau de bord PowerSync Cloud ;
+#   2. `circulaires` n'est pas filtrable par `school_id` : il faut une
+#      requête de paramètres qui remonte de l'école aux circulaires, et ce
+#      point n'a PAS été vérifié contre le moteur. Les autres buckets de ce
+#      fichier évitent volontairement les JOIN en paramètres.
+#
+#  Une règle non validée collée en prod peut couper la synchro de tout le
+#  parc. À reprendre au dashboard : coller, VALIDATE, puis DEPLOY.
+#
+#  À ajouter dans `by_school.data` :
+#      - SELECT * FROM circulaire_destinataires WHERE school_id = bucket.sid
+#
+#  Puis, en bucket séparé :
+#  # by_circulaire:
+#  #   parameters: >-
+#  #     SELECT d.circulaire_id AS cid
+#  #     FROM circulaire_destinataires d
+#  #     JOIN profiles p ON p.school_id = d.school_id
+#  #     WHERE p.id = request.user_id()
+#  #   data:
+#  #     - SELECT * FROM circulaires WHERE id = bucket.cid AND publiee_le IS NOT NULL
+#
+#  ⚠️ Et il faudra AUSSI déclarer les deux tables dans
+#  `epilote/lib/services/powersync/powersync_schema.dart`, sans quoi elles
+#  descendent sans jamais être lisibles en local.
+# ═══════════════════════════════════════════════════════════════════════════

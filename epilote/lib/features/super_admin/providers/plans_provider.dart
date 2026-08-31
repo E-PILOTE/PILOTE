@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
 import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
+import '../../../core/utils/tarif_ecoles.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 
 // ─── Modèle PlanDetail ─────────────────────────────────────────────────────────
@@ -26,6 +27,11 @@ class PlanDetail {
     required this.updatedAt,
     this.billingPeriod = kDefaultBillingPeriod,
     this.description,
+    this.extra2a5 = 0,
+    this.extra6a10 = 0,
+    this.extra11a20 = 0,
+    this.extra21p = 0,
+    this.activeMonthlyRevenue = 0,
   });
 
   factory PlanDetail.fromMap(
@@ -33,6 +39,7 @@ class PlanDetail {
     int linkedModules = 0,
     int subscribersTotal = 0,
     int subscribersActive = 0,
+    int activeMonthlyRevenue = 0,
   }) =>
       PlanDetail(
         id:           m['id']             as String,
@@ -47,9 +54,14 @@ class PlanDetail {
         description:  m['description']    as String?,
         isPublicPlan: m['is_public_plan'] as bool? ?? false,
         isActive:     m['is_active']      as bool? ?? true,
+        extra2a5:     (m['extra_school_2_5_xaf']   as num?)?.toInt() ?? 0,
+        extra6a10:    (m['extra_school_6_10_xaf']  as num?)?.toInt() ?? 0,
+        extra11a20:   (m['extra_school_11_20_xaf'] as num?)?.toInt() ?? 0,
+        extra21p:     (m['extra_school_21p_xaf']   as num?)?.toInt() ?? 0,
         linkedModules:     linkedModules,
         subscribersTotal:  subscribersTotal,
         subscribersActive: subscribersActive,
+        activeMonthlyRevenue: activeMonthlyRevenue,
         createdAt:    DateTime.parse(m['created_at'] as String),
         updatedAt:    DateTime.parse(m['updated_at'] as String),
       );
@@ -58,6 +70,13 @@ class PlanDetail {
   final String? description;
   final int     priceXaf, maxSchools, maxStudents, maxStaff, moduleCount;
   final int     linkedModules, subscribersTotal, subscribersActive;
+
+  /// Tranches dégressives — miroir des colonnes `extra_school_*_xaf` (0159).
+  final int     extra2a5, extra6a10, extra11a20, extra21p;
+
+  /// Somme des tarifs MENSUELS réellement dus par les groupes actifs de ce
+  /// plan, chacun calculé sur SON nombre d'écoles (ou son tarif négocié).
+  final int     activeMonthlyRevenue;
   final bool    isPublicPlan, isActive;
   final String  billingPeriod;
   final DateTime createdAt, updatedAt;
@@ -80,17 +99,42 @@ class PlanDetail {
   /// ⚠️ C'est bien le tarif RAMENÉ AU MOIS qui compte : un plan à 2 500 000
   /// FCFA par AN pèse 208 333 FCFA de MRR, pas 2 500 000. L'ancien calcul
   /// multipliait le revenu de la plateforme par douze.
-  int get monthlyRevenue => monthlyPrice * subscribersActive;
+  ///
+  /// ⚠️ Depuis 0159 il ne peut PLUS s'écrire `monthlyPrice × abonnés` : deux
+  /// groupes du même plan ne paient plus le même montant. Un réseau de douze
+  /// écoles pèse quatre fois un groupe mono-école — l'ancienne formule aurait
+  /// sous-estimé le revenu de la plateforme sans qu'aucun écran ne s'en plaigne.
+  int get monthlyRevenue => activeMonthlyRevenue;
 
-  /// Tarif AVEC sa période — « 120 000 FCFA / an ». À utiliser partout où la
-  /// période n'est pas déjà affichée à côté.
+  /// Le tarif de ce plan pour [ecoles] écoles. Miroir de `plan_price_xaf()`.
+  int priceFor(int ecoles) => tarifPourEcoles(
+        base: priceXaf,
+        tranche2a5: extra2a5,
+        tranche6a10: extra6a10,
+        tranche11a20: extra11a20,
+        tranche21p: extra21p,
+        ecoles: ecoles,
+      );
+
+  /// Vrai si le plan facture les écoles supplémentaires.
+  bool get parEcole => extra2a5 > 0 || extra6a10 > 0 || extra11a20 > 0 || extra21p > 0;
+
+  /// Tarif AVEC sa période — « à partir de 30 000 FCFA / mois ». Le « à partir
+  /// de » n'est pas de la prudence commerciale : sans lui, le montant affiché
+  /// est faux pour tout groupe de plus d'une école.
   String get priceLabel => isFree
       ? 'Gratuit'
-      : '${_money(priceXaf)} FCFA / ${billingPeriodSuffix(billingPeriod)}';
+      : '${parEcole ? 'dès ' : ''}${_money(priceXaf)} FCFA / '
+          '${billingPeriodSuffix(billingPeriod)}';
 
   /// Tarif SEUL — pour un tableau qui possède déjà une colonne « Périodicité ».
   /// Répéter le suffixe y tronquait le montant.
-  String get priceAmountLabel => isFree ? 'Gratuit' : '${_money(priceXaf)} FCFA';
+  String get priceAmountLabel =>
+      isFree ? 'Gratuit' : '${parEcole ? 'dès ' : ''}${_money(priceXaf)} FCFA';
+
+  /// « +10 000 / école » — la seule ligne qui rende la grille lisible.
+  String get parEcoleLabel =>
+      parEcole ? '+${_money(extra2a5)} FCFA / école' : '—';
   String get maxSchoolsLabel  => quotaLabel(maxSchools);
   String get maxStudentsLabel => quotaLabel(maxStudents);
   String get maxStaffLabel    => quotaLabel(maxStaff);
@@ -213,10 +257,15 @@ final plansProvider = FutureProvider.autoDispose<PlansData>((ref) async {
   // ── Groupes abonnés par plan (total + actifs) ───────────────────────────────
   final Map<String, int> subsByPlan = {};
   final Map<String, int> activeSubsByPlan = {};
+  // Les groupes ACTIFS, retenus pour le calcul du revenu : depuis 0159 deux
+  // groupes du même plan ne paient plus le même montant, il faut donc les
+  // parcourir un par un au lieu de multiplier un tarif par un effectif.
+  final Map<String, List<Map<String, dynamic>>> activeGroupsByPlan = {};
   try {
     final rows = await client
         .from('school_groups')
-        .select('plan_id, subscription_status') as List;
+        .select('plan_id, subscription_status, price_override_xaf, billed_schools')
+        as List;
     for (final r in rows) {
       final m = Map<String, dynamic>.from(r as Map);
       final pid = m['plan_id'] as String?;
@@ -224,6 +273,7 @@ final plansProvider = FutureProvider.autoDispose<PlansData>((ref) async {
       subsByPlan[pid] = (subsByPlan[pid] ?? 0) + 1;
       if (m['subscription_status'] == 'active') {
         activeSubsByPlan[pid] = (activeSubsByPlan[pid] ?? 0) + 1;
+        activeGroupsByPlan.putIfAbsent(pid, () => []).add(m);
       }
     }
   } catch (_) {}
@@ -233,18 +283,29 @@ final plansProvider = FutureProvider.autoDispose<PlansData>((ref) async {
   try {
     final rows = await client
         .from('subscription_plans')
-        .select('id, name, slug, price_xaf, max_schools, max_students, '
+        .select('id, name, slug, price_xaf, extra_school_2_5_xaf, '
+            'extra_school_6_10_xaf, extra_school_11_20_xaf, extra_school_21p_xaf, '
+            'max_schools, max_students, '
             'max_staff, module_count, description, is_public_plan, '
             'is_active, billing_period, created_at, updated_at')
         .order('price_xaf', ascending: true) as List;
     plans = rows.map((r) {
       final m = Map<String, dynamic>.from(r as Map);
       final id = m['id'] as String;
+      final periode = m['billing_period'] as String?;
+      var revenu = 0;
+      for (final g in activeGroupsByPlan[id] ?? const <Map<String, dynamic>>[]) {
+        // Un tarif négocié prime sur la grille — c'est sa raison d'être.
+        final du = (g['price_override_xaf'] as num?)?.toInt() ??
+            tarifPlanRow(m, (g['billed_schools'] as num?)?.toInt() ?? 1);
+        revenu += monthlyEquivalent(du, periode);
+      }
       return PlanDetail.fromMap(
         m,
         linkedModules:     modulesByPlan[id] ?? 0,
         subscribersTotal:  subsByPlan[id] ?? 0,
         subscribersActive: activeSubsByPlan[id] ?? 0,
+        activeMonthlyRevenue: revenu,
       );
     }).toList();
   } catch (_) {}

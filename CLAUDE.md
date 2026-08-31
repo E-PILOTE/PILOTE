@@ -89,6 +89,9 @@ Navigation : ajouter un écran = créer screen + provider, déclarer la route da
 - `student_tutors` (pas `guardians`) ; `announcements.is_published` (pas `status`).
 - `profiles` n'a PAS de colonne `email` (l'email vit dans `auth.users` → passer par les RPC SECURITY DEFINER `get_group_users` / `get_platform_admins`). Résoudre un acteur d'audit via `profiles(id, first_name, last_name)`.
 - **Syncfusion `BarSeries`** : `primaryXAxis: CategoryAxis` ← `xValueMapper` (String) ; `primaryYAxis: NumericAxis` ← `yValueMapper` (double). Ne jamais inverser (crash `String is not a subtype of num`).
+- **`school_type_enum` ≠ `group_type`** : deux énumérations distinctes aux MÊMES libellés (`public` | `prive`) — l'une sur `school_groups.group_type`, l'autre sur `schools.school_type`. Les confondre ne lève `42883` qu'à l'exécution de la comparaison.
+- **Le prix d'un groupe suit son NOMBRE D'ÉCOLES** (mig 0159) : `plan_price_xaf(plan, n)` en base, miroir `lib/core/utils/tarif_ecoles.dart`. Ne JAMAIS afficher `price_xaf` seul — c'est la base d'UNE école. Ne jamais calculer un MRR par `tarif × abonnés`.
+- **`REVOKE EXECUTE ... FROM anon, authenticated` ne fait rien** si `PUBLIC` détient encore le droit (grant par défaut de PostgreSQL). Retirer `FROM PUBLIC`, puis re-`GRANT` aux rôles qui en ont besoin (une fonction appelée dans une politique RLS doit rester exécutable par `authenticated`).
 - `service_role` JAMAIS dans Flutter (Edge Functions uniquement). Clé anon dans `lib/core/constants/supabase_constants.dart`.
 
 ## Supabase

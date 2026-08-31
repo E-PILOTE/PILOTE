@@ -47,6 +47,13 @@ List<NavSection> _superAdminSections() => const [
           label: 'Administrateurs',
           route: Routes.superAdministrateurs,
         ),
+        // Avant les plans : on ne fixe pas une grille tarifaire sans avoir
+        // sous les yeux ce que l'infrastructure coûte réellement.
+        NavEntry.item(
+          icon: Icons.query_stats_rounded,
+          label: 'Économie & licences',
+          route: Routes.superEconomie,
+        ),
         NavEntry.item(
           icon: Icons.inventory_2_rounded,
           label: "Plans d'abonnement",
@@ -169,6 +176,13 @@ List<NavSection> _adminGroupeSections(WidgetRef ref) {
           icon: Icons.hub_rounded,
           label: 'Réseau sous tutelle',
           route: Routes.adminTutelle,
+        ),
+        // Compter son réseau, puis lui écrire : les deux gestes se suivent,
+        // les deux entrées aussi.
+        NavEntry.item(
+          icon: Icons.mark_as_unread_rounded,
+          label: 'Circulaires émises',
+          route: Routes.adminCirculairesEmises,
         ),
       ]),
     // Ordre workflow : créer les écoles → les profils → assigner les utilisateurs.
@@ -309,6 +323,13 @@ List<NavSection> _adminGroupeSections(WidgetRef ref) {
         icon: Icons.forum_rounded,
         label: 'Messagerie',
         route: Routes.adminMessagerie,
+      ),
+      // Reçues, pas émises : tout groupe a une tutelle, y compris un
+      // ministère — il est sous sa propre tutelle.
+      NavEntry.item(
+        icon: Icons.description_rounded,
+        label: 'Circulaires',
+        route: Routes.adminCirculaires,
       ),
     ]),
     const NavSection(title: 'SYSTÈME', pinned: true, entries: [

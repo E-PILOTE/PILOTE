@@ -150,26 +150,48 @@ void main() {
   });
 
   group('Revenu récurrent', () {
-    test('il suit le tarif COURANT du plan, pas les factures émises', () {
-      // C'est précisément ce qui doit se propager : quatre groupes actifs sur
-      // un plan dont le tarif ANNUEL passe de 900 000 à 2 500 000. Les
-      // factures déjà payées, elles, ne bougent pas — un reçu est un fait, pas
-      // un calcul.
-      final avant = _plan(priceXaf: 900000, subscribersActive: 4);
-      final apres = _plan(priceXaf: 2500000, subscribersActive: 4);
-      expect(avant.monthlyRevenue, 4 * (900000 / 12).round());
-      expect(apres.monthlyRevenue, 4 * (2500000 / 12).round());
-    });
-
-    test('un plan mensuel apporte son montant entier chaque mois', () {
-      final p = _plan(
-          priceXaf: 120000, subscribersActive: 3, period: 'mensuel');
-      expect(p.monthlyRevenue, 360000);
+    // ⚠️ CE QUI A CHANGÉ AVEC LA MIGRATION 0159. Le revenu ne peut PLUS
+    // s'écrire « tarif mensuel × nombre d'abonnés » : deux groupes du même
+    // plan ne paient plus le même montant, puisque le prix suit le nombre
+    // d'écoles. La formule est donc calculée groupe par groupe dans le
+    // provider, et `PlanDetail` la porte au lieu de la refaire.
+    //
+    // L'ancienne formule ne PLANTAIT pas : elle sous-estimait le revenu de la
+    // plateforme d'autant que les réseaux sont grands, sans qu'aucun écran ne
+    // s'en plaigne. C'est le genre d'erreur qu'on ne découvre qu'en
+    // rapprochant un tableau de bord d'un relevé bancaire.
+    test('il porte la somme calculée groupe par groupe', () {
+      final p = _plan(subscribersActive: 4, revenu: 320000);
+      expect(p.monthlyRevenue, 320000);
     });
 
     test('un groupe non actif ne compte pas dans le revenu', () {
       final p = _plan(priceXaf: 120000, subscribersActive: 0);
       expect(p.monthlyRevenue, 0);
+    });
+
+    test('deux groupes du même plan ne pèsent pas le même revenu', () {
+      // Le fait qui a tué l'ancienne formule, écrit noir sur blanc.
+      final plan = _plan(priceXaf: 30000, extra2a5: 10000, period: 'mensuel');
+      expect(plan.priceFor(1), 30000);
+      expect(plan.priceFor(3), 50000);
+      expect(plan.priceFor(1) == plan.priceFor(3), isFalse);
+    });
+  });
+
+  group('Le tarif affiché', () {
+    test('dit « dès » quand le plan facture à l\'école', () {
+      // Sans ce mot, le montant est faux pour tout groupe de plus d'une école.
+      final parEcole = _plan(priceXaf: 30000, extra2a5: 10000, period: 'mensuel');
+      final forfait = _plan(priceXaf: 30000, period: 'mensuel');
+      expect(parEcole.parEcole, isTrue);
+      expect(parEcole.priceLabel.startsWith('dès '), isTrue);
+      expect(forfait.parEcole, isFalse);
+      expect(forfait.priceLabel.startsWith('dès '), isFalse);
+    });
+
+    test('un plan gratuit ne dit jamais « dès 0 »', () {
+      expect(_plan(priceXaf: 0).priceLabel, 'Gratuit');
     });
   });
 }
@@ -181,6 +203,8 @@ PlanDetail _plan({
   int maxStaff = 10,
   int subscribersActive = 0,
   String period = 'annuel',
+  int extra2a5 = 0,
+  int revenu = 0,
 }) =>
     PlanDetail(
       id: 'p1',
@@ -197,6 +221,8 @@ PlanDetail _plan({
       linkedModules: 7,
       subscribersTotal: subscribersActive,
       subscribersActive: subscribersActive,
+      extra2a5: extra2a5,
+      activeMonthlyRevenue: revenu,
       createdAt: DateTime(2026, 1, 1),
       updatedAt: DateTime(2026, 1, 1),
     );

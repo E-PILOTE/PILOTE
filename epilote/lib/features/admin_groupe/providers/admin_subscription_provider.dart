@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
 import '../../../core/utils/subscription_days.dart';
+import '../../../core/utils/tarif_ecoles.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../super_admin/providers/invoices_provider.dart' show InvoiceDetail;
 import '../../../core/utils/erreur_metier.dart';
@@ -34,6 +35,9 @@ class GroupSubscription {
     required this.staffUsed,
     this.description,
     this.alertDays = kSubscriptionAlertDays,
+    this.basePriceXaf = 0,
+    this.schoolsBilled = 1,
+    this.priceOverrideXaf,
   });
   final String groupName;
   final String? planId;
@@ -47,6 +51,28 @@ class GroupSubscription {
   final int maxSchools, maxStudents, maxStaff, moduleCount;
   final int schoolsUsed, studentsUsed, staffUsed;
   final String? description;
+
+  /// Tarif de la PREMIÈRE école — la base du plan. `priceXaf`, lui, est le
+  /// montant réellement dû pour `schoolsBilled` écoles (migration 0159).
+  final int basePriceXaf;
+
+  /// Assiette : le nombre d'écoles sur lequel `priceXaf` a été calculé.
+  ///
+  /// ⚠️ Il est AFFICHÉ. Un montant sans son assiette est invérifiable, et
+  /// « sur combien d'écoles m'avez-vous facturé ? » est la première question
+  /// que pose un client qui trouve sa facture trop élevée.
+  final int schoolsBilled;
+
+  /// Tarif négocié qui remplace la grille (`school_groups.price_override_xaf`).
+  /// Non nul ⇒ le prix ne bouge plus quand une école s'ajoute.
+  final int? priceOverrideXaf;
+
+  bool get tarifNegocie => priceOverrideXaf != null;
+
+  /// Ce que coûtera l'école suivante — zéro si le tarif est négocié.
+  int ecoleSuivanteXaf(PlanOption? plan) => tarifNegocie || plan == null
+      ? 0
+      : plan.priceFor(schoolsBilled + 1) - plan.priceFor(schoolsBilled);
 
   /// Fenêtre d'alerte avant échéance (réglage plateforme) — la MÊME que celle
   /// du bandeau, sinon la carte et le bandeau se contredisent à l'écran.
@@ -103,14 +129,38 @@ class PlanOption {
     this.billingPeriod = kDefaultBillingPeriod,
     this.description,
     this.categories = const [],
+    this.extra2a5 = 0,
+    this.extra6a10 = 0,
+    this.extra11a20 = 0,
+    this.extra21p = 0,
   });
   final String id;
   final String name;
   final String slug;
+
+  /// Tarif de la PREMIÈRE école. Ne jamais l'afficher seul sans « à partir
+  /// de » : à trois écoles, le montant dû est tout autre.
   final int priceXaf;
   final int maxSchools, maxStudents, maxStaff, moduleCount;
   final String billingPeriod;
   final String? description;
+
+  /// Tranches dégressives — miroir des colonnes `extra_school_*_xaf`.
+  final int extra2a5, extra6a10, extra11a20, extra21p;
+
+  /// Le tarif de ce plan pour [ecoles] écoles. Miroir de `plan_price_xaf()`.
+  int priceFor(int ecoles) => tarifPourEcoles(
+        base: priceXaf,
+        tranche2a5: extra2a5,
+        tranche6a10: extra6a10,
+        tranche11a20: extra11a20,
+        tranche21p: extra21p,
+        ecoles: ecoles,
+      );
+
+  /// Le prix de l'école suivante à [ecoles] écoles — la seule question que
+  /// pose vraiment un directeur qui ouvre un établissement.
+  int ecoleSuivanteXaf(int ecoles) => priceFor(ecoles + 1) - priceFor(ecoles);
 
   /// Familles de modules débloquées (triées par display_order).
   final List<PlanCategory> categories;
@@ -280,7 +330,10 @@ final adminSubscriptionProvider =
     final g = await client
         .from('school_groups')
         .select('name, plan_id, subscription_status, subscription_start, subscription_end, '
-            'subscription_plans!plan_id(id, name, slug, price_xaf, billing_period, max_schools, max_students, max_staff, module_count, description)')
+            'price_override_xaf, billed_schools, '
+            'subscription_plans!plan_id(id, name, slug, price_xaf, billing_period, '
+            'extra_school_2_5_xaf, extra_school_6_10_xaf, extra_school_11_20_xaf, '
+            'extra_school_21p_xaf, max_schools, max_students, max_staff, module_count, description)')
         .eq('id', groupId)
         .maybeSingle();
 
@@ -316,12 +369,24 @@ final adminSubscriptionProvider =
 
     if (g != null) {
       final plan = g['subscription_plans'] as Map<String, dynamic>?;
+      // ⚠️ L'ASSIETTE VIENT DE `billed_schools`, PAS DE `schoolsUsed`.
+      // Ce sont deux nombres différents : `billed_schools` est le compte sur
+      // lequel la dernière facture a été établie, `schoolsUsed` le compte
+      // d'aujourd'hui. Afficher le second à côté d'un montant calculé sur le
+      // premier ferait mentir la carte d'abonnement le jour même où une école
+      // est ajoutée — c'est-à-dire le jour où le client la regarde.
+      final assiette =
+          (g['billed_schools'] as int?) ?? (schoolsUsed < 1 ? 1 : schoolsUsed);
+      final negocie = g['price_override_xaf'] as int?;
       sub = GroupSubscription(
         groupName:    g['name'] as String? ?? '—',
         planId:       g['plan_id'] as String?,
         planName:     plan?['name'] as String? ?? '—',
         planSlug:     plan?['slug'] as String? ?? '',
-        priceXaf:     (plan?['price_xaf'] as int?) ?? 0,
+        priceXaf:     negocie ?? tarifPlanRow(plan, assiette),
+        basePriceXaf: (plan?['price_xaf'] as int?) ?? 0,
+        schoolsBilled: assiette,
+        priceOverrideXaf: negocie,
         billingPeriod:
             plan?['billing_period'] as String? ?? kDefaultBillingPeriod,
         status:       g['subscription_status'] as String? ?? 'trial',
@@ -374,7 +439,9 @@ final adminSubscriptionProvider =
   final List<PlanOption> plans = [];
   try {
     final rows = await client.from('subscription_plans')
-        .select('id, name, slug, price_xaf, billing_period, max_schools, max_students, max_staff, module_count, description, is_active')
+        .select('id, name, slug, price_xaf, billing_period, extra_school_2_5_xaf, '
+            'extra_school_6_10_xaf, extra_school_11_20_xaf, extra_school_21p_xaf, '
+            'max_schools, max_students, max_staff, module_count, description, is_active')
         .eq('is_active', true)
         .order('price_xaf', ascending: true) as List;
     for (final r in rows) {
@@ -394,6 +461,10 @@ final adminSubscriptionProvider =
         moduleCount: (r['module_count'] as int?) ?? 0,
         description: r['description'] as String?,
         categories:  cats,
+        extra2a5:    (r['extra_school_2_5_xaf']   as int?) ?? 0,
+        extra6a10:   (r['extra_school_6_10_xaf']  as int?) ?? 0,
+        extra11a20:  (r['extra_school_11_20_xaf'] as int?) ?? 0,
+        extra21p:    (r['extra_school_21p_xaf']   as int?) ?? 0,
       ));
     }
   } catch (_) {}
