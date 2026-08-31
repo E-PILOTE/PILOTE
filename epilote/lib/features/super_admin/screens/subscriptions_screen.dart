@@ -8,6 +8,9 @@ import 'package:printing/printing.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
+import 'package:go_router/go_router.dart';
+
+import '../../../core/constants/routes.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../providers/subscriptions_provider.dart';
@@ -235,7 +238,14 @@ class _SubsBodyState extends ConsumerState<_SubsBody> {
                   _filterStatus = _filterType = 'tous';
                   _sort = 'recent';
                 }),
-                onAdd: () => _openForm(),
+                // ⚠️ NE CRÉE PLUS DE GROUPE ICI. Ce dialogue en créait un sans
+                // `tutelle` — donc invisible de son ministère, et ses écoles
+                // en héritaient une tutelle nulle : exactement la brèche que
+                // les migrations 0155 et 0158 ont fermée. Deux formulaires de
+                // création avec des champs différents, c'est la garantie qu'un
+                // groupe naît un jour à moitié configuré.
+                // Un seul endroit crée un groupe : l'écran des groupes.
+                onAdd: () => context.go(Routes.superGroupes),
               ),
               const SizedBox(height: 16),
               _ResultHeader(total: data.total, filtered: filtered.length),
@@ -1436,15 +1446,16 @@ class _SubFormModalState extends ConsumerState<_SubFormModal> {
         'updated_at':          DateTime.now().toIso8601String(),
       };
 
-      if (_isEditing) {
-        await client.from('school_groups')
-            .update(payload).eq('id', widget.editing!.id);
-      } else {
-        await client.from('school_groups').insert({
-          ...payload,
-          'created_at': DateTime.now().toIso8601String(),
-        });
+      // Ce formulaire MODIFIE l'abonnement d'un groupe existant. Il ne le crée
+      // pas : il ne demande ni la tutelle, ni l'agrément, ni le secteur, et un
+      // groupe amputé de sa tutelle n'apparaît dans le réseau d'aucun ministère.
+      if (!_isEditing) {
+        throw StateError(
+            'Ce formulaire ne crée pas de groupe : passer par « Groupes '
+            'Scolaires », seul endroit qui demande la tutelle.');
       }
+      await client.from('school_groups')
+          .update(payload).eq('id', widget.editing!.id);
 
       ref.invalidate(subscriptionsProvider);
       if (mounted) Navigator.pop(context);
@@ -1508,7 +1519,7 @@ class _SubFormModalState extends ConsumerState<_SubFormModal> {
                   style: TextStyle(color: _kText, fontSize: 15, fontWeight: FontWeight.w800),
                 ),
                 Text(
-                  _isEditing ? 'Mise à jour du groupe scolaire' : 'Créer un groupe & son abonnement',
+                  'Mise à jour du groupe scolaire',
                   style: TextStyle(color: _kMuted, fontSize: 11),
                 ),
               ]),

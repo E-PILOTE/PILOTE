@@ -22,6 +22,8 @@ sont des ajouts et des corrections côté serveur.
 | `0160` | licence annuelle de tutelle + coûts d'exploitation réels | oui (écrans neufs) |
 | `0161` | la circulaire de tutelle | oui (écrans neufs) |
 | `0162` | une fonction de déclencheur n'est pas une API | non |
+| `0163` | `tutelle` NOT NULL sur les groupes et les écoles | non |
+| `0164` | la copie de tutelle/agrément ne peut plus diverger | non |
 
 ### `0139` et `0142` — APPLIQUÉES le 2026-08-31
 
@@ -80,6 +82,39 @@ poste resté en arrière le DIRA au lieu de se taire.
 > ⚠️ On n'a PAS rendu `42703` fatal. Ce serait jeter les écritures de l'école
 > pour lui épargner un bandeau — le remède serait pire. Le lot reste en file,
 > intact, et repart après la mise à jour.
+
+### `0163` et `0164` — la tutelle cesse d'être facultative (2026-08-31)
+
+`0153` avait introduit `tutelle` en NULLABLE, le temps que le build qui la
+renseigne soit publié. Il l'est. Les deux colonnes sont peuplées partout
+(**0 groupe, 0 école** sans tutelle) — la contrainte pouvait tomber.
+
+#### ⚠️ Mais un second écran créait des groupes sans tutelle
+
+L'écran des **abonnements** avait son propre formulaire « Créer un groupe & son
+abonnement », qui ne demandait ni tutelle, ni agrément, ni secteur. Un groupe
+né là n'apparaît dans le réseau d'**aucun** ministère, et ses écoles héritent
+d'une tutelle nulle — exactement la brèche que `0155` et `0158` ont fermée.
+
+Deux formulaires de création aux champs différents, c'est la garantie qu'un
+groupe naîtra un jour à moitié configuré. Le chemin a été retiré : le bouton
+mène désormais à l'écran des groupes, et
+`test/tutelle_du_groupe_test.dart` échoue si un second écran se met à insérer
+dans `school_groups`.
+
+#### `0164` — deux trous dans une copie censée ne pas diverger
+
+| trou | ce qui se passait | mesuré après correction |
+|---|---|---|
+| déclencheurs en `UPDATE OF group_id` | écrire **directement** `schools.tutelle` ne les réveillait pas : la valeur restait | forcer `mepsa` sur une école METP → **reste `metp`** |
+| idem pour l'agrément | un numéro inventé sur une école tenait | numéro inventé → **revient à nul** |
+| `IF agrement_numero IS NOT NULL` des deux côtés | on pouvait AJOUTER un agrément, **jamais l'enlever** : un groupe qui corrige un numéro erroné laissait ses écoles porter l'ancien, imprimé sur leurs attestations | effacer l'agrément du groupe → **0 école** garde un numéro |
+
+Et la propagation d'un ajout reste bonne : **12 / 12** écoles.
+
+> **La règle, maintenant tenue par la base et non par un commentaire :**
+> l'agrément appartient à la personne morale, donc au GROUPE. Une école n'a
+> jamais le sien propre — elle porte celui de son groupe, ou rien.
 
 ### `0159` → `0162` — la grille, la licence, la circulaire (2026-08-31)
 
