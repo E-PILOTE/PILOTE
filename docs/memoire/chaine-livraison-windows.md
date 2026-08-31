@@ -126,6 +126,81 @@ déclenche jamais ne vaut rien.
 
 Voir [[mise-a-jour-du-parc]].
 
+## ⚠️⚠️ Le sixième piège : la CI ne tourne plus du tout (2026-08-31)
+
+**Toutes les exécutions échouent en 3 à 5 secondes.** Ce n'est pas le code :
+
+> *The job was not started because recent account payments have failed or your
+> spending limit needs to be increased.*
+
+`E-PILOTE/PILOTE` est **privé** : les minutes Actions sont facturées, et un
+runner **Windows coûte le double**. Depuis le 2026-08-30 ~19h49, plus une seule
+construction n'a démarré — et rien ne l'annonce : `gh run list` affiche
+`failure`, comme un test cassé. Il faut ouvrir l'exécution pour voir que c'est
+la facturation.
+
+**Seul le titulaire du compte peut le débloquer** (Billing & plans). Aucun jeton
+n'y change quoi que ce soit — et `gh` n'a pas la portée `user`, donc l'API de
+facturation ne répond pas non plus.
+
+### La conséquence, et le contournement retenu
+
+`PUBLIC_RELEASE_TOKEN` n'existe toujours pas — mais il est devenu **secondaire** :
+même posé, la CI ne démarrerait pas. La v3.4.1 a donc été **construite et publiée
+à la main**, ce que la note ci-dessus déconseille (« la CI fait foi »). Compromis
+assumé, pas un oubli : sans CI, il n'y a pas d'autre chemin.
+
+⚠️ **Inno Setup est installé en profil UTILISATEUR** :
+`%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe`. Chercher dans `Program Files`
+conclut à tort qu'il est absent.
+
+```bash
+# 1. installateur (depuis la racine du dépôt)
+"$LOCALAPPDATA/Programs/Inno Setup 6/ISCC.exe" /DAppVersion=3.4.1 \
+  "/DSourceDir=C:\E-PILOTE\epilote\build\windows\x64\runner\Release" \
+  packaging/windows/epilote.iss        # -> dist/E-PILOTE-3.4.1-installateur.exe
+
+# 2. notes + manifeste : EN PYTHON, PAS EN POWERSHELL (voir plus bas)
+
+# 3. publication
+gh release create v3.4.1 dist/*.exe dist/manifest.json \
+   -R E-PILOTE/telechargements --draft --title "E-PILOTE CONGO v3.4.1" \
+   --notes-file dist/notes.md
+gh release edit v3.4.1 -R E-PILOTE/telechargements --draft=false --latest
+
+# 4. LA RECETTE ANONYME — ne jamais sauter cette étape
+curl -sL --netrc-file /dev/null -o /tmp/a.exe "<download_url>" && sha256sum /tmp/a.exe
+
+# 5. ligne dans app_releases : c'est ELLE qui ouvre la mise à jour au parc
+```
+
+`gh` est authentifié en **E-PILOTE** avec `admin: true` sur `telechargements` :
+la publication manuelle ne demande aucun nouveau jeton.
+
+### ⚠️ Le piège qui a corrompu les notes du premier coup
+
+`Get-Content -Raw` en **Windows PowerShell 5.1** lit un fichier UTF-8 comme de
+l'**ANSI**. Combiné à `Set-Content -Encoding utf8`, le résultat est un **double
+encodage** : « Procédure complète » devient « ProcÃ©dure complÃ¨te ». Douze
+occurrences dans `dist/notes.md`, invisibles tant qu'on relit avec le même
+PowerShell — qui affiche le mojibake **et** le reproduit.
+
+La CI n'en souffrait pas : elle utilise `shell: pwsh` (PowerShell 7, UTF-8 par
+défaut). **En local, générer notes et manifeste en Python.**
+
+### v3.4.1 — ce qui a été vérifié avant d'ouvrir la mise à jour
+
+| contrôle | résultat |
+|---|---|
+| 6 requêtes des écrans neufs contre PostgREST réel (clé anon) | **200** partout — imbrications et colonnes valides |
+| téléchargement **sans identifiants** | HTTP **200**, 35 961 890 octets |
+| empreinte reçue vs publiée | **identiques** (`ddaa73ae…`) |
+| `derniere_version()` appelée en anonyme, comme un poste | rend bien **3.4.1 / build 25** |
+
+⚠️ **Aucun œil humain n'a ouvert les écrans neufs.** 1 917 tests, 0 issue
+`analyze`, compilation et installateur : tout passe, mais la recette visuelle
+reste à faire.
+
 ## Ce qui reste
 
 - **Certificat de signature** — 1 à 3 semaines de délai administratif, seul
