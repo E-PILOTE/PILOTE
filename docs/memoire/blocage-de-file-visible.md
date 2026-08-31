@@ -68,6 +68,38 @@ Dire « perdu » sur un blocage ferait ressaisir une école pour rien ; dire « 
 attente » sur un abandon lui ferait attendre un envoi qui n'aura jamais lieu.
 Le bandeau trie : un blocage passe devant, il arrête TOUT l'envoi du poste.
 
+## La chasse systématique aux refus muets (2026-08-31)
+
+Le même défaut trouvé cinq fois en deux jours méritait d'être cherché partout
+d'un coup, pas une fois de plus par hasard.
+`database/checks/0166_refus_muets_de_la_rls.sql` sonde les **86 tables
+synchronisées** sous l'identité d'un DIRECTEUR — le rôle scolaire le mieux doté,
+donc ce qu'il ne peut pas faire, personne de l'école ne le peut — et classe
+chaque DELETE en **permis / lève / muet**.
+
+| 2026-08-31 | |
+|---|---|
+| permis | 6 |
+| lèvent (bon comportement) | 3 |
+| **sans ligne visible — NON TESTÉES** | **50** |
+| muets | 8 |
+
+⚠️ **Un refus muet n'est PAS un défaut en soi.** Une table de référentiel du
+groupe DOIT refuser la suppression au personnel d'école. Le défaut, c'est le
+refus muet **plus un écran qui propose le geste**. D'où la seconde moitié,
+au dépôt : `grep -rn "DELETE FROM <table>" epilote/lib`.
+
+Croisement fait : sur les 8 muets, une seule table (`school_holidays`) a un
+chemin de suppression hors ligne — et l'écran l'interdit déjà pour les lignes
+nationales (cadenas « Férié légal fixé par le groupe »). Son commentaire décrit
+mot pour mot le défaut cherché : « je l'ai supprimé et il est revenu ».
+**Aucun défaut nouveau.**
+
+⚠️ **Et la limite compte autant que le résultat** : 50 tables sur 86 n'ont
+aucune ligne visible dans la base de démonstration, donc n'ont pas été testées.
+« Rien trouvé » vaut pour les tables peuplées, pas pour le schéma. À rejouer sur
+une base réelle — c'est pour ça que le contrôle est rejouable.
+
 ## Ce que ça débloque
 
 Le jour où un build portant cette détection sera **adopté**, retirer une colonne
