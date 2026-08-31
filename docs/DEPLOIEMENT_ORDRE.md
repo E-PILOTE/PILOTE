@@ -24,6 +24,7 @@ sont des ajouts et des corrections côté serveur.
 | `0162` | une fonction de déclencheur n'est pas une API | non |
 | `0163` | `tutelle` NOT NULL sur les groupes et les écoles | non |
 | `0164` | la copie de tutelle/agrément ne peut plus diverger | non |
+| `0165` | un bulletin de paie PAYÉ ne s'efface plus | non |
 
 ### `0139` et `0142` — APPLIQUÉES le 2026-08-31
 
@@ -82,6 +83,41 @@ poste resté en arrière le DIRA au lieu de se taire.
 > ⚠️ On n'a PAS rendu `42703` fatal. Ce serait jeter les écritures de l'école
 > pour lui épargner un bandeau — le remède serait pire. Le lot reste en file,
 > intact, et repart après la mise à jour.
+
+### `0165` — la dette que `0145` avait nommée est soldée (2026-08-31)
+
+`0145` avait scellé `bulletins`, `expenses` et `student_payments` sur la clôture
+de l'année, et avait EXPLICITEMENT écarté `payroll` :
+
+> « `payroll` n'est PAS scellée. Elle ne porte pas `academic_year_id` […] Un
+> sceau par `USING` y produirait une suppression qui ne supprime rien, sans
+> message : exactement le silence qu'on cherche à éliminer. **À traiter quand
+> la paie sera rattachée à l'exercice.** »
+
+**On ne l'a pas rattachée — ç'aurait été tordre la donnée.** Une paie est datée
+par mois civil, pas par exercice de septembre à juin. L'événement qui rend un
+bulletin définitif n'est pas la clôture d'une année : **c'est le paiement.**
+
+⚠️ **Et surtout : un déclencheur qui LÈVE, pas une politique `USING`.**
+`payroll` est hors ligne. Un `USING` aurait donné zéro ligne côté serveur —
+alors que le poste, lui, a DÉJÀ effacé la ligne. Écran : « supprimé ». Serveur :
+bulletin intact. Personne n'apprend rien. Un `RAISE ... 42501` est au contraire
+fatal pour le connecteur : transaction abandonnée, journalisée, bandeau affiché,
+et la ligne revient à la synchro suivante.
+
+**Deux moitiés, et il en faut deux** : `deletePayroll` refuse d'abord avec un
+message qui dit quoi faire (une régularisation sur la période suivante), et
+l'entrée « Supprimer » du menu est **désactivée, pas masquée** — la masquer
+ferait croire à un droit manquant. La base est le filet.
+
+| mesuré, transaction annulée | résultat |
+|---|---|
+| supprimer un bulletin **payé** | **lève 42501** (pas zéro ligne muette) |
+| supprimer un bulletin **en attente** | 1 ligne — passe |
+| corriger la référence de virement d'un **payé** | 1 ligne — reste permis |
+
+La modification reste ouverte, délibérément : corriger une référence de virement
+n'est pas réécrire l'histoire, et la fermer forcerait le logiciel à mentir.
 
 ### `0163` et `0164` — la tutelle cesse d'être facultative (2026-08-31)
 

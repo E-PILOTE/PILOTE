@@ -386,10 +386,23 @@ class _PayCard extends StatelessWidget {
               itemBuilder: (_) => [
                 if (canEdit)
                   const PopupMenuItem(value: 'edit', child: Text('Modifier')),
+                // ⚠️ UN BULLETIN PAYÉ NE SE SUPPRIME PLUS. L'argent est
+                // parti : c'est une pièce, et une pièce se corrige par une
+                // nouvelle ligne, jamais en effaçant l'ancienne. Même règle
+                // que les dépenses et les encaissements d'un exercice clos
+                // (migration 0145).
+                //
+                // L'entrée reste VISIBLE mais désactivée, avec le motif. La
+                // masquer ferait croire à un droit manquant ; le déclencheur
+                // de la base, lui, refuserait sans que l'écran l'explique.
                 if (canDelete)
                   PopupMenuItem(
                       value: 'delete',
-                      child: Text('Supprimer', style: TextStyle(color: kRed))),
+                      enabled: !l.estPaye,
+                      child: Text(
+                          l.estPaye ? 'Supprimer — bulletin payé' : 'Supprimer',
+                          style: TextStyle(
+                              color: l.estPaye ? kTextMuted : kRed))),
               ],
             )
           else

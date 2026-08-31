@@ -54,6 +54,13 @@ class PayrollLine {
   final String id, staffId, staffName, status;
   final int base, bonuses, deductions, net;
   final String? method, reference;
+
+  /// Le bulletin est PAYÉ : l'argent est parti, c'est une pièce.
+  ///
+  /// ⚠️ Une pièce se corrige par une nouvelle ligne, jamais en effaçant
+  /// l'ancienne — même règle que les dépenses et les encaissements d'un
+  /// exercice clos (migration 0145), tenue en base par la 0165.
+  bool get estPaye => status == 'confirmed';
 }
 
 /// Bulletins d'une période (clé "YYYY-MM").
@@ -184,7 +191,23 @@ Future<void> confirmPayroll(String id) async {
   );
 }
 
+/// Supprime un bulletin — refusé s'il est PAYÉ.
+///
+/// ⚠️ Le garde est ici ET en base (déclencheur, migration 0165). Ici pour que
+/// l'utilisateur voie un message ; en base parce qu'un écran n'est pas une
+/// garantie. Sans le garde local, le refus serveur arriverait en `42501` :
+/// code fatal, lot PowerSync abandonné — la suppression disparaîtrait de
+/// l'écran sans que la ligne soit revenue, jusqu'à la synchro suivante.
 Future<void> deletePayroll(String id) async {
+  final rows = await db.getAll(
+      'SELECT status FROM payroll WHERE id = ?', [id]);
+  final paye = rows.isNotEmpty && (rows.first['status'] as String?) == 'confirmed';
+  if (paye) {
+    throw const ErreurMetier(
+        'Ce bulletin est payé : il ne peut plus être supprimé. '
+        'Pour le corriger, saisissez une régularisation sur la période '
+        "suivante — une pièce ne s'efface pas.");
+  }
   await db.execute('DELETE FROM payroll WHERE id = ?', [id]);
 }
 

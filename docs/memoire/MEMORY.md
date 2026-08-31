@@ -27,6 +27,7 @@
 - [État réel + enforcement](abonnement-etat-reel-enforcement.md) — ⚠️ table `subscriptions` INEXISTANTE (vérité = `school_groups`) ; soft-gate livré
 - [Workflow réabonnement RÉEL](abonnement-workflow-reel.md) — `mark_invoice_paid` était cassé ; `create_renewal_invoice` mig 0039
 - [⚠️ Licence coffre appareil](licence-coffre-appareil-cross-groupe.md) — licence d'un ancien groupe empoisonne le nouveau ; fix bootstrap(expectedGroupId)
+- [🧾 Un bulletin de paie PAYÉ ne s'efface plus](../DEPLOIEMENT_ORDRE.md) — mig 0165, la dette nommée par 0145 ; l'événement définitif est le PAIEMENT, pas la clôture ; ⚠️ déclencheur qui LÈVE (table hors ligne : un `USING` serait muet) ; modification restée ouverte
 - [⚠️ DEUX écrans créaient un groupe — dont un SANS tutelle](copie-tutelle-agrement-forcee.md) — migs 0163/0164 ; `tutelle` NOT NULL ; copies FORCÉES à chaque écriture ; on pouvait ajouter un agrément mais jamais l'enlever (numéro périmé imprimé sur les attestations)
 - [🔇 Un poste bloqué le DIT maintenant](blocage-de-file-visible.md) — `42703` rejoué à l'infini en silence = plus rien ne remonte ; `sync_failures.kind = 'blocage'`, effacement automatique ; ⚠️ NE JAMAIS rendre `42703` fatal (ça jetterait les écritures)
 - [🚨 CI bloquée par la FACTURATION GitHub + publication manuelle](chaine-livraison-windows.md) — depuis le 30/08 aucune exécution ne démarre (3-5 s, « payments have failed ») ; v3.4.1 construite et publiée à la main ; ⚠️ ISCC est en profil utilisateur ; ⚠️ PS 5.1 double-encode les notes

@@ -120,8 +120,15 @@ avant qu'un groupe ne crée un profil « Conseil de classe » sans `bulletins`.
   évaluation à une séquence — `evaluations.sequence_id` n'est écrit nulle part.
 - **§8.4 · rétention (bulletins 10 ans) : rien.** Aucune purge, aucun archivage
   daté — même famille que le « 5 ans » financier.
-- **`bulletins.total_absences` / `total_lates` : écrits à 0 en dur**, jamais
-  affichés. Les données existent (`attendance_records`/`attendance_entries`).
-  Le bulletin officiel ne porte donc aucune absence.
+- ~~**`bulletins.total_absences` / `total_lates` : écrits à 0 en dur**~~
+  ✅ **CORRIGÉ — revérifié dans le code le 2026-08-31.** `bulletins_provider`
+  agrège `attendance_entries ⋈ attendance_records` sur les dates du trimestre
+  (`status = 'absent'` et `'late'`), puis écrit le résultat dans le bulletin à
+  la génération comme à la mise à jour. Le figé (`fige?['total_absences']`)
+  prime sur le recalcul, ce qui est juste : un bulletin publié ne doit pas
+  changer parce qu'une présence a été saisie en retard.
+  ⚠️ Cette ligne a été laissée en « défaut ouvert » alors qu'elle ne l'était
+  plus. Une note périmée coûte plus qu'une note absente : elle envoie réparer
+  ce qui marche.
 
 Voir [[modules-acces-hierarchie]], [[catalogue-modules-v2]], [[powersync-status]].

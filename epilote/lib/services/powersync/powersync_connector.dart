@@ -146,6 +146,9 @@ const Map<String, String> _tableHumanLabel = {
   'attendance_entries': 'Présence',
   'leave_requests':     'Congé',
   'staff_attendance':   'Présence du personnel',
+  // Un bulletin PAYE ne se supprime plus (0165) : le refus arrive en 42501,
+  // donc en abandon. Sans libelle, le bandeau dirait « payroll ».
+  'payroll':           'Bulletin de paie',
   'messages':          'Message',
   'announcements':     'Annonce',
 };
