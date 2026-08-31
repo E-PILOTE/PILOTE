@@ -88,7 +88,7 @@ void main() {
 
   // ── Les gardes qui comptent vraiment ──────────────────────────────────────
   group('Ce que la base ne doit jamais autoriser', () {
-    String _sql() {
+    String lireSql() {
       final f = File('../database/migrations/'
           '0161_AVANT_LE_BUILD_la_circulaire_de_tutelle.sql');
       expect(f.existsSync(), isTrue,
@@ -100,7 +100,7 @@ void main() {
       // Un UPDATE que le `USING` d'une politique écarte ne lève RIEN : zéro
       // ligne, 204, et l'écran affiche « enregistré ». Trouvé trois fois dans
       // ce dépôt le 2026-08-30. Ici l'accusé passe par une RPC, qui LÈVE.
-      final sql = _sql();
+      final sql = lireSql();
       final policies = RegExp(r'CREATE POLICY\s+(\w+)\s+ON\s+public\.(\w+)\s+FOR\s+(\w+)')
           .allMatches(sql);
       expect(policies, isNotEmpty, reason: 'Sonde aveugle : aucune politique lue.');
@@ -119,7 +119,7 @@ void main() {
       // La chaîne est ministère → groupe / chef d'établissement. Un canal par
       // lequel l'État écrirait aux familles d'une école privée ne se déciderait
       // pas par commodité technique — et ne se refermerait plus.
-      final sql = _sql();
+      final sql = lireSql();
       final publier = sql.substring(sql.indexOf('circulaire_publier'));
       for (final interdit in ["'parent'", "'eleve'", 'students', 'student_tutors']) {
         expect(publier.contains(interdit), isFalse,
@@ -131,7 +131,7 @@ void main() {
     test('la liste des destinataires est figée, pas recalculée', () {
       // Une école créée le mois suivant n'a pas à apparaître « en défaut de
       // lecture » d'une circulaire envoyée avant qu'elle n'existe.
-      final sql = _sql();
+      final sql = lireSql();
       expect(sql.contains('CREATE TABLE IF NOT EXISTS public.circulaire_destinataires'),
           isTrue,
           reason: 'Les destinataires doivent être MATÉRIALISÉS dans une table.');
@@ -144,7 +144,7 @@ void main() {
       // `school_type_enum` et `group_type` portent les MÊMES libellés
       // (public | prive). Les confondre ne se voit qu'à la publication, où
       // Postgres refuse la comparaison (42883) — donc au pire moment.
-      final sql = _sql();
+      final sql = lireSql();
       expect(sql.contains('cible_secteur     school_type_enum'), isTrue,
           reason: 'cible_secteur doit être un school_type_enum : il se compare '
               'à schools.school_type.');

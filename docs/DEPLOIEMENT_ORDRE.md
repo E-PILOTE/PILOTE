@@ -23,6 +23,64 @@ sont des ajouts et des corrections côté serveur.
 | `0161` | la circulaire de tutelle | oui (écrans neufs) |
 | `0162` | une fonction de déclencheur n'est pas une API | non |
 
+### `0139` et `0142` — APPLIQUÉES le 2026-08-31
+
+Leur condition était explicite : « pousser les commits → **publier le build** →
+appliquer ». Le build **3.4.1 (build 25) est publié et vérifié en ligne**, et
+les deux gardes qu'il devait porter sont bien dedans :
+
+| garde | commit | dans `v3.4.1` |
+|---|---|---|
+| `exigerDroitComm` (0139) | `20ac4ec` | ✅ |
+| `canCreate` sur l'état vide (0142) | `fa87ac4` | ✅ |
+
+**Mesuré après application, sous identités réelles (transaction annulée) :**
+
+| | résultat |
+|---|---|
+| directeur — verbe `annonces:create` | **oui**, et il publie |
+| directeur — voit l'annonce de GROUPE (`school_id IS NULL`) | **1** — la promesse tenue |
+| enseignant — verbe `annonces:create` | **non** |
+| enseignant — publie | **refusé 42501** |
+| enseignant — supprime / modifie celle du directeur | **0 ligne** |
+| enseignant — **lit** celle du directeur | **1** — il la voit, il n'y touche pas |
+
+Et le risque de tout fermer par mégarde, écarté par mesure :
+
+| rôle | matières | programmes | annonces |
+|---|---|---|---|
+| directeur · proviseur | ✅ | ✅ | ✅ |
+| enseignant | ✅ | ✅ | ❌ |
+| **secrétaire** | ❌ | ❌ | ✅ |
+| comptable · surveillant | ❌ | ❌ | ❌ |
+
+La secrétaire n'a pas `matières`/`programmes` — **c'est exactement le profil qui
+produisait le `42501` fatal** et avait fait reculer `0141`. Le build publié ferme
+désormais la porte de l'état vide, donc elle ne peut plus appuyer.
+
+### `0146` — TOUJOURS SUSPENDUE, et voici la vraie raison
+
+Sa condition est « attendre que **TOUS** les postes aient reçu le build ». Ce
+qu'on peut mesurer aujourd'hui : 344 comptes, **10 ont ouvert une session**,
+19 sessions au total, **2 actives sur 48 h**, et **1 seul poste** a signalé sa
+version. Autrement dit : il n'y a pas encore de parc.
+
+⚠️ **Mais cela ne suffit pas à conclure.** Le produit est **hors-ligne d'abord** :
+un poste peut rester éteint des semaines puis synchroniser. « Aucune session
+récente » ne prouve donc rien sur ce qu'il enverra au retour. C'est précisément
+le scénario contre lequel `0146` met en garde.
+
+**Ce qui a changé le 2026-08-31** : un blocage de file n'est plus muet. Le
+connecteur consigne désormais un désaccord de schéma (`42703` et compagnie) dans
+`sync_failures` avec `kind = 'blocage'`, et le bandeau dit « ce poste n'envoie
+plus rien, **rien n'est perdu**, mettez à jour ». Le jour où un build portant
+cette détection sera adopté, retirer une colonne cessera d'être un pari : un
+poste resté en arrière le DIRA au lieu de se taire.
+
+> ⚠️ On n'a PAS rendu `42703` fatal. Ce serait jeter les écritures de l'école
+> pour lui épargner un bandeau — le remède serait pire. Le lot reste en file,
+> intact, et repart après la mise à jour.
+
 ### `0159` → `0162` — la grille, la licence, la circulaire (2026-08-31)
 
 | migration | ce qu'elle change | mesuré |

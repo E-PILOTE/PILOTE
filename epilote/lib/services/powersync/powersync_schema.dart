@@ -1439,16 +1439,31 @@ const schema = Schema([
   // ════════════════════════════════════════════════════════════════════════
   // JOURNAL LOCAL D'ÉCHECS DE SYNCHRO (local-only, ne remonte JAMAIS au serveur)
   // ════════════════════════════════════════════════════════════════════════
-  // Trace des transactions rejetées DÉFINITIVEMENT par le serveur (contrainte,
-  // RLS, données invalides) puis abandonnées → écritures locales perdues.
-  // `localOnly` = jamais uploadée, aucun impact sync-rules/prod ; sert à rendre
-  // la perte VISIBLE et ACQUITTABLE par l'utilisateur (défense en profondeur).
+  // Deux natures d'échec, opposées, et il faut les distinguer :
+  //
+  //   `abandon` — le serveur a refusé DÉFINITIVEMENT (contrainte, RLS, donnée
+  //               invalide). La transaction est complétée pour ne pas bloquer
+  //               la file : les écritures locales sont PERDUES. À acquitter.
+  //
+  //   `blocage` — le serveur refuse pour une raison que retenter ne résoudra
+  //               jamais (colonne ou table inconnue : le poste tourne sur un
+  //               build antérieur au schéma). La transaction n'est PAS
+  //               complétée : rien n'est perdu, mais ce poste N'ENVOIE PLUS
+  //               RIEN, indéfiniment et sans le moindre message.
+  //
+  // ⚠️ Le second est le pire défaut possible d'un produit hors-ligne : une
+  // école continue de travailler, tout paraît normal à l'écran, et plus une
+  // seule inscription ne remonte. C'est aussi ce qui tient la migration 0146
+  // en otage — on ne retire pas une colonne tant qu'un blocage reste muet.
+  //
+  // `localOnly` = jamais uploadée, aucun impact sync-rules/prod.
   Table.localOnly('sync_failures', [
     Column.text('at'),           // ISO-8601 UTC du rejet
-    Column.text('code'),         // code PostgreSQL (ex. 23502, 42501)
+    Column.text('code'),         // code PostgreSQL (ex. 23502, 42501, 42703)
     Column.text('message'),      // message serveur brut
-    Column.text('ops'),          // JSON des opérations perdues
+    Column.text('ops'),          // JSON des opérations concernées
     Column.text('summary'),      // libellé lisible (ex. « Inscription d'élève »)
+    Column.text('kind'),         // 'abandon' (perdu) | 'blocage' (bloqué)
     Column.integer('acknowledged'), // 0 = à voir, 1 = acquitté par l'utilisateur
   ]),
 
