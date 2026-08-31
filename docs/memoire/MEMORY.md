@@ -27,6 +27,7 @@
 - [État réel + enforcement](abonnement-etat-reel-enforcement.md) — ⚠️ table `subscriptions` INEXISTANTE (vérité = `school_groups`) ; soft-gate livré
 - [Workflow réabonnement RÉEL](abonnement-workflow-reel.md) — `mark_invoice_paid` était cassé ; `create_renewal_invoice` mig 0039
 - [⚠️ Licence coffre appareil](licence-coffre-appareil-cross-groupe.md) — licence d'un ancien groupe empoisonne le nouveau ; fix bootstrap(expectedGroupId)
+- [⚠️ PowerSync : DEUX instances](powersync-deux-instances.md) — le parc utilise `…a66759` (Production), PAS `…a66757` que citent toutes les vieilles notes ; Production déjà à jour, Development déployé le 31/08 ; ⚠️ `--sync-config-file-path` obligatoire
 - [💰 Prix par ÉCOLE + coûts réels de l'infra](tarif-par-ecole-et-couts-reels.md) — mig 0159 ; falaise ×11,4 supprimée ; 4 fonctions lisaient `price_xaf` en direct ; infra ≈ 45 140 XAF/mois ; ⚠️ le coût suit les APPAREILS, pas les élèves
 - [📨 Circulaire de tutelle](circulaire-de-tutelle.md) — mig 0161 ; accusé PAR ÉTABLISSEMENT ; aucune politique d'UPDATE (RPC seules) ; ⚠️ `school_type_enum` ≠ `group_type` (42883 à la publication)
 - [🏛️ Licence de TUTELLE — combien on facture un ministère](abonnement-licence-de-tutelle.md) — mig 0160 : système LIVRÉ (montants libres, `/super/economie`) ; 2 lignes exploitant+tutelle, jamais fusionnées ; forfait FIXE ; ⚠️ n'ouvre AUCUN accès ; montants = recommandation non validée
