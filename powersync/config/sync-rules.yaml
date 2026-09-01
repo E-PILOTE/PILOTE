@@ -398,37 +398,34 @@ bucket_definitions:
     data:
       - SELECT * FROM infirmary_visits WHERE school_id = bucket.sid
 
-# ═══════════════════════════════════════════════════════════════════════════
-#  ⚠️ NON DÉPLOYÉ — CIRCULAIRES DE TUTELLE (migration 0161)
-#
-#  Aujourd'hui la circulaire est reçue par l'ADMIN DE GROUPE, en ligne. Pour
-#  que le chef d'établissement la reçoive HORS LIGNE, il faut les deux flux
-#  ci-dessous. Ils sont écrits ici et LAISSÉS EN COMMENTAIRE, délibérément :
-#
-#   1. je ne peux ni les valider ni les déployer depuis le dépôt — le
-#      déploiement passe par le tableau de bord PowerSync Cloud ;
-#   2. `circulaires` n'est pas filtrable par `school_id` : il faut une
-#      requête de paramètres qui remonte de l'école aux circulaires, et ce
-#      point n'a PAS été vérifié contre le moteur. Les autres buckets de ce
-#      fichier évitent volontairement les JOIN en paramètres.
-#
-#  Une règle non validée collée en prod peut couper la synchro de tout le
-#  parc. À reprendre au dashboard : coller, VALIDATE, puis DEPLOY.
-#
-#  À ajouter dans `by_school.data` :
-#      - SELECT * FROM circulaire_destinataires WHERE school_id = bucket.sid
-#
-#  Puis, en bucket séparé :
-#  # by_circulaire:
-#  #   parameters: >-
-#  #     SELECT d.circulaire_id AS cid
-#  #     FROM circulaire_destinataires d
-#  #     JOIN profiles p ON p.school_id = d.school_id
-#  #     WHERE p.id = request.user_id()
-#  #   data:
-#  #     - SELECT * FROM circulaires WHERE id = bucket.cid AND publiee_le IS NOT NULL
-#
-#  ⚠️ Et il faudra AUSSI déclarer les deux tables dans
-#  `epilote/lib/services/powersync/powersync_schema.dart`, sans quoi elles
-#  descendent sans jamais être lisibles en local.
-# ═══════════════════════════════════════════════════════════════════════════
+  # ── Circulaires de tutelle reçues par l'établissement (0161 / 0167) ──────
+  # ⚠️ Bucket SÉPARÉ, et non une ligne de plus dans `by_school`. Modifier un
+  # bucket existant en change le contenu : les postes resynchronisent alors
+  # TOUT ce qu'il porte — élèves, inscriptions, candidatures d'examen. Sur les
+  # connexions visées, c'est cher pour rien. Une définition neuve ne fait
+  # descendre que ce qu'elle ajoute.
+  #
+  # ⚠️ CE FICHIER A PORTÉ, JUSQU'AU 2026-09-01, UN PLAN QUI NE POUVAIT PAS
+  # MARCHER : une requête de paramètres joignant `circulaire_destinataires` à
+  # `profiles`. Les Sync Rules l'INTERDISENT — « Not supported: subqueries,
+  # JOINs, CTEs », et une seule table par requête de paramètres. Elle aurait
+  # échoué à `validate`. Le commentaire disait « non vérifié contre le
+  # moteur » ; vérifié, il était faux.
+  #
+  # La migration 0167 supprime le besoin de joindre plutôt que de le
+  # contourner : la ligne du destinataire porte désormais l'INSTANTANÉ de la
+  # circulaire (objet, corps, priorité, échéance, émetteur), figé à la
+  # publication, et un déclencheur REFUSE (42501) toute modification. Comme
+  # `circulaire_destinataires` porte déjà `school_id`, elle se filtre seule.
+  #
+  # ⚠️ LECTURE SEULE côté poste. La table n'a aucune politique d'UPDATE : un
+  # accusé écrit hors ligne partirait, ne toucherait AUCUNE ligne et se
+  # tairait. L'accusé de lecture passe par la RPC `circulaire_accuser`, donc
+  # en ligne — c'est une preuve administrative, elle ne s'invente pas sur un
+  # poste.
+  circulaires_ecole:
+    parameters: >-
+      SELECT school_id AS sid FROM profiles
+      WHERE id = request.user_id() AND school_id IS NOT NULL
+    data:
+      - SELECT * FROM circulaire_destinataires WHERE school_id = bucket.sid

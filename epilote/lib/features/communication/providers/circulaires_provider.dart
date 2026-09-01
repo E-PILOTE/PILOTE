@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import 'communication_scope.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LA CIRCULAIRE DE TUTELLE
@@ -97,6 +99,38 @@ class Circulaire {
           DateTime.tryParse(r['created_at'] as String? ?? '') ?? DateTime(2000),
     );
   }
+
+  /// Depuis la ligne LOCALE `circulaire_destinataires` (migration 0167).
+  ///
+  /// Le poste ecole ne voit jamais la table `circulaires` : elle n'a pas de
+  /// `school_id`, et les Sync Rules interdisent le JOIN en requete de
+  /// parametres. C'est la ligne du destinataire qui porte l'instantane.
+  ///
+  /// `cibleSecteur` / `cibleDepartement` restent nuls, deliberement : le
+  /// ciblage regarde l'emetteur. Une ecole n'a pas a savoir qui d'autre a
+  /// recu la note — elle a recu la sienne.
+  factory Circulaire.fromLigneLocale(Map<String, dynamic> r) => Circulaire(
+        id: r['circulaire_id'] as String,
+        emetteurGroupId: r['emetteur_group_id'] as String? ?? '',
+        emetteurNom: r['emetteur_nom'] as String?,
+        reference: r['reference'] as String?,
+        objet: r['objet'] as String? ?? '',
+        corps: r['corps'] as String? ?? '',
+        priorite: _prioriteDe(r['priorite'] as String?),
+        accuseRequis: (r['accuse_requis'] as num?)?.toInt() == 1,
+        echeance: DateTime.tryParse(r['echeance'] as String? ?? ''),
+        publieeLe: DateTime.tryParse(r['publiee_le'] as String? ?? ''),
+        createdAt: DateTime.tryParse(r['created_at'] as String? ?? '') ??
+            DateTime(2000),
+        mesEcoles: [
+          CirculaireEcole(
+            schoolId: r['school_id'] as String? ?? '',
+            groupId: r['group_id'] as String? ?? '',
+            nom: r['school_name'] as String? ?? '\u2014',
+            luLe: DateTime.tryParse(r['lu_le'] as String? ?? ''),
+          ),
+        ],
+      );
 
   final String id, emetteurGroupId, objet, corps;
   final String? emetteurNom, reference, cibleSecteur, cibleDepartement;
@@ -196,49 +230,96 @@ final circulairesEmisesProvider =
 
 // ─── DESTINATAIRE : ce que ma tutelle m'a adressé ───────────────────────────
 
+//  ⚠️ DEUX CHEMINS DE DONNEES, UN SEUL PROVIDER — la regle centrale du projet
+//  appliquee ici. `admin_groupe` lit Supabase EN LIGNE ; le personnel d'ecole
+//  lit sa base locale PowerSync, donc HORS LIGNE. Pas deux implementations et
+//  pas deux ecrans : le meme, dont le perimetre est deduit du role.
+//
+//  Le poste ecole ne peut pas lire `circulaires` — la table n'a pas de
+//  `school_id`, et les Sync Rules interdisent le JOIN en requete de
+//  parametres. La migration 0167 pose donc l'INSTANTANE de la circulaire sur
+//  la ligne du destinataire, qui se filtre par ecole. Bucket
+//  `circulaires_ecole` dans `powersync/config/sync-rules.yaml`.
+//
+//  ⚠️ `StreamProvider` et non `FutureProvider` : cote ecole la source est
+//  `db.watch()`, qui doit rafraichir l'ecran quand la circulaire ARRIVE. Un
+//  chef d'etablissement qui regarde la liste au moment ou la note de son
+//  ministere descend ne doit pas avoir a la recharger pour la voir. Cote
+//  groupe la requete est emise une fois — `ref.invalidate` la rejoue,
+//  exactement comme avant.
+//
+//  ⚠️ LECTURE SEULE hors ligne. `circulaire_destinataires` n'a AUCUNE
+//  politique d'UPDATE : un accuse ecrit localement partirait, ne toucherait
+//  AUCUNE ligne et se tairait. L'accuse passe par la RPC `circulaire_accuser`,
+//  donc en ligne — c'est une preuve administrative, elle ne s'invente pas sur
+//  un poste.
 final circulairesRecuesProvider =
-    FutureProvider.autoDispose<List<Circulaire>>((ref) async {
-  final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
-  if (groupId == null) return const [];
-  final client = ref.read(supabaseClientProvider);
+    StreamProvider.autoDispose<List<Circulaire>>((ref) {
+  final ctx = ref.watch(communicationContextProvider);
 
-  // La RLS ne rend que les circulaires PUBLIÉES dont mon groupe est
-  // destinataire : inutile de refiltrer côté client, et dangereux de le croire.
-  final rows = await client
-      .from('circulaires')
-      .select('$_kChamps, school_groups!emetteur_group_id(name)')
-      .not('publiee_le', 'is', null)
-      .order('publiee_le', ascending: false) as List;
-
-  final circulaires = rows
-      .map((r) => Circulaire.fromRow(Map<String, dynamic>.from(r as Map)))
-      .toList();
-  if (circulaires.isEmpty) return circulaires;
-
-  final dest = await client
-      .from('circulaire_destinataires')
-      .select('circulaire_id, school_id, lu_le, group_id, schools(name)')
-      .eq('group_id', groupId)
-      .inFilter('circulaire_id', circulaires.map((c) => c.id).toList()) as List;
-
-  final parCirculaire = <String, List<CirculaireEcole>>{};
-  for (final d in dest) {
-    final m = Map<String, dynamic>.from(d as Map);
-    final ec = m['schools'] as Map<String, dynamic>?;
-    parCirculaire.putIfAbsent(m['circulaire_id'] as String, () => []).add(
-          CirculaireEcole(
-            schoolId: m['school_id'] as String,
-            groupId: m['group_id'] as String,
-            nom: ec?['name'] as String? ?? '—',
-            luLe: DateTime.tryParse(m['lu_le'] as String? ?? ''),
-          ),
-        );
+  // ── Personnel d'ecole : la base locale ──────────────────────────────────
+  if (ctx.isSchool) {
+    final schoolId = ctx.schoolId;
+    if (schoolId == null || schoolId.isEmpty) {
+      return Stream.value(const <Circulaire>[]);
+    }
+    ref.keepAlive();
+    return db.watch(
+      'SELECT d.*, s.name AS school_name '
+      'FROM circulaire_destinataires d '
+      'LEFT JOIN schools s ON s.id = d.school_id '
+      'WHERE d.school_id = ? '
+      'ORDER BY d.publiee_le DESC',
+      parameters: [schoolId],
+    ).map((rows) => [for (final r in rows) Circulaire.fromLigneLocale(r)]);
   }
 
-  return [
-    for (final c in circulaires)
-      c.copyWith(mesEcoles: parCirculaire[c.id] ?? const []),
-  ];
+  // ── Administrateur de groupe : Supabase direct ──────────────────────────
+  final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
+  if (groupId == null) return Stream.value(const <Circulaire>[]);
+  final client = ref.read(supabaseClientProvider);
+
+  return Stream.fromFuture(() async {
+    // La RLS ne rend que les circulaires PUBLIEES dont mon groupe est
+    // destinataire : inutile de refiltrer cote client, et dangereux de le
+    // croire.
+    final rows = await client
+        .from('circulaires')
+        .select('$_kChamps, school_groups!emetteur_group_id(name)')
+        .not('publiee_le', 'is', null)
+        .order('publiee_le', ascending: false) as List;
+
+    final circulaires = rows
+        .map((r) => Circulaire.fromRow(Map<String, dynamic>.from(r as Map)))
+        .toList();
+    if (circulaires.isEmpty) return circulaires;
+
+    final dest = await client
+        .from('circulaire_destinataires')
+        .select('circulaire_id, school_id, lu_le, group_id, schools(name)')
+        .eq('group_id', groupId)
+        .inFilter('circulaire_id', circulaires.map((c) => c.id).toList())
+        as List;
+
+    final parCirculaire = <String, List<CirculaireEcole>>{};
+    for (final d in dest) {
+      final m = Map<String, dynamic>.from(d as Map);
+      final ec = m['schools'] as Map<String, dynamic>?;
+      parCirculaire.putIfAbsent(m['circulaire_id'] as String, () => []).add(
+            CirculaireEcole(
+              schoolId: m['school_id'] as String,
+              groupId: m['group_id'] as String,
+              nom: ec?['name'] as String? ?? '\u2014',
+              luLe: DateTime.tryParse(m['lu_le'] as String? ?? ''),
+            ),
+          );
+    }
+
+    return [
+      for (final c in circulaires)
+        c.copyWith(mesEcoles: parCirculaire[c.id] ?? const []),
+    ];
+  }());
 });
 
 // ─── Écritures ──────────────────────────────────────────────────────────────

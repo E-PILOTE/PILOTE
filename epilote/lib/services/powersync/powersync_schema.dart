@@ -1125,6 +1125,34 @@ const schema = Schema([
     Column.text('updated_at'),
   ]),
 
+  // ── Circulaires de tutelle reçues par l'école (migrations 0161 / 0167) ──
+  // ⚠️ La ligne porte le CONTENU de la circulaire, pas seulement le lien.
+  // Ce n'est pas de la redondance par négligence : les Sync Rules PowerSync
+  // interdisent le JOIN en requête de paramètres, donc `circulaires` — qui n'a
+  // pas de `school_id` — ne peut pas descendre. L'instantané est figé à la
+  // publication et la base REFUSE (42501) qu'il soit modifié.
+  //
+  // ⚠️ LECTURE SEULE sur le poste. La table n'a aucune politique d'UPDATE :
+  // un accusé écrit localement partirait, ne toucherait AUCUNE ligne et se
+  // tairait. L'accusé passe par la RPC `circulaire_accuser`, donc en ligne.
+  Table('circulaire_destinataires', [
+    Column.text('circulaire_id'),
+    Column.text('school_id'),
+    Column.text('group_id'),
+    Column.text('emetteur_group_id'),
+    Column.text('emetteur_nom'),
+    Column.text('reference'),
+    Column.text('objet'),
+    Column.text('corps'),
+    Column.text('priorite'),
+    Column.integer('accuse_requis'),
+    Column.text('echeance'),
+    Column.text('publiee_le'),
+    Column.text('lu_le'),
+    Column.text('lu_par'),
+    Column.text('created_at'),
+  ]),
+
   Table('events', [
     Column.text('group_id'),
     Column.text('school_id'),

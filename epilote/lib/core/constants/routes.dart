@@ -146,6 +146,9 @@ class Routes {
   static const String notifications   = '/user/notifications';
   static const String messagerie      = '/user/messagerie';
   static const String evenements      = '/user/evenements';
+  /// Les circulaires de tutelle REÇUES par l'établissement (migration 0167).
+  /// Réservée à la direction : le routeur ET la sidebar la gardent.
+  static const String userCirculaires = '/user/circulaires';
   static const String espaceParent    = '/user/espace-parent';
   static const String userSupport     = '/user/support';
 

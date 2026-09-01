@@ -5,7 +5,9 @@ import '../../../core/utils/message_erreur.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/list_chrome.dart';
+import '../../../services/powersync/powersync_service.dart';
 import '../providers/circulaires_provider.dart';
+import '../providers/communication_scope.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LES CIRCULAIRES REÇUES
@@ -142,6 +144,19 @@ class _CarteRecueState extends ConsumerState<_CarteRecue> {
   Widget build(BuildContext context) {
     final c = widget.circulaire;
     final couleur = _couleurPriorite(c.priorite);
+
+    // ⚠️ L'accuse de lecture est une PREUVE ADMINISTRATIVE : il passe par une
+    // RPC, donc par le reseau. Tout le reste de cet ecran fonctionne hors
+    // ligne — la circulaire elle-meme descend par PowerSync. Sans cette
+    // distinction, un chef d'etablissement hors ligne appuierait sur un bouton
+    // qui echoue, et lirait « verifiez votre connexion » sur un produit dont
+    // toute la promesse est de marcher sans elle.
+    //
+    // `isSyncingProvider` n'est vrai que pour le personnel scolaire : on ne
+    // s'en sert donc QUE dans ce perimetre. Un admin_groupe travaille en
+    // ligne par construction, et sa synchro n'est jamais connectee.
+    final estEcole = ref.watch(communicationContextProvider).isSchool;
+    final horsLigne = estEcole && !ref.watch(isSyncingProvider);
     return Container(
       decoration: BoxDecoration(
         color: kCardBg,
@@ -228,6 +243,7 @@ class _CarteRecueState extends ConsumerState<_CarteRecue> {
                       ecole: e,
                       accuseRequis: c.accuseRequis,
                       enCours: _enCours == e.schoolId,
+                      horsLigne: horsLigne,
                       onAccuser: () => _accuser(e),
                     ),
                 ]),
@@ -243,11 +259,12 @@ class _LigneEcole extends StatelessWidget {
     required this.ecole,
     required this.accuseRequis,
     required this.enCours,
+    required this.horsLigne,
     required this.onAccuser,
   });
 
   final CirculaireEcole ecole;
-  final bool accuseRequis, enCours;
+  final bool accuseRequis, enCours, horsLigne;
   final VoidCallback onAccuser;
 
   @override
@@ -274,15 +291,30 @@ class _LigneEcole extends StatelessWidget {
                 width: 14, height: 14,
                 child: CircularProgressIndicator(strokeWidth: 2))
           else
-            TextButton(
-              onPressed: onAccuser,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            // ⚠️ Desactive, jamais masque. Masquer laisserait croire qu'aucun
+            // accuse n'est attendu ; desactive AVEC sa raison dit la verite :
+            // la note est bien arrivee, c'est la preuve de lecture qui doit
+            // atteindre le serveur.
+            Tooltip(
+              message: horsLigne
+                  ? 'Ce poste est hors ligne. La circulaire est bien reçue ; '
+                      'l\u2019accusé de lecture, lui, est une preuve transmise '
+                      'au serveur — il partira dès le retour du réseau.'
+                  : 'Enregistrer l\u2019accusé de lecture pour cet '
+                      'établissement.',
+              child: TextButton(
+                onPressed: horsLigne ? null : onAccuser,
+                style: TextButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  horsLigne ? 'Accuser (hors ligne)' : 'Accuser réception',
+                  style: const TextStyle(fontSize: 11.5),
+                ),
               ),
-              child: const Text('Accuser réception',
-                  style: TextStyle(fontSize: 11.5)),
             ),
         ]),
       );

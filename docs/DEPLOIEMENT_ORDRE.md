@@ -3,6 +3,30 @@
 > Relevé le 2026-08-28. À relire **avant** de toucher aux profils d'accès d'un
 > groupe, et **avant** de publier le prochain build.
 
+## `0167` — la circulaire descend à l'école (2026-09-01)
+
+**Appliquée.** Additive : elle pose l'instantané de la circulaire sur
+`circulaire_destinataires` et réécrit `circulaire_publier`. Un build antérieur
+ignore les colonnes neuves — rien à attendre côté application pour l'appliquer.
+
+⚠️ **Mais la fonctionnalité n'est PAS live.** Il reste deux gestes :
+
+| geste | état | dépend de |
+|---|---|---|
+| migration `0167` | ✅ appliquée | — |
+| déployer `sync-rules.yaml` (bucket `circulaires_ecole`) sur **Production `…66759`** | ⏳ | un `PS_ADMIN_TOKEN`, jamais sur disque |
+| publier un build portant le schéma local + `/user/circulaires` | ⏳ | — |
+
+✅ **L'ordre entre ces deux-là est libre, et c'est vérifié.** Une table qui
+descend avant d'être déclarée dans le schéma client est conservée dans
+`ps_untyped` — inaccessible, mais intacte — et PowerSync l'extrait
+automatiquement quand le build la déclare. Déployer la règle en premier ne perd
+rien et fait gagner la descente initiale.
+
+⚠️ Déployer par `powersync deploy sync-config`, **après un `pull instance`** :
+la copie du live est le seul retour arrière. Voir
+`docs/memoire/powersync-deploiement-cli.md`.
+
 ## `0151` → `0154` — le référentiel congolais et la tutelle (2026-08-30)
 
 Toutes **AVANT_LE_BUILD**, toutes **appliquées**. Aucune n'attend un build : ce

@@ -34,6 +34,7 @@
 - [⚠️ PowerSync : DEUX instances](powersync-deux-instances.md) — le parc utilise `…a66759` (Production), PAS `…a66757` que citent toutes les vieilles notes ; Production déjà à jour, Development déployé le 31/08 ; ⚠️ `--sync-config-file-path` obligatoire
 - [💰 Prix par ÉCOLE + coûts réels de l'infra](tarif-par-ecole-et-couts-reels.md) — mig 0159 ; falaise ×11,4 supprimée ; 4 fonctions lisaient `price_xaf` en direct ; infra ≈ 45 140 XAF/mois ; ⚠️ le coût suit les APPAREILS, pas les élèves
 - [📨 Circulaire de tutelle](circulaire-de-tutelle.md) — mig 0161 ; accusé PAR ÉTABLISSEMENT ; aucune politique d'UPDATE (RPC seules) ; ⚠️ `school_type_enum` ≠ `group_type` (42883 à la publication)
+- [📬 Circulaires HORS LIGNE](circulaires-hors-ligne.md) — 0167 ; ⚠️ les Sync Rules INTERDISENT le JOIN en requête de paramètres (le plan noté au dépôt était faux) → instantané figé sur la ligne du destinataire, déclencheur 42501 ; bucket SÉPARÉ, jamais dans `by_school` ; lecture hors ligne mais accusé EN LIGNE ; ⚠️ sync-rules NON déployées
 - [🏛️ Licence de TUTELLE — combien on facture un ministère](abonnement-licence-de-tutelle.md) — mig 0160 : système LIVRÉ (montants libres, `/super/economie`) ; 2 lignes exploitant+tutelle, jamais fusionnées ; forfait FIXE ; ⚠️ n'ouvre AUCUN accès ; montants = recommandation non validée
 - [Licence — socle client](licence-socle-implemente.md) — `lib/licensing/` hexagonal livré ; enforcement DORMANT ; reste Edge Function émettrice
 

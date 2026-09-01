@@ -63,16 +63,17 @@ Pris par une sonde avant la première circulaire réelle.
 | accusé / ré-accusé | enregistré, puis `deja_lu` sans réécrire la date |
 | ce que voit le MEPSA | 25 destinataires, 1 lu |
 
-## ⚠️ Ce qui n'est PAS livré
+## La réception hors ligne — traitée le 2026-09-01
 
-La réception **hors ligne** par le chef d'établissement. Elle demande deux flux
-PowerSync, écrits **en commentaire** dans `powersync/config/sync-rules.yaml` et
-**non validés** contre le moteur : `circulaires` n'est pas filtrable par
-`school_id` sans JOIN en paramètres, et les autres buckets l'évitent
-volontairement. À reprendre au dashboard (coller → Validate → Deploy), et à
-déclarer aussi dans `powersync_schema.dart`.
+⚠️ **Le plan décrit ici était FAUX** : les deux flux PowerSync laissés en
+commentaire joignaient deux tables dans une requête de paramètres, ce que les
+Sync Rules **interdisent**. La migration 0167 supprime le besoin de joindre
+plutôt que de le contourner — la ligne du destinataire porte désormais
+l'instantané de la circulaire. Détail, mesures et reste à déployer :
+[[circulaires-hors-ligne]].
 
-Aujourd'hui : émission `/admin/tutelle/circulaires` (tutelle seule), réception
-`/admin/circulaires` (tout groupe), **en ligne**.
+Émission `/admin/tutelle/circulaires` (tutelle seule), réception
+`/admin/circulaires` (tout groupe, en ligne) et `/user/circulaires` (chef
+d'établissement, hors ligne — direction seulement).
 
 Voir [[tarif-par-ecole-et-couts-reels]] · [[abonnement-licence-de-tutelle]]

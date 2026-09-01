@@ -288,7 +288,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         // lisent l'école entière, hors du périmètre de classes de l'agent. Sans
         // ce garde, un enseignant atteignant l'URL éditerait un « État des
         // effectifs de l'établissement » portant sur toutes les classes.
-        if (loc == Routes.calendrier || loc == Routes.userRapports) {
+        // ⚠️ `userCirculaires` aussi : une circulaire est adressée à
+        // l'ÉTABLISSEMENT, et l'accusé de lecture qu'on en attend engage sa
+        // direction. Un enseignant qui atteindrait l'URL pourrait accuser
+        // réception au nom de l'école — une preuve administrative signée par
+        // qui n'en a pas la charge.
+        if (loc == Routes.calendrier ||
+            loc == Routes.userRapports ||
+            loc == Routes.userCirculaires) {
           if (!AppConstants.directionRoles.contains(role)) {
             return Routes.userDashboard;
           }
@@ -729,6 +736,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.annonces,
         builder: (_, _) => const StaffAnnouncementsScreen(),
+      ),
+      // Circulaires reçues de la tutelle — MÊME écran que l'espace groupe.
+      // Le provider déduit son périmètre du rôle : `admin_groupe` lit Supabase
+      // en ligne, le personnel d'école lit sa base locale PowerSync.
+      GoRoute(
+        path: Routes.userCirculaires,
+        builder: (_, _) => const CirculairesRecuesScreen(),
       ),
       // Notifications = cloche + drawer dans le header (pas une page de route).
       GoRoute(

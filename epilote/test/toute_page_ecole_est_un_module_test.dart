@@ -71,6 +71,13 @@ const Map<String, String> _routesNativesJustifiees = {
   '/user/notifications': 'Communication : tissu natif, jamais vendu.',
   '/user/messagerie': 'Communication : tissu natif, jamais vendu.',
   '/user/evenements': 'Communication : tissu natif, jamais vendu.',
+  // Une circulaire vient du MINISTÈRE de tutelle. La gater sur un plan
+  // reviendrait à couper un établissement de la correspondance officielle
+  // de son administration parce qu'il n'a pas payé son logiciel — et
+  // l'accusé de lecture qu'on lui réclame deviendrait impossible à donner.
+  // Gardée par le RÔLE (direction), au routeur et dans la sidebar.
+  '/user/circulaires':
+      'Correspondance de la tutelle : tissu natif, jamais vendu.',
   '/user/espace-parent': 'Espace famille — planifié en dernier.',
   '/user/support': 'Ouvrir un ticket au support plateforme.',
   // L'hôte générique n'est pas une page : il PORTE le slug d'un module.

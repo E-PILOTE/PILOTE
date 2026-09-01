@@ -397,6 +397,13 @@ List<NavSection> _staffSections(WidgetRef ref, ProfileModel profile) {
         label: 'Rapports',
         route: Routes.userRapports,
       ),
+      // Circulaires de la tutelle. Direction SEULEMENT : l'accusé de lecture
+      // engage l'établissement. Le routeur pose le même verrou.
+      NavEntry.item(
+        icon: Icons.markunread_mailbox_rounded,
+        label: 'Circulaires',
+        route: Routes.userCirculaires,
+      ),
       NavEntry.item(
         icon: Icons.fact_check_outlined,
         label: "Journal d'audit",
