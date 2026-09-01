@@ -57,6 +57,43 @@
 --  (`FerieNationalNonModifiable`) au lieu de laisser le serveur se taire.
 --  **Aucun autre défaut.**
 --
+--  ── ⚠️ DEUX MODES DE SONDAGE, DEUX QUESTIONS DIFFÉRENTES ──────────────────
+--  Ce script choisit la ligne SOUS L'IDENTITÉ SONDÉE (`SELECT id FROM t` en
+--  rôle `authenticated`). Il répond donc à : « ce que le directeur VOIT,
+--  peut-il l'écrire, et le refus parle-t-il ? »
+--
+--  Il existe une seconde question, et elle compte autant : **PowerSync
+--  réplique en CONTOURNANT la RLS**. Un poste détient donc des lignes que son
+--  utilisateur ne peut pas sélectionner en ligne — tous les référentiels de
+--  groupe et nationaux. Pour les sonder, choisir la ligne en rôle propriétaire
+--  puis tenter l'écriture sous l'identité de l'école :
+--
+--      PERFORM set_config('role','postgres', true);
+--      EXECUTE format('SELECT id FROM %I LIMIT 1', t) INTO v_id;
+--      -- puis basculer en 'authenticated' AVANT l'UPDATE/DELETE
+--
+--  Relevé du 2026-09-01 dans ce second mode : sur les **45 tables peuplées**,
+--  écrire une ligne qui n'appartient pas à l'école est refusé **45 fois sur
+--  45, et TOUJOURS EN SILENCE** — aucune ne lève. L'isolement entre
+--  établissements tient donc parfaitement ; il ne se signale simplement jamais.
+--
+--  ── LA CARTE DES ÉCRITURES HORS LIGNE (2026-09-01) ────────────────────────
+--  Croisement complet des 87 tables avec `UPDATE|DELETE FROM|INSERT INTO <t>`
+--  dans `epilote/lib` : **58 tables reçoivent une écriture hors ligne**.
+--
+--  ✅ Et AUCUNE n'est un référentiel de groupe ou national : ni
+--  `academic_years`, ni `trimesters`, ni `school_cycles`, ni `school_levels`,
+--  ni `education_*`, ni `modules`, ni `schools`, ni `school_groups`, ni
+--  `access_profiles`, ni `departments`, ni `profile_permissions`.
+--
+--  La seule exception était `school_holidays` — refermée le 2026-09-01 : ses
+--  `updateHoliday` / `deleteHoliday` LÈVENT désormais sur une ligne nationale
+--  au lieu de laisser le serveur se taire.
+--
+--  ⚠️ 42 des 87 tables sont VIDES dans toute la base : aucune identité ne les
+--  rendra testables. Seul un jeu de données de recette y changerait quelque
+--  chose — c'est une limite de données, pas de méthode.
+--
 --  ── ⚠️ LA LIMITE, QU'IL FAUT CONNAÎTRE ─────────────────────────────────────
 --  Une table SANS ligne visible pour l'identité sondée n'est PAS testée : 58
 --  sur 87 ce jour-là. « Rien trouvé » vaut pour les tables peuplées, pas pour

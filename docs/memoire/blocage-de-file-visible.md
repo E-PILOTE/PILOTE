@@ -135,6 +135,24 @@ le jour où quelqu'un y branche un bouton « modifier », il obtient « je l'ai
 modifié et c'est revenu ». Les deux fonctions LÈVENT désormais
 (`FerieNationalNonModifiable`) au lieu de laisser le serveur se taire.
 
+### Complété le 2026-09-01 : la carte des écritures, et un second mode
+
+⚠️ **PowerSync réplique en CONTOURNANT la RLS.** Un poste détient donc des
+lignes que son utilisateur ne peut pas sélectionner en ligne — tous les
+référentiels de groupe. La sonde les SAUTAIT, faute de pouvoir les lire. En
+choisissant la ligne en rôle propriétaire puis en écrivant sous l'identité de
+l'école : sur les **45 tables peuplées**, écrire une ligne qui n'appartient pas
+à l'établissement est refusé **45 fois sur 45, toujours en silence**.
+L'isolement entre établissements tient parfaitement ; il ne se signale jamais.
+
+Croisement complet des 87 tables avec le dépôt : **58 reçoivent une écriture
+hors ligne**, et ✅ **aucune n'est un référentiel de groupe ou national**.
+`school_holidays` était la seule exception, refermée.
+
+⚠️ **42 des 87 tables sont VIDES dans toute la base** : aucune identité ne les
+rendra testables. C'est une limite de DONNÉES, pas de méthode — seul un jeu de
+recette y changerait quelque chose.
+
 **Aucun autre défaut.** Et la limite reste : 58 tables sur 87 n'ont aucune ligne
 visible, donc ne sont pas testées. « Rien trouvé » vaut pour les tables
 peuplées, pas pour le schéma.
