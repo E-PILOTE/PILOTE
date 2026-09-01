@@ -72,15 +72,22 @@ fichier réel **avant** le jour 1, pas devant l'école.
 
 ## Le jour 1 — la première heure
 
-1. Installer depuis le dépôt public de distribution, pas par clé USB anonyme.
-   Vérifier l'empreinte SHA-256 (`packaging/windows/INSTALL.md`).
-2. ⚠️ **Prévenir de l'avertissement SmartScreen.** L'application n'est pas
-   signée : Windows affichera « éditeur inconnu ». Un chef d'établissement qui
-   découvre ça seul referme la fenêtre et n'y revient pas.
-3. Première connexion du chef, **en ligne** — c'est le seul moment où le réseau
+1. **Télécharger une fois, sur le poste du technicien**, depuis le dépôt public
+   de distribution — puis **vérifier l'empreinte SHA-256**
+   (`packaging/windows/INSTALL.md`). C'est l'empreinte, et non la provenance,
+   qui garantit le fichier.
+2. **Copier ensuite sur clé USB** pour l'installation dans l'établissement.
+   ⚠️ Ce n'est pas un détail de logistique : un fichier copié depuis une clé
+   (FAT32/exFAT) ne porte pas de Mark-of-the-Web, donc **Windows n'affiche pas
+   son bandeau bleu « Windows a protégé votre ordinateur »**. Télécharger
+   directement sur le poste de l'école le déclencherait.
+3. Il restera l'invite UAC mentionnant **« Éditeur inconnu »** — beaucoup plus
+   discrète, mais à annoncer quand même. Un chef d'établissement qui la
+   découvre seul referme la fenêtre.
+4. Première connexion du chef, **en ligne** — c'est le seul moment où le réseau
    est indispensable.
-4. Laisser la synchro initiale se faire en entier avant de fermer.
-5. Débrancher le réseau, rouvrir, vérifier que tout est là. **C'est la
+5. Laisser la synchro initiale se faire en entier avant de fermer.
+6. Débrancher le réseau, rouvrir, vérifier que tout est là. **C'est la
    démonstration qui emporte l'adhésion**, et elle prend deux minutes.
 
 ## Ce qu'on observe, tous les matins
