@@ -1,7 +1,42 @@
 -- ════════════════════════════════════════════════════════════════════════════
 --  0146 — RETIRER LES DEUX COLONNES FIREBASE
 --
---  ⚠️⚠️ NE PAS APPLIQUER AUJOURD'HUI. Lire « QUAND » plus bas.
+--  ⚠️⚠️ NE PAS APPLIQUER AUJOURD'HUI. Lire « QUAND », puis « MESURE DU
+--      2026-09-01 » qui en corrige le raisonnement sans lever la suspension.
+--
+--  ── MESURE DU 2026-09-01 : LE PARC NE PEUT PAS RÉPONDRE, MAIS LE CODE SI ──
+--  Ce qu'on a voulu savoir : le parc a-t-il adopté le build ? Réponse : la
+--  question est SANS OBJET, et pour deux raisons opposées.
+--
+--   • Il n'y a pas de parc. `app_installations` contient UNE installation —
+--     la machine de développement, build 27. 37 écoles actives, 344 comptes.
+--   • Et cette table ne PEUT PAS répondre : elle ne remonte que depuis le
+--     2026-08-29 (migration 0150), alors que les **10 sessions** jamais
+--     ouvertes datent toutes d'AVANT (06/08 → 27/08). Un poste ancien serait
+--     donc INVISIBLE ici. L'absence de preuve n'est pas une preuve d'absence.
+--
+--  ── CE QUI, EN REVANCHE, EST DÉMONTRÉ ────────────────────────────────────
+--  Le danger suppose qu'un poste ENVOIE la colonne retirée. Il ne le peut pas :
+--
+--   1. `powersync_connector.dart` envoie, pour un `patch`,
+--      `table.update(op.opData!)` — donc UNIQUEMENT les colonnes réellement
+--      écrites localement, jamais le schéma entier ;
+--   2. seul un `put` (insertion) transmettrait la ligne locale complète ;
+--   3. il n'existe AUCUNE insertion locale sur `profiles` ni sur
+--      `notifications` — le seul écrit sur `profiles` est un UPDATE de quatre
+--      colonnes (`first_name`, `last_name`, `phone`, `updated_at`) ;
+--   4. ni `fcm_token` ni `fcm_message_id` n'est écrite nulle part dans `lib/`.
+--
+--  Autrement dit : même un poste du 6 août, qui déclare `fcm_token` dans son
+--  schéma local, ne l'ENVERRA jamais — il ne l'écrit jamais.
+--
+--  ⚠️ CELA NE LÈVE PAS LA SUSPENSION, et c'est délibéré. Le raisonnement
+--  ci-dessus repose sur quatre faits de CODE, pas sur une observation du parc.
+--  Ils sont désormais tenus par
+--  `epilote/test/colonne_retiree_ne_peut_pas_etre_envoyee_test.dart`, qui
+--  échoue si l'un d'eux tombe. La décision d'appliquer reste entière — mais
+--  elle ne repose plus sur une incertitude, elle repose sur un choix.
+
 --
 --  ── LA DÉCISION (2026-08-29) ──────────────────────────────────────────────
 --  La plateforme n'a qu'un fournisseur : Supabase. Firebase n'entre pas.

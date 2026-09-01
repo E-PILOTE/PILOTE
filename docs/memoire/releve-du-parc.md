@@ -80,3 +80,28 @@ doublement juste.
 garde `test/parc_versions_test.dart` (13 tests).
 
 Liens : [[deploiement-national-octobre]] · [[powersync-status]]
+
+## ⚠️ Relevé du 2026-09-01 — il n'y a pas de parc
+
+| | |
+|---|---|
+| installations déclarées | **1** (la machine de dev, build 27) |
+| écoles actives | 37 |
+| comptes actifs | 344 |
+| comptes ayant OUVERT une session | **10**, entre le 06/08 et le 27/08 |
+
+⚠️ **`app_installations` ne peut pas répondre à la question qu'on lui pose.**
+Elle ne remonte que depuis le **2026-08-29** (migration 0150), et les 10
+sessions datent toutes d'AVANT. Un poste resté sur un vieux build y serait donc
+INVISIBLE : l'absence de vieux poste dans cette table n'est pas une preuve
+d'absence.
+
+⚠️ Autre colonne morte croisée au passage : **`profiles.last_login` est nulle
+sur les 344 comptes** — elle n'est écrite nulle part. Le « 10 sessions » vient
+de `auth.users.last_sign_in_at`, pas d'elle. Voir [[portail-parents-etat-reel]]
+pour le même motif (`parent_portal_enabled`, retirée par 0168).
+
+Conséquence pour [[blocage-de-file-visible]] et `0146` : la condition « tous
+les postes ont le build » ne peut pas être VÉRIFIÉE par cette table. Ce qui a
+débloqué le raisonnement est ailleurs — dans le code, pas dans le parc : voir
+l'en-tête de `database/migrations/0146_*.sql`.
