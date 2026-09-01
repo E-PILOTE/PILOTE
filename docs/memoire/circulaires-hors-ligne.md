@@ -127,9 +127,32 @@ second `pull` écrit dans `sync-fetched.yaml`, PAS dans `sync-config.yaml`. Je
 comparais donc ma propre copie au dépôt — identique par construction. C'est
 `sync-fetched.yaml` qu'il faut differ.
 
-⚠️ **Il reste à éprouver de bout en bout** : il y a 0 circulaire en base, donc
-personne n'a encore rien reçu. La preuve demande d'en publier une VRAIE — elle
-partirait à 25 établissements et notifierait 14 chefs. Décision produit.
+## ✅ Éprouvée de bout en bout le 2026-09-01, sur un vrai poste
+
+Deux circulaires d'essai publiées, au rayon le plus étroit possible :
+
+| réf. | émetteur | ciblage | destinataires |
+|---|---|---|---|
+| `ESSAI-2026-001` | MEPSA | dépt **Bouenza** | 1 — École Primaire de Madingou |
+| `ESSAI-2026-002` | METP | dépt **Sangha** | 1 — CET de Ouésso (**le poste de recette**) |
+
+`ESSAI-2026-002` visait délibérément l'école du poste de développement : après
+75 s d'application ouverte, sa base SQLite locale contient **une ligne**, avec
+l'instantané complet — émetteur, référence, objet, priorité, `accuse_requis=1`,
+échéance, `publiee_le`, et les 227 caractères du corps. `lu_le` reste nul.
+
+⚠️ **Et le ciblage se prouve par la NÉGATIVE** : il n'y a qu'UNE ligne en
+local. La circulaire MEPSA n'est pas descendue — autre tutelle, autre école.
+Un bucket qui descendrait tout aurait donné deux lignes.
+
+La chaîne complète est donc vérifiée : `circulaire_publier` → instantané figé
+sur la ligne du destinataire → bucket `circulaires_ecole` → SQLite du poste.
+Notifications comprises : 1 au chef d'établissement (route `/user/circulaires`,
+ouverte par `context.go` depuis le tiroir) et 1 à l'admin de groupe.
+
+⚠️ Les deux circulaires d'essai sont de VRAIES lignes en production. Leur objet
+le dit. À supprimer quand elles auront servi — un `DELETE` sur `circulaires`
+emporte ses destinataires.
 
 ⚠️ **Conséquence tant que la règle n'est pas déployée** : l'écran existe et la
 vue locale est créée (vérifié sur une base réelle après installation), mais
