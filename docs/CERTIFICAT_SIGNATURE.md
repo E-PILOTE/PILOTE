@@ -29,10 +29,45 @@ pas en y mettant plus de travail.
 > **FIPS 140-2 niveau 2**, **Common Criteria EAL 4+** ou équivalent. Un
 > certificat émis aujourd'hui **n'est pas exportable en `.pfx`**.
 
-Il n'existe donc aucun fichier à mettre dans un secret GitHub. L'étape de
-signature devra être **réécrite** selon la voie retenue ci-dessous — ce n'est
-pas « poser un secret », c'est un petit chantier. Mieux vaut le savoir
-maintenant que la veille du déploiement.
+Il n'existe donc aucun fichier à mettre dans un secret GitHub.
+
+✅ **L'étape a été réécrite le 2026-09-01** pour un HSM infonuagique. Elle est
+désormais en deux temps, et **inerte tant que les secrets sont absents** :
+
+| | |
+|---|---|
+| 1/2 — *préparer et signer l'application* | installe le client, importe le certificat **public** dans le magasin Windows, vérifie que l'empreinte y est, signe `E-PILOTE.exe` **avant l'empaquetage** |
+| 2/2 — *signer l'installateur* | réutilise la même empreinte, signe et **vérifie** chaque `.exe` de `dist/` |
+
+⚠️ **Les deux binaires sont signés, pas seulement l'installateur.** Windows
+vérifie l'enveloppe qu'on double-clique *et* l'exécutable qu'elle dépose : ne
+signer que la première laisserait « éditeur inconnu » au premier lancement de
+l'application — juste après avoir rassuré l'école.
+
+⚠️ **Chaque signature est VÉRIFIÉE** (`signtool verify /pa`). Une étape qui
+signe sans contrôler peut publier un binaire non signé en silence, et c'est
+l'école qui le découvrirait.
+
+### Les cinq secrets à poser
+
+| secret | ce que c'est |
+|---|---|
+| `SM_API_KEY` | clé d'API du service de signature |
+| `SM_CLIENT_CERT_B64` | certificat d'authentification client, en base64 |
+| `SM_CLIENT_CERT_PASSWORD` | son mot de passe |
+| `SM_HOST` | l'hôte du service |
+| `SM_CERT_THUMBPRINT` | empreinte du certificat de signature |
+
+⚠️ **Où changer de fournisseur** : seul le bloc « préparer » de l'étape 1/2 est
+spécifique à DigiCert KeyLocker. La signature passe par `signtool /sha1`,
+identique pour SSL.com eSigner (via son CKA), pour tout autre KSP, ou pour un
+jeton physique sur un runner auto-hébergé. Changer = réécrire une dizaine de
+lignes, pas l'étape.
+
+⚠️ **Non éprouvée contre un vrai compte** — écrite sans certificat en main.
+C'est précisément pourquoi elle lève à la moindre anomalie et vérifie ce
+qu'elle vient de signer : le premier essai réel dira si le raccord tient, et il
+le dira bruyamment.
 
 ## Les trois voies, et ce qu'elles coûtent vraiment
 
