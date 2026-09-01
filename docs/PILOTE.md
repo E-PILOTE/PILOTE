@@ -138,7 +138,7 @@ que ça arrive à deux écoles plutôt qu'à mille.
 
 Ne pas laisser découvrir ces limites au pire moment :
 
-- **« Éditeur inconnu » au premier lancement** — normal, non signé à ce stade.
+- **« Éditeur inconnu » dans l'invite Windows** — normal : le logiciel n'est pas signé, c'est une décision assumée. Son intégrité se prouve par l'empreinte SHA-256, pas par une signature.
 - **Pas d'espace parent ni élève** : c'est le seul écran non construit.
 - **L'accusé de lecture d'une circulaire exige le réseau** — la circulaire, elle,
   se lit hors ligne. Le bouton le dit.
@@ -151,6 +151,6 @@ Ne pas laisser découvrir ces limites au pire moment :
 
 | | échéance |
 |---|---|
-| **certificat de signature de code** | ⚠️ **le pilote n'en a PAS besoin** — deux écoles installées par un technicien, c'est le chemin USB, qui ne déclenche pas SmartScreen. Voir `docs/CERTIFICAT_SIGNATURE.md` : la question à trancher est le MODE DE DISTRIBUTION, pas le certificat |
+| ~~certificat de signature de code~~ | ✅ **ÉCARTÉ le 01/09** — on ne signe pas. La garantie est l'empreinte SHA-256, déjà vérifiée par l'application. Surveiller pendant le pilote : les **faux positifs antivirus**, seule inconnue restante. Voir `docs/CERTIFICAT_SIGNATURE.md` |
 | CI GitHub | débloquée en dépôt public ; la repasser en privé la rebloque |
 | décisions ouvertes (audit hors ligne, audit des créations, `0146`) | sans effet sur le pilote |

@@ -162,96 +162,31 @@ jobs:
           }
           Write-Host "✓ Base hors ligne créée : $($db.FullName) ($($db.Length) o)"
 
-      # ══ SIGNATURE DE CODE — 1/2 : preparer le signataire, signer l'appli ══
+      # ── SIGNATURE DE CODE — ÉCARTÉE, décision du 2026-09-01 ───────────────
+      # Les binaires ne sont PAS signés, et c'est un choix mesuré, pas un
+      # renoncement :
       #
-      # ⚠️ La cle privee vit sur un HSM INFONUAGIQUE, jamais sur le runner.
-      # Depuis le 1er juin 2023 (CA/Browser Forum), un certificat de signature
-      # n'est plus exportable en `.pfx` : il n'y a donc AUCUN fichier a poser
-      # dans un secret. Le service signe pour nous ; on ne detient que des
-      # identifiants. Dossier : docs/CERTIFICAT_SIGNATURE.md.
+      #   • le bandeau bleu de SmartScreen ne se déclenche QUE sur un fichier
+      #     porteur d'un Mark-of-the-Web, c'est-à-dire téléchargé par un
+      #     NAVIGATEUR. Une copie depuis une clé USB n'en porte pas, et la mise
+      #     à jour intégrée non plus (vérifié : aucun Zone.Identifier sur
+      #     l'installateur construit ici ni sur celui repris par `curl`) ;
+      #   • le mode de distribution retenu est donc : télécharger UNE fois,
+      #     vérifier l'empreinte SHA-256, distribuer par clé.
       #
-      # ⚠️ INERTE SANS SECRETS, deliberement : tant que le certificat n'existe
-      # pas, la CI doit continuer de produire un installateur — non signe, avec
-      # l'avertissement SmartScreen documente dans INSTALL.md.
+      # L'intégrité ne repose donc pas sur une signature mais sur l'EMPREINTE
+      # publiée avec chaque version et vérifiée par l'application avant toute
+      # installation de mise à jour. C'est ce que fait l'étape « Empreinte et
+      # manifeste » ci-dessous, et le garde `Recette anonyme` du job de
+      # publication.
       #
-      # ⚠️ POURQUOI SIGNER L'APPLICATION AVANT L'EMPAQUETAGE : Windows verifie
-      # DEUX choses — l'installateur qu'on double-clique, et l'executable qu'il
-      # depose. Ne signer que l'installateur laisserait « editeur inconnu » au
-      # premier lancement de l'application, juste apres avoir rassure l'ecole.
+      # ⚠️ L'implémentation complète pour un HSM infonuagique (DigiCert
+      # KeyLocker, deux étapes, avec vérification `signtool verify`) reste dans
+      # l'historique git — commit `9db2838`. La reprendre = un `git show`, pas
+      # une réécriture.
       #
-      # ── OU CHANGER DE FOURNISSEUR ─────────────────────────────────────────
-      # Seul le bloc « Preparer » est specifique a DigiCert KeyLocker. La
-      # signature passe par `signtool /sha1`, identique pour SSL.com eSigner
-      # (via son CKA), pour tout autre KSP, ou pour un jeton physique sur un
-      # runner auto-heberge. Changer de fournisseur = reecrire une dizaine de
-      # lignes, pas l'etape.
-      #
-      # ⚠️ NON EPROUVEE CONTRE UN VRAI COMPTE : ecrite sans certificat en main.
-      # C'est pourquoi elle LEVE a la moindre anomalie et VERIFIE ce qu'elle
-      # vient de signer — une etape qui signe sans controler peut produire un
-      # binaire non signe en silence, et c'est exactement ce qu'on ne veut pas
-      # decouvrir sur le poste d'une ecole.
-      - name: Signature — préparer le signataire et signer l'application
-        id: signature
-        shell: pwsh
-        env:
-          SM_API_KEY: ${{ secrets.SM_API_KEY }}
-          SM_CLIENT_CERT_B64: ${{ secrets.SM_CLIENT_CERT_B64 }}
-          SM_CLIENT_CERT_PASSWORD: ${{ secrets.SM_CLIENT_CERT_PASSWORD }}
-          SM_HOST: ${{ secrets.SM_HOST }}
-          SM_CERT_THUMBPRINT: ${{ secrets.SM_CERT_THUMBPRINT }}
-        run: |
-          $prets = $env:SM_API_KEY -and $env:SM_CLIENT_CERT_B64 -and `
-                   $env:SM_CLIENT_CERT_PASSWORD -and $env:SM_CERT_THUMBPRINT
-          if (-not $prets) {
-            Write-Host '::notice::Aucun certificat configure - binaires NON SIGNES.'
-            Write-Host 'Windows affichera un avertissement SmartScreen. Voir packaging/windows/INSTALL.md.'
-            'actif=false' | Out-File $env:GITHUB_OUTPUT -Append
-            'thumbprint=' | Out-File $env:GITHUB_OUTPUT -Append
-            exit 0
-          }
-
-          # ── Preparer : client KeyLocker, puis import du certificat PUBLIC ──
-          $cert = Join-Path $env:RUNNER_TEMP 'sm-client.p12'
-          [IO.File]::WriteAllBytes($cert, [Convert]::FromBase64String($env:SM_CLIENT_CERT_B64))
-          $env:SM_CLIENT_CERT_FILE = $cert
-
-          $msi = Join-Path $env:RUNNER_TEMP 'keylocker.msi'
-          Invoke-WebRequest -OutFile $msi -Headers @{ 'x-api-key' = $env:SM_API_KEY } `
-            -Uri "$env:SM_HOST/signingmanager/api-ui/v1/releases/Keylockertools-windows-x64.msi/download"
-          Start-Process msiexec.exe -Wait -NoNewWindow -ArgumentList "/i `"$msi`" /quiet /qn"
-          $env:PATH = "C:\Program Files\DigiCert\DigiCert Keylocker Tools;$env:PATH"
-
-          # `certsync` depose le certificat PUBLIC dans le magasin Windows ; la
-          # cle privee, elle, ne quitte jamais le HSM.
-          & smctl windows certsync
-          if ($LASTEXITCODE -ne 0) { throw "smctl certsync a echoue ($LASTEXITCODE)" }
-
-          # ⚠️ Verifier que l'empreinte annoncee est REELLEMENT dans le magasin.
-          # Sans ce controle, `signtool /sha1` echouerait plus loin, avec un
-          # message obscur, APRES l'empaquetage — donc au pire moment.
-          $tp = ($env:SM_CERT_THUMBPRINT -replace '\s', '').ToUpper()
-          if (-not (Get-ChildItem Cert:\CurrentUser\My |
-                    Where-Object { $_.Thumbprint -eq $tp })) {
-            throw "Le certificat $tp n'est pas dans le magasin apres certsync."
-          }
-          Write-Host "Signataire pret (empreinte $tp)"
-
-          # ── Signer l'application ──────────────────────────────────────────
-          $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter signtool.exe |
-                      Where-Object { $_.FullName -like '*x64*' } | Select-Object -First 1
-          if (-not $signtool) { throw 'signtool.exe introuvable sur le runner.' }
-
-          $exe = 'epilote\build\windows\x64\runner\Release\E-PILOTE.exe'
-          & $signtool.FullName sign /sha1 $tp /fd SHA256 `
-            /tr http://timestamp.digicert.com /td SHA256 $exe
-          if ($LASTEXITCODE -ne 0) { throw "Signature de l'application echouee ($LASTEXITCODE)" }
-          & $signtool.FullName verify /pa /v $exe
-          if ($LASTEXITCODE -ne 0) { throw 'Application signee mais NON VERIFIABLE.' }
-
-          'actif=true'     | Out-File $env:GITHUB_OUTPUT -Append
-          "thumbprint=$tp" | Out-File $env:GITHUB_OUTPUT -Append
-          Write-Host 'Application signee et verifiee'
+      # Raisonnement, alternatives libres et conditions d'un éventuel retour :
+      # docs/CERTIFICAT_SIGNATURE.md
 
       # L'installateur. Le dossier « Release » brut n'est pas distribuable :
       # 108 Mo en vingt-six DLL, dont personne dans un établissement ne saura
@@ -275,47 +210,6 @@ jobs:
 
           Get-ChildItem dist\*.exe | ForEach-Object {
             '{0} — {1:N1} Mo' -f $_.Name, ($_.Length / 1MB)
-          }
-
-      # ══ SIGNATURE DE CODE — 2/2 : l'installateur ═════════════════════════
-      #
-      # L'application a deja ete signee AVANT l'empaquetage (etape 1/2) ; il
-      # reste l'enveloppe, celle que l'utilisateur double-clique et que
-      # SmartScreen regarde en premier.
-      #
-      # Le signataire est deja pret : l'etape 1/2 a installe le client et
-      # importe le certificat public dans le magasin Windows. Ici, il n'y a
-      # plus qu'a signer avec la meme empreinte.
-      - name: Signer l'installateur
-        shell: pwsh
-        env:
-          THUMBPRINT: ${{ steps.signature.outputs.thumbprint }}
-        run: |
-          if (-not $env:THUMBPRINT) {
-            Write-Host '::notice::Aucun certificat configure - installateur NON SIGNE.'
-            Write-Host 'Windows affichera un avertissement SmartScreen. Voir packaging/windows/INSTALL.md.'
-            exit 0
-          }
-
-          $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter signtool.exe |
-                      Where-Object { $_.FullName -like '*x64*' } | Select-Object -First 1
-          if (-not $signtool) { throw 'signtool.exe introuvable sur le runner.' }
-
-          $cibles = @(Get-ChildItem dist\*.exe)
-          if ($cibles.Count -eq 0) { throw 'Aucun installateur a signer dans dist\.' }
-
-          foreach ($f in $cibles) {
-            & $signtool.FullName sign /sha1 $env:THUMBPRINT /fd SHA256 `
-              /tr http://timestamp.digicert.com /td SHA256 $f.FullName
-            if ($LASTEXITCODE -ne 0) { throw "Signature echouee pour $($f.Name)" }
-
-            # ⚠️ VERIFIER, toujours. Une etape qui signe sans controler peut
-            # publier un binaire non signe en silence — et l'ecole le
-            # decouvrirait a sa place, sous la forme d'un avertissement qu'on
-            # lui avait promis absent.
-            & $signtool.FullName verify /pa /v $f.FullName
-            if ($LASTEXITCODE -ne 0) { throw "$($f.Name) signe mais NON VERIFIABLE." }
-            Write-Host "Signe et verifie : $($f.Name)"
           }
 
       # ── L'empreinte ────────────────────────────────────────────────────────
