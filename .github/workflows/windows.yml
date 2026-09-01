@@ -212,6 +212,52 @@ jobs:
             '{0} — {1:N1} Mo' -f $_.Name, ($_.Length / 1MB)
           }
 
+      # ── LE FILET ANTIVIRUS — la contrepartie de ne pas signer ───────────
+      # Décision du 2026-09-01 : les binaires ne sont PAS signés (voir
+      # docs/CERTIFICAT_SIGNATURE.md). Le seul risque réel que ça laisse est le
+      # FAUX POSITIF antivirus — un installateur non signé est jugé sur son seul
+      # comportement, et le verdict tombe sans prévenir, à l'école, devant le chef
+      # d'établissement.
+      #
+      # Ce scan ne supprime pas le risque : il le fait tomber ICI plutôt que
+      # là-bas. La protection nuage est consultée (« blocage à la première vue »),
+      # donc c'est bien le verdict qui frappera les écoles qu'on lit, pas une base
+      # locale figée.
+      #
+      # ⚠️ Ne bloque QUE si Defender a réellement pu s'exécuter. Sur un runner où
+      # le moteur est absent, on AVERTIT — on ne fait pas tomber une livraison
+      # saine pour un outil manquant. Un avertissement se lit ; une livraison
+      # bloquée sans cause se contourne, et c'est le garde qu'on perd.
+      - name: Antivirus — juger le binaire avant les écoles
+        shell: pwsh
+        run: |
+          $exe = (Get-ChildItem dist\*.exe | Select-Object -First 1).FullName
+          $mp  = Join-Path $env:ProgramFiles 'Windows Defender\MpCmdRun.exe'
+          if (-not (Test-Path $mp)) {
+            Write-Host "::warning::Windows Defender introuvable sur le runner : binaire NON contrôlé. Le scanner à la main avant toute distribution."
+            exit 0
+          }
+
+          try { & $mp -SignatureUpdate | Out-Null } catch {
+            Write-Host "::warning::Mise à jour des signatures impossible — le verdict ci-dessous porte sur une base peut-être ancienne."
+          }
+
+          & $mp -Scan -ScanType 3 -File $exe
+          $code = $LASTEXITCODE
+
+          if ($code -ne 0) {
+            $nom = [System.IO.Path]::GetFileName($exe)
+            Write-Host "::error::Windows Defender a signalé $nom (code $code). NE PAS DISTRIBUER — ce qui tombe ici tomberait sur chaque école. Soumettre le binaire à Microsoft avant de republier : docs/CERTIFICAT_SIGNATURE.md"
+            exit 1
+          }
+
+          try {
+            $v = (Get-MpComputerStatus).AntivirusSignatureVersion
+            Write-Host "✓ Aucun signalement — signatures $v"
+          } catch {
+            Write-Host "✓ Aucun signalement"
+          }
+
       # ── L'empreinte ────────────────────────────────────────────────────────
       # Elle n'est pas décorative : l'application REFUSE d'installer un fichier
       # dont l'empreinte diffère de celle publiée (table `app_releases`). La

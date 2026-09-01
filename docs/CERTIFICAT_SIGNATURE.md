@@ -41,8 +41,9 @@ publié, sans dépendre d'une autorité tierce.
 
 - L'invite UAC affiche **« Éditeur inconnu »**. Discret, mais présent à chaque
   installation. À annoncer aux écoles.
-- Un binaire non signé est **plus exposé aux faux positifs antivirus**. Risque
-  réel, imprévisible — à surveiller pendant le pilote.
+- Un binaire non signé est **plus exposé aux faux positifs antivirus**. C'est le
+  seul risque sérieux qui subsiste — il a désormais son filet, gratuit et sans
+  clé : voir « Le risque qui reste vraiment » plus bas.
 - Un ministère déployant un logiciel d'« éditeur inconnu » : argument de
   crédibilité, non technique, mais réel.
 
@@ -52,30 +53,91 @@ publié, sans dépendre d'une autorité tierce.
 |---|---|
 | **Empreinte SHA-256 publiée + vérifiée** | ✅ **en place**, gratuit — c'est la vraie garantie d'intégrité |
 | **Distribution par clé USB** | ✅ **retenu**, gratuit, supprime le bandeau bleu |
-| **Auto-signé + « éditeurs approuvés »** | 🟡 gratuit et sérieux *si le parc est maîtrisé* — voir ci-dessous |
+| **Auto-signé, sans rien déposer** | ⛔ **mesuré sans effet** — Windows rejette la chaîne ; identique à non signé. Voir ci-dessous |
+| **Auto-signé + racine déposée sur chaque poste** | ⛔ marche, mais fabrique une **clé maîtresse sur le parc**. Écarté |
+| **Azure Trusted Signing** (Microsoft détient la clé) | 🟡 le seul chemin où l'on ne possède **aucune clé** et où le nom affiché reste le nôtre — éligibilité à vérifier |
 | **`osslsigncode`** (libre) | 🟡 permet de signer sans SignTool ; ne fournit PAS la confiance, seulement le geste |
 | **SignPath Foundation / OSSign** (gratuit pour l'open source) | ⛔ l'« Éditeur » affiché serait *SignPath Foundation*, pas E-PILOTE CONGO |
 | **Sigstore / cosign** | ⛔ ne produit pas de signature Authenticode : Windows ne la lit pas |
 
-### 🟡 L'option auto-signée, si le parc est maîtrisé
+### ⛔ Fabriquer notre propre certificat — mesuré, et sans effet
 
-Un certificat auto-signé **ne supprime rien par lui-même** : Windows le tient
-pour inconnu. Mais si le ministère **contrôle les postes**, on peut déposer ce
-certificat dans les magasins « Autorités racines de confiance » et « Éditeurs
-approuvés » de chaque machine — par stratégie de groupe, ou par le script
-d'installation. L'application devient alors signée **et reconnue** sur ce parc,
-au nom d'E-PILOTE CONGO, gratuitement.
+**Question posée le 2026-09-01 : peut-on s'en créer un nous-mêmes ?** La réponse
+n'est pas une opinion, elle a été mesurée sur le vrai installateur 3.4.3.
 
-⚠️ **Ce n'est pas anodin.** Une racine de confiance installée sur un poste peut
-valider *n'importe quel* binaire signé par elle. Sa clé privée devient un actif
-à protéger sérieusement — la perdre ou la laisser fuir serait pire que de ne
-rien signer.
+Certificat fabriqué en une ligne (`New-SelfSignedCertificate -Type
+CodeSigningCert`, sujet `CN=E-PILOTE CONGO, O=E-PILOTE CONGO, C=CG`), binaire
+signé en SHA-256, puis relu par Windows :
 
-⚠️ **Et ça ne vaut que pour les postes où on l'installe.** Une école qui
-installerait le logiciel hors du dispositif verrait toujours « Éditeur
-inconnu ».
+| étape | ce que Windows répond |
+|---|---|
+| avant signature | `NotSigned` |
+| **après signature par notre propre certificat** | **`UnknownError`** — « une chaîne de certificats a été traitée mais s'est terminée par un certificat racine qui n'est pas approuvé par le fournisseur d'approbation » |
+| chaîne vérifiable (`.Verify()`) | **`False`** |
 
-À envisager si le déploiement est piloté poste par poste. Inutile sinon.
+Le fichier porte bien notre nom — et Windows refuse de le croire. **Pour
+l'école, le résultat est identique à celui d'un binaire non signé** : la même
+invite UAC, la même mention « Éditeur inconnu ».
+
+> Ce n'est pas un réglage à trouver, c'est le principe même. Une signature ne
+> vaut pas par elle-même, elle vaut par l'autorité qui l'a émise. Se signer
+> soi-même, c'est présenter une pièce d'identité qu'on a imprimée.
+
+*(Le certificat d'essai a été détruit et le magasin vérifié vide après mesure.)*
+
+#### Et si on déposait notre racine sur les postes ?
+
+C'est la seule façon de rendre cette signature valide : installer notre
+certificat dans « Autorités de certification racines de confiance » et
+« Éditeurs approuvés » de chaque machine. Ça fonctionne, gratuitement, au nom
+d'E-PILOTE CONGO. **C'est écarté quand même, pour trois raisons :**
+
+1. ⚠️ **Un poste qui nous fait confiance comme racine fait confiance à TOUT ce
+   que cette clé signe.** La clé privée devient une clé maîtresse sur le parc :
+   si elle fuite, un logiciel malveillant signé avec elle est accepté sans un
+   mot sur mille postes d'établissements scolaires. On échange un avertissement
+   contre un risque d'une autre nature.
+2. Ce geste **modifie la sécurité de l'ordinateur d'un tiers**. Il ne se décide
+   pas dans un script de build ; il se décide par écrit, au niveau du ministère.
+3. Il ne vaut **que sur les postes où on l'a déposée**. Toute installation hors
+   du dispositif retrouve « Éditeur inconnu ».
+
+**Bilan : une clé fabriquée par nous est soit inutile, soit dangereuse.**
+
+## Ne posséder aucune clé — les chemins existants
+
+| | qui détient la clé | verdict ici |
+|---|---|---|
+| **Ne pas signer** — état actuel | personne | ✅ **retenu**. Gratuit, rien à protéger, rien à renouveler |
+| **Azure Trusted Signing** | **Microsoft**, dans son propre HSM | 🟡 le seul où l'on ne détient jamais de clé **et** où l'éditeur affiché reste E-PILOTE CONGO. ⚠️ Éligibilité à confirmer avant tout espoir : organisation vérifiée, ancienneté exigée, régions ouvertes limitées |
+| **SignPath Foundation** | la fondation | ⛔ l'éditeur affiché serait la fondation |
+| **Microsoft Store** | Microsoft | ⛔ impose MSIX et la mise à jour par la boutique — incompatible avec un produit hors-ligne d'abord qui porte son propre updater |
+
+⚠️ Aucun de ces chemins n'est un préalable au pilote ni au déploiement : le
+mode de distribution par clé USB les rend tous facultatifs.
+
+## Le risque qui reste vraiment, et ce qu'on lui oppose — gratuitement
+
+Sans signature, il ne reste qu'**un** risque sérieux : le **faux positif
+antivirus**. Un binaire non signé est jugé sur son seul comportement, et le
+verdict tombe sans prévenir — à l'école, devant le chef d'établissement.
+
+**Mesuré le 2026-09-01 sur l'installateur 3.4.3** : Windows Defender, protection
+nuage en mode avancé et « blocage à la première vue » actif, signatures
+`1.457.442.0` du jour — **aucun signalement**. Le nuage de Microsoft a donc bien
+été consulté : ce n'est pas le verdict d'une base locale figée.
+
+Deux gestes, tous deux gratuits et sans clé :
+
+1. ✅ **La CI scanne désormais chaque installateur avant publication**
+   (`.github/workflows/windows.yml`, étape « Antivirus — juger le binaire avant
+   les écoles »). Un signalement fait échouer la livraison au lieu d'atteindre
+   le parc. Elle avertit sans bloquer si le moteur manque sur le runner — on ne
+   fait pas tomber une livraison saine pour un outil absent.
+2. **Si un antivirus signale un jour le binaire** : le soumettre au portail
+   d'analyse de l'éditeur concerné (Microsoft en premier), gratuit. C'est la
+   procédure normale de levée d'un faux positif, et elle ne demande aucun
+   certificat.
 
 ## Ce qui ferait rouvrir la décision
 

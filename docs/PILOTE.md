@@ -151,6 +151,6 @@ Ne pas laisser découvrir ces limites au pire moment :
 
 | | échéance |
 |---|---|
-| ~~certificat de signature de code~~ | ✅ **ÉCARTÉ le 01/09** — on ne signe pas. La garantie est l'empreinte SHA-256, déjà vérifiée par l'application. Surveiller pendant le pilote : les **faux positifs antivirus**, seule inconnue restante. Voir `docs/CERTIFICAT_SIGNATURE.md` |
+| ~~certificat de signature de code~~ | ✅ **ÉCARTÉ le 01/09** — on ne signe pas. La garantie est l'empreinte SHA-256, déjà vérifiée par l'application. Le seul risque restant — le **faux positif antivirus** — est désormais jugé en CI avant publication (étape « Antivirus »), et vérifié nul sur la 3.4.3. ⚠️ Se fabriquer un certificat soi-même a été mesuré : **sans effet** (Windows rejette la chaîne). Voir `docs/CERTIFICAT_SIGNATURE.md` |
 | CI GitHub | débloquée en dépôt public ; la repasser en privé la rebloque |
 | décisions ouvertes (audit hors ligne, audit des créations, `0146`) | sans effet sur le pilote |
