@@ -83,16 +83,36 @@ SELECT s.name AS ecole, a.table_name, a.action, a.user_role,
 
 \echo ''
 \echo '── 5. CE QUI DEVRAIT EXISTER ET N''EXISTE PAS ──'
--- Les manques qui bloquent un usage réel, école par école. Une case à 0 ici
--- explique souvent un « ça ne marche pas » qui n'est pas une panne.
+-- Les manques qui bloquent un usage reel, ecole par ecole. Une case a 0 ici
+-- explique souvent un « ca ne marche pas » qui n'est pas une panne.
+--
+-- ⚠️ CORRIGE LE 2026-09-01, APRES DEUX FAUSSES ALERTES. La premiere version
+-- filtrait `subjects` et `fee_structures` sur `school_id` — or 61 matieres sur
+-- 62 et la TOTALITE des baremes sont portes par le GROUPE, jamais par l'ecole
+-- (« un bareme n'est pas une donnee de l'ecole : dans le public il vient d'un
+-- arrete, dans le prive du siege ; l'ecole recoit et applique », mig 0096).
+-- La sonde annoncait donc « 0 » la ou tout etait en place, sur toutes les
+-- ecoles. Une sonde qui crie au loup envoie un technicien chasser un probleme
+-- inexistant le jour 1 — c'est pire que pas de sonde.
 SELECT s.name AS ecole,
-       (SELECT count(*) FROM academic_years y WHERE y.group_id=s.group_id AND y.is_current) AS annee_courante,
-       (SELECT count(*) FROM classes    c WHERE c.school_id=s.id AND c.is_active)  AS classes,
-       (SELECT count(*) FROM students   e WHERE e.school_id=s.id)                  AS eleves,
-       (SELECT count(*) FROM subjects   m WHERE m.school_id=s.id)                  AS matieres,
-       (SELECT count(*) FROM fee_structures f WHERE f.school_id=s.id AND f.is_active) AS bareme,
-       (SELECT count(*) FROM profiles   p WHERE p.school_id=s.id AND p.is_active)  AS agents,
-       (SELECT count(*) FROM timetable_slots t WHERE t.school_id=s.id)             AS creneaux_edt
+       (SELECT count(*) FROM academic_years y
+         WHERE y.group_id = s.group_id AND y.is_current)              AS annee_courante,
+       (SELECT count(*) FROM classes c
+         WHERE c.school_id = s.id AND c.is_active)                    AS classes,
+       (SELECT count(*) FROM students e WHERE e.school_id = s.id)     AS eleves,
+       -- disponible = la sienne OU celle de son groupe
+       (SELECT count(*) FROM subjects m
+         WHERE m.school_id = s.id
+            OR (m.school_id IS NULL AND m.group_id = s.group_id))     AS matieres_dispo,
+       -- ce qui compte vraiment pour noter : les matieres RATTACHEES aux classes
+       (SELECT count(*) FROM class_subjects cs WHERE cs.school_id = s.id) AS matieres_rattachees,
+       (SELECT count(*) FROM fee_structures f
+         WHERE f.is_active
+           AND (f.school_id = s.id
+             OR (f.school_id IS NULL AND f.group_id = s.group_id)))   AS bareme_applicable,
+       (SELECT count(*) FROM profiles p
+         WHERE p.school_id = s.id AND p.is_active)                    AS agents,
+       (SELECT count(*) FROM timetable_slots t WHERE t.school_id = s.id) AS creneaux_edt
   FROM schools s
  WHERE s.id IN (SELECT school_id FROM app_installations)
  ORDER BY s.name;

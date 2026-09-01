@@ -59,8 +59,8 @@ la plupart des « ça ne marche pas » qui n'en sont pas.**
 | année scolaire **courante** | sans elle, la structure est en lecture seule |
 | classes | rien ne s'accroche sans elles |
 | élèves importés | voir l'import ci-dessous |
-| matières | pas de matière, pas de note |
-| **barème de frais** | ⚠️ pas de barème = **aucun encaissement possible** |
+| matières **rattachées aux classes** | pas de matière, pas de note. ⚠️ Les matières aussi viennent du groupe ; ce qui compte est `class_subjects`, le rattachement effectif |
+| **barème de frais applicable** | ⚠️ pas de barème = **aucun encaissement possible**. ⚠️ Il vient du GROUPE, pas de l'école (arrêté dans le public, siège dans le privé — mig 0096) : le chercher au niveau du groupe, sinon on conclut à tort qu'il manque |
 | agents créés | le chef crée les siens ; le groupe crée le chef |
 | créneaux d'EDT | facultatif au jour 1, nécessaire pour l'appel par cours |
 
