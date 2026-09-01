@@ -166,10 +166,10 @@ conclut à tort qu'il est absent.
 # 2. notes + manifeste : EN PYTHON, PAS EN POWERSHELL (voir plus bas)
 
 # 3. publication
-gh release create v3.4.1 dist/*.exe dist/manifest.json \
-   -R E-PILOTE/telechargements --draft --title "E-PILOTE CONGO v3.4.1" \
+gh release create v3.4.2 dist/E-PILOTE-3.4.2-installateur.exe dist/manifest.json \
+   -R E-PILOTE/telechargements --draft --title "E-PILOTE CONGO v3.4.2" \
    --notes-file dist/notes.md
-gh release edit v3.4.1 -R E-PILOTE/telechargements --draft=false --latest
+gh release edit v3.4.2 -R E-PILOTE/telechargements --draft=false --latest
 
 # 4. LA RECETTE ANONYME — ne jamais sauter cette étape
 curl -sL --netrc-file /dev/null -o /tmp/a.exe "<download_url>" && sha256sum /tmp/a.exe
@@ -194,6 +194,37 @@ autant n'avoir qu'une seule façon de faire.)
 
 `gh` est authentifié en **E-PILOTE** avec `admin: true` sur `telechargements` :
 la publication manuelle ne demande aucun nouveau jeton.
+
+### ⚠️ `dist/*.exe` téléversait SIX installateurs (2026-09-01)
+
+`dist/` n'est pas nettoyé entre deux versions : il porte tous les
+installateurs depuis 3.1.7. Le glob de la commande documentée les aurait tous
+attachés à la publication — dont `E-PILOTE-3.1.7-installateur.exe`, qu'une
+école aurait pu télécharger depuis la page de la 3.4.2. **Nommer le fichier.**
+
+### ✅ v3.4.2 (build 26) publiée à la main (2026-09-01)
+
+Deuxième publication manuelle, la CI restant bloquée par la facturation.
+Déroulé et mesures :
+
+| étape | résultat |
+|---|---|
+| `flutter analyze` | 0 issue (451 s) |
+| tests | 1 936 passés, 2 ignorés |
+| binaire | `VersionInfo` = `3.4.2+26` — vérifié, le bump `pubspec` atteint bien le `.exe` |
+| démarrage réel | vivant 30 s ; base ouverte ET écrite (l'extension SQLite native se charge) |
+| installateur | 35 969 179 o, empreinte `c1f8baef…6476`, calculée en Python **et** par `Get-FileHash` |
+| recette anonyme | HTTP 200, 35 969 179 o reçus, empreinte identique |
+| `derniere_version()` | 3.4.2 / 26, vérifié **sous le rôle `authenticated`** |
+
+⚠️ **Les quatre commits du 31/08 portaient tous `3.4.1+25`.** Reconstruire sans
+bumper aurait produit deux binaires différents sous le même numéro : le parc
+compare des entiers, il ne les aurait pas distingués — c'est l'accident de
+`3.1.7+18` livré deux fois. **Bumper AVANT de construire**, pas après.
+
+Les notes de version gagnent une section « ce qui change », concaténée après le
+gabarit partagé avec la CI (`dist/nouveautes-<version>.md`) : le gabarit seul ne
+dit rien à une école de ce qu'elle reçoit.
 
 ### ⚠️ Le piège qui a corrompu les notes du premier coup
 

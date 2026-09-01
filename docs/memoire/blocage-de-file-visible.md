@@ -50,12 +50,26 @@ sauterait l'effacement et **le bandeau resterait affiché pour toujours sur un
 poste réparé** — un indicateur qui ment dans ce sens-là ne sera plus jamais cru
 dans l'autre.
 
-⚠️ **Réserve non vérifiée** : `sync_failures` est une `Table.localOnly`, et
-l'ajout de la colonne `kind` provoque une mise à jour du schéma local. Je n'ai
-PAS vérifié si PowerSync conserve les lignes existantes d'une table local-only
-lors d'un changement de schéma. Au pire, un poste perd son journal de pertes
-NON ACQUITTÉES au moment de la mise à jour — diagnostic, pas donnée métier,
-mais à savoir avant de s'appuyer dessus pour un incident en cours.
+✅ **Réserve levée le 2026-09-01, sur une vraie base de 23,7 Mo.** La crainte
+était qu'ajouter `kind` à une `Table.localOnly` fasse perdre les lignes. Elle
+n'avait pas lieu d'être, et la raison vaut pour TOUTE table local-only :
+PowerSync ne matérialise pas les colonnes. La table réelle est
+`ps_data_local__sync_failures(id, data)` — les colonnes déclarées vivent dans
+le JSON `data` et sont exposées par une **vue**. Un changement de schéma
+recrée la vue, jamais la table : il ne peut structurellement rien perdre.
+
+Mesuré après le premier démarrage d'un build portant la colonne : la vue
+`sync_failures` expose bien `kind`, et la base a gardé son contenu (88 vues,
+131 élèves, 9 profils, 8 classes).
+
+⚠️ **Le piège de la mesure, lui, est réel.** Lire la base avec
+`sqlite3.connect(..., mode=ro)` renvoie le fichier principal SANS appliquer le
+`-wal` — ici 4 Ko d'en-tête contre 6 Mo de journal, soit trois jours de
+changements invisibles. Et le Python de l'« install manager » (paquet MSIX)
+**virtualise `%APPDATA%`** : il montrait un fichier fantôme là où `bash` et
+PowerShell voyaient le vrai. Pour inspecter une base PowerSync : copier les
+trois fichiers (`.db`, `-wal`, `-shm`) hors de `%APPDATA%` avec un outil non
+virtualisé, puis ouvrir la copie en lecture/écriture.
 
 ## Deux messages, jamais le même mot
 

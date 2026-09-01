@@ -84,6 +84,24 @@ poste resté en arrière le DIRA au lieu de se taire.
 > pour lui épargner un bandeau — le remède serait pire. Le lot reste en file,
 > intact, et repart après la mise à jour.
 
+#### ✅ Le build qui porte la détection EST PUBLIÉ (2026-09-01)
+
+**v3.4.2 (build 26)**, publiée à la main comme la précédente. Les quatre
+commits du 31/08 postérieurs à v3.4.1 y sont, dont `375dbe9`.
+
+⚠️ **Cela ne lève pas `0146` — cela démarre seulement son compte à rebours.**
+La condition n'a jamais été « le build existe », mais « les postes l'ont ». Ce
+qui a changé : à partir du moment où un poste tourne en 26, un désaccord de
+schéma s'affiche au lieu de se taire. Le jour où retirer une colonne se
+décidera, la question à poser sera « quels postes ont signalé un blocage ? »
+et non plus « est-ce qu'un poste pourrait être resté en arrière sans le dire ? ».
+
+Vérifié après publication : `derniere_version('windows','stable')` renvoie
+3.4.2 / 26 **sous le rôle `authenticated`** — c'est ce qu'un poste d'école voit,
+pas ce qu'un administrateur voit. Et l'installateur a été retéléchargé **sans
+aucun identifiant** (HTTP 200, 35 969 179 o), empreinte des octets reçus
+identique à celle publiée.
+
 ### `0165` — la dette que `0145` avait nommée est soldée (2026-08-31)
 
 `0145` avait scellé `bulletins`, `expenses` et `student_payments` sur la clôture
