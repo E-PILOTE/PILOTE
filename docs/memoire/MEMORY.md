@@ -140,6 +140,7 @@
 - [Écran-verrou](ecran-verrou-poste-partage.md) — overlay kiosque plein écran ; `/user/agents` supprimé
 - [Vitrine sécurité + PIN](poste-vitrine-securite-refonte.md) — PR #16 ; ✅ déployé prod 2026-07-15 (migs 0033/34/35) ; reste release app
 - [Journal audit — module partagé](audit-module-partage-scope.md) — `features/audit/` scope-aware ; plancher de visibilité par rôle ; ⚠️ « un seul déclencheur » est FAUX : 15 tables auditées — mais 4 ne couvraient qu'un verbe sur deux (`evaluations`, `class_enrollments` : l'UPDATE n'était PAS tracé) → mig **0170** ; sonde rejouable **0171** ; ⚠️ `fn_audit_metier` avale ses erreurs (délibéré) → une panne d'audit est muette
+- [📊 Journal d'audit hors ligne — CHIFFRAGE](journal-audit-hors-ligne-chiffrage.md) — décision produit préparée, pas prise ; ⚠️ `now()` INTERDIT en sync-rules (pas de fenêtre glissante) ; ⚠️ `audit_logs` descend DÉJÀ, limitée à l'EDT ; ≈ 0,37 Mo/1 000 lignes → écarter l'option « cron + colonne », le vrai arbitrage est statu quo contre élargir au sensible
 
 ## Cartographie & dashboards
 - [Vue régionale — Tableau + cockpit](regional-table-mode.md) — bascule Carte/Tableau, Tiers 2-4

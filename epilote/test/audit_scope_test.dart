@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:epilote/features/audit/providers/audit_scope.dart';
 
@@ -84,6 +86,45 @@ void main() {
       expect(scope.hiddenActorRoles, hasLength(2));
       // Défaut = vide (rétro-compatible avec les portées historiques).
       expect(const AuditScope.group('g-1').hiddenActorRoles, isEmpty);
+    });
+  });
+  group('Un journal injoignable ne ressemble pas a un journal vide', () {
+    // ⚠️ Le garde `scope == null` de l’ecran ne couvre PAS le hors-ligne :
+    // le profil vient de PowerSync, donc le perimetre se resout tres bien
+    // sans reseau. Les requetes Supabase, elles, echouent — et la page
+    // affichait ses onglets, ses filtres, et rien d’autre. Un directeur y
+    // lisait « aucun evenement » la ou il fallait lire « je n’ai pas pu
+    // regarder ».
+    //
+    // C’est le refus muet de la RLS transpose a la LECTURE : l’absence
+    // d’information prend l’apparence d’une information.
+    String source() {
+      final f = File('lib/features/audit/screens/audit_screen.dart');
+      expect(f.existsSync(), isTrue, reason: 'Sonde aveugle : ecran absent.');
+      return f.readAsStringSync();
+    }
+
+    test('l ecran distingue injoignable de vide', () {
+      final src = source();
+      expect(src.contains('final injoignable ='), isTrue,
+          reason: 'Le garde a disparu : hors ligne, la page redeviendra un '
+              'journal vide sans le dire.');
+      expect(src.contains('pas un journal vide'), isTrue,
+          reason: 'Le message doit dire que la LECTURE a echoue, au lieu de '
+              'laisser croire a une absence d evenements.');
+    });
+
+    test('une erreur passagere n efface pas ce qui est deja lisible', () {
+      // La condition exige `!hasValue` sur les DEUX sources : sinon un
+      // rafraichissement rate remplacerait des donnees affichees par un
+      // bandeau. On ne cache jamais du lisible.
+      final src = source();
+      final i = src.indexOf('final injoignable =');
+      final garde = src.substring(i, src.indexOf(';', i));
+      expect(garde.contains('!facetsAsync.hasValue'), isTrue,
+          reason: 'Le garde ne verifie plus l absence de donnees deja lues.');
+      expect(garde.contains('!timelineAsync.hasValue'), isTrue,
+          reason: 'Le garde ne verifie plus l absence de donnees deja lues.');
     });
   });
 }

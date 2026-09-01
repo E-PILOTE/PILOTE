@@ -44,30 +44,64 @@ class _AuditScreenState extends ConsumerState<AuditScreen>
     await ref.read(auditFacetsProvider(filters.facetKey).future);
   }
 
+  /// L'écran « on ne peut pas afficher », avec SA RAISON.
+  ///
+  /// Une seule fabrique pour les deux causes (session absente, serveur
+  /// injoignable) : deux bandeaux rédigés séparément finissent par diverger,
+  /// et c'est justement la nuance entre eux qui compte pour le lecteur.
+  Widget _indisponible(String message) => AppShell(
+        title: "Journal d'audit",
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: AdminEmptyState(
+              icon: Icons.wifi_off_rounded,
+              title: 'Consultation indisponible',
+              message: message,
+            ),
+          ),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final scope = ref.watch(auditScopeProvider);
     if (scope == null) {
-      return const AppShell(
-        title: "Journal d'audit",
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.all(32),
-            child: AdminEmptyState(
-              icon: Icons.wifi_off_rounded,
-              title: 'Consultation indisponible',
-              message:
-                  "Le journal d'audit est une donnée de gouvernance consultée "
-                  'en ligne. Vérifiez votre connexion et votre session.',
-            ),
-          ),
-        ),
+      return _indisponible(
+        "Le journal d'audit est une donnée de gouvernance consultée en ligne. "
+        'Vérifiez votre connexion et votre session.',
       );
     }
 
     final filters = ref.watch(auditFiltersProvider);
     final facetsAsync = ref.watch(auditFacetsProvider(filters.facetKey));
     final timelineAsync = ref.watch(auditTimelineProvider);
+
+    // ⚠️ UN JOURNAL INJOIGNABLE NE DOIT PAS RESSEMBLER À UN JOURNAL VIDE.
+    //
+    // Le garde `scope == null` ci-dessus ne couvre PAS le cas hors ligne : le
+    // profil vient de PowerSync, donc le périmètre se résout très bien sans
+    // réseau. Les requêtes Supabase, elles, échouent — et la page affichait
+    // alors ses onglets, ses filtres, et rien d'autre. Un directeur y lisait
+    // « aucun événement » là où il fallait lire « je n'ai pas pu regarder ».
+    //
+    // C'est le même défaut que le refus muet de la RLS, transposé à la
+    // lecture : l'absence d'information prend l'apparence d'une information.
+    //
+    // ⚠️ La condition exige `!hasValue` sur les DEUX sources : une erreur
+    // passagère alors que des données sont déjà affichées ne doit pas effacer
+    // l'écran — on ne remplace rien de lisible par un bandeau.
+    final injoignable = facetsAsync.hasError &&
+        !facetsAsync.hasValue &&
+        timelineAsync.hasError &&
+        !timelineAsync.hasValue;
+    if (injoignable) {
+      return _indisponible(
+        "Le journal d'audit se consulte en ligne, et ce poste n'a pas pu "
+        "joindre le serveur. Ce n'est pas un journal vide : il n'a pas pu "
+        'être lu. Reconnectez-vous au réseau, puis réessayez.',
+      );
+    }
 
     // Alertes calculées dès que les deux sources sont disponibles.
     final alerts =
