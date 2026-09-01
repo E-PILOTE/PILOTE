@@ -17,12 +17,12 @@ pas en y mettant plus de travail.
 
 ## ⚠️ Ce qui invalide le plan écrit dans la CI
 
-`.github/workflows/windows.yml` attend deux secrets — `WINDOWS_CERT_PFX`
-(base64 d'un `.pfx`) et `WINDOWS_CERT_PASSWORD` — et son commentaire promet :
+`.github/workflows/windows.yml` attendait deux secrets — `WINDOWS_CERT_PFX`
+(base64 d'un `.pfx`) et `WINDOWS_CERT_PASSWORD` — et son commentaire promettait :
 « le jour où le certificat arrive, il n'y a qu'un secret à poser, aucun code à
 écrire ».
 
-**Cette promesse ne peut pas être tenue.**
+**Cette promesse ne pouvait pas être tenue.**
 
 > Depuis le **1er juin 2023**, les exigences du CA/Browser Forum imposent que la
 > clé privée d'un certificat de signature de code vive sur du matériel certifié
@@ -125,10 +125,15 @@ Windows affiche « éditeur inconnu » malgré la signature.
    auprès d'elle **avant de payer** qu'elle valide les organisations
    congolaises.
 4. Commander un **EV** avec signature infonuagique.
-5. Une fois les identifiants reçus : réécrire l'étape de signature de la CI —
-   `signtool /f <pfx>` ne fonctionnera pas, il faut le mécanisme du service.
-6. Retirer l'avertissement SmartScreen de `packaging/windows/INSTALL.md` et du
-   dossier de pilote.
+5. Poser les **cinq secrets** (ci-dessus) dans le dépôt. ✅ L'étape de CI est
+   déjà écrite pour eux — mais elle n'a **jamais tourné contre un vrai
+   compte** : prévoir que le premier essai échoue, et le faire AVANT d'en
+   avoir besoin.
+6. Vérifier sur un poste vierge qu'un double-clic n'affiche plus
+   « éditeur inconnu ». C'est le seul contrôle qui compte, et il ne se fait pas
+   depuis la CI.
+7. Alors seulement, retirer l'avertissement de `packaging/windows/INSTALL.md`,
+   de `docs/PILOTE.md` et du discours tenu aux écoles.
 
 ## En attendant — ce qui est déjà en place
 
