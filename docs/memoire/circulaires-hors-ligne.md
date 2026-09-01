@@ -150,9 +150,20 @@ sur la ligne du destinataire → bucket `circulaires_ecole` → SQLite du poste.
 Notifications comprises : 1 au chef d'établissement (route `/user/circulaires`,
 ouverte par `context.go` depuis le tiroir) et 1 à l'admin de groupe.
 
-⚠️ Les deux circulaires d'essai sont de VRAIES lignes en production. Leur objet
-le dit. À supprimer quand elles auront servi — un `DELETE` sur `circulaires`
-emporte ses destinataires.
+✅ **Les deux essais ont été SUPPRIMÉS le même jour**, une fois la preuve faite :
+2 circulaires, 2 destinataires (par cascade — `circulaire_destinataires_circulaire_id_fkey`
+est `ON DELETE CASCADE`) et **5 notifications**.
+
+⚠️ **Les notifications ne cascadent PAS** : elles ne référencent la circulaire
+que par un champ jsonb (`data->>'circulaire_id'`), sans clé étrangère. Les
+oublier laisserait des notifications menant à une circulaire disparue — un lien
+profond mort dans le tiroir. Les supprimer explicitement fait partie du geste.
+
+Et la suppression REDESCEND : après synchro, 0 ligne sur le poste, témoin
+`students` toujours à 131. Le retrait se propage donc aussi bien que l'arrivée.
+
+État final : 0 circulaire en base, 0 destinataire, 0 notification orpheline,
+les 122 notifications préexistantes intactes.
 
 ⚠️ **Conséquence tant que la règle n'est pas déployée** : l'écran existe et la
 vue locale est créée (vérifié sur une base réelle après installation), mais
