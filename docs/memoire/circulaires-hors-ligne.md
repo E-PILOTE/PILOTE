@@ -112,7 +112,24 @@ qu'il y a derrière.
 |---|---|
 | migration 0167 | ✅ **appliquée** en production |
 | build portant le schéma local + l'écran | ✅ **v3.4.3 (build 27) publiée**, mise à jour ouverte au parc |
-| `sync-rules.yaml` (bucket `circulaires_ecole`) | ⏳ **écrit, NON déployé** — seule pièce manquante |
+| `sync-rules.yaml` (bucket `circulaires_ecole`) | ✅ **déployé sur Production `…66759`** le 2026-09-01 |
+
+**La chaîne est complète.** Déroulé du déploiement, dans l'ordre prescrit :
+`pull instance` AVANT (diff live ↔ dépôt = le seul bucket attendu, donc rien à
+préserver du tableau de bord) → `validate` (dont **`Validate Sync Config`**,
+l'étape que la version avec JOIN aurait échouée) → `deploy sync-config` →
+`pull instance` APRÈS (**diff vide**) → `status` : `Initial replication done:
+true`, lag 3 432 octets, et `public.circulaire_destinataires` dans les tables
+répliquées.
+
+⚠️ **Ma première vérification d'après-déploiement ne prouvait rien** : le
+second `pull` écrit dans `sync-fetched.yaml`, PAS dans `sync-config.yaml`. Je
+comparais donc ma propre copie au dépôt — identique par construction. C'est
+`sync-fetched.yaml` qu'il faut differ.
+
+⚠️ **Il reste à éprouver de bout en bout** : il y a 0 circulaire en base, donc
+personne n'a encore rien reçu. La preuve demande d'en publier une VRAIE — elle
+partirait à 25 établissements et notifierait 14 chefs. Décision produit.
 
 ⚠️ **Conséquence tant que la règle n'est pas déployée** : l'écran existe et la
 vue locale est créée (vérifié sur une base réelle après installation), mais

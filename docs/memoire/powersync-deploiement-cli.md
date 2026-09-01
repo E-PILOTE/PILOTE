@@ -67,6 +67,36 @@ mêmes, l'état des buckets non). Deux instances provisionnées = deux
 emplacements de réplication et deux instances facturées : décider si
 Development doit être arrêtée (`powersync stop`, réversible par redeploy).
 
+## ⚠️ 2026-09-01 — Development est de NOUVEAU provisionnée
+
+`fetch instances` ce jour-là :
+
+```
+Development  6a185941234fa2bf51a66757   has_config: true  is_provisioned: TRUE
+Production   6a185943234fa2bf51a66759   has_config: true  is_provisioned: true
+```
+
+La note ci-dessus disait « Development n'est PLUS provisionnée […] une seule
+instance vivante, le déploiement n'a plus d'ambiguïté de cible ». **Ce n'est
+plus vrai.** L'ambiguïté est revenue : déployer sur la mauvaise RÉUSSIT et ne
+touche personne. Toujours passer `--instance-id 6a185943234fa2bf51a66759` et
+relire `powersync/cli.yaml` avant de déployer.
+
+⚠️ **Et deux instances provisionnées = deux instances FACTURÉES.** La ligne
+PowerSync Cloud Pro relevée par `0160` (49 $/mois) est peut-être doublée. À
+vérifier côté facturation, et à trancher : Development sert-elle encore ?
+
+### Déploiement du bucket `circulaires_ecole` (2026-09-01)
+
+Déroulé exact, qui vaut d'être répété : `pull instance` AVANT (le diff live ↔
+dépôt ne montrait que le bucket attendu) → `validate` → `deploy sync-config` →
+`pull instance` APRÈS → `status`.
+
+⚠️ **Le second `pull` n'écrase PAS `sync-config.yaml`** : il écrit
+`sync-fetched.yaml` (et `service-fetched.yaml`). Diffe le mauvais fichier et tu
+compares ta propre copie au dépôt — identique par construction, donc une
+vérification qui ne prouve rien. C'est `sync-fetched.yaml` qu'il faut differ.
+
 ## Le jeton
 
 PAT `jpt_…` = base64 de `{i: id, n: secret, u: user}`. Passer par
