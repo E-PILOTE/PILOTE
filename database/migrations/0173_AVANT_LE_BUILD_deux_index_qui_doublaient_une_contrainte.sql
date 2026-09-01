@@ -1,0 +1,79 @@
+-- ════════════════════════════════════════════════════════════════════════════
+--  DEUX INDEX QUI DOUBLAIENT UNE CONTRAINTE DÉJÀ PRÉSENTE
+--
+--  Constaté le 2026-09-01 en cherchant pourquoi la base pèse 465 Mo pour
+--  37 écoles de démonstration — soit 93 % du plafond de 500 Mo du plan
+--  gratuit, au-delà duquel Supabase bascule le projet en LECTURE SEULE.
+--
+--  Les index pesaient plus que les données qu'ils indexent :
+--
+--      class_enrollments   1,7 Mo de données  →  44 Mo d'index   (×25)
+--      students            3,3 Mo de données  →  37 Mo d'index   (×11)
+--
+--  Ce n'était pas du ballonnement : `n_dead_tup` est à 21 lignes sur 431 250
+--  pour `grades`. C'était de la redondance.
+--
+--  ── POURQUOI CES DEUX-LÀ, ET PAS LES AUTRES ──────────────────────────────
+--  Un `idx_scan = 0` ne prouve rien si les statistiques viennent d'être
+--  remises à zéro. Vérifié AVANT de conclure : `pg_stat_database.stats_reset`
+--  = 07/05/2026, soit 117 jours d'observation continue.
+--
+--  Mais « jamais lu » reste une preuve FAIBLE — une fonctionnalité
+--  trimestrielle produit aussi peu de lectures. Les deux index retirés ici ne
+--  reposent PAS sur cet argument : ils sont redondants par CONSTRUCTION, et le
+--  planificateur peut toujours leur substituer l'index unique correspondant.
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- ── 1. Doublon EXACT d'une contrainte unique ────────────────────────────────
+--   idx_enrollments_student_year                btree (student_id, academic_year_id)
+--   class_enrollments_student_id_academic_year_id_key
+--                                        UNIQUE btree (student_id, academic_year_id)
+--
+--   Colonnes identiques, ordre identique. L'index unique répond à TOUTE requête
+--   à laquelle répondait le doublon.
+--
+--   ⚠️ MESURÉ APRÈS COUP, et ce n'est pas ce que j'avais écrit : le
+--   planificateur ne bascule PAS sur l'index unique, il emprunte
+--   `idx_enrollments_student` (student_id seul) puis filtre l'année. C'est
+--   sans conséquence — un élève a un enrôlement par année, donc le filtre ne
+--   coûte rien : 4 blocs lus, 0,11 ms sur le couple réel testé. Mais la phrase
+--   « elles basculent sur l'unique » était une déduction, pas une mesure.
+--   Elle est fausse, et la corriger est moins cher que de la croire plus tard.
+--
+--   ⚠️ Ne PAS confondre avec `uq_enrollment_active_student_year`, qui porte le
+--   même couple de colonnes mais un prédicat partiel (status = 'active') : il
+--   fait respecter « un seul enrôlement ACTIF par élève et par année ». Celui-là
+--   est une règle métier, il reste.
+DROP INDEX IF EXISTS public.idx_enrollments_student_year;   -- 8,5 Mo
+
+-- ── 2. Préfixe strict d'une contrainte unique, même prédicat ────────────────
+--   idx_students_ine          btree (ine)            WHERE ine IS NOT NULL
+--   students_ine_ecole_key    UNIQUE btree (ine, school_id) WHERE ine IS NOT NULL
+--
+--   `ine` est la colonne de tête de l'index unique, et le prédicat partiel est
+--   le même mot pour mot. Toute recherche `ine = ?` emprunte l'unique.
+DROP INDEX IF EXISTS public.idx_students_ine;               -- 4,0 Mo
+
+-- ── CE QUI N'EST PAS FAIT ICI, ET POURQUOI ─────────────────────────────────
+--  Trois autres index sont gros et peu lus. Ils NE sont PAS retirés : leur
+--  seul tort est de n'avoir pas servi, ce qui n'est pas la même chose que
+--  d'être inutile. Mesurés, laissés visibles, à trancher — voir
+--  `database/checks/0174_le_plafond_de_la_base.sql` :
+--
+--   • idx_students_name (GIN trigram, 6,7 Mo, 0 lecture) — recherche floue sur
+--     le nom. Rien ne l'emprunte aujourd'hui : le personnel cherche hors ligne
+--     dans SQLite, et le rapprochement national passe par
+--     `idx_students_recherche_nationale` (noms normalisés + date de naissance),
+--     qui est un AUTRE index pour un AUTRE usage. ⚠️ À 250 000 élèves il
+--     pèserait ~190 Mo — mais une recherche floue nationale en aurait besoin.
+--     Le retirer est un choix produit, pas une optimisation.
+--   • idx_grades_created_by (6,0 Mo, 2 lectures) et
+--     idx_bulletin_subject_lines_subject_id (3,3 Mo, 0 lecture) — index de clés
+--     étrangères. Peu lus en interrogation, mais ils évitent un parcours
+--     complet de 431 250 / 143 569 lignes à la suppression d'un agent ou d'une
+--     matière. Le gain ne vaut pas ce risque-là.
+--
+--  ⚠️ ET SURTOUT : ces 12,5 Mo ne règlent RIEN. Ils rendent 12,5 Mo sur 35 de
+--  marge. Le vrai sujet est le PLAN, mesuré dans le check 0174 : 465 Mo pour
+--  37 écoles, soit ~12,6 Mo par école ; mille écoles demandent ~12,6 Go, contre
+--  500 Mo disponibles. Ceci est un répit, pas une solution.
