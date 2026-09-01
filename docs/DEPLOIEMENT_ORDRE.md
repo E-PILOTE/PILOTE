@@ -3,6 +3,20 @@
 > Relevé le 2026-08-28. À relire **avant** de toucher aux profils d'accès d'un
 > groupe, et **avant** de publier le prochain build.
 
+## `0168` — une colonne qui affirmait un portail (2026-09-01)
+
+**Appliquée.** `schools.parent_portal_enabled` retirée : `NOT NULL DEFAULT true`,
+donc `true` sur les 37 écoles, alors qu'il y a 0 compte parent, 0 compte élève
+et 2 tuteurs sur 9 106 élèves. Aucun lecteur nulle part.
+
+⚠️ **N'attend aucun build**, et ce n'est pas le retrait que `0146` attend : la
+colonne n'était pas dans `powersync_schema.dart`, donc aucun poste ne pouvait
+l'envoyer — pas de `42703` possible. Preuve détaillée dans la migration et dans
+`docs/memoire/portail-parents-etat-reel.md`. `0146` reste suspendue.
+
+Vérifié après application (transaction annulée) : colonne absente, 37 écoles
+lisibles, création d'une école toujours fonctionnelle.
+
 ## `0167` — la circulaire descend à l'école (2026-09-01)
 
 **Appliquée.** Additive : elle pose l'instantané de la circulaire sur

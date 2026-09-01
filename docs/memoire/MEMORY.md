@@ -125,6 +125,7 @@
 ## Communication & support
 - [⚠️ Sonde `%APPDATA%` redirigée](sonde-appdata-redirigee.md) — l'outil Bash de Claude Code Windows lit un AppContainer VIRTUALISÉ : inspecter `epilote_v3.db` via PowerShell, jamais via Bash
 - [🟢 Un seul fournisseur : Supabase](un-seul-fournisseur-supabase.md) — Firebase/FCM écarté (2026-08-29) ; la cloche + PowerSync EST le canal ; ⚠️ mig 0146 seulement quand TOUT le parc est en ≥3.3.1+21 (sinon 42703 → synchro bloquée) ; espace élève/parent EN DERNIER
+- [👪 Portail parents — état RÉEL](portail-parents-etat-reel.md) — 0 compte parent, 0 compte élève, 2 tuteurs sur 9 106 ; ⚠️ `schools.parent_portal_enabled` RETIRÉE (0168) : elle valait `true` partout et n'était lue nulle part ; ce retrait-là était PROUVÉ sans risque, celui de 0146 ne l'est pas
 - [Unification communication](communication-unification-plan.md) — 1 jeu de pages scope-aware partagé 3 espaces
 - [Refonte feed Annonces](annonces-feed-fixes.md) — causes racines = tables hors realtime + FK vers auth.users
 - [Accusés lecture + présence](communication-receipts-presence.md) — last_read_at, ✓✓, Realtime Presence
