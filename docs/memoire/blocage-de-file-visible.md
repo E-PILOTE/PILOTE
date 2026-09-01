@@ -82,37 +82,62 @@ Dire « perdu » sur un blocage ferait ressaisir une école pour rien ; dire « 
 attente » sur un abandon lui ferait attendre un envoi qui n'aura jamais lieu.
 Le bandeau trie : un blocage passe devant, il arrête TOUT l'envoi du poste.
 
-## La chasse systématique aux refus muets (2026-08-31)
+## La chasse aux refus muets — reprise et corrigée le 2026-09-01
 
 Le même défaut trouvé cinq fois en deux jours méritait d'être cherché partout
-d'un coup, pas une fois de plus par hasard.
-`database/checks/0166_refus_muets_de_la_rls.sql` sonde les **86 tables
-synchronisées** sous l'identité d'un DIRECTEUR — le rôle scolaire le mieux doté,
-donc ce qu'il ne peut pas faire, personne de l'école ne le peut — et classe
-chaque DELETE en **permis / lève / muet**.
+d'un coup. `database/checks/0166` l'a fait le 31/08 — et **annonçait une
+couverture qu'il n'avait pas**.
 
-| 2026-08-31 | |
+| ce que 0166 disait | ce qui était vrai |
 |---|---|
-| permis | 6 |
-| lèvent (bon comportement) | 3 |
-| **sans ligne visible — NON TESTÉES** | **50** |
-| muets | 8 |
+| « sonde les 86 tables synchronisées » | son tableau en listait **67** |
+| | **87** descendent réellement sur les postes |
+| | **20** n'avaient jamais été sondées |
 
-⚠️ **Un refus muet n'est PAS un défaut en soi.** Une table de référentiel du
-groupe DOIT refuser la suppression au personnel d'école. Le défaut, c'est le
-refus muet **plus un écran qui propose le geste**. D'où la seconde moitié,
-au dépôt : `grep -rn "DELETE FROM <table>" epilote/lib`.
+Parmi les vingt : `audit_logs`, `schools`, `school_groups`, `staff_members`,
+`payment_configs`, `profile_permissions`, et tous les référentiels
+`education_*` / `exam_*`.
 
-Croisement fait : sur les 8 muets, une seule table (`school_holidays`) a un
-chemin de suppression hors ligne — et l'écran l'interdit déjà pour les lignes
-nationales (cadenas « Férié légal fixé par le groupe »). Son commentaire décrit
-mot pour mot le défaut cherché : « je l'ai supprimé et il est revenu ».
-**Aucun défaut nouveau.**
+⚠️ **Et il ne sondait que `DELETE`** — alors que le défaut d'origine (0154,
+0155, 0157) était un **UPDATE**.
 
-⚠️ **Et la limite compte autant que le résultat** : 50 tables sur 86 n'ont
-aucune ligne visible dans la base de démonstration, donc n'ont pas été testées.
-« Rien trouvé » vaut pour les tables peuplées, pas pour le schéma. À rejouer sur
-une base réelle — c'est pour ça que le contrôle est rejouable.
+⚠️ **Une sonde qui annonce une couverture qu'elle n'a pas est pire qu'une sonde
+absente** : elle transforme « je n'ai pas regardé » en « j'ai regardé et il n'y
+a rien ». Personne ne rouvre le second.
+
+`database/checks/0169_refus_muets_update_et_delete.sql` la remplace : les deux
+verbes, les 87 tables, et une liste **tenue par un test**
+(`sync_rules_publient_le_schema_local_test.dart`) qui échoue dès qu'une table
+publiée par un bucket n'y figure pas — dans les deux sens.
+
+### Relevé du 2026-09-01, identité DIRECTEUR, transaction annulée
+
+87 tables énumérées · **58 sans ligne visible** · 29 réellement testées.
+
+| verbe | permis | lèvent | **muets** |
+|---|---|---|---|
+| UPDATE | 10 | **0** | **19** |
+| DELETE | 6 | 3 | **20** (les 19 + `profiles`) |
+
+⚠️ **Aucun UPDATE ne lève, jamais.** Tout refus d'écriture est silencieux : la
+seule protection réelle est que l'écran ne propose pas le geste. `profiles` est
+l'inverse instructif — un directeur peut MODIFIER un profil, pas le supprimer.
+
+### Croisement au dépôt : un seul chemin, désormais gardé
+
+Sur les 87 tables, un seul chemin d'écriture hors ligne vise une table muette :
+**`school_holidays`**, en UPDATE et en DELETE
+(`structure/providers/school_holidays_provider.dart`).
+
+L'écran cadenassait déjà la croix sur les lignes nationales — mais
+`updateHoliday` n'avait **aucun appelant**, ce qui en faisait une arme chargée :
+le jour où quelqu'un y branche un bouton « modifier », il obtient « je l'ai
+modifié et c'est revenu ». Les deux fonctions LÈVENT désormais
+(`FerieNationalNonModifiable`) au lieu de laisser le serveur se taire.
+
+**Aucun autre défaut.** Et la limite reste : 58 tables sur 87 n'ont aucune ligne
+visible, donc ne sont pas testées. « Rien trouvé » vaut pour les tables
+peuplées, pas pour le schéma.
 
 ## Ce que ça débloque
 

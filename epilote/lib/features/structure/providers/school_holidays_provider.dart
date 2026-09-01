@@ -179,6 +179,40 @@ Future<void> createHoliday({
   );
 }
 
+/// Levee quand l'ecole tente d'ecrire sur une ligne qui ne lui appartient pas.
+///
+/// Elle existe parce que le serveur, lui, ne leve RIEN : la politique
+/// `school_holidays_tenant` exige `school_id = auth_school_id()` en ecriture,
+/// donc un ferie legal ecarte rend ZERO ligne et 204. Le poste, lui, aurait
+/// deja modifie sa copie locale.
+class FerieNationalNonModifiable implements Exception {
+  const FerieNationalNonModifiable();
+  @override
+  String toString() => 'Ce jour ferie est fixe par le groupe : '
+      'il ne se modifie pas depuis l\'ecole.';
+}
+
+/// Vrai si la ligne appartient au GROUPE (`school_id IS NULL`) et non a l'ecole.
+Future<bool> _estFerieNational(String id) async {
+  final rows = await db.getAll(
+      'SELECT school_id FROM school_holidays WHERE id = ?', [id]);
+  if (rows.isEmpty) return false;
+  final sid = rows.first['school_id'] as String?;
+  return sid == null || sid.isEmpty;
+}
+
+/// ⚠️ REFUSE une ligne nationale AVANT d'ecrire, au lieu de laisser le serveur
+/// la refuser en silence.
+///
+/// Sonde `database/checks/0169` du 2026-09-01 : sous l'identite d'un DIRECTEUR,
+/// un UPDATE sur `school_holidays` touche ZERO ligne et ne leve pas. Ecrire ici
+/// sans garde produirait exactement « je l'ai modifie et c'est revenu » : la
+/// copie locale change, la remontee ne touche rien, la synchro suivante rend la
+/// valeur d'origine.
+///
+/// Aucun ecran n'appelait cette fonction au moment ou le garde a ete pose — et
+/// c'est precisement pourquoi il fallait le poser : une fonction qui perd des
+/// ecritures en silence n'attend qu'un bouton.
 Future<void> updateHoliday({
   required String id,
   required String label,
@@ -186,6 +220,7 @@ Future<void> updateHoliday({
   required DateTime startDate,
   required DateTime endDate,
 }) async {
+  if (await _estFerieNational(id)) throw const FerieNationalNonModifiable();
   final now = DateTime.now().toIso8601String();
   await db.execute(
     '''
@@ -197,7 +232,11 @@ Future<void> updateHoliday({
   );
 }
 
+/// Meme garde que [updateHoliday], et pour la meme raison : l'ecran cadenasse
+/// deja la croix sur les lignes nationales (`edt_calendar_tab.dart`), mais un
+/// verrou d'IHM n'est pas un verrou.
 Future<void> deleteHoliday(String id) async {
+  if (await _estFerieNational(id)) throw const FerieNationalNonModifiable();
   await db.execute('DELETE FROM school_holidays WHERE id = ?', [id]);
 }
 

@@ -1,3 +1,21 @@
+-- ⚠️⚠️ REMPLACÉE LE 2026-09-01 PAR
+--      `0169_refus_muets_update_et_delete.sql`. Ne plus se fier à celle-ci.
+--
+--      Deux raisons, et la seconde est la vraie :
+--       1. elle ne sonde que DELETE, alors que le défaut d'origine (0154,
+--          0155, 0157) était un UPDATE ;
+--       2. son en-tête annonce « les 86 tables synchronisées ». Son tableau en
+--          liste 67, et 87 descendent réellement sur les postes. VINGT tables
+--          n'ont donc jamais été sondées — dont `audit_logs`, `schools`,
+--          `school_groups`, `staff_members`, `payment_configs`,
+--          `profile_permissions`.
+--
+--      Le résultat « aucun défaut » du 2026-08-31 reste vrai pour les tables
+--      qu'elle a effectivement testées, et il a été RECONFIRMÉ le 2026-09-01
+--      sur les 87. Mais une sonde qui annonce une couverture qu'elle n'a pas
+--      transforme « je n'ai pas regardé » en « j'ai regardé et il n'y a rien ».
+--      Conservée pour son relevé daté, plus pour être rejouée.
+--
 -- ════════════════════════════════════════════════════════════════════════════
 --  CHASSE AUX REFUS MUETS — à rejouer après toute migration touchant la RLS.
 --
