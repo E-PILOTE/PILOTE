@@ -40,6 +40,7 @@
 
 ## Déploiement national (1-2 octobre 2026)
 - [🧪 PILOTE sur deux écoles](../PILOTE.md) — dossier + sonde `0172` ; ⚠️ **aucun établissement n'a JAMAIS utilisé le produit** (1 installation, 10 sessions toutes avant le 27/08) ; ⚠️ le serveur ne voit PAS un poste bloqué (`sync_failures` est locale) — le seul signal est le SILENCE de `last_seen_at` ; ⚠️ pas de barème = aucun encaissement ; l'import Excel FR (`;` + Windows-1252) est le geste qui tue un pilote au jour 1
+- [🔏 CERTIFICAT de signature — dossier](../CERTIFICAT_SIGNATURE.md) — ⚠️ la CI attend un `.pfx` qui **n'existera jamais** (clé sur matériel obligatoire depuis juin 2023) ; ⚠️ Azure Artifact Signing **indisponible au Congo** ; **EV** requis (OV construit sa réputation → l'avertissement persiste pendant les vagues) ; chemin critique = **lettre d'opinion légale**, à demander en premier
 - [🗓️ Calendrier + ruptures de cycle de vie](deploiement-national-octobre.md) — présentation 01/10, déploiement 02/10 ; Windows seul, par vagues ; ⚠️ pas d'INE élève, la mutation d'agent détruit la carrière
 - [🔄 Mise à jour du parc](mise-a-jour-du-parc.md) — mig 0087 ; ⚠️ comparer `build_number` ENTIER jamais la chaîne ; SHA-256 vérifié avant install ; CI prête à signer, inerte sans secret
 - [🪟 Chaîne de livraison Windows](chaine-livraison-windows.md) — CI + installateur Inno 33,8 Mo ; ⚠️ audioplayers ≥ 6.8.1 et CMake ≥ 3.15 obligatoires

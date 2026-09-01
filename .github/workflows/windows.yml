@@ -187,14 +187,34 @@ jobs:
           }
 
       # ── Signature de code ──────────────────────────────────────────────
-      # Le certificat n'existe pas encore : le Congo n'avait aucun système, il
-      # est à créer de toutes pièces. Cette étape est donc écrite MAINTENANT et
-      # reste INERTE tant que le secret est absent — le jour où le certificat
-      # arrive, il n'y a qu'un secret à poser, aucun code à écrire dans
-      # l'urgence d'une veille de déploiement.
+      # Le certificat n'existe pas encore : le Congo n'avait aucun systeme, il
+      # est a creer de toutes pieces. Cette etape reste INERTE tant que le
+      # secret est absent.
       #
-      # Secrets attendus : WINDOWS_CERT_PFX (base64 du .pfx) et
-      # WINDOWS_CERT_PASSWORD.
+      # ⚠️⚠️ MAIS LA PROMESSE D'ORIGINE EST FAUSSE, verifiee le 2026-09-01.
+      # Elle disait : « le jour ou le certificat arrive, il n'y a qu'un secret
+      # a poser, aucun code a ecrire ». Ce ne sera pas le cas.
+      #
+      # Depuis le 1er juin 2023, le CA/Browser Forum impose que la cle privee
+      # d'un certificat de signature vive sur du materiel certifie (FIPS 140-2
+      # niveau 2 / CC EAL 4+). Un certificat emis aujourd'hui N'EST PAS
+      # exportable en `.pfx` — il n'existera donc AUCUN fichier a mettre dans
+      # `WINDOWS_CERT_PFX`.
+      #
+      # Le bloc ci-dessous (`signtool /f <pfx>`) est conserve tel quel parce
+      # qu'il documente exactement ce qui ne marchera pas, et parce qu'il reste
+      # valable pour un certificat auto-signe de recette interne. Pour un
+      # certificat public, il devra etre REECRIT selon la voie retenue :
+      # HSM infonuagique (DigiCert KeyLocker, SSL.com eSigner) ou jeton
+      # physique — auquel cas la signature ne peut plus se faire en CI du tout.
+      #
+      # ⚠️ Azure Artifact Signing, qui serait la voie la plus simple et la
+      # moins chere, est INDISPONIBLE en Republique du Congo.
+      #
+      # Dossier de decision : docs/CERTIFICAT_SIGNATURE.md
+      #
+      # Secrets attendus par le bloc actuel : WINDOWS_CERT_PFX (base64 du .pfx)
+      # et WINDOWS_CERT_PASSWORD.
       - name: Signer l'installateur
         shell: pwsh
         env:

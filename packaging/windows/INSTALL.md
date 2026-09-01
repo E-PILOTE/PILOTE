@@ -31,6 +31,13 @@ raccourci sur le Bureau.
 
 ### ⚠️ L'avertissement SmartScreen
 
+> **Où en est le certificat ?** Voir `docs/CERTIFICAT_SIGNATURE.md`.
+> ⚠️ Un certificat émis aujourd'hui n'est plus exportable en `.pfx` (exigence
+> matérielle du CA/Browser Forum depuis juin 2023), et **EV** est nécessaire
+> pour que l'avertissement disparaisse *immédiatement* — un **OV** laisse
+> Windows construire sa réputation, donc l'avertissement persiste pendant les
+> premières vagues de déploiement.
+
 Tant que **le certificat de signature de code n'est pas obtenu**, Windows
 affichera au lancement :
 
