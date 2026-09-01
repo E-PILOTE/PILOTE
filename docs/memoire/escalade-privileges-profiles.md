@@ -170,8 +170,14 @@ Chacune se traitera avec son module, quand l'audit y arrivera.
 
 ## 🚨 Deux trous nommés, non refermés
 
-1. **L'audit n'existe quasiment pas** (cf. 0127). Un seul déclencheur dans
-   toute la base.
+1. ~~**L'audit n'existe quasiment pas.** Un seul déclencheur dans toute la
+   base.~~ ⚠️ **FAUX — mesuré le 2026-09-01.** Quinze tables sont
+   instrumentées par cinq fonctions : notes, bulletins, paiements, paie,
+   inscriptions, élèves, incidents, matières de classe, niveaux, tarifs et les
+   trois tables d'EDT. Le journal enregistre bien, et précisément (seul le
+   champ modifié, avec l'ancienne et la nouvelle valeur).
+   Ce qui était vrai : il couvrait **un verbe sur deux** sur quatre tables —
+   refermé par `0170`. Voir [[audit-module-partage-scope]].
 2. **`/user/audit` viole la règle centrale** : l'écran d'audit partagé
    (`features/audit/providers/audit_data.dart`) lit par `SupabaseClient` +
    realtime, alors qu'il est routé dans l'espace PERSONNEL, qui doit être

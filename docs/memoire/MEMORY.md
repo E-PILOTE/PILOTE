@@ -139,7 +139,7 @@
 - [Poste partagé — bascule d'agent](poste-partage-agent-switch.md) — identité APPAREIL + AGENT ACTIF local (PIN haché jamais synchro)
 - [Écran-verrou](ecran-verrou-poste-partage.md) — overlay kiosque plein écran ; `/user/agents` supprimé
 - [Vitrine sécurité + PIN](poste-vitrine-securite-refonte.md) — PR #16 ; ✅ déployé prod 2026-07-15 (migs 0033/34/35) ; reste release app
-- [Journal audit — module partagé](audit-module-partage-scope.md) — `features/audit/` scope-aware ; plancher de visibilité par rôle
+- [Journal audit — module partagé](audit-module-partage-scope.md) — `features/audit/` scope-aware ; plancher de visibilité par rôle ; ⚠️ « un seul déclencheur » est FAUX : 15 tables auditées — mais 4 ne couvraient qu'un verbe sur deux (`evaluations`, `class_enrollments` : l'UPDATE n'était PAS tracé) → mig **0170** ; sonde rejouable **0171** ; ⚠️ `fn_audit_metier` avale ses erreurs (délibéré) → une panne d'audit est muette
 
 ## Cartographie & dashboards
 - [Vue régionale — Tableau + cockpit](regional-table-mode.md) — bascule Carte/Tableau, Tiers 2-4

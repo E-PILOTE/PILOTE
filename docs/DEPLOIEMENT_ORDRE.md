@@ -3,6 +3,25 @@
 > Relevé le 2026-08-28. À relire **avant** de toucher aux profils d'accès d'un
 > groupe, et **avant** de publier le prochain build.
 
+## `0170` — l'audit ne couvrait qu'un verbe sur deux (2026-09-01)
+
+**Appliquée.** N'attend aucun build : elle ne touche que des déclencheurs.
+
+Les dix `trg_audit_metier` étaient en place, mais quatre ne portaient qu'un
+verbe. Les deux manques graves étaient des UPDATE — `class_enrollments` et
+`evaluations` : changer un élève de classe ou le COEFFICIENT d'une évaluation,
+donc des moyennes et donc des bulletins, ne laissait aucune trace.
+
+Vérifié après application (transaction annulée, identité directeur) : 6 tables
+écrites ET auditées, **0 écrite sans trace**, `school_levels` écartée par la
+RLS (référentiel de groupe, attendu), 7 sans ligne visible donc non testées.
+
+⚠️ À rejouer après toute migration touchant `audit_logs`, `fn_audit_metier` ou
+une table auditée : `database/checks/0171_le_journal_d_audit_est_vivant.sql`.
+La fonction avale ses propres erreurs (délibérément — un audit qui lève ferait
+perdre l'écriture de l'école), donc une panne d'audit ne se signale JAMAIS
+toute seule.
+
 ## `0168` — une colonne qui affirmait un portail (2026-09-01)
 
 **Appliquée.** `schools.parent_portal_enabled` retirée : `NOT NULL DEFAULT true`,
