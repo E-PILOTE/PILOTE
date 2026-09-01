@@ -90,6 +90,18 @@ void main() {
           isFalse);
     });
 
+    test('une colonne ABSENTE vaut « accusé demandé », jamais le contraire',
+        () {
+      // ⚠️ Le défaut que ce test a manqué à sa première écriture.
+      // `circulaires.accuse_requis` est NOT NULL DEFAULT TRUE : une valeur
+      // absente signifie que rien ne dit le contraire, pas qu'aucun accusé
+      // n'est demandé. Lu `== 1`, ce cas rendait « non » — et retirait à la
+      // circulaire la seule chose qui lui donne une valeur administrative.
+      // Forme sûre : `actifOffline` (`core/utils/booleen_offline.dart`).
+      expect(Circulaire.fromLigneLocale(ligne(accuseRequis: null)).accuseRequis,
+          isTrue);
+    });
+
     test('une école, une ligne : l\'accusé reste par établissement', () {
       final c = Circulaire.fromLigneLocale(ligne());
       expect(c.mesEcoles, hasLength(1));

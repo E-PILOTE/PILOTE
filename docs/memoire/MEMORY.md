@@ -149,6 +149,7 @@
 - [Refonte UX/UI dashboard direction](dashboard-direction-uxui.md) — glassmorphism+aurora, lanceur `MenuAnchor`, fix finance year-scope
 
 ## Conventions & outillage
+- [⚖️ Booléen à défaut VRAI](booleen-defaut-vrai.md) — `?? false` / `== 1` rend « non » ce qui n'est que « non renseigné » ; `actifEnLigne` / `actifOffline` / `COALESCE(col,1)<>0` ; ⚠️ le garde nommait `is_active` EN DUR → 3 défauts passés sous d'autres noms (01/09) ; ⚠️ défaut FAUX = règle inverse et irrattrapable
 - [Règle taille fichier 500](regle-taille-fichier-500.md) — Dart ≤500 lignes
 - [🪟 Chrome des modales admin](archives-publications-dec.md) — 3 géométries partagées (boîte/panneau/feuille montante) + `showAdminConfirm` ; `admin_ui.dart` ré-exporte
 - [Design anti-redondance](design-gouvernance-anti-redondance.md) — pas de KPI dupliqués ; user délègue mais exige rigueur

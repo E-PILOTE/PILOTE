@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/booleen_en_ligne.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 
 // ─── Modèles ──────────────────────────────────────────────────────────────────
@@ -77,7 +78,16 @@ final paymentMethodsProvider = FutureProvider.autoDispose<PaymentMethodsData>((r
       merchantId:   m['merchant_id'] as String? ?? '',
       webhookUrl:   m['webhook_url'] as String? ?? '',
       isActive:     m['is_active'] as bool? ?? false,
-      isTestMode:   m['is_test_mode'] as bool? ?? false,
+      // `payment_configs.is_test_mode` est NOT NULL DEFAULT **TRUE** :
+      // l'absence signifie que la colonne n'etait pas dans le `select()`,
+      // pas que la configuration est en production. Le meme champ se lit
+      // `?? true` dans l'espace groupe (`admin_settings_provider`) — deux
+      // semantiques pour une colonne, c'est le defaut que
+      // `booleen_en_ligne.dart` existe pour empecher. Et il porte ici sur
+      // un compteur de l'operateur : annoncer « aucune configuration en
+      // test » quand elles le sont toutes, c'est faire croire que de
+      // l'argent reel circule.
+      isTestMode:   actifEnLigne(m['is_test_mode']),
       configuredAt: m['configured_at'] as String? ?? '',
       notes:        m['notes'] as String? ?? '',
     );

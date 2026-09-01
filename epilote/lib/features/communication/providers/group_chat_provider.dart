@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/utils/booleen_en_ligne.dart';
+import '../../../core/utils/booleen_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'communication_scope.dart';
@@ -102,7 +104,7 @@ Stream<List<GroupConversation>> _watchConversationsOnline(
         groupId: m['group_id'] as String? ?? '',
         schoolId: m['school_id'] as String?,
         title: m['title'] as String?,
-        isGroup: m['is_group'] as bool? ?? true,
+        isGroup: actifEnLigne(m['is_group']),
         avatarUrl: m['avatar_url'] as String?,
         createdBy: m['created_by'] as String? ?? '',
         members: members,
@@ -196,7 +198,13 @@ List<GroupConversation> _groupRowsToConversations(
               groupId: r['group_id'] as String? ?? '',
               schoolId: r['school_id'] as String?,
               title: r['title'] as String?,
-              isGroup: r['is_group'] == 1 || r['is_group'] == true,
+              // `conversations.is_group` est NOT NULL DEFAULT TRUE : une
+              // ligne qui ne la porte pas est un GROUPE, pas un duo. La
+              // forme `== 1 || == true` disait l'inverse — et l'autre
+              // lecture du MEME fichier disait deja « oui ». Un groupe
+              // affiche comme une conversation a deux, c'est un fil dont
+              // on croit connaitre les lecteurs.
+              isGroup: actifOffline(r['is_group']),
               avatarUrl: r['avatar_url'] as String?,
               createdBy: r['created_by'] as String? ?? '',
             ));

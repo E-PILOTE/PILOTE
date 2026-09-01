@@ -86,6 +86,27 @@ bool _estEspaceEnLigne(String chemin) {
       p.contains('/features/admin_groupe/');
 }
 
+/// Les AUTRES colonnes booléennes `NOT NULL DEFAULT TRUE`, relevées sur la base
+/// LIVE le 2026-09-01.
+///
+/// ⚠️ Pourquoi elles, et pas `is_active` : `is_active` habite 31 tables, dont
+/// UNE (`payment_configs`) où son défaut est FAUX. Un garde-fou par nom seul y
+/// produirait des faux positifs — d'où les tests dédiés ci-dessus, qui ne lui
+/// interdisent que `== true`. Chacune des colonnes ci-dessous n'existe au
+/// contraire que dans UNE table : aucun défaut faux ne vient brouiller la
+/// règle, et l'absence vaut « oui » dans les DEUX espaces.
+///
+/// La table entre parenthèses est celle où la colonne vit — la revérifier avant
+/// d'ajouter une entrée : un défaut se change par migration.
+const _autresColonnesDefautVrai = <String, String>{
+  'accuse_requis': 'circulaires, recopiée sur circulaire_destinataires (0167)',
+  'is_group': 'conversations',
+  'is_present': 'canteen_records',
+  'is_public': 'school_directory',
+  'is_test_mode': 'payment_configs',
+  'payment_confirmed': 'school_groups',
+};
+
 void main() {
   test('aucune requête offline ne compare is_active par égalité stricte', () {
     final racine = Directory('lib');
@@ -264,5 +285,61 @@ void main() {
     expect(occurrences, greaterThanOrEqualTo(20),
         reason: 'La forme sûre a disparu du dépôt : le filtre a été retiré '
             'plutôt que corrigé, ou le sweep a été défait.');
+  });
+  test('aucune autre colonne à défaut vrai ne se lit comme si elle valait faux',
+      () {
+    // ── CE QUE CE TEST GARDE, ET POURQUOI IL A FALLU L'ÉCRIRE ───────────────
+    // Les garde-fous ci-dessus nomment `is_active` EN DUR. Ils ont donc laissé
+    // passer trois fois le même défaut sous d'autres noms, trouvés le
+    // 2026-09-01 en balayant la BASE plutôt qu'en relisant du code :
+    //
+    //   payment_methods_provider:80  `is_test_mode ?? false` → une config en
+    //     TEST comptée comme production, sur le tableau de bord de l'opérateur ;
+    //   group_chat_provider:199      `is_group == 1 || == true` → un GROUPE
+    //     affiché comme une conversation à deux — alors que l'autre lecture du
+    //     MÊME fichier disait déjà « oui » ;
+    //   circulaires_provider         `accuse_requis == 1` → « aucun accusé
+    //     demandé », ce qui retire à la circulaire la seule chose qui lui donne
+    //     une valeur administrative.
+    //
+    // Aucun des trois ne se voyait : 0 conversation et 0 configuration de
+    // paiement en base. C'est exactement ce qui rendait la divergence de
+    // `is_active` dangereuse — elle ne se voyait sur aucun écran non plus.
+    //
+    // ⚠️ Un garde-fou qui nomme UNE colonne ne garde qu'elle. Celui-ci nomme
+    // une PROPRIÉTÉ — « défaut vrai en base » — et se met à jour en relevant
+    // la base, pas en relisant le dépôt.
+    final fautes = <String>[];
+    for (final f in Directory('lib')
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.dart'))) {
+      final lignes = f.readAsLinesSync();
+      for (var i = 0; i < lignes.length; i++) {
+        final l = lignes[i];
+        if (_estCommentaire(l)) continue;
+        for (final entree in _autresColonnesDefautVrai.entries) {
+          // Une LECTURE indexée (`map['col']`), jamais une écriture
+          // (`{'col': true}`) : cette dernière est explicite et donc juste.
+          final k = entree.key;
+          if (!l.contains("['$k']") && !l.contains('["$k"]')) {
+            continue;
+          }
+          if (_idiomesFautifs.any((r) => r.hasMatch(l))) {
+            fautes.add('${f.path}:${i + 1}  [$k — ${entree.value}]'
+                '\n      ${l.trim()}');
+          }
+        }
+      }
+    }
+
+    expect(
+      fautes,
+      isEmpty,
+      reason: 'Ces lectures rendent « non » ce qui n\'est que « non '
+          'renseigné », sur des colonnes dont le défaut en base est VRAI. '
+          'Forme sûre : `actifOffline(...)` hors ligne, `actifEnLigne(...)` '
+          'en ligne.\n${fautes.join('\n')}',
+    );
   });
 }

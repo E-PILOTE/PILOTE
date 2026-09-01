@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/booleen_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'communication_scope.dart';
@@ -117,7 +118,12 @@ class Circulaire {
         objet: r['objet'] as String? ?? '',
         corps: r['corps'] as String? ?? '',
         priorite: _prioriteDe(r['priorite'] as String?),
-        accuseRequis: (r['accuse_requis'] as num?)?.toInt() == 1,
+        // L'instantane copie `circulaires.accuse_requis`, NOT NULL DEFAULT
+        // TRUE : l'absence vaut « oui ». Lu `== 1`, une colonne non
+        // renseignee aurait rendu « aucun accuse demande » — l'ecole ne
+        // serait plus sollicitee, et la circulaire perdrait la seule chose
+        // qui lui donne une valeur administrative.
+        accuseRequis: actifOffline(r['accuse_requis']),
         echeance: DateTime.tryParse(r['echeance'] as String? ?? ''),
         publieeLe: DateTime.tryParse(r['publiee_le'] as String? ?? ''),
         createdAt: DateTime.tryParse(r['created_at'] as String? ?? '') ??
