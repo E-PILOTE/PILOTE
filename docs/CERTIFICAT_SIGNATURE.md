@@ -94,6 +94,59 @@ la Suisse, la Norvège et Israël. Le Congo n'y figure pas.
 **Pour un déploiement le 1er-2 octobre, OV ne résout pas le problème à temps.**
 La recommandation est **EV, via un HSM infonuagique**, engagé immédiatement.
 
+## Où l'acheter — les quatre qui font EV + signature infonuagique
+
+Relevé le 2026-09-01. Les prix bougent ; l'ordre de grandeur, non.
+
+| fournisseur | EV, par an | service de signature | remarque |
+|---|---|---|---|
+| **SSL.com** | ≈ **349 $** + palier eSigner mensuel | **eSigner** | le moins cher avec HSM ; le plus souple sur la validation internationale |
+| GoGetSSL (revendeur) | ≈ 369 $ | celui de l'AC d'origine | revendeur : la validation reste faite par l'AC |
+| Sectigo | ≈ 536 $ (engagement 5 ans) | Sectigo Cloud Signing | |
+| DigiCert | ≈ 685 $ (≈ 560 $ chez un revendeur) | **KeyLocker** | le plus strict et le plus cher — **c'est pour lui que l'étape de CI est écrite** |
+
+⚠️ **L'étape de CI est écrite pour DigiCert KeyLocker.** Ce n'est pas un
+engagement : changer pour SSL.com eSigner ne touche qu'une dizaine de lignes
+du bloc « préparer » (étape 1/2). Ne pas payer DigiCert *parce que* le code
+existe — payer ce qui valide l'organisation.
+
+⚠️ **Depuis le 1er mars 2026, la validité maximale d'un certificat public est
+de 460 jours (~15 mois)**, contre 39 mois auparavant. La validation de
+l'organisation se refera donc environ tous les quinze mois : ce n'est pas un
+achat unique, c'est un abonnement avec une formalité récurrente. À budgéter, et
+à ne pas découvrir en pleine année scolaire.
+
+### ⚠️ Les trois choses à confirmer AVANT de payer
+
+Le prix n'est pas le risque. Le risque est qu'une AC refuse le dossier après
+encaissement.
+
+1. **« Validez-vous une organisation immatriculée en République du Congo ? »**
+   À poser par écrit, à leur support, avant toute commande. C'est la question
+   qui décide, et aucune page publique n'y répond.
+2. **Le rappel téléphonique.** L'AC doit joindre l'organisation sur un numéro
+   qu'elle a pu vérifier de façon indépendante. C'est en pratique le point le
+   plus dur hors des pays à annuaires professionnels — et c'est souvent ce que
+   la lettre d'opinion légale sert à couvrir.
+3. **Une adresse de courriel sur le domaine de l'organisation.** Les comptes du
+   projet utilisent `epilote.cg` — ⚠️ **à confirmer** : l'organisation
+   contrôle-t-elle réellement ce domaine, et une boîte y reçoit-elle du
+   courrier ? Un domaine qui ne sert qu'à des comptes de démonstration ne
+   suffira pas.
+
+### Comment prouver l'existence légale
+
+Les exigences du CA/Browser Forum admettent trois voies. La première suppose un
+registre que l'AC sait consulter ; les deux autres existent précisément pour
+les juridictions où ce n'est pas le cas :
+
+- un **registre public** consultable par l'AC ;
+- une **source indépendante qualifiée** ;
+- une **lettre d'opinion légale** d'un avocat ou d'un expert-comptable.
+
+C'est cette troisième voie qui s'appliquera très probablement ici — d'où sa
+place en tête de l'ordre des gestes.
+
 ## Ce qu'il faut réunir — la vraie longueur du chemin
 
 L'autorité doit vérifier que **E-PILOTE CONGO existe légalement** et que le
