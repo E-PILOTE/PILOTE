@@ -155,10 +155,13 @@ assumé, pas un oubli : sans CI, il n'y a pas d'autre chemin.
 conclut à tort qu'il est absent.
 
 ```bash
-# 1. installateur (depuis la racine du dépôt)
-"$LOCALAPPDATA/Programs/Inno Setup 6/ISCC.exe" /DAppVersion=3.4.1 \
-  "/DSourceDir=C:\E-PILOTE\epilote\build\windows\x64\runner\Release" \
-  packaging/windows/epilote.iss        # -> dist/E-PILOTE-3.4.1-installateur.exe
+# 1. installateur — EN POWERSHELL, PAS EN GIT BASH (voir juste en dessous)
+#    Set-Location C:\E-PILOTE
+#    & "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" `
+#        "/DAppVersion=3.4.2" `
+#        "/DSourceDir=C:\E-PILOTE\epilote\build\windows\x64\runner\Release" `
+#        "packaging\windows\epilote.iss"
+#    -> dist/E-PILOTE-3.4.2-installateur.exe
 
 # 2. notes + manifeste : EN PYTHON, PAS EN POWERSHELL (voir plus bas)
 
@@ -173,6 +176,21 @@ curl -sL --netrc-file /dev/null -o /tmp/a.exe "<download_url>" && sha256sum /tmp
 
 # 5. ligne dans app_releases : c'est ELLE qui ouvre la mise à jour au parc
 ```
+
+### ⚠️ Le piège qui a fait échouer l'empaquetage (2026-09-01)
+
+**La commande `bash` ci-dessus, telle qu'elle était écrite ici, ne pouvait pas
+fonctionner.** Git Bash (MSYS) convertit tout argument commençant par `/` en
+chemin Windows : `/DAppVersion=3.4.2` devient `C:/Program Files/Git/DAppVersion=3.4.2`,
+qu'ISCC lit comme un **second nom de script** :
+
+    You may not specify more than one script filename.
+
+Le message ne parle ni de conversion, ni de chemin — rien n'oriente vers la
+cause, et le compilateur affiche d'abord sa bannière de copyright, ce qui donne
+l'illusion qu'il a démarré. Les définitions passent donc **par PowerShell**, où
+aucun argument n'est réécrit. (`MSYS_NO_PATHCONV=1` marcherait aussi, mais
+autant n'avoir qu'une seule façon de faire.)
 
 `gh` est authentifié en **E-PILOTE** avec `admin: true` sur `telechargements` :
 la publication manuelle ne demande aucun nouveau jeton.
