@@ -14,8 +14,8 @@ ignore les colonnes neuves — rien à attendre côté application pour l'appliq
 | geste | état | dépend de |
 |---|---|---|
 | migration `0167` | ✅ appliquée | — |
-| déployer `sync-rules.yaml` (bucket `circulaires_ecole`) sur **Production `…66759`** | ⏳ | un `PS_ADMIN_TOKEN`, jamais sur disque |
-| publier un build portant le schéma local + `/user/circulaires` | ⏳ | — |
+| build portant le schéma local + `/user/circulaires` | ✅ **v3.4.3 / build 27 publiée**, `app_releases` ouverte | — |
+| déployer `sync-rules.yaml` (bucket `circulaires_ecole`) sur **Production `…66759`** | ⏳ **seule pièce manquante** | un `PS_ADMIN_TOKEN`, jamais sur disque |
 
 ✅ **L'ordre entre ces deux-là est libre, et c'est vérifié.** Une table qui
 descend avant d'être déclarée dans le schéma client est conservée dans

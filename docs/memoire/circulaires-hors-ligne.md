@@ -111,8 +111,14 @@ qu'il y a derrière.
 | pièce | état |
 |---|---|
 | migration 0167 | ✅ **appliquée** en production |
-| `sync-rules.yaml` (bucket `circulaires_ecole`) | ⏳ **écrit, NON déployé** |
-| build portant le schéma local + l'écran | ⏳ **non publié** |
+| build portant le schéma local + l'écran | ✅ **v3.4.3 (build 27) publiée**, mise à jour ouverte au parc |
+| `sync-rules.yaml` (bucket `circulaires_ecole`) | ⏳ **écrit, NON déployé** — seule pièce manquante |
+
+⚠️ **Conséquence tant que la règle n'est pas déployée** : l'écran existe et la
+vue locale est créée (vérifié sur une base réelle après installation), mais
+elle reste VIDE. Sans effet visible aujourd'hui — il y a 0 circulaire en base —
+et sans effet non plus le jour où la règle partira : ce qui aura été publié
+entre-temps descendra à ce moment-là.
 
 Le déploiement des sync-rules exige un `PS_ADMIN_TOKEN` — voir
 [[powersync-deploiement-cli]] — et vise **Production `…66759`**, jamais

@@ -195,6 +195,25 @@ autant n'avoir qu'une seule façon de faire.)
 `gh` est authentifié en **E-PILOTE** avec `admin: true` sur `telechargements` :
 la publication manuelle ne demande aucun nouveau jeton.
 
+### ✅ v3.4.3 (build 27) publiée à la main (2026-09-01)
+
+Troisième publication manuelle du jour, procédure désormais rodée. Elle porte
+la circulaire de tutelle jusqu'au poste de direction ([[circulaires-hors-ligne]]).
+
+| étape | résultat |
+|---|---|
+| suite de tests | **non rejouée** — arbre identique à `ff49c07` (1 951 tests, 0 issue) au numéro de version près |
+| binaire | `VersionInfo` = `3.4.3+27` |
+| démarrage réel | vivant 30 s, base ouverte ET écrite |
+| **vue locale `circulaire_destinataires`** | créée, 16 colonnes ; témoin `students` = 131 |
+| installateur | 35 972 109 o, empreinte `46a64e32…80e2`, calculée deux fois |
+| recette anonyme | HTTP 200, empreinte des octets reçus identique |
+| `derniere_version()` | 3.4.3 / 27 sous le rôle `authenticated` |
+
+⚠️ **Ne pas rejouer la suite quand seul le numéro de version change est un
+choix, pas un oubli** — mais il n'est valable que si l'arbre est VRAIMENT
+identique par ailleurs. Le vérifier par `git status`, pas de mémoire.
+
 ### ⚠️ `dist/*.exe` téléversait SIX installateurs (2026-09-01)
 
 `dist/` n'est pas nettoyé entre deux versions : il porte tous les
