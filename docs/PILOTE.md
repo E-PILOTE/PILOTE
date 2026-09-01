@@ -144,6 +144,6 @@ Ne pas laisser découvrir ces limites au pire moment :
 
 | | échéance |
 |---|---|
-| **certificat de signature de code** | délai d'obtention incompressible — à lancer maintenant |
+| **certificat de signature de code** | ⚠️ **le pilote n'en a PAS besoin** — deux écoles installées par un technicien, c'est le chemin USB, qui ne déclenche pas SmartScreen. Voir `docs/CERTIFICAT_SIGNATURE.md` : la question à trancher est le MODE DE DISTRIBUTION, pas le certificat |
 | CI GitHub | débloquée en dépôt public ; la repasser en privé la rebloque |
 | décisions ouvertes (audit hors ligne, audit des créations, `0146`) | sans effet sur le pilote |

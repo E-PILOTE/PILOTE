@@ -4,12 +4,60 @@
 > Ce document ne se substitue pas à l'achat : seul le titulaire de
 > l'organisation peut fournir les pièces légales et le moyen de paiement.
 
-## Pourquoi c'est urgent, et pourquoi ce n'est pas cosmétique
+## ⚠️ D'abord : en avons-nous vraiment besoin ?
 
-Sans signature, Windows affiche **« Éditeur inconnu »** au lancement de
-l'installateur. Un chef d'établissement qui découvre cet avertissement seul,
-sans y avoir été préparé, referme la fenêtre. À l'échelle d'un déploiement
-national, ce n'est pas un désagrément : c'est un taux d'abandon.
+**La première version de ce dossier disait « indispensable ». C'était trop
+fort.** Mesuré le 2026-09-01 : l'avertissement bleu de SmartScreen ne dépend
+pas du fichier, il dépend du **chemin par lequel il arrive sur le poste**.
+
+Windows n'affiche « Windows a protégé votre ordinateur » que si le fichier
+porte un **Mark-of-the-Web** — une marque qu'un NAVIGATEUR ajoute au
+téléchargement. Elle ne survit pas à une copie sur un système de fichiers FAT32
+ou exFAT, et n'est jamais posée par un programme qui écrit un fichier
+lui-même.
+
+| chemin d'arrivée | marque | ce que l'école voit |
+|---|---|---|
+| téléchargement depuis un **navigateur** | oui | **grand bandeau bleu**, deux clics dont un caché derrière « Informations complémentaires » |
+| copie depuis une **clé USB** | **non** | rien de plus que l'invite UAC habituelle, ligne « Éditeur inconnu » |
+| **mise à jour par l'application** | **non** — vérifié | idem UAC |
+
+⚠️ **Vérification faite, pas déduite** : ni l'installateur construit localement,
+ni celui retéléchargé par `curl` lors de la recette anonyme ne portaient de
+Zone.Identifier. L'updater de l'application procède de la même façon
+(`http.Request` + écriture de fichier), donc **une mise à jour ne déclenchera
+jamais SmartScreen**. Le certificat ne concerne que la PREMIÈRE installation.
+
+### Ce qui reste vrai sans certificat
+
+- L'invite d'élévation UAC affiche **« Éditeur inconnu »** en orange. Plus
+  discret que le bandeau bleu, mais présent à chaque installation.
+- Un binaire non signé est **plus exposé aux faux positifs antivirus**. Risque
+  réel et imprévisible à mille postes.
+- Un ministère déployant nationalement un logiciel d'« éditeur inconnu » : ce
+  n'est plus un argument technique, c'est un argument de crédibilité.
+
+### Donc : nécessaire quand ?
+
+> **La question à trancher n'est pas « faut-il un certificat ? » mais
+> « comment l'installateur arrive-t-il dans les écoles ? ».** La seconde
+> réponse détermine la première.
+
+- **Déploiement par vagues, techniciens, clés USB** — ce que suppose déjà un
+  pays à connectivité faible : le certificat devient un confort, pas un
+  prérequis. On peut déployer sans, et l'acheter plus tard, calmement.
+- **Les écoles téléchargent elles-mêmes depuis un lien** : là, le bandeau bleu
+  frappe chaque établissement, et le certificat redevient nécessaire.
+
+⚠️ **Ne pas engager les frais avant cette décision.** La lettre d'opinion
+légale se paie, et la validation se refait tous les quinze mois (voir plus
+bas) : ce sont des coûts récurrents pour un problème qui n'existe que sur un
+seul des trois chemins.
+
+⚠️ **Et le pilote n'en a pas besoin** : deux écoles installées par un
+technicien, c'est le chemin USB. Ne pas attendre le certificat pour commencer.
+
+## Si la décision est « oui » : le délai est le vrai sujet
 
 Le délai d'obtention est **incompressible** — validation de l'organisation par
 l'autorité de certification. C'est la seule tâche du projet qui ne s'accélère
@@ -171,8 +219,12 @@ Windows affiche « éditeur inconnu » malgré la signature.
 
 ## L'ordre des gestes
 
-1. **Aujourd'hui** — demander la lettre d'opinion légale à un avocat. C'est le
-   délai le plus long et il ne dépend d'aucun autre choix.
+0. ⚠️ **D'abord** — trancher le mode de distribution (USB/technicien contre
+   téléchargement par les écoles). Si c'est l'USB, tout ce qui suit peut
+   attendre, et rien ne doit être engagé.
+1. Si le certificat est retenu — demander la lettre d'opinion légale à un
+   avocat. C'est ensuite le délai le plus long, et il ne dépend d'aucun autre
+   choix.
 2. Réunir RCCM, statuts, adresse, ligne téléphonique.
 3. Choisir l'autorité parmi celles offrant un HSM infonuagique, et vérifier
    auprès d'elle **avant de payer** qu'elle valide les organisations
