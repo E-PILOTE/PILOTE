@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
 import '../../../core/constants/caractere_groupe.dart';
+import '../../../core/constants/licence_statut.dart';
 import '../../../core/constants/tutelle.dart';
 import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/booleen_en_ligne.dart';
@@ -227,7 +228,7 @@ class PlanInfo {
   /// `tutelle_licences`. Le proposer à un groupe privé le sortirait du revenu
   /// mensuel de la plateforme — la base le refuse, mais l'écran ne doit même
   /// pas l'offrir.
-  bool get estLicence => slug == 'licence';
+  bool get estLicence => estPlanDeLicence(slug);
 
   String get periodSuffix => billingPeriodSuffix(billingPeriod);
 }

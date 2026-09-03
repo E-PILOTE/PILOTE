@@ -498,10 +498,21 @@ class _GroupInfoCard extends StatelessWidget {
               _InfoRow(label: 'Email', value: g.adminEmail!, icon: Icons.email_outlined),
             if (g.phone != null)
               _InfoRow(label: 'Téléphone', value: g.phone!, icon: Icons.phone_outlined),
-            _InfoRow(label: 'Plan', value: g.planName, icon: Icons.workspace_premium_outlined),
-            _InfoRow(label: 'Statut abonnement', value: statusLabel(g.subscriptionStatus), icon: Icons.verified_outlined),
+            // ⚠️ « Abonnement » est le mot d'un client mensuel. Un ministère
+            // exécute un marché : ses libellés le disent, sur la même ligne.
+            _InfoRow(
+                label: g.estMinistere ? 'Licence' : 'Plan',
+                value: g.planName,
+                icon: Icons.workspace_premium_outlined),
+            _InfoRow(
+                label: g.estMinistere ? 'Statut' : 'Statut abonnement',
+                value: statusLabel(g.subscriptionStatus),
+                icon: Icons.verified_outlined),
             if (g.subscriptionStart != null)
-              _InfoRow(label: 'Début abonnement', value: _fmtDate(g.subscriptionStart), icon: Icons.play_circle_outline_rounded),
+              _InfoRow(
+                  label: g.estMinistere ? 'Début' : 'Début abonnement',
+                  value: _fmtDate(g.subscriptionStart),
+                  icon: Icons.play_circle_outline_rounded),
             if (g.subscriptionEnd != null)
               _InfoRow(label: 'Fin abonnement', value: _subEndLabel(g.subscriptionEnd!), icon: Icons.event_busy_outlined),
             if (g.address != null)

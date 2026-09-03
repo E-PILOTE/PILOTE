@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
+import '../../../core/constants/licence_statut.dart';
 import '../../../core/constants/routes.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../providers/admin_dashboard_provider.dart';
@@ -305,8 +306,13 @@ class _PageHeader extends ConsumerWidget {
               _HeaderChip(
                   label: statusLabel(data.subscriptionStatus),
                   color: statusColor(data.subscriptionStatus)),
+              // Un ministère ne porte pas un « Plan » : il porte sa licence.
+              // Le mot vient du slug, pas d'un drapeau de plus — c'est le plan
+              // lui-même qui dit la nature de la relation (0182).
               _HeaderChip(
-                  label: 'Plan ${data.planName}',
+                  label: estPlanDeLicence(data.planSlug)
+                      ? data.planName
+                      : 'Plan ${data.planName}',
                   color: planColor(data.planSlug)),
               Tooltip(
                 message: 'Actualiser',

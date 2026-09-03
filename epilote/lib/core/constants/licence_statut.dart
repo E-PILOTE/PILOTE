@@ -16,6 +16,18 @@
 /// de `core/constants/`, pour rester lisible depuis un test sans Flutter.
 library;
 
+/// Le slug du plan qui porte les ministères de tutelle (migration 0182).
+///
+/// ⚠️ Ce plan ne porte AUCUN prix : les conditions réelles vivent dans
+/// `tutelle_licences`. Le proposer à un groupe privé le sortirait du revenu
+/// mensuel de la plateforme — la base le refuse, mais aucun écran ne doit même
+/// l'offrir.
+const kPlanSlugLicence = 'licence';
+
+/// Vrai si ce plan est celui des ministères. Écrit ICI et nulle part ailleurs :
+/// trois écrans en dépendent (formulaire de groupe, tableau de bord, licence).
+bool estPlanDeLicence(String? slug) => slug == kPlanSlugLicence;
+
 /// Les quatre statuts, dans l'ordre du cycle de vie d'un marché.
 const kStatutsLicence = <String>['brouillon', 'active', 'echue', 'resiliee'];
 

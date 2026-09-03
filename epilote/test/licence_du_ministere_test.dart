@@ -40,6 +40,11 @@ const _nav = 'lib/core/widgets/app_shell/nav_config.dart';
 const _economie = 'lib/features/super_admin/screens/economie_screen.dart';
 const _dialogue =
     'lib/features/super_admin/screens/economie/licence_form_dialog.dart';
+const _tableauDeBord =
+    'lib/features/admin_groupe/screens/admin_dashboard_screen.dart';
+const _fiche = 'lib/features/admin_groupe/screens/admin_settings_screen.dart';
+const _groupes =
+    'lib/features/super_admin/providers/school_groups_provider.dart';
 
 String _lire(String chemin) {
   final f = File(chemin);
@@ -93,6 +98,28 @@ void main() {
       for (final s in ['brouillon', 'echue', 'resiliee', null]) {
         expect(licenceEnVigueur(s), isFalse);
       }
+    });
+
+    test('le slug du plan de licence n’est écrit qu’une fois', () {
+      expect(kPlanSlugLicence, 'licence');
+      expect(estPlanDeLicence('licence'), isTrue);
+      expect(estPlanDeLicence('institutionnel'), isFalse);
+      expect(estPlanDeLicence(null), isFalse);
+      // ⚠️ Trois écrans en dépendent. Un `slug == 'licence'` recopié quelque
+      // part, et c'est cet exemplaire-là qui divergera le jour où le slug
+      // change — en proposant le plan des ministères à un groupe privé.
+      expect(_lire(_groupes).contains('estPlanDeLicence(slug)'), isTrue);
+      expect(_lire(_tableauDeBord).contains('estPlanDeLicence(data.planSlug)'),
+          isTrue,
+          reason: 'Le bandeau du tableau de bord annonce de nouveau « Plan '
+              'Licence de tutelle » à un ministère.');
+    });
+
+    test('la fiche du groupe ne parle pas d’abonnement à un ministère', () {
+      final src = _lire(_fiche);
+      expect(src.contains("g.estMinistere ? 'Licence' : 'Plan'"), isTrue);
+      expect(src.contains("g.estMinistere ? 'Statut' : 'Statut abonnement'"),
+          isTrue);
     });
 
     test('les deux écrans du fondateur lisent le référentiel', () {
