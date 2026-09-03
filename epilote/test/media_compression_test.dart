@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:epilote/core/utils/media_compression.dart';
+import 'package:epilote/features/communication/widgets/comm_attachments.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 
@@ -138,4 +140,60 @@ void main() {
       expect(out.mime, 'application/pdf');
     });
   });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  L'ANGLE MORT DE LA VIDÉO SUR LE BUREAU
+  //
+  //  `compressForUpload` traite l'image en pur Dart — partout. La VIDÉO passe
+  //  par `video_compress`, plugin natif Android/iOS : sur Windows, la
+  //  plateforme de déploiement, elle rend l'original SANS LE DIRE. Le garde
+  //  « aucun octet ne part sans compression » reste vert, et une vidéo de
+  //  24 Mo passe quand même.
+  //
+  //  Faute de pouvoir transcoder, on refuse au-delà d'un plafond strict — un
+  //  refus explicite vaut mieux qu'un envoi de 24 Mo que personne n'a voulu.
+  // ══════════════════════════════════════════════════════════════════════════
+  group('Le plafond d’une pièce jointe suit l’appareil', () {
+    test('une vidéo est bornée quand l’appareil ne sait pas la ré-encoder', () {
+      // Les tests tournent sur le bureau : `videoCompressionSupported` y est
+      // faux, exactement comme sur un poste d'établissement sous Windows.
+      expect(videoCompressionSupported, isFalse,
+          reason: 'Si ce test tourne un jour sur mobile, les attentes '
+              'ci-dessous s’inversent — et il faut le savoir.');
+      expect(plafondPieceJointe('video/mp4'), kMaxVideoBytesSansTranscodage);
+      expect(plafondPieceJointe('video/quicktime'),
+          kMaxVideoBytesSansTranscodage);
+    });
+
+    test('tout le reste garde le plafond ordinaire', () {
+      // Une image est VRAIMENT compressée sur le bureau ; un PDF n'a pas à
+      // souffrir d'une limite pensée pour la vidéo.
+      for (final mime in [
+        'image/jpeg',
+        'image/png',
+        'application/pdf',
+        'audio/mpeg',
+      ]) {
+        expect(plafondPieceJointe(mime), kMaxAttachmentBytes, reason: mime);
+      }
+    });
+
+    test('le plafond vidéo est nettement sous le plafond ordinaire', () {
+      expect(kMaxVideoBytesSansTranscodage, lessThan(kMaxAttachmentBytes),
+          reason: 'Sinon il ne sert à rien : c’est tout le propos.');
+    });
+
+    test('le sélecteur applique ce plafond, pas la constante générale', () {
+      final src = File(
+              'lib/features/communication/widgets/comm_attachments.dart')
+          .readAsStringSync();
+      final i = src.indexOf('Future<List<MessageAttachment>> pickAndUpload');
+      expect(i, greaterThan(0));
+      final corps = src.substring(i);
+      expect(corps.contains('plafondPieceJointe(c.mime)'), isTrue,
+          reason: 'Le contrôle de taille doit suivre l’appareil : sinon une '
+              'vidéo brute repasse sous les 25 Mo.');
+    });
+  });
+
 }

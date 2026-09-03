@@ -61,6 +61,35 @@ String? domaineTutelle(String? t) => switch (t) {
 /// Vrai si [t] est une tutelle connue. Sert aux validateurs de formulaire.
 bool tutelleConnue(String? t) => t != null && kTutelles.contains(t);
 
+// ─── UN MINISTÈRE N'EST PAS UN GROUPE SCOLAIRE ──────────────────────────────
+//
+// ⚠️ Il y a DEUX ministères au Congo, et ils vivent dans la même table que les
+// groupes privés parce qu'ils exploitent eux aussi des écoles. Cette
+// commodité de modèle ne doit pas remonter à l'écran : afficher « MEPSA » à
+// côté de « Réseau Saint-Pierre », dans la même pastille et la même couleur,
+// range les deux sur la même ligne et laisse croire qu'ils ne diffèrent que
+// par le sigle.
+//
+// Ils diffèrent par NATURE. Un ministère n'a pas de clients, il a un réseau ;
+// il n'est pas agréé, il agrée ; il ne remonte pas d'état à sa tutelle, il la
+// tient. Ces deux fonctions donnent le mot juste, en un seul endroit — le
+// libellé de la tutelle avait déjà été écrit trois fois avant d'atterrir ici.
+
+/// Ce qu'un groupe EST, avant son nom.
+///
+/// [estTutelle] = `school_groups.administre_referentiel_national`.
+String natureGroupe({required bool estTutelle}) =>
+    estTutelle ? 'Ministère de tutelle' : 'Groupe scolaire';
+
+/// Nom d'usage d'un ministère — « Ministère MEPSA ».
+///
+/// Rend `null` hors d'un ministère connu : il n'y a rien à nommer, et inventer
+/// « Ministère » tout court désignerait n'importe lequel des deux.
+String? nomUsageMinistere(String? t) {
+  final sigle = sigleTutelle(t);
+  return sigle == null ? null : 'Ministère $sigle';
+}
+
 // La COULEUR de la tutelle vit dans `core/widgets/admin_tokens.dart`
 // (`couleurTutelle`) : ce fichier-ci reste du Dart pur, comme le reste de
 // `core/constants/`, pour rester utilisable depuis un test sans Flutter.

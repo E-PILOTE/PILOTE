@@ -510,15 +510,28 @@ class ListResultHeader extends StatelessWidget {
     required this.total,
     required this.filtered,
     this.noun = 'résultat',
+    this.nounPlural,
   });
 
   final int total;
   final int filtered;
   final String noun;
 
+  /// Pluriel EXPLICITE, pour les noms que le « + s » ne sait pas accorder.
+  ///
+  /// ⚠️ Le pluriel par défaut colle un `s` au groupe nominal ENTIER : « école »
+  /// devient bien « écoles », mais « groupe scolaire » devenait « groupe
+  /// scolaires » — vu à l'écran le 2026-09-03, en tête de « Réseau sous
+  /// tutelle ». Tout nom composé, tout mot en -al ou -ail tombera dans le même
+  /// trou ; on le donne alors à la main.
+  final String? nounPlural;
+
   @override
   Widget build(BuildContext context) => Row(children: [
-        Text('$filtered $noun${filtered > 1 ? 's' : ''}',
+        Text(
+            filtered > 1
+                ? '$filtered ${nounPlural ?? '${noun}s'}'
+                : '$filtered $noun',
             style: TextStyle(
                 color: kTextPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
         if (filtered < total) ...[

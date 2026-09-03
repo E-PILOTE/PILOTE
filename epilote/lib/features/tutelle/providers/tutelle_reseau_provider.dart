@@ -212,8 +212,18 @@ final tutelleReseauProvider =
     FutureProvider.autoDispose<TutelleReseau>((ref) async {
   ref.keepAlive();
   final client = ref.watch(supabaseClientProvider);
-  final groupes = await client.rpc('tutelle_groupes') as List;
-  final ecoles = await client.rpc('tutelle_ecoles') as List;
+  // ⚠️ EN PARALLÈLE, et non l'une après l'autre. Les deux RPC sont
+  // indépendantes ; enchaînées, elles additionnaient leurs latences sur un
+  // réseau congolais où l'aller-retour se compte en centaines de millisecondes.
+  // À la cible nationale — plus de mille établissements — chacune agrège les
+  // effectifs école par école : c'est le chargement le plus lourd de l'espace
+  // groupe, et il n'y a aucune raison de le payer deux fois de suite.
+  final reponses = await Future.wait<dynamic>([
+    client.rpc('tutelle_groupes'),
+    client.rpc('tutelle_ecoles'),
+  ]);
+  final groupes = reponses[0] as List;
+  final ecoles = reponses[1] as List;
   return TutelleReseau(
     groupes: [
       for (final r in groupes)
@@ -242,3 +252,99 @@ final tutelleDuGroupeProvider =
       .maybeSingle();
   return g?['tutelle'] as String?;
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+//  LE RÉSEAU SUPERVISÉ — le périmètre de tutelle MOINS soi-même
+//
+//  ── LE DÉFAUT QUE CETTE DISTINCTION CORRIGE ───────────────────────────────
+//  Vu à l'écran le 2026-09-02, compte METP : la page « Réseau sous tutelle »
+//  annonçait « toutes les écoles sous tutelle METP, Y COMPRIS CELLES QUE VOUS
+//  NE GÉREZ PAS », puis affichait 12 écoles réparties dans 1 groupe — et ce
+//  groupe unique ÉTAIT le ministère qui regardait la page. Une page de
+//  supervision dont tout le contenu est la carte de son propre lecteur.
+//  Colonne « Groupe » : le même nom douze fois. KPI privé : 0.
+//
+//  Un ministère porte deux casquettes, et la plateforme leur doit deux écrans :
+//   • EXPLOITANT — ses propres établissements → « Mes écoles » ;
+//   • TUTELLE    — les groupes qu'il supervise SANS les administrer → ici.
+//  Tant que le premier périmètre était inclus dans le second, le second ne
+//  répondait à aucune question.
+//
+//  ── ⚠️ POURQUOI CE FILTRE N'EST PAS DANS LE SQL ──────────────────────────
+//  Il serait tentant d'ajouter `AND sg.id <> auth_group_id()` dans les RPC de
+//  la migration 0158. Ce serait un défaut silencieux : `circulaire_publier`
+//  (0167) calcule ses destinataires EN BASE sur `schools.tutelle`, sans cette
+//  exclusion — une circulaire ministérielle atteint bien les écoles du
+//  ministère. Le formulaire de circulaire, lui, compte ses cibles avec
+//  `tutelleReseauProvider`. Amputer la RPC ferait donc annoncer « 11
+//  établissements touchés » à un envoi qui en toucherait 25.
+//
+//  Les deux périmètres sont RÉELS et différents. Ils portent donc deux noms :
+//  `tutelleReseauProvider` = ce que la tutelle COUVRE (ciblage d'une
+//  circulaire) ; `reseauSuperviseProvider` = ce qu'elle SUPERVISE sans
+//  l'administrer (la page). Ne jamais substituer l'un à l'autre.
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Le réseau qu'un ministère supervise sans l'exploiter.
+class ReseauSupervise {
+  const ReseauSupervise({
+    required this.groupes,
+    required this.ecoles,
+    required this.nbEcolesPropres,
+  });
+
+  /// Les groupes tiers — jamais le groupe qui consulte.
+  final List<TutelleGroupe> groupes;
+
+  /// Leurs établissements.
+  final List<TutelleEcole> ecoles;
+
+  /// Combien d'établissements le consultant exploite lui-même. Sert à le DIRE
+  /// à l'écran : sans ce nombre, un ministère qui ne retrouve pas ses douze
+  /// écoles croit à une panne plutôt qu'à un périmètre.
+  final int nbEcolesPropres;
+
+  bool get estVide => groupes.isEmpty;
+}
+
+/// Retire [monGroupeId] du périmètre — fonction PURE, testable sans réseau.
+///
+/// ⚠️ L'exclusion porte sur le GROUPE, pas sur l'école : une école du
+/// ministère se reconnaît à son `groupId`, jamais à son secteur. Filtrer sur
+/// `estPublic` aurait écarté par la même occasion les groupes publics TIERS
+/// (au MEPSA : EDEC et Savorgnan, 4 écoles et 2 575 élèves) — des opérateurs
+/// que le ministère supervise sans les administrer, et qu'aucun autre écran ne
+/// lui montre.
+ReseauSupervise reseauSuperviseDe(TutelleReseau complet, String? monGroupeId) {
+  // Le super_admin n'a pas de groupe : il n'exploite rien, donc rien à retirer.
+  if (monGroupeId == null || monGroupeId.isEmpty) {
+    return ReseauSupervise(
+      groupes: complet.groupes,
+      ecoles: complet.ecoles,
+      nbEcolesPropres: 0,
+    );
+  }
+  var propres = 0;
+  final ecoles = <TutelleEcole>[];
+  for (final e in complet.ecoles) {
+    if (e.groupId == monGroupeId) {
+      propres++;
+    } else {
+      ecoles.add(e);
+    }
+  }
+  return ReseauSupervise(
+    groupes: [
+      for (final g in complet.groupes)
+        if (g.id != monGroupeId) g,
+    ],
+    ecoles: ecoles,
+    nbEcolesPropres: propres,
+  );
+}
+
+final reseauSuperviseProvider =
+    FutureProvider.autoDispose<ReseauSupervise>((ref) async => reseauSuperviseDe(
+          await ref.watch(tutelleReseauProvider.future),
+          ref.watch(authNotifierProvider).valueOrNull?.groupId,
+        ));

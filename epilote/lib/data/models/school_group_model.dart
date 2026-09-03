@@ -65,7 +65,10 @@ class SchoolGroupModel {
   final String id;
   final String name;
   final String? slug;
-  final String groupType;       // 'public' | 'prive' | 'catholique' | 'islamique' | …
+  /// SECTEUR : `public` ou `prive`, et rien d'autre — l'enum n'a que ces
+  /// deux valeurs. Ce commentaire a longtemps annoncé « catholique »,
+  /// « islamique »… : la confession vit dans `caractere` (migration 0180).
+  final String groupType;
 
   /// Ministère de tutelle (`mepsa` | `metp`), migration 0153. Le groupe le
   /// porte, l'école en hérite. `null` tant qu'un groupe ancien n'a pas été

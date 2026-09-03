@@ -7,7 +7,8 @@ import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:printing/printing.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' show FileOptions;
+import 'package:supabase_flutter/supabase_flutter.dart'
+    show FileOptions, SupabaseClient;
 
 import '../../../core/widgets/app_shell.dart';
 import '../../../core/utils/media_compression.dart';
@@ -18,7 +19,9 @@ import 'package:flutter_animated_button/flutter_animated_button.dart';
 import '../services/group_pdf_service.dart';
 import '../widgets/plan_change_notice.dart';
 import '../../../core/utils/message_erreur.dart';
+import '../../../core/constants/caractere_groupe.dart';
 import '../../../core/constants/tutelle.dart';
+import '../../../core/widgets/badge_ministere.dart';
 
 // Le formulaire de groupe vit dans ses propres fichiers : cet écran dépassait
 // 3 600 lignes et le modal en pesait 511 à lui seul. `part` plutôt que des
@@ -26,6 +29,8 @@ import '../../../core/constants/tutelle.dart';
 // widgets privés (`_FormLabel`, `_LogoUploadBox`, `_inputDeco`) déclarés ici.
 part 'groups/group_form_modal.dart';
 part 'groups/group_tutelle_selector.dart';
+part 'groups/group_tutelle_role.dart';
+part 'groups/group_logo_upload.dart';
 part 'groups/group_form_footer.dart';
 part 'groups/group_agrement_fields.dart';
 
@@ -127,9 +132,11 @@ class _GroupsBodyState extends ConsumerState<_GroupsBody> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _GroupFormModal(plans: data.plans, onSaved: () {
-        ref.invalidate(schoolGroupsProvider);
-      }),
+      builder: (_) => _GroupFormModal(
+        plans: data.plans,
+        groupes: data.groups,
+        onSaved: () => ref.invalidate(schoolGroupsProvider),
+      ),
     );
   }
 
@@ -162,6 +169,7 @@ class _GroupsBodyState extends ConsumerState<_GroupsBody> {
       barrierDismissible: false,
       builder: (_) => _GroupFormModal(
         plans:    data.plans,
+        groupes:  data.groups,
         existing: g,
         onSaved:  () => ref.invalidate(schoolGroupsProvider),
       ),
@@ -743,13 +751,13 @@ class _FilterBar extends StatelessWidget {
           _FilterDropdown(
             icon: Icons.business_rounded,
             label: 'Type',
-            items: const {
-              'tous': 'Tous les types',
-              'public': 'Public',
-              'prive': 'Privé',
-              'catholique': 'Catholique',
-              'islamique': 'Islamique',
-              'protestant': 'Protestant',
+            // ⚠️ Trois de ces entrées ne pouvaient RIEN rendre : l'enum
+            // `group_type` n'accepte que `public` et `prive`, aucune ligne
+            // n'a donc jamais porté « catholique ». Le filtre proposait de
+            // chercher ce qui ne pouvait pas exister.
+            items: {
+              'tous': 'Tous les secteurs',
+              for (final code in kSecteursGroupe) code: libelleSecteur(code),
             },
             value: filterType,
             onChanged: onType,
@@ -1196,8 +1204,17 @@ class _GroupCardState extends State<_GroupCard> {
 
             // ─ Badges ─────────────────────────────────────────────────────────
             Wrap(spacing: 6, runSpacing: 4, children: [
+              // ⚠️ Un ministère porte SA pastille et pas celle de la tutelle :
+              // « MINISTÈRE · MEPSA » dit déjà le sigle, et deux pastilles
+              // côte à côte laisseraient croire à deux informations.
+              if (g.administreReferentielNational)
+                BadgeMinistere(estMinistere: true, tutelle: g.tutelle)
+              else
+                _TutelleBadge(tutelle: g.tutelle),
               _TypeBadge(type: g.groupType, label: g.groupTypeLabel),
-              _TutelleBadge(tutelle: g.tutelle),
+              if (g.caractereLabel != null)
+                _CaractereBadge(caractere: g.caractere!,
+                    label: g.caractereLabel!),
               _PlanBadge(plan: g.planName, price: g.priceXaf),
             ]),
             const SizedBox(height: 10),
@@ -1343,13 +1360,7 @@ class _TypeBadge extends StatelessWidget {
   const _TypeBadge({required this.type, required this.label});
   final String type, label;
 
-  Color get _color => switch (type) {
-    'public'     => _kNavy,
-    'prive'      => _kGold,
-    'catholique' => _kOrange,
-    'islamique'  => _kGreen,
-    _            => _kMuted,
-  };
+  Color get _color => type == 'public' ? _kNavy : _kGold;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -1398,6 +1409,31 @@ class _TutelleBadge extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// Pastille du CARACTÈRE — l'axe confessionnel, distinct du secteur.
+///
+/// ⚠️ Absente quand le caractère n'est pas renseigné : « non renseigné » n'est
+/// pas un caractère, et une pastille grise sur cinq groupes sur sept dirait
+/// seulement que personne n'a encore répondu.
+class _CaractereBadge extends StatelessWidget {
+  const _CaractereBadge({required this.caractere, required this.label});
+  final String caractere, label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: _kPurple.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    child: Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(iconeCaractere(caractere), size: 11, color: _kPurple),
+      const SizedBox(width: 5),
+      Text(label, style: const TextStyle(
+          color: _kPurple, fontSize: 11, fontWeight: FontWeight.w700)),
+    ]),
+  );
 }
 
 class _PlanBadge extends StatelessWidget {
@@ -1534,10 +1570,16 @@ class _GroupDetailModalState extends State<_GroupDetailModal>
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 5),
                   Wrap(spacing: 6, runSpacing: 4, children: [
+                    if (g.administreReferentielNational)
+                      BadgeMinistere(estMinistere: true, tutelle: g.tutelle),
                     _StatusBadge(status: g.subscriptionStatus,
                         label: g.statusLabel),
                     _TypeBadge(type: g.groupType, label: g.groupTypeLabel),
-                    _TutelleBadge(tutelle: g.tutelle),
+                    if (g.caractereLabel != null)
+                      _CaractereBadge(caractere: g.caractere!,
+                          label: g.caractereLabel!),
+                    if (!g.administreReferentielNational)
+                      _TutelleBadge(tutelle: g.tutelle),
                     _PlanBadge(plan: g.planName, price: g.priceXaf),
                   ]),
                   const SizedBox(height: 5),
@@ -1691,7 +1733,23 @@ class _InfoTab extends StatelessWidget {
         const _SectionTitle('Paramètres'),
         const SizedBox(height: 8),
         _DetailCard([
-          _DetailRow(Icons.business_outlined, 'Type', g.groupTypeLabel),
+          // ⚠️ « Nature » AVANT « Type ». La fiche d'un ministère annonçait
+          // « Type : Public » — exact, et trompeur : c'est ce qu'affiche aussi
+          // une école publique ordinaire. La première ligne doit dire ce que
+          // la chose EST.
+          _DetailRow(
+              g.administreReferentielNational
+                  ? Icons.account_balance_rounded
+                  : Icons.corporate_fare_outlined,
+              'Nature',
+              natureGroupe(estTutelle: g.administreReferentielNational)),
+          _DetailRow(Icons.business_outlined, 'Secteur', g.groupTypeLabel),
+          // ⚠️ Sur un groupe PUBLIC, on n'affiche pas la ligne du tout : la
+          // question ne se pose pas. Sur un groupe privé, « Non renseigné »
+          // DIT le manque — c'est une case qu'on peut encore remplir.
+          if (caractereSeSaisit(g.groupType))
+            _DetailRow(iconeCaractere(g.caractere), 'Caractère',
+                libelleCaractereOuManque(g.caractere)),
           // « Non renseignée » plutôt qu'un tiret : l'absence de tutelle est
           // une lacune à combler, pas une case vide sans conséquence — un
           // groupe sans ministère ne remonte dans aucun état ministériel.
@@ -2183,6 +2241,12 @@ class _DeleteConfirmDialog extends StatefulWidget {
 class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
   bool _confirmed = false;
 
+  /// ⚠️ CE DIALOGUE NE PROPOSE PAS DE SUPPRIMER UN MINISTÈRE. La base refuse
+  /// (déclencheur `trg_ministere_ne_seffce_pas`, migration 0179) ; l'écran doit
+  /// le dire AVANT le clic, pas laisser cocher « je comprends que cette action
+  /// est irréversible » pour finir sur un refus.
+  bool get _estMinistere => widget.group.administreReferentielNational;
+
   @override
   Widget build(BuildContext context) {
     final g = widget.group;
@@ -2218,16 +2282,25 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
                   shape: BoxShape.circle,
                   border: Border.all(color: _kRed.withValues(alpha: 0.2), width: 2),
                 ),
-                child: const Icon(Icons.delete_forever_rounded,
+                child: Icon(
+                    _estMinistere
+                        ? Icons.block_rounded
+                        : Icons.delete_forever_rounded,
                     color: _kRed, size: 30),
               ),
               const SizedBox(height: 14),
-              const Text('Supprimer définitivement',
-                  style: TextStyle(
+              Text(
+                  _estMinistere
+                      ? 'Suppression impossible'
+                      : 'Supprimer définitivement',
+                  style: const TextStyle(
                       color: _kRed, fontSize: 17,
                       fontWeight: FontWeight.w900, letterSpacing: 0.2)),
               const SizedBox(height: 6),
-              Text('Cette action est irréversible',
+              Text(
+                  _estMinistere
+                      ? 'Ce groupe est un ministère de tutelle'
+                      : 'Cette action est irréversible',
                   style: TextStyle(
                       color: _kRed.withValues(alpha: 0.7),
                       fontSize: 12, fontWeight: FontWeight.w500)),
@@ -2267,63 +2340,68 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
               ),
               const SizedBox(height: 16),
 
-              // Avertissement données
-              Text('Seront également supprimées :',
-                  style: TextStyle(
-                      color: _kText, fontSize: 12,
-                      fontWeight: FontWeight.w700)),
-              const SizedBox(height: 8),
-              const _DeleteWarningItem(
-                  icon: Icons.school_rounded,
-                  text: 'Toutes les écoles rattachées au groupe'),
-              const _DeleteWarningItem(
-                  icon: Icons.people_rounded,
-                  text: 'Tous les élèves et le personnel'),
-              const _DeleteWarningItem(
-                  icon: Icons.payments_rounded,
-                  text: 'L\'historique des paiements'),
-              const _DeleteWarningItem(
-                  icon: Icons.description_rounded,
-                  text: 'Les documents et archives scolaires'),
-              const SizedBox(height: 18),
+              // ── Le refus, ou les avertissements ────────────────────
+              if (_estMinistere)
+                _RefusMinistere(nom: g.name, tutelle: g.tutelle)
+              else ...[
+                // Avertissement données
+                Text('Seront également supprimées :',
+                    style: TextStyle(
+                        color: _kText, fontSize: 12,
+                        fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
+                const _DeleteWarningItem(
+                    icon: Icons.school_rounded,
+                    text: 'Toutes les écoles rattachées au groupe'),
+                const _DeleteWarningItem(
+                    icon: Icons.people_rounded,
+                    text: 'Tous les élèves et le personnel'),
+                const _DeleteWarningItem(
+                    icon: Icons.payments_rounded,
+                    text: 'L\'historique des paiements'),
+                const _DeleteWarningItem(
+                    icon: Icons.description_rounded,
+                    text: 'Les documents et archives scolaires'),
+                const SizedBox(height: 18),
 
-              // Case à cocher confirmation
-              MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: () => setState(() => _confirmed = !_confirmed),
-                  child: Row(children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      width: 20, height: 20,
-                      decoration: BoxDecoration(
-                        color: _confirmed ? _kRed : kCardBg,
-                        borderRadius: BorderRadius.circular(5),
-                        border: Border.all(
-                          color: _confirmed
-                              ? _kRed
-                              : _kBorder,
-                          width: 2,
+                // Case à cocher confirmation
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () => setState(() => _confirmed = !_confirmed),
+                    child: Row(children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: 20, height: 20,
+                        decoration: BoxDecoration(
+                          color: _confirmed ? _kRed : kCardBg,
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(
+                            color: _confirmed
+                                ? _kRed
+                                : _kBorder,
+                            width: 2,
+                          ),
                         ),
+                        child: _confirmed
+                            ? const Icon(Icons.check_rounded,
+                                size: 13, color: Colors.white)
+                            : null,
                       ),
-                      child: _confirmed
-                          ? const Icon(Icons.check_rounded,
-                              size: 13, color: Colors.white)
-                          : null,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(child: Text(
-                      'Je comprends que cette action est irréversible',
-                      style: TextStyle(
-                          color: _confirmed ? _kRed : _kMuted,
-                          fontSize: 12.5,
-                          fontWeight: _confirmed
-                              ? FontWeight.w700
-                              : FontWeight.w400),
-                    )),
-                  ]),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(
+                        'Je comprends que cette action est irréversible',
+                        style: TextStyle(
+                            color: _confirmed ? _kRed : _kMuted,
+                            fontSize: 12.5,
+                            fontWeight: _confirmed
+                                ? FontWeight.w700
+                                : FontWeight.w400),
+                      )),
+                    ]),
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(height: 22),
             ]),
           ),
@@ -2358,13 +2436,13 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
               // Supprimer
               Expanded(child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 200),
-                opacity: _confirmed ? 1.0 : 0.4,
+                opacity: _confirmed && !_estMinistere ? 1.0 : 0.4,
                 child: MouseRegion(
                   cursor: _confirmed
                       ? SystemMouseCursors.click
                       : SystemMouseCursors.forbidden,
                   child: GestureDetector(
-                    onTap: _confirmed
+                    onTap: _confirmed && !_estMinistere
                         ? () => Navigator.pop(context, true)
                         : null,
                     child: Container(
@@ -2397,6 +2475,76 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
           ),
         ]),
       ),
+    );
+  }
+}
+
+/// Le refus opposé à la suppression d'un ministère de tutelle.
+///
+/// ⚠️ IL NE S'AJOUTE PAS AUX QUATRE AVERTISSEMENTS, IL LES REMPLACE. Le
+/// dialogue énumérait déjà « écoles, élèves, paiements, archives » et faisait
+/// cocher « je comprends ». Un cinquième point dans la même liste se serait lu
+/// comme les quatre autres — et ici il n'y a rien à comprendre : il n'y aura
+/// pas de suppression. Ce qu'il faut donner, c'est le chemin sûr.
+class _RefusMinistere extends StatelessWidget {
+  const _RefusMinistere({required this.nom, required this.tutelle});
+
+  final String nom;
+  final String? tutelle;
+
+  @override
+  Widget build(BuildContext context) {
+    final sigle = sigleTutelle(tutelle);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+      decoration: BoxDecoration(
+        color: _kRed.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _kRed.withValues(alpha: 0.30)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.account_balance_rounded, size: 15, color: _kRed),
+          const SizedBox(width: 8),
+          Expanded(child: Text(
+            sigle == null
+                ? '« $nom » est un ministère de tutelle.'
+                : '« $nom » est le ministère de tutelle $sigle.',
+            style: TextStyle(
+                fontSize: 12.5, height: 1.4,
+                fontWeight: FontWeight.w700, color: _kText),
+          )),
+        ]),
+        const SizedBox(height: 9),
+        Text(
+          'Les établissements de son ministère en dépendent pour leurs '
+          'examens d’État et leurs circulaires — y compris ceux qu’il ne '
+          'possède pas. La base refuse cette suppression.',
+          style: TextStyle(fontSize: 11.5, height: 1.45, color: _kMuted),
+        ),
+        const SizedBox(height: 11),
+        Container(
+          padding: const EdgeInsets.fromLTRB(11, 9, 11, 9),
+          decoration: BoxDecoration(
+            color: _kSurface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: _kBorder),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+            Text('Pour supprimer ce groupe malgré tout :',
+                style: TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w800, color: _kText)),
+            const SizedBox(height: 6),
+            Text(
+              '1.  Modifier le groupe et lui retirer le rôle de ministère de '
+              'tutelle — vous devrez alors dire qui le reprend.\n'
+              '2.  Revenir ici et supprimer.',
+              style: TextStyle(fontSize: 11.5, height: 1.5, color: _kMuted),
+            ),
+          ]),
+        ),
+      ]),
     );
   }
 }
@@ -2764,13 +2912,19 @@ Color _planDotColor(String plan) => switch (plan.toLowerCase()) {
   _                                          => _kGreen,
 };
 
-IconData _typeIcon(String type) => switch (type) {
-  'public'     => Icons.account_balance_rounded,
-  'catholique' => Icons.church_rounded,
-  'islamique'  => Icons.mosque_rounded,
-  'protestant' => Icons.volunteer_activism_rounded,
-  _            => Icons.business_rounded,
-};
+/// Icône du SECTEUR. Deux valeurs, comme l'enum.
+IconData _typeIcon(String secteur) =>
+    secteur == 'public' ? Icons.account_balance_rounded : Icons.business_rounded;
+
+/// Icône du CARACTÈRE — l'autre axe. Les trois symboles confessionnels
+/// vivaient dans `_typeIcon`, pour des valeurs de secteur qui n'existaient pas.
+IconData iconeCaractere(String? c) => switch (c) {
+      'catholique' => Icons.church_rounded,
+      'islamique'  => Icons.mosque_rounded,
+      'protestant' => Icons.volunteer_activism_rounded,
+      'laic'       => Icons.balance_rounded,
+      _            => Icons.groups_rounded,
+    };
 
 // Label de section minimaliste
 class _FormLabel extends StatelessWidget {

@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/routes.dart';
+import '../../../core/constants/caractere_groupe.dart';
+import '../../../core/constants/tutelle.dart';
+import '../../../core/widgets/badge_ministere.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../core/widgets/admin_ui.dart';
@@ -394,15 +397,6 @@ class _GroupInfoCard extends StatelessWidget {
   const _GroupInfoCard({required this.group});
   final GroupProfile? group;
 
-  static String _typeLabel(String t) => switch (t) {
-        'public'        => 'Public',
-        'prive'         => 'Privé',
-        'confessionnel' => 'Confessionnel',
-        'ministere'     => 'Ministère',
-        'reseau'        => 'Réseau',
-        _               => t,
-      };
-
   static String _fmtDate(DateTime? d) {
     if (d == null) return '—';
     const months = [
@@ -432,12 +426,41 @@ class _GroupInfoCard extends StatelessWidget {
             _GroupLogo(logoUrl: g.logoUrl, name: g.name),
             const SizedBox(width: 16),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(g.name,
+              Text(
+                  nomAffichableGroupe(
+                    nom: g.name,
+                    estMinistere: g.estMinistere,
+                    tutelle: g.tutelle,
+                  ),
                   style: TextStyle(
                       fontSize: 18, fontWeight: FontWeight.w800, color: kTextPrimary)),
+              // ⚠️ CETTE LIGNE MANQUAIT, ET C'EST LA PLUS IMPORTANTE DE
+              // L'ÉCRAN. La fiche du MEPSA annonçait « Public · Institutionnel
+              // · Actif » : trois pastilles exactes, et pas une qui dise qu'on
+              // regarde un MINISTÈRE DE TUTELLE. C'est son propre écran — si
+              // lui ne le dit pas, aucun autre ne le fera.
+              if (g.estMinistere) ...[
+                const SizedBox(height: 6),
+                Text(natureGroupe(estTutelle: true),
+                    style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: couleurTutelle(g.tutelle))),
+              ],
               const SizedBox(height: 8),
               Wrap(spacing: 6, runSpacing: 6, children: [
-                AdminBadge(_typeLabel(g.groupType), color: kNavy, icon: Icons.category_outlined),
+                if (g.estMinistere)
+                  BadgeMinistere(estMinistere: true, tutelle: g.tutelle),
+                // ⚠️ Ce libellé avait un TROISIÈME vocabulaire à lui seul —
+                // « confessionnel », « ministere », « reseau » —, qu'aucune
+                // base n'a jamais accepté : l'enum ne connaît que `public` et
+                // `prive`. Il lit maintenant le même référentiel que tout le
+                // monde.
+                AdminBadge(libelleSecteur(g.groupType), color: kNavy,
+                    icon: Icons.category_outlined),
+                if (libelleCaractere(g.caractere) != null)
+                  AdminBadge(libelleCaractere(g.caractere)!, color: kAccent,
+                      icon: Icons.groups_rounded),
                 AdminBadge(g.planName, color: kAccent, icon: Icons.workspace_premium_outlined),
                 AdminBadge(statusLabel(g.subscriptionStatus),
                     color: statusColor(g.subscriptionStatus), icon: Icons.verified_outlined),

@@ -5,10 +5,15 @@ part of '../school_groups_screen.dart';
 class _GroupFormModal extends ConsumerStatefulWidget {
   const _GroupFormModal({
     required this.plans,
+    required this.groupes,
     required this.onSaved,
     this.existing,
   });
   final List<PlanInfo> plans;
+
+  /// Les groupes déjà chargés par l'écran. Sert à dire, sans une requête de
+  /// plus, quel groupe détient déjà le rôle de tutelle d'un ministère.
+  final List<GroupDetail> groupes;
   final GroupDetail?   existing;
   final VoidCallback   onSaved;
 
@@ -27,11 +32,25 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
 
   String  _groupType    = 'prive';
 
+  /// Caractère du groupe — indépendant du secteur (migration 0180).
+  ///
+  /// ⚠️ CES TROIS VALEURS ÉTAIENT DANS LE CHAMP « TYPE ». « Catholique »,
+  /// « Islamique » et « Protestant » y côtoyaient « Public » et « Privé »,
+  /// alors que l'enum `group_type` n'accepte que les deux derniers : les
+  /// choisir faisait échouer la création sur un 22P02. Elles cherchaient un
+  /// champ qui n'existait pas. Il existe.
+  String? _caractere;
+
   /// Ministère de tutelle du groupe. Jamais prérempli à la création : deviner
   /// « MEPSA » parce que c'est le cas le plus fréquent rangerait en silence
   /// un lycée technique sous le mauvais ministère, et personne ne le verrait
   /// avant l'inscription aux examens d'État.
   String? _tutelle;
+
+  /// Ce groupe EST-IL le ministère de tutelle ? Faux par défaut : le rôle
+  /// s'accorde, il ne se suppose pas. Un seul groupe le porte par ministère
+  /// (index unique de la migration 0178).
+  bool _estTutelle = false;
 
   /// Agrément : SAISI, jamais instruit. Trois champs, aucun workflow.
   final _agrementNum = TextEditingController();
@@ -45,14 +64,6 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
   String?    _uploadedLogoUrl;  // URL finale (après upload ou URL existante)
   Uint8List? _logoPreviewBytes; // aperçu local avant upload
   bool       _uploadingLogo = false;
-
-  static const _types = {
-    'public':     'Public',
-    'prive':      'Privé',
-    'catholique': 'Catholique',
-    'islamique':  'Islamique',
-    'protestant': 'Protestant',
-  };
 
   static const _depts = [
     'Brazzaville', 'Pointe-Noire', 'Dolisie', 'Ouesso', 'Impfondo',
@@ -72,7 +83,9 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
       _notes.text         = g.notes       ?? '';
       _uploadedLogoUrl    = g.logoUrl;
       _groupType          = g.groupType;
+      _caractere          = g.caractere;
       _tutelle            = g.tutelle;
+      _estTutelle         = g.administreReferentielNational;
       _agrementNum.text   = g.agrementNumero ?? '';
       _agrementType       = g.agrementType;
       _agrementDate       = g.agrementDate;
@@ -96,53 +109,16 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
   }
 
   Future<void> _pickAndUploadLogo() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      allowMultiple: false,
-      withData: true,
-    );
-    if (result == null || result.files.isEmpty) return;
-    final file = result.files.first;
-    if (file.bytes == null) return;
-
-    setState(() {
-      _logoPreviewBytes = file.bytes;
-      _uploadingLogo = true;
-    });
-
+    final client = ref.read(supabaseClientProvider);
     try {
-      final client = ref.read(supabaseClientProvider);
-
-      // ⚠️ Le logo partait BRUT vers le stockage : un fichier sorti d'un
-      // téléphone ou d'un scanner (3 à 8 Mo) était transféré tel quel pour être
-      // affiché… en 38 pixels dans la liste des groupes. Sur les connexions
-      // congolaises, cet envoi pouvait ne jamais aboutir — et chaque affichage
-      // le retéléchargeait. La fiche ÉCOLE compressait déjà, pas celle du
-      // GROUPE : deux formulaires jumeaux, un seul des deux corrigé.
-      final media = await compressLogo(
-        bytes: file.bytes!,
-        fileName: file.name,
-        mime: mimeForImageExtension(file.extension),
+      final url = await choisirEtEnvoyerLogoGroupe(
+        client: client,
+        onApercu: (octets) => setState(() {
+          _logoPreviewBytes = octets;
+          _uploadingLogo = true;
+        }),
       );
-
-      final ext = media.fileName.split('.').last;
-      final fileName = 'logo_${DateTime.now().millisecondsSinceEpoch}.$ext';
-      final path = 'groups/$fileName';
-
-      await client.storage.from('group-logos').uploadBinary(
-        path,
-        media.bytes,
-        fileOptions: FileOptions(
-          contentType: media.mime,
-          upsert: true,
-        ),
-      );
-
-      final url = client.storage
-          .from('group-logos')
-          .getPublicUrl(path);
-
-      setState(() => _uploadedLogoUrl = url);
+      if (url != null && mounted) setState(() => _uploadedLogoUrl = url);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -168,11 +144,23 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
 
       final payload = {
         'name':         _name.text.trim(),
+        // SECTEUR — public ou privé, et rien d'autre. L'école en hérite
+        // (0060) et le barème de frais en dépend.
         'group_type':   _groupType,
+        // CARACTÈRE — descriptif, indépendant du secteur (0180). Remis à
+        // `null` si le groupe repasse en public : un établissement public n'a
+        // pas de caractère propre, et laisser l'ancienne valeur en base ferait
+        // réapparaître « Catholique » sur un groupe devenu public.
+        'caractere':    caractereSeSaisit(_groupType) ? _caractere : null,
         // ⚠️ La tutelle est écrite SUR LE GROUPE, jamais sur l'école : un
         // déclencheur (migration 0153) la propage à toutes ses écoles. Envoyer
         // `schools.tutelle` depuis ici serait écrire dans une copie.
         'tutelle':      _tutelle,
+        // ⚠️ Le rôle de tutelle, pas un réglage d'affichage : il ouvre le
+        // référentiel national, le réseau du ministère et les circulaires.
+        // La base n'en accepte qu'un par ministère (index unique, 0178) et
+        // refuse le second avec une phrase écrite pour l'agent.
+        'administre_referentiel_national': _estTutelle,
         // ⚠️ Écrit sur le GROUPE seulement : un déclencheur le recopie sur
         // toutes ses écoles (migration 0158). L'écrire sur `schools` depuis
         // ici serait écrire dans une copie.
@@ -359,13 +347,13 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
                     Row(children: [
                       Expanded(child: DropdownButtonFormField<String>(
                         initialValue: _groupType,
-                        decoration: _inputDeco('Type de groupe *'),
-                        items: _types.entries.map((e) => DropdownMenuItem(
-                            value: e.key,
+                        decoration: _inputDeco('Secteur *'),
+                        items: kSecteursGroupe.map((code) => DropdownMenuItem(
+                            value: code,
                             child: Row(children: [
-                              Icon(_typeIcon(e.key), size: 15, color: _kNavy),
+                              Icon(_typeIcon(code), size: 15, color: _kNavy),
                               const SizedBox(width: 8),
-                              Text(e.value),
+                              Text(libelleSecteur(code)),
                             ]))).toList(),
                         onChanged: (v) => setState(() => _groupType = v!),
                       )),
@@ -383,6 +371,32 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
                       )),
                     ]),
 
+                    // ── CARACTÈRE ──────────────────────────────────────
+                    // ⚠️ Un champ à part, et pas une valeur de plus dans le
+                    // secteur : une école catholique EST une école privée.
+                    // Les deux informations sont vraies en même temps, et
+                    // c'est faute d'avoir ce champ que « Catholique » s'était
+                    // posé dans celui du secteur — où la base le refusait.
+                    // Proposé sur un groupe PRIVÉ seulement : un établissement
+                    // public n'a pas de caractère propre.
+                    if (caractereSeSaisit(_groupType)) ...[
+                      const SizedBox(height: 14),
+                      DropdownButtonFormField<String?>(
+                        initialValue:
+                            caractereConnu(_caractere) ? _caractere : null,
+                        decoration: _inputDeco('Caractère du groupe'),
+                        items: [
+                          const DropdownMenuItem(
+                              value: null, child: Text('— Non renseigné —')),
+                          ...kCaracteresGroupe.map((code) => DropdownMenuItem(
+                                value: code,
+                                child: Text(libelleCaractere(code) ?? code),
+                              )),
+                        ],
+                        onChanged: (v) => setState(() => _caractere = v),
+                      ),
+                    ],
+
                     const _FormDivider(),
 
                     // ─ TUTELLE ────────────────────────────────────────
@@ -392,6 +406,20 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
                       onChanged: (v) => setState(() => _tutelle = v),
                       ecolesConcernees: widget.existing?.schoolCount ?? 0,
                       valeurInitiale: widget.existing?.tutelle,
+                    ),
+
+                    const SizedBox(height: 12),
+                    _RoleDeTutelle(
+                      actif: _estTutelle,
+                      tutelle: _tutelle,
+                      detenteur: detenteurDuRoleDeTutelle(
+                        widget.groupes, _tutelle,
+                        saufId: widget.existing?.id,
+                      ),
+                      valeurInitiale:
+                          widget.existing?.administreReferentielNational ??
+                              false,
+                      onChanged: (v) => setState(() => _estTutelle = v),
                     ),
 
                     _AgrementFields(
