@@ -166,24 +166,22 @@ class _Body extends ConsumerWidget {
                     const AdminSectionTitle('Consommation',
                         icon: Icons.speed_rounded,
                         subtitle: 'Utilisation des quotas de votre plan'),
-                  // Ce que la licence ACHÈTE — la moitié qui manquait sur un
-                  // marché à quarante millions : le réseau couvert, les droits
-                  // ouverts, et le montant DIVISÉ (par établissement, par
-                  // élève), seul chiffre qui se défend en réunion.
-                  if (sub.estMinistere) ...[
-                    const SizedBox(height: 4),
-                    LicenceCouvertureSection(sub: sub),
-                    const SizedBox(height: 20),
-                    const AdminSectionTitle('Consommation',
-                        icon: Icons.speed_rounded,
-                        subtitle: 'Vos propres établissements'),
-                  ],
-                  const SizedBox(height: 12),
-                  _QuotaGrid(sub: sub),
-                  // ⚠️ Pas de graphe de consommation pour un ministère : ses
-                  // trois quotas sont illimités, le graphe n'aurait aucune
-                  // barre à tracer. Un cadre vide n'informe de rien.
-                  if (!sub.estMinistere) ...[
+
+                  // Ce que la licence ACHÈTE : le réseau couvert en KPI
+                  // cliquables, deux graphes d'utilisation, les droits ouverts,
+                  // et le montant DIVISÉ — seul chiffre qui se défend en
+                  // réunion.
+                  //
+                  // ⚠️ PAS de `_QuotaGrid` ici, et c'est le correctif : ses
+                  // trois jauges affichaient « Illimité » pour un ministère, et
+                  // ses cartes (110 px) ne tombaient pas au même gabarit que
+                  // le `KpiGrid` du reste de l'application (118 px). Deux
+                  // gabarits sur une page se voient, même sans savoir pourquoi.
+                  if (sub.estMinistere)
+                    LicenceCouvertureSection(sub: sub)
+                  else ...[
+                    const SizedBox(height: 12),
+                    _QuotaGrid(sub: sub),
                     const SizedBox(height: 16),
                     _QuotaChart(sub: sub),
                   ],

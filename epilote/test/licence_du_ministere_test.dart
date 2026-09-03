@@ -47,6 +47,8 @@ const _groupes =
     'lib/features/super_admin/providers/school_groups_provider.dart';
 const _couverture =
     'lib/features/admin_groupe/screens/admin_licence_couverture.dart';
+const _modales =
+    'lib/features/admin_groupe/screens/admin_licence_modales.dart';
 const _formulaireLicence =
     'lib/features/super_admin/screens/economie/licence_form_dialog.dart';
 const _migrationRpc =
@@ -240,11 +242,15 @@ void main() {
     test('la page dit ce que la licence ACHÈTE, pas seulement ce qu’elle coûte',
         () {
       final src = _lire(_couverture);
+      final modales = _lire(_modales);
       expect(src.contains('coutAnnuelParEtablissement('), isTrue);
-      expect(src.contains('coutAnnuelParEleve('), isTrue);
-      expect(src.contains('Référentiel national des examens'), isTrue,
+      expect(modales.contains('coutAnnuelParEleve('), isTrue);
+      // Les quatre droits vivent dans `kDroitsDeTutelle` — une seule
+      // déclaration, lue par la page ET par la fiche « modules ouverts ».
+      expect(modales.contains('Référentiel national des examens'), isTrue,
           reason: 'La liste des droits ouverts a disparu : c’est l’objet même '
               'du marché, et aucun autre écran ne l’énonce.');
+      expect(src.contains('kDroitsDeTutelle'), isTrue);
       expect(src.contains('reseauSuperviseProvider'), isTrue);
     });
 

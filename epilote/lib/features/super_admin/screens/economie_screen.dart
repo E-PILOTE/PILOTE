@@ -11,6 +11,8 @@ import '../providers/economie_provider.dart';
 
 part 'economie/licence_form_dialog.dart';
 part 'economie/licence_statut_dialog.dart';
+part 'economie/licence_detail.dart';
+part 'economie/economie_kpi_detail.dart';
 part 'economie/cout_form_dialog.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -62,7 +64,7 @@ class _Corps extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            KpiGrid(items: _kpis(d)),
+            KpiGrid(items: _kpis(context, ref, d)),
             const SizedBox(height: 12),
             const _Avertissement(),
             const SizedBox(height: 24),
@@ -75,7 +77,7 @@ class _Corps extends ConsumerWidget {
     );
   }
 
-  List<KpiData> _kpis(EconomieData d) {
+  List<KpiData> _kpis(BuildContext context, WidgetRef ref, EconomieData d) {
     final marge = d.margeMensuelleXaf;
     final taux = d.tauxMarge;
     // 30 000 XAF = le tarif du plan Standard pour une école (migration 0159).
@@ -87,6 +89,7 @@ class _Corps extends ConsumerWidget {
         sub: 'par mois, groupes actifs',
         icon: Icons.school_rounded,
         color: kNavy,
+        onTap: () => _ouvrirDetailRevenu(context, d),
       ),
       KpiData(
         label: 'Licences de tutelle',
@@ -95,7 +98,8 @@ class _Corps extends ConsumerWidget {
             ? '${fmtXaf(d.soldeDuXaf)} restant à encaisser'
             : 'par mois, licences actives',
         icon: Icons.account_balance_rounded,
-        color: const Color(0xFF7C3AED),
+        color: kListPurple,
+        onTap: () => _ouvrirDetailLicences(context, d),
       ),
       KpiData(
         label: 'Coût d\'exploitation',
@@ -104,7 +108,8 @@ class _Corps extends ConsumerWidget {
         sub: '$seuil groupe${seuil > 1 ? 's' : ''} mono-école le couvre'
             '${seuil > 1 ? 'nt' : ''}',
         icon: Icons.dns_rounded,
-        color: const Color(0xFFFF6B35),
+        color: kListOrange,
+        onTap: () => _ouvrirDetailCouts(context, d),
       ),
       KpiData(
         label: 'Marge mensuelle',
@@ -113,7 +118,8 @@ class _Corps extends ConsumerWidget {
         icon: marge >= 0
             ? Icons.trending_up_rounded
             : Icons.trending_down_rounded,
-        color: marge >= 0 ? kGreen : const Color(0xFFEF4444),
+        color: marge >= 0 ? kGreen : kRed,
+        onTap: () => _ouvrirDetailMarge(context, d),
       ),
     ];
   }
@@ -185,11 +191,19 @@ class _CarteLicence extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l = licence;
     final couleur = couleurStatutLicence(l.statut);
-    return Container(
+    // ⚠️ La carte OUVRE la fiche ; elle ne porte plus les gestes. Résilier un
+    // marché de quarante millions ne doit pas être à un clic dans une liste
+    // qu'on parcourt : il faut avoir ouvert le dossier, donc avoir vu le
+    // montant, la période et le solde.
+    return InkWell(
+      onTap: () => _ouvrirDetailLicence(context, ref, l),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: kCardBg,
-        border: Border.all(color: kBorder),
+        border: Border.all(
+            color: l.accesSuspendu ? kRed.withValues(alpha: 0.45) : kBorder),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -245,12 +259,8 @@ class _CarteLicence extends ConsumerWidget {
             ),
           ]),
         ),
-        const SizedBox(width: 8),
-        IconButton(
-          onPressed: () => _ouvrirLicence(context, ref, edition: l),
-          icon: const Icon(Icons.edit_rounded, size: 17),
-          tooltip: 'Modifier les conditions',
-        ),
+        const SizedBox(width: 4),
+        Icon(Icons.chevron_right_rounded, size: 20, color: kTextMuted),
       ]),
       // ── Le motif, quand il y en a un ────────────────────────────────────
       //  Il se lit SANS ouvrir le journal, et le ministère lit le même texte
@@ -279,20 +289,99 @@ class _CarteLicence extends ConsumerWidget {
           ]),
         ),
       ],
-      // ── Les gestes ──────────────────────────────────────────────────────
-      //  Un verbe par transition, et SEULEMENT celles que la base accepte
-      //  (`transitionsLicence`, miroir de `licence_changer_statut`). Proposer
-      //  un bouton que la base refusera, c'est envoyer le fondateur se faire
-      //  jeter — sur un marché national, devant un ministère.
-      if (transitionsLicence(l.statut).isNotEmpty) ...[
+      // ── L'état du RÈGLEMENT, en une barre ───────────────────────────────
+      //  Le seul chiffre qu'on veut voir en parcourant la liste : est-ce que
+      //  ce marché est à jour ? Le reste s'ouvre.
+      if (l.partReglee != null) ...[
         const SizedBox(height: 12),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          for (final vers in transitionsLicence(l.statut))
-            _BoutonTransition(licence: l, vers: vers),
-        ]),
+        _BarreCarte(licence: l),
+      ],
+      // ⚠️ ACCÈS COUPÉ — le seul état qui doit se voir SANS ouvrir la fiche.
+      if (l.accesSuspendu) ...[
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: kRed.withValues(alpha: 0.09),
+            border: Border.all(color: kRed.withValues(alpha: 0.35)),
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: Row(children: [
+            Icon(Icons.lock_rounded, size: 14, color: kRed),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Text(
+                  l.accesSuspenduMotif == null
+                      ? 'Accès de ce ministère coupé'
+                      : 'Accès coupé — ${l.accesSuspenduMotif}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: kRed)),
+            ),
+          ]),
+        ),
       ],
       ]),
+      ),
     );
+  }
+}
+
+/// La barre de règlement de la carte, avec la période écoulée en repère.
+///
+/// ⚠️ Deux repères sur UNE barre : le remplissage est ce qui est réglé, le
+/// trait vertical est où on en est dans le temps. Le trait à droite du
+/// remplissage = du retard. C'est lisible d'un coup d'œil dans une liste, là
+/// où deux barres superposées demanderaient de comparer.
+class _BarreCarte extends StatelessWidget {
+  const _BarreCarte({required this.licence});
+
+  final LicenceTutelle licence;
+
+  @override
+  Widget build(BuildContext context) {
+    final regle = licence.partReglee ?? 0;
+    final ecoule = licence.partEcoulee;
+    final enRetard = ecoule - regle > 0.15;
+    final couleur = enRetard ? kListOrange : kGreen;
+    return Row(children: [
+      Expanded(
+        child: SizedBox(
+          height: 8,
+          child: LayoutBuilder(builder: (_, c) {
+            return Stack(children: [
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: regle,
+                    minHeight: 8,
+                    backgroundColor: kSurface,
+                    valueColor: AlwaysStoppedAnimation(couleur),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: (c.maxWidth * ecoule).clamp(0.0, c.maxWidth - 2),
+                top: 0,
+                bottom: 0,
+                child: Container(width: 2, color: kTextPrimary),
+              ),
+            ]);
+          }),
+        ),
+      ),
+      const SizedBox(width: 10),
+      Text('${(regle * 100).round()} % réglé',
+          style: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.w700, color: couleur)),
+      const SizedBox(width: 8),
+      Text('· ${(ecoule * 100).round()} % écoulé',
+          style: TextStyle(fontSize: 11, color: kTextMuted)),
+    ]);
   }
 }
 

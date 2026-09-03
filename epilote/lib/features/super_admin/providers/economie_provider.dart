@@ -79,6 +79,8 @@ class LicenceTutelle {
     this.notes,
     this.motifStatut,
     this.statutChangeLe,
+    this.accesSuspendu = false,
+    this.accesSuspenduMotif,
   });
 
   factory LicenceTutelle.fromRow(Map<String, dynamic> r) {
@@ -101,6 +103,8 @@ class LicenceTutelle {
       motifStatut: r['motif_statut'] as String?,
       statutChangeLe:
           DateTime.tryParse(r['statut_change_le'] as String? ?? ''),
+      accesSuspendu: g?['acces_suspendu'] as bool? ?? false,
+      accesSuspenduMotif: g?['acces_suspendu_motif'] as String?,
     );
   }
 
@@ -115,6 +119,14 @@ class LicenceTutelle {
   /// Quand. Le QUI vit dans `audit_logs` (déclencheur posé par 0186 : cette
   /// table était la seule table chère de la base sans historique).
   final DateTime? statutChangeLe;
+
+  /// ⚠️ L'ACCÈS DU GROUPE, pas l'état de la licence. Les deux sont
+  /// DÉLIBÉRÉMENT séparés (0187) : une licence suspendue ne coupe rien ;
+  /// couper l'accès est un second geste, explicite. Affiché ici parce que
+  /// c'est la fiche du marché qu'on regarde quand on décide de l'un ou de
+  /// l'autre.
+  final bool accesSuspendu;
+  final String? accesSuspenduMotif;
   final DateTime dateDebut, dateFin;
   final int montantXaf, avanceXaf, montantRegleXaf;
 
@@ -135,6 +147,25 @@ class LicenceTutelle {
   int get mensuelCompte => estActive ? mensuelXaf : 0;
 
   int get joursRestants => dateFin.difference(DateTime.now()).inDays;
+
+  /// Durée totale du marché, en jours (au moins 1 : ne jamais diviser par 0).
+  int get dureeJours {
+    final d = dateFin.difference(dateDebut).inDays;
+    return d < 1 ? 1 : d;
+  }
+
+  /// Part de la période écoulée, 0..1.
+  ///
+  /// ⚠️ À ne PAS confondre avec la part RÉGLÉE. Un marché peut être couvert à
+  /// 80 % du temps et réglé à 25 % : c'est cet écart qui déclenche une
+  /// relance, et aucune des deux mesures seule ne le montre.
+  double get partEcoulee =>
+      (DateTime.now().difference(dateDebut).inDays / dureeJours)
+          .clamp(0.0, 1.0);
+
+  /// Part réglée, 0..1. `null` si le marché ne porte aucun montant.
+  double? get partReglee =>
+      montantXaf <= 0 ? null : (montantRegleXaf / montantXaf).clamp(0.0, 1.0);
 }
 
 class EconomieData {
@@ -196,7 +227,8 @@ final economieProvider =
       .select('id, group_id, tutelle, intitule, date_debut, date_fin, '
           'montant_xaf, avance_xaf, montant_regle_xaf, statut, '
           'reference_marche, signataire, notes, motif_statut, '
-          'statut_change_le, school_groups!group_id(name)')
+          'statut_change_le, school_groups!group_id(name, acces_suspendu, '
+          'acces_suspendu_motif)')
       .order('date_fin', ascending: false) as List;
 
   final groupes = await client
@@ -304,6 +336,34 @@ Future<void> changerStatutLicence(
     'p_statut': statut,
     'p_motif': motif,
   });
+  ref.invalidate(economieProvider);
+}
+
+/// Coupe l'accès de l'espace d'un groupe — le levier contre l'impayé (0187).
+///
+/// ⚠️ RIEN À VOIR AVEC LE STATUT DE LA LICENCE, et c'est voulu. Une licence
+/// suspendue reste sans effet sur l'accès ; couper est une décision distincte,
+/// qui exige son propre motif et laisse sa propre trace. Les lier ferait de
+/// chaque suspension comptable une coupure d'État.
+///
+/// La coupure agit côté SERVEUR : `auth_peut_superviser()` rend faux, et les
+/// quatre RPC de tutelle (réseau, écoles, destinataires, circulaires) refusent
+/// en 42501 — exactement le périmètre du marché qui n'est pas payé. Elle ne
+/// touche ni les écoles du réseau, ni la synchro hors ligne de leur personnel.
+Future<void> couperAccesGroupe(WidgetRef ref,
+    {required String groupId, required String motif}) async {
+  await ref.read(supabaseClientProvider).rpc('suspendre_acces_groupe',
+      params: {'p_group_id': groupId, 'p_motif': motif});
+  ref.invalidate(economieProvider);
+}
+
+/// Rouvre l'accès. Aucun motif exigé : on ne met jamais de friction sur le
+/// geste qui rétablit.
+Future<void> retablirAccesGroupe(WidgetRef ref,
+    {required String groupId}) async {
+  await ref
+      .read(supabaseClientProvider)
+      .rpc('retablir_acces_groupe', params: {'p_group_id': groupId});
   ref.invalidate(economieProvider);
 }
 
