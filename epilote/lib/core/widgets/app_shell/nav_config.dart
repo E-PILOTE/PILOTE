@@ -310,15 +310,21 @@ List<NavSection> _adminGroupeSections(WidgetRef ref) {
     // Gérer son contrat n'est pas piloter son réseau : l'abonnement quitte la
     // section des examens et rejoint les rapports, qui sont l'autre chose qu'un
     // cabinet consulte sans qu'elle appartienne à un métier précis.
-    const NavSection(title: 'RAPPORTS', entries: [
-      NavEntry.item(
+    NavSection(title: 'RAPPORTS', entries: [
+      const NavEntry.item(
         icon: Icons.bar_chart_rounded,
         label: 'Rapports',
         route: Routes.adminRapports,
       ),
+      // ⚠️ Même route, deux mots — parce que ce ne sont pas la même chose.
+      // Un ministère n'a pas d'abonnement mensuel : il exécute un marché, et
+      // la page lui montre sa licence (0182/0183). Lire « Abonnement » dans sa
+      // barre latérale le rangerait parmi les clients qu'on relance.
       NavEntry.item(
-        icon: Icons.credit_card_rounded,
-        label: 'Abonnement',
+        icon: estTutelle
+            ? Icons.workspace_premium_rounded
+            : Icons.credit_card_rounded,
+        label: estTutelle ? 'Licence' : 'Abonnement',
         route: Routes.adminAbonnement,
       ),
     ]),

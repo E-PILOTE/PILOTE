@@ -114,7 +114,7 @@ void main() {
       final sql = _lire(_migration);
       expect(sql.contains('ADD COLUMN IF NOT EXISTS caractere'), isTrue);
       expect(sql.contains('caractere_groupe'), isTrue);
-      expect(sql.contains("ALTER TYPE public.group_type"), isFalse,
+      expect(sql.contains('ALTER TYPE public.group_type'), isFalse,
           reason: 'L’enum du secteur a été élargi : le barème de frais et '
               'l’héritage du type d’école partent avec.');
     });

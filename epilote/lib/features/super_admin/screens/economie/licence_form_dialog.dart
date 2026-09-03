@@ -243,15 +243,15 @@ class _LicenceFormDialogState extends ConsumerState<_LicenceFormDialog> {
                             initialValue: _statut,
                             isExpanded: true,
                             decoration: const InputDecoration(labelText: 'Statut'),
-                            items: const [
-                              DropdownMenuItem(
-                                  value: 'brouillon', child: Text('Brouillon')),
-                              DropdownMenuItem(
-                                  value: 'active', child: Text('Active')),
-                              DropdownMenuItem(
-                                  value: 'echue', child: Text('Échue')),
-                              DropdownMenuItem(
-                                  value: 'resiliee', child: Text('Résiliée')),
+                            // Le menu se DÉDUIT du référentiel partagé : une valeur
+                            // ajoutée à l'énumération en base ne peut plus
+                            // manquer ici sans que personne le voie.
+                            items: [
+                              for (final st in kStatutsLicence)
+                                DropdownMenuItem(
+                                    value: st,
+                                    child:
+                                        Text(libelleStatutLicenceOuTiret(st))),
                             ],
                             onChanged: (v) =>
                                 setState(() => _statut = v ?? 'brouillon'),

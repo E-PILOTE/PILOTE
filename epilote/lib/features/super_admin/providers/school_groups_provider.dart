@@ -212,10 +212,22 @@ class PlanInfo {
     this.billingPeriod = kDefaultBillingPeriod,
     required this.maxSchools,
     required this.maxStudents,
+    this.slug,
   });
   final String id, name;
   final int priceXaf, maxSchools, maxStudents;
   final String billingPeriod;
+
+  /// `gratuit`, `premium`, `pro`, `institutionnel`, `licence`.
+  final String? slug;
+
+  /// Ce plan est-il celui des MINISTÈRES de tutelle (migration 0182) ?
+  ///
+  /// ⚠️ Il ne porte aucun prix : les conditions réelles vivent dans
+  /// `tutelle_licences`. Le proposer à un groupe privé le sortirait du revenu
+  /// mensuel de la plateforme — la base le refuse, mais l'écran ne doit même
+  /// pas l'offrir.
+  bool get estLicence => slug == 'licence';
 
   String get periodSuffix => billingPeriodSuffix(billingPeriod);
 }
@@ -311,12 +323,14 @@ final schoolGroupsProvider =
   try {
     final rows = await client
         .from('subscription_plans')
-        .select('id, name, price_xaf, billing_period, max_schools, max_students')
+        .select('id, name, slug, price_xaf, billing_period, max_schools, '
+            'max_students')
         .eq('is_active', true)
         .order('price_xaf', ascending: true) as List;
     plans = rows.map((r) => PlanInfo(
       id:          r['id']           as String,
       name:        r['name']         as String,
+      slug:        r['slug']         as String?,
       priceXaf:    (r['price_xaf']   as int?) ?? 0,
       billingPeriod:
           r['billing_period'] as String? ?? kDefaultBillingPeriod,

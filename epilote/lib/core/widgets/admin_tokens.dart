@@ -57,6 +57,18 @@ void applyPalette(EpilotePalette p) {
 Color couleurTutelle(String? t) =>
     (t ?? '').toLowerCase().contains('metp') ? const Color(0xFF7C3AED) : kNavy;
 
+/// Couleur du statut d'une licence de tutelle. Les LIBELLÉS vivent dans
+/// `core/constants/licence_statut.dart` — même partage que `couleurTutelle`.
+///
+/// ⚠️ Un brouillon est GRIS, pas ambre : il n'alerte de rien, il n'est pas
+/// encore un marché. C'est « échue » qui doit attirer l'oeil.
+Color couleurStatutLicence(String? s) => switch (s) {
+      'active' => kGreen,
+      'echue' => kAccent,
+      'resiliee' => kRed,
+      _ => kTextMuted,
+    };
+
 // ─── Formateurs ─────────────────────────────────────────────────────────────
 
 /// 1500000 → "1 500 000"

@@ -6,10 +6,9 @@ import 'package:shimmer/shimmer.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../core/widgets/app_shell.dart';
-import '../../super_admin/providers/invoices_provider.dart' show InvoiceDetail;
-import '../../super_admin/providers/receipts_provider.dart' show ReceiptModel;
-import '../../super_admin/services/financial_pdf_service.dart';
 import '../providers/admin_subscription_provider.dart';
+import 'admin_licence_card.dart';
+import 'admin_subscription_billing.dart';
 import 'admin_subscription_renew_dialog.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/utils/message_erreur.dart';
@@ -19,8 +18,18 @@ class AdminSubscriptionScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // ⚠️ Le titre suit la NATURE du groupe, pas la route. Un ministère de
+    // tutelle n'a pas d'abonnement : il exécute un marché (0182/0183). Lire
+    // « Abonnement » en tête de la page qui décrit sa licence nationale, c'est
+    // déjà lui dire qu'on le range parmi les clients mensuels.
+    final estMinistere = ref
+            .watch(adminSubscriptionProvider)
+            .valueOrNull
+            ?.subscription
+            ?.estMinistere ??
+        false;
     return AppShell(
-      title: 'Abonnement',
+      title: estMinistere ? 'Licence de tutelle' : 'Abonnement',
       child: ref.watch(adminSubscriptionProvider).when(
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,
@@ -147,55 +156,44 @@ class _Body extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _CurrentPlanCard(sub: sub),
+                  if (sub.estMinistere)
+                    LicenceDeTutelleSection(sub: sub)
+                  else
+                    _CurrentPlanCard(sub: sub),
                   const SizedBox(height: 20),
-                  const AdminSectionTitle('Consommation', icon: Icons.speed_rounded,
-                      subtitle: 'Utilisation des quotas de votre plan'),
+                  AdminSectionTitle(
+                      sub.estMinistere ? 'Votre réseau' : 'Consommation',
+                      icon: Icons.speed_rounded,
+                      subtitle: sub.estMinistere
+                          ? 'Écoles, élèves et personnel couverts par la licence'
+                          : 'Utilisation des quotas de votre plan'),
                   const SizedBox(height: 12),
                   _QuotaGrid(sub: sub),
-                  const SizedBox(height: 16),
-                  _QuotaChart(sub: sub),
+                  // ⚠️ Pas de graphe de consommation pour un ministère : ses
+                  // trois quotas sont illimités, le graphe n'aurait aucune
+                  // barre à tracer. Un cadre vide n'informe de rien.
+                  if (!sub.estMinistere) ...[
+                    const SizedBox(height: 16),
+                    _QuotaChart(sub: sub),
+                  ],
+                  // ⚠️ Comparer des offres, en demander une autre, suivre
+                  // ses demandes : la base refuse les trois à un ministère
+                  // depuis 0182. Un écran qui les propose quand même envoie
+                  // l'utilisateur se faire refuser.
+                  if (!sub.estMinistere)
+                    _MecaniqueAbonnement(data: data, sub: sub),
                   const SizedBox(height: 24),
-                  AdminSectionTitle('Changer de plan', icon: Icons.swap_horiz_rounded,
-                      subtitle: 'Comparez les offres et envoyez une demande à la plateforme',
-                      trailing: AdminBadge('${data.plans.length} offres', color: kNavy)),
-                  const SizedBox(height: 12),
-                  if (data.pendingRequest != null) ...[
-                    _PendingRequestBanner(t: data.pendingRequest!),
-                    const SizedBox(height: 12),
-                  ],
-                  _PlansGrid(
-                    plans: data.plans,
-                    currentPlanId: sub.planId,
-                    locked: data.hasPendingRequest,
-                  ),
-                  if (data.plans.length > 1) ...[
-                    const SizedBox(height: 24),
-                    const AdminSectionTitle('Comparatif des offres', icon: Icons.table_chart_rounded,
-                        subtitle: 'Limites et familles de modules par plan'),
-                    const SizedBox(height: 12),
-                    _ComparisonMatrix(data: data),
-                  ],
-                  if (data.tickets.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    AdminSectionTitle('Mes demandes', icon: Icons.history_rounded,
-                        subtitle: 'Suivi de vos demandes de changement de plan',
-                        trailing: AdminBadge(
-                            '${data.tickets.length}', color: kNavy)),
-                    const SizedBox(height: 12),
-                    ...data.tickets.map((t) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _TicketRow(t: t),
-                        )),
-                  ],
-                  const SizedBox(height: 24),
-                  AdminSectionTitle('Facturation', icon: Icons.receipt_long_rounded,
-                      subtitle: "Vos factures et reçus d'abonnement",
+                  AdminSectionTitle(
+                      sub.estMinistere ? 'Historique de facturation' : 'Facturation',
+                      icon: Icons.receipt_long_rounded,
+                      subtitle: sub.estMinistere
+                          ? 'Pièces émises avant le rattachement à la licence'
+                          : "Vos factures et reçus d'abonnement",
                       trailing: AdminBadge(
                           '${data.invoices.length} facture${data.invoices.length > 1 ? 's' : ''}',
                           color: kNavy)),
                   const SizedBox(height: 12),
-                  _BillingSection(data: data),
+                  BillingSection(data: data),
                   const SizedBox(height: 24),
                 ],
               ),
@@ -207,233 +205,57 @@ class _Body extends ConsumerWidget {
   }
 }
 
-// ─── Section facturation (factures + reçus, lecture seule) ─────────────────────
-class _BillingSection extends StatelessWidget {
-  const _BillingSection({required this.data});
+// ─── Ce qui n'existe QUE pour un abonnement mensuel ───────────────────────────
+//  Extrait du corps de page pour que la lecture de `_Body` montre d'un coup
+//  d'œil ce qui sépare les deux natures de client : le ministère lit sa
+//  licence et son réseau, le groupe privé lit tout ce bloc en plus.
+class _MecaniqueAbonnement extends StatelessWidget {
+  const _MecaniqueAbonnement({required this.data, required this.sub});
+
   final AdminSubscriptionData data;
+  final GroupSubscription sub;
 
   @override
   Widget build(BuildContext context) {
-    final invoices = data.invoices;
-    if (invoices.isEmpty) {
-      return AdminCard(
-        child: Row(children: [
-          Icon(Icons.receipt_long_rounded, color: kTextMuted, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text('Aucune facture émise pour le moment.',
-                style: TextStyle(color: kTextMuted, fontSize: 13)),
-          ),
-        ]),
-      );
-    }
-    return Column(children: [
-      _BillingSummary(data: data),
-      const SizedBox(height: 12),
-      ...invoices.map((i) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: _InvoiceRow(inv: i),
-          )),
-    ]);
-  }
-}
-
-class _BillingSummary extends StatelessWidget {
-  const _BillingSummary({required this.data});
-  final AdminSubscriptionData data;
-
-  @override
-  Widget build(BuildContext context) {
-    final reste = data.outstandingTotal;
-    final items = [
-      _MiniStat(label: 'Total facturé', value: data.billedTotal,
-          color: kNavy, icon: Icons.summarize_rounded),
-      _MiniStat(label: 'Encaissé', value: data.paidTotal,
-          color: kGreen, icon: Icons.verified_rounded),
-      _MiniStat(label: 'Reste à payer', value: reste,
-          color: reste > 0 ? kRed : kTextMuted, icon: Icons.pending_actions_rounded),
-    ];
-    return LayoutBuilder(builder: (context, c) {
-      final cols = c.maxWidth >= 640 ? 3 : 1;
-      const gap = 12.0;
-      final w = (c.maxWidth - gap * (cols - 1)) / cols;
-      return Wrap(
-        spacing: gap, runSpacing: gap,
-        children: items.map((i) => SizedBox(width: w, child: i)).toList(),
-      );
-    });
-  }
-}
-
-class _MiniStat extends StatelessWidget {
-  const _MiniStat({required this.label, required this.value, required this.color, required this.icon});
-  final String label;
-  final int value;
-  final Color color;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return AdminCard(
-      padding: const EdgeInsets.all(14),
-      child: Row(children: [
-        Container(
-          width: 38, height: 38,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: color, size: 19),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 24),
+        AdminSectionTitle('Changer de plan',
+            icon: Icons.swap_horiz_rounded,
+            subtitle: 'Comparez les offres et envoyez une demande à la plateforme',
+            trailing: AdminBadge('${data.plans.length} offres', color: kNavy)),
+        const SizedBox(height: 12),
+        if (data.pendingRequest != null) ...[
+          _PendingRequestBanner(t: data.pendingRequest!),
+          const SizedBox(height: 12),
+        ],
+        _PlansGrid(
+          plans: data.plans,
+          currentPlanId: sub.planId,
+          locked: data.hasPendingRequest,
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: TextStyle(fontSize: 11.5, color: kTextMuted, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 2),
-            Text(fmtXaf(value), maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color)),
-          ]),
-        ),
-      ]),
-    );
-  }
-}
-
-// ─── Ligne facture (export PDF facture + reçu) ─────────────────────────────────
-class _InvoiceRow extends StatefulWidget {
-  const _InvoiceRow({required this.inv});
-  final InvoiceDetail inv;
-
-  @override
-  State<_InvoiceRow> createState() => _InvoiceRowState();
-}
-
-class _InvoiceRowState extends State<_InvoiceRow> {
-  bool _busy = false;
-
-  (Color, String, IconData) _statusMeta(String s) => switch (s) {
-    'paid'      => (kGreen, 'Payée', Icons.check_circle_rounded),
-    'pending'   => (kAccent, 'En attente', Icons.schedule_rounded),
-    'overdue'   => (kRed, 'En retard', Icons.error_rounded),
-    'cancelled' => (kTextMuted, 'Annulée', Icons.cancel_rounded),
-    _           => (kTextMuted, s, Icons.circle),
-  };
-
-  String _d(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-
-  ReceiptModel _toReceipt(InvoiceDetail i) => ReceiptModel(
-        id: i.id,
-        invoiceNumber: i.invoiceNumber,
-        groupId: i.groupId,
-        groupName: i.groupName,
-        planName: i.planName ?? '—',
-        amountXaf: i.amountXaf,
-        periodStart: i.periodStart.toIso8601String(),
-        periodEnd: i.periodEnd.toIso8601String(),
-        paidAt: i.paidAt?.toIso8601String() ?? '',
-        paymentMethod: i.paymentMethod ?? '',
-        paymentReference: i.paymentReference ?? '',
-        createdAt: i.createdAt.toIso8601String(),
-      );
-
-  Future<void> _run(Future<void> Function() task) async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      await task();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          backgroundColor: kRed,
-          content: Text('Génération PDF impossible : $e'),
-        ));
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Widget _pdfBtn(String label, IconData icon, Color color, VoidCallback onTap) {
-    return OutlinedButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, size: 15),
-      label: Text(label),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: color,
-        side: BorderSide(color: color.withValues(alpha: 0.4)),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final i = widget.inv;
-    final (sc, sl, si) = _statusMeta(i.status);
-    return AdminCard(
-      padding: const EdgeInsets.all(16),
-      child: LayoutBuilder(builder: (context, c) {
-        final narrow = c.maxWidth < 560;
-        final info = Row(children: [
-          Container(
-            width: 42, height: 42,
-            decoration: BoxDecoration(
-              color: sc.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(si, color: sc, size: 21),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Flexible(
-                  child: Text(i.invoiceNumber, overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: kTextPrimary)),
-                ),
-                const SizedBox(width: 8),
-                AdminBadge(sl, color: sc),
-              ]),
-              const SizedBox(height: 3),
-              Text('${_d(i.periodStart)} → ${_d(i.periodEnd)}',
-                  style: TextStyle(fontSize: 12, color: kTextMuted)),
-            ]),
-          ),
-          const SizedBox(width: 12),
-          Text(fmtXaf(i.amountXaf),
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: sc)),
-        ]);
-        final actions = _busy
-            ? Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                child: SizedBox(width: 18, height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: kNavy)),
-              )
-            : Row(mainAxisSize: MainAxisSize.min, children: [
-                _pdfBtn('Facture', Icons.description_rounded, kNavy,
-                    () => _run(() => InvoicePdfService.printInvoice(i))),
-                if (i.isPaid) ...[
-                  const SizedBox(width: 8),
-                  _pdfBtn('Reçu', Icons.receipt_rounded, kGreen,
-                      () => _run(() => ReceiptPdfService.printReceipt(_toReceipt(i)))),
-                ],
-              ]);
-        if (narrow) {
-          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            info,
-            const SizedBox(height: 12),
-            Align(alignment: Alignment.centerRight, child: actions),
-          ]);
-        }
-        return Row(children: [
-          Expanded(child: info),
-          const SizedBox(width: 12),
-          actions,
-        ]);
-      }),
+        if (data.plans.length > 1) ...[
+          const SizedBox(height: 24),
+          const AdminSectionTitle('Comparatif des offres',
+              icon: Icons.table_chart_rounded,
+              subtitle: 'Limites et familles de modules par plan'),
+          const SizedBox(height: 12),
+          _ComparisonMatrix(data: data),
+        ],
+        if (data.tickets.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          AdminSectionTitle('Mes demandes',
+              icon: Icons.history_rounded,
+              subtitle: 'Suivi de vos demandes de changement de plan',
+              trailing: AdminBadge('${data.tickets.length}', color: kNavy)),
+          const SizedBox(height: 12),
+          ...data.tickets.map((t) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _TicketRow(t: t),
+              )),
+        ],
+      ],
     );
   }
 }
@@ -599,7 +421,7 @@ class _QuotaGrid extends StatelessWidget {
         label: 'Modules', value: '${sub.moduleCount}',
         sub: 'Modules actifs',
         icon: Icons.extension_rounded, color: const Color(0xFF7C3AED),
-        trend: 'Inclus au plan',
+        trend: sub.estMinistere ? 'Inclus à la licence' : 'Inclus au plan',
       ),
     ];
 

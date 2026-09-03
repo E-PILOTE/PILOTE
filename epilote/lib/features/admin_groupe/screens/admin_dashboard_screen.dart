@@ -9,6 +9,7 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 import '../../../core/constants/routes.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../providers/admin_dashboard_provider.dart';
+import '../providers/referentiel_national_provider.dart';
 import '../providers/admin_geo_provider.dart';
 import '../../../core/widgets/admin_ui.dart';
 import 'admin_exams_dashboard_section.dart';
@@ -376,17 +377,23 @@ class _HeaderChip extends StatelessWidget {
 }
 
 // ─── Actions rapides ────────────────────────────────────────────────────────
-class _QuickActions extends StatelessWidget {
+class _QuickActions extends ConsumerWidget {
   const _QuickActions();
 
   @override
-  Widget build(BuildContext context) {
-    const items = <(String, IconData, String)>[
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Même route, deux mots — un ministère n'a pas d'abonnement, il exécute un
+    // marché (0182/0183). Le raccourci porte donc le nom de la page qu'il
+    // ouvre réellement, comme la barre latérale.
+    final estTutelle =
+        ref.watch(groupeAdministreReferentielProvider).valueOrNull ?? false;
+    final items = <(String, IconData, String)>[
       ('Mes écoles', Icons.account_balance_rounded, Routes.adminEcoles),
       ('Utilisateurs', Icons.people_alt_rounded, Routes.adminUtilisateurs),
       ("Profils d'accès", Icons.admin_panel_settings_rounded, Routes.adminProfils),
       ('Rapports', Icons.assessment_rounded, Routes.adminRapports),
-      ('Abonnement', Icons.workspace_premium_rounded, Routes.adminAbonnement),
+      (estTutelle ? 'Licence' : 'Abonnement', Icons.workspace_premium_rounded,
+          Routes.adminAbonnement),
     ];
     return Wrap(
       spacing: 10,

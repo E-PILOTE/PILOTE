@@ -95,7 +95,11 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
         _foundedYearCtrl.text = g.foundedYear.toString();
       }
     } else {
-      _planId = widget.plans.isNotEmpty ? widget.plans.first.id : null;
+      // ⚠️ `plans.first` triait par prix : « Découverte » et « Licence de
+      // tutelle » sont tous deux à 0 XAF, l'ordre entre eux n'est pas garanti.
+      // Un groupe ordinaire serait né sur le plan des ministères, et la base
+      // l'aurait refusé sans que personne comprenne pourquoi.
+      _alignerLePlan();
     }
   }
 
@@ -106,6 +110,29 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
     _foundedYearCtrl.dispose();
     _agrementNum.dispose();
     super.dispose();
+  }
+
+  /// Les plans proposables pour ce groupe.
+  ///
+  /// ⚠️ DEUX NATURES DE CLIENT, DEUX RELATIONS (migration 0182). Un ministère
+  /// de tutelle est rattaché au plan « Licence de tutelle », dont les
+  /// conditions réelles vivent dans `tutelle_licences` ; un groupe privé est
+  /// rattaché à une formule mensuelle, qui est le revenu de la plateforme.
+  /// La base refuse le mélange dans les deux sens — l'écran ne doit même pas
+  /// l'offrir.
+  List<PlanInfo> get _plansOfferts => [
+        for (final p in widget.plans)
+          if (p.estLicence == _estTutelle) p,
+      ];
+
+  /// Aligne le plan sur la nature du groupe quand l'interrupteur bascule.
+  ///
+  /// Sans ça, cocher « ce groupe est un ministère » laisserait « Standard »
+  /// sélectionné et l'enregistrement partirait se faire refuser par la base.
+  void _alignerLePlan() {
+    final offerts = _plansOfferts;
+    if (offerts.any((p) => p.id == _planId)) return;
+    _planId = offerts.isEmpty ? null : offerts.first.id;
   }
 
   Future<void> _pickAndUploadLogo() async {
@@ -419,7 +446,10 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
                       valeurInitiale:
                           widget.existing?.administreReferentielNational ??
                               false,
-                      onChanged: (v) => setState(() => _estTutelle = v),
+                      onChanged: (v) => setState(() {
+                        _estTutelle = v;
+                        _alignerLePlan();
+                      }),
                     ),
 
                     _AgrementFields(
@@ -466,7 +496,7 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
                     DropdownButtonFormField<String>(
                       initialValue: _planId,
                       decoration: _inputDeco('Plan *'),
-                      items: widget.plans.map((p) => DropdownMenuItem(
+                      items: _plansOfferts.map((p) => DropdownMenuItem(
                         value: p.id,
                         child: Row(children: [
                           Container(
@@ -495,7 +525,7 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
                     ),
                     PlanChangeNotice(
                       existing: widget.existing,
-                      plans: widget.plans,
+                      plans: _plansOfferts,
                       selectedPlanId: _planId,
                     ),
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/licence_statut.dart';
 import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/message_erreur.dart';
 import '../../../core/widgets/admin_ui.dart';
@@ -182,7 +183,7 @@ class _CarteLicence extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = licence;
-    final couleur = _couleurStatut(l.statut);
+    final couleur = couleurStatutLicence(l.statut);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -195,7 +196,9 @@ class _CarteLicence extends ConsumerWidget {
           flex: 3,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              _Puce(texte: _labelStatut(l.statut), couleur: couleur),
+              _Puce(
+                  texte: libelleStatutLicenceOuTiret(l.statut).toUpperCase(),
+                  couleur: couleur),
               if (l.referenceMarche != null) ...[
                 const SizedBox(width: 8),
                 Text(l.referenceMarche!,
@@ -471,20 +474,6 @@ class _Erreur extends StatelessWidget {
         ),
       );
 }
-
-Color _couleurStatut(String s) => switch (s) {
-      'active' => kGreen,
-      'echue' => const Color(0xFFFF6B35),
-      'resiliee' => const Color(0xFFEF4444),
-      _ => kTextMuted,
-    };
-
-String _labelStatut(String s) => switch (s) {
-      'active' => 'ACTIVE',
-      'echue' => 'ÉCHUE',
-      'resiliee' => 'RÉSILIÉE',
-      _ => 'BROUILLON',
-    };
 
 IconData _iconeCategorie(String c) => switch (c) {
       'base_de_donnees' => Icons.storage_rounded,
