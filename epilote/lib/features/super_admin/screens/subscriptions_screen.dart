@@ -13,7 +13,9 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/routes.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/constants/licence_statut.dart';
 import '../providers/subscriptions_provider.dart';
+import 'economie/licence_form_dialog.dart';
 import '../services/subscription_pdf_service.dart';
 import '../../../core/utils/message_erreur.dart';
 
@@ -136,6 +138,19 @@ class _SubsBodyState extends ConsumerState<_SubsBody> {
     ).then((_) => ref.invalidate(subscriptionsProvider));
   }
 
+  /// La licence, créée ou gérée SANS quitter la page des abonnements.
+  ///
+  /// ⚠️ C'est le correctif de fond. Le fondateur gère les abonnements ici ; les
+  /// licences vivaient dans « Économie », un écran qu'il faut savoir chercher.
+  /// Il a activé une licence, puis est venu la voir ici — et n'a rien vu.
+  /// « La création et l'affectation de la licence devrait être simple comme
+  /// pour les mensuelles. » C'est le MÊME formulaire qu'en Économie, ouvert
+  /// depuis la ligne du ministère, avec le groupe déjà choisi.
+  void _openLicence(SubscriptionDetail s) {
+    ouvrirFormulaireLicence(context, groupeImpose: s.id)
+        .then((_) => ref.invalidate(subscriptionsProvider));
+  }
+
   void _openDetail(SubscriptionDetail s) {
     showDialog(
       context: context,
@@ -252,15 +267,17 @@ class _SubsBodyState extends ConsumerState<_SubsBody> {
               const SizedBox(height: 12),
               if (_isTableView)
                 _TableView(
-                  subs:     filtered,
-                  onView:   _openDetail,
-                  onEdit:   (s) => _openForm(editing: s),
+                  subs:      filtered,
+                  onView:    _openDetail,
+                  onEdit:    (s) => _openForm(editing: s),
+                  onLicence: _openLicence,
                 )
               else
                 _CardGrid(
-                  subs:     filtered,
-                  onView:   _openDetail,
-                  onEdit:   (s) => _openForm(editing: s),
+                  subs:      filtered,
+                  onView:    _openDetail,
+                  onEdit:    (s) => _openForm(editing: s),
+                  onLicence: _openLicence,
                 ),
             ]),
           ),
@@ -841,10 +858,11 @@ class _TableView extends StatelessWidget {
     required this.subs,
     required this.onView,
     required this.onEdit,
+    required this.onLicence,
   });
 
   final List<SubscriptionDetail> subs;
-  final ValueChanged<SubscriptionDetail> onView, onEdit;
+  final ValueChanged<SubscriptionDetail> onView, onEdit, onLicence;
 
   static const _iconW    = 48.0;
   static const _statusW  = 100.0;
@@ -904,8 +922,9 @@ class _TableView extends StatelessWidget {
             iconW:    _iconW,
             statusW:  _statusW,
             actionsW: _actionsW,
-            onView:   () => onView(e.value),
-            onEdit:   () => onEdit(e.value),
+            onView:    () => onView(e.value),
+            onEdit:    () => onEdit(e.value),
+            onLicence: () => onLicence(e.value),
           )),
         ]),
       ),
@@ -922,11 +941,12 @@ class _TableRow extends StatefulWidget {
     required this.actionsW,
     required this.onView,
     required this.onEdit,
+    required this.onLicence,
   });
   final SubscriptionDetail sub;
   final bool         isOdd;
   final double       iconW, statusW, actionsW;
-  final VoidCallback onView, onEdit;
+  final VoidCallback onView, onEdit, onLicence;
 
   @override
   State<_TableRow> createState() => _TableRowState();
@@ -982,11 +1002,11 @@ class _TableRowState extends State<_TableRow> {
               ),
             ),
           )),
-          Expanded(flex: 2, child: Text(s.planName ?? '—',
-              style: TextStyle(fontSize: 12.5,
-                  color: s.planName == null ? _kMuted : _kText,
-                  fontWeight: FontWeight.w600),
-              overflow: TextOverflow.ellipsis)),
+          // ⚠️ Un ministère affichait « Licence de tutelle · Gratuit » — soit
+          // l'inverse exact de la vérité : quarante millions. Et sa licence
+          // n'était visible que dans Économie, un autre écran. Ici, la ligne
+          // porte l'état RÉEL du contrat.
+          Expanded(flex: 2, child: _ColonneContrat(sub: s)),
           Expanded(flex: 2, child: _TypeBadge(type: s.groupType)),
           Expanded(flex: 3, child: Row(children: [
             Icon(Icons.schedule_rounded, size: 13,
@@ -1017,12 +1037,87 @@ class _TableRowState extends State<_TableRow> {
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               _ActionBtn(icon: Icons.visibility_rounded, color: _kBlue, tooltip: 'Voir la fiche', onTap: widget.onView),
               const SizedBox(width: 4),
-              _ActionBtn(icon: Icons.edit_rounded, color: _kNavy, tooltip: 'Modifier', onTap: widget.onEdit),
+              if (s.estMinistere)
+                _ActionBtn(
+                    icon: Icons.gavel_rounded,
+                    color: _kPurple,
+                    tooltip: s.licence == null
+                        ? 'Créer la licence'
+                        : 'Gérer la licence',
+                    onTap: widget.onLicence)
+              else
+                _ActionBtn(icon: Icons.edit_rounded, color: _kNavy, tooltip: 'Modifier', onTap: widget.onEdit),
             ]),
           ),
         ]),
       ),
     );
+  }
+}
+
+/// Ce que le groupe porte VRAIMENT : un plan mensuel, ou une licence.
+///
+/// ⚠️ Un ministère affichait « Licence de tutelle » avec le tarif du plan —
+/// c'est-à-dire « Gratuit », soit l'inverse exact de la vérité : quarante
+/// millions. Le montant du plan support ne veut rien dire pour lui ; celui de
+/// son marché, si.
+class _ColonneContrat extends StatelessWidget {
+  const _ColonneContrat({required this.sub});
+
+  final SubscriptionDetail sub;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!sub.estMinistere) {
+      return Text(sub.planName ?? '—',
+          style: TextStyle(
+              fontSize: 12.5,
+              color: sub.planName == null ? _kMuted : _kText,
+              fontWeight: FontWeight.w600),
+          overflow: TextOverflow.ellipsis);
+    }
+    final l = sub.licence;
+    // Sans licence, la ligne le DIT en ambre : un ministère sans marché saisi
+    // est une facturation qui n'existe pas, pas un détail de présentation.
+    if (l == null) {
+      return const Row(children: [
+        Icon(Icons.gavel_rounded, size: 13, color: _kOrange),
+        SizedBox(width: 5),
+        Flexible(
+          child: Text('Aucune licence',
+              style: TextStyle(
+                  fontSize: 12.5, color: _kOrange, fontWeight: FontWeight.w700),
+              overflow: TextOverflow.ellipsis),
+        ),
+      ]);
+    }
+    final couleur = couleurStatutLicence(l.statut);
+    return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text('${_money(l.montantXaf)} F',
+              style: TextStyle(
+                  fontSize: 12.5,
+                  color: _kText,
+                  fontWeight: FontWeight.w700),
+              overflow: TextOverflow.ellipsis),
+          Row(children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration:
+                  BoxDecoration(color: couleur, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                  'Licence ${libelleStatutLicenceOuTiret(l.statut).toLowerCase()}',
+                  style: TextStyle(fontSize: 10.5, color: couleur),
+                  overflow: TextOverflow.ellipsis),
+            ),
+          ]),
+        ]);
   }
 }
 
@@ -1067,10 +1162,11 @@ class _CardGrid extends StatelessWidget {
     required this.subs,
     required this.onView,
     required this.onEdit,
+    required this.onLicence,
   });
 
   final List<SubscriptionDetail> subs;
-  final ValueChanged<SubscriptionDetail> onView, onEdit;
+  final ValueChanged<SubscriptionDetail> onView, onEdit, onLicence;
 
   @override
   Widget build(BuildContext context) {
@@ -1086,9 +1182,10 @@ class _CardGrid extends StatelessWidget {
       ),
       itemCount: subs.length,
       itemBuilder: (_, i) => _SubCard(
-        sub:    subs[i],
-        onView: () => onView(subs[i]),
-        onEdit: () => onEdit(subs[i]),
+        sub:       subs[i],
+        onView:    () => onView(subs[i]),
+        onEdit:    () => onEdit(subs[i]),
+        onLicence: () => onLicence(subs[i]),
       ),
     );
   }
@@ -1099,9 +1196,10 @@ class _SubCard extends StatefulWidget {
     required this.sub,
     required this.onView,
     required this.onEdit,
+    required this.onLicence,
   });
   final SubscriptionDetail sub;
-  final VoidCallback onView, onEdit;
+  final VoidCallback onView, onEdit, onLicence;
 
   @override
   State<_SubCard> createState() => _SubCardState();

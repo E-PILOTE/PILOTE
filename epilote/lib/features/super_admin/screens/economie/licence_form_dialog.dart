@@ -1,4 +1,30 @@
-part of '../economie_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/constants/licence_statut.dart';
+import '../../../../core/utils/message_erreur.dart';
+import '../../../../core/widgets/admin_ui.dart';
+import '../../providers/economie_provider.dart';
+import 'economie_chrome.dart';
+
+/// Ouvre le formulaire de licence — depuis Économie OU depuis Abonnements.
+///
+/// ⚠️ UN SEUL FORMULAIRE, DEUX PORTES. Le fondateur gère les abonnements
+/// mensuels sur une page ; les licences vivaient sur une autre, qu'il fallait
+/// savoir chercher. Il a activé une licence puis est allé la voir là où il
+/// gère les abonnements — elle n'y était pas. Écrire un second formulaire
+/// « rapide » aurait réglé sa gêne et créé le vrai problème : deux saisies du
+/// même contrat, qui divergent au premier champ ajouté.
+Future<void> ouvrirFormulaireLicence(
+  BuildContext context, {
+  LicenceTutelle? edition,
+  String? groupeImpose,
+}) =>
+    showDialog<void>(
+      context: context,
+      builder: (_) =>
+          LicenceFormDialog(edition: edition, groupeImpose: groupeImpose),
+    );
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LA LICENCE ANNUELLE DE TUTELLE — SAISIE
@@ -14,15 +40,21 @@ part of '../economie_screen.dart';
 //  ET le marché.
 // ════════════════════════════════════════════════════════════════════════════
 
-class _LicenceFormDialog extends ConsumerStatefulWidget {
-  const _LicenceFormDialog({this.edition});
+class LicenceFormDialog extends ConsumerStatefulWidget {
+  const LicenceFormDialog({super.key, this.edition, this.groupeImpose});
+
   final LicenceTutelle? edition;
 
+  /// Groupe pré-sélectionné et VERROUILLÉ — quand on arrive depuis la ligne
+  /// d'un ministère sur la page Abonnements. Le choix a déjà été fait ; le
+  /// reproposer ouvrirait la porte à créer la licence sur le mauvais.
+  final String? groupeImpose;
+
   @override
-  ConsumerState<_LicenceFormDialog> createState() => _LicenceFormDialogState();
+  ConsumerState<LicenceFormDialog> createState() => LicenceFormDialogState();
 }
 
-class _LicenceFormDialogState extends ConsumerState<_LicenceFormDialog> {
+class LicenceFormDialogState extends ConsumerState<LicenceFormDialog> {
   final _formKey = GlobalKey<FormState>();
   final _intitule = TextEditingController(text: 'Licence annuelle de tutelle');
   final _reference = TextEditingController();
@@ -48,6 +80,14 @@ class _LicenceFormDialogState extends ConsumerState<_LicenceFormDialog> {
   @override
   void initState() {
     super.initState();
+    // ⚠️ ACTIVE PAR DÉFAUT, et c'est le correctif principal. Le brouillon
+    // était le défaut : on remplissait le formulaire, on enregistrait, et il
+    // ne se passait RIEN de visible — le marché ne comptait aucun revenu et
+    // n'apparaissait nulle part comme validé. Créer une licence, c'est
+    // presque toujours enregistrer un marché signé ; le brouillon est le cas
+    // rare, il reste disponible dans la liste.
+    _statut = 'active';
+    _groupId = widget.groupeImpose;
     final l = widget.edition;
     if (l != null) {
       _groupId = l.groupId;
@@ -151,7 +191,7 @@ class _LicenceFormDialogState extends ConsumerState<_LicenceFormDialog> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 620, maxHeight: 700),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          _EnteteDialog(
+          EnteteDialog(
             icone: Icons.account_balance_rounded,
             titre: _edition ? 'Modifier la licence' : 'Nouvelle licence de tutelle',
             sousTitre: 'Montants libres, modifiables à tout moment.',
@@ -177,7 +217,10 @@ class _LicenceFormDialogState extends ConsumerState<_LicenceFormDialog> {
                           for (final g in groupes)
                             DropdownMenuItem(value: g.id, child: Text(g.nom)),
                         ],
-                        onChanged: _edition
+                        // Verrouillé en édition (on ne déplace pas un marché
+                        // d'un ministère à l'autre) ET quand on arrive depuis
+                        // la ligne d'un ministère : le choix est déjà fait.
+                        onChanged: _edition || widget.groupeImpose != null
                             ? null
                             : (v) => setState(() => _groupId = v),
                         validator: (v) => v == null ? 'Requis' : null,
@@ -213,7 +256,7 @@ class _LicenceFormDialogState extends ConsumerState<_LicenceFormDialog> {
                           ),
                         ),
                       const SizedBox(height: 18),
-                      const _SousTitreDialog('MONTANTS (FCFA)'),
+                      const SousTitreDialog('MONTANTS (FCFA)'),
                       const SizedBox(height: 12),
                       Row(children: [
                         Expanded(child: TextFormField(
@@ -304,7 +347,7 @@ class _LicenceFormDialogState extends ConsumerState<_LicenceFormDialog> {
               ),
             ),
           ),
-          _PiedDialog(
+          PiedDialog(
             saving: _saving,
             onAnnuler: () => Navigator.pop(context),
             onSupprimer: _edition ? _supprimer : null,
@@ -436,7 +479,7 @@ class _StatutFige extends StatelessWidget {
   Widget build(BuildContext context) => InputDecorator(
         decoration: const InputDecoration(labelText: 'Statut'),
         child: Row(children: [
-          _Puce(
+          PuceEconomie(
               texte: libelleStatutLicenceOuTiret(statut).toUpperCase(),
               couleur: couleurStatutLicence(statut)),
           const SizedBox(width: 10),

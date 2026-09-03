@@ -29,11 +29,16 @@ class SubscriptionDetail {
     this.planSlug,
     this.start,
     this.end,
+    this.estMinistere = false,
+    this.tutelle,
+    this.accesSuspendu = false,
+    this.licence,
   });
 
   factory SubscriptionDetail.fromMap(
     Map<String, dynamic> m, {
     int schoolsCount = 0,
+    LicenceResume? licence,
   }) {
     final plan = m['plan'];
     final planMap = plan is Map ? Map<String, dynamic>.from(plan) : const {};
@@ -57,6 +62,11 @@ class SubscriptionDetail {
       schoolsCount: schoolsCount,
       createdAt:   DateTime.parse(m['created_at'] as String),
       updatedAt:   DateTime.parse(m['updated_at'] as String),
+      estMinistere:
+          m['administre_referentiel_national'] as bool? ?? false,
+      tutelle:       m['tutelle'] as String?,
+      accesSuspendu: m['acces_suspendu'] as bool? ?? false,
+      licence:       licence,
     );
   }
 
@@ -66,6 +76,31 @@ class SubscriptionDetail {
   final String  billingPeriod;
   final DateTime  createdAt, updatedAt;
   final DateTime? start, end;
+
+  /// Ce groupe est un ministère de tutelle (0155). Il ne porte PAS un
+  /// abonnement mensuel mais une licence (0182).
+  final bool estMinistere;
+  final String? tutelle;
+
+  /// Accès coupé pour impayé (0187) — distinct du statut de la licence.
+  final bool accesSuspendu;
+
+  /// ⚠️ LA LICENCE, LUE ICI ET PLUS SEULEMENT DANS « ÉCONOMIE ».
+  ///
+  /// C'est le défaut que le fondateur a rencontré : il a activé une licence,
+  /// puis il est allé la voir sur la page où il gère les abonnements — et elle
+  /// n'y était pas. Le contrat vivait dans un autre écran, qu'il faut savoir
+  /// chercher. Un ministère affichait « Licence de tutelle · Gratuit », ce qui
+  /// est exactement l'inverse de la vérité : 40 millions.
+  final LicenceResume? licence;
+
+  /// Ce que la ligne doit afficher à la place du tarif.
+  String get montantLabel {
+    if (!estMinistere) return priceLabel;
+    final l = licence;
+    if (l == null) return 'Aucune licence';
+    return '${moneyXaf(l.montantXaf)} FCFA';
+  }
 
   /// Tarif avec sa période — « 120 000 FCFA / an ». Un montant nu laissait
   /// chaque écran inventer son suffixe : l'espace admin_groupe affichait
@@ -138,6 +173,23 @@ DateTime? _date(dynamic v) {
 }
 
 // ─── Modèle PlanOption (sélecteur de plan dans le formulaire) ─────────────────
+
+/// Ce qu'il faut savoir d'une licence pour l'afficher sur une ligne
+/// d'abonnement. Le détail complet vit dans `economie_provider`.
+class LicenceResume {
+  const LicenceResume({
+    required this.id,
+    required this.statut,
+    required this.montantXaf,
+    required this.dateFin,
+  });
+
+  final String id, statut;
+  final int montantXaf;
+  final DateTime dateFin;
+
+  bool get estActive => statut == 'active';
+}
 
 class PlanOption {
   const PlanOption({
@@ -221,6 +273,36 @@ final subscriptionsProvider =
     }
   } catch (_) {}
 
+  // ── Licence de tutelle par groupe ───────────────────────────────────────────
+  //  ⚠️ On garde la PLUS PERTINENTE, pas la dernière : une licence active qui
+  //  couvre aujourd'hui passe avant un brouillon signé pour l'an prochain.
+  //  Même règle que `licenceAMontrer` côté ministère — deux écrans qui
+  //  choisiraient différemment afficheraient deux contrats pour un seul.
+  final Map<String, LicenceResume> licencesByGroup = {};
+  try {
+    final rows = await client
+        .from('tutelle_licences')
+        .select('id, group_id, statut, montant_xaf, date_fin')
+        .order('date_fin', ascending: false) as List;
+    final aujourdhui = DateTime.now();
+    for (final r in rows) {
+      final m = Map<String, dynamic>.from(r as Map);
+      final gid = m['group_id'] as String?;
+      if (gid == null) continue;
+      final resume = LicenceResume(
+        id: m['id'] as String,
+        statut: m['statut'] as String? ?? 'brouillon',
+        montantXaf: (m['montant_xaf'] as num?)?.toInt() ?? 0,
+        dateFin: DateTime.parse(m['date_fin'] as String),
+      );
+      final deja = licencesByGroup[gid];
+      final couvre = resume.estActive && resume.dateFin.isAfter(aujourdhui);
+      if (deja == null || (couvre && !deja.estActive)) {
+        licencesByGroup[gid] = resume;
+      }
+    }
+  } catch (_) {}
+
   // ── Abonnements (groupes + plan joint) ──────────────────────────────────────
   List<SubscriptionDetail> subs = [];
   try {
@@ -228,7 +310,8 @@ final subscriptionsProvider =
         .from('school_groups')
         .select('id, name, logo_url, admin_email, phone, group_type, '
             'department, plan_id, subscription_status, subscription_start, '
-            'subscription_end, created_at, updated_at, '
+            'subscription_end, created_at, updated_at, tutelle, '
+            'administre_referentiel_national, acces_suspendu, '
             'plan:subscription_plans(name, slug, price_xaf, billing_period)')
         .order('created_at', ascending: false) as List;
     subs = rows.map((r) {
@@ -236,6 +319,7 @@ final subscriptionsProvider =
       return SubscriptionDetail.fromMap(
         m,
         schoolsCount: schoolsByGroup[m['id']] ?? 0,
+        licence: licencesByGroup[m['id']],
       );
     }).toList();
   } catch (_) {}

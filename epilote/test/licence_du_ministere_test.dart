@@ -263,6 +263,69 @@ void main() {
     });
   });
 
+  group('La licence se voit et se crée là où l’on gère les abonnements', () {
+    // ⚠️ LE DÉFAUT VÉCU. Le fondateur a activé une licence — l'audit le
+    // prouve, brouillon → active — puis il est allé la voir sur la page où il
+    // gère les abonnements. Elle n'y était pas : le contrat vivait dans
+    // « Économie », un autre écran. « Je vois encore aucune licence validée,
+    // je ne comprends pas. »
+    const abonnements =
+        'lib/features/super_admin/screens/subscriptions_screen.dart';
+    const provider =
+        'lib/features/super_admin/providers/subscriptions_provider.dart';
+    const formulaire =
+        'lib/features/super_admin/screens/economie/licence_form_dialog.dart';
+
+    test('la page Abonnements CHARGE les licences', () {
+      final src = _lire(provider);
+      expect(src.contains("from('tutelle_licences')"), isTrue,
+          reason: 'La page des abonnements ignore de nouveau les licences : '
+              'un ministère y affichera « Gratuit » sur un marché de '
+              'quarante millions.');
+      expect(src.contains('administre_referentiel_national'), isTrue);
+    });
+
+    test('elle en montre le MONTANT, pas le tarif du plan support', () {
+      // Le plan « Licence de tutelle » est à 0 F — c'est un support, pas un
+      // prix. L'afficher tel quel dit l'inverse exact de la vérité.
+      final src = _lire(abonnements);
+      expect(src.contains('_ColonneContrat'), isTrue);
+      expect(src.contains('Aucune licence'), isTrue,
+          reason: 'Un ministère sans marché saisi ne se signale plus : c’est '
+              'une facturation qui n’existe pas, pas un détail.');
+    });
+
+    test('et elle permet de la créer sans changer d’écran', () {
+      final src = _lire(abonnements);
+      expect(src.contains('ouvrirFormulaireLicence(context, groupeImpose:'),
+          isTrue,
+          reason: 'Le raccourci a disparu : il faut de nouveau savoir que '
+              '« Économie » existe pour affecter une licence.');
+    });
+
+    test('c’est le MÊME formulaire, pas un second', () {
+      // ⚠️ Écrire un formulaire « rapide » à côté aurait réglé la gêne et créé
+      // le vrai problème : deux saisies du même contrat, qui divergent au
+      // premier champ ajouté.
+      final src = _lire(formulaire);
+      expect(src.contains('Future<void> ouvrirFormulaireLicence('), isTrue);
+      expect(src.contains('this.groupeImpose'), isTrue);
+      // Le groupe est verrouillé quand il est imposé : sinon on créerait la
+      // licence sur le mauvais ministère depuis la ligne du bon.
+      expect(src.contains("_edition || widget.groupeImpose != null"), isTrue);
+    });
+
+    test('⚠️ une licence naît ACTIVE, plus en brouillon', () {
+      // Le défaut « brouillon » était l'autre moitié du problème : on
+      // remplissait, on enregistrait, et il ne se passait RIEN de visible —
+      // aucun revenu compté, rien affiché comme validé.
+      final src = _lire(formulaire);
+      expect(src.contains("_statut = 'active';"), isTrue,
+          reason: 'La création repart en brouillon : enregistrer ne produira '
+              'de nouveau aucun effet visible.');
+    });
+  });
+
   group('Un ministère se reconnaît dans la messagerie', () {
     test('la RPC ne rend que des ministères, et que des correspondants', () {
       final sql = _lire(_migrationRpc);

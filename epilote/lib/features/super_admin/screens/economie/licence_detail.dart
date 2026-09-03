@@ -59,7 +59,7 @@ class _LicenceDetail extends ConsumerWidget {
       subtitle: l.groupeNom,
       accent: couleur,
       width: 620,
-      headerTrailing: _Puce(
+      headerTrailing: PuceEconomie(
           texte: libelleStatutLicenceOuTiret(l.statut).toUpperCase(),
           couleur: Colors.white),
       hero: _HeroMontant(licence: l, couleur: couleur),

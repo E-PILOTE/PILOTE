@@ -8,8 +8,9 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../providers/economie_provider.dart';
+import 'economie/economie_chrome.dart';
+import 'economie/licence_form_dialog.dart';
 
-part 'economie/licence_form_dialog.dart';
 part 'economie/licence_statut_dialog.dart';
 part 'economie/licence_detail.dart';
 part 'economie/economie_kpi_detail.dart';
@@ -212,7 +213,7 @@ class _CarteLicence extends ConsumerWidget {
           flex: 3,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              _Puce(
+              PuceEconomie(
                   texte: libelleStatutLicenceOuTiret(l.statut).toUpperCase(),
                   couleur: couleur),
               if (l.referenceMarche != null) ...[
@@ -428,10 +429,7 @@ class _BoutonTransition extends ConsumerWidget {
 
 Future<void> _ouvrirLicence(BuildContext context, WidgetRef ref,
     {LicenceTutelle? edition}) async {
-  await showDialog<void>(
-    context: context,
-    builder: (_) => _LicenceFormDialog(edition: edition),
-  );
+  await ouvrirFormulaireLicence(context, edition: edition);
   ref.invalidate(economieProvider);
 }
 
@@ -502,7 +500,7 @@ class _LigneCout extends ConsumerWidget {
                             color: c.isActive ? kTextPrimary : kTextMuted)),
                     if (!c.isActive) ...[
                       const SizedBox(width: 8),
-                      _Puce(texte: 'INACTIF', couleur: kTextMuted),
+                      PuceEconomie(texte: 'INACTIF', couleur: kTextMuted),
                     ],
                   ]),
                   if (c.notes != null)
@@ -599,26 +597,6 @@ class _VideSection extends StatelessWidget {
       );
 }
 
-class _Puce extends StatelessWidget {
-  const _Puce({required this.texte, required this.couleur});
-  final String texte;
-  final Color couleur;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-        decoration: BoxDecoration(
-          color: couleur.withValues(alpha: .13),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Text(texte,
-            style: TextStyle(
-                fontSize: 9.5,
-                fontWeight: FontWeight.w800,
-                letterSpacing: .4,
-                color: couleur)),
-      );
-}
 
 class _Erreur extends StatelessWidget {
   const _Erreur({required this.message, required this.onRetry});

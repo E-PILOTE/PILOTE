@@ -272,7 +272,7 @@ class _PastilleStatut extends StatelessWidget {
   final String statut;
 
   @override
-  Widget build(BuildContext context) => _Puce(
+  Widget build(BuildContext context) => PuceEconomie(
         texte: libelleStatutLicenceOuTiret(statut).toUpperCase(),
         couleur: couleurStatutLicence(statut),
       );
