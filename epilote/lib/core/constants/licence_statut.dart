@@ -40,8 +40,14 @@ bool estPlanDeLicence(String? slug) => slug == kPlanSlugLicence;
 /// C'est exactement la confusion que 0182 a corrigée dans l'autre sens.
 const int kLicenceMontantDepartXaf = 40000000;
 
-/// Les quatre statuts, dans l'ordre du cycle de vie d'un marché.
-const kStatutsLicence = <String>['brouillon', 'active', 'echue', 'resiliee'];
+/// Les cinq statuts, dans l'ordre du cycle de vie d'un marché.
+const kStatutsLicence = <String>[
+  'brouillon',
+  'active',
+  'suspendue',
+  'echue',
+  'resiliee',
+];
 
 /// Libellé en toutes lettres — celui des formulaires et des fiches.
 ///
@@ -51,8 +57,25 @@ const kStatutsLicence = <String>['brouillon', 'active', 'echue', 'resiliee'];
 String? libelleStatutLicence(String? s) => switch (s) {
       'brouillon' => 'Brouillon',
       'active' => 'Active',
+      'suspendue' => 'Suspendue',
       'echue' => 'Échue',
       'resiliee' => 'Résiliée',
+      _ => null,
+    };
+
+/// Ce que le statut veut dire, en une phrase — le sous-titre d'une pastille.
+///
+/// ⚠️ « Échue » et « suspendue » se ressemblent et ne sont pas la même chose :
+/// l'une est un FAIT (le terme est passé, personne ne l'a décidé), l'autre une
+/// DÉCISION réversible. Les confondre à l'écran, c'est laisser croire qu'un
+/// marché s'est arrêté tout seul alors que quelqu'un l'a arrêté.
+String? explicationStatutLicence(String? s) => switch (s) {
+      'brouillon' => 'Saisie en cours — le marché n’a pas encore pris effet.',
+      'active' => 'Marché en cours d’exécution.',
+      'suspendue' =>
+        'Exécution arrêtée temporairement, sur décision d’E-PILOTE Congo.',
+      'echue' => 'Le terme est passé. Prolonger par avenant ou clôturer.',
+      'resiliee' => 'Marché clos définitivement.',
       _ => null,
     };
 
@@ -63,6 +86,49 @@ String libelleStatutLicenceOuTiret(String? s) =>
 /// Vrai si [s] est un statut connu. Sert aux validateurs de formulaire.
 bool statutLicenceConnu(String? s) =>
     s != null && kStatutsLicence.contains(s);
+
+// ─── LA MACHINE À ÉTATS ─────────────────────────────────────────────────────
+//
+//     brouillon ──activer──▶ active ──suspendre──▶ suspendue
+//         │                   │  ▲                    │
+//         │                   │  └─────reprendre──────┘
+//         │                   └──(le temps)──▶ echue ──avenant──▶ active
+//         └──────────────résilier──────────────────────┴──────▶ resiliee
+//
+// ⚠️ Miroir EXACT de `licence_changer_statut()` (migration 0186). Les deux
+// listes ne peuvent pas se lire l'une l'autre : un test les compare. Si
+// l'écran propose une transition que la base refuse, il envoie le fondateur
+// se faire jeter — et sur un marché national, il le fait devant un ministère.
+
+/// Les statuts vers lesquels [depuis] peut basculer, dans l'ordre d'affichage.
+///
+/// `resiliee` est TERMINAL : rien n'en sort. C'est la seule règle sans
+/// exception — sans elle, « résilier » ne serait qu'un statut de plus,
+/// révocable d'un clic.
+List<String> transitionsLicence(String? depuis) => switch (depuis) {
+      'brouillon' => const ['active', 'resiliee'],
+      'active' => const ['suspendue', 'echue', 'resiliee'],
+      'suspendue' => const ['active', 'resiliee'],
+      'echue' => const ['active', 'resiliee'],
+      'resiliee' => const [],
+      _ => const [],
+    };
+
+/// Vrai si passer à [vers] exige d'écrire POURQUOI.
+///
+/// Arrêter l'exécution d'un marché public sans motif, c'est une décision qu'on
+/// ne peut ni justifier ni contester trois mois plus tard. La base l'exige
+/// aussi (0186) : ici, c'est pour le dire AVANT l'aller-retour.
+bool motifObligatoire(String vers) => vers == 'suspendue' || vers == 'resiliee';
+
+/// Le verbe du geste — celui du bouton, pas le nom de l'état.
+String verbeTransitionLicence(String vers, {String? depuis}) => switch (vers) {
+      'active' => depuis == 'suspendue' ? 'Reprendre' : 'Activer',
+      'suspendue' => 'Suspendre',
+      'echue' => 'Clôturer au terme',
+      'resiliee' => 'Résilier',
+      _ => libelleStatutLicenceOuTiret(vers),
+    };
 
 /// Vrai si la licence est en vigueur — le SEUL statut qui compte comme revenu
 /// (cf. `LicenceTutelle.mensuelCompte`) et le seul qu'on annonce au ministère

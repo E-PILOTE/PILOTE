@@ -44,6 +44,8 @@ class LicenceDuGroupe {
     this.referenceMarche,
     this.signataire,
     this.notes,
+    this.motifStatut,
+    this.statutChangeLe,
   });
 
   factory LicenceDuGroupe.fromRow(Map<String, dynamic> r) => LicenceDuGroupe(
@@ -58,10 +60,19 @@ class LicenceDuGroupe {
         referenceMarche: r['reference_marche'] as String?,
         signataire: r['signataire'] as String?,
         notes: r['notes'] as String?,
+        motifStatut: r['motif_statut'] as String?,
+        statutChangeLe:
+            DateTime.tryParse(r['statut_change_le'] as String? ?? ''),
       );
 
   final String id, intitule, statut;
   final String? referenceMarche, signataire, notes;
+
+  /// Pourquoi le statut a changé (0186). Le ministère le lit sur sa propre
+  /// page : une décision qui l'affecte et qu'il découvrirait sans explication
+  /// serait une décision qu'il vient contester par téléphone.
+  final String? motifStatut;
+  final DateTime? statutChangeLe;
   final DateTime dateDebut, dateFin;
   final int montantXaf, avanceXaf, montantRegleXaf;
 
@@ -161,7 +172,8 @@ final licencesDuGroupeProvider =
       .watch(supabaseClientProvider)
       .from('tutelle_licences')
       .select('id, intitule, date_debut, date_fin, montant_xaf, avance_xaf, '
-          'montant_regle_xaf, statut, reference_marche, signataire, notes')
+          'montant_regle_xaf, statut, reference_marche, signataire, notes, '
+          'motif_statut, statut_change_le')
       .eq('group_id', groupId)
       .order('date_fin', ascending: false) as List;
 

@@ -64,8 +64,12 @@ Color couleurTutelle(String? t) =>
 /// encore un marché. C'est « échue » qui doit attirer l'oeil.
 Color couleurStatutLicence(String? s) => switch (s) {
       'active' => kGreen,
+      // ⚠️ « Suspendue » est ROUGE et « échue » ambre, pas l'inverse. L'ambre
+      // dit « ça arrive » ; le rouge dit « quelqu'un l'a arrêté ». Une
+      // suspension est une décision, et elle doit se voir comme telle.
+      'suspendue' => kRed,
       'echue' => kAccent,
-      'resiliee' => kRed,
+      'resiliee' => kTextPrimary,
       _ => kTextMuted,
     };
 

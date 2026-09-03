@@ -86,8 +86,12 @@ LicenceDuGroupe _licence({
 
 void main() {
   group('Le statut de licence n’a plus qu’un seul vocabulaire', () {
-    test('les quatre valeurs sont celles de l’énumération en base', () {
-      expect(kStatutsLicence, ['brouillon', 'active', 'echue', 'resiliee']);
+    test('les cinq valeurs sont celles de l’énumération en base', () {
+      // « suspendue » est arrivée en 0185 : le seul état RÉVERSIBLE. La liste
+      // détaillée et la machine à états sont gardées par
+      // `licence_activer_suspendre_test.dart`.
+      expect(kStatutsLicence,
+          ['brouillon', 'active', 'suspendue', 'echue', 'resiliee']);
     });
 
     test('une valeur inconnue ne devient pas « Brouillon »', () {
@@ -138,10 +142,14 @@ void main() {
           reason: 'Le vocabulaire local est revenu dans Économie : il pourra '
               'diverger de celui de la base et du ministère.');
       expect(eco.contains("'resiliee' => 'RÉSILIÉE'"), isFalse);
-      expect(_lire(_dialogue).contains('for (final st in kStatutsLicence)'),
-          isTrue,
-          reason: 'Le menu de saisie a repris une liste écrite à la main : '
-              'une valeur ajoutée en base n’y apparaîtra pas.');
+      // ⚠️ Le menu de SAISIE ne liste plus les cinq statuts, et c'est voulu
+      // (0186) : à la création on choisit entre « brouillon » et « active » ;
+      // les états de SORTIE se décident après, par un geste nommé et motivé.
+      expect(_lire(_dialogue).contains('libelleStatutLicenceOuTiret(st)'), isTrue,
+          reason: 'Le menu de saisie a repris des libellés écrits à la main.');
+      expect(_lire(_dialogue).contains("'suspendue'"), isFalse,
+          reason: 'La suspension est redevenue une entrée de liste déroulante : '
+              'elle se ferait de nouveau sans motif et sans trace.');
     });
   });
 

@@ -167,6 +167,10 @@ class _Contrat extends StatelessWidget {
               AdminBadge('Marché ${l.referenceMarche}',
                   color: kTextMuted, icon: Icons.gavel_rounded),
           ]),
+      if (l.motifStatut != null && l.motifStatut!.trim().isNotEmpty) ...[
+        const SizedBox(height: 12),
+        _MotifDuStatut(licence: l),
+      ],
       const SizedBox(height: 18),
       _MontantDuMarche(licence: l, couleur: couleur),
       const SizedBox(height: 20),
@@ -186,6 +190,52 @@ class _Contrat extends StatelessWidget {
             style: TextStyle(fontSize: 12.5, color: kTextMuted, height: 1.5)),
       ],
     ]);
+  }
+}
+
+/// Le motif d'une suspension ou d'une résiliation, écrit par E-PILOTE Congo.
+///
+/// ⚠️ AFFICHÉ AU MINISTÈRE, pas seulement au fondateur. Une décision qui
+/// l'affecte et qu'il découvrirait sans explication est une décision qu'il
+/// vient contester par téléphone — et il a raison. Le texte est le MÊME des
+/// deux côtés : c'est la seule façon qu'il n'y ait pas deux versions.
+class _MotifDuStatut extends StatelessWidget {
+  const _MotifDuStatut({required this.licence});
+
+  final LicenceDuGroupe licence;
+
+  @override
+  Widget build(BuildContext context) {
+    final couleur = couleurStatutLicence(licence.statut);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: couleur.withValues(alpha: 0.07),
+        border: Border.all(color: couleur.withValues(alpha: 0.25)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(Icons.sticky_note_2_rounded, size: 16, color: couleur),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(
+                licence.statutChangeLe == null
+                    ? 'Motif'
+                    : 'Motif · ${_date(licence.statutChangeLe!)}',
+                style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                    color: kTextMuted)),
+            const SizedBox(height: 3),
+            Text(licence.motifStatut!.trim(),
+                style: TextStyle(
+                    fontSize: 12.5, color: kTextPrimary, height: 1.45)),
+          ]),
+        ),
+      ]),
+    );
   }
 }
 

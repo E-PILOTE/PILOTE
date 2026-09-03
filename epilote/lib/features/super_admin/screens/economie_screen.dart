@@ -10,6 +10,7 @@ import '../../../core/widgets/list_chrome.dart';
 import '../providers/economie_provider.dart';
 
 part 'economie/licence_form_dialog.dart';
+part 'economie/licence_statut_dialog.dart';
 part 'economie/cout_form_dialog.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -191,7 +192,8 @@ class _CarteLicence extends ConsumerWidget {
         border: Border.all(color: kBorder),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(
           flex: 3,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -247,11 +249,92 @@ class _CarteLicence extends ConsumerWidget {
         IconButton(
           onPressed: () => _ouvrirLicence(context, ref, edition: l),
           icon: const Icon(Icons.edit_rounded, size: 17),
-          tooltip: 'Modifier',
+          tooltip: 'Modifier les conditions',
         ),
+      ]),
+      // ── Le motif, quand il y en a un ────────────────────────────────────
+      //  Il se lit SANS ouvrir le journal, et le ministère lit le même texte
+      //  sur sa propre page. Une décision cachée dans un log est une décision
+      //  qu'on ne peut pas défendre.
+      if (l.motifStatut != null && l.motifStatut!.trim().isNotEmpty) ...[
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+          decoration: BoxDecoration(
+            color: couleur.withValues(alpha: 0.07),
+            border: Border.all(color: couleur.withValues(alpha: 0.22)),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(Icons.sticky_note_2_rounded, size: 14, color: couleur),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Text(
+                  l.statutChangeLe == null
+                      ? l.motifStatut!
+                      : '${l.motifStatut!}  ·  ${_d(l.statutChangeLe!)}',
+                  style: TextStyle(
+                      fontSize: 11.5, color: kTextPrimary, height: 1.4)),
+            ),
+          ]),
+        ),
+      ],
+      // ── Les gestes ──────────────────────────────────────────────────────
+      //  Un verbe par transition, et SEULEMENT celles que la base accepte
+      //  (`transitionsLicence`, miroir de `licence_changer_statut`). Proposer
+      //  un bouton que la base refusera, c'est envoyer le fondateur se faire
+      //  jeter — sur un marché national, devant un ministère.
+      if (transitionsLicence(l.statut).isNotEmpty) ...[
+        const SizedBox(height: 12),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final vers in transitionsLicence(l.statut))
+            _BoutonTransition(licence: l, vers: vers),
+        ]),
+      ],
       ]),
     );
   }
+}
+
+/// Un geste = un verbe. Jamais « statut = suspendue ».
+class _BoutonTransition extends ConsumerWidget {
+  const _BoutonTransition({required this.licence, required this.vers});
+
+  final LicenceTutelle licence;
+  final String vers;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final couleur = couleurStatutLicence(vers);
+    // Seule l'action « en avant » est pleine : résilier ne doit pas se cliquer
+    // aussi facilement qu'activer.
+    final principale = vers == 'active';
+    return OutlinedButton.icon(
+      onPressed: () => _changerStatutLicence(context, ref, licence, vers),
+      icon: Icon(_icone(vers, licence.statut), size: 15),
+      label: Text(verbeTransitionLicence(vers, depuis: licence.statut)),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: couleur,
+        backgroundColor:
+            principale ? couleur.withValues(alpha: 0.10) : Colors.transparent,
+        side: BorderSide(
+            color: couleur.withValues(alpha: principale ? 0.45 : 0.28)),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  static IconData _icone(String vers, String depuis) => switch (vers) {
+        'active' => depuis == 'suspendue'
+            ? Icons.play_arrow_rounded
+            : Icons.check_circle_rounded,
+        'suspendue' => Icons.pause_circle_rounded,
+        'echue' => Icons.event_busy_rounded,
+        'resiliee' => Icons.gavel_rounded,
+        _ => Icons.help_outline_rounded,
+      };
 }
 
 Future<void> _ouvrirLicence(BuildContext context, WidgetRef ref,

@@ -243,24 +243,39 @@ class _LicenceFormDialogState extends ConsumerState<_LicenceFormDialog> {
                           avance: _n(_avance), debut: _debut, fin: _fin),
                       const SizedBox(height: 18),
                       Row(children: [
+                        // ⚠️ EN ÉDITION, LE STATUT NE SE CHANGE PLUS ICI.
+                        //  Ce formulaire écrit en direct dans la table : il
+                        //  contournerait les quatre règles de
+                        //  `licence_changer_statut` (0186) — motif obligatoire
+                        //  pour arrêter, refus de ressusciter un marché
+                        //  résilié, refus d'activer un marché terminé. Le
+                        //  statut se change par les boutons de la fiche, qui
+                        //  passent par la RPC et laissent une trace.
                         Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: _statut,
-                            isExpanded: true,
-                            decoration: const InputDecoration(labelText: 'Statut'),
-                            // Le menu se DÉDUIT du référentiel partagé : une valeur
-                            // ajoutée à l'énumération en base ne peut plus
-                            // manquer ici sans que personne le voie.
-                            items: [
-                              for (final st in kStatutsLicence)
-                                DropdownMenuItem(
-                                    value: st,
-                                    child:
-                                        Text(libelleStatutLicenceOuTiret(st))),
-                            ],
-                            onChanged: (v) =>
-                                setState(() => _statut = v ?? 'brouillon'),
-                          ),
+                          child: _edition
+                              ? _StatutFige(statut: _statut)
+                              : DropdownButtonFormField<String>(
+                                  initialValue: _statut,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                      labelText: 'Statut à la création'),
+                                  // À la création, deux choix seulement : on
+                                  // saisit un marché en préparation, ou un
+                                  // marché déjà signé. Les trois autres états
+                                  // sont des SORTIES — ils se décident après.
+                                  items: [
+                                    for (final st in const [
+                                      'brouillon',
+                                      'active'
+                                    ])
+                                      DropdownMenuItem(
+                                          value: st,
+                                          child: Text(
+                                              libelleStatutLicenceOuTiret(st))),
+                                  ],
+                                  onChanged: (v) => setState(
+                                      () => _statut = v ?? 'brouillon'),
+                                ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(child: TextFormField(
@@ -409,4 +424,26 @@ class _ChampDate extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Le statut, en lecture seule, avec l'endroit où il se change.
+class _StatutFige extends StatelessWidget {
+  const _StatutFige({required this.statut});
+
+  final String statut;
+
+  @override
+  Widget build(BuildContext context) => InputDecorator(
+        decoration: const InputDecoration(labelText: 'Statut'),
+        child: Row(children: [
+          _Puce(
+              texte: libelleStatutLicenceOuTiret(statut).toUpperCase(),
+              couleur: couleurStatutLicence(statut)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text('se change depuis la fiche',
+                style: TextStyle(fontSize: 11, color: kTextMuted)),
+          ),
+        ]),
+      );
 }

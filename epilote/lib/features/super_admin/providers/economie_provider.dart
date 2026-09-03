@@ -77,6 +77,8 @@ class LicenceTutelle {
     this.referenceMarche,
     this.signataire,
     this.notes,
+    this.motifStatut,
+    this.statutChangeLe,
   });
 
   factory LicenceTutelle.fromRow(Map<String, dynamic> r) {
@@ -96,11 +98,23 @@ class LicenceTutelle {
       referenceMarche: r['reference_marche'] as String?,
       signataire: r['signataire'] as String?,
       notes: r['notes'] as String?,
+      motifStatut: r['motif_statut'] as String?,
+      statutChangeLe:
+          DateTime.tryParse(r['statut_change_le'] as String? ?? ''),
     );
   }
 
   final String id, groupId, groupeNom, tutelle, intitule, statut;
   final String? referenceMarche, signataire, notes;
+
+  /// Pourquoi le statut a changé — obligatoire pour suspendre ou résilier
+  /// (migration 0186). Affiché des DEUX côtés : le ministère a le droit de
+  /// savoir pourquoi son marché est suspendu.
+  final String? motifStatut;
+
+  /// Quand. Le QUI vit dans `audit_logs` (déclencheur posé par 0186 : cette
+  /// table était la seule table chère de la base sans historique).
+  final DateTime? statutChangeLe;
   final DateTime dateDebut, dateFin;
   final int montantXaf, avanceXaf, montantRegleXaf;
 
@@ -181,7 +195,8 @@ final economieProvider =
       .from('tutelle_licences')
       .select('id, group_id, tutelle, intitule, date_debut, date_fin, '
           'montant_xaf, avance_xaf, montant_regle_xaf, statut, '
-          'reference_marche, signataire, notes, school_groups!group_id(name)')
+          'reference_marche, signataire, notes, motif_statut, '
+          'statut_change_le, school_groups!group_id(name)')
       .order('date_fin', ascending: false) as List;
 
   final groupes = await client
@@ -264,6 +279,32 @@ Future<void> enregistrerLicence(WidgetRef ref,
       'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', id);
   }
+}
+
+/// Change le statut d'une licence — activer, suspendre, reprendre, résilier.
+///
+/// ⚠️ PASSE PAR LA RPC, jamais par un `update` direct sur la colonne. La
+/// fonction `licence_changer_statut` (0186) porte quatre règles qu'un update
+/// ne porterait pas : le motif obligatoire pour arrêter quelque chose, le
+/// refus de ressusciter un marché résilié, le refus d'activer un marché dont
+/// le terme est passé, et le refus de deux licences actives qui se chevauchent
+/// (elles compteraient DEUX FOIS dans le revenu).
+///
+/// ⚠️ ET ELLE NE COUPE RIEN. Suspendre un marché ne ferme ni le ministère ni
+/// son réseau : c'est un état contractuel. L'accès dépend de
+/// `administre_referentiel_national` (0155), et rien d'autre.
+Future<void> changerStatutLicence(
+  WidgetRef ref, {
+  required String licenceId,
+  required String statut,
+  String? motif,
+}) async {
+  await ref.read(supabaseClientProvider).rpc('licence_changer_statut', params: {
+    'p_licence_id': licenceId,
+    'p_statut': statut,
+    'p_motif': motif,
+  });
+  ref.invalidate(economieProvider);
 }
 
 Future<void> supprimerLicence(WidgetRef ref, String id) async {
