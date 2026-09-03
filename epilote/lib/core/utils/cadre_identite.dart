@@ -110,5 +110,11 @@ Uint8List _recadrerIsolate(Uint8List octets) {
   );
   // Qualité haute : cette image repasse ensuite par `compressAvatar`, qui la
   // réduira. Compresser deux fois fort empile les artefacts sur un visage.
+  //
+  // ⚠️ EXIF retiré ICI et pas seulement à l'étape suivante : ces octets
+  // circulent entre les deux (aperçu, mise en file hors ligne) et portent les
+  // coordonnées GPS de la prise de vue. Sur la photo d'identité d'un élève,
+  // c'est l'adresse de sa famille.
+  coupe.exif = img.ExifData();
   return Uint8List.fromList(img.encodeJpg(coupe, quality: 92));
 }

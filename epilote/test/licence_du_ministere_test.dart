@@ -45,6 +45,16 @@ const _tableauDeBord =
 const _fiche = 'lib/features/admin_groupe/screens/admin_settings_screen.dart';
 const _groupes =
     'lib/features/super_admin/providers/school_groups_provider.dart';
+const _couverture =
+    'lib/features/admin_groupe/screens/admin_licence_couverture.dart';
+const _formulaireLicence =
+    'lib/features/super_admin/screens/economie/licence_form_dialog.dart';
+const _migrationRpc =
+    '../database/migrations/0184_AVANT_LE_BUILD_reconnaitre_un_ministere_dans_la_messagerie.sql';
+const _messagerie =
+    'lib/features/communication/screens/messagerie_staff.dart';
+const _inbox =
+    'lib/features/communication/screens/messagerie_staff_inbox.dart';
 
 String _lire(String chemin) {
   final f = File(chemin);
@@ -157,6 +167,114 @@ void main() {
       expect(_licence(finDansJours: 200).echue, isFalse);
       expect(_licence(finDansJours: -3).echue, isTrue);
       expect(_licence(finDansJours: -3).joursRestants, -3);
+    });
+  });
+
+  group('Un marché à quarante millions se lit comme un marché', () {
+    // Le fondateur : « une licence est vendue pour un début à 40 millions ».
+    // Une page qui n'affiche qu'un montant brut ne sert à rien : ce qu'un
+    // ordonnateur cherche, c'est le montant RAMENÉ — à l'année qu'il vote, au
+    // mois qu'il compare, à l'établissement qu'il défend.
+    LicenceDuGroupe quaranteMillions({int jours = 365}) => LicenceDuGroupe(
+          id: 'm',
+          intitule: 'Licence annuelle de tutelle',
+          dateDebut: DateTime.now().subtract(const Duration(days: 90)),
+          dateFin: DateTime.now().add(Duration(days: jours - 90)),
+          montantXaf: kLicenceMontantDepartXaf,
+          avanceXaf: 12000000,
+          montantRegleXaf: 12000000,
+          statut: 'active',
+        );
+
+    test('le montant de départ est écrit à un seul endroit', () {
+      expect(kLicenceMontantDepartXaf, 40000000);
+      expect(_lire(_formulaireLicence).contains('kLicenceMontantDepartXaf'),
+          isTrue,
+          reason: 'La saisie repropose « 0 » : une licence à 0 F ressemble à '
+              'une licence gracieuse dans tous les écrans qui la lisent.');
+    });
+
+    test('il se ramène à l’année et au mois', () {
+      final l = quaranteMillions();
+      expect(l.annuelXaf, closeTo(40000000, 200000));
+      // 12 mois → ~3,33 M/mois. Même formule que côté fondateur, sinon les
+      // deux espaces annoncent deux équivalents différents du même marché.
+      expect(l.mensuelXaf, closeTo(3333333, 60000));
+      expect(l.moisCouverts, 12);
+    });
+
+    test('une licence pluriannuelle ne gonfle pas le budget annuel', () {
+      // ⚠️ Le piège : un marché de 40 M sur TROIS ans n'est pas 40 M par an.
+      final triennal = quaranteMillions(jours: 1095);
+      expect(triennal.annuelXaf, closeTo(13333333, 200000));
+      expect(triennal.montantXaf, 40000000);
+    });
+
+    test('le montant divisé — le seul chiffre qui se défend en réunion', () {
+      final l = quaranteMillions();
+      expect(l.coutAnnuelParEtablissement(25), closeTo(1600000, 20000));
+      expect(l.coutAnnuelParEleve(12500), closeTo(3200, 50));
+      // ⚠️ `null` sur un réseau inconnu : « 0 F par école » sur un marché de
+      // quarante millions serait pire que de ne rien afficher.
+      expect(l.coutAnnuelParEtablissement(0), isNull);
+      expect(l.coutAnnuelParEleve(0), isNull);
+    });
+
+    test('temps écoulé et règlement sont DEUX barres', () {
+      // Un marché peut être couvert à 25 % du temps et réglé à 30 % : une
+      // seule des deux barres ne dit rien de l'exécution.
+      final l = quaranteMillions();
+      expect(l.partEcoulee, closeTo(90 / 365, 0.02));
+      expect(l.partReglee, closeTo(0.30, 0.01));
+      expect(l.dureeJours, 365);
+    });
+
+    test('la page dit ce que la licence ACHÈTE, pas seulement ce qu’elle coûte',
+        () {
+      final src = _lire(_couverture);
+      expect(src.contains('coutAnnuelParEtablissement('), isTrue);
+      expect(src.contains('coutAnnuelParEleve('), isTrue);
+      expect(src.contains('Référentiel national des examens'), isTrue,
+          reason: 'La liste des droits ouverts a disparu : c’est l’objet même '
+              'du marché, et aucun autre écran ne l’énonce.');
+      expect(src.contains('reseauSuperviseProvider'), isTrue);
+    });
+
+    test('un zéro faux ne remplace jamais un réseau qu’on n’a pas pu lire', () {
+      // Ce chiffre finit recopié dans un état ministériel.
+      final src = _lire(_couverture);
+      expect(src.contains('AdminErrorBanner'), isTrue,
+          reason: 'L’échec de lecture du réseau s’affiche désormais comme '
+              '« 0 établissement ».');
+    });
+  });
+
+  group('Un ministère se reconnaît dans la messagerie', () {
+    test('la RPC ne rend que des ministères, et que des correspondants', () {
+      final sql = _lire(_migrationRpc);
+      expect(sql.contains('AND g.administre_referentiel_national'), isTrue,
+          reason: 'La fonction rend maintenant TOUS les groupes : elle devient '
+              'un annuaire des groupes du pays.');
+      expect(sql.contains('correspondants AS ('), isTrue,
+          reason: 'Le filtre « avoir échangé » a sauté : la fonction devient '
+              'un annuaire du personnel ministériel.');
+      expect(sql.contains('SECURITY DEFINER'), isTrue);
+      expect(sql.contains('REVOKE ALL ON FUNCTION'), isTrue);
+    });
+
+    test('la messagerie retombe sur AUCUNE pastille en cas d’échec', () {
+      // ⚠️ Le sens du fail-soft compte : afficher « MINISTÈRE » sur un
+      // correspondant ordinaire lui prêterait l'autorité de l'État.
+      final src = _lire(
+          'lib/features/communication/providers/correspondants_ministere_provider.dart');
+      expect(src.contains('return const {};'), isTrue);
+    });
+
+    test('la liste et le fil portent la pastille', () {
+      expect(_lire(_messagerie).contains('correspondantsMinistereProvider'),
+          isTrue);
+      expect(_lire(_inbox).contains('BadgeMinistere('), isTrue,
+          reason: 'La tuile de conversation ne distingue plus un ministère.');
     });
   });
 

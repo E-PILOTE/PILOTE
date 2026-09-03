@@ -28,6 +28,18 @@ const kPlanSlugLicence = 'licence';
 /// trois écrans en dépendent (formulaire de groupe, tableau de bord, licence).
 bool estPlanDeLicence(String? slug) => slug == kPlanSlugLicence;
 
+/// Montant de départ d'une licence de tutelle, en francs CFA.
+///
+/// Chiffre donné par le fondateur : « une licence est vendue pour un début à
+/// 40 millions ». Il sert de VALEUR PROPOSÉE à la saisie d'un nouveau marché,
+/// jamais de tarif appliqué : un marché public se négocie, et le montant réel
+/// vit dans `tutelle_licences.montant_xaf`.
+///
+/// ⚠️ Ne jamais s'en servir pour calculer un revenu. Tant qu'aucune licence
+/// n'est saisie, le revenu de licence est ZÉRO — pas 40 millions « prévus ».
+/// C'est exactement la confusion que 0182 a corrigée dans l'autre sens.
+const int kLicenceMontantDepartXaf = 40000000;
+
 /// Les quatre statuts, dans l'ordre du cycle de vie d'un marché.
 const kStatutsLicence = <String>['brouillon', 'active', 'echue', 'resiliee'];
 

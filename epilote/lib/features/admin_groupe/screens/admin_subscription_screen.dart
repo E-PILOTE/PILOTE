@@ -8,6 +8,7 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../providers/admin_subscription_provider.dart';
 import 'admin_licence_card.dart';
+import 'admin_licence_couverture.dart';
 import 'admin_subscription_billing.dart';
 import 'admin_subscription_renew_dialog.dart';
 import '../../../core/widgets/admin_ui.dart';
@@ -161,12 +162,22 @@ class _Body extends ConsumerWidget {
                   else
                     _CurrentPlanCard(sub: sub),
                   const SizedBox(height: 20),
-                  AdminSectionTitle(
-                      sub.estMinistere ? 'Votre réseau' : 'Consommation',
-                      icon: Icons.speed_rounded,
-                      subtitle: sub.estMinistere
-                          ? 'Écoles, élèves et personnel couverts par la licence'
-                          : 'Utilisation des quotas de votre plan'),
+                  if (!sub.estMinistere)
+                    const AdminSectionTitle('Consommation',
+                        icon: Icons.speed_rounded,
+                        subtitle: 'Utilisation des quotas de votre plan'),
+                  // Ce que la licence ACHÈTE — la moitié qui manquait sur un
+                  // marché à quarante millions : le réseau couvert, les droits
+                  // ouverts, et le montant DIVISÉ (par établissement, par
+                  // élève), seul chiffre qui se défend en réunion.
+                  if (sub.estMinistere) ...[
+                    const SizedBox(height: 4),
+                    LicenceCouvertureSection(sub: sub),
+                    const SizedBox(height: 20),
+                    const AdminSectionTitle('Consommation',
+                        icon: Icons.speed_rounded,
+                        subtitle: 'Vos propres établissements'),
+                  ],
                   const SizedBox(height: 12),
                   _QuotaGrid(sub: sub),
                   // ⚠️ Pas de graphe de consommation pour un ministère : ses

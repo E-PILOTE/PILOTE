@@ -27,7 +27,12 @@ class _LicenceFormDialogState extends ConsumerState<_LicenceFormDialog> {
   final _intitule = TextEditingController(text: 'Licence annuelle de tutelle');
   final _reference = TextEditingController();
   final _signataire = TextEditingController();
-  final _montant = TextEditingController(text: '0');
+  // ⚠️ Proposé, pas imposé : c'est le montant de DÉPART d'une licence de
+  // tutelle (40 M), et un marché public se négocie. Un champ à « 0 » sur la
+  // saisie d'un marché national invitait à l'oubli — et une licence à 0 F
+  // ressemble à une licence gracieuse dans tous les écrans qui la lisent.
+  final _montant =
+      TextEditingController(text: '$kLicenceMontantDepartXaf');
   final _avance = TextEditingController(text: '0');
   final _regle = TextEditingController(text: '0');
   final _notes = TextEditingController();

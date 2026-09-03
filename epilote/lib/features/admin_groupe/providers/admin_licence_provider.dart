@@ -87,6 +87,47 @@ class LicenceDuGroupe {
     final j = joursRestants;
     return j != null && j < 0;
   }
+
+  /// Durée totale du marché, en jours. Au moins 1 : la base impose déjà
+  /// `date_fin > date_debut`, mais un `null` mal parsé ne doit pas diviser.
+  int get dureeJours {
+    final d = dateFin.difference(dateDebut).inDays;
+    return d < 1 ? 1 : d;
+  }
+
+  /// Part de la période écoulée, 0..1 — la barre de couverture.
+  ///
+  /// ⚠️ À ne PAS confondre avec [partReglee]. Un marché peut être couvert à
+  /// 80 % du temps et réglé à 25 % : ce sont ces deux barres côte à côte qui
+  /// disent où en est l'exécution, et une seule des deux ne dit rien.
+  double get partEcoulee {
+    final ecoules = DateTime.now().difference(dateDebut).inDays;
+    return (ecoules / dureeJours).clamp(0.0, 1.0);
+  }
+
+  /// Nombre de mois couverts — au moins 1, pour ne jamais diviser par zéro.
+  /// Miroir exact de `LicenceTutelle.moisCouverts` côté fondateur : les deux
+  /// espaces doivent annoncer le MÊME équivalent mensuel.
+  int get moisCouverts {
+    final m = (dureeJours / 30.44).round();
+    return m < 1 ? 1 : m;
+  }
+
+  /// Le marché ramené au mois — la seule base comparable à un abonnement.
+  int get mensuelXaf => (montantXaf / moisCouverts).round();
+
+  /// Le marché ramené à l'année, pour un budget annuel de l'État.
+  int get annuelXaf => (montantXaf * 365 / dureeJours).round();
+
+  /// Coût annuel par établissement couvert. `null` si le réseau est inconnu ou
+  /// vide — afficher « 0 F par école » sur un marché de 40 millions serait
+  /// pire que ne rien afficher.
+  int? coutAnnuelParEtablissement(int nbEtablissements) =>
+      nbEtablissements <= 0 ? null : (annuelXaf / nbEtablissements).round();
+
+  /// Coût annuel par élève couvert. Le chiffre qu'un ordonnateur compare.
+  int? coutAnnuelParEleve(int nbEleves) =>
+      nbEleves <= 0 ? null : (annuelXaf / nbEleves).round();
 }
 
 /// La licence à MONTRER parmi celles du groupe.
