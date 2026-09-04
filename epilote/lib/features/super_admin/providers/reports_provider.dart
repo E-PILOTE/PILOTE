@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/utils/tarif_ecoles.dart' show mensualiteGroupe;
 
 import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 
-import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/paged_fetch.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
 
@@ -149,7 +149,7 @@ final reportsProvider = FutureProvider.autoDispose<ReportsData>((ref) async {
   final results = await Future.wait([
     client.from('school_groups').select(
         'id, name, department, subscription_status, plan_id, group_type, '
-        'subscription_plans(name, price_xaf, billing_period)'),
+        'price_override_xaf, billed_schools, subscription_plans!plan_id(name, price_xaf, billing_period, extra_school_2_5_xaf, extra_school_6_10_xaf, extra_school_11_20_xaf, extra_school_21p_xaf)'),
     client.from('schools').select('id, group_id'),
     client.from('group_invoices').select(
         'id, amount_xaf, status, created_at, group_id'),
@@ -183,8 +183,7 @@ final reportsProvider = FutureProvider.autoDispose<ReportsData>((ref) async {
   final mrr = groups
       .where((g) => (g as Map)['subscription_status'] == 'active')
       .fold<int>(0, (s, g) {
-        final plan = (g as Map)['subscription_plans'] as Map?;
-        return s + monthlyPriceOfPlanRow(plan).round();
+        return s + mensualiteGroupe(g as Map);
       });
 
   // Public / Privé
@@ -206,7 +205,7 @@ final reportsProvider = FutureProvider.autoDispose<ReportsData>((ref) async {
     final m       = g as Map;
     final planMap = m['subscription_plans'] as Map?;
     final name    = planMap?['name'] as String? ?? 'Sans plan';
-    final price   = monthlyPriceOfPlanRow(planMap).round();
+    final price   = mensualiteGroupe(m);
     final agg     = planAgg[name] ?? const _PlanAgg(0, 0);
     planAgg[name] = _PlanAgg(agg.count + 1, agg.revenue + price);
   }

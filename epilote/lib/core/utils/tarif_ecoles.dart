@@ -1,3 +1,5 @@
+import 'billing_period.dart' show monthlyEquivalent;
+
 // ════════════════════════════════════════════════════════════════════════════
 //  LE PRIX SUIT LE NOMBRE D'ÉCOLES
 //
@@ -89,4 +91,42 @@ int coutEcoleSuivante({
       );
   final n = ecoles < 1 ? 1 : ecoles;
   return p(n + 1) - p(n);
+}
+
+// ─── La contribution mensuelle d'un groupe ────────────────────────────────────
+//
+//  ⚠️ POURQUOI CETTE FONCTION EXISTE (2026-09-04)
+//  Cinq endroits de l'espace fondateur calculaient le revenu récurrent, et les
+//  cinq prenaient le tarif d'AFFICHE du plan : `price_xaf`, rien d'autre. Ni
+//  les écoles supplémentaires, ni le tarif négocié. La page Abonnements
+//  annonçait donc 120 000 F là où « Économie & licences » — seul écran à
+//  passer par `tarifPlanRow` — en calculait 184 000. Trente-cinq pour cent
+//  d'écart, sur le chiffre d'affaires du fondateur, entre deux pages du même
+//  logiciel.
+//
+//  Un tarif ne veut rien dire sans son assiette. Il n'y a donc plus qu'UNE
+//  façon de répondre à « combien ce groupe rapporte-t-il ce mois-ci ».
+
+/// Ce que rapporte un groupe CE MOIS-CI, ramené au mois.
+///
+/// [groupe] est une ligne `school_groups` telle que PostgREST la rend, avec le
+/// plan joint sous [planKey] (« subscription_plans » par défaut, « plan » quand
+/// la requête l'a aliasé).
+///
+/// Ordre des sources, du plus contractuel au plus général :
+///   1. `price_override_xaf` — un tarif négocié ne se recalcule jamais ;
+///   2. sinon le barème du plan appliqué à `billed_schools` (l'assiette des
+///      factures, pas un recomptage parallèle des écoles).
+/// Le résultat est ensuite ramené au mois : un plan annuel ne rapporte pas son
+/// montant entier chaque mois.
+int mensualiteGroupe(Map? groupe, {String planKey = 'subscription_plans'}) {
+  if (groupe == null) return 0;
+  final plan = groupe[planKey];
+  final planMap = plan is Map ? plan : null;
+  if (planMap == null) return 0;
+
+  final negocie = (groupe['price_override_xaf'] as num?)?.toInt();
+  final assiette = (groupe['billed_schools'] as num?)?.toInt() ?? 1;
+  final du = negocie ?? tarifPlanRow(planMap, assiette);
+  return monthlyEquivalent(du, planMap['billing_period'] as String?);
 }

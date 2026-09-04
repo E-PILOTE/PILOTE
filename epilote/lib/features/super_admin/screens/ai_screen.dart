@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/utils/tarif_ecoles.dart' show mensualiteGroupe;
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../core/constants/routes.dart';
-import '../../../core/utils/billing_period.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../core/utils/message_erreur.dart';
@@ -86,7 +86,7 @@ final aiProvider = FutureProvider.autoDispose<AiData>((ref) async {
   final results = await Future.wait([
     client.from('school_groups').select(
         'id, name, subscription_status, subscription_end, plan_id, '
-        'subscription_plans(name, price_xaf, billing_period)'),
+        'price_override_xaf, billed_schools, subscription_plans!plan_id(name, price_xaf, billing_period, extra_school_2_5_xaf, extra_school_6_10_xaf, extra_school_11_20_xaf, extra_school_21p_xaf)'),
     client.from('group_invoices').select('group_id, amount_xaf, status, created_at, paid_at'),
     client.from('schools').select('id, group_id'),
   ]);
@@ -203,8 +203,7 @@ final aiProvider = FutureProvider.autoDispose<AiData>((ref) async {
   final mrr = groups
       .where((g) => (g as Map)['subscription_status'] == 'active')
       .fold<int>(0, (s, g) {
-        final plan = (g as Map)['subscription_plans'] as Map?;
-        return s + monthlyPriceOfPlanRow(plan).round();
+        return s + mensualiteGroupe(g as Map);
       });
   final projectedMrr = math.max(0, mrr + slope.round());
 

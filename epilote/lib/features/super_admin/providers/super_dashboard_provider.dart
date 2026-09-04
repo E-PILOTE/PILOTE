@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/utils/tarif_ecoles.dart' show mensualiteGroupe;
 import 'package:realtime_client/realtime_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 
-import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/booleen_en_ligne.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
 import '../../../core/constants/app_constants.dart';
@@ -300,7 +300,7 @@ final superDashboardProvider =
     final groups = await client.from('school_groups').select(
       'id, name, department, is_active, subscription_status, '
       'subscription_end, created_at, '
-      'subscription_plans!plan_id(name, price_xaf, billing_period)',
+      'price_override_xaf, billed_schools, subscription_plans!plan_id(name, price_xaf, billing_period, extra_school_2_5_xaf, extra_school_6_10_xaf, extra_school_11_20_xaf, extra_school_21p_xaf)',
     ) as List;
 
     groupesTotal  = groups.length;
@@ -318,7 +318,10 @@ final superDashboardProvider =
       final planName = plan?['name'] as String? ?? 'Inconnu';
       // Revenu MENSUEL : un plan annuel à 2 500 000 FCFA pèse 208 333 par
       // mois. Sommer les tarifs bruts multipliait le revenu par douze.
-      final price    = monthlyPriceOfPlanRow(plan);
+      // Le MEME bareme que partout ailleurs : ecoles supplementaires et
+      // tarif negocie compris. Sans cela cette carte annonce 120 K la ou
+      // la page Abonnements en affiche 184 000.
+      final price    = mensualiteGroupe(grp as Map).toDouble();
 
       if (status == 'active') {
         revenusXafMois += price;
@@ -361,8 +364,7 @@ final superDashboardProvider =
         final subEndStr2 = grp['subscription_end'] as String?;
         final subEnd2    = subEndStr2 != null ? DateTime.tryParse(subEndStr2) : null;
         if (subEnd2 != null && subEnd2.isBefore(mDate)) continue;
-        final plan2  = grp['subscription_plans'] as Map<String, dynamic>?;
-        final price2 = monthlyPriceOfPlanRow(plan2);
+        final price2 = mensualiteGroupe(grp as Map).toDouble();
         if (price2 > 0) { mrr += price2; subs++; }
       }
       mrList.add(MonthlyRevenue(

@@ -160,6 +160,38 @@ void main() {
       }
     });
 
+    test('⚠️ aucun écran ne calcule le revenu sur le tarif d’affiche', () {
+      // `monthlyPriceOfPlanRow` prend le prix du PLAN, sans assiette ni tarif
+      // négocié. C'est le piège qui a produit l'écart : cinq écrans du fondateur
+      // s'en servaient pour du revenu. Elle reste utile au catalogue de plans —
+      // pas dans une feature.
+      final coupables = <String>[];
+      for (final f in Directory('lib/features')
+          .listSync(recursive: true)
+          .whereType<File>()) {
+        if (!f.path.endsWith('.dart')) continue;
+        if (f.readAsStringSync().contains('monthlyPriceOfPlanRow(')) {
+          coupables.add(f.path);
+        }
+      }
+      expect(coupables, isEmpty,
+          reason: 'Un écran calcule de nouveau du revenu sur le tarif '
+              'd’affiche : il sous-estimera les groupes multi-écoles.');
+    });
+
+    test('les quatre écrans de revenu passent par mensualiteGroupe', () {
+      // Tableau de bord, Abonnements, Rapports, IA : quatre pages, un seul
+      // barème. C'est ce qui garantit qu'elles annoncent le même chiffre.
+      for (final f in [
+        'lib/features/super_admin/providers/super_dashboard_provider.dart',
+        'lib/features/super_admin/providers/reports_provider.dart',
+        'lib/features/super_admin/screens/ai_screen.dart',
+      ]) {
+        expect(_lire(f).contains('mensualiteGroupe('), isTrue,
+            reason: '$f a repris un calcul de revenu à lui.');
+      }
+    });
+
     test('la carte dit ce qu’elle ne compte pas', () {
       // Le plan « Licence de tutelle » est un support à 0 F : les ministères
       // pèsent zéro dans ce total. Sans le dire, ce zéro passe pour un oubli.
