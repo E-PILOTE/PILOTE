@@ -186,7 +186,7 @@ void main() {
     test('le sélecteur applique ce plafond, pas la constante générale', () {
       final src = File(
               'lib/features/communication/widgets/comm_attachments.dart')
-          .readAsStringSync();
+          .readAsStringSync().replaceAll('\r\n', '\n');
       final i = src.indexOf('Future<List<MessageAttachment>> pickAndUpload');
       expect(i, greaterThan(0));
       final corps = src.substring(i);

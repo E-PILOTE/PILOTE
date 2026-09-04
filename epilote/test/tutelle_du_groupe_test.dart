@@ -34,7 +34,7 @@ import 'package:flutter_test/flutter_test.dart';
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('Fichier introuvable : $chemin — sonde aveugle.');
-  var src = f.readAsStringSync();
+  var src = f.readAsStringSync().replaceAll('\r\n', '\n');
   final dossier = chemin.substring(0, chemin.lastIndexOf('/'));
   for (final m in RegExp(r"^part\s+'([^']+)';", multiLine: true).allMatches(src)) {
     final part = File('$dossier/${m.group(1)}');

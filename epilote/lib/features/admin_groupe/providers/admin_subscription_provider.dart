@@ -251,6 +251,18 @@ class AdminSubscriptionData {
       .fold(0, (s, i) => s + i.amountXaf);
   int get overdueCount     => invoices.where((i) => i.isOverdue).length;
 
+  /// La facture de renouvellement en attente, s'il y en a une.
+  ///
+  /// Depuis 0190 la plateforme l'émet seule, sept jours avant l'échéance. La
+  /// base n'en laisse jamais deux ouvertes à la fois (c'est ce qui rend la
+  /// tâche de nuit rejouable) — la première trouvée est donc LA facture due.
+  InvoiceDetail? get factureEnAttente {
+    for (final i in invoices) {
+      if (i.isPending || i.isOverdue) return i;
+    }
+    return null;
+  }
+
   // ── Demandes de changement de plan ──
   /// Vrai si une demande est encore en cours (open / in_progress) — utilisé
   /// pour bloquer une seconde demande et informer l'utilisateur.

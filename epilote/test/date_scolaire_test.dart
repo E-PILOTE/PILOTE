@@ -70,7 +70,7 @@ AcademicYearModel _annee({
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('$chemin introuvable — tourner depuis `epilote/`.');
-  final src = f.readAsStringSync();
+  final src = f.readAsStringSync().replaceAll('\r\n', '\n');
   final dossier = chemin.substring(0, chemin.lastIndexOf('/') + 1);
   final parts = RegExp(r"^part\s+'([^']+)';", multiLine: true)
       .allMatches(src)

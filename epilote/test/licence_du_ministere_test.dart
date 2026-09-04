@@ -61,7 +61,7 @@ const _inbox =
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('Fichier introuvable : $chemin — sonde aveugle.');
-  return f.readAsStringSync();
+  return f.readAsStringSync().replaceAll('\r\n', '\n');
 }
 
 LicenceDuGroupe _licence({
@@ -482,9 +482,22 @@ void main() {
               'base refuse ces plans depuis 0182.');
       // Le bouton « Renouveler » vit dans _CurrentPlanCard, qui n'est plus
       // construite pour un ministère — la sonde garde la bifurcation.
-      expect(src.contains('if (sub.estMinistere)\n                    '
-          'LicenceDeTutelleSection(sub: sub)\n                  else\n'
-          '                    _CurrentPlanCard(sub: sub),'), isTrue);
+      //
+      // ⚠️ Élargie le 2026-09-04 : elle épinglait l'appel `_CurrentPlanCard(
+      // sub: sub),` sur une seule ligne, avec son indentation exacte. Le jour
+      // où la carte a gagné un second argument (`enAttente`, la facture émise
+      // d'office par 0190), l'appel est passé sur quatre lignes et la sonde
+      // est tombée — sur un écran qui venait de s'améliorer. Ce qu'elle garde
+      // vraiment, c'est la BIFURCATION : ministère d'un côté, carte de plan de
+      // l'autre, jamais les deux.
+      final bifurcation = RegExp(
+        r'if \(sub\.estMinistere\)\s+LicenceDeTutelleSection\(sub: sub\)\s+'
+        r'else\s+_CurrentPlanCard\(',
+      );
+      expect(bifurcation.hasMatch(src), isTrue,
+          reason: 'La bifurcation ministère / plan mensuel a disparu : un '
+              'ministère peut de nouveau voir la carte d’abonnement, donc le '
+              'bouton « Renouveler » que la base refuse.');
     });
 
     test('la carte dit que l’accès ne dépend pas de la licence', () {

@@ -82,7 +82,7 @@ void main() {
 
     final televersent = <String, String>{}; // chemin → source
     for (final f in _dartsSous('lib')) {
-      final src = f.readAsStringSync();
+      final src = f.readAsStringSync().replaceAll('\r\n', '\n');
       if (_kPortes.any(src.contains)) televersent[_relatif(f)] = src;
     }
 
@@ -136,7 +136,7 @@ void main() {
     const chemin = 'lib/features/communication/widgets/comm_attachments.dart';
 
     test('les pièces jointes sont compressées AVANT d’être envoyées', () {
-      final src = File(chemin).readAsStringSync();
+      final src = File(chemin).readAsStringSync().replaceAll('\r\n', '\n');
       final iCompression = src.indexOf('compressForUpload(');
       final iEnvoi = src.indexOf('uploadMessageAttachment(');
 
@@ -157,7 +157,7 @@ void main() {
     test('la raison est écrite là où quelqu’un la lira', () {
       final src = File(
         'lib/features/admin_groupe/providers/exam_archives_provider.dart',
-      ).readAsStringSync();
+      ).readAsStringSync().replaceAll('\r\n', '\n');
       expect(src.contains('ON NE COMPRESSE PAS'), isTrue,
           reason: 'La seule exception permanente du dépôt doit se justifier '
               'sur place. Un lecteur qui trouve un envoi non compressé et '

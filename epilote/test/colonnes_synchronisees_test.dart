@@ -40,7 +40,7 @@ List<File> _dartsSous(String chemin) => Directory(chemin)
 Map<String, Set<String>> _schemaLocal() {
   final f = File(_kSchema);
   if (!f.existsSync()) fail('$_kSchema introuvable — tourner depuis `epilote/`.');
-  final src = f.readAsStringSync();
+  final src = f.readAsStringSync().replaceAll('\r\n', '\n');
   final tables = <String, Set<String>>{};
   final motif = RegExp(r"Table\(\s*'([a-z_0-9]+)'\s*,\s*\[(.*?)\]\s*\)",
       dotAll: true);

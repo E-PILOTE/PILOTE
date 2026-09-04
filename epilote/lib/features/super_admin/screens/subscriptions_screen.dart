@@ -16,6 +16,7 @@ import '../../../features/auth/providers/auth_provider.dart';
 import '../../../core/constants/licence_statut.dart';
 import '../providers/subscriptions_provider.dart';
 import 'economie/licence_form_dialog.dart';
+import 'subscriptions_emettre_facture.dart';
 import '../services/subscription_pdf_service.dart';
 import '../../../core/utils/message_erreur.dart';
 
@@ -2010,6 +2011,25 @@ class _SubDetailModalState extends ConsumerState<_SubDetailModal>
               ])),
               const SizedBox(width: 8),
               Row(children: [
+                // ⚠️ Émettre ≠ encaisser. Ce bouton crée la SOMME DUE de la
+                // période suivante ; le paiement reste un second geste, dans
+                // l'écran Factures. Un ministère n'en a pas : son marché se
+                // renégocie par avenant (0182/0183), et la base le refuserait.
+                if (!s.estMinistere) ...[
+                  _ModalIconBtn(
+                    icon: Icons.receipt_long_rounded,
+                    color: _kGreen,
+                    tooltip: 'Émettre la facture de renouvellement',
+                    onTap: () async {
+                      final cree = await emettreFactureDeRenouvellement(
+                        context, ref,
+                        groupId: s.id, groupName: s.groupName,
+                      );
+                      if (cree) ref.invalidate(subscriptionsProvider);
+                    },
+                  ),
+                  const SizedBox(width: 4),
+                ],
                 _ModalIconBtn(icon: Icons.edit_rounded, color: _kNavy, tooltip: 'Modifier', onTap: widget.onEdit),
                 const SizedBox(width: 4),
                 _ModalIconBtn(icon: Icons.print_rounded, color: _kMuted, tooltip: 'Imprimer', onTap: widget.onPrint),

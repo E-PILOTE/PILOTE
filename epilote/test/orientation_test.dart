@@ -46,7 +46,7 @@ const _kScreen = 'lib/features/vie_scolaire/screens/orientation_screen.dart';
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('$chemin introuvable — tourner depuis `epilote/`.');
-  return f.readAsStringSync();
+  return f.readAsStringSync().replaceAll('\r\n', '\n');
 }
 
 void main() {

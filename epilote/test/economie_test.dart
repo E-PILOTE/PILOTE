@@ -155,7 +155,7 @@ void main() {
           '0160_AVANT_LE_BUILD_la_licence_annuelle_et_le_cout_reel.sql');
       expect(f.existsSync(), isTrue,
           reason: 'Sonde aveugle : la migration 0160 est introuvable.');
-      final sql = f.readAsStringSync();
+      final sql = f.readAsStringSync().replaceAll('\r\n', '\n');
 
       final bloc = sql.substring(
           sql.indexOf('CREATE POLICY platform_costs_super_admin'));
@@ -178,7 +178,7 @@ void main() {
       // se venge d'un impayé perd le client ET le marché.
       final sql = File('../database/migrations/'
               '0160_AVANT_LE_BUILD_la_licence_annuelle_et_le_cout_reel.sql')
-          .readAsStringSync();
+          .readAsStringSync().replaceAll('\r\n', '\n');
       expect(sql.contains('N\'OUVRE NI NE FERME AUCUN ACCÈS') ||
               sql.contains('NE COMMANDE RIEN'),
           isTrue,

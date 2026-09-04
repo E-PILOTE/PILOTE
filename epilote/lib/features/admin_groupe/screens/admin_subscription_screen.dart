@@ -6,6 +6,7 @@ import 'package:shimmer/shimmer.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 import '../../../core/widgets/app_shell.dart';
+import '../../super_admin/providers/invoices_provider.dart' show InvoiceDetail;
 import '../providers/admin_subscription_provider.dart';
 import 'admin_licence_card.dart';
 import 'admin_licence_couverture.dart';
@@ -160,7 +161,10 @@ class _Body extends ConsumerWidget {
                   if (sub.estMinistere)
                     LicenceDeTutelleSection(sub: sub)
                   else
-                    _CurrentPlanCard(sub: sub),
+                    _CurrentPlanCard(
+                      sub: sub,
+                      enAttente: data.factureEnAttente,
+                    ),
                   const SizedBox(height: 20),
                   if (!sub.estMinistere)
                     const AdminSectionTitle('Consommation',
@@ -271,8 +275,18 @@ class _MecaniqueAbonnement extends StatelessWidget {
 
 // ─── Carte plan courant ───────────────────────────────────────────────────────
 class _CurrentPlanCard extends StatelessWidget {
-  const _CurrentPlanCard({required this.sub});
+  const _CurrentPlanCard({required this.sub, this.enAttente});
   final GroupSubscription sub;
+
+  /// Facture de renouvellement déjà émise et non réglée, s'il y en a une.
+  ///
+  /// ⚠️ Depuis 0190, la plateforme émet cette facture TOUTE SEULE, sept jours
+  /// avant l'échéance — donc AVANT que le bandeau « expire dans 5 jours » ne
+  /// s'allume. Sans ce champ, l'écran continuait de proposer « Renouveler mon
+  /// abonnement » à quelqu'un dont la facture attendait déjà : il cliquait, et
+  /// le dialogue lui répondait « facture déjà en attente ». On lui montre
+  /// désormais la somme due, ce qu'elle couvre, et rien à cliquer.
+  final InvoiceDetail? enAttente;
 
   @override
   Widget build(BuildContext context) {
@@ -336,10 +350,16 @@ class _CurrentPlanCard extends StatelessWidget {
               AdminBadge('Expire dans ${sub.daysLeft} j', color: kAccent, icon: Icons.timelapse_rounded)
             else if (sub.daysLeft != null)
               AdminBadge('${sub.daysLeft} jours restants', color: kGreen, icon: Icons.check_circle_rounded),
+            // La facture déjà émise passe AVANT le bouton : proposer de
+            // renouveler quand la somme est déjà due n'amène qu'un refus poli.
+            if (enAttente != null) ...[
+              const SizedBox(height: 12),
+              _FactureEnAttente(facture: enAttente!),
+            ]
             // Réabonnement en libre-service : visible dès que l'échéance
             // approche ou est dépassée. Génère une facture de renouvellement du
             // MÊME plan (cf. showRenewSubscriptionDialog / create_renewal_invoice).
-            if (sub.expired || sub.expireSoon) ...[
+            else if (sub.expired || sub.expireSoon) ...[
               const SizedBox(height: 12),
               FilledButton.icon(
                 onPressed: () => showRenewSubscriptionDialog(context, sub),
@@ -366,6 +386,62 @@ class _CurrentPlanCard extends StatelessWidget {
           Expanded(child: left), const SizedBox(width: 20), right,
         ]);
       }),
+    );
+  }
+}
+
+// ─── La facture que la plateforme a déjà émise ────────────────────────────────
+//
+//  Elle remplace le bouton « Renouveler » : la démarche est faite, il reste à
+//  payer. Trois informations, et pas une de plus — le numéro (c'est lui qu'on
+//  cite au téléphone), la somme, et la période couverte. Le détail vit plus bas,
+//  dans la section Facturation.
+class _FactureEnAttente extends StatelessWidget {
+  const _FactureEnAttente({required this.facture});
+  final InvoiceDetail facture;
+
+  static String _jour(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/'
+      '${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  @override
+  Widget build(BuildContext context) {
+    final enRetard = facture.isOverdue;
+    final couleur = enRetard ? kRed : kAccent;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: couleur.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: couleur.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.receipt_long_rounded, size: 16, color: couleur),
+            const SizedBox(width: 7),
+            Text(
+              enRetard ? 'Facture en retard' : 'Facture à régler',
+              style: TextStyle(
+                  fontSize: 12.5, fontWeight: FontWeight.w800, color: couleur),
+            ),
+          ]),
+          const SizedBox(height: 6),
+          Text(
+            '${facture.invoiceNumber} · ${fmtXaf(facture.amountXaf)}',
+            style: TextStyle(
+                fontSize: 14, fontWeight: FontWeight.w800, color: kTextPrimary),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Période du ${_jour(facture.periodStart)} '
+            'au ${_jour(facture.periodEnd)}',
+            style: TextStyle(fontSize: 11.5, color: kTextMuted),
+          ),
+        ],
+      ),
     );
   }
 }

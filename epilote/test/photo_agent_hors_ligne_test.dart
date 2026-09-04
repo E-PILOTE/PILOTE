@@ -35,7 +35,7 @@ const _kAvatar = 'lib/features/communication/widgets/user_avatar.dart';
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('$chemin introuvable — tourner depuis `epilote/`.');
-  return f.readAsStringSync();
+  return f.readAsStringSync().replaceAll('\r\n', '\n');
 }
 
 List<File> _dartsSous(String chemin) => Directory(chemin)
@@ -52,7 +52,7 @@ void main() {
       // Il serait refusé par la RLS à la remontée, et emporterait le lot.
       final fautes = <String>[];
       for (final f in _dartsSous('lib')) {
-        final src = f.readAsStringSync();
+        final src = f.readAsStringSync().replaceAll('\r\n', '\n');
         if (RegExp(r'UPDATE\s+profiles\b[\s\S]{0,400}?avatar_url')
             .hasMatch(src)) {
           fautes.add(f.path);

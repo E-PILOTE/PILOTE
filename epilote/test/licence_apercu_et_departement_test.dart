@@ -37,7 +37,7 @@ const _kpiFondateur =
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('Fichier introuvable : $chemin — sonde aveugle.');
-  return f.readAsStringSync();
+  return f.readAsStringSync().replaceAll('\r\n', '\n');
 }
 
 TutelleEcole _ecole(

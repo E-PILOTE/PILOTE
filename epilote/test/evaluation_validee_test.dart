@@ -35,7 +35,7 @@ const _kEcran = 'lib/features/evaluation/screens/notes_screen.dart';
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('$chemin introuvable — tourner depuis `epilote/`.');
-  return f.readAsStringSync();
+  return f.readAsStringSync().replaceAll('\r\n', '\n');
 }
 
 /// Le fichier sans ses commentaires : l'en-tête d'un correctif cite forcément

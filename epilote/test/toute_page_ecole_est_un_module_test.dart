@@ -82,7 +82,7 @@ const Map<String, String> _routesNativesJustifiees = {
 /// La lecture du fichier — plutôt qu'une liste recopiée — est ce qui fait que
 /// le test parle encore des écrans écrits après lui.
 List<(String nom, String chemin)> _routesEcole() {
-  final src = File('lib/core/constants/routes.dart').readAsStringSync();
+  final src = File('lib/core/constants/routes.dart').readAsStringSync().replaceAll('\r\n', '\n');
   final re = RegExp(
     r"static\s+const\s+String\s+(\w+)\s*=\s*'(/user/[^']*)'",
   );

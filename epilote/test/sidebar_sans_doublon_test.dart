@@ -52,7 +52,7 @@ const _socles = <String, EspaceNav?>{
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('Fichier introuvable : $chemin — sonde aveugle.');
-  return f.readAsStringSync();
+  return f.readAsStringSync().replaceAll('\r\n', '\n');
 }
 
 /// Le corps de la fonction qui construit l'espace [nom].

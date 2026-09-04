@@ -42,7 +42,7 @@ const _interrupteur =
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('Fichier introuvable : $chemin — sonde aveugle.');
-  return f.readAsStringSync();
+  return f.readAsStringSync().replaceAll('\r\n', '\n');
 }
 
 /// Un groupe réduit à ce que la règle regarde : son ministère, et s'il en est
