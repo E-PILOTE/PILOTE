@@ -6,7 +6,7 @@ publish_to: 'none'
 # en retard (mig 0087). Il ne doit donc jamais reculer ni stagner entre deux
 # binaires différents — 3.1.7+18 a été livré deux fois, le 06/08 et le 14/08,
 # ce qui les rendait indistinguables pour le mécanisme de mise à jour.
-version: 3.5.11+45
+version: 3.5.12+46
 
 environment:
   sdk: ^3.12.0
