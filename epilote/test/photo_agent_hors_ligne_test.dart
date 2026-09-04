@@ -38,6 +38,12 @@ String _lire(String chemin) {
   return f.readAsStringSync().replaceAll('\r\n', '\n');
 }
 
+/// Le code, sans ses commentaires (voir la sonde qui s'en sert).
+String _sansCommentaires(String src) => src
+    .split('\n')
+    .where((l) => !l.trimLeft().startsWith('//'))
+    .join('\n');
+
 List<File> _dartsSous(String chemin) => Directory(chemin)
     .listSync(recursive: true)
     .whereType<File>()
@@ -52,7 +58,12 @@ void main() {
       // Il serait refusé par la RLS à la remontée, et emporterait le lot.
       final fautes = <String>[];
       for (final f in _dartsSous('lib')) {
-        final src = f.readAsStringSync().replaceAll('\r\n', '\n');
+        // ⚠️ Sans les commentaires. Les en-tetes de ce depot CITENT la
+        // forme fautive pour expliquer pourquoi elle est interdite : la sonde
+        // se piegeait sur l'explication qui la justifie (vu le 2026-09-04 sur
+        // `mon_avatar_service.dart`, qui emprunte pourtant le bon chemin).
+        final src = _sansCommentaires(
+            f.readAsStringSync().replaceAll('\r\n', '\n'));
         if (RegExp(r'UPDATE\s+profiles\b[\s\S]{0,400}?avatar_url')
             .hasMatch(src)) {
           fautes.add(f.path);

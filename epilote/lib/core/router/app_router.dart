@@ -32,7 +32,7 @@ import '../../features/super_admin/screens/tickets_screen.dart';
 import '../../features/super_admin/screens/platform_service_messages_screen.dart';
 import '../../features/super_admin/screens/platform_partners_screen.dart';
 import '../../features/super_admin/screens/national_map_screen.dart';
-import '../../features/super_admin/screens/profile_screen.dart';
+import '../../features/profil/screens/mon_profil_screen.dart';
 import '../../features/admin_groupe/screens/admin_academic_years_screen.dart';
 import '../../features/admin_groupe/screens/admin_fees_screen.dart';
 import '../../features/admin_groupe/screens/admin_rattachement_screen.dart';
@@ -52,7 +52,6 @@ import '../../features/admin_groupe/screens/admin_subscription_screen.dart';
 import '../../features/audit/screens/audit_screen.dart' as shared_audit;
 import '../../features/admin_groupe/screens/admin_settings_screen.dart';
 import '../../features/communication/screens/support_requester_screen.dart';
-import '../../features/admin_groupe/screens/admin_profile_screen.dart';
 import '../../features/admin_groupe/screens/admin_module_screen.dart';
 import '../../features/admin_groupe/screens/admin_modules_screen.dart';
 import '../../features/students/screens/inscriptions_screen.dart';
@@ -95,7 +94,6 @@ import '../../features/navigation/widgets/module_coming_soon.dart';
 import '../../features/user/screens/rapports_screen.dart';
 import '../../features/user/screens/renewal_wall_screen.dart';
 import '../../features/user/screens/user_dashboard_screen.dart';
-import '../../features/user/screens/user_profile_screen.dart';
 import '../../features/user/screens/user_settings_screen.dart';
 import '../../features/classes/screens/classes_screen.dart';
 import '../../features/classes/screens/classe_detail_screen.dart';
@@ -423,7 +421,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.superProfil,
-        builder: (_, _) => const ProfileScreen(),
+        builder: (_, _) => const MonProfilScreen(),
       ),
 
       // ── Admin Groupe ──────────────────────────────────────────────────
@@ -509,7 +507,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.adminProfil,
-        builder: (_, _) => const AdminProfileScreen(),
+        builder: (_, _) => const MonProfilScreen(),
       ),
       GoRoute(
         path: Routes.adminModules,
@@ -756,7 +754,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.userProfil,
-        builder: (_, _) => const UserProfileScreen(),
+        builder: (_, _) => const MonProfilScreen(),
       ),
       GoRoute(
         path: Routes.userRenew,

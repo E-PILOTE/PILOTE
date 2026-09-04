@@ -32,8 +32,11 @@ const _garde =
     '../database/migrations/0188_AVANT_LE_BUILD_nul_ne_se_donne_le_pouvoir.sql';
 const _revoke =
     '../database/migrations/0189_AVANT_LE_BUILD_trois_fonctions_ouvertes_a_tous.sql';
+// ⚠️ « Mon profil » est devenu UNE page pour les trois espaces le
+// 2026-09-04 : c'est ce fichier-ci qui porte désormais l'unique écriture
+// qu'une personne fait sur sa propre ligne.
 const _profilPerso =
-    'lib/features/admin_groupe/providers/admin_profile_provider.dart';
+    'lib/features/profil/providers/mon_profil_provider.dart';
 
 String _lire(String chemin) {
   final f = File(chemin);

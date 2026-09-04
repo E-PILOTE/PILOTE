@@ -89,7 +89,7 @@ const _kEcrituresConnues = <String, Set<String>>{
     'subscription_plans',
     'support_tickets',
   },
-  // Module communication — partagé, scope-aware, en ligne lui aussi.
+  // Modules PARTAGÉS, scope-aware, en ligne : communication et profil.
   'autre': {
     'announcement_comments',
     // ⚠️ `circulaires` a quitte ce releve le 2026-09-02 : l'application n'y
@@ -105,6 +105,15 @@ const _kEcrituresConnues = <String, Set<String>>{
     'conversations',
     'events',
     'messages',
+    // « Mon profil » (features/profil) écrit SA PROPRE ligne.
+    // Politiques relevées le 2026-09-04 : `profiles_update` accepte
+    // `id = auth.uid()` — troisième branche du USING, celle qui vaut ici.
+    // ⚠️ Et le déclencheur `profiles_garde_colonnes_de_pouvoir` (0188) GÈLE
+    // en silence `role`, `access_profile_id`, `school_id`, `group_id`,
+    // `is_active` et les trois `sync_*` sur sa propre ligne : la page n'écrit
+    // donc que `first_name`, `last_name`, `phone` et `avatar_url`. Les autres
+    // afficheraient « enregistré » sur une valeur remise comme avant.
+    'profiles',
     'notifications',
     'saved_announcements',
     'stories',
