@@ -4,6 +4,7 @@ import 'package:realtime_client/realtime_client.dart';
 import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
 import '../../../core/utils/subscription_days.dart';
+import '../../../core/utils/tarif_ecoles.dart' show tarifPlanRow;
 import '../../../features/auth/providers/auth_provider.dart';
 import 'economie_provider.dart' show LicenceTutelle;
 import 'plans_provider.dart' show moneyXaf;
@@ -19,6 +20,8 @@ class SubscriptionDetail {
     required this.status,
     required this.priceXaf,
     required this.schoolsCount,
+    this.ecolesFacturees = 1,
+    this.tarifNegocie = false,
     this.billingPeriod = kDefaultBillingPeriod,
     required this.createdAt,
     required this.updatedAt,
@@ -43,6 +46,13 @@ class SubscriptionDetail {
   }) {
     final plan = m['plan'];
     final planMap = plan is Map ? Map<String, dynamic>.from(plan) : const {};
+
+    // Le MEME calcul que la page Economie, et pour la meme raison : un tarif
+    // n'a de sens qu'avec son assiette. `billed_schools` fait foi (c'est lui
+    // qui sert aux factures) ; a defaut, les ecoles actives comptees ici.
+    final assiette = (m['billed_schools'] as num?)?.toInt() ??
+        (schoolsCount > 0 ? schoolsCount : 1);
+    final negocie = (m['price_override_xaf'] as num?)?.toInt();
     return SubscriptionDetail(
       id:          m['id']            as String,
       groupName:   m['name']          as String? ?? '',
@@ -54,7 +64,9 @@ class SubscriptionDetail {
       planId:      m['plan_id']       as String?,
       planName:    planMap['name']    as String?,
       planSlug:    planMap['slug']    as String?,
-      priceXaf:    (planMap['price_xaf'] as num?)?.toInt() ?? 0,
+      priceXaf:      negocie ?? tarifPlanRow(planMap, assiette),
+      ecolesFacturees: assiette,
+      tarifNegocie:  negocie != null,
       billingPeriod:
           planMap['billing_period'] as String? ?? kDefaultBillingPeriod,
       status:      m['subscription_status'] as String? ?? 'trial',
@@ -73,7 +85,25 @@ class SubscriptionDetail {
 
   final String  id, groupName, adminEmail, groupType, status;
   final String? groupLogo, phone, department, planId, planName, planSlug;
+  /// Ce que le groupe paie REELLEMENT par periode : bareme du plan applique
+  /// a son assiette d'ecoles, ou le tarif negocie s'il y en a un.
+  ///
+  /// ⚠️ C'etait le tarif de BASE du plan, et rien d'autre. Sur la page
+  /// Abonnements le revenu mensuel annoncait donc 120 000 F quand la page
+  /// Economie, elle, en calculait 184 000 : les ecoles supplementaires et
+  /// les tarifs negocies etaient perdus. Deux ecrans du meme logiciel se
+  /// contredisaient de 35 % sur le chiffre d'affaires du fondateur — et
+  /// c'est la page intitulee « Abonnements » qui sous-estimait.
   final int     priceXaf, schoolsCount;
+
+  /// Assiette de facturation : le nombre d'ecoles sur lequel `priceXaf` a
+  /// ete calcule. `billed_schools` fait foi — c'est lui qui sert aux
+  /// factures ; le nombre d'ecoles actives peut avoir bouge depuis.
+  final int     ecolesFacturees;
+
+  /// Vrai si le montant vient d'un tarif negocie (`price_override_xaf`)
+  /// et non du bareme. Un chiffre negocie ne se recalcule jamais.
+  final bool    tarifNegocie;
   final String  billingPeriod;
   final DateTime  createdAt, updatedAt;
   final DateTime? start, end;
@@ -309,7 +339,10 @@ final subscriptionsProvider =
             'department, plan_id, subscription_status, subscription_start, '
             'subscription_end, created_at, updated_at, tutelle, '
             'administre_referentiel_national, acces_suspendu, '
-            'plan:subscription_plans(name, slug, price_xaf, billing_period)')
+            'price_override_xaf, billed_schools, '
+            'plan:subscription_plans(name, slug, price_xaf, billing_period, '
+            'extra_school_2_5_xaf, extra_school_6_10_xaf, '
+            'extra_school_11_20_xaf, extra_school_21p_xaf)')
         .order('created_at', ascending: false) as List;
     subs = rows.map((r) {
       final m = Map<String, dynamic>.from(r as Map);
