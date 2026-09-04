@@ -389,7 +389,9 @@ void main() {
       // `choisirDateScolaire` (core/utils/date_scolaire.dart), partagé et
       // testé à part (`date_scolaire_test.dart`). Le garde suit la logique là
       // où elle est allée.
-      final src = File('lib/features/structure/screens/edt_calendar_tab.dart')
+      // ⚠️ Le formulaire a quitté `edt_calendar_tab.dart` le 2026-09-04 :
+      // l'onglet AFFICHE les jours fériés, la pièce ci-dessous les SAISIT.
+      final src = File('lib/features/structure/screens/edt_calendar_holiday_form.dart')
           .readAsStringSync().replaceAll('\r\n', '\n');
       expect(src.contains('choisirDateScolaire(context, ref'), isTrue,
           reason: 'Les bornes doivent venir de l\'année, jamais d\'un repli.');
@@ -399,7 +401,7 @@ void main() {
 
     test('le calendrier tient l\'ordre des dates', () {
       // CHECK (end_date >= start_date).
-      final src = File('lib/features/structure/screens/edt_calendar_tab.dart')
+      final src = File('lib/features/structure/screens/edt_calendar_holiday_form.dart')
           .readAsStringSync().replaceAll('\r\n', '\n');
       expect(src.contains('if (_end == null || _end!.isBefore(picked)) _end = picked;'),
           isTrue);

@@ -13,9 +13,13 @@ import '../providers/subjects_provider.dart';
 import '../services/programmes_pdf_service.dart';
 import '../../../core/utils/message_erreur.dart';
 
-part 'programmes_parts.dart';
 part 'programmes_cycle_view.dart';
 part 'programmes_form.dart';
+part 'programmes_breakdown.dart';
+part 'programmes_filters.dart';
+part 'programmes_table.dart';
+part 'programmes_cards.dart';
+part 'programmes_bulk.dart';
 
 const _kSlug = 'programmes';
 

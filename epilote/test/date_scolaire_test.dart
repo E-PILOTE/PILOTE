@@ -32,7 +32,11 @@ const _kFormulaires = <(String, String)>[
   ('lib/features/vie_scolaire/screens/infirmerie_form.dart', 'infirmary_visits'),
   ('lib/features/vie_scolaire/screens/discipline_form.dart', 'discipline_incidents'),
   ('lib/features/vie_scolaire/screens/presences_screen.dart', 'attendance_records'),
-  ('lib/features/structure/screens/edt_calendar_tab.dart', 'school_holidays'),
+  // Le formulaire des jours non ouvres a quitte `edt_calendar_tab.dart` le
+  // 2026-09-04 (509 lignes -> deux pieces). L'onglet AFFICHE, le formulaire
+  // ECRIT : c'est lui que cette sonde doit lire.
+  ('lib/features/structure/screens/edt_calendar_holiday_form.dart',
+      'school_holidays'),
   // ⚠️ Ajoutés le 2026-08-28, après coup : le premier relevé interrogeait une
   // LISTE DE TABLES ÉCRITE À LA MAIN, où `internships` ne figurait pas. Deux
   // formulaires de plus bornaient donc sur l'année civile. Une sonde ne prouve

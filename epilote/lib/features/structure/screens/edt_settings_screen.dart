@@ -22,6 +22,7 @@ part 'edt_periods_tab.dart';
 part 'edt_periods_form.dart';
 part 'edt_availability_tab.dart';
 part 'edt_calendar_tab.dart';
+part 'edt_calendar_holiday_form.dart';
 
 const _kSlug = 'emploi-du-temps';
 
