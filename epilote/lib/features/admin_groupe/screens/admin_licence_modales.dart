@@ -67,10 +67,10 @@ const kDroitsDeTutelle = <(IconData, String, String)>[
 /// Ce que la licence couvre, calculé UNE fois et partagé.
 ///
 /// ⚠️ Le total additionne le réseau supervisé ET les établissements propres du
-/// ministère. `reseauSuperviseProvider` retire les seconds du périmètre —
-/// superviser sa propre école n'est pas de la tutelle — mais la licence, elle,
-/// couvre bien les deux. Les compter à deux endroits différents avait déjà
-/// produit deux totaux sur la même page.
+/// ministère. `reseauSuperviseProvider` retire les seconds du PÉRIMÈTRE DE
+/// TUTELLE — superviser sa propre école n'est pas de la tutelle — mais la
+/// licence, elle, couvre bien les deux. Les compter à deux endroits différents
+/// avait déjà produit deux totaux sur la même page.
 class CouvertureLicence {
   const CouvertureLicence({
     required this.ecolesSupervisees,
@@ -86,20 +86,27 @@ class CouvertureLicence {
     required ReseauSupervise reseau,
   }) {
     var eleves = 0, filles = 0, personnel = 0, classes = 0;
-    for (final e in reseau.ecoles) {
+    for (final e in reseau.toutesLesEcoles) {
       eleves += e.nbEleves;
       filles += e.nbFilles;
       personnel += e.nbPersonnel;
       classes += e.nbClasses;
     }
+    // ⚠️ REPLI, et seulement un repli. Quand les écoles propres sont
+    // remontées, leurs effectifs viennent de la même source que les autres —
+    // sinon la somme des lignes ne retombe jamais sur le total affiché, et
+    // c'est le total qu'on accuse. Les compteurs d'abonnement ne servent que
+    // lorsque ces écoles ne sont pas dans la liste.
+    if (reseau.ecolesPropres.isEmpty) {
+      eleves += sub.studentsUsed;
+      personnel += sub.staffUsed;
+    }
     return CouvertureLicence(
       ecolesSupervisees: reseau.ecoles.length,
       ecolesPropres: reseau.nbEcolesPropres,
-      // Les effectifs PROPRES du ministère viennent des compteurs de son
-      // abonnement : les mêmes écoles, comptées par l'autre bout.
-      eleves: eleves + sub.studentsUsed,
+      eleves: eleves,
       filles: filles,
-      personnel: personnel + sub.staffUsed,
+      personnel: personnel,
       classes: classes,
     );
   }
@@ -108,31 +115,31 @@ class CouvertureLicence {
 
   int get ecolesTotal => ecolesSupervisees + ecolesPropres;
 
-  /// Les élèves des établissements SUPERVISÉS seuls — ceux que les listes
-  /// détaillent. Le reste vient des compteurs d'abonnement du ministère.
-  int elevesSupervises(ReseauSupervise r) =>
-      r.ecoles.fold(0, (s, e) => s + e.nbEleves);
+  /// Les élèves que les listes détaillent, ligne à ligne.
+  int elevesDetailles(ReseauSupervise r) =>
+      r.toutesLesEcoles.fold(0, (s, e) => s + e.nbEleves);
 }
 
-/// ⚠️ LA PHRASE QUI ÉVITE DEUX TOTAUX. Les fiches détaillent le réseau
-/// supervisé ; les établissements que le ministère exploite lui-même n'y
-/// figurent pas, parce que la tutelle n'en reçoit que des compteurs. Sans
-/// cette note, un lecteur additionne les lignes, trouve moins que le KPI, et
-/// conclut à un bug.
+/// ⚠️ LA PHRASE QUI ÉVITE DE CROIRE À UN DOUBLON. Les listes mélangent deux
+/// natures d'établissement : ceux que le ministère supervise et ceux qu'il
+/// exploite. Les seconds portent la mention « en propre ». Sans cette note, un
+/// lecteur qui connaît ses douze écoles les retrouve au milieu du réseau et
+/// croit à un double comptage.
 String? _notePropres(CouvertureLicence c) => c.ecolesPropres == 0
     ? null
-    : 'Vos ${c.ecolesPropres} établissement(s) en propre ne sont pas '
-        'détaillés ici : ils comptent dans le total, mais la tutelle n’en '
-        'reçoit que les compteurs — leur détail est dans « Mes écoles ».';
+    : 'Vos ${c.ecolesPropres} établissement(s) en propre sont inclus et '
+        'signalés « en propre » : la licence les couvre au même titre que le '
+        'réseau que vous supervisez.';
 
 // ─── Établissements ─────────────────────────────────────────────────────────
 
 void ouvrirDetailEtablissements(
     BuildContext context, ReseauSupervise reseau, CouvertureLicence c) {
   final deps = departementsCouverts(reseau);
+  final couvertes = reseau.toutesLesEcoles;
   final parType = <String, List<TutelleEcole>>{};
   var publiques = 0;
-  for (final e in reseau.ecoles) {
+  for (final e in couvertes) {
     final t = (e.typeEtablissementCourt ?? e.typeEtablissement ?? '').trim();
     parType.putIfAbsent(t.isEmpty ? 'Type non précisé' : t, () => []).add(e);
     if (e.estPublic) publiques++;
@@ -194,15 +201,15 @@ void ouvrirDetailEtablissements(
           lignes: [
             LigneFiche(
               titre: 'Public',
-              colonnes: [_part(publiques, reseau.ecoles.length)],
+              colonnes: [_part(publiques, couvertes.length)],
               valeur: '$publiques',
             ),
             LigneFiche(
               titre: 'Privé',
               colonnes: [
-                _part(reseau.ecoles.length - publiques, reseau.ecoles.length)
+                _part(couvertes.length - publiques, couvertes.length)
               ],
-              valeur: '${reseau.ecoles.length - publiques}',
+              valeur: '${couvertes.length - publiques}',
             ),
           ],
         ),
@@ -218,7 +225,7 @@ void ouvrirDetailEtablissements(
 
 void ouvrirDetailEleves(
     BuildContext context, ReseauSupervise reseau, CouvertureLicence c) {
-  final ecoles = [...reseau.ecoles]
+  final ecoles = [...reseau.toutesLesEcoles]
     ..sort((a, b) => b.nbEleves.compareTo(a.nbEleves));
   final deps = departementsCouverts(reseau);
 
@@ -272,8 +279,8 @@ void ouvrirDetailEleves(
                 onTap: (ctx) => ouvrirFicheEcole(ctx, e),
               ),
           ],
-          note: 'Total supervisé : '
-              '${fmtInt(c.elevesSupervises(reseau))} élève(s).',
+          note: 'Total détaillé : '
+              '${fmtInt(c.elevesDetailles(reseau))} élève(s).',
         ),
       ],
       notes: [
@@ -290,7 +297,7 @@ void ouvrirDetailPersonnels(
     BuildContext context, ReseauSupervise reseau, CouvertureLicence c) {
   final groupes = [...reseau.groupes]
     ..sort((a, b) => b.nbPersonnel.compareTo(a.nbPersonnel));
-  final ecoles = [...reseau.ecoles]
+  final ecoles = [...reseau.toutesLesEcoles]
     ..sort((a, b) => b.nbPersonnel.compareTo(a.nbPersonnel));
 
   ouvrirFicheDetail(

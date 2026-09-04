@@ -43,10 +43,18 @@ const String kDepartementNonRenseigne = 'Non renseigné';
 
 /// Un département, avec les établissements qui s'y trouvent.
 class DepartementCouvert {
-  const DepartementCouvert({required this.nom, required this.ecoles});
+  const DepartementCouvert({
+    required this.nom,
+    required this.ecoles,
+    this.propres = const {},
+  });
 
   final String nom;
   final List<TutelleEcole> ecoles;
+
+  /// Identifiants des établissements que le ministère exploite lui-même —
+  /// pour les distinguer dans une liste qui mélange les deux.
+  final Set<String> propres;
 
   int get nbEcoles => ecoles.length;
   int get eleves => _somme((e) => e.nbEleves);
@@ -68,10 +76,16 @@ class DepartementCouvert {
   bool get renseigne => nom != kDepartementNonRenseigne;
 }
 
-/// Regroupe le réseau par département, du plus peuplé au moins peuplé.
+/// Regroupe par département TOUT ce que la licence couvre.
+///
+/// ⚠️ `reseau.toutesLesEcoles`, pas `reseau.ecoles` : la seconde exclut les
+/// établissements que le ministère exploite lui-même. Le METP, dont les douze
+/// écoles sont toutes à lui, affichait « Départements couverts : 0 » sous
+/// « 12 établissements couverts ».
 List<DepartementCouvert> departementsCouverts(ReseauSupervise reseau) {
+  final propres = reseau.idsPropres;
   final parNom = <String, List<TutelleEcole>>{};
-  for (final e in reseau.ecoles) {
+  for (final e in reseau.toutesLesEcoles) {
     final d = (e.departement ?? '').trim();
     parNom
         .putIfAbsent(d.isEmpty ? kDepartementNonRenseigne : d, () => [])
@@ -79,7 +93,7 @@ List<DepartementCouvert> departementsCouverts(ReseauSupervise reseau) {
   }
   final out = [
     for (final e in parNom.entries)
-      DepartementCouvert(nom: e.key, ecoles: e.value),
+      DepartementCouvert(nom: e.key, ecoles: e.value, propres: propres),
   ]..sort((a, b) => b.eleves.compareTo(a.eleves));
   return out;
 }
@@ -102,8 +116,10 @@ void ouvrirFicheDepartements(BuildContext context, ReseauSupervise reseau) {
       totalLabel: deps.length > 1 ? 'Départements couverts' : 'Département',
       nomFichier: 'Licence_Couverture_territoriale',
       chiffres: [
-        ('établissements', fmtInt(reseau.ecoles.length)),
+        ('établissements', fmtInt(reseau.toutesLesEcoles.length)),
         ('élèves', fmtInt(eleves)),
+        if (reseau.nbEcolesPropres > 0)
+          ('en propre', fmtInt(reseau.nbEcolesPropres)),
         ('groupes', fmtInt(reseau.groupes.length)),
       ],
       sections: [
@@ -126,8 +142,8 @@ void ouvrirFicheDepartements(BuildContext context, ReseauSupervise reseau) {
                 onTap: (ctx) => ouvrirFicheDepartement(ctx, d),
               ),
           ],
-          note: 'Total : ${fmtInt(reseau.ecoles.length)} établissement(s), '
-              '${fmtInt(eleves)} élève(s).',
+          note: 'Total : ${fmtInt(reseau.toutesLesEcoles.length)} '
+              'établissement(s), ${fmtInt(eleves)} élève(s).',
           videLabel: 'Aucun établissement supervisé pour l’instant.',
         ),
       ],
@@ -205,7 +221,7 @@ void ouvrirFicheDepartement(BuildContext context, DepartementCouvert d) {
             for (final e in ecoles)
               LigneFiche(
                 titre: e.nom,
-                sousTitre: _sousTitreEcole(e),
+                sousTitre: _sousTitreEcole(e, d.propres),
                 colonnes: [fmtInt(e.nbPersonnel), fmtInt(e.nbClasses)],
                 valeur: fmtInt(e.nbEleves),
                 onTap: (ctx) => ouvrirFicheEcole(ctx, e),
@@ -254,8 +270,8 @@ void ouvrirFicheDepartement(BuildContext context, DepartementCouvert d) {
   );
 }
 
-String _sousTitreEcole(TutelleEcole e) => [
-      e.groupeNom,
+String _sousTitreEcole(TutelleEcole e, Set<String> propres) => [
+      propres.contains(e.id) ? 'en propre' : e.groupeNom,
       if ((e.ville ?? '').trim().isNotEmpty) e.ville!.trim(),
       if ((e.arrondissement ?? '').trim().isNotEmpty) e.arrondissement!.trim(),
       e.estPublic ? 'public' : 'privé',

@@ -290,7 +290,7 @@ class ReseauSupervise {
   const ReseauSupervise({
     required this.groupes,
     required this.ecoles,
-    required this.nbEcolesPropres,
+    this.ecolesPropres = const [],
   });
 
   /// Les groupes tiers — jamais le groupe qui consulte.
@@ -299,10 +299,28 @@ class ReseauSupervise {
   /// Leurs établissements.
   final List<TutelleEcole> ecoles;
 
-  /// Combien d'établissements le consultant exploite lui-même. Sert à le DIRE
-  /// à l'écran : sans ce nombre, un ministère qui ne retrouve pas ses douze
-  /// écoles croit à une panne plutôt qu'à un périmètre.
-  final int nbEcolesPropres;
+  /// Les établissements que le consultant exploite LUI-MÊME.
+  ///
+  /// ⚠️ Ils sont hors du périmètre de TUTELLE — superviser sa propre école
+  /// n'est pas de la tutelle — mais ils sont bien COUVERTS PAR LA LICENCE. On
+  /// ne gardait que leur nombre, et cela se voyait : le METP, dont les douze
+  /// établissements sont tous à lui, affichait « Départements couverts : 0 »
+  /// juste sous « 12 établissements couverts ». Un chiffre qui se contredit
+  /// sur la même ligne d'écran fait douter des deux.
+  final List<TutelleEcole> ecolesPropres;
+
+  /// Sert à DIRE le périmètre : sans ce nombre, un ministère qui ne retrouve
+  /// pas ses douze écoles croit à une panne plutôt qu'à un périmètre.
+  int get nbEcolesPropres => ecolesPropres.length;
+
+  /// Tout ce que la licence couvre — le réseau supervisé ET les écoles
+  /// propres. C'est cette liste, et non `ecoles`, qui répond à « combien de
+  /// départements ma licence couvre-t-elle ».
+  List<TutelleEcole> get toutesLesEcoles => [...ecoles, ...ecolesPropres];
+
+  /// Les identifiants des écoles propres — pour les marquer dans une liste
+  /// qui mélange les deux.
+  Set<String> get idsPropres => {for (final e in ecolesPropres) e.id};
 
   bool get estVide => groupes.isEmpty;
 }
@@ -321,14 +339,13 @@ ReseauSupervise reseauSuperviseDe(TutelleReseau complet, String? monGroupeId) {
     return ReseauSupervise(
       groupes: complet.groupes,
       ecoles: complet.ecoles,
-      nbEcolesPropres: 0,
     );
   }
-  var propres = 0;
+  final propres = <TutelleEcole>[];
   final ecoles = <TutelleEcole>[];
   for (final e in complet.ecoles) {
     if (e.groupId == monGroupeId) {
-      propres++;
+      propres.add(e);
     } else {
       ecoles.add(e);
     }
@@ -339,7 +356,7 @@ ReseauSupervise reseauSuperviseDe(TutelleReseau complet, String? monGroupeId) {
         if (g.id != monGroupeId) g,
     ],
     ecoles: ecoles,
-    nbEcolesPropres: propres,
+    ecolesPropres: propres,
   );
 }
 

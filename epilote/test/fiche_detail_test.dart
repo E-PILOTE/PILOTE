@@ -191,14 +191,14 @@ void main() {
     test('une fiche vide sort quand même un document', () async {
       // Un réseau qui n'a encore rien ne doit pas casser l'impression : c'est
       // l'état du premier jour de chaque nouveau ministère.
-      final vide = FicheDetail(
+      const vide = FicheDetail(
         titre: 'Rien',
         icone: Icons.info_outline,
-        couleur: const Color(0xFF1E3A5F),
+        couleur: Color(0xFF1E3A5F),
         total: '0',
         totalLabel: 'Établissements',
         nomFichier: 'Vide',
-        sections: const [
+        sections: [
           SectionFiche(titre: 'Par établissement', lignes: []),
         ],
       );

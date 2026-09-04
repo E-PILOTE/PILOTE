@@ -70,7 +70,7 @@ void main() {
           reason: 'La fiche repart directement à l’imprimante : sur un poste '
               'où l’imprimante par défaut est « Microsoft Print to PDF », le '
               'geste produit un fichier que personne n’a vu.');
-      expect(src.contains("package:printing/printing.dart"), isFalse,
+      expect(src.contains('package:printing/printing.dart'), isFalse,
           reason: 'Le raccourci est encore à portée d’import.');
       expect(src.contains('showPdfPreviewDialog'), isTrue);
       expect(src.contains('Future<void> apercuFicheLicence'), isTrue);
@@ -99,7 +99,6 @@ void main() {
           _ecole('B', departement: 'Kouilou', eleves: 250),
           _ecole('C', departement: 'Likouala', eleves: 900),
         ],
-        nbEcolesPropres: 0,
       );
       final deps = departementsCouverts(reseau);
       expect(deps.length, 2);
@@ -122,7 +121,6 @@ void main() {
           _ecole('B', eleves: 20),
           _ecole('C', departement: '   ', eleves: 30),
         ],
-        nbEcolesPropres: 0,
       );
       final deps = departementsCouverts(reseau);
       expect(deps.map((d) => d.nom), contains(kDepartementNonRenseigne));
@@ -132,6 +130,29 @@ void main() {
       expect(inconnu.renseigne, isFalse);
       // Tous les élèves sont comptés quelque part.
       expect(deps.fold(0, (s, d) => s + d.eleves), 60);
+    });
+
+    test('⚠️ les écoles du ministère lui-même comptent dans son territoire',
+        () {
+      // MESURÉ À L'ÉCRAN, sur le METP : « Départements couverts : 0 » juste
+      // sous « 12 établissements couverts ». Ses douze écoles sont toutes à
+      // lui, et le périmètre de TUTELLE les exclut — à juste titre, car on ne
+      // se supervise pas soi-même. Mais la LICENCE les couvre.
+      final metp = ReseauSupervise(
+        groupes: const [],
+        ecoles: const [],
+        ecolesPropres: [
+          _ecole('Lycée technique', departement: 'Brazzaville', eleves: 800),
+          _ecole('CET de Ouésso', departement: 'Sangha', eleves: 300),
+        ],
+      );
+      final deps = departementsCouverts(metp);
+      expect(deps.length, 2,
+          reason: 'Un ministère qui n’exploite que ses propres écoles voit '
+              'encore « 0 département couvert ».');
+      expect(deps.first.propres.length, 2);
+      expect(metp.toutesLesEcoles.length, 2);
+      expect(metp.nbEcolesPropres, 2);
     });
 
     test('le nom de fichier ne fabrique pas un chemin', () {
