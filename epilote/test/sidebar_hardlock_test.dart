@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:epilote/core/constants/routes.dart';
+import 'package:epilote/core/providers/identite_etablissement.dart';
 import 'package:epilote/core/widgets/app_shell/app_sidebar.dart';
 import 'package:epilote/core/widgets/app_shell/nav_models.dart';
 import 'package:epilote/licensing/domain/entitlement.dart';
@@ -51,7 +52,15 @@ final _sections = <NavSection>[
 
 Future<void> _pump(WidgetTester tester, Entitlement e) async {
   await tester.pumpWidget(ProviderScope(
-    overrides: [entitlementProvider.overrideWith(() => _FakeEnt(e))],
+    overrides: [
+      entitlementProvider.overrideWith(() => _FakeEnt(e)),
+      // L'en-tête de la sidebar nomme désormais l'ÉTABLISSEMENT de la personne
+      // connectée : sans cette substitution il remonterait jusqu'à la session
+      // Supabase, qu'un test de widget n'initialise pas. Ce test-ci parle des
+      // cadenas de modules, pas de l'identité affichée.
+      identiteEtablissementProvider
+          .overrideWithValue(IdentiteEtablissement.plateforme),
+    ],
     child: MaterialApp(
       home: Scaffold(
         body: SizedBox(
