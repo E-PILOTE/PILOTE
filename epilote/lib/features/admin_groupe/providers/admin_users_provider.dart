@@ -1,6 +1,10 @@
 import 'dart:async';
 
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../services/photo_utilisateur_service.dart';
 import 'package:realtime_client/realtime_client.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
@@ -65,6 +69,7 @@ class AdminUser {
     this.hireDate,
     this.departureMotif,
     this.departureDate,
+    this.avatarUrl,
   });
 
   factory AdminUser.fromMap(Map<String, dynamic> m) => AdminUser(
@@ -104,6 +109,7 @@ class AdminUser {
         departureDate: m['departure_date'] != null
             ? DateTime.tryParse(m['departure_date'] as String)
             : null,
+        avatarUrl:  m['avatar_url'] as String?,
       );
 
   final String id;
@@ -136,6 +142,10 @@ class AdminUser {
   // Jamais 'mutation' : un agent muté sert ailleurs, il reste actif.
   final String?   departureMotif;
   final DateTime? departureDate;
+  // Le visage. Rendu par `get_group_users` depuis la migration 0193 : la
+  // fonction portait vingt-six colonnes, jusqu'à l'échelon, mais pas
+  // celle-ci — d'où un annuaire d'initiales au-dessus de photos existantes.
+  final String?   avatarUrl;
 
   String get fullName {
     final n = '${firstName.trim()} ${lastName.trim()}'.trim();
@@ -293,9 +303,13 @@ class AdminUsersService {
     DateTime? dateOfBirth,
     String? address,
     String? birthPlace,
+    // Les octets choisis dans le formulaire, jamais envoyés avant ce moment :
+    // l'identifiant de la personne n'existe qu'après l'appel ci-dessous.
+    Uint8List? photoOctets,
+    String? photoNom,
   }) async {
     final client = _ref.read(supabaseClientProvider);
-    await client.rpc('create_school_user', params: {
+    final nouvelId = await client.rpc('create_school_user', params: {
       'p_email':              email,
       'p_password':           password,
       'p_first_name':         firstName,
@@ -309,8 +323,28 @@ class AdminUsersService {
       'p_date_of_birth':      dateOfBirth?.toIso8601String().substring(0, 10),
       'p_address':            address,
       'p_birth_place':        birthPlace,
-    });
+    }) as String?;
     _ref.invalidate(adminUsersProvider);
+
+    if (photoOctets == null || nouvelId == null) return;
+    try {
+      final url = await envoyerPhotoAgent(
+        client: client,
+        profileId: nouvelId,
+        octets: photoOctets,
+        nomFichier: photoNom ?? 'photo.jpg',
+      );
+      await poserPhotoAgent(client: client, profileId: nouvelId, url: url);
+      _ref.invalidate(adminUsersProvider);
+    } catch (e) {
+      // ⚠️ Le compte EXISTE. Remonter une erreur sèche ferait resoumettre le
+      // formulaire, pour se heurter à « adresse déjà utilisée » sans
+      // comprendre pourquoi. On dit ce qui est vrai : tout est créé sauf la
+      // photo, et elle se rattrape depuis la fiche.
+      throw const PhotoNonPosee(
+          "Le compte a bien été créé, mais la photo n'a pas pu être envoyée. "
+          'Vous pouvez la déposer depuis la fiche de la personne.');
+    }
   }
 
   // L'email est immuable (identité de connexion). Édition = champs profil.
@@ -334,9 +368,33 @@ class AdminUsersService {
     String? category,
     String? speciality,
     DateTime? hireDate,
+    // Photo : trois états distincts, et les confondre efface des visages.
+    // Octets présents  → on remplace ; [retirerPhoto] → on efface ;
+    // ni l'un ni l'autre → on NE TOUCHE PAS à la colonne.
+    Uint8List? photoOctets,
+    String? photoNom,
+    bool retirerPhoto = false,
   }) async {
     final client = _ref.read(supabaseClientProvider);
     String? nz(String? v) => (v != null && v.trim().isNotEmpty) ? v.trim() : null;
+
+    String? nouvelleUrl;
+    if (photoOctets != null) {
+      try {
+        nouvelleUrl = await envoyerPhotoAgent(
+          client: client,
+          profileId: id,
+          octets: photoOctets,
+          nomFichier: photoNom ?? 'photo.jpg',
+        );
+      } catch (e) {
+        // Ici rien n'est encore écrit : on peut refuser franchement, sans
+        // laisser la fiche à moitié enregistrée.
+        throw const PhotoNonPosee(
+            "La photo n'a pas pu être envoyée. La fiche n'a pas été "
+            'modifiée — réessayez, ou enregistrez sans changer la photo.');
+      }
+    }
     await client.from('profiles').update({
       'first_name':        firstName,
       'last_name':         lastName,
@@ -355,6 +413,10 @@ class AdminUsersService {
       'category':          nz(category),
       'speciality':        nz(speciality),
       'hire_date':         hireDate?.toIso8601String().substring(0, 10),
+      // Une seule ligne pour trois états : une nouvelle adresse l'écrit, un
+      // retrait écrit `null`, et sans l'un ni l'autre la clé n'est même pas
+      // envoyée — la colonne garde alors la photo qu'elle portait.
+      if (nouvelleUrl != null || retirerPhoto) 'avatar_url': nouvelleUrl,
       'updated_at':        DateTime.now().toIso8601String(),
     }).eq('id', id);
     _ref.invalidate(adminUsersProvider);

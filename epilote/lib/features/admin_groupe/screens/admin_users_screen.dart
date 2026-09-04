@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
@@ -12,7 +14,12 @@ import '../widgets/agent_carriere_panel.dart';
 import 'agent_mouvement_dialogs.dart';
 import '../providers/subscription_access_provider.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/photo_avatar.dart';
 import '../../../core/utils/message_erreur.dart';
+import '../../../core/widgets/capture_webcam.dart';
+import '../../staff/services/agent_photo_service.dart' show kAvatarExtensions;
+import '../services/photo_utilisateur_service.dart';
+import 'users/champ_photo_agent.dart';
 
 // ─── Couleurs locales ─────────────────────────────────────────────────────────
 const _kOrange = Color(0xFFFF6B35);
@@ -783,17 +790,12 @@ class _TableRowState extends State<_TableRow> {
         ),
         child: Row(children: [
           // Avatar
-          Container(
-            width: 42, height: 42,
-            decoration: BoxDecoration(
-              color: (u.isActive ? kNavy : kTextMuted).withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Text(u.initials, style: TextStyle(
-              fontWeight: FontWeight.w800, fontSize: 13,
-              color: u.isActive ? kNavy : kTextMuted,
-            )),
+          PhotoAvatar(
+            name: u.fullName,
+            photoUrl: u.avatarUrl,
+            size: 42,
+            background: (u.isActive ? kNavy : kTextMuted).withValues(alpha: 0.12),
+            foreground: u.isActive ? kNavy : kTextMuted,
           ),
           const SizedBox(width: 12),
           // Nom + email
@@ -1015,17 +1017,12 @@ class _UserCardState extends State<_UserCard> {
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Container(
-              width: 44, height: 44,
-              decoration: BoxDecoration(
-                color: (u.isActive ? kNavy : kTextMuted).withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: Text(u.initials, style: TextStyle(
-                fontWeight: FontWeight.w800, fontSize: 14,
-                color: u.isActive ? kNavy : kTextMuted,
-              )),
+            PhotoAvatar(
+              name: u.fullName,
+              photoUrl: u.avatarUrl,
+              size: 44,
+              background: (u.isActive ? kNavy : kTextMuted).withValues(alpha: 0.12),
+              foreground: u.isActive ? kNavy : kTextMuted,
             ),
             const SizedBox(width: 10),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1191,16 +1188,12 @@ class _UserDetailModalState extends State<_UserDetailModal>
               border: Border(bottom: BorderSide(color: kBorder)),
             ),
             child: Row(children: [
-              Container(
-                width: 66, height: 66,
-                decoration: BoxDecoration(
-                  color: (u.isActive ? kNavy : kTextMuted).withValues(alpha: 0.10),
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Text(u.initials, style: TextStyle(
-                    color: u.isActive ? kNavy : kTextMuted,
-                    fontSize: 24, fontWeight: FontWeight.w800)),
+              PhotoAvatar(
+                name: u.fullName,
+                photoUrl: u.avatarUrl,
+                size: 66,
+                background: (u.isActive ? kNavy : kTextMuted).withValues(alpha: 0.12),
+                foreground: u.isActive ? kNavy : kTextMuted,
               ),
               const SizedBox(width: 14),
               Expanded(child: Column(
@@ -1613,6 +1606,13 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
   bool    _saving  = false;
   String? _error;
 
+  // Photo : choisie en mémoire, envoyée seulement à l'enregistrement. À la
+  // création, l'identifiant de la personne n'existe pas encore — il n'y a donc
+  // aucun chemin de stockage à calculer avant.
+  Uint8List? _photoOctets;
+  String?    _photoNom;
+  bool       _photoRetiree = false;
+
   static const _kEmploymentStatuses = <(String, String)>[
     ('fonctionnaire', 'Fonctionnaire'),
     ('contractuel', 'Contractuel'),
@@ -1682,6 +1682,33 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
     }
   }
 
+  /// Webcam ou fichier — la même porte que la fiche élève et la fiche agent.
+  /// Là où il n'y a pas de webcam, `choisirPhotoPersonne` ouvre directement le
+  /// sélecteur : une boîte de dialogue à un seul choix est un clic volé.
+  Future<void> _choisirPhoto() async {
+    try {
+      final choix =
+          await choisirPhotoPersonne(context, extensions: kAvatarExtensions);
+      if (choix == null || !mounted) return;
+      setState(() {
+        _photoOctets  = choix.octets;
+        _photoNom     = choix.nomFichier;
+        _photoRetiree = false;
+        _error        = null;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _error = messageErreur(e));
+    }
+  }
+
+  void _retirerPhoto() => setState(() {
+        _photoOctets  = null;
+        _photoNom     = null;
+        // Sur une fiche existante, retirer veut dire EFFACER la colonne ; sur
+        // une création, il n'y a rien à effacer, seulement à oublier.
+        _photoRetiree = _isEdit;
+      });
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_schoolId == null) {
@@ -1717,6 +1744,9 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
           category:        _category.text.trim(),
           speciality:      _speciality.text.trim(),
           hireDate:        hire,
+          photoOctets:     _photoOctets,
+          photoNom:        _photoNom,
+          retirerPhoto:    _photoRetiree,
         );
       } else {
         await svc.createUser(
@@ -1733,6 +1763,8 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
           dateOfBirth:     dob,
           address:         _address.text.trim(),
           birthPlace:      _birthPlace.text.trim(),
+          photoOctets:     _photoOctets,
+          photoNom:        _photoNom,
         );
       }
       if (mounted) {
@@ -1742,6 +1774,21 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
           content: Text(_isEdit ? 'Utilisateur mis à jour' : 'Utilisateur créé avec succès'),
         ));
       }
+    } on PhotoNonPosee catch (e) {
+      // ⚠️ À la création, le COMPTE EXISTE : afficher une erreur rouge ferait
+      // resoumettre le formulaire, pour se heurter à « adresse déjà utilisée ».
+      // On referme et l'on dit exactement ce qui s'est passé.
+      if (!mounted) return;
+      if (_isEdit) {
+        setState(() { _error = e.message; _saving = false; });
+        return;
+      }
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: kAccent,
+        duration: const Duration(seconds: 6),
+        content: Text(e.message),
+      ));
     } catch (e) {
       setState(() { _error = _clean('$e'); _saving = false; });
     }
@@ -2029,6 +2076,16 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
 
                       // ── Identité civile ──────────────────────────────────
                       _sectionTitle('IDENTITÉ CIVILE'),
+                      ChampPhotoAgent(
+                        nom: '${_first.text} ${_last.text}'.trim(),
+                        octets: _photoOctets,
+                        urlExistante: widget.user?.avatarUrl,
+                        retiree: _photoRetiree,
+                        actif: !_saving,
+                        onChoisir: _choisirPhoto,
+                        onRetirer: _retirerPhoto,
+                      ),
+                      const SizedBox(height: 18),
                       Row(children: [
                         Expanded(child: _field(_first, 'Prénom *', Icons.person_outline,
                             validator: _req)),

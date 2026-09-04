@@ -1,6 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+
+import '../../../core/widgets/capture_webcam.dart';
+import '../../staff/services/agent_photo_service.dart' show kAvatarExtensions;
 
 import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter/services.dart';
@@ -1561,26 +1563,26 @@ class _AdminFormModalState extends ConsumerState<_AdminFormModal> {
   }
 
   Future<void> _pickAndUploadAvatar() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      allowMultiple: false,
-      withData: true,
-    );
-    if (result == null || result.files.isEmpty) return;
-    final file = result.files.first;
-    if (file.bytes == null) return;
+    // Webcam OU fichier — la même porte que la fiche élève, la fiche agent et
+    // le formulaire utilisateur du groupe. Un administrateur se crée souvent
+    // devant la personne : lui demander un fichier prêt était une contrainte
+    // que rien ne justifiait. Là où il n'y a pas de webcam, le sélecteur
+    // s'ouvre directement.
+    final choix =
+        await choisirPhotoPersonne(context, extensions: kAvatarExtensions);
+    if (choix == null) return;
 
     setState(() {
-      _avatarPreviewBytes = file.bytes;
+      _avatarPreviewBytes = choix.octets;
       _uploadingAvatar = true;
     });
 
     try {
       final client = ref.read(supabaseClientProvider);
       final media = await compressAvatar(
-        bytes: file.bytes!,
-        fileName: file.name,
-        mime: mimeForImageExtension(file.extension),
+        bytes: choix.octets,
+        fileName: choix.nomFichier,
+        mime: mimeForImageExtension(extensionPhoto(choix.nomFichier)),
       );
       final ext = media.fileName.split('.').last;
       final fileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
