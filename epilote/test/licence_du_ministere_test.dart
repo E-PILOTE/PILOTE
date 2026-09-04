@@ -296,11 +296,23 @@ void main() {
     });
 
     test('et elle permet de la créer sans changer d’écran', () {
+      // ⚠️ Cette sonde a été ÉLARGIE le 2026-09-04. Elle épinglait la ligne
+      // exacte `ouvrirFormulaireLicence(context, groupeImpose:` — donc la mise
+      // en page, pas la règle. Le jour où le bouton a appris à ouvrir le
+      // marché EXISTANT (`edition:`), l'appel est passé sur quatre lignes et
+      // la sonde est tombée sur un écran qui venait de s'améliorer.
+      // Ce qu'elle garde vraiment : depuis les Abonnements, on affecte une
+      // licence sans avoir à savoir que l'écran « Économie » existe.
       final src = _lire(abonnements);
-      expect(src.contains('ouvrirFormulaireLicence(context, groupeImpose:'),
-          isTrue,
+      expect(src.contains('ouvrirFormulaireLicence('), isTrue,
           reason: 'Le raccourci a disparu : il faut de nouveau savoir que '
               '« Économie » existe pour affecter une licence.');
+      expect(src.contains('groupeImpose: l == null ? s.id : null'), isTrue,
+          reason: 'Le groupe n’est plus imposé : le formulaire s’ouvre vide et '
+              'la licence peut naître sur le mauvais ministère.');
+      expect(src.contains('edition: l'), isTrue,
+          reason: 'Le bouton rouvre un formulaire de CRÉATION sur un ministère '
+              'qui a déjà sa licence — l’infobulle dit « Gérer la licence ».');
     });
 
     test('c’est le MÊME formulaire, pas un second', () {
