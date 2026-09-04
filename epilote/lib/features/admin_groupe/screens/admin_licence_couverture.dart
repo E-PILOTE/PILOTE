@@ -5,9 +5,11 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../../tutelle/providers/tutelle_reseau_provider.dart';
+import '../../tutelle/widgets/tutelle_groupe_detail.dart';
 import '../providers/admin_licence_provider.dart';
 import '../providers/admin_subscription_provider.dart';
 import 'admin_licence_modales.dart';
+import 'admin_licence_territoire.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  CE QUE LA LICENCE ACHÈTE — chiffres cliquables, graphes, détail en modale
@@ -97,6 +99,18 @@ class _Couverture extends ConsumerWidget {
           color: kNavy,
           onTap: () => ouvrirDetailEtablissements(context, reseau, c),
         ),
+        // ⚠️ Le département est l'unité de l'administration scolaire
+        // congolaise — directions départementales, inspections, tournées. Il
+        // n'avait aucun chiffre à lui : on lisait « 25 écoles » sans savoir
+        // sur combien de départements.
+        KpiData(
+          label: 'Départements couverts',
+          value: '${departementsCouverts(reseau).length}',
+          sub: 'cliquez pour la couverture territoriale',
+          icon: Icons.map_rounded,
+          color: kNavy,
+          onTap: () => ouvrirFicheDepartements(context, reseau),
+        ),
         KpiData(
           label: 'Élèves',
           value: fmtInt(c.eleves),
@@ -115,7 +129,7 @@ class _Couverture extends ConsumerWidget {
               '${reseau.groupes.length > 1 ? 's' : ''}',
           icon: Icons.badge_rounded,
           color: kAccent,
-          onTap: () => ouvrirDetailGroupes(context, reseau),
+          onTap: () => ouvrirDetailPersonnels(context, reseau, c),
         ),
         KpiData(
           label: 'Modules ouverts',
@@ -123,7 +137,7 @@ class _Couverture extends ConsumerWidget {
           sub: 'inclus à la licence',
           icon: Icons.extension_rounded,
           color: kListPurple,
-          onTap: () => ouvrirDetailDroits(context),
+          onTap: () => ouvrirDetailDroits(context, sub.moduleCount),
         ),
         if (l != null) ...[
           KpiData(
@@ -203,49 +217,57 @@ class _GraphesUtilisation extends StatelessWidget {
   }
 }
 
-class _PointDep {
-  const _PointDep(this.departement, this.eleves, this.ecoles);
-  final String departement;
-  final int eleves, ecoles;
-}
-
 class _ParDepartement extends StatelessWidget {
   const _ParDepartement({required this.reseau});
 
   final ReseauSupervise reseau;
 
+  /// Combien de barres tiennent avant que le graphe devienne un mur.
+  ///
+  /// ⚠️ Le Congo compte douze départements. Le seuil est fixé au-dessus —
+  /// « il y a quinze départements » — pour qu'aucun ne tombe hors du graphe le
+  /// jour où le réseau est complet ; au-delà, le reste est atteignable d'un
+  /// clic, jamais perdu.
+  static const int _maxBarres = 16;
+
   @override
   Widget build(BuildContext context) {
-    final parDep = <String, ({int eleves, int ecoles})>{};
-    for (final e in reseau.ecoles) {
-      // ⚠️ `departement` est nullable côté RPC : une école sans département
-      // se range sous « Non renseigné » plutôt que de disparaître du graphe.
-      final d = (e.departement ?? '').trim().isEmpty
-          ? 'Non renseigné'
-          : e.departement!;
-      final v = parDep[d] ?? (eleves: 0, ecoles: 0);
-      parDep[d] = (eleves: v.eleves + e.nbEleves, ecoles: v.ecoles + 1);
-    }
-    final points = [
-      for (final e in parDep.entries)
-        _PointDep(e.key, e.value.eleves, e.value.ecoles),
-    ]..sort((a, b) => b.eleves.compareTo(a.eleves));
-    // Au-delà de dix barres, un graphe de département devient un mur.
-    final visibles = points.take(10).toList();
+    // ⚠️ Le même découpage que les fiches (`departementsCouverts`) : deux
+    // comptages du même réseau finissent toujours par diverger, et c'est le
+    // graphe qu'on croit.
+    final points = departementsCouverts(reseau);
+    final visibles = points.take(_maxBarres).toList();
 
     return AdminCard(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Élèves par département',
-            style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: kTextPrimary)),
-        Text(
-            points.length > visibles.length
-                ? '${visibles.length} premiers sur ${points.length}'
-                : '${points.length} département${points.length > 1 ? 's' : ''} couvert${points.length > 1 ? 's' : ''}',
-            style: TextStyle(fontSize: 11, color: kTextMuted)),
+        Row(children: [
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Élèves par département',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: kTextPrimary)),
+                  Text(
+                      points.length > visibles.length
+                          ? '${visibles.length} premiers sur ${points.length} — '
+                              'une barre s’ouvre sur son département'
+                          : '${points.length} département${points.length > 1 ? 's' : ''} '
+                              'couvert${points.length > 1 ? 's' : ''} — une barre '
+                              's’ouvre sur son département',
+                      style: TextStyle(fontSize: 11, color: kTextMuted)),
+                ]),
+          ),
+          TextButton.icon(
+            onPressed: () => ouvrirFicheDepartements(context, reseau),
+            icon: const Icon(Icons.list_alt_rounded, size: 16),
+            label: const Text('Tout voir'),
+            style: TextButton.styleFrom(foregroundColor: kNavy),
+          ),
+        ]),
         SizedBox(
           height: 240,
           // ⚠️ `CategoryAxis` en X (String) et `NumericAxis` en Y (num) —
@@ -265,16 +287,26 @@ class _ParDepartement extends StatelessWidget {
               labelStyle: TextStyle(fontSize: 9.5, color: kTextMuted),
             ),
             tooltipBehavior: TooltipBehavior(enable: true),
-            series: <CartesianSeries<_PointDep, String>>[
-              ColumnSeries<_PointDep, String>(
+            series: <CartesianSeries<DepartementCouvert, String>>[
+              ColumnSeries<DepartementCouvert, String>(
                 dataSource: visibles,
-                xValueMapper: (p, _) => p.departement,
+                xValueMapper: (p, _) => p.nom,
                 yValueMapper: (p, _) => p.eleves.toDouble(),
                 name: 'Élèves',
                 color: kNavy,
                 borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(4)),
                 width: 0.6,
+                selectionBehavior: SelectionBehavior(
+                    enable: true, selectedOpacity: 1, unselectedOpacity: 0.3),
+                // La barre mène au même endroit que la ligne de la fiche : le
+                // département, ses établissements, sa fiche. Deux chemins, une
+                // seule destination.
+                onPointTap: (details) {
+                  final i = details.pointIndex;
+                  if (i == null || i >= visibles.length) return;
+                  ouvrirFicheDepartement(context, visibles[i]);
+                },
               ),
             ],
           ),
@@ -285,9 +317,10 @@ class _ParDepartement extends StatelessWidget {
 }
 
 class _PointGroupe {
-  const _PointGroupe(this.nom, this.eleves);
-  final String nom;
-  final int eleves;
+  const _PointGroupe(this.groupe);
+  final TutelleGroupe groupe;
+  String get nom => groupe.nom;
+  int get eleves => groupe.nbEleves;
 }
 
 class _ParGroupe extends StatelessWidget {
@@ -299,7 +332,7 @@ class _ParGroupe extends StatelessWidget {
   Widget build(BuildContext context) {
     final points = [
       for (final g in reseau.groupes)
-        if (g.nbEleves > 0) _PointGroupe(g.nom, g.nbEleves),
+        if (g.nbEleves > 0) _PointGroupe(g),
     ]..sort((a, b) => b.eleves.compareTo(a.eleves));
 
     return AdminCard(
@@ -335,6 +368,17 @@ class _ParGroupe extends StatelessWidget {
                       innerRadius: '62%',
                       dataLabelSettings: const DataLabelSettings(
                           isVisible: false),
+                      // Un secteur mène à la fiche de son opérateur : ses
+                      // établissements, son agrément, son interlocuteur.
+                      onPointTap: (details) {
+                        final i = details.pointIndex;
+                        if (i == null || i >= points.length) return;
+                        final g = points[i].groupe;
+                        ouvrirFicheGroupe(context, g, ecoles: [
+                          for (final e in reseau.ecoles)
+                            if (e.groupId == g.id) e,
+                        ]);
+                      },
                     ),
                   ],
                 ),

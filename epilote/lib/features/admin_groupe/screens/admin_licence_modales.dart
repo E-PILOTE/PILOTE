@@ -1,19 +1,33 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/fiche_detail.dart';
 import '../../../core/widgets/list_chrome.dart' show kListOrange, kListPurple;
 import '../../tutelle/providers/tutelle_reseau_provider.dart';
+import '../../tutelle/widgets/tutelle_ecole_detail.dart';
+import '../../tutelle/widgets/tutelle_groupe_detail.dart';
 import '../providers/admin_licence_provider.dart';
 import '../providers/admin_subscription_provider.dart';
+import 'admin_licence_territoire.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LE DÉTAIL DERRIÈRE CHAQUE CHIFFRE DE LA PAGE LICENCE
 //
 //  ── LA RÈGLE ──────────────────────────────────────────────────────────────
 //  Un KPI cliquable qui ouvre un joli cadre sans rien de plus est pire qu'un
-//  KPI inerte : il a promis quelque chose. Chacune de ces fiches montre donc
-//  la DÉCOMPOSITION du nombre affiché — les établissements un par un, les
-//  groupes un par un, le calcul du coût unitaire posé en toutes lettres.
+//  KPI inerte : il a promis quelque chose. Chacune de ces fiches montre donc la
+//  DÉCOMPOSITION du nombre affiché — les établissements un par un, les groupes
+//  un par un, le calcul du coût unitaire posé en toutes lettres.
+//
+//  ── CE QUI A CHANGÉ, ET POURQUOI ──────────────────────────────────────────
+//  Ces fiches étaient des widgets. Elles sont devenues des DONNÉES
+//  (`FicheDetail`) : la même fiche s'affiche et s'imprime, se cherche et se
+//  parcourt sans plafond. Trois conséquences directes :
+//   • plus de « 12 plus gros établissements sur 25 » — une troncature
+//     d'affichage devient un chiffre faux dès qu'on la recopie ;
+//   • chaque fiche a son bouton « Imprimer », avec aperçu avant impression ;
+//   • un département se clique et descend sur ses établissements, puis sur la
+//     fiche d'un établissement (`admin_licence_territoire.dart`).
 //
 //  ⚠️ Aucune de ces fiches n'invente : tout vient de `tutelle_ecoles()` et
 //  `tutelle_groupes()`, déjà chargés pour la page. Ouvrir un détail ne
@@ -93,399 +107,429 @@ class CouvertureLicence {
   final int ecolesSupervisees, ecolesPropres, eleves, filles, personnel, classes;
 
   int get ecolesTotal => ecolesSupervisees + ecolesPropres;
+
+  /// Les élèves des établissements SUPERVISÉS seuls — ceux que les listes
+  /// détaillent. Le reste vient des compteurs d'abonnement du ministère.
+  int elevesSupervises(ReseauSupervise r) =>
+      r.ecoles.fold(0, (s, e) => s + e.nbEleves);
 }
 
-// ─── Les fiches ─────────────────────────────────────────────────────────────
+/// ⚠️ LA PHRASE QUI ÉVITE DEUX TOTAUX. Les fiches détaillent le réseau
+/// supervisé ; les établissements que le ministère exploite lui-même n'y
+/// figurent pas, parce que la tutelle n'en reçoit que des compteurs. Sans
+/// cette note, un lecteur additionne les lignes, trouve moins que le KPI, et
+/// conclut à un bug.
+String? _notePropres(CouvertureLicence c) => c.ecolesPropres == 0
+    ? null
+    : 'Vos ${c.ecolesPropres} établissement(s) en propre ne sont pas '
+        'détaillés ici : ils comptent dans le total, mais la tutelle n’en '
+        'reçoit que les compteurs — leur détail est dans « Mes écoles ».';
+
+// ─── Établissements ─────────────────────────────────────────────────────────
 
 void ouvrirDetailEtablissements(
     BuildContext context, ReseauSupervise reseau, CouvertureLicence c) {
-  final parDep = <String, int>{};
+  final deps = departementsCouverts(reseau);
+  final parType = <String, List<TutelleEcole>>{};
+  var publiques = 0;
   for (final e in reseau.ecoles) {
-    final d = (e.departement ?? '').trim().isEmpty
-        ? 'Non renseigné'
-        : e.departement!;
-    parDep[d] = (parDep[d] ?? 0) + 1;
+    final t = (e.typeEtablissementCourt ?? e.typeEtablissement ?? '').trim();
+    parType.putIfAbsent(t.isEmpty ? 'Type non précisé' : t, () => []).add(e);
+    if (e.estPublic) publiques++;
   }
-  final lignes = parDep.entries.toList()
-    ..sort((a, b) => b.value.compareTo(a.value));
 
-  _ouvrir(
+  ouvrirFicheDetail(
     context,
-    icone: Icons.school_rounded,
-    titre: 'Établissements couverts',
-    couleur: kNavy,
-    total: '${c.ecolesTotal}',
-    totalLabel: 'Établissements',
-    corps: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (c.ecolesPropres > 0)
-        _Ligne(
-            titre: 'Vos propres établissements',
-            valeur: '${c.ecolesPropres}',
-            sousTitre: 'exploités directement par le ministère'),
-      _Ligne(
-          titre: 'Établissements supervisés',
-          valeur: '${c.ecolesSupervisees}',
-          sousTitre: 'répartis sur ${parDep.length} département'
-              '${parDep.length > 1 ? 's' : ''}'),
-      const SizedBox(height: 14),
-      const _Titre('Par département'),
-      for (final e in lignes)
-        _Ligne(titre: e.key, valeur: '${e.value}', compact: true),
-    ]),
+    FicheDetail(
+      titre: 'Établissements couverts',
+      sousTitre: 'Ce que votre licence couvre sur le territoire',
+      icone: Icons.school_rounded,
+      couleur: kNavy,
+      total: '${c.ecolesTotal}',
+      totalLabel: 'Établissements',
+      nomFichier: 'Licence_Etablissements',
+      chiffres: [
+        if (c.ecolesPropres > 0) ('en propre', '${c.ecolesPropres}'),
+        ('supervisés', '${c.ecolesSupervisees}'),
+        ('départements', '${deps.length}'),
+        ('groupes', '${reseau.groupes.length}'),
+      ],
+      sections: [
+        SectionFiche(
+          titre: 'Par département',
+          enTetes: const ['Département', 'Établiss.', 'Élèves', 'Personnels'],
+          flex: const [4, 2, 2, 2],
+          lignes: [
+            for (final d in deps)
+              LigneFiche(
+                titre: d.nom,
+                sousTitre: '${d.groupes.length} opérateur'
+                    '${d.groupes.length > 1 ? 's' : ''} · '
+                    '${fmtInt(d.classes)} classes',
+                colonnes: [fmtInt(d.nbEcoles), fmtInt(d.eleves)],
+                valeur: fmtInt(d.personnel),
+                onTap: (ctx) => ouvrirFicheDepartement(ctx, d),
+              ),
+          ],
+          note: 'Cliquez un département pour la liste de ses établissements.',
+          videLabel: 'Aucun établissement supervisé pour l’instant.',
+        ),
+        SectionFiche(
+          titre: 'Par type d’établissement',
+          enTetes: const ['Type', 'Élèves', 'Établiss.'],
+          flex: const [5, 2, 2],
+          lignes: [
+            for (final t in _parVolume(parType))
+              LigneFiche(
+                titre: t.key,
+                colonnes: [fmtInt(_eleves(t.value))],
+                valeur: '${t.value.length}',
+              ),
+          ],
+        ),
+        SectionFiche(
+          titre: 'Par secteur',
+          enTetes: const ['Secteur', 'Part', 'Établiss.'],
+          flex: const [5, 2, 2],
+          lignes: [
+            LigneFiche(
+              titre: 'Public',
+              colonnes: [_part(publiques, reseau.ecoles.length)],
+              valeur: '$publiques',
+            ),
+            LigneFiche(
+              titre: 'Privé',
+              colonnes: [
+                _part(reseau.ecoles.length - publiques, reseau.ecoles.length)
+              ],
+              valeur: '${reseau.ecoles.length - publiques}',
+            ),
+          ],
+        ),
+      ],
+      notes: [
+        if (_notePropres(c) != null) _notePropres(c)!,
+      ],
+    ),
   );
 }
+
+// ─── Élèves ─────────────────────────────────────────────────────────────────
 
 void ouvrirDetailEleves(
     BuildContext context, ReseauSupervise reseau, CouvertureLicence c) {
   final ecoles = [...reseau.ecoles]
     ..sort((a, b) => b.nbEleves.compareTo(a.nbEleves));
-  final top = ecoles.take(12).toList();
+  final deps = departementsCouverts(reseau);
 
-  _ouvrir(
+  ouvrirFicheDetail(
     context,
-    icone: Icons.groups_rounded,
-    titre: 'Élèves couverts',
-    couleur: kGreen,
-    total: fmtInt(c.eleves),
-    totalLabel: 'Élèves',
-    corps: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _Ligne(
-          titre: 'Filles',
-          valeur: fmtInt(c.filles),
-          sousTitre: c.eleves == 0
-              ? null
-              : '${(c.filles * 100 / c.eleves).round()} % de l’effectif '
-                  'supervisé'),
-      _Ligne(titre: 'Classes', valeur: fmtInt(c.classes)),
-      const SizedBox(height: 14),
-      _Titre(top.length < ecoles.length
-          ? '12 plus gros établissements sur ${ecoles.length}'
-          : 'Par établissement'),
-      for (final e in top)
-        _Ligne(
-            titre: e.nom,
-            valeur: fmtInt(e.nbEleves),
-            sousTitre: e.departement ?? '',
-            compact: true),
-    ]),
-  );
-}
-
-void ouvrirDetailGroupes(BuildContext context, ReseauSupervise reseau) {
-  final groupes = [...reseau.groupes]
-    ..sort((a, b) => b.nbEleves.compareTo(a.nbEleves));
-
-  _ouvrir(
-    context,
-    icone: Icons.account_tree_rounded,
-    titre: 'Groupes supervisés',
-    couleur: kAccent,
-    total: '${reseau.groupes.length}',
-    totalLabel: 'Groupes tiers',
-    corps: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const _Note(
-        'Les opérateurs que vous supervisez sans les administrer — publics '
-        'comme privés. Votre propre groupe n’y figure pas.',
-      ),
-      const SizedBox(height: 12),
-      for (final g in groupes)
-        _Ligne(
-            titre: g.nom,
-            valeur: fmtInt(g.nbEleves),
-            sousTitre: '${g.nbEcoles} établissement'
-                '${g.nbEcoles > 1 ? 's' : ''} · ${fmtInt(g.nbPersonnel)} '
-                'personnel${g.nbPersonnel > 1 ? 's' : ''}',
-            compact: true),
-    ]),
-  );
-}
-
-void ouvrirDetailDroits(BuildContext context) {
-  _ouvrir(
-    context,
-    icone: Icons.extension_rounded,
-    titre: 'Ce que la licence ouvre',
-    couleur: kListPurple,
-    total: '4',
-    totalLabel: 'Droits de tutelle',
-    corps: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      for (final (icone, titre, texte) in kDroitsDeTutelle)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Icon(icone, size: 16, color: kGreen),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(titre,
-                        style: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 2),
-                    Text(texte,
-                        style: TextStyle(
-                            fontSize: 12, color: kTextMuted, height: 1.45)),
-                  ]),
-            ),
-          ]),
+    FicheDetail(
+      titre: 'Élèves couverts',
+      sousTitre: 'L’effectif que votre licence couvre',
+      icone: Icons.groups_rounded,
+      couleur: kGreen,
+      total: fmtInt(c.eleves),
+      totalLabel: 'Élèves',
+      nomFichier: 'Licence_Eleves',
+      chiffres: [
+        if (c.eleves > 0)
+          ('de filles', '${(c.filles * 100 / c.eleves).round()} %'),
+        ('classes', fmtInt(c.classes)),
+        ('établissements', '${c.ecolesTotal}'),
+      ],
+      sections: [
+        SectionFiche(
+          titre: 'Par département',
+          enTetes: const ['Département', 'Établiss.', 'Élèves'],
+          flex: const [5, 2, 2],
+          lignes: [
+            for (final d in deps)
+              LigneFiche(
+                titre: d.nom,
+                colonnes: [fmtInt(d.nbEcoles)],
+                valeur: fmtInt(d.eleves),
+                onTap: (ctx) => ouvrirFicheDepartement(ctx, d),
+              ),
+          ],
         ),
-    ]),
+        SectionFiche(
+          // ⚠️ TOUS les établissements, plus « les 12 plus gros ». La liste est
+          // virtualisée et cherchable : la longueur n'est plus un argument.
+          titre: 'Par établissement',
+          enTetes: const ['Établissement', 'Classes', 'Élèves'],
+          flex: const [5, 2, 2],
+          lignes: [
+            for (final e in ecoles)
+              LigneFiche(
+                titre: e.nom,
+                sousTitre: [
+                  e.groupeNom,
+                  if ((e.departement ?? '').isNotEmpty) e.departement!,
+                ].join(' · '),
+                colonnes: [fmtInt(e.nbClasses)],
+                valeur: fmtInt(e.nbEleves),
+                onTap: (ctx) => ouvrirFicheEcole(ctx, e),
+              ),
+          ],
+          note: 'Total supervisé : '
+              '${fmtInt(c.elevesSupervises(reseau))} élève(s).',
+        ),
+      ],
+      notes: [
+        if (_notePropres(c) != null) _notePropres(c)!,
+        'Effectifs agrégés : aucun nom d’élève ne sort de son établissement.',
+      ],
+    ),
   );
 }
+
+// ─── Personnels et groupes ──────────────────────────────────────────────────
+
+void ouvrirDetailPersonnels(
+    BuildContext context, ReseauSupervise reseau, CouvertureLicence c) {
+  final groupes = [...reseau.groupes]
+    ..sort((a, b) => b.nbPersonnel.compareTo(a.nbPersonnel));
+  final ecoles = [...reseau.ecoles]
+    ..sort((a, b) => b.nbPersonnel.compareTo(a.nbPersonnel));
+
+  ouvrirFicheDetail(
+    context,
+    FicheDetail(
+      titre: 'Personnels couverts',
+      sousTitre: 'Les agents des établissements que vous supervisez',
+      icone: Icons.badge_rounded,
+      couleur: kAccent,
+      total: fmtInt(c.personnel),
+      totalLabel: 'Personnels',
+      nomFichier: 'Licence_Personnels',
+      chiffres: [
+        ('groupes', '${reseau.groupes.length}'),
+        ('établissements', '${c.ecolesTotal}'),
+        ('classes', fmtInt(c.classes)),
+      ],
+      sections: [
+        SectionFiche(
+          titre: 'Par groupe scolaire',
+          enTetes: const ['Groupe', 'Établiss.', 'Élèves', 'Personnels'],
+          flex: const [4, 2, 2, 2],
+          lignes: [
+            for (final g in groupes)
+              LigneFiche(
+                titre: g.nom,
+                sousTitre: g.estPublic ? 'public' : 'privé',
+                colonnes: [fmtInt(g.nbEcoles), fmtInt(g.nbEleves)],
+                valeur: fmtInt(g.nbPersonnel),
+                onTap: (ctx) => ouvrirFicheGroupe(
+                  ctx,
+                  g,
+                  ecoles: [
+                    for (final e in reseau.ecoles)
+                      if (e.groupId == g.id) e,
+                  ],
+                ),
+              ),
+          ],
+          note: 'Les opérateurs que vous supervisez sans les administrer. '
+              'Votre propre groupe n’y figure pas.',
+          videLabel: 'Aucun groupe tiers supervisé.',
+        ),
+        SectionFiche(
+          titre: 'Par établissement',
+          enTetes: const ['Établissement', 'Classes', 'Personnels'],
+          flex: const [5, 2, 2],
+          lignes: [
+            for (final e in ecoles)
+              LigneFiche(
+                titre: e.nom,
+                sousTitre: [
+                  e.groupeNom,
+                  if ((e.departement ?? '').isNotEmpty) e.departement!,
+                ].join(' · '),
+                colonnes: [fmtInt(e.nbClasses)],
+                valeur: fmtInt(e.nbPersonnel),
+                onTap: (ctx) => ouvrirFicheEcole(ctx, e),
+              ),
+          ],
+        ),
+      ],
+      notes: [
+        if (_notePropres(c) != null) _notePropres(c)!,
+      ],
+    ),
+  );
+}
+
+// ─── Droits ouverts ─────────────────────────────────────────────────────────
+
+void ouvrirDetailDroits(BuildContext context, int nbModules) {
+  ouvrirFicheDetail(
+    context,
+    FicheDetail(
+      titre: 'Ce que la licence ouvre',
+      sousTitre: 'Les droits attachés à votre marché',
+      icone: Icons.extension_rounded,
+      couleur: kListPurple,
+      total: '$nbModules',
+      totalLabel: 'Modules ouverts',
+      nomFichier: 'Licence_Droits',
+      chiffres: const [('droits de tutelle', '4')],
+      sections: [
+        SectionFiche(
+          titre: 'Droits de tutelle',
+          enTetes: const ['Droit', 'État'],
+          flex: const [6, 2],
+          lignes: [
+            for (final (_, titre, texte) in kDroitsDeTutelle)
+              LigneFiche(titre: titre, sousTitre: texte, valeur: 'Ouvert'),
+          ],
+        ),
+      ],
+      notes: const [
+        '⚠️ Les modules sont accordés par le PLAN de licence, pas un par un. '
+            'Ils ne dépendent ni du règlement du marché, ni de son statut.',
+      ],
+    ),
+  );
+}
+
+// ─── Coût unitaire ──────────────────────────────────────────────────────────
 
 void ouvrirDetailCoutUnitaire(
     BuildContext context, LicenceDuGroupe l, CouvertureLicence c) {
   final parEcole = l.coutAnnuelParEtablissement(c.ecolesTotal);
   final parEleve = l.coutAnnuelParEleve(c.eleves);
 
-  _ouvrir(
+  ouvrirFicheDetail(
     context,
-    icone: Icons.calculate_rounded,
-    titre: 'Ce que la licence représente',
-    couleur: kListOrange,
-    total: fmtXaf(parEcole ?? 0),
-    totalLabel: 'Par établissement / an',
-    corps: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const _Note(
+    FicheDetail(
+      titre: 'Ce que la licence représente',
+      sousTitre: l.intitule,
+      icone: Icons.calculate_rounded,
+      couleur: kListOrange,
+      total: fmtXaf(parEcole ?? 0),
+      totalLabel: 'Par établissement / an',
+      nomFichier: 'Licence_Cout_unitaire',
+      chiffres: [
+        ('marché', fmtXaf(l.montantXaf)),
+        ('par an', fmtXaf(l.annuelXaf)),
+        if (parEleve != null) ('par élève / an', fmtXaf(parEleve)),
+      ],
+      sections: [
+        SectionFiche(
+          titre: 'Le calcul',
+          enTetes: const ['Élément', 'Valeur'],
+          lignes: [
+            LigneFiche(
+                titre: 'Montant du marché', valeur: fmtXaf(l.montantXaf)),
+            LigneFiche(
+                titre: 'Durée',
+                sousTitre: 'soit ${l.moisCouverts} mois',
+                valeur: '${l.dureeJours} j'),
+            LigneFiche(
+                titre: 'Ramené à l’année',
+                sousTitre:
+                    '⚠️ un marché de 3 ans n’est pas ce montant PAR an',
+                valeur: fmtXaf(l.annuelXaf)),
+          ],
+        ),
+        SectionFiche(
+          titre: 'Divisé par ce qu’il couvre',
+          enTetes: const ['Assiette', 'Coût annuel', 'Nombre'],
+          flex: const [4, 3, 2],
+          lignes: [
+            LigneFiche(
+              titre: 'Établissements',
+              colonnes: [parEcole == null ? '—' : fmtXaf(parEcole)],
+              valeur: '${c.ecolesTotal}',
+            ),
+            LigneFiche(
+              titre: 'Élèves',
+              colonnes: [parEleve == null ? '—' : fmtXaf(parEleve)],
+              valeur: fmtInt(c.eleves),
+            ),
+          ],
+        ),
+      ],
+      notes: const [
         '⚠️ C’est le seul chiffre qui se défend en réunion. Un montant global '
-        's’attaque tout seul ; un coût unitaire se compare — à un manuel '
-        'scolaire, à une tournée d’inspection, à un logiciel concurrent.',
-      ),
-      const SizedBox(height: 14),
-      const _Titre('Le calcul'),
-      _Ligne(titre: 'Montant du marché', valeur: fmtXaf(l.montantXaf)),
-      _Ligne(
-          titre: 'Durée',
-          valeur: '${l.dureeJours} j',
-          sousTitre: 'soit ${l.moisCouverts} mois'),
-      _Ligne(
-          titre: 'Ramené à l’année',
-          valeur: fmtXaf(l.annuelXaf),
-          sousTitre: '⚠️ un marché de 3 ans n’est pas ce montant PAR an'),
-      const SizedBox(height: 12),
-      const _Titre('Divisé par ce qu’il couvre'),
-      _Ligne(
-          titre: 'Établissements',
-          valeur: '${c.ecolesTotal}',
-          sousTitre: parEcole == null
-              ? null
-              : '${fmtXaf(parEcole)} par établissement et par an'),
-      _Ligne(
-          titre: 'Élèves',
-          valeur: fmtInt(c.eleves),
-          sousTitre: parEleve == null
-              ? null
-              : '${fmtXaf(parEleve)} par élève et par an'),
-    ]),
+            's’attaque tout seul ; un coût unitaire se compare — à un manuel '
+            'scolaire, à une tournée d’inspection, à un logiciel concurrent.',
+      ],
+    ),
   );
 }
 
+// ─── Règlement ──────────────────────────────────────────────────────────────
+
 void ouvrirDetailReglement(BuildContext context, LicenceDuGroupe l) {
   final retard = (l.partReglee == null) ? null : l.partEcoulee - l.partReglee!;
-  _ouvrir(
+
+  ouvrirFicheDetail(
     context,
-    icone: Icons.payments_rounded,
-    titre: 'Règlement du marché',
-    couleur: l.soldee ? kGreen : kListOrange,
-    total: fmtXaf(l.soldeXaf < 0 ? 0 : l.soldeXaf),
-    totalLabel: l.soldee ? 'Solde' : 'Reste à régler',
-    corps: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _Ligne(titre: 'Montant du marché', valeur: fmtXaf(l.montantXaf)),
-      if (l.avanceXaf > 0)
-        _Ligne(titre: 'Avance de démarrage', valeur: fmtXaf(l.avanceXaf)),
-      _Ligne(titre: 'Réglé à ce jour', valeur: fmtXaf(l.montantRegleXaf)),
-      const SizedBox(height: 14),
-      const _Titre('Où en est l’exécution'),
-      _Barre(
-          label: 'Période écoulée',
-          valeur: l.partEcoulee,
-          couleur: kTextMuted),
-      const SizedBox(height: 8),
-      _Barre(
+    FicheDetail(
+      titre: 'Règlement du marché',
+      sousTitre: l.intitule,
+      icone: Icons.payments_rounded,
+      couleur: l.soldee ? kGreen : kListOrange,
+      total: fmtXaf(l.soldeXaf < 0 ? 0 : l.soldeXaf),
+      totalLabel: l.soldee ? 'Solde' : 'Reste à régler',
+      nomFichier: 'Licence_Reglement',
+      chiffres: [
+        ('marché', fmtXaf(l.montantXaf)),
+        ('réglé', fmtXaf(l.montantRegleXaf)),
+        if (l.avanceXaf > 0) ('avance', fmtXaf(l.avanceXaf)),
+      ],
+      barres: [
+        BarreFiche(
+            label: 'Période écoulée', valeur: l.partEcoulee, couleur: kNavy),
+        BarreFiche(
           label: 'Marché réglé',
           valeur: l.partReglee ?? 0,
-          couleur: retard != null && retard > 0.15 ? kListOrange : kGreen),
-      const SizedBox(height: 12),
-      _Note(
+          couleur: retard != null && retard > 0.15 ? kListOrange : kGreen,
+        ),
+      ],
+      sections: [
+        SectionFiche(
+          titre: 'Les montants',
+          enTetes: const ['Poste', 'Montant'],
+          lignes: [
+            LigneFiche(
+                titre: 'Montant du marché', valeur: fmtXaf(l.montantXaf)),
+            if (l.avanceXaf > 0)
+              LigneFiche(
+                  titre: 'Avance de démarrage', valeur: fmtXaf(l.avanceXaf)),
+            LigneFiche(
+                titre: 'Réglé à ce jour', valeur: fmtXaf(l.montantRegleXaf)),
+            LigneFiche(
+                titre: 'Reste à régler',
+                valeur: fmtXaf(l.soldeXaf < 0 ? 0 : l.soldeXaf)),
+          ],
+        ),
+      ],
+      notes: [
         retard == null
             ? 'Ce marché ne porte aucun montant : il n’y a rien à régler.'
             : retard > 0.15
                 ? 'Le règlement a ${(retard * 100).round()} points de retard '
                     'sur la période consommée.'
                 : 'Le règlement suit la période consommée.',
-      ),
-      const SizedBox(height: 12),
-      const _Note(
-        '⚠️ Rappel : ni ce solde ni ce retard ne suspendent votre accès. '
-        'Une coupure serait une décision distincte, prise et notifiée '
-        'séparément par E-PILOTE Congo.',
-      ),
-    ]),
-  );
-}
-
-// ─── La coquille ────────────────────────────────────────────────────────────
-void _ouvrir(
-  BuildContext context, {
-  required IconData icone,
-  required String titre,
-  required Color couleur,
-  required String total,
-  required String totalLabel,
-  required Widget corps,
-}) {
-  showDialog<void>(
-    context: context,
-    builder: (_) => AdminFormDialog(
-      icon: icone,
-      title: titre,
-      accent: couleur,
-      width: 560,
-      hero: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(24, 14, 24, 14),
-        decoration: BoxDecoration(
-          color: couleur.withValues(alpha: 0.06),
-          border: Border(bottom: BorderSide(color: kBorder)),
-        ),
-        child: Row(children: [
-          Text(totalLabel.toUpperCase(),
-              style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.6,
-                  color: kTextMuted)),
-          const Spacer(),
-          Text(total,
-              style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: kTextPrimary)),
-        ]),
-      ),
-      footer: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 10, 24, 10),
-        child: Row(children: [
-          const Spacer(),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Fermer', style: TextStyle(color: kTextMuted)),
-          ),
-        ]),
-      ),
-      body: corps,
+        '⚠️ Rappel : ni ce solde ni ce retard ne suspendent votre accès. Une '
+            'coupure serait une décision distincte, prise et notifiée '
+            'séparément par E-PILOTE Congo.',
+      ],
     ),
   );
 }
 
-class _Ligne extends StatelessWidget {
-  const _Ligne(
-      {required this.titre,
-      required this.valeur,
-      this.sousTitre,
-      this.compact = false});
+// ─── Petits calculs partagés ────────────────────────────────────────────────
 
-  final String titre, valeur;
-  final String? sousTitre;
-  final bool compact;
+List<MapEntry<String, List<TutelleEcole>>> _parVolume(
+        Map<String, List<TutelleEcole>> m) =>
+    m.entries.toList()
+      ..sort((a, b) => _eleves(b.value).compareTo(_eleves(a.value)));
 
-  @override
-  Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.only(bottom: 6),
-        padding: EdgeInsets.fromLTRB(12, compact ? 8 : 10, 12, compact ? 8 : 10),
-        decoration: BoxDecoration(
-          color: kCardBg,
-          border: Border.all(color: kBorder),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(children: [
-          Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(titre,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: compact ? 12 : 12.5,
-                          fontWeight: FontWeight.w700,
-                          color: kTextPrimary)),
-                  if (sousTitre != null && sousTitre!.isNotEmpty)
-                    Text(sousTitre!,
-                        maxLines: 2,
-                        style: TextStyle(fontSize: 11, color: kTextMuted)),
-                ]),
-          ),
-          const SizedBox(width: 12),
-          Text(valeur,
-              style: TextStyle(
-                  fontSize: compact ? 13 : 14,
-                  fontWeight: FontWeight.w800,
-                  color: kTextPrimary)),
-        ]),
-      );
-}
+int _eleves(List<TutelleEcole> l) => l.fold(0, (s, e) => s + e.nbEleves);
 
-class _Barre extends StatelessWidget {
-  const _Barre(
-      {required this.label, required this.valeur, required this.couleur});
-
-  final String label;
-  final double valeur;
-  final Color couleur;
-
-  @override
-  Widget build(BuildContext context) => Row(children: [
-        SizedBox(
-          width: 110,
-          child: Text(label, style: TextStyle(fontSize: 11, color: kTextMuted)),
-        ),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: valeur.clamp(0.0, 1.0),
-              minHeight: 7,
-              backgroundColor: couleur.withValues(alpha: 0.12),
-              valueColor: AlwaysStoppedAnimation(couleur),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        SizedBox(
-          width: 40,
-          child: Text('${(valeur * 100).round()} %',
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                  fontSize: 11.5, fontWeight: FontWeight.w800)),
-        ),
-      ]);
-}
-
-class _Titre extends StatelessWidget {
-  const _Titre(this.texte);
-
-  final String texte;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(texte.toUpperCase(),
-            style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.6,
-                color: kTextMuted)),
-      );
-}
-
-class _Note extends StatelessWidget {
-  const _Note(this.texte);
-
-  final String texte;
-
-  @override
-  Widget build(BuildContext context) => Text(texte,
-      style: TextStyle(fontSize: 12, color: kTextMuted, height: 1.5));
-}
+String _part(int n, int total) =>
+    total == 0 ? '—' : '${(n * 100 / total).round()} %';

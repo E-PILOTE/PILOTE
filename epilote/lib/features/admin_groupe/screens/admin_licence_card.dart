@@ -206,9 +206,9 @@ class _Contrat extends StatelessWidget {
       Align(
         alignment: Alignment.centerLeft,
         child: OutlinedButton.icon(
-          onPressed: () => LicencePdfService.imprimer(ficheAImprimer(l)),
+          onPressed: () => apercuFicheLicence(context, ficheAImprimer(l)),
           icon: const Icon(Icons.print_rounded, size: 16),
-          label: const Text('Imprimer la fiche'),
+          label: const Text('Voir et imprimer la fiche'),
           style: OutlinedButton.styleFrom(
             foregroundColor: kNavy,
             side: BorderSide(color: kBorder),

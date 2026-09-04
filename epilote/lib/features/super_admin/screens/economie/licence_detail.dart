@@ -83,9 +83,9 @@ class _LicenceDetail extends ConsumerWidget {
           ),
           const SizedBox(width: 8),
           OutlinedButton.icon(
-            onPressed: () => LicencePdfService.imprimer(_fiche(l!)),
+            onPressed: () => apercuFicheLicence(context, _fiche(l!)),
             icon: const Icon(Icons.print_rounded, size: 16),
-            label: const Text('Imprimer'),
+            label: const Text('Voir et imprimer'),
             style: OutlinedButton.styleFrom(
                 foregroundColor: kNavy,
                 side: BorderSide(color: kBorder),

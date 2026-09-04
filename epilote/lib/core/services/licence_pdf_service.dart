@@ -1,10 +1,12 @@
 import 'dart:typed_data';
 
+import 'package:flutter/material.dart' show BuildContext;
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 
+import '../widgets/admin_tokens.dart' show kNavy;
+import '../widgets/pdf_preview_dialog.dart';
 import 'official_pdf_kit.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -414,11 +416,35 @@ class LicencePdfService {
         ),
       );
 
-  static Future<void> imprimer(LicenceAImprimer l) async {
-    await Printing.layoutPdf(
-      onLayout: (_) => buildPdf(l),
-      name: 'Licence_${l.ministere.replaceAll(RegExp(r'[^\w]'), '_')}'
-          '_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf',
-    );
-  }
+  static String nomFichier(LicenceAImprimer l) =>
+      'Licence_${l.ministere.replaceAll(RegExp(r'[^\w]'), '_')}'
+      '_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf';
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+//  ⚠️ ON REGARDE AVANT D'IMPRIMER — et c'est le seul chemin
+//
+//  Ce bouton appelait `Printing.layoutPdf`, qui ouvre DIRECTEMENT la boîte
+//  d'impression de Windows. Le fondateur, en le voyant : « je voudrais d'abord
+//  que tu mettes le preview avant impression qu'on voit d'abord ce que c'est.
+//  Après on imprime comme tu as fait pour les autres. »
+//
+//  Il a raison sur les deux points. Sur un poste congolais, l'imprimante par
+//  défaut est souvent « Microsoft Print to PDF » : le geste produisait un
+//  fichier sans que personne n'ait vu la page. Et les vingt-trois autres
+//  exports de la plateforme passent tous par `showPdfPreviewDialog` — celui-ci
+//  était le seul à faire autrement, sur la pièce la plus chère.
+//
+//  `showPdfPreviewDialog` montre le document paginé, puis laisse imprimer ou
+//  enregistrer. `Printing.layoutPdf` n'est plus appelé ici : le supprimer
+//  ferme le raccourci pour de bon.
+// ════════════════════════════════════════════════════════════════════════════
+Future<void> apercuFicheLicence(BuildContext context, LicenceAImprimer l) =>
+    showPdfPreviewDialog(
+      context,
+      title: 'Fiche de licence',
+      subtitle: '${l.ministere} · ${l.intitule}',
+      build: (_) => LicencePdfService.buildPdf(l),
+      pdfFileName: LicencePdfService.nomFichier(l),
+      accent: kNavy,
+    );

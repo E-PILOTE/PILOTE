@@ -174,11 +174,41 @@ class LicenceTutelle {
       montantXaf <= 0 ? null : (montantRegleXaf / montantXaf).clamp(0.0, 1.0);
 }
 
+/// Un groupe qui paie — la ligne derrière le revenu d'abonnement.
+///
+/// ⚠️ Elle existe pour une seule raison : `mrrAbonnementsXaf` était un
+/// total SANS lignes. La fiche du KPI expliquait le calcul en trois
+/// paragraphes et ne montrait pas un seul groupe — or c'est exactement ce
+/// qu'on veut voir quand un chiffre surprend. Un total qu'on ne peut pas
+/// décomposer est un total qu'on finit par ne plus croire.
+class AbonnementCompte {
+  const AbonnementCompte({
+    required this.nom,
+    required this.mensuelXaf,
+    required this.ecoles,
+    required this.periode,
+    required this.negocie,
+  });
+
+  final String nom;
+
+  /// Le tarif RAMENÉ AU MOIS — un plan annuel de 2 500 000 F pèse 208 333 F.
+  final int mensuelXaf;
+
+  final int ecoles;
+  final String? periode;
+
+  /// Tarif négocié (`price_override_xaf`) plutôt que la grille du plan.
+  final bool negocie;
+}
+
 class EconomieData {
   const EconomieData({
     required this.couts,
     required this.licences,
     required this.mrrAbonnementsXaf,
+    this.abonnements = const [],
+    this.groupesInactifs = 0,
   });
 
   static const empty = EconomieData(
@@ -186,6 +216,13 @@ class EconomieData {
 
   final List<CoutPlateforme> couts;
   final List<LicenceTutelle> licences;
+
+  /// Les groupes actifs, du plus gros contributeur au plus petit.
+  final List<AbonnementCompte> abonnements;
+
+  /// Combien de groupes ne comptent PAS. Un chiffre à dire : sans lui, la
+  /// liste semble incomplète plutôt que filtrée.
+  final int groupesInactifs;
 
   /// Revenu mensuel des abonnements des groupes ACTIFS, calculé groupe par
   /// groupe (le prix suit le nombre d'écoles depuis la migration 0159).
@@ -239,20 +276,36 @@ final economieProvider =
 
   final groupes = await client
       .from('school_groups')
-      .select('plan_id, subscription_status, billed_schools, price_override_xaf, '
+      .select('name, plan_id, subscription_status, billed_schools, '
+          'price_override_xaf, '
           'subscription_plans!plan_id(price_xaf, billing_period, '
           'extra_school_2_5_xaf, extra_school_6_10_xaf, '
           'extra_school_11_20_xaf, extra_school_21p_xaf)') as List;
 
   var mrr = 0;
+  var inactifs = 0;
+  final lignes = <AbonnementCompte>[];
   for (final g in groupes) {
     final m = Map<String, dynamic>.from(g as Map);
-    if (m['subscription_status'] != 'active') continue;
+    if (m['subscription_status'] != 'active') {
+      inactifs++;
+      continue;
+    }
     final plan = m['subscription_plans'] as Map<String, dynamic>?;
-    final du = (m['price_override_xaf'] as num?)?.toInt() ??
-        tarifPlanRow(plan, (m['billed_schools'] as num?)?.toInt() ?? 1);
-    mrr += monthlyEquivalent(du, plan?['billing_period'] as String?);
+    final ecoles = (m['billed_schools'] as num?)?.toInt() ?? 1;
+    final negocie = (m['price_override_xaf'] as num?)?.toInt();
+    final du = negocie ?? tarifPlanRow(plan, ecoles);
+    final mensuel = monthlyEquivalent(du, plan?['billing_period'] as String?);
+    mrr += mensuel;
+    lignes.add(AbonnementCompte(
+      nom: m['name'] as String? ?? '—',
+      mensuelXaf: mensuel,
+      ecoles: ecoles,
+      periode: plan?['billing_period'] as String?,
+      negocie: negocie != null,
+    ));
   }
+  lignes.sort((a, b) => b.mensuelXaf.compareTo(a.mensuelXaf));
 
   return EconomieData(
     couts: coutsRows
@@ -262,6 +315,8 @@ final economieProvider =
         .map((r) => LicenceTutelle.fromRow(Map<String, dynamic>.from(r as Map)))
         .toList(),
     mrrAbonnementsXaf: mrr,
+    abonnements: lignes,
+    groupesInactifs: inactifs,
   );
 });
 

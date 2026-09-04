@@ -8,6 +8,7 @@ import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/message_erreur.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
+import '../../../core/widgets/fiche_detail.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../providers/economie_provider.dart';
 import 'economie/economie_chrome.dart';
