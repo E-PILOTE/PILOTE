@@ -16,6 +16,7 @@ import '../providers/admin_settings_provider.dart';
 import '../widgets/bareme_passage_card.dart';
 import '../widgets/partner_opt_in_tile.dart';
 import '../../../core/utils/message_erreur.dart';
+import '../../../core/providers/identite_etablissement.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PARAMÈTRES — espace admin_groupe (online, scope group_id)
@@ -554,13 +555,9 @@ class _GroupLogo extends StatelessWidget {
   final String? logoUrl;
   final String name;
 
-  String get _initials {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.length >= 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    }
-    return name.isNotEmpty ? name[0].toUpperCase() : 'G';
-  }
+  // Règle unique du produit — cf. `initialesEtablissement`. « Groupe Scolaire
+  // EDEC » et « Groupe Scolaire Bethel » donnaient tous deux « GS » ici.
+  String get _initials => initialesEtablissement(name);
 
   @override
   Widget build(BuildContext context) {

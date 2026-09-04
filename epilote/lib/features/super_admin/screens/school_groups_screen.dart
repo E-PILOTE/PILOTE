@@ -23,6 +23,7 @@ import '../../../core/utils/message_erreur.dart';
 import '../../../core/constants/caractere_groupe.dart';
 import '../../../core/constants/tutelle.dart';
 import '../../../core/widgets/badge_ministere.dart';
+import '../../../core/providers/identite_etablissement.dart';
 
 // Le formulaire de groupe vit dans ses propres fichiers : cet écran dépassait
 // 3 600 lignes et le modal en pesait 511 à lui seul. `part` plutôt que des
@@ -1288,11 +1289,7 @@ class _GroupAvatar extends StatelessWidget {
 
   static List<Color> get _colors => [_kNavy, _kGreen, _kPurple, _kOrange, const Color(0xFF0EA5E9)];
 
-  String get _initials {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    return name.isNotEmpty ? name[0].toUpperCase() : '?';
-  }
+  String get _initials => initialesEtablissement(name);
 
   Color get _color => _colors[name.codeUnitAt(0) % _colors.length];
 
@@ -3052,11 +3049,7 @@ class _SquareInitials extends StatelessWidget {
   static List<Color> get _colors => [_kNavy, _kGreen, _kPurple, _kOrange,
       const Color(0xFF0EA5E9)];
 
-  String get _initials {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    return name.isNotEmpty ? name[0].toUpperCase() : 'G';
-  }
+  String get _initials => initialesEtablissement(name);
 
   Color get _color =>
       name.isNotEmpty ? _colors[name.codeUnitAt(0) % _colors.length] : _kNavy;
@@ -3195,11 +3188,7 @@ class _LogoUploadBox extends StatelessWidget {
 
   static List<Color> get _colors => [_kNavy, _kGreen, _kPurple, _kOrange, const Color(0xFF0EA5E9)];
 
-  String get _initials {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    return name.isNotEmpty ? name[0].toUpperCase() : 'G';
-  }
+  String get _initials => initialesEtablissement(name);
 
   Color get _color => name.isNotEmpty
       ? _colors[name.codeUnitAt(0) % _colors.length]

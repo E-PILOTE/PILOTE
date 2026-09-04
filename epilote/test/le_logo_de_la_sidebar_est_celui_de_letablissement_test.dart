@@ -259,4 +259,43 @@ void main() {
       expect(src.contains('initialesEtablissement'), isTrue);
     });
   });
+
+  group('Aucune deuxième version de la règle ne subsiste', () {
+    // Le 2026-09-05, sept endroits calculaient les initiales d'un
+    // établissement, chacun avec son propre repli (« ? », « G », « É »). Tous
+    // donnaient « GS » à « Groupe Scolaire EDEC » comme à « Groupe Scolaire
+    // Bethel ». Ils délèguent désormais.
+    const delegataires = [
+      'lib/core/widgets/app_shell/sidebar_header.dart',
+      'lib/features/user/screens/user_dashboard_screen.dart',
+      'lib/features/admin_groupe/screens/admin_settings_screen.dart',
+      'lib/features/admin_groupe/screens/schools/school_form_widgets.dart',
+      'lib/features/super_admin/screens/school_groups_screen.dart',
+      'lib/features/super_admin/providers/subscriptions_provider.dart',
+      'lib/features/super_admin/services/financial_pdf_service.dart',
+    ];
+
+    test('les sept pastilles d’établissement lisent la même règle', () {
+      for (final f in delegataires) {
+        expect(_sansCommentaires(_lire(f)).contains('initialesEtablissement'),
+            isTrue,
+            reason: '$f a recommencé à calculer ses propres initiales.');
+      }
+    });
+
+    test('la règle n’est déclarée qu’une fois', () {
+      final regle = _lire(_regle);
+      expect('String initialesEtablissement('.allMatches(regle).length, 1);
+      for (final f in delegataires) {
+        expect(_lire(f).contains('String initialesEtablissement('), isFalse,
+            reason: 'Une copie de la fonction est réapparue dans $f.');
+      }
+    });
+
+    test('l’écran des groupes n’a plus de version maison', () {
+      final src = _lire('lib/features/super_admin/screens/school_groups_screen.dart');
+      expect(src.contains('String get _initials {'), isFalse,
+          reason: 'Les trois pastilles de cet écran doivent déléguer.');
+    });
+  });
 }

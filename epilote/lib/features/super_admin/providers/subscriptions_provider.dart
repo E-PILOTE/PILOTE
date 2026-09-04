@@ -6,6 +6,7 @@ import '../../../core/utils/plan_referential_realtime.dart';
 import '../../../core/utils/subscription_days.dart';
 import '../../../core/utils/tarif_ecoles.dart' show tarifPlanRow;
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/providers/identite_etablissement.dart';
 import 'economie_provider.dart' show LicenceTutelle;
 import 'plans_provider.dart' show moneyXaf;
 
@@ -189,13 +190,7 @@ class SubscriptionDetail {
     return '${(d / 365).round()} an(s) restant(s)';
   }
 
-  String get initials {
-    final n = groupName.trim();
-    if (n.isEmpty) return '?';
-    final parts = n.split(RegExp(r'\s+'));
-    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    return n[0].toUpperCase();
-  }
+  String get initials => initialesEtablissement(groupName);
 }
 
 DateTime? _date(dynamic v) {
