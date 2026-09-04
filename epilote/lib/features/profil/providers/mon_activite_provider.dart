@@ -31,42 +31,42 @@ const int kMesActionsAffichees = 8;
 
 /// Une action portée à mon nom, la plus récente d'abord.
 ///
-/// Liste VIDE (jamais d'erreur) quand le journal n'est pas lisible : cette
-/// carte est un complément, elle n'a pas à faire échouer la page.
+/// ⚠️ NE RATTRAPE PAS ses erreurs. Une liste vide voudrait alors dire deux
+/// choses à la fois : « vous n'avez rien fait » et « je n'ai pas pu lire le
+/// journal ». La carte doit pouvoir les distinguer — c'est le même défaut que
+/// la carte « Sécurité » qu'elle remplace, qui affirmait une protection sans
+/// jamais l'avoir vérifiée. L'erreur reste locale à la carte : elle ne fait
+/// pas échouer la page.
 final mesDernieresActionsProvider =
     FutureProvider.autoDispose<List<AuditEntry>>((ref) async {
   final moi = ref.watch(monProfilProvider).valueOrNull;
   if (moi == null) return const [];
   final id = moi.profil.id;
 
-  try {
-    if (moi.profil.isSchoolStaff) {
-      final rows = await db.getAll(
-        '''
-        SELECT id, action, table_name, record_id, user_role, created_at
-        FROM   audit_logs
-        WHERE  user_id = ?
-        ORDER  BY created_at DESC
-        LIMIT  ?
-        ''',
-        [id, kMesActionsAffichees],
-      );
-      return rows.map(_versEntree).toList();
-    }
-
-    final client = ref.read(supabaseClientProvider);
-    final rows = await client
-        .from('audit_logs')
-        .select('id, action, table_name, record_id, user_role, created_at')
-        .eq('user_id', id)
-        .order('created_at', ascending: false)
-        .limit(kMesActionsAffichees);
-    return (rows as List)
-        .map((r) => _versEntree(Map<String, dynamic>.from(r as Map)))
-        .toList();
-  } catch (_) {
-    return const [];
+  if (moi.profil.isSchoolStaff) {
+    final rows = await db.getAll(
+      '''
+      SELECT id, action, table_name, record_id, user_role, created_at
+      FROM   audit_logs
+      WHERE  user_id = ?
+      ORDER  BY created_at DESC
+      LIMIT  ?
+      ''',
+      [id, kMesActionsAffichees],
+    );
+    return rows.map(_versEntree).toList();
   }
+
+  final client = ref.read(supabaseClientProvider);
+  final rows = await client
+      .from('audit_logs')
+      .select('id, action, table_name, record_id, user_role, created_at')
+      .eq('user_id', id)
+      .order('created_at', ascending: false)
+      .limit(kMesActionsAffichees);
+  return (rows as List)
+      .map((r) => _versEntree(Map<String, dynamic>.from(r as Map)))
+      .toList();
 });
 
 /// Vrai quand la liste affichée n'est qu'un extrait du journal.
