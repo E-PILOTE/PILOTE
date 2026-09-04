@@ -8,6 +8,8 @@ import '../../../core/widgets/password_change_dialog.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../user/widgets/staff_account_widgets.dart' show staffFmtDateTime;
 import '../providers/mon_profil_provider.dart';
+import '../widgets/ligne_securite.dart';
+import '../widgets/profil_code_pin.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  SÉCURITÉ — ce qui est VRAI, et rien d'autre
@@ -43,7 +45,7 @@ class ProfilSecurite extends ConsumerWidget {
     return Column(children: [
       AdminCard(
         child: Column(children: [
-          _Ligne(
+          LigneSecurite(
             icone: Icons.lock_outline_rounded,
             titre: 'Mot de passe',
             detail: estMoi
@@ -51,30 +53,30 @@ class ProfilSecurite extends ConsumerWidget {
                     'connexion internet.'
                 : 'Indisponible : la session de ce poste appartient à un autre '
                     'compte.',
-            action: OutlinedButton.icon(
+            action: BoutonSecurite(
+              icone: Icons.lock_reset_rounded,
+              libelle: 'Changer',
               onPressed: (!estMoi || !enLigne)
                   ? null
                   : () => showDialog<void>(
                       context: context,
                       builder: (_) => const PasswordChangeDialog()),
-              icon: const Icon(Icons.lock_reset_rounded, size: 16),
-              label: const Text('Changer'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: kNavy,
-                side: BorderSide(color: kBorder),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-              ),
             ),
           ),
           Divider(height: 24, color: kBorder),
-          _Ligne(
+          LigneSecurite(
             icone: Icons.history_rounded,
             titre: 'Dernière connexion',
             detail: staffFmtDateTime(moi.profil.lastLogin),
           ),
         ]),
       ),
+      // Le code PIN vient APRÈS le mot de passe et AVANT la zone sensible :
+      // du secret le plus large (le compte, tous appareils) au plus étroit
+      // (ce poste), puis l'action irréversible. Il se décide seul, d'où sa
+      // propre carte : le refus qui pèse sur le mot de passe — « la session
+      // appartient à un autre compte » — ne le concerne pas.
+      ProfilCodePin(moi: moi),
       const SizedBox(height: 16),
       if (estMoi) _ZoneSensible(moi: moi),
     ]);
@@ -170,44 +172,4 @@ class _ZoneSensibleState extends ConsumerState<_ZoneSensible> {
           ),
         ]),
       );
-}
-
-class _Ligne extends StatelessWidget {
-  const _Ligne({
-    required this.icone,
-    required this.titre,
-    required this.detail,
-    this.action,
-  });
-  final IconData icone;
-  final String titre;
-  final String detail;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) => Row(children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: kNavy.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icone, color: kNavy, size: 20),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(titre,
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: kTextPrimary)),
-            const SizedBox(height: 2),
-            Text(detail,
-                style: TextStyle(fontSize: 12, color: kTextMuted, height: 1.35)),
-          ]),
-        ),
-        if (action != null) ...[const SizedBox(width: 12), action!],
-      ]);
 }
