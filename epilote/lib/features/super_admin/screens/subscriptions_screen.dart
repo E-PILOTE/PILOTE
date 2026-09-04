@@ -14,6 +14,7 @@ import '../../../core/constants/routes.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../core/constants/licence_statut.dart';
+import '../providers/comptes_admin_provider.dart';
 import '../providers/subscriptions_provider.dart';
 import 'economie/licence_form_dialog.dart';
 import 'subscriptions_emettre_facture.dart';
@@ -954,7 +955,7 @@ class _TableView extends StatelessWidget {
   }
 }
 
-class _TableRow extends StatefulWidget {
+class _TableRow extends ConsumerStatefulWidget {
   const _TableRow({
     required this.sub,
     required this.isOdd,
@@ -971,15 +972,19 @@ class _TableRow extends StatefulWidget {
   final VoidCallback onView, onEdit, onLicence;
 
   @override
-  State<_TableRow> createState() => _TableRowState();
+  ConsumerState<_TableRow> createState() => _TableRowState();
 }
 
-class _TableRowState extends State<_TableRow> {
+class _TableRowState extends ConsumerState<_TableRow> {
   bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
     final s = widget.sub;
+    final compteAdmin = ref.watch(comptesAdminParGroupeProvider).maybeWhen(
+          data: (m) => compteDeConnexion(m, s.id),
+          orElse: () => null,
+        );
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -1017,7 +1022,15 @@ class _TableRowState extends State<_TableRow> {
                   Text(s.groupName,
                       style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _kText),
                       overflow: TextOverflow.ellipsis),
-                  Text(s.adminEmail,
+                  // ⚠️ CE QU'ON LIT ICI, C'EST UN IDENTIFIANT.
+                  // C'était `admin_email`, une colonne de CONTACT saisie dans
+                  // le formulaire du groupe — jamais un compte. Le fondateur
+                  // a lu cette ligne pour ouvrir l'espace d'un client, et la
+                  // connexion a échoué : sur les huit administrateurs de la
+                  // base, AUCUNE des deux adresses ne coïncidait. C'est
+                  // pourtant cet écran qu'on ouvre quand un client appelle
+                  // parce qu'il n'arrive pas à se connecter.
+                  Text(compteAdmin ?? s.adminEmail,
                       style: TextStyle(fontSize: 10.5, color: _kMuted),
                       overflow: TextOverflow.ellipsis),
                 ],
@@ -2015,8 +2028,14 @@ class _SubDetailModalState extends ConsumerState<_SubDetailModal>
                 Row(children: [
                   Icon(Icons.email_outlined, size: 12, color: color),
                   const SizedBox(width: 4),
-                  Flexible(child: Text(s.adminEmail, style: TextStyle(
-                      color: color, fontSize: 12.5, fontWeight: FontWeight.w700),
+                  Flexible(child: Text(
+                      ref.watch(comptesAdminParGroupeProvider).maybeWhen(
+                            data: (m) => compteDeConnexion(m, s.id),
+                            orElse: () => null,
+                          ) ??
+                          s.adminEmail,
+                      style: TextStyle(
+                          color: color, fontSize: 12.5, fontWeight: FontWeight.w700),
                       overflow: TextOverflow.ellipsis)),
                 ]),
               ])),
@@ -2140,13 +2159,17 @@ class _StatusMenuButton extends StatelessWidget {
 
 // ─── Onglet Groupe ────────────────────────────────────────────────────────────
 
-class _SubGroupTab extends StatelessWidget {
+class _SubGroupTab extends ConsumerWidget {
   const _SubGroupTab({required this.sub});
   final SubscriptionDetail sub;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final s = sub;
+    final comptes = ref.watch(comptesAdminParGroupeProvider).maybeWhen(
+          data: (m) => m[s.id] ?? const <CompteAdmin>[],
+          orElse: () => const <CompteAdmin>[],
+        );
     return SingleChildScrollView(
       padding: const EdgeInsets.all(18),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -2154,7 +2177,25 @@ class _SubGroupTab extends StatelessWidget {
         const SizedBox(height: 8),
         _SubDetailCard([
           _SubDetailRow(Icons.business_rounded, 'Nom du groupe', s.groupName),
-          _SubDetailRow(Icons.email_outlined, 'E-mail admin', s.adminEmail, copyable: true),
+          // Les DEUX adresses, chacune sous son vrai nom. « E-mail admin »
+          // désignait le contact du formulaire, et se lisait comme un
+          // identifiant : c'est ce malentendu qui a fait échouer une
+          // connexion. Le compte d'abord — c'est lui qu'on cherche quand on
+          // ouvre cette fiche pour dépanner quelqu'un.
+          ...comptes.isEmpty
+              ? const <Widget>[]
+              : [
+                  for (final c in comptes)
+                    _SubDetailRow(
+                        Icons.key_rounded,
+                        comptes.length > 1
+                            ? 'Compte · ${c.nom}'
+                            : 'Compte de connexion',
+                        c.actif ? c.email : '${c.email}  (désactivé)',
+                        copyable: true),
+                ],
+          _SubDetailRow(Icons.email_outlined, 'E-mail de contact', s.adminEmail,
+              copyable: true),
           _SubDetailRow(Icons.phone_rounded, 'Téléphone', s.phone ?? '—'),
           _SubDetailRow(Icons.location_on_outlined, 'Département', s.department ?? '—', last: true),
         ]),

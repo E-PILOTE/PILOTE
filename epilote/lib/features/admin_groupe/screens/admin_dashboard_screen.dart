@@ -41,18 +41,38 @@ class _Body extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tab = ref.watch(_adminTabProv);
 
-    // Pré-charger les données géo dès l'ouverture du dashboard (onglet 0).
-    // Les providers ont ref.keepAlive() → ils restent en mémoire ; quand
-    // l'utilisateur clique "Vue régionale", les assets sont déjà prêts (~100 ms).
-    ref.watch(congoBoundaryProvider);
-    ref.watch(congoDepartmentsProvider);
-    ref.watch(congoPlacesProvider);
+    // ⚠️ LA VUE RÉGIONALE EST UN OUTIL DE TUTELLE, PAS UN OUTIL DE CLIENT.
+    //
+    // Elle dessine les DOUZE DÉPARTEMENTS du Congo, les villes réelles (OSM)
+    // et une analyse territoriale des distances : c'est la carte de couverture
+    // d'un ministère qui supervise un parc national. Un groupe privé y voyait
+    // le même pays, avec deux ou trois épingles dessus — un instrument de
+    // supervision qui n'est pas le sien, et qui ne lui apprend rien.
+    //
+    // Le coût n'était pas nul non plus : les trois jeux GeoJSON nationaux se
+    // pré-chargeaient à CHAQUE ouverture du tableau de bord, pour tout le
+    // monde, sur des connexions congolaises. Ils ne se chargent plus que là où
+    // ils servent — d'où le `if` autour des `ref.watch`, et non un simple
+    // masquage de l'onglet.
+    final estMinistere =
+        ref.watch(groupeEstMinistereProvider).valueOrNull ?? false;
+
+    if (estMinistere) {
+      ref.watch(congoBoundaryProvider);
+      ref.watch(congoDepartmentsProvider);
+      ref.watch(congoPlacesProvider);
+    }
+
+    // Le drapeau arrive de façon asynchrone : un ministère commence donc à
+    // FAUX pendant un instant. Sans ce repli, un onglet déjà sélectionné
+    // renverrait sur une vue vide au rechargement.
+    final surLaCarte = estMinistere && tab == 1;
 
     return Column(
       children: [
-        _DashTabs(tab: tab),
+        if (estMinistere) _DashTabs(tab: tab),
         Expanded(
-          child: tab == 0 ? const _OverviewTab() : const _RegionalTab(),
+          child: surLaCarte ? const _RegionalTab() : const _OverviewTab(),
         ),
       ],
     );

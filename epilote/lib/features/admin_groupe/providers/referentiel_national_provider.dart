@@ -36,8 +36,25 @@ final groupeAdministreReferentielProvider =
   final profil = ref.watch(authNotifierProvider).valueOrNull;
   if (profil == null) return false;
   if (profil.isSuperAdmin) return true;
+  return ref.watch(groupeEstMinistereProvider.future);
+});
 
-  final groupId = profil.groupId;
+/// VRAI si le GROUPE de l'utilisateur est un ministère de tutelle.
+///
+/// ⚠️ À ne pas confondre avec `groupeAdministreReferentielProvider`, qui
+/// répond OUI au super_admin : lui n'a pas de groupe. La question posée ici
+/// est celle de la NATURE du groupe, et c'est elle qu'il faut poser pour
+/// décider ce qu'un espace client contient — un fondateur n'est pas un
+/// ministère, et lui donner les écrans de supervision par cette porte serait
+/// un accident.
+///
+/// Même repli prudent : au doute, FAUX. Se tromper dans ce sens retire un
+/// outil de supervision à qui y avait droit — visible, corrigible. Se tromper
+/// dans l'autre met la carte nationale entre les mains d'un client privé.
+final groupeEstMinistereProvider =
+    FutureProvider.autoDispose<bool>((ref) async {
+  final profil = ref.watch(authNotifierProvider).valueOrNull;
+  final groupId = profil?.groupId;
   if (groupId == null || groupId.isEmpty) return false;
   try {
     final g = await ref
