@@ -5,6 +5,7 @@ import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
 import '../../../core/utils/subscription_days.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import 'economie_provider.dart' show LicenceTutelle;
 import 'plans_provider.dart' show moneyXaf;
 
 // ─── Modèle SubscriptionDetail (un groupe scolaire = un abonnement) ───────────
@@ -38,7 +39,7 @@ class SubscriptionDetail {
   factory SubscriptionDetail.fromMap(
     Map<String, dynamic> m, {
     int schoolsCount = 0,
-    LicenceResume? licence,
+    LicenceTutelle? licence,
   }) {
     final plan = m['plan'];
     final planMap = plan is Map ? Map<String, dynamic>.from(plan) : const {};
@@ -92,7 +93,7 @@ class SubscriptionDetail {
   /// n'y était pas. Le contrat vivait dans un autre écran, qu'il faut savoir
   /// chercher. Un ministère affichait « Licence de tutelle · Gratuit », ce qui
   /// est exactement l'inverse de la vérité : 40 millions.
-  final LicenceResume? licence;
+  final LicenceTutelle? licence;
 
   /// Ce que la ligne doit afficher à la place du tarif.
   String get montantLabel {
@@ -174,22 +175,16 @@ DateTime? _date(dynamic v) {
 
 // ─── Modèle PlanOption (sélecteur de plan dans le formulaire) ─────────────────
 
-/// Ce qu'il faut savoir d'une licence pour l'afficher sur une ligne
-/// d'abonnement. Le détail complet vit dans `economie_provider`.
-class LicenceResume {
-  const LicenceResume({
-    required this.id,
-    required this.statut,
-    required this.montantXaf,
-    required this.dateFin,
-  });
-
-  final String id, statut;
-  final int montantXaf;
-  final DateTime dateFin;
-
-  bool get estActive => statut == 'active';
-}
+/// ⚠️ `LicenceResume` a été SUPPRIMÉE. Elle ne portait que quatre champs —
+/// assez pour AFFICHER la ligne, pas assez pour l'OUVRIR. Le bouton « Gérer la
+/// licence » rouvrait donc un formulaire de CRÉATION sur un ministère qui avait
+/// déjà son marché : on aurait saisi une seconde licence, et la garde
+/// anti-chevauchement (0186) l'aurait refusée au dernier moment. Un résumé qui
+/// ne permet pas d'agir n'est pas un résumé, c'est une impasse.
+///
+/// La page charge désormais le contrat complet — `LicenceTutelle`, le même
+/// objet qu'en Économie. Une seule définition pour les deux écrans : deux
+/// modèles du même marché finissent par en montrer deux versions.
 
 class PlanOption {
   const PlanOption({
@@ -278,23 +273,25 @@ final subscriptionsProvider =
   //  couvre aujourd'hui passe avant un brouillon signé pour l'an prochain.
   //  Même règle que `licenceAMontrer` côté ministère — deux écrans qui
   //  choisiraient différemment afficheraient deux contrats pour un seul.
-  final Map<String, LicenceResume> licencesByGroup = {};
+  final Map<String, LicenceTutelle> licencesByGroup = {};
   try {
+    // Les mêmes colonnes qu'en Économie : la ligne AFFICHE le contrat et le
+    // bouton l'OUVRE. Deux requêtes différentes pour le même objet finiraient
+    // par montrer deux vérités.
     final rows = await client
         .from('tutelle_licences')
-        .select('id, group_id, statut, montant_xaf, date_fin')
+        .select('id, group_id, tutelle, intitule, date_debut, date_fin, '
+            'montant_xaf, avance_xaf, montant_regle_xaf, statut, '
+            'reference_marche, signataire, notes, motif_statut, '
+            'statut_change_le, school_groups!group_id(name, acces_suspendu, '
+            'acces_suspendu_motif)')
         .order('date_fin', ascending: false) as List;
     final aujourdhui = DateTime.now();
     for (final r in rows) {
       final m = Map<String, dynamic>.from(r as Map);
       final gid = m['group_id'] as String?;
       if (gid == null) continue;
-      final resume = LicenceResume(
-        id: m['id'] as String,
-        statut: m['statut'] as String? ?? 'brouillon',
-        montantXaf: (m['montant_xaf'] as num?)?.toInt() ?? 0,
-        dateFin: DateTime.parse(m['date_fin'] as String),
-      );
+      final resume = LicenceTutelle.fromRow(m);
       final deja = licencesByGroup[gid];
       final couvre = resume.estActive && resume.dateFin.isAfter(aujourdhui);
       if (deja == null || (couvre && !deja.estActive)) {

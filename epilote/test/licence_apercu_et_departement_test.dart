@@ -196,6 +196,24 @@ void main() {
               '`kDepartementNonRenseigne`.');
     });
 
+    test('⚠️ le bouton « Gérer la licence » ouvre le marché EXISTANT', () {
+      // Il rouvrait un formulaire de création sur un ministère qui avait déjà
+      // sa licence : l'infobulle promettait « Gérer », l'écran proposait d'en
+      // créer une seconde, et la garde anti-chevauchement (0186) l'aurait
+      // refusée APRÈS la saisie. Vu à l'écran le 2026-09-04.
+      final src =
+          _lire('lib/features/super_admin/screens/subscriptions_screen.dart');
+      expect(src.contains('edition: l,'), isTrue);
+      expect(src.contains('groupeImpose: l == null ? s.id : null'), isTrue);
+
+      // Et la page charge le contrat COMPLET : un résumé de quatre champs
+      // affiche la ligne mais ne permet pas de l'ouvrir.
+      final prov = _lire(
+          'lib/features/super_admin/providers/subscriptions_provider.dart');
+      expect(prov.contains('LicenceTutelle.fromRow(m)'), isTrue);
+      expect(prov.contains('class LicenceResume'), isFalse);
+    });
+
     test('les quatre fiches du fondateur s’impriment aussi', () {
       final src = _lire(_kpiFondateur);
       expect('ouvrirFicheDetail('.allMatches(src).length, 4);

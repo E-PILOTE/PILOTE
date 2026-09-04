@@ -146,9 +146,19 @@ class _SubsBodyState extends ConsumerState<_SubsBody> {
   /// « La création et l'affectation de la licence devrait être simple comme
   /// pour les mensuelles. » C'est le MÊME formulaire qu'en Économie, ouvert
   /// depuis la ligne du ministère, avec le groupe déjà choisi.
+  ///
+  /// ⚠️ Et le bouton OUVRE le marché existant. Il rouvrait un formulaire de
+  /// création sur un ministère qui avait déjà sa licence — l'infobulle disait
+  /// « Gérer la licence », l'écran proposait d'en créer une seconde, et la
+  /// garde anti-chevauchement (0186) l'aurait refusée après la saisie. Vu à
+  /// l'écran le 2026-09-04.
   void _openLicence(SubscriptionDetail s) {
-    ouvrirFormulaireLicence(context, groupeImpose: s.id)
-        .then((_) => ref.invalidate(subscriptionsProvider));
+    final l = s.licence;
+    ouvrirFormulaireLicence(
+      context,
+      edition: l,
+      groupeImpose: l == null ? s.id : null,
+    ).then((_) => ref.invalidate(subscriptionsProvider));
   }
 
   void _openDetail(SubscriptionDetail s) {
