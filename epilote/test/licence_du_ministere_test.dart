@@ -312,7 +312,7 @@ void main() {
       expect(src.contains('this.groupeImpose'), isTrue);
       // Le groupe est verrouillé quand il est imposé : sinon on créerait la
       // licence sur le mauvais ministère depuis la ligne du bon.
-      expect(src.contains("_edition || widget.groupeImpose != null"), isTrue);
+      expect(src.contains('_edition || widget.groupeImpose != null'), isTrue);
     });
 
     test('⚠️ une licence naît ACTIVE, plus en brouillon', () {

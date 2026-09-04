@@ -135,7 +135,13 @@ class LicenceTutelle {
 
   /// Nombre de mois couverts — au moins 1, pour ne jamais diviser par zéro.
   int get moisCouverts {
-    final m = (dateFin.difference(dateDebut).inDays / 30.44).round();
+    // ⚠️ Un marché annuel couvre DOUZE mois. Du 01/01 au 31/12 il y a 364
+    // jours, pas 365 : sans cette tolérance, l'équivalent mensuel dérivait
+    // d'un tiers de pour cent — assez pour que les deux espaces affichent
+    // deux montants différents du même marché.
+    final j = dateFin.difference(dateDebut).inDays;
+    if ((j - 365).abs() <= 15) return 12;
+    final m = (j / 30.44).round();
     return m < 1 ? 1 : m;
   }
 

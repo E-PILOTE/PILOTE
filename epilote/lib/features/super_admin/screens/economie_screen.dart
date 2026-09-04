@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/licence_statut.dart';
+import '../../../core/constants/tutelle.dart';
+import '../../../core/services/licence_pdf_service.dart';
 import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/message_erreur.dart';
 import '../../../core/widgets/admin_ui.dart';

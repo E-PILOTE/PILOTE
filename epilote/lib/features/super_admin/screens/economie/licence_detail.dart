@@ -81,6 +81,17 @@ class _LicenceDetail extends ConsumerWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 10)),
           ),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            onPressed: () => LicencePdfService.imprimer(_fiche(l!)),
+            icon: const Icon(Icons.print_rounded, size: 16),
+            label: const Text('Imprimer'),
+            style: OutlinedButton.styleFrom(
+                foregroundColor: kNavy,
+                side: BorderSide(color: kBorder),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10)),
+          ),
           const Spacer(),
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -158,6 +169,29 @@ class _LicenceDetail extends ConsumerWidget {
     );
   }
 }
+
+/// La fiche imprimable, construite depuis le modèle du fondateur.
+///
+/// ⚠️ Le MÊME document que celui du ministère (`licence_pdf_service`), pas une
+/// seconde mise en page : les deux parties d'un marché doivent produire une
+/// pièce identique, sinon la première réunion se passe à comparer deux
+/// documents qui ne s'accordent pas.
+LicenceAImprimer _fiche(LicenceTutelle l) => LicenceAImprimer(
+      ministere: nomTutelle(l.tutelle) ?? l.groupeNom,
+      sigleTutelle: sigleTutelle(l.tutelle),
+      intitule: l.intitule,
+      statut: l.statut,
+      statutLabel: libelleStatutLicenceOuTiret(l.statut),
+      dateDebut: l.dateDebut,
+      dateFin: l.dateFin,
+      montantXaf: l.montantXaf,
+      avanceXaf: l.avanceXaf,
+      montantRegleXaf: l.montantRegleXaf,
+      referenceMarche: l.referenceMarche,
+      signataire: l.signataire,
+      notes: l.notes,
+      motifStatut: l.motifStatut,
+    );
 
 // ─── Le bandeau fixe : le montant reste visible pendant qu'on défile ───────
 class _HeroMontant extends StatelessWidget {

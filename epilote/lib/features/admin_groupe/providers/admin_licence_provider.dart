@@ -120,6 +120,9 @@ class LicenceDuGroupe {
   /// Miroir exact de `LicenceTutelle.moisCouverts` côté fondateur : les deux
   /// espaces doivent annoncer le MÊME équivalent mensuel.
   int get moisCouverts {
+    // Même tolérance que `annuelXaf` : un marché annuel couvre DOUZE mois,
+    // pas 11,96 arrondis à 12 par chance.
+    if ((dureeJours - 365).abs() <= 15) return 12;
     final m = (dureeJours / 30.44).round();
     return m < 1 ? 1 : m;
   }
@@ -128,7 +131,19 @@ class LicenceDuGroupe {
   int get mensuelXaf => (montantXaf / moisCouverts).round();
 
   /// Le marché ramené à l'année, pour un budget annuel de l'État.
-  int get annuelXaf => (montantXaf * 365 / dureeJours).round();
+  ///
+  /// ⚠️ UN MARCHÉ ANNUEL VAUT SON MONTANT, PAS 100,3 % DE SON MONTANT.
+  /// Du 01/01 au 31/12 il y a 364 jours d'écart, pas 365 : la règle de trois
+  /// affichait « 40 000 000 F de marché → 40 109 890 F par an », et le coût
+  /// par établissement héritait de l'écart (3 342 491 au lieu de 3 333 333).
+  /// Mathématiquement juste, faux à lire sur une fiche de marché — et c'est
+  /// ce chiffre-là qu'un ordonnateur recopie dans un budget.
+  ///
+  /// On ne proratise donc qu'au-delà d'un écart réel à l'année (± 15 jours) :
+  /// un marché de trois ans reste ramené, un marché annuel reste lui-même.
+  int get annuelXaf => (dureeJours - 365).abs() <= 15
+      ? montantXaf
+      : (montantXaf * 365 / dureeJours).round();
 
   /// Coût annuel par établissement couvert. `null` si le réseau est inconnu ou
   /// vide — afficher « 0 F par école » sur un marché de 40 millions serait

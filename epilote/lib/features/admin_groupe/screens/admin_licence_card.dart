@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/tutelle.dart';
+import '../../../core/services/licence_pdf_service.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/badge_ministere.dart';
 import '../providers/admin_licence_provider.dart';
@@ -73,7 +74,11 @@ class LicenceDeTutelleSection extends ConsumerWidget {
               final l = licenceAMontrer(licences);
               return l == null
                   ? const _AucuneLicence()
-                  : _Contrat(licence: l, couleur: couleur);
+                  : _Contrat(
+                      licence: l,
+                      couleur: couleur,
+                      tutelle: sub.tutelle,
+                      nomGroupe: sub.groupName);
             },
           ),
           const SizedBox(height: 18),
@@ -141,10 +146,16 @@ class _EnTete extends StatelessWidget {
 
 // ─── Le contrat ─────────────────────────────────────────────────────────────
 class _Contrat extends StatelessWidget {
-  const _Contrat({required this.licence, required this.couleur});
+  const _Contrat(
+      {required this.licence,
+      required this.couleur,
+      required this.tutelle,
+      required this.nomGroupe});
 
   final LicenceDuGroupe licence;
   final Color couleur;
+  final String? tutelle;
+  final String nomGroupe;
 
   @override
   Widget build(BuildContext context) {
@@ -189,8 +200,47 @@ class _Contrat extends StatelessWidget {
         Text(l.notes!.trim(),
             style: TextStyle(fontSize: 12.5, color: kTextMuted, height: 1.5)),
       ],
+      const SizedBox(height: 16),
+      // Le ministère imprime SA fiche : c'est la pièce qu'un cabinet range
+      // dans le dossier du marché, et qu'il produit en réunion budgétaire.
+      Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          onPressed: () => LicencePdfService.imprimer(ficheAImprimer(l)),
+          icon: const Icon(Icons.print_rounded, size: 16),
+          label: const Text('Imprimer la fiche'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: kNavy,
+            side: BorderSide(color: kBorder),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          ),
+        ),
+      ),
     ]);
   }
+
+  /// Traduit la licence du ministère en fiche imprimable.
+  ///
+  /// ⚠️ Le nom d'USAGE du ministère, pas sa raison sociale : la base porte
+  /// « MEPSA — Ministère Enseign. Primaire » d'un côté et l'intitulé complet
+  /// de l'autre. Sur un document qui part dans un dossier de marché, c'est le
+  /// nom officiel qu'on veut lire.
+  LicenceAImprimer ficheAImprimer(LicenceDuGroupe l) => LicenceAImprimer(
+        ministere: nomTutelle(tutelle) ?? nomGroupe,
+        sigleTutelle: sigleTutelle(tutelle),
+        intitule: l.intitule,
+        statut: l.statut,
+        statutLabel: l.statutLabel,
+        dateDebut: l.dateDebut,
+        dateFin: l.dateFin,
+        montantXaf: l.montantXaf,
+        avanceXaf: l.avanceXaf,
+        montantRegleXaf: l.montantRegleXaf,
+        referenceMarche: l.referenceMarche,
+        signataire: l.signataire,
+        notes: l.notes,
+        motifStatut: l.motifStatut,
+      );
 }
 
 /// Le motif d'une suspension ou d'une résiliation, écrit par E-PILOTE Congo.
