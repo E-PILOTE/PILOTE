@@ -5,6 +5,8 @@ import 'package:epilote/features/super_admin/providers/invoices_provider.dart'
     show InvoiceDetail;
 import 'package:flutter_test/flutter_test.dart';
 
+import 'ecran_abonnements_source.dart';
+
 // ════════════════════════════════════════════════════════════════════════════
 //  LA FACTURE DU MOIS S'ÉMET TOUTE SEULE — ce qui ne doit plus se reperdre
 //
@@ -32,8 +34,9 @@ const _carteClient =
     'lib/features/admin_groupe/screens/admin_subscription_screen.dart';
 const _boutonFondateur =
     'lib/features/super_admin/screens/subscriptions_emettre_facture.dart';
-const _ecranFondateur =
-    'lib/features/super_admin/screens/subscriptions_screen.dart';
+// La fiche d'un abonnement, où vit le bouton d'émission. C'était
+// `subscriptions_screen.dart` avant que ses 2 652 lignes ne soient découpées.
+const _ficheFondateur = 'subscription_detail_modal.dart';
 
 String _lire(String chemin) {
   final f = File(chemin);
@@ -204,7 +207,7 @@ void main() {
 
   group('Le fondateur peut enfin émettre', () {
     test('le bouton existe dans la fiche du groupe', () {
-      final src = _lire(_ecranFondateur);
+      final src = sourcePieceAbonnements(_ficheFondateur);
       expect(src.contains('emettreFactureDeRenouvellement('), isTrue,
           reason: 'Le fondateur n’a plus aucun moyen d’émettre une facture : '
               'il ne peut que marquer payée celle que le client a demandée.');
@@ -213,7 +216,9 @@ void main() {
     test('⚠️ il n’est pas proposé sur un ministère', () {
       // La base refuserait — un écran qui le propose envoie l'utilisateur se
       // faire jeter.
-      final src = _lire(_ecranFondateur);
+      // ⚠️ Sonde de PROXIMITÉ : elle compare des positions. Elle lit la pièce,
+      // jamais le dossier concaténé — sinon elle comparerait deux fichiers.
+      final src = sourcePieceAbonnements(_ficheFondateur);
       final i = src.indexOf('emettreFactureDeRenouvellement(');
       final avant = src.substring(0, i);
       expect(avant.lastIndexOf('if (!s.estMinistere)') > avant.lastIndexOf('Row(children: ['),

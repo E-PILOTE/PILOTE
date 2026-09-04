@@ -4,6 +4,8 @@ import 'package:epilote/core/constants/licence_statut.dart';
 import 'package:epilote/features/admin_groupe/providers/admin_licence_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'ecran_abonnements_source.dart';
+
 // ════════════════════════════════════════════════════════════════════════════
 //  UN MINISTÈRE N'A PAS D'ÉCHÉANCE D'ABONNEMENT
 //
@@ -269,8 +271,6 @@ void main() {
     // gère les abonnements. Elle n'y était pas : le contrat vivait dans
     // « Économie », un autre écran. « Je vois encore aucune licence validée,
     // je ne comprends pas. »
-    const abonnements =
-        'lib/features/super_admin/screens/subscriptions_screen.dart';
     const provider =
         'lib/features/super_admin/providers/subscriptions_provider.dart';
     const formulaire =
@@ -288,7 +288,7 @@ void main() {
     test('elle en montre le MONTANT, pas le tarif du plan support', () {
       // Le plan « Licence de tutelle » est à 0 F — c'est un support, pas un
       // prix. L'afficher tel quel dit l'inverse exact de la vérité.
-      final src = _lire(abonnements);
+      final src = sourceEcranAbonnements();
       expect(src.contains('_ColonneContrat'), isTrue);
       expect(src.contains('Aucune licence'), isTrue,
           reason: 'Un ministère sans marché saisi ne se signale plus : c’est '
@@ -303,7 +303,7 @@ void main() {
       // la sonde est tombée sur un écran qui venait de s'améliorer.
       // Ce qu'elle garde vraiment : depuis les Abonnements, on affecte une
       // licence sans avoir à savoir que l'écran « Économie » existe.
-      final src = _lire(abonnements);
+      final src = sourceEcranAbonnements();
       expect(src.contains('ouvrirFormulaireLicence('), isTrue,
           reason: 'Le raccourci a disparu : il faut de nouveau savoir que '
               '« Économie » existe pour affecter une licence.');

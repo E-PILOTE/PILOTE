@@ -4,6 +4,8 @@ import 'package:epilote/features/admin_groupe/screens/admin_licence_territoire.d
 import 'package:epilote/features/tutelle/providers/tutelle_reseau_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'ecran_abonnements_source.dart';
+
 // ════════════════════════════════════════════════════════════════════════════
 //  ON REGARDE AVANT D'IMPRIMER — et un département mène quelque part
 //
@@ -201,8 +203,7 @@ void main() {
       // sa licence : l'infobulle promettait « Gérer », l'écran proposait d'en
       // créer une seconde, et la garde anti-chevauchement (0186) l'aurait
       // refusée APRÈS la saisie. Vu à l'écran le 2026-09-04.
-      final src =
-          _lire('lib/features/super_admin/screens/subscriptions_screen.dart');
+      final src = sourceEcranAbonnements();
       expect(src.contains('edition: l,'), isTrue);
       expect(src.contains('groupeImpose: l == null ? s.id : null'), isTrue);
 

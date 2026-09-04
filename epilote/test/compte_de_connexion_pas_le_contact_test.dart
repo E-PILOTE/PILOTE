@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:epilote/features/super_admin/providers/comptes_admin_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'ecran_abonnements_source.dart';
+
 // ════════════════════════════════════════════════════════════════════════════
 //  L'ADRESSE AFFICHÉE N'ÉTAIT PAS CELLE QUI OUVRE UNE SESSION
 //
@@ -23,8 +25,6 @@ import 'package:flutter_test/flutter_test.dart';
 //  la donnait avec l'autorité d'un logiciel.
 // ════════════════════════════════════════════════════════════════════════════
 
-const _abonnements =
-    'lib/features/super_admin/screens/subscriptions_screen.dart';
 const _groupes = 'lib/features/super_admin/screens/school_groups_screen.dart';
 const _provider =
     'lib/features/super_admin/providers/comptes_admin_provider.dart';
@@ -54,7 +54,7 @@ void main() {
     test('un seul appel pour tout le parc', () {
       // Une requête par ligne tiendrait à sept groupes et pas à mille.
       final src = _lire(_provider);
-      expect("rpc(".allMatches(src).length, 1);
+      expect('rpc('.allMatches(src).length, 1);
     });
 
     test('les comptes actifs passent devant', () {
@@ -80,7 +80,7 @@ void main() {
 
   group('Les deux écrans montrent l’identifiant, pas le contact', () {
     test('la page Abonnements', () {
-      final src = _lire(_abonnements);
+      final src = sourceEcranAbonnements();
       expect(src.contains('compteDeConnexion(m, s.id)'), isTrue,
           reason: 'La ligne réaffiche l’e-mail de contact là où on lit un '
               'identifiant.');
@@ -102,9 +102,12 @@ void main() {
     test('⚠️ un compte désactivé le dit', () {
       // Lire une adresse qui ne peut plus ouvrir de session, sans le savoir,
       // relance le même quiproquo un cran plus loin.
-      for (final f in [_abonnements, _groupes]) {
-        expect(_lire(f).contains("(désactivé)"), isTrue,
-            reason: '$f ne signale plus un compte désactivé.');
+      for (final e in {
+        'la page Abonnements': sourceEcranAbonnements(),
+        _groupes: _lire(_groupes),
+      }.entries) {
+        expect(e.value.contains('(désactivé)'), isTrue,
+            reason: '${e.key} ne signale plus un compte désactivé.');
       }
     });
   });
