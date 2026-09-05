@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'ecran_abonnements_source.dart';
 import 'ecran_tableau_de_bord_source.dart';
 import 'ecran_reglages_source.dart';
+import 'ecran_abonnement_groupe_source.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  UN MINISTÈRE N'A PAS D'ÉCHÉANCE D'ABONNEMENT
@@ -37,8 +38,6 @@ import 'ecran_reglages_source.dart';
 
 const _migration =
     '../database/migrations/0183_AVANT_LE_BUILD_le_terme_dun_ministere_est_sa_licence.sql';
-const _ecran =
-    'lib/features/admin_groupe/screens/admin_subscription_screen.dart';
 const _carte = 'lib/features/admin_groupe/screens/admin_licence_card.dart';
 const _nav = 'lib/core/widgets/app_shell/nav_config.dart';
 const _economie = 'lib/features/super_admin/screens/economie_screen.dart';
@@ -467,14 +466,14 @@ void main() {
 
   group('L’écran ne propose plus ce que la base refuse', () {
     test('la page change de nature, pas seulement de titre', () {
-      final src = _lire(_ecran);
+      final src = sourceAbonnementGroupe();
       expect(src.contains('LicenceDeTutelleSection(sub: sub)'), isTrue);
       expect(src.contains("estMinistere ? 'Licence de tutelle' : 'Abonnement'"),
           isTrue);
     });
 
     test('ni comparateur, ni demande de plan, ni renouvellement', () {
-      final src = _lire(_ecran);
+      final src = sourceAbonnementGroupe();
       expect(src.contains('if (!sub.estMinistere)\n                    '
           '_MecaniqueAbonnement(data: data, sub: sub),'), isTrue,
           reason: 'La grille des offres est revenue pour un ministère : la '

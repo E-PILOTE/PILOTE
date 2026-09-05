@@ -6,6 +6,7 @@ import 'package:epilote/features/super_admin/providers/invoices_provider.dart'
 import 'package:flutter_test/flutter_test.dart';
 
 import 'ecran_abonnements_source.dart';
+import 'ecran_abonnement_groupe_source.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LA FACTURE DU MOIS S'ÉMET TOUTE SEULE — ce qui ne doit plus se reperdre
@@ -30,8 +31,6 @@ const _mig =
     '../database/migrations/0190_AVANT_LE_BUILD_la_facture_du_mois_ne_sattend_plus.sql';
 const _dialogueClient =
     'lib/features/admin_groupe/screens/admin_subscription_renew_dialog.dart';
-const _carteClient =
-    'lib/features/admin_groupe/screens/admin_subscription_screen.dart';
 const _boutonFondateur =
     'lib/features/super_admin/screens/subscriptions_emettre_facture.dart';
 // La fiche d'un abonnement, où vit le bouton d'émission. C'était
@@ -182,7 +181,7 @@ void main() {
       // il existe une fenêtre où le client voyait « Renouveler » alors que sa
       // facture attendait déjà. Il cliquait, on lui répondait « déjà en
       // attente ».
-      final src = _lire(_carteClient);
+      final src = sourceAbonnementGroupe();
       expect(src.contains('if (enAttente != null) ...['), isTrue);
       expect(src.contains('else if (sub.expired || sub.expireSoon)'), isTrue,
           reason: 'Les deux blocs ne s’excluent plus : le bouton et la facture '

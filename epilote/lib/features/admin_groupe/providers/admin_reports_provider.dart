@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/mesures_manquantes.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  RAPPORTS · agrégation filtrée (période + école) — scope group_id, Supabase
@@ -146,6 +147,35 @@ class ReportSchoolRow {
 }
 
 // ─── Agrégat complet d'un rapport (déjà filtré) ──────────────────────────────
+/// Les mesures d'un rapport, nommées — cf. `MesuresManquantes`.
+///
+/// ⚠️ SEPT LECTURES ÉTAIENT MUETTES. Un rapport de groupe part au ministère :
+/// une requête qui échoue laissait « 0 école », « 0 élève », « 0 FCFA
+/// encaissé », et rien ne disait que le chiffre venait d'un échec plutôt que
+/// de la réalité. Un zéro rond est d'autant plus crédible.
+class MesuresRapport {
+  const MesuresRapport._();
+
+  static const groupe = 'groupe';
+  static const anneeScolaire = 'annee_scolaire';
+  static const ecoles = 'ecoles';
+  static const eleves = 'eleves';
+  static const personnel = 'personnel';
+  static const classes = 'classes';
+  static const paiements = 'paiements';
+
+  static String libelle(String cle) => switch (cle) {
+        groupe => 'identité du groupe',
+        anneeScolaire => 'année scolaire',
+        ecoles => 'établissements',
+        eleves => 'effectifs élèves',
+        personnel => 'personnel',
+        classes => 'classes',
+        paiements => 'paiements',
+        _ => cle,
+      };
+}
+
 class ReportData {
   const ReportData({
     required this.groupName,
@@ -178,7 +208,16 @@ class ReportData {
     required this.revenueTrend,
     required this.schoolRows,
     required this.allSchools,
+    this.mesuresManquantes = const {},
   });
+
+  /// Les mesures que la lecture n'a PAS pu obtenir — cf. [MesuresRapport].
+  ///
+  /// Vide dans le cas normal. Non vide, elle veut dire « ces chiffres ne sont
+  /// pas à zéro : ils sont inconnus ». Un rapport de groupe part au ministère.
+  final Set<String> mesuresManquantes;
+
+  bool manque(String cle) => mesuresManquantes.contains(cle);
 
   final String groupName, planName, periodLabel, scopeLabel;
   final DateTime periodStart, periodEnd;
@@ -332,6 +371,7 @@ class ReportsSnapshot {
     required this.staff,
     required this.classesBySchool,
     required this.payments,
+      this.mesuresManquantes = const {},
   });
 
   final String groupName, planName;
@@ -341,6 +381,9 @@ class ReportsSnapshot {
   final List<StaffRaw> staff;
   final Map<String, int> classesBySchool;
   final List<PaymentRaw> payments;
+
+  /// Les mesures que cette lecture n'a PAS pu obtenir. Vide dans le cas normal.
+  final Set<String> mesuresManquantes;
 }
 
 // ─── Provider snapshot (1 chargement réseau, realtime, keepAlive) ────────────
@@ -364,6 +407,11 @@ final reportsSnapshotProvider =
     );
   }
 
+  // Ce que la lecture n'aura pas pu obtenir. Rempli par les `catch` ci-dessous
+  // et rendu avec les données : un rapport qui affiche des zéros sans dire
+  // qu'il n'a rien lu est un rapport faux.
+  final manquantes = MesuresManquantes();
+
   // Le pré-chargement réseau est lourd ; on n'invalide pas en boucle.
   // (Le bouton Actualiser + le pull-to-refresh suffisent ; pas de realtime ici
   //  pour éviter de recharger toutes les lignes du groupe à chaque écriture.)
@@ -384,7 +432,9 @@ final reportsSnapshotProvider =
       final plan = g['subscription_plans'] as Map<String, dynamic>?;
       planName = plan?['name'] as String? ?? '—';
     }
-  } catch (_) {}
+  } catch (e) {
+    manquantes.note(MesuresRapport.groupe, e, ecran: 'Rapports');
+  }
   try {
     final ay = await client
         .from('academic_years')
@@ -400,7 +450,9 @@ final reportsSnapshotProvider =
       if (sd != null) academicStart = sd;
       if (ed != null) academicEnd = ed;
     }
-  } catch (_) {}
+  } catch (e) {
+    manquantes.note(MesuresRapport.anneeScolaire, e, ecran: 'Rapports');
+  }
 
   // ── Écoles ────────────────────────────────────────────────────────────────
   final List<SchoolRaw> schools = [];
@@ -421,7 +473,9 @@ final reportsSnapshotProvider =
         city: s['city'] as String?,
       ));
     }
-  } catch (_) {}
+  } catch (e) {
+    manquantes.note(MesuresRapport.ecoles, e, ecran: 'Rapports');
+  }
 
   // ── Élèves ──────────────────────────────────────────────────────────────────
   final List<StudentRaw> students = [];
@@ -438,7 +492,9 @@ final reportsSnapshotProvider =
         createdAt: DateTime.tryParse(r['created_at'] as String? ?? ''),
       ));
     }
-  } catch (_) {}
+  } catch (e) {
+    manquantes.note(MesuresRapport.eleves, e, ecran: 'Rapports');
+  }
 
   // ── Personnel ───────────────────────────────────────────────────────────────
   final List<StaffRaw> staff = [];
@@ -455,7 +511,9 @@ final reportsSnapshotProvider =
         hireDate: DateTime.tryParse(r['hire_date'] as String? ?? ''),
       ));
     }
-  } catch (_) {}
+  } catch (e) {
+    manquantes.note(MesuresRapport.personnel, e, ecran: 'Rapports');
+  }
 
   // ── Classes (compte par école) ──────────────────────────────────────────────
   final Map<String, int> classesBySchool = {};
@@ -469,7 +527,9 @@ final reportsSnapshotProvider =
       final sid = r['school_id'] as String? ?? '';
       classesBySchool[sid] = (classesBySchool[sid] ?? 0) + 1;
     }
-  } catch (_) {}
+  } catch (e) {
+    manquantes.note(MesuresRapport.classes, e, ecran: 'Rapports');
+  }
 
   // ── Paiements confirmés (toute l'année scolaire pour permettre le filtre) ───
   final List<PaymentRaw> payments = [];
@@ -487,7 +547,9 @@ final reportsSnapshotProvider =
         date: DateTime.tryParse(r['payment_date'] as String? ?? ''),
       ));
     }
-  } catch (_) {}
+  } catch (e) {
+    manquantes.note(MesuresRapport.paiements, e, ecran: 'Rapports');
+  }
 
   return ReportsSnapshot(
     groupName: groupName,
@@ -499,6 +561,7 @@ final reportsSnapshotProvider =
     staff: staff,
     classesBySchool: classesBySchool,
     payments: payments,
+    mesuresManquantes: manquantes.cles,
   );
 });
 
@@ -691,6 +754,7 @@ ReportData _aggregate(ReportsSnapshot s, ReportFilter f) {
       : (byId[schoolId]?.name ?? 'École');
 
   return ReportData(
+    mesuresManquantes: s.mesuresManquantes,
     groupName: s.groupName,
     planName: s.planName,
     periodLabel: f.period.label,

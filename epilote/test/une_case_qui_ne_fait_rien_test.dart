@@ -105,7 +105,7 @@ void main() {
           greaterThanOrEqualTo(4),
           reason: 'Chaque champ doit lire la politique pour valider ET pour '
               'annoncer l’exigence.');
-      expect(src.contains("if (v.length < 6)"), isFalse,
+      expect(src.contains('if (v.length < 6)'), isFalse,
           reason: 'Six caractères en dur ignorent le réglage du groupe.');
     });
 
