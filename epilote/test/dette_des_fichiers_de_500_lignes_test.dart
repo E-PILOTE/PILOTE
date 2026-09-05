@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'ecran_abonnements_source.dart';
 import 'ecran_administrateurs_source.dart';
 import 'ecran_groupes_source.dart';
+import 'ecran_tableau_de_bord_source.dart';
 import 'ecran_utilisateurs_source.dart';
 import 'source_bibliotheque.dart';
 
@@ -12,7 +13,7 @@ import 'source_bibliotheque.dart';
 //  LA RÈGLE DES 500 LIGNES, RENDUE OPPOSABLE
 //
 //  ── POURQUOI UN CLIQUET PLUTÔT QU'UNE INTERDICTION ────────────────────────
-//  Le dépôt compte encore 94 fichiers au-dessus de 500 lignes ; interdire
+//  Le dépôt compte encore 89 fichiers au-dessus de 500 lignes ; interdire
 //  franchement ferait tomber la suite entière et le test serait désactivé dans
 //  la semaine. Un CLIQUET, lui, tient : la dette peut diminuer, jamais
 //  augmenter. Chaque découpage abaisse le plafond, et un fichier neuf trop
@@ -22,17 +23,18 @@ import 'source_bibliotheque.dart';
 //  monte pas. S'il gêne, c'est qu'il fait son travail : découper.
 //
 //  ── ET LES QUATRE ÉCRANS DÉJÀ DÉCOUPÉS ────────────────────────────────────
-//  Abonnements (2 652 lignes), utilisateurs (2 346), administrateurs (3 134) et
-//  groupes (3 400) ont été coupés en `part`. Rien n'empêche qu'un morceau
+//  Neuf écrans ont été coupés en `part` : abonnements (2 652 lignes),
+//  utilisateurs (2 346), administrateurs (3 134), groupes (3 400), modules
+//  (3 192), modules du groupe (3 057), accès (3 027), formules (2 844) et
+//  tableau de bord (2 975). Rien n'empêche qu'un morceau
 //  regrossisse jusqu'à redevenir le fichier qu'on venait de casser : ces
 //  bibliothèques-là sont donc tenues à la règle stricte.
 // ════════════════════════════════════════════════════════════════════════════
 
 /// Nombre de fichiers de `lib/` dépassant 500 lignes, au 2026-09-05.
 ///
-/// Il en restait 98 au matin : utilisateurs, administrateurs et groupes
-/// scolaires ont été découpés depuis.
-const int _plafond = 94;
+/// Il en restait 98 au matin ; neuf écrans ont été découpés depuis.
+const int _plafond = 89;
 
 const int _limite = 500;
 
@@ -77,6 +79,7 @@ void main() {
       'utilisateurs': taillesEcranUtilisateurs(),
       'administrateurs': taillesEcranAdministrateurs(),
       'groupes': taillesEcranGroupes(),
+      'tableau de bord': taillesTableauDeBord(),
     };
 
     for (final e in bibliotheques.entries) {
@@ -89,7 +92,7 @@ void main() {
       });
     }
 
-    test('les quatre bibliothèques sont bien éclatées', () {
+    test('les bibliothèques suivies sont bien éclatées', () {
       // Un découpage « défait » se voit ici avant de rendre toutes les sondes
       // de ces écrans vertes-mais-aveugles.
       for (final e in bibliotheques.entries) {

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'ecran_tableau_de_bord_source.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LA CARTE NATIONALE EST UN OUTIL DE TUTELLE, PAS UN OUTIL DE CLIENT
@@ -22,8 +23,6 @@ import 'package:flutter_test/flutter_test.dart';
 //  super_admin. Elle n'est pas concernée : c'est son métier de voir le pays.
 // ════════════════════════════════════════════════════════════════════════════
 
-const _dashboard =
-    'lib/features/admin_groupe/screens/admin_dashboard_screen.dart';
 const _drapeaux =
     'lib/features/admin_groupe/providers/referentiel_national_provider.dart';
 const _dashboardFondateur =
@@ -38,7 +37,7 @@ String _lire(String chemin) {
 void main() {
   group('Un groupe privé n’a pas la carte du pays', () {
     test('l’onglet n’existe que pour un ministère', () {
-      final src = _lire(_dashboard);
+      final src = sourceTableauDeBord();
       expect(src.contains('if (estMinistere) _DashTabs(tab: tab),'), isTrue,
           reason: 'La barre d’onglets est revenue pour tout le monde : un '
               'client privé retrouve la carte nationale.');
@@ -48,7 +47,7 @@ void main() {
       // Masquer la pastille en laissant l'onglet 1 actif afficherait la carte
       // à un client qui l'avait ouverte avant la mise à jour : l'état de
       // l'onglet survit au redémarrage.
-      final src = _lire(_dashboard);
+      final src = sourceTableauDeBord();
       expect(src.contains('final surLaCarte = estMinistere && tab == 1;'),
           isTrue,
           reason: 'Le contenu ne dépend plus du rôle : un onglet déjà '
@@ -60,7 +59,7 @@ void main() {
       // C'est la moitié du correctif qu'on oublie : trois GeoJSON nationaux
       // téléchargés à chaque ouverture, chez des clients qui n'en verront
       // jamais la carte.
-      final src = _lire(_dashboard);
+      final src = sourceTableauDeBord();
       final i = src.indexOf('if (estMinistere) {');
       expect(i, greaterThan(0),
           reason: 'Les données géo se chargent de nouveau pour tout le monde.');
@@ -78,7 +77,7 @@ void main() {
     test('au doute, on retire l’outil plutôt que de l’ouvrir', () {
       // Le drapeau arrive de façon asynchrone. Un `?? true` mettrait la carte
       // nationale chez le client pendant chaque chargement.
-      final src = _lire(_dashboard);
+      final src = sourceTableauDeBord();
       expect(
           src.contains(
               'ref.watch(groupeEstMinistereProvider).valueOrNull ?? false'),

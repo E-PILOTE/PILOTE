@@ -5,6 +5,7 @@ import 'package:epilote/features/admin_groupe/providers/admin_licence_provider.d
 import 'package:flutter_test/flutter_test.dart';
 
 import 'ecran_abonnements_source.dart';
+import 'ecran_tableau_de_bord_source.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  UN MINISTÈRE N'A PAS D'ÉCHÉANCE D'ABONNEMENT
@@ -42,8 +43,6 @@ const _nav = 'lib/core/widgets/app_shell/nav_config.dart';
 const _economie = 'lib/features/super_admin/screens/economie_screen.dart';
 const _dialogue =
     'lib/features/super_admin/screens/economie/licence_form_dialog.dart';
-const _tableauDeBord =
-    'lib/features/admin_groupe/screens/admin_dashboard_screen.dart';
 const _fiche = 'lib/features/admin_groupe/screens/admin_settings_screen.dart';
 const _groupes =
     'lib/features/super_admin/providers/school_groups_provider.dart';
@@ -127,7 +126,7 @@ void main() {
       // part, et c'est cet exemplaire-là qui divergera le jour où le slug
       // change — en proposant le plan des ministères à un groupe privé.
       expect(_lire(_groupes).contains('estPlanDeLicence(slug)'), isTrue);
-      expect(_lire(_tableauDeBord).contains('estPlanDeLicence(data.planSlug)'),
+      expect(sourceTableauDeBord().contains('estPlanDeLicence(data.planSlug)'),
           isTrue,
           reason: 'Le bandeau du tableau de bord annonce de nouveau « Plan '
               'Licence de tutelle » à un ministère.');
