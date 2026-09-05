@@ -110,3 +110,61 @@ class _Kpi {
   final double progress;
   final VoidCallback? onTap;
 }
+
+// ─── Ce que le tableau de bord n'a pas pu lire ───────────────────────────────
+//
+//  ⚠️ HUIT LECTURES ÉTAIENT MUETTES (`catch (_) {}`) : identité du groupe,
+//  établissements, élèves, personnel, classes, corps enseignant, finances,
+//  activité. Une requête qui échoue laissait la mesure à ZÉRO — et c'est le
+//  premier écran qu'ouvre un administrateur de réseau, ministère compris.
+class _MesuresManquantesGroupe extends ConsumerWidget {
+  const _MesuresManquantesGroupe({required this.data});
+  final AdminDashboardData data;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final noms = (data.mesuresManquantes
+            .map(MesuresTableauGroupe.libelle)
+            .toList()
+          ..sort())
+        .join(', ');
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      decoration: BoxDecoration(
+        color: kAccent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kAccent.withValues(alpha: 0.35)),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(Icons.cloud_off_rounded, size: 18, color: kAccent),
+        const SizedBox(width: 11),
+        Expanded(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Certaines mesures manquent',
+                style: TextStyle(
+                    color: kAccent, fontSize: 13, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 3),
+            Text(
+              'Non lues : $noms. Les cases correspondantes ne sont pas à zéro, '
+              'elles sont inconnues.',
+              style: TextStyle(
+                  color: kTextPrimary.withValues(alpha: 0.85),
+                  fontSize: 11.5,
+                  height: 1.35),
+            ),
+          ]),
+        ),
+        const SizedBox(width: 12),
+        TextButton.icon(
+          onPressed: () => ref.invalidate(adminDashboardProvider),
+          icon: const Icon(Icons.refresh_rounded, size: 15),
+          label: const Text('Réessayer', style: TextStyle(fontSize: 12)),
+          style: TextButton.styleFrom(foregroundColor: kAccent),
+        ),
+      ]),
+    );
+  }
+}

@@ -91,4 +91,32 @@ void main() {
       expect(src.contains('invalidate(reportsSnapshotProvider)'), isTrue);
     });
   });
+
+  group('Le tableau de bord du groupe aussi', () {
+    // Meme famille, meme correction : huit lectures muettes sur l'ecran qu'un
+    // administrateur de reseau ouvre en premier chaque matin.
+    const provider =
+        'lib/features/admin_groupe/providers/admin_dashboard_provider.dart';
+
+    test('plus un seul `catch (_) {}`', () {
+      expect(_sansCommentaires(_lire(provider)).contains('catch (_) {}'),
+          isFalse);
+    });
+
+    test('les huit echecs sont nommes et traces', () {
+      final src = _sansCommentaires(_lire(provider));
+      expect('manquantes.note('.allMatches(src).length, 8);
+      expect(src.contains('mesuresManquantes: manquantes.cles'), isTrue);
+    });
+
+    test('le bandeau precede les cartouches', () {
+      final src = _sansCommentaires(_lire(
+          'lib/features/admin_groupe/screens/tableau_de_bord/dash_apercu.dart'));
+      final bandeau = src.indexOf('_MesuresManquantesGroupe(data: data)');
+      final kpis = src.indexOf('_KpiSection(data: data)');
+      expect(bandeau, greaterThan(-1));
+      expect(kpis, greaterThan(-1));
+      expect(bandeau, lessThan(kpis));
+    });
+  });
 }

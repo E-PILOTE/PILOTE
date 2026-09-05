@@ -17,6 +17,13 @@ class _Overview extends StatelessWidget {
         _PageHeader(data: data),
         const SizedBox(height: 18),
         const _QuickActions(),
+        // AVANT tout le reste : ce que la lecture n'a pas pu obtenir. Un zéro
+        // affiché comme un fait se lit « aucune école », pas « je n'ai pas pu
+        // compter ».
+        if (data.mesuresManquantes.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          _MesuresManquantesGroupe(data: data),
+        ],
         if (showBanner) ...[
           const SizedBox(height: 18),
           _CriticalBanner(data: data),

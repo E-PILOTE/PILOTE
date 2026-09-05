@@ -8,6 +8,7 @@ import '../../../core/utils/plan_referential_realtime.dart';
 import '../../../core/utils/subscription_days.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/mesures_manquantes.dart';
 import 'subscription_access_provider.dart'
     show kSubscriptionAlertDays, subscriptionSettingsProvider;
 
@@ -51,6 +52,37 @@ class AdminActivity {
 }
 
 // ─── Données dashboard admin groupe ─────────────────────────────────────────
+/// Les mesures du tableau de bord du groupe, nommées — cf. `MesuresManquantes`.
+///
+/// ⚠️ HUIT LECTURES ÉTAIENT MUETTES. Une requête qui échoue laissait la mesure
+/// à ZÉRO, et la page annonçait « 0 école », « 0 élève », « 0 enseignant » à
+/// l'administrateur du réseau — y compris à un ministère, sur l'écran qu'il
+/// ouvre en premier chaque matin.
+class MesuresTableauGroupe {
+  const MesuresTableauGroupe._();
+
+  static const groupe = 'groupe';
+  static const ecoles = 'ecoles';
+  static const eleves = 'eleves';
+  static const personnel = 'personnel';
+  static const classes = 'classes';
+  static const corpsEnseignant = 'corps_enseignant';
+  static const finances = 'finances';
+  static const activite = 'activite';
+
+  static String libelle(String cle) => switch (cle) {
+        groupe => 'identité du groupe',
+        ecoles => 'établissements',
+        eleves => 'effectifs élèves',
+        personnel => 'personnel',
+        classes => 'classes',
+        corpsEnseignant => 'corps enseignant',
+        finances => 'finances',
+        activite => 'activité récente',
+        _ => cle,
+      };
+}
+
 class AdminDashboardData {
   const AdminDashboardData({
     required this.groupName,
@@ -89,6 +121,7 @@ class AdminDashboardData {
     required this.staffByDept,
     required this.hireTrend,
     this.alertDays = kSubscriptionAlertDays,
+      this.mesuresManquantes = const {},
   });
 
   final String  groupName;
@@ -165,6 +198,13 @@ class AdminDashboardData {
     final d = daysUntilDate(subscriptionEnd);
     return d != null && d >= 0 && d <= alertDays;
   }
+
+  /// Les mesures que cette lecture n'a PAS pu obtenir. Vide dans le cas normal.
+  /// Non vide, elle veut dire « ces cases ne sont pas à zéro : elles sont
+  /// inconnues ».
+  final Set<String> mesuresManquantes;
+
+  bool manque(String cle) => mesuresManquantes.contains(cle);
 
   static const empty = AdminDashboardData(
     groupName: '—',
@@ -246,6 +286,10 @@ final adminDashboardProvider =
     });
   } catch (_) {/* hors-ligne / token expiré → on continue */}
 
+  // Ce que la lecture n'aura pas pu obtenir. Rempli par les `catch` ci-dessous
+  // et rendu avec les données : une page qui montre des zéros sans le dire ment.
+  final manquantes = MesuresManquantes();
+
   // ── Groupe + plan ──────────────────────────────────────────────────────────
   String  groupName = '—';
   String  planName = '—', planSlug = '';
@@ -272,7 +316,9 @@ final adminDashboardProvider =
       maxStaff    = (plan?['max_staff']    as int?) ?? 0;
       moduleCount = (plan?['module_count'] as int?) ?? 0;
     }
-  } catch (_) {}
+  } catch (e) {
+    manquantes.note(MesuresTableauGroupe.groupe, e, ecran: 'Tableau de bord groupe');
+  }
 
   // ── Écoles (avec département) ─────────────────────────────────────────────
   final List<Map<String, dynamic>> schoolRows = [];
@@ -297,7 +343,9 @@ final adminDashboardProvider =
         case 'prive':  priveCount++;  break;
       }
     }
-  } catch (_) {}
+  } catch (e) {
+    manquantes.note(MesuresTableauGroupe.ecoles, e, ecran: 'Tableau de bord groupe');
+  }
 
   // ── Élèves : comptage, genre, département, tendance d'inscription ─────────
   final Map<String, int> studentsBySchool = {};
@@ -326,7 +374,9 @@ final adminDashboardProvider =
       final created = DateTime.tryParse(r['created_at'] as String? ?? '');
       if (created != null) enrollDates.add(created);
     }
-  } catch (_) {}
+  } catch (e) {
+    manquantes.note(MesuresTableauGroupe.eleves, e, ecran: 'Tableau de bord groupe');
+  }
 
   // ── Personnel + statut d'emploi (fonctionnaires vs non-fonctionnaires) ────
   final Map<String, int> staffBySchool   = {};
@@ -361,7 +411,9 @@ final adminDashboardProvider =
       final hired = DateTime.tryParse(r['hire_date'] as String? ?? '');
       if (hired != null) hireDates.add(hired);
     }
-  } catch (_) {}
+  } catch (e) {
+    manquantes.note(MesuresTableauGroupe.personnel, e, ecran: 'Tableau de bord groupe');
+  }
 
   // ── Classes ──────────────────────────────────────────────────────────────
   final Map<String, int> classesBySchool = {};
@@ -377,7 +429,9 @@ final adminDashboardProvider =
       final sid = r['school_id'] as String? ?? '';
       classesBySchool[sid] = (classesBySchool[sid] ?? 0) + 1;
     }
-  } catch (_) {}
+  } catch (e) {
+    manquantes.note(MesuresTableauGroupe.classes, e, ecran: 'Tableau de bord groupe');
+  }
 
   // ── Corps enseignant / administrateurs (profiles, scope groupe) ──────────
   int enseignantsTotal = 0, adminsTotal = 0;
@@ -392,7 +446,9 @@ final adminDashboardProvider =
         case 'admin_groupe': adminsTotal++;      break;
       }
     }
-  } catch (_) {}
+  } catch (e) {
+    manquantes.note(MesuresTableauGroupe.corpsEnseignant, e, ecran: 'Tableau de bord groupe');
+  }
 
   final schools = schoolRows.map((s) {
     final id = s['id'] as String;
@@ -468,7 +524,9 @@ final adminDashboardProvider =
       paiementsCount = countByMonth[key] ?? 0;
       if (key != currentKey) revenusMoisLabel = _monthLabel(key);
     }
-  } catch (_) {}
+  } catch (e) {
+    manquantes.note(MesuresTableauGroupe.finances, e, ecran: 'Tableau de bord groupe');
+  }
 
   // ── Activité récente (audit, RLS scope groupe) ───────────────────────────
   final List<AdminActivity> activity = [];
@@ -489,9 +547,12 @@ final adminDashboardProvider =
         icon:  _tableIcon(table),
       ));
     }
-  } catch (_) {}
+  } catch (e) {
+    manquantes.note(MesuresTableauGroupe.activite, e, ecran: 'Tableau de bord groupe');
+  }
 
   return AdminDashboardData(
+    mesuresManquantes: manquantes.cles,
     groupName:          groupName,
     planName:           planName,
     planSlug:           planSlug,
