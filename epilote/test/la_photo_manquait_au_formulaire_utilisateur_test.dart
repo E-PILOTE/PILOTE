@@ -7,6 +7,8 @@ import 'package:epilote/features/profil/services/mon_avatar_service.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'ecran_utilisateurs_source.dart';
+
 // ════════════════════════════════════════════════════════════════════════════
 //  LE FORMULAIRE UTILISATEUR NE DEMANDAIT PAS LE VISAGE
 //
@@ -30,7 +32,6 @@ const _migration =
     '../database/migrations/0193_AVANT_LE_BUILD_lannuaire_du_groupe_ignorait_les_visages.sql';
 const _service = 'lib/features/admin_groupe/services/photo_utilisateur_service.dart';
 const _provider = 'lib/features/admin_groupe/providers/admin_users_provider.dart';
-const _ecran = 'lib/features/admin_groupe/screens/admin_users_screen.dart';
 
 String _lire(String chemin) {
   final f = File(chemin);
@@ -94,7 +95,7 @@ void main() {
       // À la création, l'identifiant de la personne n'existe pas encore : il
       // n'y a aucun chemin de stockage à calculer. Et un formulaire abandonné
       // ne doit pas laisser de fichier orphelin dans le seau.
-      final src = _sansCommentaires(_lire(_ecran));
+      final src = _sansCommentaires(sourceEcranUtilisateurs());
       expect(src.contains('choisirPhotoPersonne'), isTrue,
           reason: 'Webcam ou fichier — la même porte que les autres écrans.');
       expect(src.contains('queueAvatarUpload'), isFalse);
@@ -118,7 +119,7 @@ void main() {
       final src = _sansCommentaires(_lire(_provider));
       expect(src.contains('PhotoNonPosee'), isTrue);
 
-      final ecran = _sansCommentaires(_lire(_ecran));
+      final ecran = _sansCommentaires(sourceEcranUtilisateurs());
       expect(ecran.contains('on PhotoNonPosee catch'), isTrue,
           reason: 'Sinon l’administrateur resoumet le formulaire et se heurte '
               'à « adresse déjà utilisée » sans comprendre.');
@@ -158,7 +159,7 @@ void main() {
 
   group('L’annuaire affiche les visages, plus des initiales', () {
     test('les trois pastilles passent par le widget partagé', () {
-      final src = _sansCommentaires(_lire(_ecran));
+      final src = _sansCommentaires(sourceEcranUtilisateurs());
       expect(src.contains('u.initials'), isFalse,
           reason: 'Une pastille d’initiales au-dessus d’une photo existante '
               'donne à croire qu’aucune photo n’a été déposée.');
@@ -228,10 +229,27 @@ void main() {
       expect(find.byType(Image), findsOneWidget);
     });
   });
+
+  group('Le découpage tient', () {
+    // 2 346 lignes dans un seul fichier : on n'y ajoutait plus rien sans le
+    // relire en entier. La règle du projet est 500 lignes ; ce test la rend
+    // opposable au lieu de la laisser à la bonne volonté.
+    test('aucun fichier de l’écran utilisateurs ne dépasse 500 lignes', () {
+      final trop = <String, int>{
+        for (final e in taillesEcranUtilisateurs().entries)
+          if (e.value > 500) e.key: e.value,
+      };
+      expect(trop, isEmpty, reason: 'Fichiers à redécouper : $trop');
+    });
+
+    test('la bibliothèque est bien éclatée, pas juste renommée', () {
+      expect(taillesEcranUtilisateurs().length, greaterThanOrEqualTo(9));
+    });
+  });
 }
 
-/// Le plus petit PNG valide (1×1, transparent) — de quoi faire rendre
-/// `Image.memory` sans dépendre d'un fichier sur le disque.
+/// Le plus petit PNG valide (1x1, transparent) : de quoi faire rendre
+/// `Image.memory` sans dependre d'un fichier sur le disque.
 const List<int> _pngMinimal = [
   0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, //
   0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
