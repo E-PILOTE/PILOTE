@@ -38,6 +38,8 @@ class GroupSubscription {
     this.basePriceXaf = 0,
     this.schoolsBilled = 1,
     this.priceOverrideXaf,
+    this.estMinistere = false,
+    this.tutelle,
   });
   final String groupName;
   final String? planId;
@@ -66,6 +68,19 @@ class GroupSubscription {
   /// Tarif négocié qui remplace la grille (`school_groups.price_override_xaf`).
   /// Non nul ⇒ le prix ne bouge plus quand une école s'ajoute.
   final int? priceOverrideXaf;
+
+  /// `school_groups.administre_referentiel_national` — ce groupe EST un des
+  /// deux ministères de tutelle.
+  ///
+  /// ⚠️ Il ne change pas seulement l'habillage de la page : il en change la
+  /// NATURE. Un ministère n'a pas d'abonnement mensuel, pas d'échéance, pas de
+  /// renouvellement en libre-service et pas de plan à comparer — la base
+  /// refuse les trois derniers depuis 0182 et 0183. Lui proposer ces boutons
+  /// serait lui offrir des actions qui partent se faire refuser.
+  final bool estMinistere;
+
+  /// `mepsa` / `metp` — le sigle et la couleur de la pastille ministère.
+  final String? tutelle;
 
   bool get tarifNegocie => priceOverrideXaf != null;
 
@@ -236,6 +251,18 @@ class AdminSubscriptionData {
       .fold(0, (s, i) => s + i.amountXaf);
   int get overdueCount     => invoices.where((i) => i.isOverdue).length;
 
+  /// La facture de renouvellement en attente, s'il y en a une.
+  ///
+  /// Depuis 0190 la plateforme l'émet seule, sept jours avant l'échéance. La
+  /// base n'en laisse jamais deux ouvertes à la fois (c'est ce qui rend la
+  /// tâche de nuit rejouable) — la première trouvée est donc LA facture due.
+  InvoiceDetail? get factureEnAttente {
+    for (final i in invoices) {
+      if (i.isPending || i.isOverdue) return i;
+    }
+    return null;
+  }
+
   // ── Demandes de changement de plan ──
   /// Vrai si une demande est encore en cours (open / in_progress) — utilisé
   /// pour bloquer une seconde demande et informer l'utilisateur.
@@ -331,6 +358,7 @@ final adminSubscriptionProvider =
         .from('school_groups')
         .select('name, plan_id, subscription_status, subscription_start, subscription_end, '
             'price_override_xaf, billed_schools, '
+            'tutelle, administre_referentiel_national, '
             'subscription_plans!plan_id(id, name, slug, price_xaf, billing_period, '
             'extra_school_2_5_xaf, extra_school_6_10_xaf, extra_school_11_20_xaf, '
             'extra_school_21p_xaf, max_schools, max_students, max_staff, module_count, description)')
@@ -401,6 +429,9 @@ final adminSubscriptionProvider =
         studentsUsed: studentsUsed,
         staffUsed:    staffUsed,
         alertDays:    settings.alertDays,
+        estMinistere:
+            g['administre_referentiel_national'] as bool? ?? false,
+        tutelle:      g['tutelle'] as String?,
       );
     }
   } catch (_) {}

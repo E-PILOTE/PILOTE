@@ -65,11 +65,21 @@ class _ThreadView extends ConsumerStatefulWidget {
     required this.online,
     required this.onDeselect,
     this.onBack,
+    this.ministere,
   });
 
   final _Conversation conv;
   final String meId;
   final String groupId;
+
+  /// Renseigné quand l'interlocuteur appartient à un ministère de tutelle
+  /// (RPC `correspondants_ministere`, migration 0184). `null` = cas normal.
+  ///
+  /// ⚠️ Le fil est l'endroit où ça compte le plus : c'est là qu'on répond. On
+  /// y met la pastille COMPLÈTE (« MINISTÈRE · MEPSA ») et le nom du
+  /// ministère sous celui de la personne — un agent écrit toujours au nom de
+  /// son administration, et son nom propre ne le dit pas.
+  final CorrespondantMinistere? ministere;
 
   /// Accusés de lecture par membre (conversations de groupe).
   final ConvReadState reads;
@@ -641,6 +651,12 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
                                     fontWeight: FontWeight.w700,
                                     color: kTextPrimary)),
                           ),
+                          if (widget.ministere != null) ...[
+                            const SizedBox(width: 7),
+                            BadgeMinistere(
+                                estMinistere: true,
+                                tutelle: widget.ministere!.tutelle),
+                          ],
                           if (!widget.conv.isGroup &&
                               widget.conv.otherRole != null) ...[
                             const SizedBox(width: 7),
@@ -685,9 +701,15 @@ class _ThreadViewState extends ConsumerState<_ThreadView> {
                           Text(
                               widget.conv.isGroup
                                   ? '${widget.conv.group?.memberCount ?? 0} membres · appuyer pour les infos'
-                                  : (msgs.isEmpty
-                                      ? ''
-                                      : baseSubject(widget.conv.first.subject)),
+                                  // Un agent écrit toujours au nom de son
+                                  // administration ; son nom propre ne le dit
+                                  // pas. On nomme donc le ministère sous lui.
+                                  : (widget.ministere != null
+                                      ? widget.ministere!.groupeNom
+                                      : msgs.isEmpty
+                                          ? ''
+                                          : baseSubject(
+                                              widget.conv.first.subject)),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(

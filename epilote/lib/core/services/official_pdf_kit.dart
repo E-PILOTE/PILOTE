@@ -525,6 +525,7 @@ class OfficialPdfKit {
     required String emptyLabel,
     int perBlock = kRowsPerBlock,
     Set<int> leftAlignCols = const {},
+    Set<int> multiLineCols = const {},
     int maxLines = 1,
     double? rowHeight,
     String? note,
@@ -582,6 +583,7 @@ class OfficialPdfKit {
                 flex: flex,
                 fonts: fonts,
                 leftAlignCols: leftAlignCols,
+                multiLineCols: multiLineCols,
                 maxLines: maxLines,
                 rowHeight: rowHeight,
               ),
@@ -644,6 +646,20 @@ class OfficialPdfKit {
     required List<int> flex,
     required PdfFonts fonts,
     Set<int> leftAlignCols = const {},
+
+    /// Colonnes AUTRES que la première ayant droit à [maxLines] lignes.
+    ///
+    /// ⚠️ Par défaut VIDE — le comportement des vingt appels existants ne
+    /// bouge pas. Ce paramètre existe parce que la colonne d'un libellé long
+    /// qui n'est PAS la première se faisait écrêter à une ligne : dans l'état
+    /// du réseau sous tutelle, « Réseau Scolaire Saint-Pierre » et « Réseau
+    /// Scolaire Horizon » s'affichaient tous deux « Réseau Scolaire » — deux
+    /// opérateurs distincts devenus indiscernables sur un document officiel.
+    ///
+    /// Comme pour la première colonne, [rowHeight] reste obligatoire dès que
+    /// [maxLines] dépasse 1 : c'est la hauteur fixe qui rend la pagination
+    /// calculable.
+    Set<int> multiLineCols = const {},
     int maxLines = 1,
     double? rowHeight,
   }) {
@@ -716,9 +732,12 @@ class OfficialPdfKit {
           (i) => cell(r[i], flex[i], i == 0 ? fonts.medium : fonts.regular, i,
               r.length,
               color: i == 0 ? kPdfText : kPdfMuted,
-              // Seule la première colonne — le libellé — a droit à plusieurs
-              // lignes. Un nombre qui passerait à la ligne ne se lit plus.
-              lignes: i == 0 ? maxLines : 1)))),
+              // La première colonne — le libellé — a droit à plusieurs
+              // lignes, et celles que l'appelant désigne. Un nombre qui
+              // passerait à la ligne ne se lit plus : la liste reste explicite.
+              lignes: (i == 0 || multiLineCols.contains(i))
+                  ? maxLines
+                  : 1)))),
     ]);
   }
 

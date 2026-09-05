@@ -39,7 +39,7 @@ const _kPermissions =
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('$chemin introuvable — tourner depuis `epilote/`.');
-  return f.readAsStringSync();
+  return f.readAsStringSync().replaceAll('\r\n', '\n');
 }
 
 List<File> _dartsSous(String chemin) => Directory(chemin)
@@ -275,7 +275,7 @@ void main() {
     test('`parentNotified` ne s\'écrit jamais sans `notified_at`', () {
       final fautes = <String>[];
       for (final f in _dartsSous('lib')) {
-        final src = f.readAsStringSync();
+        final src = f.readAsStringSync().replaceAll('\r\n', '\n');
         // On vise l'ÉCRITURE, pas l'affichage : un écran qui montre la
         // case, un PDF qui l'imprime, n'ont pas de date à poser.
         final ecrit = src.contains('parentNotified ? 1 : 0') ||

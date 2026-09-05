@@ -13,7 +13,11 @@ import '../services/subjects_pdf_service.dart';
 import 'subject_detail_dialog.dart';
 import '../../../core/utils/message_erreur.dart';
 
-part 'subjects_parts.dart';
+part 'subjects_filters.dart';
+part 'subjects_table.dart';
+part 'subjects_cards.dart';
+part 'subjects_form.dart';
+part 'subjects_bulk.dart';
 
 const _kSlug = 'matieres';
 

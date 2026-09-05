@@ -32,7 +32,7 @@ import '../../features/super_admin/screens/tickets_screen.dart';
 import '../../features/super_admin/screens/platform_service_messages_screen.dart';
 import '../../features/super_admin/screens/platform_partners_screen.dart';
 import '../../features/super_admin/screens/national_map_screen.dart';
-import '../../features/super_admin/screens/profile_screen.dart';
+import '../../features/profil/screens/mon_profil_screen.dart';
 import '../../features/admin_groupe/screens/admin_academic_years_screen.dart';
 import '../../features/admin_groupe/screens/admin_fees_screen.dart';
 import '../../features/admin_groupe/screens/admin_rattachement_screen.dart';
@@ -44,8 +44,6 @@ import '../../features/admin_groupe/screens/admin_reports_screen.dart';
 import '../../features/admin_groupe/screens/admin_exams_screen.dart';
 import '../../features/admin_groupe/screens/exam_referential_screen.dart';
 import '../../features/tutelle/screens/tutelle_reseau_screen.dart';
-import '../../features/communication/screens/circulaires_emises_screen.dart';
-import '../../features/communication/screens/circulaires_recues_screen.dart';
 import '../../features/admin_groupe/screens/exam_sessions_screen.dart';
 import '../../features/admin_groupe/screens/admin_exam_results_screen.dart';
 import '../../features/admin_groupe/screens/admin_merit_screen.dart';
@@ -54,7 +52,6 @@ import '../../features/admin_groupe/screens/admin_subscription_screen.dart';
 import '../../features/audit/screens/audit_screen.dart' as shared_audit;
 import '../../features/admin_groupe/screens/admin_settings_screen.dart';
 import '../../features/communication/screens/support_requester_screen.dart';
-import '../../features/admin_groupe/screens/admin_profile_screen.dart';
 import '../../features/admin_groupe/screens/admin_module_screen.dart';
 import '../../features/admin_groupe/screens/admin_modules_screen.dart';
 import '../../features/students/screens/inscriptions_screen.dart';
@@ -97,7 +94,6 @@ import '../../features/navigation/widgets/module_coming_soon.dart';
 import '../../features/user/screens/rapports_screen.dart';
 import '../../features/user/screens/renewal_wall_screen.dart';
 import '../../features/user/screens/user_dashboard_screen.dart';
-import '../../features/user/screens/user_profile_screen.dart';
 import '../../features/user/screens/user_settings_screen.dart';
 import '../../features/classes/screens/classes_screen.dart';
 import '../../features/classes/screens/classe_detail_screen.dart';
@@ -288,14 +284,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         // lisent l'école entière, hors du périmètre de classes de l'agent. Sans
         // ce garde, un enseignant atteignant l'URL éditerait un « État des
         // effectifs de l'établissement » portant sur toutes les classes.
-        // ⚠️ `userCirculaires` aussi : une circulaire est adressée à
-        // l'ÉTABLISSEMENT, et l'accusé de lecture qu'on en attend engage sa
-        // direction. Un enseignant qui atteindrait l'URL pourrait accuser
-        // réception au nom de l'école — une preuve administrative signée par
-        // qui n'en a pas la charge.
-        if (loc == Routes.calendrier ||
-            loc == Routes.userRapports ||
-            loc == Routes.userCirculaires) {
+        if (loc == Routes.calendrier || loc == Routes.userRapports) {
           if (!AppConstants.directionRoles.contains(role)) {
             return Routes.userDashboard;
           }
@@ -432,7 +421,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.superProfil,
-        builder: (_, _) => const ProfileScreen(),
+        builder: (_, _) => const MonProfilScreen(),
       ),
 
       // ── Admin Groupe ──────────────────────────────────────────────────
@@ -476,17 +465,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.adminTutelle,
         builder: (_, _) => const TutelleReseauScreen(),
       ),
-      // Même raisonnement : l'écran refuse lui-même, et la RPC de publication
-      // refuse en base (42501). Une route absente donnerait un 404 au moment
-      // précis où le droit vient d'être accordé.
-      GoRoute(
-        path: Routes.adminCirculairesEmises,
-        builder: (_, _) => const CirculairesEmisesScreen(),
-      ),
-      GoRoute(
-        path: Routes.adminCirculaires,
-        builder: (_, _) => const CirculairesRecuesScreen(),
-      ),
       GoRoute(
         path: Routes.adminReferentiel,
         builder: (_, _) => const ExamReferentialScreen(),
@@ -529,7 +507,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.adminProfil,
-        builder: (_, _) => const AdminProfileScreen(),
+        builder: (_, _) => const MonProfilScreen(),
       ),
       GoRoute(
         path: Routes.adminModules,
@@ -737,13 +715,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.annonces,
         builder: (_, _) => const StaffAnnouncementsScreen(),
       ),
-      // Circulaires reçues de la tutelle — MÊME écran que l'espace groupe.
-      // Le provider déduit son périmètre du rôle : `admin_groupe` lit Supabase
-      // en ligne, le personnel d'école lit sa base locale PowerSync.
-      GoRoute(
-        path: Routes.userCirculaires,
-        builder: (_, _) => const CirculairesRecuesScreen(),
-      ),
       // Notifications = cloche + drawer dans le header (pas une page de route).
       GoRoute(
         path: Routes.messagerie,
@@ -783,7 +754,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.userProfil,
-        builder: (_, _) => const UserProfileScreen(),
+        builder: (_, _) => const MonProfilScreen(),
       ),
       GoRoute(
         path: Routes.userRenew,

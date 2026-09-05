@@ -26,7 +26,7 @@ const _kDialogueExamen = 'lib/features/examens/widgets/exam_result_dialog.dart';
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('$chemin introuvable — tourner depuis `epilote/`.');
-  return f.readAsStringSync();
+  return f.readAsStringSync().replaceAll('\r\n', '\n');
 }
 
 List<File> _dartsSous(String chemin) => Directory(chemin)

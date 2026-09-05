@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'ecran_reglages_source.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LA CONSERVATION SE TIENT, ELLE NE SE RÈGLE PAS (2026-08-28)
@@ -42,13 +43,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _kMigration =
     '../database/migrations/0145_la_cloture_scelle_ce_quon_doit_conserver.sql';
-const _kReglages =
-    'lib/features/admin_groupe/screens/admin_settings_screen.dart';
 
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('$chemin introuvable — tourner depuis `epilote/`.');
-  return f.readAsStringSync();
+  return f.readAsStringSync().replaceAll('\r\n', '\n');
 }
 
 void main() {
@@ -91,7 +90,7 @@ void main() {
   });
 
   group('L\'écran ne promet plus ce que rien ne tient', () {
-    final src = _lire(_kReglages);
+    final src = sourceEcranReglages();
 
     test('les quatre réglages inertes ont disparu', () {
       for (final champ in [

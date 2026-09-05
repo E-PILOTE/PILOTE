@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
+import '../../../core/constants/caractere_groupe.dart';
+import '../../../core/constants/licence_statut.dart';
 import '../../../core/constants/tutelle.dart';
 import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/booleen_en_ligne.dart';
@@ -36,6 +38,8 @@ class GroupDetail {
     this.subscriptionEnd,
     this.foundedYear,
     this.tutelle,
+    this.caractere,
+    this.administreReferentielNational = false,
     this.agrementNumero,
     this.agrementType,
     this.agrementDate,
@@ -71,6 +75,9 @@ class GroupDetail {
       notes:       m['notes']        as String?,
       foundedYear: m['founded_year'] as int?,
       tutelle:     m['tutelle']      as String?,
+      caractere:   m['caractere']    as String?,
+      administreReferentielNational:
+          m['administre_referentiel_national'] as bool? ?? false,
       agrementNumero: m['agrement_numero'] as String?,
       agrementType:   m['agrement_type']   as String?,
       agrementDate: m['agrement_date'] == null
@@ -106,6 +113,27 @@ class GroupDetail {
   /// d'office un lycée technique sous le mauvais ministère.
   String? get tutelleLabel => sigleTutelle(tutelle);
 
+  /// Caractère du groupe — `laic`, `catholique`, `protestant`, `islamique`,
+  /// `autre` (migration 0180). `null` = NON RENSEIGNÉ, jamais « laïc ».
+  ///
+  /// ⚠️ À ne pas confondre avec [groupType], qui porte le SECTEUR. Une école
+  /// catholique est une école PRIVÉE : les deux informations sont vraies en
+  /// même temps et vivent dans deux colonnes.
+  final String? caractere;
+
+  /// Libellé du caractère, ou `null` s'il n'est pas renseigné.
+  String? get caractereLabel => libelleCaractere(caractere);
+
+  /// VRAI si ce groupe EST le ministère de tutelle de son enseignement.
+  ///
+  /// ⚠️ Ce booléen (`administre_referentiel_national`, migration 0155) ouvre à
+  /// lui seul l'écriture du référentiel national des examens, la lecture de
+  /// TOUT le réseau du ministère — écoles qu'il ne possède pas comprises —,
+  /// l'émission de circulaires et la vente d'une licence de tutelle. Un seul
+  /// groupe peut le porter par ministère : l'index unique partiel
+  /// `school_groups_un_seul_par_tutelle` (migration 0178) le garantit.
+  final bool administreReferentielNational;
+
   /// Agrément délivré par la commission du ministère de tutelle.
   ///
   /// ⚠️ ENREGISTRÉ, jamais instruit : la plateforme ne délivre, ne valide ni
@@ -134,14 +162,7 @@ class GroupDetail {
         subscriptionEnd!.isAfter(DateTime.now());
   }
 
-  String get groupTypeLabel => switch (groupType) {
-    'public'      => 'Public',
-    'prive'       => 'Privé',
-    'catholique'  => 'Catholique',
-    'islamique'   => 'Islamique',
-    'protestant'  => 'Protestant',
-    _             => groupType,
-  };
+  String get groupTypeLabel => libelleSecteur(groupType);
 
   String get statusLabel => switch (subscriptionStatus) {
     'active'    => 'Actif',
@@ -192,15 +213,52 @@ class PlanInfo {
     this.billingPeriod = kDefaultBillingPeriod,
     required this.maxSchools,
     required this.maxStudents,
+    this.slug,
   });
   final String id, name;
   final int priceXaf, maxSchools, maxStudents;
   final String billingPeriod;
 
+  /// `gratuit`, `premium`, `pro`, `institutionnel`, `licence`.
+  final String? slug;
+
+  /// Ce plan est-il celui des MINISTÈRES de tutelle (migration 0182) ?
+  ///
+  /// ⚠️ Il ne porte aucun prix : les conditions réelles vivent dans
+  /// `tutelle_licences`. Le proposer à un groupe privé le sortirait du revenu
+  /// mensuel de la plateforme — la base le refuse, mais l'écran ne doit même
+  /// pas l'offrir.
+  bool get estLicence => estPlanDeLicence(slug);
+
   String get periodSuffix => billingPeriodSuffix(billingPeriod);
 }
 
 // ─── Modèle données globales ──────────────────────────────────────────────────
+
+/// Nom du groupe qui détient déjà le rôle de tutelle pour [tutelle], ou `null`
+/// si le rôle est libre. [saufId] exclut le groupe qu'on est en train de
+/// modifier — sinon un ministère se verrait reprocher de l'être déjà.
+///
+/// ⚠️ Sert à DIRE, pas à garantir. La garantie est l'index unique partiel
+/// `school_groups_un_seul_par_tutelle` (migration 0178) : deux super_admins qui
+/// valident à la même seconde ne peuvent pas passer tous les deux, ce qu'un
+/// contrôle côté écran ne saura jamais empêcher. Ici on évite seulement à
+/// l'agent de découvrir le conflit en cliquant « Enregistrer ».
+String? detenteurDuRoleDeTutelle(
+  List<GroupDetail> groupes,
+  String? tutelle, {
+  String? saufId,
+}) {
+  if (tutelle == null || tutelle.isEmpty) return null;
+  for (final g in groupes) {
+    if (g.administreReferentielNational &&
+        g.tutelle == tutelle &&
+        g.id != saufId) {
+      return g.name;
+    }
+  }
+  return null;
+}
 
 class SchoolGroupsData {
   const SchoolGroupsData({
@@ -266,12 +324,14 @@ final schoolGroupsProvider =
   try {
     final rows = await client
         .from('subscription_plans')
-        .select('id, name, price_xaf, billing_period, max_schools, max_students')
+        .select('id, name, slug, price_xaf, billing_period, max_schools, '
+            'max_students')
         .eq('is_active', true)
         .order('price_xaf', ascending: true) as List;
     plans = rows.map((r) => PlanInfo(
       id:          r['id']           as String,
       name:        r['name']         as String,
+      slug:        r['slug']         as String?,
       priceXaf:    (r['price_xaf']   as int?) ?? 0,
       billingPeriod:
           r['billing_period'] as String? ?? kDefaultBillingPeriod,
@@ -297,6 +357,7 @@ final schoolGroupsProvider =
       'id, name, slug, group_type, department, plan_id, subscription_status, '
       'subscription_start, subscription_end, admin_email, phone, address, '
       'logo_url, is_active, notes, founded_year, tutelle, '
+      'administre_referentiel_national, caractere, '
       'agrement_numero, agrement_type, agrement_date, created_at, updated_at, '
       'subscription_plans!plan_id(name, price_xaf, billing_period, max_schools, max_students)',
     ).order('created_at', ascending: false) as List;

@@ -51,7 +51,7 @@ String _lire(String chemin) {
         'Si le fichier a été déplacé, mettre ce test à jour dans le même '
         'geste : c\'est lui qui dit où se dépose une pièce.');
   }
-  return f.readAsStringSync();
+  return f.readAsStringSync().replaceAll('\r\n', '\n');
 }
 
 List<File> _dartsSous(String chemin) => Directory(chemin)

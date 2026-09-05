@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/widgets/admin_ui.dart';
-import '../../../data/models/profile_model.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  Briques « compte » partagées entre « Mon profil » et « Paramètres » du
@@ -28,15 +27,6 @@ String staffRoleLabel(String role) => switch (role) {
       'responsable_cantine' => 'Resp. Cantine',
       _ => 'Personnel',
     };
-
-/// Initiales pour l'avatar (« Jean Mavoungou » → « JM »).
-String staffInitials(String name) {
-  final parts = name.trim().split(RegExp(r'\s+'));
-  if (parts.length >= 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
-    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-  }
-  return name.isNotEmpty ? name[0].toUpperCase() : '?';
-}
 
 /// Date + heure : « 9 juin 2026 à 14:32 » — ou « Jamais » si null.
 String staffFmtDateTime(DateTime? d) => d == null
@@ -68,95 +58,6 @@ class StaffSection extends StatelessWidget {
           child,
         ],
       );
-}
-
-// ─── Carte identité (avatar + nom + badges) ──────────────────────────────────
-class StaffIdentityCard extends StatelessWidget {
-  const StaffIdentityCard({
-    super.key,
-    required this.profile,
-    this.schoolName,
-    this.email,
-  });
-  final ProfileModel profile;
-  final String? schoolName;
-  final String? email;
-
-  @override
-  Widget build(BuildContext context) {
-    return AdminCard(
-      child: Row(children: [
-        CircleAvatar(
-          radius: 34,
-          backgroundColor: kGreen,
-          child: Text(staffInitials(profile.fullName),
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800)),
-        ),
-        const SizedBox(width: 18),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(profile.fullName.isEmpty ? '—' : profile.fullName,
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: kTextPrimary)),
-              if (email != null && email!.isNotEmpty) ...[
-                const SizedBox(height: 3),
-                Text(email!,
-                    style: TextStyle(fontSize: 12.5, color: kTextMuted),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-              ],
-              const SizedBox(height: 8),
-              Wrap(spacing: 8, runSpacing: 6, children: [
-                AdminBadge(staffRoleLabel(profile.role),
-                    color: kGreen, icon: Icons.shield_rounded),
-                if (schoolName != null)
-                  AdminBadge(schoolName!,
-                      color: kNavy, icon: Icons.business_rounded),
-              ]),
-            ],
-          ),
-        ),
-      ]),
-    );
-  }
-}
-
-// ─── Carte « À propos du compte » (lecture seule, ligne profiles locale) ─────
-class AboutAccountCard extends StatelessWidget {
-  const AboutAccountCard({super.key, required this.profile, this.schoolName});
-  final ProfileModel profile;
-  final String? schoolName;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = profile;
-    return AdminCard(
-      child: AdminDetailCard([
-        AdminDetailRow(Icons.business_rounded, 'École', schoolName ?? '—'),
-        AdminDetailRow(
-            Icons.shield_rounded, 'Rôle', staffRoleLabel(p.role)),
-        AdminDetailRow(Icons.tag_rounded, 'Matricule',
-            (p.employeeNumber?.isNotEmpty ?? false) ? p.employeeNumber! : '—'),
-        AdminDetailRow(
-          Icons.circle,
-          'Statut du compte',
-          p.isActive ? 'Actif' : 'Inactif',
-          valueColor: p.isActive ? kGreen : kRed,
-        ),
-        AdminDetailRow(Icons.history_rounded, 'Dernière connexion',
-            staffFmtDateTime(p.lastLogin)),
-        AdminDetailRow(Icons.event_rounded, 'Membre depuis',
-            staffFmtDate(p.createdAt), last: true),
-      ]),
-    );
-  }
 }
 
 // ─── Confirmation de déconnexion ─────────────────────────────────────────────

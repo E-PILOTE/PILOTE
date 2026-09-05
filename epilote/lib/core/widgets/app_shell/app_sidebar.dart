@@ -35,6 +35,7 @@ class AppSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+
     final active = activeNavRoute(currentLocation, navRoutes(sections));
     final top = [for (final s in sections) if (s.pinnedTop) s];
     final scrolling = [
@@ -64,17 +65,52 @@ class AppSidebar extends StatelessWidget {
                 children: [for (final s in top) sectionView(s)],
               ),
             ),
+          // ── LA ZONE DÉFILANTE ────────────────────────────────────────
+          //
+          //  ⚠️ PAS DE BARRE DE DÉFILEMENT — décision du fondateur, 2026-09-03.
+          //
+          //  Une `Scrollbar(thumbVisibility: true)` a été essayée puis retirée
+          //  après l'avoir vue à l'écran : elle balafre une barre latérale qui
+          //  est un aplat sombre, et elle s'y voit d'autant plus qu'elle ne
+          //  sert qu'aux profils les plus chargés.
+          //
+          //  Ce qu'elle visait reste vrai : sur un petit écran, les dernières
+          //  catégories passent sous la ligne de flottaison et le bloc épinglé
+          //  juste en dessous fait croire à une liste terminée. Le FILET qui
+          //  sépare les deux zones (voir plus bas) porte désormais seul ce
+          //  rôle — et trois lignes mortes ont été récupérées entre-temps
+          //  (migration 0176), ce qui abaisse d'autant la pression.
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 6),
               children: [for (final s in scrolling) sectionView(s)],
             ),
           ),
-          if (pinned.isNotEmpty)
+          // ── LE BLOC ÉPINGLÉ ──────────────────────────────────────────────
+          //
+          //  ⚠️ LE FILET DIT « SOUS CETTE LIGNE, RIEN NE DÉFILE ».
+          //
+          //  COMMUNICATION et SYSTÈME portent le même titre, la même graisse
+          //  et la même casse que GESTION — mais celles du haut défilent, pas
+          //  celles-ci. Rien à l'écran ne distinguait les deux comportements :
+          //  deux sections d'apparence identique réagissaient différemment, ce
+          //  qui se lit comme un défaut plutôt que comme une intention. Le
+          //  filet est la plus petite marque qui les sépare.
+          //
+          //  Il ne dit RIEN du repli : les deux blocs d'ici se replient
+          //  comme les catégories du haut, et leur chevron l'annonce. Être
+          //  épinglé, c'est rester à portée — pas être figé.
+          if (pinned.isNotEmpty) ...[
+            Container(
+              height: 1,
+              margin: const EdgeInsets.symmetric(horizontal: 12),
+              color: Colors.white.withValues(alpha: 0.10),
+            ),
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [for (final s in pinned) sectionView(s)],
             ),
+          ],
           SidebarFooter(expanded: expanded, profile: profile),
         ],
       ),
@@ -104,8 +140,15 @@ class _NavSectionView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hasTitle = section.title.isNotEmpty;
-    // Repliable seulement si titrée, non épinglée, et sidebar en mode étendu.
-    final collapsible = hasTitle && !section.pinned && expanded;
+    // Repliable si titrée, en mode étendu (en mode icônes il n'y a pas
+    // d'en-tête à cliquer), et si la section le veut bien — par défaut, toute
+    // section titrée non épinglée.
+    //
+    // ⚠️ « Épinglé » n'implique plus « figé » : COMMUNICATION reste en bas,
+    // hors défilement, et se replie quand même. Les deux propriétés étaient
+    // confondues dans un seul test ; c'est `NavSection.collapsible` qui les
+    // sépare désormais.
+    final collapsible = sectionEstRepliable(section, expanded: expanded);
 
     // Hard-lock d'abonnement (ADR-0009) : les entrées de MODULE deviennent des
     // clics morts (grisées + cadenas). Fail-soft : non-enforcé / grâce / lecture
@@ -149,15 +192,9 @@ class _NavSectionView extends ConsumerWidget {
             collapsible: collapsible,
             collapsed: collapsed,
             onToggle: collapsible
-                ? () {
-                    final notifier =
-                        ref.read(collapsedNavSectionsProvider.notifier);
-                    final next = {...notifier.state};
-                    next.contains(section.title)
-                        ? next.remove(section.title)
-                        : next.add(section.title);
-                    notifier.state = next;
-                  }
+                ? () => ref
+                    .read(collapsedNavSectionsProvider.notifier)
+                    .basculer(section.title)
                 : null,
           ),
         AnimatedSize(

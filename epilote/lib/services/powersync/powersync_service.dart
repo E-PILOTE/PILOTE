@@ -18,11 +18,16 @@ import 'upload_outbox.dart';
 late PowerSyncDatabase db;
 
 /// Vrai si le rôle correspond au personnel scolaire (offline-first).
+///
+/// ⚠️ PUBLIQUE depuis le 2026-09-04 (elle s'appelait `_isStaffRole`). La page
+/// « Mon profil » est partagée par les trois espaces et doit choisir le même
+/// chemin de données que la synchro : la règle centrale se LIT ici, elle ne se
+/// recopie pas.
 /// super_admin et admin_groupe sont online/Supabase direct → exclus.
 /// ⚠️ La valeur 'utilisateur' N'EXISTE PAS dans l'enum user_role :
 /// le personnel = enseignant, secretaire, cpe, comptable, surveillant,
 /// directeur, proviseur, parent, eleve, infirmier, responsable_cantine.
-bool _isStaffRole(String? role) =>
+bool isStaffRole(String? role) =>
     role != null && role != 'super_admin' && role != 'admin_groupe';
 
 /// Rôle du dernier utilisateur connecté (mis en cache pour l'offline).
@@ -146,7 +151,7 @@ Future<void> initPowerSync() async {
   // Connexion au démarrage si session existante ET rôle personnel scolaire
   if (supabase.auth.currentSession != null) {
     final role = await _resolveRole(supabase);
-    if (_isStaffRole(role)) {
+    if (isStaffRole(role)) {
       _syncEnabled = true;
       db.connect(connector: connector);
     }
@@ -241,7 +246,7 @@ Future<void> initPowerSync() async {
 Future<void> _connecterSiPersonnel(
     SupabaseClient supabase, PowerSyncBackendConnector connector) async {
   final role = await _resolveRole(supabase);
-  if (_isStaffRole(role)) {
+  if (isStaffRole(role)) {
     _syncEnabled = true;
     db.connect(connector: connector);
   }
@@ -288,7 +293,7 @@ final syncStatusProvider = StreamProvider<SyncStatus>((ref) {
 });
 
 /// Vrai quand la synchronisation PowerSync est active et connectée.
-/// N'est vrai que pour le personnel scolaire (cf. _isStaffRole).
+/// N'est vrai que pour le personnel scolaire (cf. isStaffRole).
 final isSyncingProvider = Provider<bool>((ref) {
   return ref.watch(syncStatusProvider).valueOrNull?.connected ?? false;
 });

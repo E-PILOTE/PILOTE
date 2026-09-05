@@ -12,7 +12,7 @@ import '../../providers/active_agent_provider.dart';
 import 'auth_colors.dart';
 
 const _kAccent = kAuthAccent;
-const _kPinLen = 4;
+const _kPinLen = kAgentPinLength;
 
 /// Saisie du PIN de l'écran-verrou (feuille bleu nuit). Carte d'identité de
 /// l'agent (photo + nom + rôle) puis une **zone de saisie unique** (vrai

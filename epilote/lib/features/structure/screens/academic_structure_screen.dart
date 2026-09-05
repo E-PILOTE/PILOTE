@@ -11,7 +11,11 @@ import '../providers/academic_structure_provider.dart';
 import '../providers/academic_year_context.dart';
 import '../../../core/utils/message_erreur.dart';
 
-part 'academic_structure_parts.dart';
+part 'academic_structure_cycles.dart';
+part 'academic_structure_detail.dart';
+part 'academic_structure_niveaux.dart';
+part 'academic_structure_classes.dart';
+part 'academic_structure_class_form.dart';
 
 // ─── Accents par cycle (cohérents avec la page Inscriptions) ─────────────────
 Map<String, Color> get _cycleColors => <String, Color>{

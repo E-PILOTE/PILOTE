@@ -1,0 +1,28 @@
+-- ════════════════════════════════════════════════════════════════════════════
+--  0185 — UNE LICENCE PEUT ÊTRE SUSPENDUE
+--
+--  L'énumération `licence_statut` (0160) offrait quatre états : `brouillon`,
+--  `active`, `echue`, `resiliee`. Il manquait le seul qui soit RÉVERSIBLE.
+--
+--  ── POURQUOI « ÉCHUE » ET « RÉSILIÉE » NE SUFFISENT PAS ───────────────────
+--  Ce sont deux choses différentes de la suspension :
+--   • `echue` est un FAIT — le terme est passé. Personne ne le décide.
+--   • `resiliee` est une décision DÉFINITIVE — le marché est mort, on n'y
+--     revient pas, on en signe un autre.
+--  Suspendre, c'est arrêter TEMPORAIREMENT l'exécution d'un marché vivant :
+--  un règlement qui tarde, un avenant en cours de signature, un différend.
+--  Sans cet état, le fondateur n'avait que « résilier » — c'est-à-dire tuer un
+--  marché de quarante millions pour un mandat en retard de trois semaines.
+--
+--  ⚠️ SEUL DANS SA MIGRATION. PostgreSQL interdit d'utiliser une valeur
+--  d'énumération dans la transaction qui l'ajoute (`ALTER TYPE ... ADD VALUE`
+--  n'est visible qu'après COMMIT). C'est exactement la raison qui avait isolé
+--  le slug `licence` en 0181. La structure qui s'en sert vient en 0186.
+--
+--  ⚠️ AJOUTÉE APRÈS `active`, avant `echue` : l'ordre de l'énumération est
+--  celui du cycle de vie, et il sert au tri à l'écran.
+--
+--  ── ORDRE : AVANT LE BUILD ────────────────────────────────────────────────
+-- ════════════════════════════════════════════════════════════════════════════
+
+ALTER TYPE public.licence_statut ADD VALUE IF NOT EXISTS 'suspendue' AFTER 'active';

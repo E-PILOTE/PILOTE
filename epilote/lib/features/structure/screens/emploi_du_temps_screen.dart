@@ -42,6 +42,7 @@ part 'emploi_du_temps_daydetail.dart';
 part 'emploi_du_temps_extraform.dart';
 part 'emploi_du_temps_schedule_drawer.dart';
 part 'emploi_du_temps_actions.dart';
+part 'emploi_du_temps_bulk_actions.dart';
 
 const _kSlug = 'emploi-du-temps';
 

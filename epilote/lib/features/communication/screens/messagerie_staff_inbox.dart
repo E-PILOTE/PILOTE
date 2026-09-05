@@ -66,9 +66,14 @@ class _ConvTile extends StatelessWidget {
     this.online = false,
     this.checked = false,
     this.onCheckToggle,
+    this.ministere,
   });
   final _Conversation conv;
   final String me;
+
+  /// Renseigné quand l'interlocuteur appartient à un ministère de tutelle
+  /// (RPC `correspondants_ministere`, migration 0184). `null` = cas normal.
+  final CorrespondantMinistere? ministere;
   final bool selected;
   final VoidCallback onTap;
 
@@ -130,8 +135,16 @@ class _ConvTile extends StatelessWidget {
                     Icon(Icons.groups_rounded,
                         size: 14, color: kNavy),
                     const SizedBox(width: 4),
+                  ] else if (ministere != null) ...[
+                    // ⚠️ L'icône AVANT le nom, pas après : dans une liste
+                    // qu'on parcourt à la verticale, l'œil suit la colonne de
+                    // gauche. Une marque posée en fin de ligne, après une
+                    // troncature, ne se voit pas.
+                    Icon(Icons.account_balance_rounded,
+                        size: 14, color: couleurTutelle(ministere!.tutelle)),
+                    const SizedBox(width: 4),
                   ],
-                  Expanded(
+                  Flexible(
                     child: Text(conv.otherName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -142,6 +155,14 @@ class _ConvTile extends StatelessWidget {
                                 ? FontWeight.w800
                                 : FontWeight.w600)),
                   ),
+                  if (ministere != null) ...[
+                    const SizedBox(width: 6),
+                    BadgeMinistere(
+                        estMinistere: true,
+                        tutelle: ministere!.tutelle,
+                        compact: true),
+                  ],
+                  const Spacer(),
                   if (last != null)
                     Text(_relativeTime(last.insertedAt),
                         style:

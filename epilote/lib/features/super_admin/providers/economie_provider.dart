@@ -77,6 +77,10 @@ class LicenceTutelle {
     this.referenceMarche,
     this.signataire,
     this.notes,
+    this.motifStatut,
+    this.statutChangeLe,
+    this.accesSuspendu = false,
+    this.accesSuspenduMotif,
   });
 
   factory LicenceTutelle.fromRow(Map<String, dynamic> r) {
@@ -96,11 +100,33 @@ class LicenceTutelle {
       referenceMarche: r['reference_marche'] as String?,
       signataire: r['signataire'] as String?,
       notes: r['notes'] as String?,
+      motifStatut: r['motif_statut'] as String?,
+      statutChangeLe:
+          DateTime.tryParse(r['statut_change_le'] as String? ?? ''),
+      accesSuspendu: g?['acces_suspendu'] as bool? ?? false,
+      accesSuspenduMotif: g?['acces_suspendu_motif'] as String?,
     );
   }
 
   final String id, groupId, groupeNom, tutelle, intitule, statut;
   final String? referenceMarche, signataire, notes;
+
+  /// Pourquoi le statut a changé — obligatoire pour suspendre ou résilier
+  /// (migration 0186). Affiché des DEUX côtés : le ministère a le droit de
+  /// savoir pourquoi son marché est suspendu.
+  final String? motifStatut;
+
+  /// Quand. Le QUI vit dans `audit_logs` (déclencheur posé par 0186 : cette
+  /// table était la seule table chère de la base sans historique).
+  final DateTime? statutChangeLe;
+
+  /// ⚠️ L'ACCÈS DU GROUPE, pas l'état de la licence. Les deux sont
+  /// DÉLIBÉRÉMENT séparés (0187) : une licence suspendue ne coupe rien ;
+  /// couper l'accès est un second geste, explicite. Affiché ici parce que
+  /// c'est la fiche du marché qu'on regarde quand on décide de l'un ou de
+  /// l'autre.
+  final bool accesSuspendu;
+  final String? accesSuspenduMotif;
   final DateTime dateDebut, dateFin;
   final int montantXaf, avanceXaf, montantRegleXaf;
 
@@ -109,7 +135,13 @@ class LicenceTutelle {
 
   /// Nombre de mois couverts — au moins 1, pour ne jamais diviser par zéro.
   int get moisCouverts {
-    final m = (dateFin.difference(dateDebut).inDays / 30.44).round();
+    // ⚠️ Un marché annuel couvre DOUZE mois. Du 01/01 au 31/12 il y a 364
+    // jours, pas 365 : sans cette tolérance, l'équivalent mensuel dérivait
+    // d'un tiers de pour cent — assez pour que les deux espaces affichent
+    // deux montants différents du même marché.
+    final j = dateFin.difference(dateDebut).inDays;
+    if ((j - 365).abs() <= 15) return 12;
+    final m = (j / 30.44).round();
     return m < 1 ? 1 : m;
   }
 
@@ -121,6 +153,53 @@ class LicenceTutelle {
   int get mensuelCompte => estActive ? mensuelXaf : 0;
 
   int get joursRestants => dateFin.difference(DateTime.now()).inDays;
+
+  /// Durée totale du marché, en jours (au moins 1 : ne jamais diviser par 0).
+  int get dureeJours {
+    final d = dateFin.difference(dateDebut).inDays;
+    return d < 1 ? 1 : d;
+  }
+
+  /// Part de la période écoulée, 0..1.
+  ///
+  /// ⚠️ À ne PAS confondre avec la part RÉGLÉE. Un marché peut être couvert à
+  /// 80 % du temps et réglé à 25 % : c'est cet écart qui déclenche une
+  /// relance, et aucune des deux mesures seule ne le montre.
+  double get partEcoulee =>
+      (DateTime.now().difference(dateDebut).inDays / dureeJours)
+          .clamp(0.0, 1.0);
+
+  /// Part réglée, 0..1. `null` si le marché ne porte aucun montant.
+  double? get partReglee =>
+      montantXaf <= 0 ? null : (montantRegleXaf / montantXaf).clamp(0.0, 1.0);
+}
+
+/// Un groupe qui paie — la ligne derrière le revenu d'abonnement.
+///
+/// ⚠️ Elle existe pour une seule raison : `mrrAbonnementsXaf` était un
+/// total SANS lignes. La fiche du KPI expliquait le calcul en trois
+/// paragraphes et ne montrait pas un seul groupe — or c'est exactement ce
+/// qu'on veut voir quand un chiffre surprend. Un total qu'on ne peut pas
+/// décomposer est un total qu'on finit par ne plus croire.
+class AbonnementCompte {
+  const AbonnementCompte({
+    required this.nom,
+    required this.mensuelXaf,
+    required this.ecoles,
+    required this.periode,
+    required this.negocie,
+  });
+
+  final String nom;
+
+  /// Le tarif RAMENÉ AU MOIS — un plan annuel de 2 500 000 F pèse 208 333 F.
+  final int mensuelXaf;
+
+  final int ecoles;
+  final String? periode;
+
+  /// Tarif négocié (`price_override_xaf`) plutôt que la grille du plan.
+  final bool negocie;
 }
 
 class EconomieData {
@@ -128,6 +207,8 @@ class EconomieData {
     required this.couts,
     required this.licences,
     required this.mrrAbonnementsXaf,
+    this.abonnements = const [],
+    this.groupesInactifs = 0,
   });
 
   static const empty = EconomieData(
@@ -135,6 +216,13 @@ class EconomieData {
 
   final List<CoutPlateforme> couts;
   final List<LicenceTutelle> licences;
+
+  /// Les groupes actifs, du plus gros contributeur au plus petit.
+  final List<AbonnementCompte> abonnements;
+
+  /// Combien de groupes ne comptent PAS. Un chiffre à dire : sans lui, la
+  /// liste semble incomplète plutôt que filtrée.
+  final int groupesInactifs;
 
   /// Revenu mensuel des abonnements des groupes ACTIFS, calculé groupe par
   /// groupe (le prix suit le nombre d'écoles depuis la migration 0159).
@@ -181,25 +269,43 @@ final economieProvider =
       .from('tutelle_licences')
       .select('id, group_id, tutelle, intitule, date_debut, date_fin, '
           'montant_xaf, avance_xaf, montant_regle_xaf, statut, '
-          'reference_marche, signataire, notes, school_groups!group_id(name)')
+          'reference_marche, signataire, notes, motif_statut, '
+          'statut_change_le, school_groups!group_id(name, acces_suspendu, '
+          'acces_suspendu_motif)')
       .order('date_fin', ascending: false) as List;
 
   final groupes = await client
       .from('school_groups')
-      .select('plan_id, subscription_status, billed_schools, price_override_xaf, '
+      .select('name, plan_id, subscription_status, billed_schools, '
+          'price_override_xaf, '
           'subscription_plans!plan_id(price_xaf, billing_period, '
           'extra_school_2_5_xaf, extra_school_6_10_xaf, '
           'extra_school_11_20_xaf, extra_school_21p_xaf)') as List;
 
   var mrr = 0;
+  var inactifs = 0;
+  final lignes = <AbonnementCompte>[];
   for (final g in groupes) {
     final m = Map<String, dynamic>.from(g as Map);
-    if (m['subscription_status'] != 'active') continue;
+    if (m['subscription_status'] != 'active') {
+      inactifs++;
+      continue;
+    }
     final plan = m['subscription_plans'] as Map<String, dynamic>?;
-    final du = (m['price_override_xaf'] as num?)?.toInt() ??
-        tarifPlanRow(plan, (m['billed_schools'] as num?)?.toInt() ?? 1);
-    mrr += monthlyEquivalent(du, plan?['billing_period'] as String?);
+    final ecoles = (m['billed_schools'] as num?)?.toInt() ?? 1;
+    final negocie = (m['price_override_xaf'] as num?)?.toInt();
+    final du = negocie ?? tarifPlanRow(plan, ecoles);
+    final mensuel = monthlyEquivalent(du, plan?['billing_period'] as String?);
+    mrr += mensuel;
+    lignes.add(AbonnementCompte(
+      nom: m['name'] as String? ?? '—',
+      mensuelXaf: mensuel,
+      ecoles: ecoles,
+      periode: plan?['billing_period'] as String?,
+      negocie: negocie != null,
+    ));
   }
+  lignes.sort((a, b) => b.mensuelXaf.compareTo(a.mensuelXaf));
 
   return EconomieData(
     couts: coutsRows
@@ -209,6 +315,8 @@ final economieProvider =
         .map((r) => LicenceTutelle.fromRow(Map<String, dynamic>.from(r as Map)))
         .toList(),
     mrrAbonnementsXaf: mrr,
+    abonnements: lignes,
+    groupesInactifs: inactifs,
   );
 });
 
@@ -264,6 +372,60 @@ Future<void> enregistrerLicence(WidgetRef ref,
       'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', id);
   }
+}
+
+/// Change le statut d'une licence — activer, suspendre, reprendre, résilier.
+///
+/// ⚠️ PASSE PAR LA RPC, jamais par un `update` direct sur la colonne. La
+/// fonction `licence_changer_statut` (0186) porte quatre règles qu'un update
+/// ne porterait pas : le motif obligatoire pour arrêter quelque chose, le
+/// refus de ressusciter un marché résilié, le refus d'activer un marché dont
+/// le terme est passé, et le refus de deux licences actives qui se chevauchent
+/// (elles compteraient DEUX FOIS dans le revenu).
+///
+/// ⚠️ ET ELLE NE COUPE RIEN. Suspendre un marché ne ferme ni le ministère ni
+/// son réseau : c'est un état contractuel. L'accès dépend de
+/// `administre_referentiel_national` (0155), et rien d'autre.
+Future<void> changerStatutLicence(
+  WidgetRef ref, {
+  required String licenceId,
+  required String statut,
+  String? motif,
+}) async {
+  await ref.read(supabaseClientProvider).rpc('licence_changer_statut', params: {
+    'p_licence_id': licenceId,
+    'p_statut': statut,
+    'p_motif': motif,
+  });
+  ref.invalidate(economieProvider);
+}
+
+/// Coupe l'accès de l'espace d'un groupe — le levier contre l'impayé (0187).
+///
+/// ⚠️ RIEN À VOIR AVEC LE STATUT DE LA LICENCE, et c'est voulu. Une licence
+/// suspendue reste sans effet sur l'accès ; couper est une décision distincte,
+/// qui exige son propre motif et laisse sa propre trace. Les lier ferait de
+/// chaque suspension comptable une coupure d'État.
+///
+/// La coupure agit côté SERVEUR : `auth_peut_superviser()` rend faux, et les
+/// quatre RPC de tutelle (réseau, écoles, destinataires, circulaires) refusent
+/// en 42501 — exactement le périmètre du marché qui n'est pas payé. Elle ne
+/// touche ni les écoles du réseau, ni la synchro hors ligne de leur personnel.
+Future<void> couperAccesGroupe(WidgetRef ref,
+    {required String groupId, required String motif}) async {
+  await ref.read(supabaseClientProvider).rpc('suspendre_acces_groupe',
+      params: {'p_group_id': groupId, 'p_motif': motif});
+  ref.invalidate(economieProvider);
+}
+
+/// Rouvre l'accès. Aucun motif exigé : on ne met jamais de friction sur le
+/// geste qui rétablit.
+Future<void> retablirAccesGroupe(WidgetRef ref,
+    {required String groupId}) async {
+  await ref
+      .read(supabaseClientProvider)
+      .rpc('retablir_acces_groupe', params: {'p_group_id': groupId});
+  ref.invalidate(economieProvider);
 }
 
 Future<void> supprimerLicence(WidgetRef ref, String id) async {

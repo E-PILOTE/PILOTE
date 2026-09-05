@@ -15,6 +15,7 @@ import '../../../core/services/official_pdf_kit.dart';
 
 import '../providers/invoices_provider.dart';
 import '../providers/receipts_provider.dart';
+import '../../../core/providers/identite_etablissement.dart';
 
 // ─── Couleurs PDF ──────────────────────────────────────────────────────────────
 const _navy    = PdfColor.fromInt(0xFF1E3A5F);
@@ -357,7 +358,7 @@ pw.Widget _buildHeader(
                   shape: pw.BoxShape.circle,
                   color: _surface,
                 ),
-                child: pw.Center(child: pw.Text(_initials(groupName),
+                child: pw.Center(child: pw.Text(initialesEtablissement(groupName),
                     style: pw.TextStyle(
                         font: fontBold, fontSize: 18, color: _navy))),
               ),
@@ -623,15 +624,6 @@ Future<Uint8List?> _rasterizeSvg(String assetPath, double size) async {
 }
 
 PdfColor _alpha(PdfColor c, double a) => PdfColor(c.red, c.green, c.blue, a);
-
-String _initials(String name) {
-  final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
-  if (parts.isEmpty) return '—';
-  if (parts.length == 1) {
-    return parts.first.substring(0, parts.first.length >= 2 ? 2 : 1).toUpperCase();
-  }
-  return (parts[0][0] + parts[1][0]).toUpperCase();
-}
 
 String _money(int v) {
   final s = v.abs().toString();

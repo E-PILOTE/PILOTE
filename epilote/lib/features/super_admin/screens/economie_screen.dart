@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/licence_statut.dart';
+import '../../../core/constants/tutelle.dart';
+import '../../../core/services/licence_pdf_service.dart';
 import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/message_erreur.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
+import '../../../core/widgets/fiche_detail.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../providers/economie_provider.dart';
+import 'economie/economie_chrome.dart';
+import 'economie/licence_form_dialog.dart';
 
-part 'economie/licence_form_dialog.dart';
+part 'economie/licence_statut_dialog.dart';
+part 'economie/licence_detail.dart';
+part 'economie/economie_kpi_detail.dart';
 part 'economie/cout_form_dialog.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -60,7 +68,7 @@ class _Corps extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            KpiGrid(items: _kpis(d)),
+            KpiGrid(items: _kpis(context, ref, d)),
             const SizedBox(height: 12),
             const _Avertissement(),
             const SizedBox(height: 24),
@@ -73,7 +81,7 @@ class _Corps extends ConsumerWidget {
     );
   }
 
-  List<KpiData> _kpis(EconomieData d) {
+  List<KpiData> _kpis(BuildContext context, WidgetRef ref, EconomieData d) {
     final marge = d.margeMensuelleXaf;
     final taux = d.tauxMarge;
     // 30 000 XAF = le tarif du plan Standard pour une école (migration 0159).
@@ -85,6 +93,7 @@ class _Corps extends ConsumerWidget {
         sub: 'par mois, groupes actifs',
         icon: Icons.school_rounded,
         color: kNavy,
+        onTap: () => _ouvrirDetailRevenu(context, d),
       ),
       KpiData(
         label: 'Licences de tutelle',
@@ -93,7 +102,8 @@ class _Corps extends ConsumerWidget {
             ? '${fmtXaf(d.soldeDuXaf)} restant à encaisser'
             : 'par mois, licences actives',
         icon: Icons.account_balance_rounded,
-        color: const Color(0xFF7C3AED),
+        color: kListPurple,
+        onTap: () => _ouvrirDetailLicences(context, d),
       ),
       KpiData(
         label: 'Coût d\'exploitation',
@@ -102,7 +112,8 @@ class _Corps extends ConsumerWidget {
         sub: '$seuil groupe${seuil > 1 ? 's' : ''} mono-école le couvre'
             '${seuil > 1 ? 'nt' : ''}',
         icon: Icons.dns_rounded,
-        color: const Color(0xFFFF6B35),
+        color: kListOrange,
+        onTap: () => _ouvrirDetailCouts(context, d),
       ),
       KpiData(
         label: 'Marge mensuelle',
@@ -111,7 +122,8 @@ class _Corps extends ConsumerWidget {
         icon: marge >= 0
             ? Icons.trending_up_rounded
             : Icons.trending_down_rounded,
-        color: marge >= 0 ? kGreen : const Color(0xFFEF4444),
+        color: marge >= 0 ? kGreen : kRed,
+        onTap: () => _ouvrirDetailMarge(context, d),
       ),
     ];
   }
@@ -182,20 +194,31 @@ class _CarteLicence extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = licence;
-    final couleur = _couleurStatut(l.statut);
-    return Container(
+    final couleur = couleurStatutLicence(l.statut);
+    // ⚠️ La carte OUVRE la fiche ; elle ne porte plus les gestes. Résilier un
+    // marché de quarante millions ne doit pas être à un clic dans une liste
+    // qu'on parcourt : il faut avoir ouvert le dossier, donc avoir vu le
+    // montant, la période et le solde.
+    return InkWell(
+      onTap: () => _ouvrirDetailLicence(context, ref, l),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: kCardBg,
-        border: Border.all(color: kBorder),
+        border: Border.all(
+            color: l.accesSuspendu ? kRed.withValues(alpha: 0.45) : kBorder),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(
           flex: 3,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              _Puce(texte: _labelStatut(l.statut), couleur: couleur),
+              PuceEconomie(
+                  texte: libelleStatutLicenceOuTiret(l.statut).toUpperCase(),
+                  couleur: couleur),
               if (l.referenceMarche != null) ...[
                 const SizedBox(width: 8),
                 Text(l.referenceMarche!,
@@ -240,23 +263,176 @@ class _CarteLicence extends ConsumerWidget {
             ),
           ]),
         ),
-        const SizedBox(width: 8),
-        IconButton(
-          onPressed: () => _ouvrirLicence(context, ref, edition: l),
-          icon: const Icon(Icons.edit_rounded, size: 17),
-          tooltip: 'Modifier',
-        ),
+        const SizedBox(width: 4),
+        Icon(Icons.chevron_right_rounded, size: 20, color: kTextMuted),
       ]),
+      // ── Le motif, quand il y en a un ────────────────────────────────────
+      //  Il se lit SANS ouvrir le journal, et le ministère lit le même texte
+      //  sur sa propre page. Une décision cachée dans un log est une décision
+      //  qu'on ne peut pas défendre.
+      if (l.motifStatut != null && l.motifStatut!.trim().isNotEmpty) ...[
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+          decoration: BoxDecoration(
+            color: couleur.withValues(alpha: 0.07),
+            border: Border.all(color: couleur.withValues(alpha: 0.22)),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(Icons.sticky_note_2_rounded, size: 14, color: couleur),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Text(
+                  l.statutChangeLe == null
+                      ? l.motifStatut!
+                      : '${l.motifStatut!}  ·  ${_d(l.statutChangeLe!)}',
+                  style: TextStyle(
+                      fontSize: 11.5, color: kTextPrimary, height: 1.4)),
+            ),
+          ]),
+        ),
+      ],
+      // ── L'état du RÈGLEMENT, en une barre ───────────────────────────────
+      //  Le seul chiffre qu'on veut voir en parcourant la liste : est-ce que
+      //  ce marché est à jour ? Le reste s'ouvre.
+      if (l.partReglee != null) ...[
+        const SizedBox(height: 12),
+        _BarreCarte(licence: l),
+      ],
+      // ⚠️ ACCÈS COUPÉ — le seul état qui doit se voir SANS ouvrir la fiche.
+      if (l.accesSuspendu) ...[
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: kRed.withValues(alpha: 0.09),
+            border: Border.all(color: kRed.withValues(alpha: 0.35)),
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: Row(children: [
+            Icon(Icons.lock_rounded, size: 14, color: kRed),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Text(
+                  l.accesSuspenduMotif == null
+                      ? 'Accès de ce ministère coupé'
+                      : 'Accès coupé — ${l.accesSuspenduMotif}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: kRed)),
+            ),
+          ]),
+        ),
+      ],
+      ]),
+      ),
     );
   }
 }
 
+/// La barre de règlement de la carte, avec la période écoulée en repère.
+///
+/// ⚠️ Deux repères sur UNE barre : le remplissage est ce qui est réglé, le
+/// trait vertical est où on en est dans le temps. Le trait à droite du
+/// remplissage = du retard. C'est lisible d'un coup d'œil dans une liste, là
+/// où deux barres superposées demanderaient de comparer.
+class _BarreCarte extends StatelessWidget {
+  const _BarreCarte({required this.licence});
+
+  final LicenceTutelle licence;
+
+  @override
+  Widget build(BuildContext context) {
+    final regle = licence.partReglee ?? 0;
+    final ecoule = licence.partEcoulee;
+    final enRetard = ecoule - regle > 0.15;
+    final couleur = enRetard ? kListOrange : kGreen;
+    return Row(children: [
+      Expanded(
+        child: SizedBox(
+          height: 8,
+          child: LayoutBuilder(builder: (_, c) {
+            return Stack(children: [
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: regle,
+                    minHeight: 8,
+                    backgroundColor: kSurface,
+                    valueColor: AlwaysStoppedAnimation(couleur),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: (c.maxWidth * ecoule).clamp(0.0, c.maxWidth - 2),
+                top: 0,
+                bottom: 0,
+                child: Container(width: 2, color: kTextPrimary),
+              ),
+            ]);
+          }),
+        ),
+      ),
+      const SizedBox(width: 10),
+      Text('${(regle * 100).round()} % réglé',
+          style: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.w700, color: couleur)),
+      const SizedBox(width: 8),
+      Text('· ${(ecoule * 100).round()} % écoulé',
+          style: TextStyle(fontSize: 11, color: kTextMuted)),
+    ]);
+  }
+}
+
+/// Un geste = un verbe. Jamais « statut = suspendue ».
+class _BoutonTransition extends ConsumerWidget {
+  const _BoutonTransition({required this.licence, required this.vers});
+
+  final LicenceTutelle licence;
+  final String vers;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final couleur = couleurStatutLicence(vers);
+    // Seule l'action « en avant » est pleine : résilier ne doit pas se cliquer
+    // aussi facilement qu'activer.
+    final principale = vers == 'active';
+    return OutlinedButton.icon(
+      onPressed: () => _changerStatutLicence(context, ref, licence, vers),
+      icon: Icon(_icone(vers, licence.statut), size: 15),
+      label: Text(verbeTransitionLicence(vers, depuis: licence.statut)),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: couleur,
+        backgroundColor:
+            principale ? couleur.withValues(alpha: 0.10) : Colors.transparent,
+        side: BorderSide(
+            color: couleur.withValues(alpha: principale ? 0.45 : 0.28)),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  static IconData _icone(String vers, String depuis) => switch (vers) {
+        'active' => depuis == 'suspendue'
+            ? Icons.play_arrow_rounded
+            : Icons.check_circle_rounded,
+        'suspendue' => Icons.pause_circle_rounded,
+        'echue' => Icons.event_busy_rounded,
+        'resiliee' => Icons.gavel_rounded,
+        _ => Icons.help_outline_rounded,
+      };
+}
+
 Future<void> _ouvrirLicence(BuildContext context, WidgetRef ref,
     {LicenceTutelle? edition}) async {
-  await showDialog<void>(
-    context: context,
-    builder: (_) => _LicenceFormDialog(edition: edition),
-  );
+  await ouvrirFormulaireLicence(context, edition: edition);
   ref.invalidate(economieProvider);
 }
 
@@ -327,7 +503,7 @@ class _LigneCout extends ConsumerWidget {
                             color: c.isActive ? kTextPrimary : kTextMuted)),
                     if (!c.isActive) ...[
                       const SizedBox(width: 8),
-                      _Puce(texte: 'INACTIF', couleur: kTextMuted),
+                      PuceEconomie(texte: 'INACTIF', couleur: kTextMuted),
                     ],
                   ]),
                   if (c.notes != null)
@@ -424,26 +600,6 @@ class _VideSection extends StatelessWidget {
       );
 }
 
-class _Puce extends StatelessWidget {
-  const _Puce({required this.texte, required this.couleur});
-  final String texte;
-  final Color couleur;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-        decoration: BoxDecoration(
-          color: couleur.withValues(alpha: .13),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Text(texte,
-            style: TextStyle(
-                fontSize: 9.5,
-                fontWeight: FontWeight.w800,
-                letterSpacing: .4,
-                color: couleur)),
-      );
-}
 
 class _Erreur extends StatelessWidget {
   const _Erreur({required this.message, required this.onRetry});
@@ -471,20 +627,6 @@ class _Erreur extends StatelessWidget {
         ),
       );
 }
-
-Color _couleurStatut(String s) => switch (s) {
-      'active' => kGreen,
-      'echue' => const Color(0xFFFF6B35),
-      'resiliee' => const Color(0xFFEF4444),
-      _ => kTextMuted,
-    };
-
-String _labelStatut(String s) => switch (s) {
-      'active' => 'ACTIVE',
-      'echue' => 'ÉCHUE',
-      'resiliee' => 'RÉSILIÉE',
-      _ => 'BROUILLON',
-    };
 
 IconData _iconeCategorie(String c) => switch (c) {
       'base_de_donnees' => Icons.storage_rounded,

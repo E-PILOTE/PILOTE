@@ -32,6 +32,9 @@ class GroupProfile {
     this.subscriptionStart,
     this.logoUrl,
     this.isActive = true,
+    this.tutelle,
+    this.estMinistere = false,
+    this.caractere,
   });
   final String name;
   final String groupType;
@@ -46,6 +49,19 @@ class GroupProfile {
   final DateTime? subscriptionEnd;
   final DateTime? subscriptionStart;
   final String? logoUrl;
+
+  /// Ministère de tutelle du groupe, et — surtout — s'il EST ce ministère.
+  ///
+  /// ⚠️ Sans ça, la fiche du MEPSA affichait « Public » et rien d'autre :
+  /// l'administration de tutelle se lisait comme n'importe quel groupe public.
+  /// C'est son PROPRE écran ; s'il ne dit pas ce qu'elle est, aucun autre ne
+  /// le fera.
+  final String? tutelle;
+  final bool    estMinistere;
+
+  /// Caractère du groupe (migration 0180) — indépendant du secteur porté par
+  /// [groupType]. `null` = non renseigné.
+  final String? caractere;
   final bool isActive;
 }
 
@@ -59,7 +75,8 @@ final adminGroupProfileProvider =
     final g = await client.from('school_groups')
         .select('name, slug, group_type, department, admin_email, phone, address, '
             'founded_year, logo_url, subscription_status, subscription_start, '
-            'subscription_end, is_active, subscription_plans!plan_id(name)')
+            'subscription_end, is_active, tutelle, caractere, '
+            'administre_referentiel_national, subscription_plans!plan_id(name)')
         .eq('id', groupId)
         .maybeSingle();
     if (g == null) return null;
@@ -79,6 +96,10 @@ final adminGroupProfileProvider =
       subscriptionStart:  DateTime.tryParse(g['subscription_start'] as String? ?? ''),
       subscriptionEnd:    DateTime.tryParse(g['subscription_end'] as String? ?? ''),
       isActive:           g['is_active'] as bool? ?? true,
+      tutelle:            g['tutelle'] as String?,
+      estMinistere:
+          g['administre_referentiel_national'] as bool? ?? false,
+      caractere:          g['caractere'] as String?,
     );
   } catch (_) {
     return null;

@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'ecran_groupes_source.dart';
+import 'source_bibliotheque.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LA TUTELLE S'ÉCRIT SUR LE GROUPE, ET NULLE PART AILLEURS
@@ -34,7 +36,7 @@ import 'package:flutter_test/flutter_test.dart';
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('Fichier introuvable : $chemin — sonde aveugle.');
-  var src = f.readAsStringSync();
+  var src = f.readAsStringSync().replaceAll('\r\n', '\n');
   final dossier = chemin.substring(0, chemin.lastIndexOf('/'));
   for (final m in RegExp(r"^part\s+'([^']+)';", multiLine: true).allMatches(src)) {
     final part = File('$dossier/${m.group(1)}');
@@ -44,22 +46,29 @@ String _lire(String chemin) {
 }
 
 void main() {
-  const formulaireGroupe =
-      'lib/features/super_admin/screens/school_groups_screen.dart';
-  const providerEcoles =
-      'lib/features/admin_groupe/providers/admin_schools_provider.dart';
   const formulaireEcole =
       'lib/features/admin_groupe/screens/admin_schools_screen.dart';
+  const providerEcoles =
+      'lib/features/admin_groupe/providers/admin_schools_provider.dart';
+  // ⚠️ L'écran des écoles est lui aussi un DOSSIER (coquille de 362 lignes,
+  // onze `part`, 4 031 lignes en tout). Cette sonde ne lisait que la coquille :
+  // un `'tutelle':` posé dans le formulaire d'école serait passé inaperçu,
+  // alors que c'est EXACTEMENT ce qu'elle prétend interdire.
+  String sourceEcranEcoles() => sourceBibliotheque(
+        coquille: 'lib/features/admin_groupe/screens/admin_schools_screen.dart',
+        dossier: 'lib/features/admin_groupe/screens/schools',
+        minimumPieces: 8,
+      );
 
   test('le formulaire de groupe envoie la tutelle', () {
-    final src = _lire(formulaireGroupe);
+    final src = sourceEcranGroupes();
     expect(src.contains("'tutelle':"), isTrue,
         reason: 'Le formulaire de GROUPE n\'écrit plus la tutelle : les '
             'groupes créés depuis l\'application naîtraient sans ministère.');
   });
 
   test('le formulaire de groupe la rend obligatoire', () {
-    final src = _lire(formulaireGroupe);
+    final src = sourceEcranGroupes();
     // La validation doit vivre dans un FormField : un contrôle posé ailleurs
     // ne serait pas vu par `Form.validate()`, et « Créer le groupe »
     // enregistrerait quand même.
@@ -72,8 +81,11 @@ void main() {
 
   // ⚠️ LE TEST QUI COMPTE VRAIMENT.
   test('aucun écran d\'école n\'écrit la tutelle', () {
-    for (final chemin in [providerEcoles, formulaireEcole]) {
-      final src = _lire(chemin);
+    for (final (nom, src) in [
+      (providerEcoles, _lire(providerEcoles)),
+      ("les écrans d'école", sourceEcranEcoles()),
+    ]) {
+      final chemin = nom;
       expect(src.contains("'tutelle':"), isFalse,
           reason: '$chemin écrit `tutelle` : c\'est une COPIE tenue par '
               'déclencheur depuis le groupe (migration 0153). L\'écrire ici '

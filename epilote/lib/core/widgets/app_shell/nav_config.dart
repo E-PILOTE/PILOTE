@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../constants/app_constants.dart';
 import '../../constants/routes.dart';
+import '../../constants/socle_natif.dart';
 import '../../../data/models/profile_model.dart';
 import '../../../features/admin_groupe/providers/admin_nav_provider.dart';
 import '../../../features/navigation/module_routes.dart';
@@ -26,6 +27,29 @@ List<NavSection> buildNavSections(WidgetRef ref, ProfileModel profile) {
       return _staffSections(ref, profile);
   }
 }
+
+/// Convertit les entrées natives d'une zone en entrées de menu.
+///
+/// ⚠️ LE SEUL POINT DE CONVERSION socle → barre. Les entrées natives étaient
+/// écrites en toutes lettres DEUX fois dans ce fichier — une fois par espace —
+/// et la base en portait une TROISIÈME version sous forme de modules : chaque
+/// agent voyait deux sections « COMMUNICATION », dont l'une menait à des pages
+/// vides (0176). Les copies avaient déjà divergé (« Messages » d'un côté,
+/// « Messagerie » de l'autre). Une entrée native se déclare désormais dans
+/// `socle_natif.dart`, une seule fois, et les deux barres la lisent ici.
+List<NavEntry> _entreesNatives(
+  EspaceNav espace,
+  ZoneNav zone, {
+  Set<String> sans = const {},
+}) =>
+    [
+      for (final e in socleDe(espace, zone, sans: sans))
+        NavEntry.item(
+          icon: e.icone,
+          label: e.libelle,
+          route: e.places[espace]!.route,
+        ),
+    ];
 
 // ─── super_admin (INTOUCHÉ — ordre & libellés à l'identique) ────────────────
 List<NavSection> _superAdminSections() => const [
@@ -159,32 +183,19 @@ List<NavSection> _adminGroupeSections(WidgetRef ref) {
       ref.watch(groupeAdministreReferentielProvider).valueOrNull ?? false;
 
   return [
-    const NavSection(title: '', pinnedTop: true, entries: [
-      NavEntry.item(
-        icon: Icons.dashboard_rounded,
-        label: 'Tableau de bord',
-        route: Routes.adminDashboard,
+    // Le bloc de tête est natif : il se lit dans `socle_natif.dart`, qui
+    // porte aussi le pourquoi de chaque entrée. Un groupe ordinaire ne doit
+    // pas même VOIR « Réseau sous tutelle » : elle ne lui rendrait rien (les
+    // RPC refusent en 42501) et lui laisserait croire qu'il lui manque un droit.
+    NavSection(
+      title: '',
+      pinnedTop: true,
+      entries: _entreesNatives(
+        EspaceNav.groupe,
+        ZoneNav.tete,
+        sans: estTutelle ? const {} : const {'Réseau sous tutelle'},
       ),
-    ]),
-    // ⚠️ AVANT « GESTION », et c'est délibéré. Pour un ministère, la question
-    // du jour est « combien d'élèves dans MON MINISTÈRE », pas « combien dans
-    // mes quatorze écoles ». La section porte le mot TUTELLE pour qu'aucun
-    // lecteur ne confonde les deux périmètres.
-    if (estTutelle)
-      const NavSection(title: 'TUTELLE', entries: [
-        NavEntry.item(
-          icon: Icons.hub_rounded,
-          label: 'Réseau sous tutelle',
-          route: Routes.adminTutelle,
-        ),
-        // Compter son réseau, puis lui écrire : les deux gestes se suivent,
-        // les deux entrées aussi.
-        NavEntry.item(
-          icon: Icons.mark_as_unread_rounded,
-          label: 'Circulaires émises',
-          route: Routes.adminCirculairesEmises,
-        ),
-      ]),
+    ),
     // Ordre workflow : créer les écoles → les profils → assigner les utilisateurs.
     NavSection(title: 'GESTION', entries: [
       const NavEntry.item(
@@ -299,56 +310,36 @@ List<NavSection> _adminGroupeSections(WidgetRef ref) {
     // Gérer son contrat n'est pas piloter son réseau : l'abonnement quitte la
     // section des examens et rejoint les rapports, qui sont l'autre chose qu'un
     // cabinet consulte sans qu'elle appartienne à un métier précis.
-    const NavSection(title: 'RAPPORTS', entries: [
-      NavEntry.item(
+    NavSection(title: 'RAPPORTS', entries: [
+      const NavEntry.item(
         icon: Icons.bar_chart_rounded,
         label: 'Rapports',
         route: Routes.adminRapports,
       ),
+      // ⚠️ Même route, deux mots — parce que ce ne sont pas la même chose.
+      // Un ministère n'a pas d'abonnement mensuel : il exécute un marché, et
+      // la page lui montre sa licence (0182/0183). Lire « Abonnement » dans sa
+      // barre latérale le rangerait parmi les clients qu'on relance.
       NavEntry.item(
-        icon: Icons.credit_card_rounded,
-        label: 'Abonnement',
+        icon: estTutelle
+            ? Icons.workspace_premium_rounded
+            : Icons.credit_card_rounded,
+        label: estTutelle ? 'Licence' : 'Abonnement',
         route: Routes.adminAbonnement,
       ),
     ]),
-    // Communication = tissu natif de la plateforme (jamais vendu, non
-    // désactivable) → épinglée comme Système : bloc-repère permanent en bas.
-    const NavSection(title: 'COMMUNICATION', pinned: true, entries: [
-      NavEntry.item(
-        icon: Icons.campaign_rounded,
-        label: 'Annonces & Agenda',
-        route: Routes.adminAnnonces,
-      ),
-      NavEntry.item(
-        icon: Icons.forum_rounded,
-        label: 'Messagerie',
-        route: Routes.adminMessagerie,
-      ),
-      // Reçues, pas émises : tout groupe a une tutelle, y compris un
-      // ministère — il est sous sa propre tutelle.
-      NavEntry.item(
-        icon: Icons.description_rounded,
-        label: 'Circulaires',
-        route: Routes.adminCirculaires,
-      ),
-    ]),
-    const NavSection(title: 'SYSTÈME', pinned: true, entries: [
-      NavEntry.item(
-        icon: Icons.confirmation_num_rounded,
-        label: 'Tickets',
-        route: Routes.adminSupport,
-      ),
-      NavEntry.item(
-        icon: Icons.menu_book_rounded,
-        label: "Journal d'audit",
-        route: Routes.adminAudit,
-      ),
-      NavEntry.item(
-        icon: Icons.settings_rounded,
-        label: 'Paramètres',
-        route: Routes.adminParametres,
-      ),
-    ]),
+    // Communication et Système = tissu natif (jamais vendu, non désactivable)
+    // → épinglés en bas, bloc-repère permanent.
+    NavSection(
+      title: 'COMMUNICATION',
+      pinned: true,
+      entries: _entreesNatives(EspaceNav.groupe, ZoneNav.communication),
+    ),
+    NavSection(
+      title: 'SYSTÈME',
+      pinned: true,
+      entries: _entreesNatives(EspaceNav.groupe, ZoneNav.systeme),
+    ),
   ];
 }
 
@@ -371,45 +362,24 @@ List<NavSection> _staffSections(WidgetRef ref, ProfileModel profile) {
   final modulesError = groupedAsync.hasError || permsAsync.hasError;
 
   final sections = <NavSection>[
-    const NavSection(title: '', pinnedTop: true, entries: [
-      NavEntry.item(
-        icon: Icons.dashboard_rounded,
-        label: 'Tableau de bord',
-        route: Routes.userDashboard,
-      ),
-    ]),
+    NavSection(
+      title: '',
+      pinnedTop: true,
+      entries: _entreesNatives(EspaceNav.etablissement, ZoneNav.tete),
+    ),
   ];
 
-  // Calendrier scolaire + Journal d'audit = configs NATIVES réservées à la
-  // direction (hors catalogue : non vendables).
+  // Configs NATIVES réservées à la direction (hors catalogue : non vendables).
+  // Le verrou de RÔLE reste ici — il ne se déclare pas, il se décide. Le socle
+  // dit QUELLES pages ; ce test dit À QUI.
+  //
+  // ⚠️ Plus d'entrée « Circulaires » : la tutelle écrit désormais par la
+  // messagerie, que l'établissement possède déjà.
   if (AppConstants.directionRoles.contains(profile.role)) {
-    sections.add(const NavSection(title: 'ÉTABLISSEMENT', entries: [
-      NavEntry.item(
-        icon: Icons.event_note_rounded,
-        label: 'Calendrier scolaire',
-        route: Routes.calendrier,
-      ),
-      // ⚠️ Direction SEULEMENT, et pas par confort d'affichage : les états
-      // lisent l'école entière, hors du périmètre de classes de l'agent. Le
-      // routeur pose le même verrou — les deux doivent rester.
-      NavEntry.item(
-        icon: Icons.description_rounded,
-        label: 'Rapports',
-        route: Routes.userRapports,
-      ),
-      // Circulaires de la tutelle. Direction SEULEMENT : l'accusé de lecture
-      // engage l'établissement. Le routeur pose le même verrou.
-      NavEntry.item(
-        icon: Icons.markunread_mailbox_rounded,
-        label: 'Circulaires',
-        route: Routes.userCirculaires,
-      ),
-      NavEntry.item(
-        icon: Icons.fact_check_outlined,
-        label: "Journal d'audit",
-        route: Routes.userAudit,
-      ),
-    ]));
+    sections.add(NavSection(
+      title: 'ÉTABLISSEMENT',
+      entries: _entreesNatives(EspaceNav.etablissement, ZoneNav.etablissement),
+    ));
   }
 
   // Modules accordés, regroupés par catégorie (ordre = display_order du SQL).
@@ -444,47 +414,35 @@ List<NavSection> _staffSections(WidgetRef ref, ProfileModel profile) {
     ]));
   }
 
-  // Communication = tissu natif (jamais vendu, non désactivable).
-  final commEntries = <NavEntry>[
-    const NavEntry.item(
-      icon: Icons.campaign_rounded,
-      label: 'Annonces & Agenda',
-      route: Routes.annonces,
+  // Communication et Système = tissu natif → épinglés en bas.
+  //
+  // Les RETRAITS sont des décisions de rôle, pas de déclaration : on filtre le
+  // socle plutôt que d'en écrire une seconde version — une seconde liste finit
+  // toujours par diverger de la première.
+  sections.add(NavSection(
+    title: 'COMMUNICATION',
+    pinned: true,
+    entries: _entreesNatives(
+      EspaceNav.etablissement,
+      ZoneNav.communication,
+      sans: {
+        // Sauvegarde mineurs : pas de messagerie privée pour un élève.
+        if (isEleve) 'Messagerie',
+        if (!isParent) 'Espace Parent',
+      },
     ),
-    // Sauvegarde mineurs : les élèves n'ont pas la messagerie privée.
-    if (!isEleve)
-      const NavEntry.item(
-        icon: Icons.forum_rounded,
-        label: 'Messagerie',
-        route: Routes.messagerie,
-      ),
-    if (isParent)
-      const NavEntry.item(
-        icon: Icons.family_restroom_rounded,
-        label: 'Espace Parent',
-        route: Routes.espaceParent,
-      ),
-  ];
-  // Communication = tissu natif → épinglée comme Système (bloc-repère bas).
-  sections
-      .add(NavSection(title: 'COMMUNICATION', pinned: true, entries: commEntries));
+  ));
 
-  // Système (épinglé en bas).
-  final sysEntries = <NavEntry>[
-    // Demandes au support plateforme : réservé au personnel de l'école.
-    if (!isEleve && !isParent)
-      const NavEntry.item(
-        icon: Icons.confirmation_num_rounded,
-        label: 'Tickets',
-        route: Routes.userSupport,
-      ),
-    const NavEntry.item(
-      icon: Icons.settings_rounded,
-      label: 'Paramètres',
-      route: Routes.userParametres,
+  sections.add(NavSection(
+    title: 'SYSTÈME',
+    pinned: true,
+    entries: _entreesNatives(
+      EspaceNav.etablissement,
+      ZoneNav.systeme,
+      // Demandes au support plateforme : réservé au personnel de l'école.
+      sans: {if (isEleve || isParent) 'Tickets'},
     ),
-  ];
-  sections.add(NavSection(title: 'SYSTÈME', pinned: true, entries: sysEntries));
+  ));
 
   return sections;
 }

@@ -38,7 +38,7 @@ const _kFeedE = 'lib/features/communication/screens/events_feed.dart';
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('$chemin introuvable — tourner depuis `epilote/`.');
-  return f.readAsStringSync();
+  return f.readAsStringSync().replaceAll('\r\n', '\n');
 }
 
 void main() {
@@ -110,7 +110,7 @@ void main() {
           '0139_APRES_LE_BUILD_annonces_et_evenements_par_le_verbe.sql');
       expect(f.existsSync(), isTrue,
           reason: 'La moitié base doit être écrite, prête, et datée.');
-      final sql = f.readAsStringSync();
+      final sql = f.readAsStringSync().replaceAll('\r\n', '\n');
       expect(sql.contains('NE PAS APPLIQUER AVANT LA PUBLICATION DU BUILD'),
           isTrue,
           reason: 'Durcir un verbe sans son build produit un 42501 — code '

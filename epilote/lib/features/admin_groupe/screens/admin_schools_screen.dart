@@ -25,6 +25,7 @@ import '../widgets/school_location_picker.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/utils/message_erreur.dart';
 import '../../../core/constants/tutelle.dart';
+import '../../../core/providers/identite_etablissement.dart';
 
 part 'schools/schools_kpi.dart';
 part 'schools/schools_filters.dart';
