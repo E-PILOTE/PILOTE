@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'ecran_abonnements_source.dart';
 import 'ecran_tableau_de_bord_source.dart';
+import 'ecran_reglages_source.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  UN MINISTÈRE N'A PAS D'ÉCHÉANCE D'ABONNEMENT
@@ -43,7 +44,6 @@ const _nav = 'lib/core/widgets/app_shell/nav_config.dart';
 const _economie = 'lib/features/super_admin/screens/economie_screen.dart';
 const _dialogue =
     'lib/features/super_admin/screens/economie/licence_form_dialog.dart';
-const _fiche = 'lib/features/admin_groupe/screens/admin_settings_screen.dart';
 const _groupes =
     'lib/features/super_admin/providers/school_groups_provider.dart';
 const _couverture =
@@ -133,7 +133,7 @@ void main() {
     });
 
     test('la fiche du groupe ne parle pas d’abonnement à un ministère', () {
-      final src = _lire(_fiche);
+      final src = sourceEcranReglages();
       expect(src.contains("g.estMinistere ? 'Licence' : 'Plan'"), isTrue);
       expect(src.contains("g.estMinistere ? 'Statut' : 'Statut abonnement'"),
           isTrue);

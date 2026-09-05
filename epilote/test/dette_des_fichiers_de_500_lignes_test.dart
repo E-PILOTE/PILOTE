@@ -6,6 +6,7 @@ import 'ecran_abonnements_source.dart';
 import 'ecran_administrateurs_source.dart';
 import 'ecran_dashboard_fondateur_source.dart';
 import 'ecran_groupes_source.dart';
+import 'ecran_reglages_source.dart';
 import 'ecran_tableau_de_bord_source.dart';
 import 'ecran_utilisateurs_source.dart';
 import 'source_bibliotheque.dart';
@@ -14,7 +15,7 @@ import 'source_bibliotheque.dart';
 //  LA RÈGLE DES 500 LIGNES, RENDUE OPPOSABLE
 //
 //  ── POURQUOI UN CLIQUET PLUTÔT QU'UNE INTERDICTION ────────────────────────
-//  Le dépôt compte encore 89 fichiers au-dessus de 500 lignes ; interdire
+//  Le dépôt compte encore 87 fichiers au-dessus de 500 lignes ; interdire
 //  franchement ferait tomber la suite entière et le test serait désactivé dans
 //  la semaine. Un CLIQUET, lui, tient : la dette peut diminuer, jamais
 //  augmenter. Chaque découpage abaisse le plafond, et un fichier neuf trop
@@ -35,7 +36,7 @@ import 'source_bibliotheque.dart';
 /// Nombre de fichiers de `lib/` dépassant 500 lignes, au 2026-09-05.
 ///
 /// Il en restait 98 au matin ; neuf écrans ont été découpés depuis.
-const int _plafond = 89;
+const int _plafond = 87;
 
 const int _limite = 500;
 
@@ -82,6 +83,7 @@ void main() {
       'groupes': taillesEcranGroupes(),
       'tableau de bord': taillesTableauDeBord(),
       'tableau de bord fondateur': taillesDashboardFondateur(),
+      'paramètres du groupe': taillesEcranReglages(),
     };
 
     for (final e in bibliotheques.entries) {

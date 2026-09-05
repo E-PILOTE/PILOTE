@@ -20,6 +20,7 @@ import '../../../core/widgets/capture_webcam.dart';
 import '../../staff/services/agent_photo_service.dart' show kAvatarExtensions;
 import '../services/photo_utilisateur_service.dart';
 import 'users/champ_photo_agent.dart';
+import '../../../core/utils/politique_mot_de_passe.dart';
 
 part 'users/users_kpis.dart';
 part 'users/users_table.dart';

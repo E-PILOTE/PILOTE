@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'admin_ui.dart';
+import '../utils/politique_mot_de_passe.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  CHANGER SON MOT DE PASSE — en prouvant d'abord qu'on est bien soi
@@ -62,8 +63,11 @@ class _PasswordChangeDialogState extends ConsumerState<PasswordChangeDialog> {
       setState(() => _error = 'Saisissez votre mot de passe actuel');
       return;
     }
-    if (_pwd.text.length < 8) {
-      setState(() => _error = 'Au moins 8 caractères requis');
+    // La politique du groupe quand elle existe, le défaut sinon — la même
+    // règle que les deux autres portes qui posent un mot de passe.
+    final refus = ref.read(politiqueMotDePasseProvider).refus(_pwd.text);
+    if (refus != null) {
+      setState(() => _error = refus);
       return;
     }
     if (_pwd.text != _confirm.text) {
@@ -179,7 +183,7 @@ class _PasswordChangeDialogState extends ConsumerState<PasswordChangeDialog> {
         const SizedBox(height: 6),
         Align(
           alignment: Alignment.centerLeft,
-          child: Text('8 caractères minimum',
+          child: Text(ref.watch(politiqueMotDePasseProvider).exigence,
               style: TextStyle(fontSize: 11.5, color: kTextMuted)),
         ),
         const SizedBox(height: 12),

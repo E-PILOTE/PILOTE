@@ -64,13 +64,11 @@ class _ResetPasswordDialogState extends ConsumerState<ResetPasswordDialog> {
                   TextFormField(
                     controller: _pwd,
                     obscureText: _obscure,
-                    validator: (v) {
-                      if (v == null || v.isEmpty) return 'Mot de passe requis';
-                      if (v.length < 6) return 'Au moins 6 caractères';
-                      return null;
-                    },
+                    validator: ref.read(politiqueMotDePasseProvider).refus,
                     decoration: adminInputDecoration('Nouveau mot de passe', icon: Icons.lock_outline)
                         .copyWith(
+                      helperText: ref.read(politiqueMotDePasseProvider).exigence,
+                      helperMaxLines: 2,
                       suffixIcon: IconButton(
                         icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                             size: 20, color: kTextMuted),

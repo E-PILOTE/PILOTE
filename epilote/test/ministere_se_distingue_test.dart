@@ -5,6 +5,7 @@ import 'package:epilote/core/widgets/badge_ministere.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'ecran_groupes_source.dart';
+import 'ecran_reglages_source.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  UN MINISTÈRE NE SE LIT PAS COMME UN GROUPE SCOLAIRE
@@ -30,8 +31,6 @@ import 'ecran_groupes_source.dart';
 // ════════════════════════════════════════════════════════════════════════════
 
 const _timeline = 'lib/features/communication/widgets/notification_timeline.dart';
-const _reglages =
-    'lib/features/admin_groupe/screens/admin_settings_screen.dart';
 
 String _lire(String chemin) {
   final f = File(chemin);
@@ -146,7 +145,7 @@ void main() {
       // pastilles exactes, et pas une qui dise qu'on regarde un ministère de
       // tutelle. C'est l'écran de l'intéressé : s'il ne le dit pas là, il ne
       // le dit nulle part.
-      final src = _lire(_reglages);
+      final src = sourceEcranReglages();
       expect(src.contains('BadgeMinistere('), isTrue,
           reason: 'La fiche du ministère est redevenue celle d’un groupe '
               'public ordinaire.');

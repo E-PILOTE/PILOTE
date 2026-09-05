@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:epilote/core/providers/identite_etablissement.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'ecran_groupes_source.dart';
+import 'ecran_reglages_source.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LA BARRE LATÉRALE PORTE L'ÉTABLISSEMENT, PAS L'ÉDITEUR
@@ -269,7 +270,6 @@ void main() {
     const delegataires = [
       'lib/core/widgets/app_shell/sidebar_header.dart',
       'lib/features/user/screens/user_dashboard_screen.dart',
-      'lib/features/admin_groupe/screens/admin_settings_screen.dart',
       'lib/features/admin_groupe/screens/schools/school_form_widgets.dart',
       'lib/features/super_admin/providers/subscriptions_provider.dart',
       'lib/features/super_admin/services/financial_pdf_service.dart',
@@ -286,6 +286,12 @@ void main() {
       // fichier par fichier ferait passer cette sonde au vert sans rien voir.
       expect(
           _sansCommentaires(sourceEcranGroupes())
+              .contains('initialesEtablissement'),
+          isTrue);
+      // Les paramètres du groupe sont eux aussi un DOSSIER : la pastille du
+      // logo vit dans `reglages_general.dart`.
+      expect(
+          _sansCommentaires(sourceEcranReglages())
               .contains('initialesEtablissement'),
           isTrue);
     });

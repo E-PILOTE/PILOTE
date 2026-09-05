@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:epilote/core/constants/caractere_groupe.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'ecran_groupes_source.dart';
+import 'ecran_reglages_source.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LE SECTEUR ET LE CARACTÈRE SONT DEUX QUESTIONS
@@ -31,8 +32,6 @@ import 'ecran_groupes_source.dart';
 //  (« confessionnel », « ministere », « reseau »).
 // ════════════════════════════════════════════════════════════════════════════
 
-const _reglages =
-    'lib/features/admin_groupe/screens/admin_settings_screen.dart';
 const _migration =
     '../database/migrations/0180_AVANT_LE_BUILD_le_caractere_nest_pas_le_secteur.sql';
 
@@ -154,7 +153,7 @@ void main() {
     });
 
     test('l’espace groupe n’a plus son vocabulaire à lui', () {
-      final src = _lire(_reglages);
+      final src = sourceEcranReglages();
       expect(src.contains("'confessionnel' => 'Confessionnel'"), isFalse,
           reason: 'Le troisième vocabulaire inventé est revenu — aucune base '
               'n’a jamais accepté ces valeurs.');

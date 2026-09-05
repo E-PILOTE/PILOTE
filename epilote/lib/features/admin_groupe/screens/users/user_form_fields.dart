@@ -59,12 +59,12 @@ extension _UserFormFields on _UserFormDialogState {
     controller: _password,
     obscureText: _obscure,
     style: TextStyle(fontSize: 13, color: kTextPrimary),
-    validator: (v) {
-      if (v == null || v.isEmpty) return 'Mot de passe requis';
-      if (v.length < 6) return 'Au moins 6 caractères';
-      return null;
-    },
+    // La politique du groupe, pas six caractères en dur : l'onglet Sécurité
+    // proposait le réglage depuis toujours et personne ne le lisait.
+    validator: ref.read(politiqueMotDePasseProvider).refus,
     decoration: _inputDec('Mot de passe *', Icons.lock_outline).copyWith(
+      helperText: ref.read(politiqueMotDePasseProvider).exigence,
+      helperMaxLines: 2,
       suffixIcon: IconButton(
         icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
             size: 20, color: kTextMuted),
