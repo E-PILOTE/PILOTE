@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'ecran_abonnements_source.dart';
 import 'ecran_administrateurs_source.dart';
+import 'ecran_dashboard_fondateur_source.dart';
 import 'ecran_groupes_source.dart';
 import 'ecran_tableau_de_bord_source.dart';
 import 'ecran_utilisateurs_source.dart';
@@ -80,6 +81,7 @@ void main() {
       'administrateurs': taillesEcranAdministrateurs(),
       'groupes': taillesEcranGroupes(),
       'tableau de bord': taillesTableauDeBord(),
+      'tableau de bord fondateur': taillesDashboardFondateur(),
     };
 
     for (final e in bibliotheques.entries) {

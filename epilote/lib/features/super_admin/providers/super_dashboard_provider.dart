@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/tarif_ecoles.dart' show mensualiteGroupe;
 import 'package:realtime_client/realtime_client.dart';
@@ -88,6 +89,45 @@ class DeptStat {
   int get schoolCount => groups.fold(0, (s, g) => s + g.schoolsCount);
 }
 
+// ─── Ce que le tableau de bord n'a PAS pu lire ────────────────────────────────
+//
+//  ⚠️ NEUF LECTURES ÉTAIENT AVALÉES EN SILENCE (`catch (_) {}`). Une requête
+//  qui échoue — réseau coupé, RLS resserrée, colonne renommée — laissait donc
+//  la mesure à ZÉRO, et l'écran annonçait « 0 élève », « 0 FCFA de revenus »,
+//  « 0 groupe actif » au fondateur avec le même aplomb que la vérité.
+//
+//  C'est le défaut de famille de cet écran : il portait déjà « Sync réussie
+//  99,7 % », « SLA 99,5 % » et une courbe de revenus fabriquée (voir plus bas).
+//  Zéro n'est pas « je ne sais pas ». Chaque échec se nomme désormais, l'écran
+//  le dit, et les cartes concernées affichent « — » au lieu d'un chiffre faux.
+class MesuresDashboard {
+  const MesuresDashboard._();
+
+  static const eleves = 'eleves';
+  static const personnel = 'personnel';
+  static const departements = 'departements';
+
+  /// La lecture qui porte le plus : groupes, revenus, abonnements, plans,
+  /// départements, écoles. Si elle tombe, la moitié de l'écran est inconnue.
+  static const ecolesEtGroupes = 'ecoles_et_groupes';
+
+  static const personnelParRole = 'personnel_par_role';
+  static const activite = 'activite';
+  static const tendances = 'tendances';
+
+  /// Le nom lisible d'une mesure, pour le bandeau d'avertissement.
+  static String libelle(String cle) => switch (cle) {
+        eleves => 'effectif des élèves',
+        personnel => 'effectif du personnel',
+        departements => 'départements du pays',
+        ecolesEtGroupes => 'écoles, groupes et revenus',
+        personnelParRole => 'répartition du personnel',
+        activite => 'activité récente',
+        tendances => 'tendances mensuelles',
+        _ => cle,
+      };
+}
+
 // ─── Modèle stats dashboard ───────────────────────────────────────────────────
 
 class SuperDashboardData {
@@ -117,6 +157,7 @@ class SuperDashboardData {
     this.ecolesGeolocalisees = 0,
     this.departementsCouverts = 0,
     this.departementsTotal = 0,
+    this.mesuresIndisponibles = const {},
   });
 
   final int    groupesActifs;
@@ -164,6 +205,15 @@ class SuperDashboardData {
 
   // ── Historique revenus 12 mois ────────────────────────────────────────────
   final List<MonthlyRevenue>        revenueMonthly;
+
+  /// Les mesures que cette lecture n'a PAS pu obtenir — cf. [MesuresDashboard].
+  ///
+  /// Vide dans le cas normal. Non vide, elle veut dire « ces cases ne sont pas
+  /// à zéro : elles sont inconnues ». L'écran doit le dire, jamais l'arrondir.
+  final Set<String> mesuresIndisponibles;
+
+  /// Une mesure donnée a-t-elle échoué ?
+  bool indisponible(String cle) => mesuresIndisponibles.contains(cle);
 
   static const empty = SuperDashboardData(
     groupesActifs:       0,
@@ -235,6 +285,10 @@ final superDashboardProvider =
   final List<ActivityItem>              activity   = [];
   final Map<String, List<DeptGroupInfo>> deptMap   = {};
 
+  // Ce qui n'aura pas pu être lu. Rempli par les `catch` ci-dessous, rendu
+  // avec les données : une page qui montre des zéros sans le dire ment.
+  final echecs = <String>{};
+
   // ── Élèves ─────────────────────────────────────────────────────────────────
   //
   // ⚠️ COMPTER, PAS RAMENER. `select('id')` puis `.length` compte les lignes
@@ -245,7 +299,10 @@ final superDashboardProvider =
   // qu'elle est ronde.
   try {
     elevesTotal = await client.from('students').count(CountOption.exact);
-  } catch (_) {}
+  } catch (e) {
+    echecs.add(MesuresDashboard.eleves);
+    debugPrint('ℹ️ Tableau de bord : mesure « eleves » illisible ($e).');
+  }
 
   // ── Personnel (hors super_admin / admin_groupe) ───────────────────────────
   try {
@@ -257,7 +314,10 @@ final superDashboardProvider =
             .not('role', 'in', '(super_admin,admin_groupe)')
             .count(CountOption.exact))
         .count;
-  } catch (_) {}
+  } catch (e) {
+    echecs.add(MesuresDashboard.personnel);
+    debugPrint('ℹ️ Tableau de bord : mesure « personnel » illisible ($e).');
+  }
 
   // ── Historique revenus 12 mois ────────────────────────────────────────────
   List<MonthlyRevenue> revenueMonthly = const [];
@@ -272,7 +332,10 @@ final superDashboardProvider =
   try {
     departementsTotal =
         await client.from('departments').count(CountOption.exact);
-  } catch (_) {}
+  } catch (e) {
+    echecs.add(MesuresDashboard.departements);
+    debugPrint('ℹ️ Tableau de bord : mesure « departements » illisible ($e).');
+  }
 
   // ── Écoles + Groupes ───────────────────────────────────────────────────────
   try {
@@ -377,7 +440,10 @@ final superDashboardProvider =
     // récurrent à partir des groupes et des plans RÉELS. Quand il ne donne
     // rien, c'est qu'il n'y a rien — et c'est ce qu'il faut montrer.
     revenueMonthly = mrList;
-  } catch (_) {}
+  } catch (e) {
+    echecs.add(MesuresDashboard.ecolesEtGroupes);
+    debugPrint('ℹ️ Tableau de bord : mesure « ecoles_et_groupes » illisible ($e).');
+  }
 
   // ── Personnel par rôle (barres horizontales) ──────────────────────────────
   List<MapEntry<String, int>> personnelByRole = const [];
@@ -395,7 +461,10 @@ final superDashboardProvider =
       ..sort((a, b) => b.value.compareTo(a.value)))
         .take(4)
         .toList();
-  } catch (_) {}
+  } catch (e) {
+    echecs.add(MesuresDashboard.personnelParRole);
+    debugPrint('ℹ️ Tableau de bord : mesure « personnel_par_role » illisible ($e).');
+  }
 
   // ── Abonnements par statut (barres horizontales) ──────────────────────────
   final abonnementsByStatus = (statusMap.entries
@@ -426,7 +495,10 @@ final superDashboardProvider =
         icon:   _tableIcon(table, action),
       ));
     }
-  } catch (_) {}
+  } catch (e) {
+    echecs.add(MesuresDashboard.activite);
+    debugPrint('ℹ️ Tableau de bord : mesure « activite » illisible ($e).');
+  }
 
   // ── Tendances mensuelles sparklines ───────────────────────────────────────
   List<MonthlyPoint> trendGroupes = const [];
@@ -439,17 +511,26 @@ final superDashboardProvider =
     final rows = await client.from('school_groups').select('created_at')
         .gte('created_at', sixMo.toIso8601String()) as List;
     trendGroupes = _monthly6m(rows);
-  } catch (_) {}
+  } catch (e) {
+    echecs.add(MesuresDashboard.tendances);
+    debugPrint('ℹ️ Tableau de bord : mesure « tendances » illisible ($e).');
+  }
   try {
     final rows = await client.from('schools').select('created_at')
         .gte('created_at', sixMo.toIso8601String()) as List;
     trendEcoles = _monthly6m(rows);
-  } catch (_) {}
+  } catch (e) {
+    echecs.add(MesuresDashboard.tendances);
+    debugPrint('ℹ️ Tableau de bord : mesure « tendances » illisible ($e).');
+  }
   try {
     final rows = await client.from('students').select('created_at')
         .gte('created_at', sixMo.toIso8601String()) as List;
     trendEleves = _monthly6m(rows);
-  } catch (_) {}
+  } catch (e) {
+    echecs.add(MesuresDashboard.tendances);
+    debugPrint('ℹ️ Tableau de bord : mesure « tendances » illisible ($e).');
+  }
   // ⚠️ Les revenus se lisent sur les FACTURES ENCAISSÉES, pas sur une courbe
   // fabriquée. La version précédente prenait le revenu du mois courant et le
   // multipliait par [0.62, 0.70, 0.79, 0.87, 0.93, 1.0] : le graphique
@@ -497,6 +578,7 @@ final superDashboardProvider =
     departementsCouverts: departementsCouverts,
     departementsTotal:    departementsTotal,
     revenueMonthly:      revenueMonthly,
+    mesuresIndisponibles: echecs,
   );
 });
 

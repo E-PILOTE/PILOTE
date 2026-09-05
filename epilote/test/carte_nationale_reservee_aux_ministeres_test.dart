@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'ecran_tableau_de_bord_source.dart';
+import 'ecran_dashboard_fondateur_source.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LA CARTE NATIONALE EST UN OUTIL DE TUTELLE, PAS UN OUTIL DE CLIENT
@@ -25,8 +26,6 @@ import 'ecran_tableau_de_bord_source.dart';
 
 const _drapeaux =
     'lib/features/admin_groupe/providers/referentiel_national_provider.dart';
-const _dashboardFondateur =
-    'lib/features/super_admin/screens/super_dashboard_screen.dart';
 
 String _lire(String chemin) {
   final f = File(chemin);
@@ -116,7 +115,7 @@ void main() {
     test('elle n’a pas été retirée par ricochet', () {
       // C'est son métier de voir le pays. Le correctif ne visait que les
       // espaces clients.
-      final src = _lire(_dashboardFondateur);
+      final src = sourceDashboardFondateur();
       expect(src.contains("label: 'Vue Nationale'"), isTrue,
           reason: 'La Vue Nationale du fondateur a disparu avec celle des '
               'clients : il ne voit plus son parc.');
