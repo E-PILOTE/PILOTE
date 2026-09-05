@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:epilote/core/providers/identite_etablissement.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'ecran_groupes_source.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LA BARRE LATÉRALE PORTE L'ÉTABLISSEMENT, PAS L'ÉDITEUR
@@ -270,7 +271,6 @@ void main() {
       'lib/features/user/screens/user_dashboard_screen.dart',
       'lib/features/admin_groupe/screens/admin_settings_screen.dart',
       'lib/features/admin_groupe/screens/schools/school_form_widgets.dart',
-      'lib/features/super_admin/screens/school_groups_screen.dart',
       'lib/features/super_admin/providers/subscriptions_provider.dart',
       'lib/features/super_admin/services/financial_pdf_service.dart',
     ];
@@ -281,6 +281,13 @@ void main() {
             isTrue,
             reason: '$f a recommencé à calculer ses propres initiales.');
       }
+      // L'écran des groupes est un DOSSIER depuis son découpage : ses trois
+      // pastilles vivent dans `groupes_badges` et `groupes_form_bits`. Le lire
+      // fichier par fichier ferait passer cette sonde au vert sans rien voir.
+      expect(
+          _sansCommentaires(sourceEcranGroupes())
+              .contains('initialesEtablissement'),
+          isTrue);
     });
 
     test('la règle n’est déclarée qu’une fois', () {
@@ -293,7 +300,7 @@ void main() {
     });
 
     test('l’écran des groupes n’a plus de version maison', () {
-      final src = _lire('lib/features/super_admin/screens/school_groups_screen.dart');
+      final src = sourceEcranGroupes();
       expect(src.contains('String get _initials {'), isFalse,
           reason: 'Les trois pastilles de cet écran doivent déléguer.');
     });

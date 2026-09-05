@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:epilote/features/super_admin/providers/school_groups_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'ecran_groupes_source.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LE RÔLE DE TUTELLE S'ACCORDE — À UN SEUL GROUPE PAR MINISTÈRE
@@ -34,8 +35,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _migration =
     '../database/migrations/0178_AVANT_LE_BUILD_une_seule_tutelle_par_ministere.sql';
-const _formulaire =
-    'lib/features/super_admin/screens/groups/group_form_modal.dart';
 const _interrupteur =
     'lib/features/super_admin/screens/groups/group_tutelle_role.dart';
 
@@ -186,7 +185,7 @@ void main() {
       // Le dialogue faisait cocher « je comprends que cette action est
       // irréversible » pour finir sur un refus de la base.
       final src =
-          _lire('lib/features/super_admin/screens/school_groups_screen.dart');
+          sourceEcranGroupes();
       expect(src.contains('_RefusMinistere('), isTrue,
           reason: 'Le dialogue propose de nouveau de supprimer un ministère.');
       expect(src.contains('_confirmed && !_estMinistere'), isTrue,
@@ -197,7 +196,7 @@ void main() {
 
   group('Ce que l’écran déclare', () {
     test('le formulaire envoie le rôle', () {
-      final src = _lire(_formulaire);
+      final src = sourceFormulaireGroupe();
       expect(src.contains("'administre_referentiel_national': _estTutelle"),
           isTrue,
           reason: 'Le formulaire n’écrit plus le rôle : l’interrupteur '
@@ -205,7 +204,7 @@ void main() {
     });
 
     test('et il dit le conflit avant le clic sur « Enregistrer »', () {
-      final src = _lire(_formulaire);
+      final src = sourceFormulaireGroupe();
       expect(src.contains('detenteurDuRoleDeTutelle('), isTrue,
           reason: 'L’écran ne consulte plus les autres groupes : le conflit ne '
               'se découvrirait qu’au refus de la base.');

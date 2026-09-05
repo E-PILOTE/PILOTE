@@ -4,6 +4,7 @@ import 'package:epilote/features/super_admin/providers/comptes_admin_provider.da
 import 'package:flutter_test/flutter_test.dart';
 
 import 'ecran_abonnements_source.dart';
+import 'ecran_groupes_source.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  L'ADRESSE AFFICHÉE N'ÉTAIT PAS CELLE QUI OUVRE UNE SESSION
@@ -91,7 +92,7 @@ void main() {
     });
 
     test('la page Groupes scolaires', () {
-      final src = _lire(_groupes);
+      final src = sourceEcranGroupes();
       expect(src.contains('compteDeConnexion(m, g.id)'), isTrue);
       expect(src.contains("'E-mail de contact'"), isTrue);
       expect(src.contains("_DetailRow(Icons.email_outlined, 'Email',"), isFalse,
@@ -104,7 +105,7 @@ void main() {
       // relance le même quiproquo un cran plus loin.
       for (final e in {
         'la page Abonnements': sourceEcranAbonnements(),
-        _groupes: _lire(_groupes),
+        _groupes: sourceEcranGroupes(),
       }.entries) {
         expect(e.value.contains('(désactivé)'), isTrue,
             reason: '${e.key} ne signale plus un compte désactivé.');

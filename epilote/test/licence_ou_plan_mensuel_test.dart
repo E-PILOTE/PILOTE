@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:epilote/features/super_admin/providers/school_groups_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'ecran_groupes_source.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  DEUX NATURES DE CLIENT, DEUX RELATIONS COMMERCIALES
@@ -33,8 +34,6 @@ import 'package:flutter_test/flutter_test.dart';
 //  recopie a échoué.
 // ════════════════════════════════════════════════════════════════════════════
 
-const _formulaire =
-    'lib/features/super_admin/screens/groups/group_form_modal.dart';
 const _migration =
     '../database/migrations/0182_AVANT_LE_BUILD_le_ministere_quitte_la_formule_mensuelle.sql';
 
@@ -119,7 +118,7 @@ void main() {
 
   group('L’écran n’offre pas ce que la base refusera', () {
     test('la liste des plans suit la nature du groupe', () {
-      final src = _lire(_formulaire);
+      final src = sourceFormulaireGroupe();
       expect(src.contains('p.estLicence == _estTutelle'), isTrue,
           reason: 'Le formulaire propose de nouveau tous les plans : un '
               'groupe privé peut être posé sur la licence, et un ministère '
@@ -129,7 +128,7 @@ void main() {
     test('basculer l’interrupteur réaligne le plan', () {
       // Sans ça, cocher « ce groupe est un ministère » laisse « Standard »
       // sélectionné et l'enregistrement part se faire refuser par la base.
-      final src = _lire(_formulaire);
+      final src = sourceFormulaireGroupe();
       expect(src.contains('_alignerLePlan()'), isTrue);
       final i = src.indexOf('_estTutelle = v;');
       expect(i, greaterThan(0));
@@ -140,7 +139,7 @@ void main() {
     test('le défaut à la création ne tombe plus sur la licence', () {
       // `plans.first` triait par prix : « Découverte » et « Licence » sont
       // tous deux à 0 XAF, l'ordre entre eux n'est pas garanti.
-      final src = _lire(_formulaire);
+      final src = sourceFormulaireGroupe();
       expect(src.contains('widget.plans.first.id'), isFalse,
           reason: 'Le défaut est revenu au premier plan par prix : un groupe '
               'ordinaire peut naître sur le plan des ministères.');

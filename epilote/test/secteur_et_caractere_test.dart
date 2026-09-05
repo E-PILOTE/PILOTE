@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:epilote/core/constants/caractere_groupe.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'ecran_groupes_source.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LE SECTEUR ET LE CARACTÈRE SONT DEUX QUESTIONS
@@ -30,9 +31,6 @@ import 'package:flutter_test/flutter_test.dart';
 //  (« confessionnel », « ministere », « reseau »).
 // ════════════════════════════════════════════════════════════════════════════
 
-const _formulaire =
-    'lib/features/super_admin/screens/groups/group_form_modal.dart';
-const _liste = 'lib/features/super_admin/screens/school_groups_screen.dart';
 const _reglages =
     'lib/features/admin_groupe/screens/admin_settings_screen.dart';
 const _migration =
@@ -135,7 +133,7 @@ void main() {
 
   group('Les écrans lisent le référentiel au lieu de le recopier', () {
     test('le formulaire propose le secteur ET le caractère', () {
-      final src = _lire(_formulaire);
+      final src = sourceFormulaireGroupe();
       expect(src.contains('kSecteursGroupe'), isTrue,
           reason: 'Le formulaire a repris une liste locale : c’est comme ça '
               'que « Catholique » s’était retrouvé dans le secteur.');
@@ -147,7 +145,7 @@ void main() {
     });
 
     test('le filtre ne cherche plus ce qui ne peut pas exister', () {
-      final src = _lire(_liste);
+      final src = sourceEcranGroupes();
       for (final mort in ["'catholique': 'Catholique'", "'islamique': 'Islamique'"]) {
         expect(src.contains(mort), isFalse,
             reason: 'Une entrée de filtre morte est revenue : elle ne peut '
