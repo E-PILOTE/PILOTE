@@ -204,6 +204,56 @@ encart signale qu'on ne l'a pas fait). Il compare le build de l'application
 restera — la publication s'adresse à tout le parc, elle ne doit pas être un
 effet de bord d'une compilation.
 
+### ✅ CANAL RÉOUVERT — 3.5.15 / build 49 (2026-09-06)
+
+Publié à la demande explicite du fondateur. Écart comblé : 22 builds.
+
+| | |
+|---|---|
+| tag / dépôt | `v3.5.15` sur `E-PILOTE/telechargements` (**PUBLIC**) |
+| empreinte | `e721f450…5a1f257e` — 36 091 527 o |
+| `is_mandatory` / `min_build` | `false` / `null` |
+| `created_by` | Super Admin `9e706bea…` |
+
+**Six vérifications, dans l'ordre où un poste les subit :**
+
+1. `manifest.json` ⟷ fichier local : empreinte et taille identiques ;
+2. **HEAD anonyme** sur `download_url` → 200, `content-length` = 36 091 527 ;
+3. **téléchargement anonyme intégral, puis SHA-256 des octets reçus** →
+   identique à la valeur déclarée. C'est le contrôle que les douze règles
+   textuelles de `ControleRelease.verifier()` ne peuvent pas faire ;
+4. `derniere_version('windows','stable')` → la ligne ; `linux`, `macos` et
+   `beta` → **NULL**. Le cloisonnement tient ;
+5. `has_function_privilege` : `anon` ET `authenticated` ont EXECUTE — un poste
+   à session expirée doit pouvoir apprendre qu'un correctif existe ;
+6. **appel HTTP réel avec la seule clé anon**, sans session → 200 et charge
+   utile complète. C'est littéralement ce que fait `miseAJourProvider`.
+
+⚠️ **Ce que la publication ne prouve PAS** : le chemin
+téléchargement → vérification → lancement de `UpdateInstaller` n'a jamais été
+parcouru de bout en bout sur un vrai poste. Il faudrait un poste en retard.
+
+### ✅ `le_ruban_sait_apparaitre_test.dart` — la bannière est enfin exécutée
+
+`update_provider_test.dart` couvrait la DÉCISION (16 tests) ; **personne
+n'avait jamais fait s'afficher la bannière**. Le seul écran par lequel une
+correction atteint mille postes n'était vérifié qu'en arithmétique — même
+lacune que le dialogue de code PIN, refermée la veille.
+
+6 tests, **avec les valeurs réellement publiées** (3.5.15/49, empreinte et
+adresse comprises) : un poste en retard voit le ruban et y lit sa propre
+version ; un poste à jour ne voit rien ; hors ligne, aucune alerte ;
+« Plus tard » referme pour la session ; `is_mandatory` **et** `min_build`
+retirent le bouton « Plus tard ».
+
+### 📡 Le parc au moment de la publication
+
+`app_installations` : **6 profils**, du build 27 au 49. Le poste du fondateur
+a signalé le 49 huit minutes après la publication — la boucle
+« se signaler / apprendre » tourne. **Les cinq autres sont désormais en
+retard** et verront le ruban à leur prochaine ouverture. C'est la première
+fois que le canal a quelqu'un à qui parler.
+
 ### ⚠️ L'installation locale n'a rien à voir avec ce canal
 
 Le refus rencontré ce jour-là (« L'opération a été annulée par l'utilisateur »,
