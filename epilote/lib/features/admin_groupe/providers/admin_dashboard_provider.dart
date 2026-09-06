@@ -296,28 +296,30 @@ final adminDashboardProvider =
   String  subStatus = 'trial';
   DateTime? subEnd;
   int maxSchools = 0, maxStudents = 0, maxStaff = 0, moduleCount = 0;
-  try {
-    final g = await client
-        .from('school_groups')
-        .select('name, subscription_status, subscription_end, '
-            'subscription_plans!plan_id(name, slug, max_schools, max_students, max_staff, module_count)')
-        .eq('id', groupId)
-        .maybeSingle();
-    if (g != null) {
-      groupName = g['name'] as String? ?? '—';
-      subStatus = g['subscription_status'] as String? ?? 'trial';
-      final endStr = g['subscription_end'] as String?;
-      subEnd = endStr != null ? DateTime.tryParse(endStr) : null;
-      final plan = g['subscription_plans'] as Map<String, dynamic>?;
-      planName    = plan?['name'] as String? ?? '—';
-      planSlug    = plan?['slug'] as String? ?? '';
-      maxSchools  = (plan?['max_schools']  as int?) ?? 0;
-      maxStudents = (plan?['max_students'] as int?) ?? 0;
-      maxStaff    = (plan?['max_staff']    as int?) ?? 0;
-      moduleCount = (plan?['module_count'] as int?) ?? 0;
+  Future<void> lireGroupe() async {
+    try {
+      final g = await client
+          .from('school_groups')
+          .select('name, subscription_status, subscription_end, '
+              'subscription_plans!plan_id(name, slug, max_schools, max_students, max_staff, module_count)')
+          .eq('id', groupId)
+          .maybeSingle();
+      if (g != null) {
+        groupName = g['name'] as String? ?? '—';
+        subStatus = g['subscription_status'] as String? ?? 'trial';
+        final endStr = g['subscription_end'] as String?;
+        subEnd = endStr != null ? DateTime.tryParse(endStr) : null;
+        final plan = g['subscription_plans'] as Map<String, dynamic>?;
+        planName    = plan?['name'] as String? ?? '—';
+        planSlug    = plan?['slug'] as String? ?? '';
+        maxSchools  = (plan?['max_schools']  as int?) ?? 0;
+        maxStudents = (plan?['max_students'] as int?) ?? 0;
+        maxStaff    = (plan?['max_staff']    as int?) ?? 0;
+        moduleCount = (plan?['module_count'] as int?) ?? 0;
+      }
+    } catch (e) {
+      manquantes.note(MesuresTableauGroupe.groupe, e, ecran: 'Tableau de bord groupe');
     }
-  } catch (e) {
-    manquantes.note(MesuresTableauGroupe.groupe, e, ecran: 'Tableau de bord groupe');
   }
 
   // ── Écoles (avec département) ─────────────────────────────────────────────
@@ -325,26 +327,28 @@ final adminDashboardProvider =
   final Map<String, String> schoolDept = {};
   final Map<String, int> schoolsByDept = {};
   int publicCount = 0, priveCount = 0;
-  try {
-    final rows = await client
-        .from('schools')
-        .select('id, name, school_type, city, department, is_active')
-        .eq('group_id', groupId)
-        .order('name', ascending: true) as List;
-    schoolRows.addAll(rows.cast<Map<String, dynamic>>());
-    for (final s in schoolRows) {
-      final id   = s['id'] as String;
-      final dept = (s['department'] as String?)?.trim();
-      final deptKey = (dept == null || dept.isEmpty) ? 'Non précisé' : dept;
-      schoolDept[id] = deptKey;
-      schoolsByDept[deptKey] = (schoolsByDept[deptKey] ?? 0) + 1;
-      switch (s['school_type'] as String?) {
-        case 'public': publicCount++; break;
-        case 'prive':  priveCount++;  break;
+  Future<void> lireEcoles() async {
+    try {
+      final rows = await client
+          .from('schools')
+          .select('id, name, school_type, city, department, is_active')
+          .eq('group_id', groupId)
+          .order('name', ascending: true) as List;
+      schoolRows.addAll(rows.cast<Map<String, dynamic>>());
+      for (final s in schoolRows) {
+        final id   = s['id'] as String;
+        final dept = (s['department'] as String?)?.trim();
+        final deptKey = (dept == null || dept.isEmpty) ? 'Non précisé' : dept;
+        schoolDept[id] = deptKey;
+        schoolsByDept[deptKey] = (schoolsByDept[deptKey] ?? 0) + 1;
+        switch (s['school_type'] as String?) {
+          case 'public': publicCount++; break;
+          case 'prive':  priveCount++;  break;
+        }
       }
+    } catch (e) {
+      manquantes.note(MesuresTableauGroupe.ecoles, e, ecran: 'Tableau de bord groupe');
     }
-  } catch (e) {
-    manquantes.note(MesuresTableauGroupe.ecoles, e, ecran: 'Tableau de bord groupe');
   }
 
   // ── Élèves : comptage, genre, département, tendance d'inscription ─────────
@@ -352,30 +356,32 @@ final adminDashboardProvider =
   final Map<String, int> studentsByDept   = {};
   final List<DateTime> enrollDates = [];
   int elevesTotal = 0, studentsM = 0, studentsF = 0;
-  try {
-    // Ventilation par école, département et genre : il faut les lignes, donc
-    // une pagination — `.length` sur une réponse tronquée à 1 000 plafonnait
-    // l'effectif du groupe (cf. `paged_fetch.dart`).
-    final rows = await fetchAllRows(() => client
-        .from('students')
-        .select('school_id, gender, created_at')
-        .eq('group_id', groupId)
-        .eq('is_active', true));
-    elevesTotal = rows.length;
-    for (final r in rows) {
-      final sid = r['school_id'] as String? ?? '';
-      studentsBySchool[sid] = (studentsBySchool[sid] ?? 0) + 1;
-      final dept = schoolDept[sid] ?? 'Non précisé';
-      studentsByDept[dept] = (studentsByDept[dept] ?? 0) + 1;
-      switch (r['gender'] as String?) {
-        case 'M': studentsM++; break;
-        case 'F': studentsF++; break;
+  Future<void> lireEleves() async {
+    try {
+      // Ventilation par école, département et genre : il faut les lignes, donc
+      // une pagination — `.length` sur une réponse tronquée à 1 000 plafonnait
+      // l'effectif du groupe (cf. `paged_fetch.dart`).
+      final rows = await fetchAllRows(() => client
+          .from('students')
+          .select('school_id, gender, created_at')
+          .eq('group_id', groupId)
+          .eq('is_active', true));
+      elevesTotal = rows.length;
+      for (final r in rows) {
+        final sid = r['school_id'] as String? ?? '';
+        studentsBySchool[sid] = (studentsBySchool[sid] ?? 0) + 1;
+        final dept = schoolDept[sid] ?? 'Non précisé';
+        studentsByDept[dept] = (studentsByDept[dept] ?? 0) + 1;
+        switch (r['gender'] as String?) {
+          case 'M': studentsM++; break;
+          case 'F': studentsF++; break;
+        }
+        final created = DateTime.tryParse(r['created_at'] as String? ?? '');
+        if (created != null) enrollDates.add(created);
       }
-      final created = DateTime.tryParse(r['created_at'] as String? ?? '');
-      if (created != null) enrollDates.add(created);
+    } catch (e) {
+      manquantes.note(MesuresTableauGroupe.eleves, e, ecran: 'Tableau de bord groupe');
     }
-  } catch (e) {
-    manquantes.note(MesuresTableauGroupe.eleves, e, ecran: 'Tableau de bord groupe');
   }
 
   // ── Personnel + statut d'emploi (fonctionnaires vs non-fonctionnaires) ────
@@ -384,86 +390,78 @@ final adminDashboardProvider =
   final Map<String, int> staffByDept     = {};
   final List<DateTime>   hireDates        = [];
   int personnelTotal = 0, fonctionnaires = 0, nonFonctionnaires = 0;
-  try {
-    // Le personnel vit dans `profiles` : `staff_members` est vide et
-    // l'application n'y écrit jamais. Ce bandeau affichait donc zéro agent
-    // dans un groupe qui en compte des centaines.
-    final rows = await fetchAllRows(() => client
-        .from('profiles')
-        .select('school_id, employment_status, hire_date')
-        .eq('group_id', groupId)
-        .eq('is_active', true)
-        .not('role', 'in', '(super_admin,admin_groupe,parent,eleve)'));
-    personnelTotal = rows.length;
-    for (final r in rows) {
-      final sid = r['school_id'] as String? ?? '';
-      staffBySchool[sid] = (staffBySchool[sid] ?? 0) + 1;
-      final dept = schoolDept[sid] ?? 'Non précisé';
-      staffByDept[dept] = (staffByDept[dept] ?? 0) + 1;
-      final ct = (r['employment_status'] as String?) ?? 'permanent';
-      staffByContract[ct] = (staffByContract[ct] ?? 0) + 1;
-      // Fonctionnaire de l'État = contrat permanent (titulaire) ; sinon non-fonctionnaire.
-      if (ct == 'permanent') {
-        fonctionnaires++;
-      } else {
-        nonFonctionnaires++;
+  Future<void> lirePersonnel() async {
+    try {
+      // Le personnel vit dans `profiles` : `staff_members` est vide et
+      // l'application n'y écrit jamais. Ce bandeau affichait donc zéro agent
+      // dans un groupe qui en compte des centaines.
+      final rows = await fetchAllRows(() => client
+          .from('profiles')
+          .select('school_id, employment_status, hire_date')
+          .eq('group_id', groupId)
+          .eq('is_active', true)
+          .not('role', 'in', '(super_admin,admin_groupe,parent,eleve)'));
+      personnelTotal = rows.length;
+      for (final r in rows) {
+        final sid = r['school_id'] as String? ?? '';
+        staffBySchool[sid] = (staffBySchool[sid] ?? 0) + 1;
+        final dept = schoolDept[sid] ?? 'Non précisé';
+        staffByDept[dept] = (staffByDept[dept] ?? 0) + 1;
+        final ct = (r['employment_status'] as String?) ?? 'permanent';
+        staffByContract[ct] = (staffByContract[ct] ?? 0) + 1;
+        // Fonctionnaire de l'État = contrat permanent (titulaire) ; sinon non-fonctionnaire.
+        if (ct == 'permanent') {
+          fonctionnaires++;
+        } else {
+          nonFonctionnaires++;
+        }
+        final hired = DateTime.tryParse(r['hire_date'] as String? ?? '');
+        if (hired != null) hireDates.add(hired);
       }
-      final hired = DateTime.tryParse(r['hire_date'] as String? ?? '');
-      if (hired != null) hireDates.add(hired);
+    } catch (e) {
+      manquantes.note(MesuresTableauGroupe.personnel, e, ecran: 'Tableau de bord groupe');
     }
-  } catch (e) {
-    manquantes.note(MesuresTableauGroupe.personnel, e, ecran: 'Tableau de bord groupe');
   }
 
   // ── Classes ──────────────────────────────────────────────────────────────
   final Map<String, int> classesBySchool = {};
   int classesTotal = 0;
-  try {
-    final rows = await fetchAllRows(() => client
-        .from('classes')
-        .select('school_id')
-        .eq('group_id', groupId)
-        .eq('is_active', true));
-    classesTotal = rows.length;
-    for (final r in rows) {
-      final sid = r['school_id'] as String? ?? '';
-      classesBySchool[sid] = (classesBySchool[sid] ?? 0) + 1;
+  Future<void> lireClasses() async {
+    try {
+      final rows = await fetchAllRows(() => client
+          .from('classes')
+          .select('school_id')
+          .eq('group_id', groupId)
+          .eq('is_active', true));
+      classesTotal = rows.length;
+      for (final r in rows) {
+        final sid = r['school_id'] as String? ?? '';
+        classesBySchool[sid] = (classesBySchool[sid] ?? 0) + 1;
+      }
+    } catch (e) {
+      manquantes.note(MesuresTableauGroupe.classes, e, ecran: 'Tableau de bord groupe');
     }
-  } catch (e) {
-    manquantes.note(MesuresTableauGroupe.classes, e, ecran: 'Tableau de bord groupe');
   }
 
   // ── Corps enseignant / administrateurs (profiles, scope groupe) ──────────
   int enseignantsTotal = 0, adminsTotal = 0;
-  try {
-    final rows = await client
-        .from('profiles')
-        .select('role')
-        .eq('group_id', groupId) as List;
-    for (final r in rows) {
-      switch (r['role'] as String?) {
-        case 'enseignant':   enseignantsTotal++; break;
-        case 'admin_groupe': adminsTotal++;      break;
+  Future<void> lireCorps() async {
+    try {
+      final rows = await client
+          .from('profiles')
+          .select('role')
+          .eq('group_id', groupId) as List;
+      for (final r in rows) {
+        switch (r['role'] as String?) {
+          case 'enseignant':   enseignantsTotal++; break;
+          case 'admin_groupe': adminsTotal++;      break;
+        }
       }
+    } catch (e) {
+      manquantes.note(MesuresTableauGroupe.corpsEnseignant, e, ecran: 'Tableau de bord groupe');
     }
-  } catch (e) {
-    manquantes.note(MesuresTableauGroupe.corpsEnseignant, e, ecran: 'Tableau de bord groupe');
   }
 
-  final schools = schoolRows.map((s) {
-    final id = s['id'] as String;
-    return SchoolSummary(
-      id:         id,
-      name:       s['name'] as String? ?? '—',
-      type:       s['school_type'] as String? ?? 'prive',
-      city:       s['city'] as String?,
-      department: s['department'] as String?,
-      isActive:   s['is_active'] as bool? ?? true,
-      students:   studentsBySchool[id] ?? 0,
-      staff:      staffBySchool[id] ?? 0,
-      classes:    classesBySchool[id] ?? 0,
-    );
-  }).toList();
 
   // ── Finance : élèves à jour sur l'ANNÉE, revenus du dernier mois encaissé ──
   //
@@ -487,69 +485,113 @@ final adminDashboardProvider =
   final  List<DateTime> payDates = [];
   final  Map<String, double> revByMonth = {};
   final  Map<String, int> countByMonth = {};
-  try {
-    final now = DateTime.now();
-    // L'année scolaire congolaise court de septembre à juin.
-    final yearStart = DateTime(now.month >= 9 ? now.year : now.year - 1, 9, 1);
-    final from6 = DateTime(now.year, now.month - 5, 1);
-    final from = yearStart.isBefore(from6) ? yearStart : from6;
-    final rows = await client
-        .from('student_payments')
-        .select('amount_xaf, student_id, status, payment_date')
-        .eq('group_id', groupId)
-        .eq('status', 'confirmed')
-        .gte('payment_date', from.toIso8601String().substring(0, 10)) as List;
-    for (final r in rows) {
-      final amount = (r['amount_xaf'] as num? ?? 0).toDouble();
-      final dt = DateTime.tryParse(r['payment_date'] as String? ?? '');
-      if (dt == null) continue;
-      final key = '${dt.year}-${dt.month.toString().padLeft(2, '0')}';
-      revByMonth[key] = (revByMonth[key] ?? 0) + amount;
-      countByMonth[key] = (countByMonth[key] ?? 0) + 1;
-      payDates.add(dt);
-      // À jour = a réglé au moins une tranche depuis la rentrée.
-      if (!dt.isBefore(yearStart)) {
-        final sid = r['student_id'] as String?;
-        if (sid != null) studentsPaid.add(sid);
+  Future<void> lireFinance() async {
+    try {
+      final now = DateTime.now();
+      // L'année scolaire congolaise court de septembre à juin.
+      final yearStart = DateTime(now.month >= 9 ? now.year : now.year - 1, 9, 1);
+      final from6 = DateTime(now.year, now.month - 5, 1);
+      final from = yearStart.isBefore(from6) ? yearStart : from6;
+      final rows = await client
+          .from('student_payments')
+          .select('amount_xaf, student_id, status, payment_date')
+          .eq('group_id', groupId)
+          .eq('status', 'confirmed')
+          .gte('payment_date', from.toIso8601String().substring(0, 10)) as List;
+      for (final r in rows) {
+        final amount = (r['amount_xaf'] as num? ?? 0).toDouble();
+        final dt = DateTime.tryParse(r['payment_date'] as String? ?? '');
+        if (dt == null) continue;
+        final key = '${dt.year}-${dt.month.toString().padLeft(2, '0')}';
+        revByMonth[key] = (revByMonth[key] ?? 0) + amount;
+        countByMonth[key] = (countByMonth[key] ?? 0) + 1;
+        payDates.add(dt);
+        // À jour = a réglé au moins une tranche depuis la rentrée.
+        if (!dt.isBefore(yearStart)) {
+          final sid = r['student_id'] as String?;
+          if (sid != null) studentsPaid.add(sid);
+        }
       }
+      // Le mois courant s'il a encaissé, sinon le dernier qui l'a fait.
+      final currentKey =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}';
+      final key = revByMonth.containsKey(currentKey)
+          ? currentKey
+          : (revByMonth.keys.toList()..sort()).lastOrNull;
+      if (key != null) {
+        revenusMois = revByMonth[key] ?? 0;
+        paiementsCount = countByMonth[key] ?? 0;
+        if (key != currentKey) revenusMoisLabel = _monthLabel(key);
+      }
+    } catch (e) {
+      manquantes.note(MesuresTableauGroupe.finances, e, ecran: 'Tableau de bord groupe');
     }
-    // Le mois courant s'il a encaissé, sinon le dernier qui l'a fait.
-    final currentKey =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}';
-    final key = revByMonth.containsKey(currentKey)
-        ? currentKey
-        : (revByMonth.keys.toList()..sort()).lastOrNull;
-    if (key != null) {
-      revenusMois = revByMonth[key] ?? 0;
-      paiementsCount = countByMonth[key] ?? 0;
-      if (key != currentKey) revenusMoisLabel = _monthLabel(key);
-    }
-  } catch (e) {
-    manquantes.note(MesuresTableauGroupe.finances, e, ecran: 'Tableau de bord groupe');
   }
 
   // ── Activité récente (audit, RLS scope groupe) ───────────────────────────
   final List<AdminActivity> activity = [];
-  try {
-    final logs = await client
-        .from('audit_logs')
-        .select('created_at, action, table_name')
-        .eq('group_id', groupId)
-        .order('created_at', ascending: false)
-        .limit(8) as List;
-    for (final l in logs) {
-      final action = l['action'] as String? ?? '';
-      final table  = l['table_name'] as String? ?? '';
-      final dt = DateTime.tryParse(l['created_at'] as String? ?? '');
-      activity.add(AdminActivity(
-        time:  dt != null ? _timeAgo(dt) : '—',
-        title: _activityTitle(action, table),
-        icon:  _tableIcon(table),
-      ));
+  Future<void> lireActivite() async {
+    try {
+      final logs = await client
+          .from('audit_logs')
+          .select('created_at, action, table_name')
+          .eq('group_id', groupId)
+          .order('created_at', ascending: false)
+          .limit(8) as List;
+      for (final l in logs) {
+        final action = l['action'] as String? ?? '';
+        final table  = l['table_name'] as String? ?? '';
+        final dt = DateTime.tryParse(l['created_at'] as String? ?? '');
+        activity.add(AdminActivity(
+          time:  dt != null ? _timeAgo(dt) : '—',
+          title: _activityTitle(action, table),
+          icon:  _tableIcon(table),
+        ));
+      }
+    } catch (e) {
+      manquantes.note(MesuresTableauGroupe.activite, e, ecran: 'Tableau de bord groupe');
     }
-  } catch (e) {
-    manquantes.note(MesuresTableauGroupe.activite, e, ecran: 'Tableau de bord groupe');
   }
+
+
+  // ── LES LECTURES PARTENT ENSEMBLE ────────────────────────────────────────
+  //
+  //  Ces huit lectures s'enchaînaient en `await` successifs : huit
+  //  allers-retours l'un après l'autre. Sur une liaison congolaise à
+  //  400 ms, cela fait plus de trois secondes d'attente pour ouvrir la page
+  //  d'accueil du ministère — chaque matin.
+  //
+  //  Rien d'autre n'a changé : mêmes requêtes, même agrégation, mêmes
+  //  chiffres. Seul l'ordonnancement diffère.
+  //
+  //  ⚠️ DEUX VAGUES, ET L'ORDRE COMPTE. Les élèves et le personnel se
+  //  ventilent PAR DÉPARTEMENT, et le département vient de `schoolDept`,
+  //  que seule la lecture des écoles remplit. Les lancer avec elle leur
+  //  ferait lire une table vide : tout le monde en « Non précisé ».
+  await Future.wait([
+    lireGroupe(),
+    lireEcoles(),
+    lireClasses(),
+    lireCorps(),
+    lireFinance(),
+    lireActivite(),
+  ]);
+  await Future.wait([lireEleves(), lirePersonnel()]);
+
+  final schools = schoolRows.map((s) {
+    final id = s['id'] as String;
+    return SchoolSummary(
+      id:         id,
+      name:       s['name'] as String? ?? '—',
+      type:       s['school_type'] as String? ?? 'prive',
+      city:       s['city'] as String?,
+      department: s['department'] as String?,
+      isActive:   s['is_active'] as bool? ?? true,
+      students:   studentsBySchool[id] ?? 0,
+      staff:      staffBySchool[id] ?? 0,
+      classes:    classesBySchool[id] ?? 0,
+    );
+  }).toList();
 
   return AdminDashboardData(
     mesuresManquantes: manquantes.cles,

@@ -417,206 +417,247 @@ final adminSubscriptionProvider =
 
   // Groupe + plan courant
   GroupSubscription? sub;
-  try {
-    final g = await client
-        .from('school_groups')
-        .select('name, plan_id, subscription_status, subscription_start, subscription_end, '
-            'price_override_xaf, billed_schools, '
-            'tutelle, administre_referentiel_national, '
-            'subscription_plans!plan_id(id, name, slug, price_xaf, billing_period, '
-            'extra_school_2_5_xaf, extra_school_6_10_xaf, extra_school_11_20_xaf, '
-            'extra_school_21p_xaf, max_schools, max_students, max_staff, module_count, description)')
-        .eq('id', groupId)
-        .maybeSingle();
+  Future<void> lireGroupeEtPlan() async {
+    try {
+      final g = await client
+          .from('school_groups')
+          .select('name, plan_id, subscription_status, subscription_start, subscription_end, '
+              'price_override_xaf, billed_schools, '
+              'tutelle, administre_referentiel_national, '
+              'subscription_plans!plan_id(id, name, slug, price_xaf, billing_period, '
+              'extra_school_2_5_xaf, extra_school_6_10_xaf, extra_school_11_20_xaf, '
+              'extra_school_21p_xaf, max_schools, max_students, max_staff, module_count, description)')
+          .eq('id', groupId)
+          .maybeSingle();
 
-    // Compteurs d'usage
-    int schoolsUsed = 0, studentsUsed = 0, staffUsed = 0;
-    // ⚠️ COMPTER, PAS RAMENER. `select('id')` puis `.length` compte les lignes
-    // REÇUES, et PostgREST en renvoie 1 000 au maximum : passé ce seuil la
-    // jauge se figeait à « 1 000 / 2 000 » quel que soit l'effectif réel. Sur
-    // un quota, c'est le pire endroit possible pour mentir — le client croit
-    // avoir de la marge, et l'écriture est refusée par le serveur.
-    try {
-      schoolsUsed = (await client.from('schools').select()
-              .eq('group_id', groupId).eq('is_active', true)
-              .count(CountOption.exact))
-          .count;
-    } catch (e) {
-      manquantes.note(MesuresAbonnement.ecoles, e, ecran: 'Abonnement du groupe');
-    }
-    try {
-      studentsUsed = (await client.from('students').select()
-              .eq('group_id', groupId).eq('is_active', true)
-              .count(CountOption.exact))
-          .count;
-    } catch (e) {
-      manquantes.note(MesuresAbonnement.eleves, e, ecran: 'Abonnement du groupe');
-    }
-    try {
-      // Le personnel vit dans `profiles` : `staff_members` est vide et
-      // l'application n'y écrit jamais (cf. migration 0076). La jauge affichait
-      // donc perpétuellement 0.
-      staffUsed = (await client.from('profiles').select()
-              .eq('group_id', groupId).eq('is_active', true)
-              .not('role', 'in', '(super_admin,parent,eleve)')
-              .count(CountOption.exact))
-          .count;
-    } catch (e) {
-      manquantes.note(MesuresAbonnement.personnel, e, ecran: 'Abonnement du groupe');
-    }
+      // Compteurs d'usage
+      int schoolsUsed = 0, studentsUsed = 0, staffUsed = 0;
+      // ⚠️ COMPTER, PAS RAMENER. `select('id')` puis `.length` compte les lignes
+      // REÇUES, et PostgREST en renvoie 1 000 au maximum : passé ce seuil la
+      // jauge se figeait à « 1 000 / 2 000 » quel que soit l'effectif réel. Sur
+      // un quota, c'est le pire endroit possible pour mentir — le client croit
+      // avoir de la marge, et l'écriture est refusée par le serveur.
+      // Les trois compteurs ne dépendent ni du plan ni les uns des autres :
+      // trois allers-retours en file pour trois jauges affichées côte à côte.
+      // Chacun garde son `catch` — une jauge illisible n'emporte pas les deux
+      // autres, et se nomme comme avant.
+      Future<void> compterEcoles() async {
+        try {
+          schoolsUsed = (await client.from('schools').select()
+                  .eq('group_id', groupId).eq('is_active', true)
+                  .count(CountOption.exact))
+              .count;
+        } catch (e) {
+          manquantes.note(MesuresAbonnement.ecoles, e, ecran: 'Abonnement du groupe');
+        }
+      }
 
-    if (g != null) {
-      final plan = g['subscription_plans'] as Map<String, dynamic>?;
-      // ⚠️ L'ASSIETTE VIENT DE `billed_schools`, PAS DE `schoolsUsed`.
-      // Ce sont deux nombres différents : `billed_schools` est le compte sur
-      // lequel la dernière facture a été établie, `schoolsUsed` le compte
-      // d'aujourd'hui. Afficher le second à côté d'un montant calculé sur le
-      // premier ferait mentir la carte d'abonnement le jour même où une école
-      // est ajoutée — c'est-à-dire le jour où le client la regarde.
-      final assiette =
-          (g['billed_schools'] as int?) ?? (schoolsUsed < 1 ? 1 : schoolsUsed);
-      final negocie = g['price_override_xaf'] as int?;
-      sub = GroupSubscription(
-        groupName:    g['name'] as String? ?? '—',
-        planId:       g['plan_id'] as String?,
-        planName:     plan?['name'] as String? ?? '—',
-        planSlug:     plan?['slug'] as String? ?? '',
-        priceXaf:     negocie ?? tarifPlanRow(plan, assiette),
-        basePriceXaf: (plan?['price_xaf'] as int?) ?? 0,
-        schoolsBilled: assiette,
-        priceOverrideXaf: negocie,
-        billingPeriod:
-            plan?['billing_period'] as String? ?? kDefaultBillingPeriod,
-        status:       g['subscription_status'] as String? ?? 'trial',
-        start:        DateTime.tryParse(g['subscription_start'] as String? ?? ''),
-        end:          DateTime.tryParse(g['subscription_end'] as String? ?? ''),
-        maxSchools:   (plan?['max_schools'] as int?) ?? 0,
-        maxStudents:  (plan?['max_students'] as int?) ?? 0,
-        maxStaff:     (plan?['max_staff'] as int?) ?? 0,
-        moduleCount:  (plan?['module_count'] as int?) ?? 0,
-        description:  plan?['description'] as String?,
-        schoolsUsed:  schoolsUsed,
-        studentsUsed: studentsUsed,
-        staffUsed:    staffUsed,
-        alertDays:    settings.alertDays,
-        estMinistere:
-            g['administre_referentiel_national'] as bool? ?? false,
-        tutelle:      g['tutelle'] as String?,
-      );
+      Future<void> compterEleves() async {
+        try {
+          studentsUsed = (await client.from('students').select()
+                  .eq('group_id', groupId).eq('is_active', true)
+                  .count(CountOption.exact))
+              .count;
+        } catch (e) {
+          manquantes.note(MesuresAbonnement.eleves, e, ecran: 'Abonnement du groupe');
+        }
+      }
+
+      Future<void> compterPersonnel() async {
+        try {
+          // Le personnel vit dans `profiles` : `staff_members` est vide et
+          // l'application n'y écrit jamais (cf. migration 0076). La jauge
+          // affichait donc perpétuellement 0.
+          staffUsed = (await client.from('profiles').select()
+                  .eq('group_id', groupId).eq('is_active', true)
+                  .not('role', 'in', '(super_admin,parent,eleve)')
+                  .count(CountOption.exact))
+              .count;
+        } catch (e) {
+          manquantes.note(MesuresAbonnement.personnel, e, ecran: 'Abonnement du groupe');
+        }
+      }
+
+      await Future.wait([compterEcoles(), compterEleves(), compterPersonnel()]);
+
+      if (g != null) {
+        final plan = g['subscription_plans'] as Map<String, dynamic>?;
+        // ⚠️ L'ASSIETTE VIENT DE `billed_schools`, PAS DE `schoolsUsed`.
+        // Ce sont deux nombres différents : `billed_schools` est le compte sur
+        // lequel la dernière facture a été établie, `schoolsUsed` le compte
+        // d'aujourd'hui. Afficher le second à côté d'un montant calculé sur le
+        // premier ferait mentir la carte d'abonnement le jour même où une école
+        // est ajoutée — c'est-à-dire le jour où le client la regarde.
+        final assiette =
+            (g['billed_schools'] as int?) ?? (schoolsUsed < 1 ? 1 : schoolsUsed);
+        final negocie = g['price_override_xaf'] as int?;
+        sub = GroupSubscription(
+          groupName:    g['name'] as String? ?? '—',
+          planId:       g['plan_id'] as String?,
+          planName:     plan?['name'] as String? ?? '—',
+          planSlug:     plan?['slug'] as String? ?? '',
+          priceXaf:     negocie ?? tarifPlanRow(plan, assiette),
+          basePriceXaf: (plan?['price_xaf'] as int?) ?? 0,
+          schoolsBilled: assiette,
+          priceOverrideXaf: negocie,
+          billingPeriod:
+              plan?['billing_period'] as String? ?? kDefaultBillingPeriod,
+          status:       g['subscription_status'] as String? ?? 'trial',
+          start:        DateTime.tryParse(g['subscription_start'] as String? ?? ''),
+          end:          DateTime.tryParse(g['subscription_end'] as String? ?? ''),
+          maxSchools:   (plan?['max_schools'] as int?) ?? 0,
+          maxStudents:  (plan?['max_students'] as int?) ?? 0,
+          maxStaff:     (plan?['max_staff'] as int?) ?? 0,
+          moduleCount:  (plan?['module_count'] as int?) ?? 0,
+          description:  plan?['description'] as String?,
+          schoolsUsed:  schoolsUsed,
+          studentsUsed: studentsUsed,
+          staffUsed:    staffUsed,
+          alertDays:    settings.alertDays,
+          estMinistere:
+              g['administre_referentiel_national'] as bool? ?? false,
+          tutelle:      g['tutelle'] as String?,
+        );
+      }
+    } catch (e) {
+      manquantes.note(MesuresAbonnement.abonnement, e, ecran: 'Abonnement du groupe');
     }
-  } catch (e) {
-    manquantes.note(MesuresAbonnement.abonnement, e, ecran: 'Abonnement du groupe');
   }
 
   // Familles de modules débloquées par plan : plan_modules ⋈ modules ⋈ module_categories.
   // Lecture seule (RLS subscription_plans_read = true ; modules/catégories publics).
   // Map<planId, Map<categoryId, PlanCategory>>
   final Map<String, Map<String, PlanCategory>> catsByPlan = {};
-  try {
-    final rows = await client.from('plan_modules')
-        .select('plan_id, modules!inner(id, is_active, module_categories!inner(id, name, slug, display_order))')
-        as List;
-    for (final r in rows) {
-      final planId = r['plan_id'] as String?;
-      final mod = r['modules'] as Map<String, dynamic>?;
-      if (planId == null || mod == null) continue;
-      if (mod['is_active'] == false) continue;
-      final cat = mod['module_categories'] as Map<String, dynamic>?;
-      if (cat == null) continue;
-      final catId = cat['id'] as String?;
-      if (catId == null) continue;
-      final bucket = catsByPlan.putIfAbsent(planId, () => {});
-      final prev = bucket[catId];
-      bucket[catId] = PlanCategory(
-        categoryId:   catId,
-        name:         cat['name'] as String? ?? '—',
-        slug:         cat['slug'] as String? ?? '',
-        displayOrder: (cat['display_order'] as int?) ?? 0,
-        moduleCount:  (prev?.moduleCount ?? 0) + 1,
-      );
+  Future<void> lireFamilles() async {
+    try {
+      final rows = await client.from('plan_modules')
+          .select('plan_id, modules!inner(id, is_active, module_categories!inner(id, name, slug, display_order))')
+          as List;
+      for (final r in rows) {
+        final planId = r['plan_id'] as String?;
+        final mod = r['modules'] as Map<String, dynamic>?;
+        if (planId == null || mod == null) continue;
+        if (mod['is_active'] == false) continue;
+        final cat = mod['module_categories'] as Map<String, dynamic>?;
+        if (cat == null) continue;
+        final catId = cat['id'] as String?;
+        if (catId == null) continue;
+        final bucket = catsByPlan.putIfAbsent(planId, () => {});
+        final prev = bucket[catId];
+        bucket[catId] = PlanCategory(
+          categoryId:   catId,
+          name:         cat['name'] as String? ?? '—',
+          slug:         cat['slug'] as String? ?? '',
+          displayOrder: (cat['display_order'] as int?) ?? 0,
+          moduleCount:  (prev?.moduleCount ?? 0) + 1,
+        );
+      }
+    } catch (e) {
+      manquantes.note(MesuresAbonnement.familles, e, ecran: 'Abonnement du groupe');
     }
-  } catch (e) {
-    manquantes.note(MesuresAbonnement.familles, e, ecran: 'Abonnement du groupe');
   }
 
   // TOUS les plans actifs (un groupe peut demander à monter OU descendre de plan),
   // triés par prix croissant pour une comparaison lisible.
   final List<PlanOption> plans = [];
-  try {
-    final rows = await client.from('subscription_plans')
-        .select('id, name, slug, price_xaf, billing_period, extra_school_2_5_xaf, '
-            'extra_school_6_10_xaf, extra_school_11_20_xaf, extra_school_21p_xaf, '
-            'max_schools, max_students, max_staff, module_count, description, is_active')
-        .eq('is_active', true)
-        .order('price_xaf', ascending: true) as List;
-    for (final r in rows) {
-      final id = r['id'] as String;
-      final cats = (catsByPlan[id]?.values.toList() ?? <PlanCategory>[])
-        ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
-      plans.add(PlanOption(
-        id:          id,
-        name:        r['name'] as String? ?? '—',
-        slug:        r['slug'] as String? ?? '',
-        priceXaf:    (r['price_xaf'] as int?) ?? 0,
-        billingPeriod:
-            r['billing_period'] as String? ?? kDefaultBillingPeriod,
-        maxSchools:  (r['max_schools'] as int?) ?? 0,
-        maxStudents: (r['max_students'] as int?) ?? 0,
-        maxStaff:    (r['max_staff'] as int?) ?? 0,
-        moduleCount: (r['module_count'] as int?) ?? 0,
-        description: r['description'] as String?,
-        categories:  cats,
-        extra2a5:    (r['extra_school_2_5_xaf']   as int?) ?? 0,
-        extra6a10:   (r['extra_school_6_10_xaf']  as int?) ?? 0,
-        extra11a20:  (r['extra_school_11_20_xaf'] as int?) ?? 0,
-        extra21p:    (r['extra_school_21p_xaf']   as int?) ?? 0,
-      ));
+  Future<void> lireFormules() async {
+    try {
+      final rows = await client.from('subscription_plans')
+          .select('id, name, slug, price_xaf, billing_period, extra_school_2_5_xaf, '
+              'extra_school_6_10_xaf, extra_school_11_20_xaf, extra_school_21p_xaf, '
+              'max_schools, max_students, max_staff, module_count, description, is_active')
+          .eq('is_active', true)
+          .order('price_xaf', ascending: true) as List;
+      for (final r in rows) {
+        final id = r['id'] as String;
+        final cats = (catsByPlan[id]?.values.toList() ?? <PlanCategory>[])
+          ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+        plans.add(PlanOption(
+          id:          id,
+          name:        r['name'] as String? ?? '—',
+          slug:        r['slug'] as String? ?? '',
+          priceXaf:    (r['price_xaf'] as int?) ?? 0,
+          billingPeriod:
+              r['billing_period'] as String? ?? kDefaultBillingPeriod,
+          maxSchools:  (r['max_schools'] as int?) ?? 0,
+          maxStudents: (r['max_students'] as int?) ?? 0,
+          maxStaff:    (r['max_staff'] as int?) ?? 0,
+          moduleCount: (r['module_count'] as int?) ?? 0,
+          description: r['description'] as String?,
+          categories:  cats,
+          extra2a5:    (r['extra_school_2_5_xaf']   as int?) ?? 0,
+          extra6a10:   (r['extra_school_6_10_xaf']  as int?) ?? 0,
+          extra11a20:  (r['extra_school_11_20_xaf'] as int?) ?? 0,
+          extra21p:    (r['extra_school_21p_xaf']   as int?) ?? 0,
+        ));
+      }
+    } catch (e) {
+      manquantes.note(MesuresAbonnement.formules, e, ecran: 'Abonnement du groupe');
     }
-  } catch (e) {
-    manquantes.note(MesuresAbonnement.formules, e, ecran: 'Abonnement du groupe');
   }
 
   // Historique des demandes (tickets de changement de plan)
   final List<SubscriptionTicket> tickets = [];
-  try {
-    final rows = await client.from('support_tickets')
-        .select('id, subject, body, status, priority, response, created_at, resolved_at')
-        .eq('group_id', groupId)
-        .eq('category', 'changement_plan')
-        .order('created_at', ascending: false)
-        .limit(10) as List;
-    for (final r in rows) {
-      tickets.add(SubscriptionTicket(
-        id:         r['id'] as String,
-        subject:    r['subject'] as String? ?? '—',
-        body:       r['body'] as String?,
-        status:     r['status'] as String? ?? 'open',
-        priority:   r['priority'] as String? ?? 'medium',
-        response:   r['response'] as String?,
-        createdAt:  DateTime.tryParse(r['created_at'] as String? ?? ''),
-        resolvedAt: DateTime.tryParse(r['resolved_at'] as String? ?? ''),
-      ));
+  Future<void> lireDemandes() async {
+    try {
+      final rows = await client.from('support_tickets')
+          .select('id, subject, body, status, priority, response, created_at, resolved_at')
+          .eq('group_id', groupId)
+          .eq('category', 'changement_plan')
+          .order('created_at', ascending: false)
+          .limit(10) as List;
+      for (final r in rows) {
+        tickets.add(SubscriptionTicket(
+          id:         r['id'] as String,
+          subject:    r['subject'] as String? ?? '—',
+          body:       r['body'] as String?,
+          status:     r['status'] as String? ?? 'open',
+          priority:   r['priority'] as String? ?? 'medium',
+          response:   r['response'] as String?,
+          createdAt:  DateTime.tryParse(r['created_at'] as String? ?? ''),
+          resolvedAt: DateTime.tryParse(r['resolved_at'] as String? ?? ''),
+        ));
+      }
+    } catch (e) {
+      manquantes.note(MesuresAbonnement.demandes, e, ecran: 'Abonnement du groupe');
     }
-  } catch (e) {
-    manquantes.note(MesuresAbonnement.demandes, e, ecran: 'Abonnement du groupe');
   }
 
   // Historique de facturation du groupe (RLS invoices_select → lecture seule)
   final List<InvoiceDetail> invoices = [];
-  try {
-    final rows = await client.from('group_invoices')
-        .select('*, school_groups(name), subscription_plans(name)')
-        .eq('group_id', groupId)
-        .order('created_at', ascending: false) as List;
-    for (final r in rows) {
-      final m = Map<String, dynamic>.from(r as Map);
-      m['group_name'] = (r['school_groups'] as Map?)?['name'];
-      m['plan_name']  = (r['subscription_plans'] as Map?)?['name'];
-      invoices.add(InvoiceDetail.fromMap(m));
+  Future<void> lireFactures() async {
+    try {
+      final rows = await client.from('group_invoices')
+          .select('*, school_groups(name), subscription_plans(name)')
+          .eq('group_id', groupId)
+          .order('created_at', ascending: false) as List;
+      for (final r in rows) {
+        final m = Map<String, dynamic>.from(r as Map);
+        m['group_name'] = (r['school_groups'] as Map?)?['name'];
+        m['plan_name']  = (r['subscription_plans'] as Map?)?['name'];
+        invoices.add(InvoiceDetail.fromMap(m));
+      }
+    } catch (e) {
+      manquantes.note(MesuresAbonnement.factures, e, ecran: 'Abonnement du groupe');
     }
-  } catch (e) {
-    manquantes.note(MesuresAbonnement.factures, e, ecran: 'Abonnement du groupe');
   }
+
+  // ── LES LECTURES DE LA CARTE PARTENT ENSEMBLE ──────────────────────────────
+  //
+  //  Cinq lectures s'enchaînaient en `await` successifs — et la première en
+  //  contenait quatre autres. Neuf allers-retours pour une page.
+  //
+  //  ⚠️ DEUX VAGUES, ET LA SECONDE ATTEND VRAIMENT. `lireFormules` lit
+  //  `catsByPlan`, que seule `lireFamilles` remplit. Les lancer ensemble
+  //  afficherait des formules sans aucune famille de modules — un comparatif
+  //  vide, sans la moindre erreur pour le dire.
+  await Future.wait([
+    lireGroupeEtPlan(),
+    lireFamilles(),
+    lireDemandes(),
+    lireFactures(),
+  ]);
+  await lireFormules();
 
   return AdminSubscriptionData(
       subscription: sub,
