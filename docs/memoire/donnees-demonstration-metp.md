@@ -177,3 +177,50 @@ périmé). Donc chaque table vide = un écran vide :
 
 Liens : [[ecran-de-demarrage-doublons]] · [[mise-a-jour-du-parc]] ·
 [[abonnement-licence-de-tutelle]]
+
+## 🩸 Troisième vague : le cœur du métier était vide (même jour)
+
+Un audit de cohérence après les deux premiers lots a montré le trou : les sept
+écoles privées avaient classes, élèves, emploi du temps, cahier de textes,
+paiements et bibliothèque — et **zéro évaluation, zéro note, zéro bulletin,
+zéro candidat**. Tout était plein autour, et le métier scolaire était vide.
+
+| | |
+|---|---|
+| Évaluations | **1 320** (devoir surveillé + composition par matière et classe) |
+| Notes | **23 254** — moyenne 11,49 ; 3 % d'absents ; de 3,02 à 19,95 |
+| Bulletins | **1 057** — 23 redoublements, 4 mentions |
+| Lignes de bulletin | **11 615** — moyenne, moyenne de classe, rang, appréciation |
+| Candidats | **344** — session CAP 2025-2026 **ouverte**, 99 dossiers incomplets |
+
+### Les bulletins sont CALCULÉS, pas tirés au sort
+
+C'est le point qui compte. Un bulletin fabriqué indépendamment des notes
+afficherait 14 là où l'écran des notes montre 11 — et le premier qui croise les
+deux écrans perd confiance dans **tout** le reste.
+
+    notes → moyenne par matière → moyenne pondérée par coefficient
+          → rang dans la classe → moyenne de classe → mention → décision
+
+Contrôle : moyenne des notes **11,49**, moyenne des bulletins **11,48**.
+L'écart vient des absents, exclus du calcul. C'est le *bon* écart — il prouve
+que le lien est réel.
+
+### ⚠️ `get_mention()` n'existe pas en base
+
+Le `CLAUDE.md` affirme « mentions alignées sur `get_mention()` en base ».
+**Cette fonction n'existe pas** — aucune fonction ne porte « mention » dans son
+nom. Le barème a été relevé sur les 18 285 bulletins existants, qui font foi :
+Insuffisant < 10 · Passable < 12 · Assez Bien < 14 · Bien < 16 · Très Bien < 18
+· Excellent ≥ 18. ⚠️ **Capitale** à « Assez Bien » et « Très Bien » — mes
+appréciations de notes portaient une minuscule et ont dû être reprises.
+
+### ⚠️ Publier une version de l'application n'embarque AUCUNE donnée
+
+Demandé le 2026-09-07 : « publie une nouvelle version avec toutes ces données ».
+Les données vivent dans Supabase, pas dans l'installateur. Les espaces
+`super_admin` et `admin_groupe` les lisent en direct ; le personnel scolaire les
+reçoit par PowerSync. **Un poste déjà en 3.5.18 voit tout sans rien installer.**
+Republier aurait livré un binaire identique — aucune ligne de Dart n'avait
+changé — et fait clignoter le ruban sur tout le parc pour rien.
+
