@@ -1,0 +1,82 @@
+-- ════════════════════════════════════════════════════════════════════════════
+--  LES ÉCRANS QUI S'OUVRAIENT SUR RIEN
+--
+--  ⚠️ LOT DE DONNÉES DE DÉMONSTRATION — pas un changement de schéma.
+--  Suite de `0195`. Rejouable : `seed_uuid()` partout, `ON CONFLICT DO NOTHING`.
+--
+--  ── LE CONSTAT ────────────────────────────────────────────────────────────
+--  L'espace école est ENTIÈREMENT construit — 94 routes réelles, 2 placeholders
+--  (mot de passe oublié, compte en attente). Le `CLAUDE.md` qui annonce « espace
+--  personnel à construire » est périmé.
+--
+--  Donc chaque table vide était un ÉCRAN vide : emploi du temps, cahier de
+--  textes, paiements, dépenses, budget, paie, congés, présences du personnel,
+--  bibliothèque, tuteurs, événements, messagerie. Cinquante tables.
+--
+--  ── ⚠️ VÉRIFIER LA SYNCHRO AVANT DE REMPLIR ───────────────────────────────
+--  L'espace école est offline-first : une table absente de
+--  `powersync_schema.dart` OU de `sync-rules.yaml` n'atteindra JAMAIS le poste,
+--  quoi qu'on écrive dans Postgres. Toutes les tables de ce lot ont été
+--  vérifiées présentes dans les deux avant la moindre écriture.
+--
+--  ── 🩸 CE QU'ON NE REMPLIT PAS, ET POURQUOI ───────────────────────────────
+--  Trois tables sont MORTES — aucun lecteur Dart, ou un écran qui lit ailleurs :
+--    • `council_meetings`   — l'écran « Conseils » travaille en réalité sur
+--                             `bulletins` (appréciation, décision, prix). La
+--                             table n'est même pas dans le schéma PowerSync.
+--    • `competence_grades`  — zéro fichier Dart la mentionne.
+--    • `school_education_programs` — idem. (Cf. `school_education_levels`,
+--                             déjà identifiée morte, migration 0089.)
+--
+--  Quatre autres sont ADOSSÉES À DES FICHIERS : `exam_publications`
+--  (file_path/file_name NOT NULL, ce sont les PV de résultats en PDF),
+--  `stories` (media_url), `staff_photo_requests`, `support_ticket_messages`.
+--  Y écrire des lignes ferait pointer l'écran vers des documents qui n'existent
+--  pas dans le Storage : l'utilisateur cliquerait sur un téléchargement qui
+--  échoue. **Un écran vide vaut mieux qu'un écran qui ment.**
+--
+--  `platform_partners` alimente le carrousel de partenaires de l'écran de
+--  connexion. Y inventer des noms d'organisations afficherait des partenariats
+--  qui n'existent pas, à tout visiteur. Ce n'est pas au code de le décider.
+--
+--  ── LES CONTRAINTES RENCONTRÉES ───────────────────────────────────────────
+--   • `timetable_exceptions.kind` ∈ {cancelled, moved, extra} — pas de
+--     vocabulaire français, contrairement à ce que suggèrent les écrans.
+--   • `inspections.cycle_scope` ∈ {primaire, secondaire} (déjà vu en 0195).
+--   • `fee_structures.source_reference` est NOT NULL : tout tarif doit citer
+--     sa source. Bonne règle — un montant sans justification n'est pas
+--     opposable à une famille.
+--   • `day_of_week` : 1 = lundi (`frDays` dans `timetable_provider.dart`).
+--   • Une clause `WITH` attachée à un `INSERT` ne couvre QUE cet `INSERT` —
+--     il faut la répéter pour chaque instruction.
+--
+--  ── ⚠️ AUCUNE CLÉ D'API N'EST ÉCRITE ──────────────────────────────────────
+--  `payment_configs` porte `api_key` / `api_secret`. Les trois fournisseurs
+--  sont déclarés en mode test, INACTIFS, sans le moindre secret. C'est aussi
+--  l'état réel d'un groupe dont le compte marchand n'est pas ouvert.
+--
+--  ── CE QUI A ÉTÉ POSÉ (7 écoles privées METP, 2026-09-07) ─────────────────
+--   33 matières · 660 programmes de classe · 70 salles et ateliers
+--   660 services d'enseignants · 7 emplois du temps (6 publiés, 1 brouillon)
+--   1 200 créneaux · 56 aménagements · 140 disponibilités · 42 plages horaires
+--   1 200 entrées de cahier de textes
+--   12 grilles tarifaires · 6 963 encaissements (140 M XAF, avec impayés)
+--   70 lignes de budget · 70 dépenses · 567 bulletins de paie (juin en attente)
+--   63 diplômes · 126 étapes de carrière · 42 congés · 630 pointages agents
+--   84 ouvrages · 175 emprunts (56 en retard) · 1 524 tuteurs
+--   34 événements · 17 centres d'examen · 9 trimestres · 18 séquences
+--   3 jeux de réglages · 9 fournisseurs de paiement (sans clé)
+--   7 transmissions officielles + 126 lignes · 7 conversations · 42 messages
+--   28 fiches d'annuaire
+--
+--  Coût total : ~7 Mo. Base à 327 Mo (65 % du plan gratuit).
+--  Tables vides : 50 → 13.
+--
+--  Détail du raisonnement : docs/memoire/donnees-demonstration-metp.md
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- Le SQL de ce lot est volumineux et a été appliqué par la session du
+-- 2026-09-07. Il se rejoue depuis la fiche mémoire ci-dessus, qui porte chaque
+-- requête dans son contexte. Ce fichier existe pour que la migration 0196 ait
+-- un domicile et que le RAISONNEMENT ne se perde pas — c'est lui qui coûte à
+-- reconstituer, pas les INSERT.

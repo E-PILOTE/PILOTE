@@ -113,7 +113,57 @@ Voir aussi [[escalade-privileges-profiles]].
 écoles privées y puisent maintenant (3 filières chacune, tirées de façon
 déterministe sur `md5(programme || code_ecole)`).
 
-## Ce qui reste vide, et se verra
+## Deuxième vague : les écrans qui s'ouvraient sur rien (même jour)
+
+⚠️ **Vérifier la synchro AVANT de remplir.** L'espace école est offline-first :
+une table absente de `powersync_schema.dart` OU de `sync-rules.yaml` n'atteindra
+jamais le poste, quoi qu'on écrive dans Postgres. Toutes les tables de ce lot
+ont été vérifiées présentes dans les deux — `council_meetings` ne l'était pas.
+
+| Domaine | Posé |
+|---|---|
+| Emploi du temps | 33 matières, 660 programmes, 70 salles, 660 services, 7 EDT (6 publiés, 1 brouillon), **1 200 créneaux**, 56 aménagements, 140 disponibilités, 42 plages horaires |
+| Cahier de textes | **1 200 entrées**, 805 avec devoirs |
+| Finance | 12 grilles tarifaires, **6 963 encaissements** (140 M XAF, avec impayés), 70 lignes de budget, 70 dépenses, **567 bulletins de paie** (juin en attente) |
+| RH | 63 diplômes, 126 étapes de carrière, 42 congés (12 à traiter), 630 pointages |
+| Bibliothèque | 84 ouvrages, 1 064 exemplaires, 175 emprunts dont **56 en retard** |
+| Familles | **1 524 tuteurs**, tous les élèves couverts (la table en avait 2) |
+| Tutelle | 7 transmissions officielles + 126 lignes, 5 accusées |
+| Reste | 34 événements, 17 centres d'examen, 9 trimestres, 18 séquences, 7 conversations, 42 messages, 28 fiches d'annuaire |
+
+**Coût : ~7 Mo.** Tables vides : **50 → 13**.
+
+### 🩸 Trois tables MORTES, découvertes en voulant les remplir
+
+- **`council_meetings`** — l'écran « Conseils » travaille en réalité sur les
+  `bulletins` (appréciation, décision, prix). La table n'est ni dans le schéma
+  PowerSync ni dans les règles de synchro : rien n'y arriverait jamais.
+- **`competence_grades`** et **`school_education_programs`** — zéro fichier
+  Dart les mentionne. (Cf. `school_education_levels`, déjà morte, mig 0089.)
+
+### ⚠️ Ce qu'on refuse de remplir, et pourquoi
+
+- **Adossées à des fichiers** : `exam_publications` (`file_path`/`file_name`
+  NOT NULL — ce sont les PV de résultats en PDF), `stories` (`media_url`),
+  `staff_photo_requests`, `support_ticket_messages`. Y écrire ferait pointer
+  l'écran vers des documents absents du Storage : le visiteur cliquerait sur un
+  téléchargement qui échoue. **Un écran vide vaut mieux qu'un écran qui ment.**
+- **`platform_partners`** alimente le carrousel de l'écran de CONNEXION.
+  Y inventer des noms afficherait des partenariats inexistants à tout visiteur.
+  Ce n'est pas au code de le décider.
+- **`payment_configs`** : les trois fournisseurs sont déclarés en mode test,
+  inactifs, **sans la moindre clé d'API**. C'est l'état réel d'un groupe dont
+  le compte marchand n'est pas ouvert.
+
+### Contraintes qui ont fait échouer une écriture
+
+`timetable_exceptions.kind` ∈ {`cancelled`,`moved`,`extra`} (pas de vocabulaire
+français, contrairement aux écrans) · `inspections.cycle_scope` ∈
+{`primaire`,`secondaire`} · `fee_structures.source_reference` NOT NULL — tout
+tarif doit citer sa source, et c'est une bonne règle · `day_of_week` : 1 = lundi
+(`frDays`) · un `WITH` attaché à un `INSERT` ne couvre QUE cet `INSERT`.
+
+## Ce qui restait vide au premier passage
 
 L'espace école est **entièrement construit** — 94 routes réelles, 2 placeholders
 (le `CLAUDE.md` de `C:\PILOTE` qui annonce « espace personnel à construire » est
