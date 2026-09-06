@@ -251,6 +251,39 @@ fondateur, c'est sans conséquence. **Dès les cinq premières écoles réelles,
 publier redevient un acte de déploiement** : une version par correctif avéré,
 pas une par séance de travail.
 
+### ✅ 3.5.18 / build 52 publiée (2026-09-07, 22 h 29 UTC)
+
+Troisième publication depuis la réouverture. Publiée à la demande explicite du
+fondateur, **le matin de la présentation au ministre** : l'écran de démarrage
+corrigé est le premier écran de la démonstration, il devait y être.
+
+| | |
+|---|---|
+| tag / dépôt | `v3.5.18` sur `E-PILOTE/telechargements` (PUBLIC) |
+| empreinte | `011689a6…ec122662` — 36 094 759 o |
+| `is_mandatory` / `min_build` | `false` / `null` |
+
+Les six vérifications, toutes passées : manifeste ⟷ fichier, HEAD anonyme 200
+avec `content-length` exact, **téléchargement anonyme intégral puis SHA-256 des
+octets reçus** (identique), `derniere_version('windows','stable')` rendant la
+ligne, `windows/beta` et `linux/stable` rendant NULL, EXECUTE pour `anon` ET
+`authenticated`, et l'appel HTTP réel avec la seule clé anon → 200.
+
+⚠️ **Piège de la sixième vérification.** `anonKey` est écrite en **trois
+littéraux Dart concaténés** dans `supabase_constants.dart`. Un `grep -oE 'eyJ…'`
+n'en ramène que le premier tiers, et l'appel rend **401** — ce qui se lit comme
+« le canal est fermé aux postes sans session », c'est-à-dire l'inverse de la
+vérité. Recomposer les littéraux (`re.findall`) et vérifier que le jeton porte
+bien ses deux points avant d'appeler.
+
+Contenu : l'écran de démarrage cesse de répéter le nom, la vocation, le pays et
+le drapeau ([[ecran-de-demarrage-doublons]]), et le numéro de version affiché
+est enfin celui du binaire.
+
+⚠️ Quatrième version publiée en deux jours. Le rappel de la 3.5.17 tient
+toujours et devient urgent : **dès les cinq premières écoles réelles, une
+version par correctif avéré, pas une par séance de travail.**
+
 ### ✅ `le_ruban_sait_apparaitre_test.dart` — la bannière est enfin exécutée
 
 `update_provider_test.dart` couvrait la DÉCISION (16 tests) ; **personne
