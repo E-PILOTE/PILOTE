@@ -60,23 +60,63 @@ d'architecture (offline-first = PowerSync = personnel scolaire uniquement).
 
 ## Plan en trois niveaux
 
-**Niveau 1 — garder au chaud en mémoire (≈ une demi-journée).**
-Un `keepAlive` borné dans le temps sur les 35 providers : revenir sur un écran
-dans les N minutes devient instantané, zéro requête. ~15 lignes d'aide
-partagée + 35 appels d'une ligne.
+**Niveau 1 — garder au chaud en mémoire. ✅ FAIT le 2026-09-06.**
 
-> 🩸 **NE JAMAIS LIVRER SEUL.** Quatre de ces providers ne sont **jamais**
-> invalidés après une écriture : `licencesDuGroupeProvider`,
-> `institutionTypesProvider`, `comptesAdminParGroupeProvider`,
-> `adminRattachementProvider`. Ils sont justes **parce qu'**ils sont froids.
-> Les mettre en cache sans ajouter l'invalidation crée un défaut pire que
-> celui qu'on corrige : on crée une licence et elle n'apparaît pas.
-> Niveau 1 = cache **+** invalidations manquantes, dans le même lot.
+`core/utils/garder_au_chaud.dart` : un `keepAlive` **borné dans le temps**.
+**35 providers froids → 1** (le dernier ne porte aucune donnée : c'est un objet
+d'actions). Revenir sur un écran dans le délai coûte **zéro requête**.
 
-**Niveau 2 — afficher avant de charger (≈ un jour).**
-Persister la dernière charge utile réussie ; à l'ouverture, l'afficher
-immédiatement avec « mis à jour il y a 3 min », rafraîchir en fond, remplacer
-à l'arrivée. C'est le *stale-while-revalidate* des grandes plateformes.
+Trois durées, nommées par ce qu'elles portent — l'ordre porte le raisonnement,
+pas les valeurs :
+
+| Durée | Pour quoi | Pourquoi |
+|---|---|---|
+| `kChaudContrat` = 1 min | licence de tutelle, droit d'accès | change depuis l'espace du fondateur, sur une AUTRE machine, sans temps réel ici |
+| `kChaudCourant` = 5 min | écoles, frais, comptes, dossiers | bouge à la journée |
+| `kChaudReferentiel` = 20 min | types d'établissement, niveaux, vocabulaire d'examen | change quelques fois par an |
+
+⚠️ **Pas de `keepAlive()` nu.** Un ministère laisse l'application ouverte la
+journée : sans échéance, il verrait le soir les chiffres du matin, sans le
+savoir. Le silence d'une donnée périmée est le même défaut que le silence
+d'une lecture ratée.
+
+> 🩸 **ET LES INVALIDATIONS, DANS LE MÊME LOT.** Deux lectures n'étaient jamais
+> rafraîchies après écriture, et étaient justes **parce qu'**elles étaient
+> froides. Ajoutées : `comptesAdminParGroupeProvider` (on nomme un
+> administrateur → la fiche du groupe affichait « aucun » pendant cinq minutes)
+> et `adminRattachementProvider` (on coche un niveau → le rattachement
+> l'ignorait). Les deux autres suspectes sont sans risque : `institution_types`
+> n'est écrit **nulle part** en Dart (référentiel semé en base), et
+> `licencesDuGroupeProvider` est passé à la durée `contrat`.
+>
+> `test/garder_au_chaud_test.dart` (7 tests) garde le couple cache+invalidation,
+> dont deux tests qui exercent réellement le minuteur.
+
+**Niveau 2 — afficher avant de charger. ❌ NON FAIT, et volontairement.**
+
+C'était le bon plan **avant** le niveau 3. Après, l'arithmétique s'est
+retournée :
+
+| | Ouverture d'un tableau de bord |
+|---|---|
+| Avant tout | 8 à 10 allers-retours en file ≈ **3 à 4 s** |
+| Après niveau 3 | 1 à 2 allers-retours ≈ **0,4 à 0,8 s** |
+| Après niveau 1 (retour sur l'écran) | **0 requête** |
+| Ce que le niveau 2 ajouterait | ~0,8 s gagnées **une fois par lancement** |
+
+Pour ces 0,8 s il faudrait : sérialiser cinq modèles riches, un cache disque,
+un affichage d'âge, et **accepter qu'un tableau de bord de ministère montre des
+chiffres d'hier**. C'est exactement la famille de défauts retirée les 5 et
+6 septembre. Le rapport bénéfice/risque ne le justifie plus.
+
+⚠️ **La variante qui, elle, vaudra le coup un jour** : non pas pour la vitesse
+mais **pour le hors-ligne**. Un ministère qui ouvre l'application sans réseau
+voit aujourd'hui des tirets. Un dernier relevé daté — « voici ce que je savais
+le 6 septembre à 8 h » — vaudrait mieux. La bonne implémentation est alors de
+cacher les **lignes brutes** de chaque lecture, pas les modèles calculés : le
+même code d'agrégation les rejoue, rien n'est dupliqué, et rien n'a besoin
+d'être sérialisé à la main. À reprendre quand le hors-ligne des espaces admin
+deviendra un vrai besoin — pas avant.
 
 **Niveau 3 — réduire le nombre d'allers-retours. ✅ FAIT le 2026-09-06.**
 
@@ -125,7 +165,10 @@ chiffre qui déclenche une action.
 **Niveau 3 livré** (voir ci-dessus) : il ne change aucune requête, donc aucun
 chiffre — c'est ce qui le rend sûr à livrer tout de suite.
 
-**Niveaux 1 et 2 NON livrés, délibérément.** Le niveau 1 touche 35 chemins de
-données et son mode de défaillance est « vous écrivez et vous ne voyez pas » —
-précisément ce qui ne doit pas arriver devant un ministre, ni sur les cinq
-premières écoles. À faire au calme, cache **et** invalidations dans le même lot.
+**Niveau 1 livré le lendemain**, cache ET invalidations dans le même lot, avec
+les tests qui gardent le couple.
+
+**Niveau 2 refusé**, arithmétique à l'appui (voir ci-dessus) : après les
+niveaux 3 et 1, il n'achèterait plus que 0,8 seconde une fois par lancement, au
+prix d'un tableau de bord de ministère susceptible d'afficher les chiffres de
+la veille. Décision prise, pas oubliée.

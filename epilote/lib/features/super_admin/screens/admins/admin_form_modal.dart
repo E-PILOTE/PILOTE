@@ -138,6 +138,11 @@ class _AdminFormModalState extends ConsumerState<_AdminFormModal> {
         });
       }
       ref.invalidate(administratorsProvider);
+      // ⚠️ La liste « quels comptes administrent ce groupe » vient d'une AUTRE
+      // lecture, désormais gardée au chaud cinq minutes. Sans cette ligne, on
+      // nomme un administrateur et la fiche du groupe continue d'afficher
+      // « aucun » — le cache transformerait un succès en défaut apparent.
+      ref.invalidate(comptesAdminParGroupeProvider);
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) {

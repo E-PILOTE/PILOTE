@@ -8,6 +8,7 @@ import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/booleen_en_ligne.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // ─── Modèle GroupDetail ───────────────────────────────────────────────────────
 
@@ -428,6 +429,7 @@ class GroupModuleAccess {
 
 final groupModuleAccessProvider = FutureProvider.autoDispose
     .family<List<GroupModuleAccess>, String>((ref, groupId) async {
+  garderAuChaud(ref);
   final client = ref.watch(supabaseClientProvider);
   final rows = await client.rpc('get_group_module_access',
       params: {'p_group_id': groupId});

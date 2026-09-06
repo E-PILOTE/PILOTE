@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../core/utils/erreur_metier.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // ─── Modèles ────────────────────────────────────────────────────────────────
 class AccessProfile {
@@ -281,6 +282,7 @@ final adminAccessProvider =
 // ─── Permissions existantes d'un profil ─────────────────────────────────────
 final accessProfilePermsProvider = FutureProvider.autoDispose
     .family<Map<String, PermRow>, String>((ref, profileId) async {
+  garderAuChaud(ref);
   final client = ref.watch(supabaseClientProvider);
   final Map<String, PermRow> map = {};
   try {

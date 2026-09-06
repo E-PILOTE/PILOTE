@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LE COMPTE QUI SE CONNECTE — et pourquoi ce n'est PAS `admin_email`
@@ -56,6 +57,7 @@ class CompteAdmin {
 /// contact présenté comme un identifiant est exactement ce qu'on corrige ici.
 final comptesAdminParGroupeProvider =
     FutureProvider.autoDispose<Map<String, List<CompteAdmin>>>((ref) async {
+  garderAuChaud(ref);
   final client = ref.watch(supabaseClientProvider);
   final parGroupe = <String, List<CompteAdmin>>{};
   try {

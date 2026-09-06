@@ -17,6 +17,7 @@ import '../../../core/utils/media_compression.dart';
 import '../providers/administrators_provider.dart';
 import '../services/admin_pdf_service.dart';
 import '../../../core/utils/message_erreur.dart';
+import '../providers/comptes_admin_provider.dart';
 
 part 'admins/admin_avatar_upload.dart';
 part 'admins/admin_delete_dialog.dart';

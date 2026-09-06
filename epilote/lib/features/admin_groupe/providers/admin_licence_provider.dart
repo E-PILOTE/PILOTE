@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/licence_statut.dart';
 import '../../../core/utils/subscription_days.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LA LICENCE, VUE PAR LE MINISTÈRE LUI-MÊME
@@ -177,6 +178,7 @@ LicenceDuGroupe? licenceAMontrer(List<LicenceDuGroupe> licences) {
 /// et le déclencheur de 0160 interdit d'en créer hors d'un ministère.
 final licencesDuGroupeProvider =
     FutureProvider.autoDispose<List<LicenceDuGroupe>>((ref) async {
+  garderAuChaud(ref, pendant: kChaudContrat);
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
   if (groupId == null || groupId.isEmpty) return const [];
 

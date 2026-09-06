@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../core/utils/erreur_metier.dart';
+import 'admin_rattachement_provider.dart';
 
 // ════════════════════════════════════════════════════════════════════════
 // Système éducatif — République du Congo
@@ -336,6 +337,10 @@ class EducationService {
     }
 
     _ref.invalidate(schoolEducationProvider(schoolId));
+    // ⚠️ L'écran « Rattachement » lit `school_levels` pour dire quelles écoles
+    // couvrent quels niveaux. Cette lecture est gardée au chaud : sans cette
+    // ligne, on coche un niveau et le rattachement l'ignore cinq minutes.
+    _ref.invalidate(adminRattachementProvider);
   }
 
   // ─── Gestion dynamique du référentiel (lignes propres au groupe) ──────────

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/booleen_en_ligne.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // ─── Modèles ──────────────────────────────────────────────────────────────────
 
@@ -144,6 +145,7 @@ class PaymentGroupOption {
 
 final paymentConfigGroupsProvider =
     FutureProvider.autoDispose<List<PaymentGroupOption>>((ref) async {
+  garderAuChaud(ref);
   final client = ref.watch(supabaseClientProvider);
   final rows = await client.from('school_groups').select('id, name').order('name', ascending: true);
   return (rows as List).map((r) {

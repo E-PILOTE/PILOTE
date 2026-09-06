@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // ─── Modèles ──────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,7 @@ class UnpaidInvoice {
 
 final unpaidInvoicesProvider =
     FutureProvider.autoDispose<List<UnpaidInvoice>>((ref) async {
+  garderAuChaud(ref);
   final client = ref.watch(supabaseClientProvider);
   final rows = await client
       .from('group_invoices')

@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // La fenêtre d'alerte (`kSubscriptionAlertDays`) vit dans
 // `core/utils/subscription_days.dart` : elle est partagée avec le bandeau
@@ -179,6 +180,7 @@ final subscriptionSettingsProvider =
 /// ⇒ `unknown()` (n'entrave rien). N'est consommé que dans l'espace admin_groupe.
 final subscriptionAccessProvider =
     FutureProvider.autoDispose<SubscriptionAccess>((ref) async {
+  garderAuChaud(ref, pendant: kChaudContrat);
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
   if (groupId == null || groupId.isEmpty) return SubscriptionAccess.unknown();
 

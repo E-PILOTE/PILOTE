@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  L'ACCÈS D'UN GROUPE, COUPÉ POUR IMPAYÉ
@@ -46,6 +47,7 @@ class AccesGroupe {
 
 final accesGroupeProvider =
     FutureProvider.autoDispose<AccesGroupe>((ref) async {
+  garderAuChaud(ref);
   final profil = ref.watch(authNotifierProvider).valueOrNull;
   final groupId = profil?.groupId;
   if (groupId == null || groupId.isEmpty) return AccesGroupe.ouvert;

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  RÉSULTATS PAR MATIÈRE — le profil scolaire de l'élève, dans son dossier.
@@ -119,6 +120,7 @@ class ResultsKey {
 
 final studentResultsProvider =
     FutureProvider.autoDispose.family<StudentResults, ResultsKey>((ref, k) async {
+  garderAuChaud(ref);
   final client = ref.watch(supabaseClientProvider);
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
   if (groupId == null) return StudentResults.empty;

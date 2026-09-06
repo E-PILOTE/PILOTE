@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LE VOCABULAIRE D'UNE RÈGLE — lu en base, jamais figé dans le code.
@@ -55,6 +56,7 @@ class ExamRuleVocabulary {
 /// mort parce qu'une migration traîne serait pire que des champs sans liste.
 final examRuleVocabularyProvider =
     FutureProvider.autoDispose<ExamRuleVocabulary>((ref) async {
+  garderAuChaud(ref, pendant: kChaudReferentiel);
   final client = ref.watch(supabaseClientProvider);
   final List<dynamic> rows;
   try {
@@ -126,6 +128,7 @@ Future<int?> examRuleMatchCount(
 /// appliquée d'abord à un réseau. Elle prime sur la règle nationale.
 final ruleScopeGroupsProvider =
     FutureProvider.autoDispose<List<(String, String)>>((ref) async {
+  garderAuChaud(ref, pendant: kChaudReferentiel);
   final rows = await ref
       .watch(supabaseClientProvider)
       .from('school_groups')

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/paged_fetch.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../services/rang_niveau.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  RATTACHEMENT DES NIVEAUX — où pointe la 6e de chaque école ?
@@ -124,6 +125,7 @@ class VueRattachement {
 /// peut se faire sauter entre deux pages (cf. `paged_fetch.dart`).
 final adminRattachementProvider =
     FutureProvider.autoDispose<VueRattachement>((ref) async {
+  garderAuChaud(ref);
   final client = ref.watch(supabaseClientProvider);
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
   if (groupId == null) return VueRattachement.vide;

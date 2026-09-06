@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  QUI TIENT LE RÉFÉRENTIEL NATIONAL DES EXAMENS
@@ -33,6 +34,7 @@ import '../../../features/auth/providers/auth_provider.dart';
 /// bouton ; se tromper dans l'autre laisse détruire un diplôme d'État.
 final groupeAdministreReferentielProvider =
     FutureProvider.autoDispose<bool>((ref) async {
+  garderAuChaud(ref, pendant: kChaudReferentiel);
   final profil = ref.watch(authNotifierProvider).valueOrNull;
   if (profil == null) return false;
   if (profil.isSuperAdmin) return true;
@@ -53,6 +55,7 @@ final groupeAdministreReferentielProvider =
 /// dans l'autre met la carte nationale entre les mains d'un client privé.
 final groupeEstMinistereProvider =
     FutureProvider.autoDispose<bool>((ref) async {
+  garderAuChaud(ref, pendant: kChaudReferentiel);
   final profil = ref.watch(authNotifierProvider).valueOrNull;
   final groupId = profil?.groupId;
   if (groupId == null || groupId.isEmpty) return false;

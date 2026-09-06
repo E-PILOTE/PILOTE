@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/mention.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  MEILLEURS ÉLÈVES DES CLASSES DE PASSAGE — le palmarès que la plateforme
@@ -253,6 +254,7 @@ class PassageData {
 
 final passageMeritProvider =
     FutureProvider.autoDispose<PassageData>((ref) async {
+  garderAuChaud(ref);
   final client = ref.watch(supabaseClientProvider);
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
   if (groupId == null) return PassageData.empty;

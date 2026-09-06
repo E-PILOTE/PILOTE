@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  ÉLÈVES DU RÉSEAU — recherche transversale du ministère (admin_groupe).
@@ -290,6 +291,7 @@ List<GroupStudent> sortStudents(List<GroupStudent> rows, StudentSortState s) {
 
 final studentSearchProvider =
     FutureProvider.autoDispose<StudentSearchResult>((ref) async {
+  garderAuChaud(ref);
   final query = ref.watch(studentQueryProvider);
   if (!query.isRunnable) return StudentSearchResult.empty;
 

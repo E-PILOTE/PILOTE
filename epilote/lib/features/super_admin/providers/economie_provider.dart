@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/tarif_ecoles.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  L'ÉCONOMIE DE LA PLATEFORME
@@ -255,6 +256,7 @@ class EconomieData {
 
 final economieProvider =
     FutureProvider.autoDispose<EconomieData>((ref) async {
+  garderAuChaud(ref);
   final client = ref.read(supabaseClientProvider);
 
   // ⚠️ Aucun `catch (_) {}` muet ici. Un tableau d'économie qui affiche 0
@@ -326,6 +328,7 @@ final economieProvider =
 final groupesSuperviseursProvider =
     FutureProvider.autoDispose<List<({String id, String nom, String tutelle})>>(
         (ref) async {
+  garderAuChaud(ref);
   final client = ref.read(supabaseClientProvider);
   final rows = await client
       .from('school_groups')
