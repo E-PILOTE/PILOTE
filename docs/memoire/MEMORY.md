@@ -123,6 +123,7 @@
 - [Personnel — annuaire](staff-personnel-annuaire.md) — sur `profiles`, pas staff_members
 - [EDT calendrier+exceptions](enseignement-emploi-du-temps.md) — vues jour→annuel, migs 0021/0022 déployées
 - [EDT — refonte ERP](edt-refonte-v2.md) — 🚧 Vague 0 migs 0015→0019 NON déployée = gate
+- [🎬 Écran de démarrage — les doublons](ecran-de-demarrage-doublons.md) — ⚠️ `logo.svg` n'est PAS une icône : « E-PILOTE / CONGO / GESTION SCOLAIRE » + tricolore sont GRAVÉS dedans → le nom 3×, le pays 2×, le drapeau 5× sur le même écran ; `logo_marque.svg` = la marque muette ; 🩸 « v3.0 » était écrit à la main sur un paquet en 3.5.17 → `VersionInstallee`
 
 ## Communication & support
 - [⚠️ Sonde `%APPDATA%` redirigée](sonde-appdata-redirigee.md) — l'outil Bash de Claude Code Windows lit un AppContainer VIRTUALISÉ : inspecter `epilote_v3.db` via PowerShell, jamais via Bash

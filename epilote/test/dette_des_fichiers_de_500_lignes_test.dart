@@ -16,7 +16,7 @@ import 'source_bibliotheque.dart';
 //  LA RÈGLE DES 500 LIGNES, RENDUE OPPOSABLE
 //
 //  ── POURQUOI UN CLIQUET PLUTÔT QU'UNE INTERDICTION ────────────────────────
-//  Le dépôt compte encore 83 fichiers au-dessus de 500 lignes ; interdire
+//  Le dépôt compte encore 82 fichiers au-dessus de 500 lignes ; interdire
 //  franchement ferait tomber la suite entière et le test serait désactivé dans
 //  la semaine. Un CLIQUET, lui, tient : la dette peut diminuer, jamais
 //  augmenter. Chaque découpage abaisse le plafond, et un fichier neuf trop
@@ -34,10 +34,11 @@ import 'source_bibliotheque.dart';
 //  bibliothèques-là sont donc tenues à la règle stricte.
 // ════════════════════════════════════════════════════════════════════════════
 
-/// Nombre de fichiers de `lib/` dépassant 500 lignes, au 2026-09-05.
+/// Nombre de fichiers de `lib/` dépassant 500 lignes, au 2026-09-06.
 ///
-/// Il en restait 98 au matin ; neuf écrans ont été découpés depuis.
-const int _plafond = 83;
+/// Il en restait 98 le 2026-09-05 au matin. Neuf écrans ont été découpés,
+/// puis l'écran de démarrage (575 → 485, décor et pied sortis à part).
+const int _plafond = 82;
 
 const int _limite = 500;
 

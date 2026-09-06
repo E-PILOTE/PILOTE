@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/auth/session_morte.dart';
+import '../../../core/widgets/version_installee.dart';
 import '../providers/auth_provider.dart';
 import 'widgets/auth_colors.dart';
 import 'widgets/contact_support_drawer.dart';
@@ -281,7 +282,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 )),
               ),
               const SizedBox(width: 14),
-              const Text('v3.0',
+              // Lue dans le binaire : elle disait « v3.0 » sur un paquet
+              // en 3.5.17, seize publications durant.
+              const VersionInstallee(
                   style: TextStyle(color: Color(0xFF3D5A73), fontSize: 10)),
             ],
           ),
