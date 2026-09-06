@@ -165,5 +165,62 @@ par `release_form_dialog.dart` **avant la moindre écriture**.
 
 10 tests (`MockClient`) — 22 au total dans `release_publication_test.dart`.
 
+## 🩸 ONZE VERSIONS N'ONT JAMAIS ATTEINT LE PARC (constaté le 2026-09-05)
+
+`app_releases` s'arrêtait au **build 27 (3.4.3, publié le 1er septembre)**.
+Entre-temps, **3.5.0 → 3.5.14, builds 28 à 48**, ont été compilés, installés à
+la main sur le poste de développement, et **jamais publiés**. Pendant onze
+versions, tout poste demandant « existe-t-il une correction ? » s'est entendu
+répondre « vous êtes à jour ».
+
+Rien n'était cassé : la bannière, la vérification d'empreinte, le formulaire et
+ses vingt-deux contrôles, le relevé du parc — tout fonctionnait. **Publier est
+une étape HUMAINE qui suit la compilation, et rien ne comparait les deux.**
+`ParcSection` dit ce que le parc exécute ; la liste dit ce qui est publié ;
+personne ne disait ce que la machine d'en face vient de compiler. L'écart
+n'avait de domicile ni dans une ligne, ni dans un écran, ni dans un test.
+
+C'est le défaut des `catch (_) {}` déplacé d'un cran : **le silence d'un
+manquement le rend invisible, pas inoffensif.**
+
+### ✅ `VersionNonPubliee` — l'écart a désormais un domicile
+
+`super_admin/widgets/version_non_publiee.dart`, **en tête** de `/super/versions`
+(avant l'avertissement : le reste de la page explique comment publier, cet
+encart signale qu'on ne l'a pas fait). Il compare le build de l'application
+**qui affiche l'écran** au plus haut build publié pour la même plateforme.
+
+- ⚠️ **`stable` en dur** : un build publié en `beta` est invisible pour les
+  postes, il ne comble donc pas l'écart. Idem pour une autre plateforme.
+- ⚠️ **build `0` ⇒ silence**, même règle que `miseAJourProvider`.
+- ⚠️ **Il ne parle que de la machine où il s'affiche** — d'où « depuis ce
+  poste ». Un super_admin sur un poste ancien verrait sinon un écart de
+  livraison qui n'existe pas. Un poste EN RETARD ne déclenche rien.
+- Table vide ⇒ « aucun », jamais « 0 » (qui se lirait comme un build zéro).
+
+8 tests : `test/compiler_nest_pas_publier_test.dart`.
+
+⚠️ **Ce que l'encart NE fait pas** : publier. L'étape reste humaine et le
+restera — la publication s'adresse à tout le parc, elle ne doit pas être un
+effet de bord d'une compilation.
+
+### ⚠️ L'installation locale n'a rien à voir avec ce canal
+
+Le refus rencontré ce jour-là (« L'opération a été annulée par l'utilisateur »,
+quatre fois) n'est PAS un défaut du produit : `epilote.iss` porte
+`PrivilegesRequired=admin` + `DefaultDirName={autopf}` → Windows demande
+l'élévation (UAC), et **ce dialogue est dessiné sur le bureau sécurisé, hors
+d'atteinte de toute automatisation**, par construction. Lancé sans personne
+devant l'écran, il expire ou est écarté.
+
+⚠️ **La bannière intégrée aboutit au MÊME dialogue** — `UpdateInstaller.lancer`
+démarre l'installateur, qui demande l'élévation. La différence n'est pas
+technique : l'agent est devant son poste, il vient de cliquer « Installer », il
+attend la question. **Question ouverte pour le déploiement national** : un
+enseignant sans droits d'administrateur ne pourra jamais appliquer une
+correction par ce chemin. `PrivilegesRequired=lowest` (installation par
+utilisateur, sans UAC) est l'alternative — au prix d'un changement d'emplacement
+et du risque de deux copies par poste. **À trancher avec la DSIC, pas seul.**
+
 Liens : [[chaine-livraison-windows]] · [[deploiement-national-octobre]] ·
 [[plateformes-cibles-windows-mac]]

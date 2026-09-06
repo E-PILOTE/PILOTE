@@ -18,6 +18,7 @@ import '../../../core/utils/message_erreur.dart';
 part 'abonnement/abo_comparatif.dart';
 part 'abonnement/abo_demande.dart';
 part 'abonnement/abo_formules.dart';
+part 'abonnement/abo_mesures_manquantes.dart';
 part 'abonnement/abo_plan_courant.dart';
 part 'abonnement/abo_quotas.dart';
 
@@ -141,6 +142,12 @@ class _Body extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sub = data.subscription;
+    // ⚠️ NE PAS FUSIONNER CES DEUX CAS. « Aucun abonnement » est un fait
+    // vérifié ; l'échec de lecture est une absence de fait. Les confondre
+    // annonçait à un client qui paie qu'il n'a pas de plan.
+    if (sub == null && data.abonnementIllisible) {
+      return const _AbonnementIllisible();
+    }
     if (sub == null) {
       return const Center(
         child: AdminEmptyState(
@@ -164,6 +171,10 @@ class _Body extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Avant la carte de plan : ce qui suit peut être incomplet,
+                  // et on ne l'apprend pas après avoir lu les montants.
+                  if (data.mesuresManquantes.isNotEmpty)
+                    _MesuresManquantesAbonnement(data: data),
                   if (sub.estMinistere)
                     LicenceDeTutelleSection(sub: sub)
                   else

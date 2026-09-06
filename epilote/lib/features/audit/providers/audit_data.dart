@@ -1,13 +1,18 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:postgrest/postgrest.dart' show CountOption;
 import 'package:realtime_client/realtime_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show SupabaseClient;
 
+import '../../../core/utils/erreur_metier.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'audit_models.dart';
+import 'audit_noms.dart';
 import 'audit_scope.dart';
+
+export 'audit_noms.dart' show kNomNonResolu, kCompteIntrouvable;
 
 export 'audit_models.dart';
 export 'audit_scope.dart';
@@ -258,6 +263,7 @@ final auditTimelineProvider =
     final topActorIds = sortedActors.take(5).map((e) => e.key).toList();
 
     final userNames = <String, String>{};
+    var nomsIllisibles = false;
     if (topActorIds.isNotEmpty) {
       try {
         final p = await client
@@ -269,13 +275,19 @@ final auditTimelineProvider =
           final ln = (r['last_name'] as String? ?? '').trim();
           userNames[r['id'] as String] = '$fn $ln'.trim();
         }
-      } catch (_) {}
+      } catch (e) {
+        // Cinq lignes nommées « Utilisateur » se lisent comme cinq personnes
+        // anonymes, pas comme un nom qu'on n'a pas su lire.
+        nomsIllisibles = true;
+        debugPrint('ℹ️ Journal d’audit : noms des acteurs illisibles ($e).');
+      }
     }
     final topActors = topActorIds.map((id) {
       final info = actorCount[id]!;
       return AuditTopActor(
         userId: id,
-        name: userNames[id] ?? 'Utilisateur',
+        name: userNames[id] ??
+            (nomsIllisibles ? kNomNonResolu : kCompteIntrouvable),
         role: info.role,
         count: info.count,
       );
@@ -382,6 +394,7 @@ Future<List<AuditEntry>> _hydrate(
   };
 
   final userNames = <String, String>{};
+  var nomsIllisibles = false;
   if (userIds.isNotEmpty) {
     try {
       final p = await client
@@ -394,7 +407,10 @@ Future<List<AuditEntry>> _hydrate(
         final full = '$fn $ln'.trim();
         userNames[r['id'] as String] = full.isEmpty ? 'Système' : full;
       }
-    } catch (_) {}
+    } catch (e) {
+      nomsIllisibles = true;
+      debugPrint('ℹ️ Journal d’audit : noms des auteurs illisibles ($e).');
+    }
   }
 
   // Noms d'école : seulement en périmètre groupe (colonne « École » affichée).
@@ -421,7 +437,12 @@ Future<List<AuditEntry>> _hydrate(
       action: r['action'] as String? ?? '',
       tableName: r['table_name'] as String? ?? '',
       recordId: r['record_id'] as String?,
-      userName: uid != null ? (userNames[uid] ?? 'Système') : 'Système',
+      // ⚠️ « Système » est réservé aux lignes SANS auteur. L'écrire à la
+      // place d'un nom qu'on n'a pas su lire attribue l'acte à la plateforme.
+      userName: uid == null
+          ? 'Système'
+          : (userNames[uid] ??
+              (nomsIllisibles ? kNomNonResolu : kCompteIntrouvable)),
       userRole: r['user_role'] as String? ?? '',
       schoolName: sid != null ? schoolNames[sid] : null,
       schoolId: sid,
@@ -455,8 +476,20 @@ Future<List<AuditEntry>> fetchAllAuditForExport({
         .order('created_at', ascending: false)
         .limit(limit) as List;
     rows.addAll(res.cast<Map<String, dynamic>>());
-  } catch (_) {
-    return [];
+  } catch (e) {
+    // ⚠️ NE JAMAIS RENDRE `[]` ICI. Un export d'audit vide ne se lit pas comme
+    // « la lecture a échoué » : il se lit comme « aucune activité sur la
+    // période », et il part sous cette forme à un inspecteur, un ministère,
+    // un commissaire aux comptes. C'est le seul endroit de l'application où
+    // une lecture ratée fabrique un DOCUMENT qui affirme quelque chose de faux.
+    //
+    // La modale d'export attend déjà cette exception (`audit_export_dialog`,
+    // `_errorMsg`) : tant que cette fonction avalait l'erreur, ce chemin de
+    // rattrapage ne pouvait pas s'exécuter — il était écrit et inatteignable.
+    throw ErreurMetier(
+        "Le journal n'a pas pu être relu pour l'export : $e. "
+        'Aucun fichier n’a été produit — un export vide se lirait comme une '
+        'absence d’activité.');
   }
 
   return _hydrate(client, scope, rows);

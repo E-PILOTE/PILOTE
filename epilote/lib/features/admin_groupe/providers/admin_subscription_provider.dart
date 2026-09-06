@@ -11,6 +11,7 @@ import '../../../core/utils/tarif_ecoles.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../super_admin/providers/invoices_provider.dart' show InvoiceDetail;
 import '../../../core/utils/erreur_metier.dart';
+import '../../../core/utils/mesures_manquantes.dart';
 import 'subscription_access_provider.dart'
     show kSubscriptionAlertDays, subscriptionSettingsProvider;
 
@@ -230,17 +231,69 @@ class SubscriptionTicket {
   final DateTime? resolvedAt;
 }
 
+/// Les mesures de l'écran d'abonnement, nommées — cf. `MesuresManquantes`.
+///
+/// ⚠️ HUIT LECTURES ÉTAIENT MUETTES, sur l'écran qui porte de l'ARGENT et des
+/// QUOTAS. Deux conséquences, plus graves qu'ailleurs :
+///
+///  • Les trois compteurs d'usage retombaient à ZÉRO. La jauge annonçait alors
+///    « 0 / 2 000 élèves » — le client se croyait au large, et découvrait la
+///    limite au refus du serveur, sans comprendre. Le commentaire qui surplombe
+///    ces compteurs dit déjà qu'un quota est « le pire endroit possible pour
+///    mentir » : trois `catch (_) {}` faisaient exactement cela.
+///
+///  • L'échec de la lecture du groupe laissait `subscription` à `null`, et
+///    l'écran affichait « Aucun abonnement — ce groupe n'a pas encore de plan
+///    actif » à un client qui paie. Ce n'est pas une case vide, c'est une
+///    AFFIRMATION FAUSSE sur la relation commerciale.
+class MesuresAbonnement {
+  const MesuresAbonnement._();
+
+  static const abonnement = 'abonnement';
+  static const ecoles = 'ecoles';
+  static const eleves = 'eleves';
+  static const personnel = 'personnel';
+  static const familles = 'familles';
+  static const formules = 'formules';
+  static const demandes = 'demandes';
+  static const factures = 'factures';
+
+  static String libelle(String cle) => switch (cle) {
+        abonnement => 'plan et échéance',
+        ecoles => 'écoles utilisées',
+        eleves => 'élèves utilisés',
+        personnel => 'personnel utilisé',
+        familles => 'familles de modules',
+        formules => 'autres formules',
+        demandes => 'demandes de changement',
+        factures => 'historique de facturation',
+        _ => cle,
+      };
+}
+
 class AdminSubscriptionData {
   const AdminSubscriptionData({
     required this.subscription,
     required this.plans,
     required this.tickets,
     required this.invoices,
+    this.mesuresManquantes = const {},
   });
   final GroupSubscription? subscription;
   final List<PlanOption> plans;
   final List<SubscriptionTicket> tickets;
   final List<InvoiceDetail> invoices;
+
+  /// Ce que cette lecture n'a PAS pu obtenir. Vide dans le cas normal.
+  /// Non vide, elle veut dire « ces cases ne sont pas à zéro : elles sont
+  /// inconnues » — et l'écran doit le dire AVANT de montrer des chiffres.
+  final Set<String> mesuresManquantes;
+
+  bool manque(String cle) => mesuresManquantes.contains(cle);
+
+  /// L'abonnement lui-même n'a pas pu être lu. À distinguer, à l'écran, du
+  /// groupe qui n'a réellement aucun plan : « inconnu » n'est pas « aucun ».
+  bool get abonnementIllisible => manque(MesuresAbonnement.abonnement);
 
   // ── Synthèse de facturation (lecture seule) ──
   int get billedTotal      => invoices.fold(0, (s, i) => s + i.amountXaf);
@@ -306,6 +359,11 @@ final adminSubscriptionProvider =
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
   if (groupId == null) return AdminSubscriptionData.empty;
 
+  // Ce que la lecture n'aura pas pu obtenir. Rempli par les `catch` ci-dessous
+  // et rendu avec les données : un écran d'argent qui montre des zéros sans le
+  // dire ment sur une relation commerciale.
+  final manquantes = MesuresManquantes();
+
   // Fenêtre d'alerte réglable par le super_admin — partagée avec le bandeau.
   final settings = await ref.watch(subscriptionSettingsProvider.future);
 
@@ -349,7 +407,13 @@ final adminSubscriptionProvider =
       debounce?.cancel();
       client.removeChannel(channel);
     });
-  } catch (_) {}
+  } catch (_) {
+    // MUET À DESSEIN. Sans temps réel, la page reste
+    // juste : elle cesse seulement de se rafraîchir
+    // seule, et « Actualiser » la remet à jour. Aucun
+    // chiffre affiché ne devient faux — le seul cas où
+    // se taire reste permis.
+  }
 
   // Groupe + plan courant
   GroupSubscription? sub;
@@ -377,13 +441,17 @@ final adminSubscriptionProvider =
               .eq('group_id', groupId).eq('is_active', true)
               .count(CountOption.exact))
           .count;
-    } catch (_) {}
+    } catch (e) {
+      manquantes.note(MesuresAbonnement.ecoles, e, ecran: 'Abonnement du groupe');
+    }
     try {
       studentsUsed = (await client.from('students').select()
               .eq('group_id', groupId).eq('is_active', true)
               .count(CountOption.exact))
           .count;
-    } catch (_) {}
+    } catch (e) {
+      manquantes.note(MesuresAbonnement.eleves, e, ecran: 'Abonnement du groupe');
+    }
     try {
       // Le personnel vit dans `profiles` : `staff_members` est vide et
       // l'application n'y écrit jamais (cf. migration 0076). La jauge affichait
@@ -393,7 +461,9 @@ final adminSubscriptionProvider =
               .not('role', 'in', '(super_admin,parent,eleve)')
               .count(CountOption.exact))
           .count;
-    } catch (_) {}
+    } catch (e) {
+      manquantes.note(MesuresAbonnement.personnel, e, ecran: 'Abonnement du groupe');
+    }
 
     if (g != null) {
       final plan = g['subscription_plans'] as Map<String, dynamic>?;
@@ -434,7 +504,9 @@ final adminSubscriptionProvider =
         tutelle:      g['tutelle'] as String?,
       );
     }
-  } catch (_) {}
+  } catch (e) {
+    manquantes.note(MesuresAbonnement.abonnement, e, ecran: 'Abonnement du groupe');
+  }
 
   // Familles de modules débloquées par plan : plan_modules ⋈ modules ⋈ module_categories.
   // Lecture seule (RLS subscription_plans_read = true ; modules/catégories publics).
@@ -463,7 +535,9 @@ final adminSubscriptionProvider =
         moduleCount:  (prev?.moduleCount ?? 0) + 1,
       );
     }
-  } catch (_) {}
+  } catch (e) {
+    manquantes.note(MesuresAbonnement.familles, e, ecran: 'Abonnement du groupe');
+  }
 
   // TOUS les plans actifs (un groupe peut demander à monter OU descendre de plan),
   // triés par prix croissant pour une comparaison lisible.
@@ -498,7 +572,9 @@ final adminSubscriptionProvider =
         extra21p:    (r['extra_school_21p_xaf']   as int?) ?? 0,
       ));
     }
-  } catch (_) {}
+  } catch (e) {
+    manquantes.note(MesuresAbonnement.formules, e, ecran: 'Abonnement du groupe');
+  }
 
   // Historique des demandes (tickets de changement de plan)
   final List<SubscriptionTicket> tickets = [];
@@ -521,7 +597,9 @@ final adminSubscriptionProvider =
         resolvedAt: DateTime.tryParse(r['resolved_at'] as String? ?? ''),
       ));
     }
-  } catch (_) {}
+  } catch (e) {
+    manquantes.note(MesuresAbonnement.demandes, e, ecran: 'Abonnement du groupe');
+  }
 
   // Historique de facturation du groupe (RLS invoices_select → lecture seule)
   final List<InvoiceDetail> invoices = [];
@@ -536,10 +614,16 @@ final adminSubscriptionProvider =
       m['plan_name']  = (r['subscription_plans'] as Map?)?['name'];
       invoices.add(InvoiceDetail.fromMap(m));
     }
-  } catch (_) {}
+  } catch (e) {
+    manquantes.note(MesuresAbonnement.factures, e, ecran: 'Abonnement du groupe');
+  }
 
   return AdminSubscriptionData(
-      subscription: sub, plans: plans, tickets: tickets, invoices: invoices);
+      subscription: sub,
+      plans: plans,
+      tickets: tickets,
+      invoices: invoices,
+      mesuresManquantes: manquantes.cles);
 });
 
 // ─── Service ────────────────────────────────────────────────────────────────
