@@ -233,6 +233,24 @@ Publié à la demande explicite du fondateur. Écart comblé : 22 builds.
 téléchargement → vérification → lancement de `UpdateInstaller` n'a jamais été
 parcouru de bout en bout sur un vrai poste. Il faudrait un poste en retard.
 
+### ✅ 3.5.17 / build 51 publiée (2026-09-06, 20 h 35 UTC)
+
+Deuxième publication du canal depuis sa réouverture. Mêmes six vérifications
+que pour la 3.5.15, toutes passées : manifeste ⟷ fichier, HEAD anonyme 200 avec
+`content-length` exact, **téléchargement anonyme intégral puis SHA-256 des
+octets reçus** (`02a9e0ae…40e02dc1`, identique), RPC `derniere_version` rendant
+la ligne, cloisonnement plateforme/canal, et appel HTTP réel avec la seule clé
+anon → 200.
+
+Contenu : les écrans d'administration cessent d'attendre en file (niveau 3) et
+gardent leurs données au chaud (niveau 1). Aucun chiffre modifié.
+
+⚠️ **Rythme à surveiller.** Trois versions publiées le même jour (3.5.15,
+puis 3.5.17). Tant que le parc est composé des comptes de démonstration du
+fondateur, c'est sans conséquence. **Dès les cinq premières écoles réelles,
+publier redevient un acte de déploiement** : une version par correctif avéré,
+pas une par séance de travail.
+
 ### ✅ `le_ruban_sait_apparaitre_test.dart` — la bannière est enfin exécutée
 
 `update_provider_test.dart` couvrait la DÉCISION (16 tests) ; **personne
