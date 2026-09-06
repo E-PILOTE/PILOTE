@@ -124,6 +124,7 @@
 - [EDT calendrier+exceptions](enseignement-emploi-du-temps.md) — vues jour→annuel, migs 0021/0022 déployées
 - [EDT — refonte ERP](edt-refonte-v2.md) — 🚧 Vague 0 migs 0015→0019 NON déployée = gate
 - [🎬 Écran de démarrage — les doublons](ecran-de-demarrage-doublons.md) — ⚠️ `logo.svg` n'est PAS une icône : « E-PILOTE / CONGO / GESTION SCOLAIRE » + tricolore sont GRAVÉS dedans → le nom 3×, le pays 2×, le drapeau 5× sur le même écran ; `logo_marque.svg` = la marque muette ; 🩸 « v3.0 » était écrit à la main sur un paquet en 3.5.17 → `VersionInstallee`
+- [🏫 Données de démonstration METP](donnees-demonstration-metp.md) — ⚠️ le METP ne voyait AUCUN groupe privé (les 3 étaient sous MEPSA) ; 🩸 REINDEX seul a rendu **147 Mo** (index gonflés ×10 à ×15) et rendu inutile la suppression du MEPSA ; ⚠️ l'agrément est porté par le GROUPE, `fn_school_herite_agrement` écrase celui de l'école ; ⚠️ 66 comptes de démo connectables à purger avant les vraies écoles
 
 ## Communication & support
 - [⚠️ Sonde `%APPDATA%` redirigée](sonde-appdata-redirigee.md) — l'outil Bash de Claude Code Windows lit un AppContainer VIRTUALISÉ : inspecter `epilote_v3.db` via PowerShell, jamais via Bash
