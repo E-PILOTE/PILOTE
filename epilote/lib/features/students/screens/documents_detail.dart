@@ -68,6 +68,17 @@ class _DossierDetailState extends ConsumerState<_DossierDetail> {
   }
 
   Future<void> _view(DocRow d) async {
+    // Une pièce PEUT exister sans fichier : le secrétariat a reçu l'acte de
+    // naissance sur papier, l'a classé dans la chemise cartonnée, et l'a noté
+    // au dossier sans le scanner. C'est le cas ordinaire dans une école qui
+    // n'a pas de scanner. Sans ce garde, on tombait plus bas sur « aperçu
+    // indisponible (connexion requise) » — un message qui accuse le réseau
+    // d'un fichier qui n'a jamais existé, et qui envoie l'agent chercher une
+    // panne ailleurs.
+    if (d.fileUrl.trim().isEmpty) {
+      _snack('Pièce reçue sur papier — aucun fichier numérisé', kAccent);
+      return;
+    }
     // Une pièce déposée hors ligne n'est pas encore chez Supabase : son URL
     // signée n'existe pas. Elle est pourtant SUR LE POSTE, dans la file
     // d'envoi — c'est l'agent lui-même qui vient de la déposer. Lui répondre
@@ -391,10 +402,15 @@ class _PieceRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(38, 0, 8, 9),
       child: Row(children: [
+        // Une pièce sans fichier est une pièce papier, classée mais non
+        // numérisée : elle compte pour la conformité du dossier, elle ne
+        // s'ouvre simplement pas. L'icône le dit avant le clic.
         Icon(
             piece.isExpired
                 ? Icons.event_busy_rounded
-                : Icons.insert_drive_file_outlined,
+                : piece.fileUrl.trim().isEmpty
+                    ? Icons.description_outlined
+                    : Icons.insert_drive_file_outlined,
             size: 14,
             color: piece.isExpired ? kRed : kTextMuted),
         const SizedBox(width: 7),
@@ -402,7 +418,9 @@ class _PieceRow extends StatelessWidget {
           child: Text(
             piece.isExpired
                 ? 'Expirée le ${_fmtDate(piece.expiryDate)}'
-                : 'Déposée le ${_fmtDate(piece.createdAt)}'
+                : '${piece.fileUrl.trim().isEmpty ? 'Reçue' : 'Déposée'} '
+                    'le ${_fmtDate(piece.createdAt)}'
+                    '${piece.fileUrl.trim().isEmpty ? ' · papier' : ''}'
                     '${piece.isVerified ? ' · vérifiée' : ''}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -411,8 +429,9 @@ class _PieceRow extends StatelessWidget {
                 color: piece.isExpired ? kRed : kTextMuted),
           ),
         ),
-        _IconAction(
-            icon: Icons.visibility_outlined, tip: 'Consulter', onTap: onView),
+        if (piece.fileUrl.trim().isNotEmpty)
+          _IconAction(
+              icon: Icons.visibility_outlined, tip: 'Consulter', onTap: onView),
         if (canUpdate)
           _IconAction(
             icon: piece.isVerified
