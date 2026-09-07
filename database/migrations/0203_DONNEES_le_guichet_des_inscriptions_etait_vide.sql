@@ -1,0 +1,72 @@
+-- ════════════════════════════════════════════════════════════════════════════
+--  LE GUICHET DES INSCRIPTIONS ÉTAIT VIDE
+--
+--  ⚠️ LOT DE DONNÉES DE DÉMONSTRATION. Suite de `0202`.
+--
+--  ── LE CONSTAT ────────────────────────────────────────────────────────────
+--  L'écran Inscriptions liste les dossiers dont le statut n'est PAS `active` —
+--  c'est-à-dire le TRAVAIL RESTANT du secrétariat. Il y en avait UN sur toute
+--  la plateforme. Le module le plus quotidien de l'école s'ouvrait sur rien.
+--
+--  Et les 1 057 inscriptions des écoles privées étaient `active` sans jamais
+--  avoir été VALIDÉES : ni `validated_at`, ni `validated_by`. L'écran affichait
+--  « Validée » et la fiche ne pouvait dire par qui. Un dossier actif sans
+--  validateur, c'est un élève entré dans l'effectif sans que personne n'en
+--  réponde. Corrigé : 10 161 inscriptions actives portent désormais leur date
+--  et leur auteur.
+--
+--  ── 🩸 DES CANDIDATS NOUVEAUX, PAS DES ACTIFS RÉTROGRADÉS ─────────────────
+--  La tentation était de basculer des élèves existants en `pending_validation`.
+--  Elle est fausse : un dossier en attente n'est PAS encore dans l'effectif.
+--  Rétrograder un élève qui a déjà 66 notes et trois bulletins aurait fait
+--  mentir la classe entière — effectif, rangs, moyennes de classe, tout.
+--
+--  201 candidats ont donc été créés, avec dossier complet (matricule, INE à
+--  11 chiffres, date et lieu de naissance, adresse, groupe sanguin, situation
+--  familiale). Ils n'entrent dans AUCUN effectif : `classes` ne compte que
+--  `ce.status = 'active'`. Vérifié — 10 161 avant, 10 161 après.
+--
+--  ── CE QUI A ÉTÉ POSÉ ─────────────────────────────────────────────────────
+--    180 dossiers EN ATTENTE   — 119 nouvelles · 39 transferts (avec
+--                                établissement d'origine et motif) ·
+--                                22 réinscriptions
+--     22 dossiers REJETÉS      — chacun avec son motif écrit : pièce jamais
+--                                fournie après relance, effectif atteint,
+--                                niveau incompatible, candidature hors délai
+--    156 tuteurs               — 74 % des candidats ; les autres n'en ont pas
+--                                DÉCLARÉ, ce qui est souvent la raison même de
+--                                l'attente
+--    ~500 pièces de dossier    — 59 dossiers complets, 131 partiels, 12 vides
+--
+--  🩸 Les dossiers sont VOLONTAIREMENT incomplets. Un guichet où toutes les
+--  pièces sont déposées n'a plus rien à réclamer : c'est le manque qui fait le
+--  travail du secrétariat, et c'est lui qu'il faut montrer.
+--
+--  Les dates s'étalent du 25/09/2025 sur 250 jours : la vague de rentrée, puis
+--  les arrivées en cours d'année. Un guichet réel n'est pas un pic unique.
+--
+--  ── ⚠️ ÉTAT DE PRÉPARATION POUR LA DÉMONSTRATION ──────────────────────────
+--  PRÊTE — Lycée Technique Saint-Joseph Industriel (privé, plan Pro).
+--    30 modules visibles, TOUS avec des données : 152 élèves, 7 dossiers en
+--    attente, 9 classes, 180 créneaux, 180 entrées de cahier de textes,
+--    10 032 notes, 456 bulletins sur 3 trimestres, 44 candidats, 18 stages,
+--    90 feuilles d'appel, 16 incidents, 21 visites, 520 repas, 25 emprunts,
+--    953 encaissements, 18 dépenses, 81 bulletins de paie, 170 documents
+--    délivrés, 227 tuteurs. Aucun écran vide.
+--    Équivalentes : Centre de Métiers Saint-Joseph, Lycée Professionnel
+--    Saint-Joseph Commercial (même groupe, même plan).
+--
+--  ⚠️ PAS PRÊTES — les 12 écoles PUBLIQUES du METP. Leur plan « Licence de
+--  tutelle » affiche 32 modules, et la moitié n'a rien derrière : ZÉRO emploi
+--  du temps, ZÉRO cahier de textes, ZÉRO présence, discipline, infirmerie,
+--  cantine, bibliothèque, paie. Elles ont en revanche l'essentiel du métier —
+--  notes, bulletins, examens, stages, inscriptions, paiements légaux et
+--  dépenses. Ouvrir une école publique pendant la présentation expose donc
+--  huit écrans vides. À corriger avant toute démonstration côté public.
+--
+--  ⚠️ Les 4 écoles privées en plan Standard (Nsangu, La Fraternité) ont TOUTES
+--  les données mais n'en montrent que 17 modules sur 32 : la moitié du travail
+--  est invisible chez elles.
+--
+--  Base : 345 Mo, 69 %.
+-- ════════════════════════════════════════════════════════════════════════════
