@@ -1,0 +1,71 @@
+-- ════════════════════════════════════════════════════════════════════════════
+--  LE TARIF ILLÉGAL SUPPRIMÉ — ET CE QUE RÉCLAME VRAIMENT LE GUICHET
+--
+--  ⚠️ Suite de `0201`. Une suppression, et une vérification de code.
+--
+--  ── LA DÉCISION : L'UN PART, L'AUTRE RESTE ────────────────────────────────
+--  Deux tarifs retirés dormaient dans le groupe PUBLIC. Ils n'ont pas la même
+--  nature, ils n'ont donc pas le même sort.
+--
+--  SUPPRIMÉ — « Frais de scolarité », mensualité 21 000 XAF.
+--    Aucune base : source tapée à la main avec une faute (« Les eleves doivent
+--    payer leur frais d'écolage »), contraire à la loi 25-95 art. 1, aucun
+--    versement rattaché, et `fn_guard_mensualite_publique` interdit désormais
+--    de la republier. Elle ne pouvait plus produire qu'un malaise le jour où
+--    quelqu'un bascule le filtre « Retirés » devant un ministre.
+--
+--  GARDÉ — « Frais d'inscription au Baccalauréat », 30 000 XAF, retiré.
+--    C'est une PIÈCE, pas un déchet : source réelle (METP-CAB-DSIC0045),
+--    retrait journalisé le 25/08/2026, et c'est très exactement la
+--    surfacturation que dénonce l'APEEC — 25 000 à 35 000 F réclamés pour le
+--    BAC contre 5 000 officiels. Il donne au filtre « Retirés » un contenu
+--    vrai et montre ce que la plateforme sert à faire.
+--
+--  🩸 SUPPRIMER LA LIGNE N'EFFACE PAS L'HISTOIRE. `audit_logs` conserve le
+--  TARIF_PUBLIE du 12/08 et le TARIF_RETIRE du 13/08, montants compris —
+--  vérifié avant la suppression, pas après. Le journal d'audit est la mémoire,
+--  la table des tarifs n'est que l'état courant. C'est la seule raison pour
+--  laquelle cette suppression est acceptable.
+--
+--  ── LE GUICHET D'INSCRIPTION NE RÉCLAME PAS DE MENSUALITÉ ─────────────────
+--  Vérifié dans le code, pas supposé.
+--
+--  `_FraisInscriptionCard` (inscriptions_frais_card.dart) n'affiche QUE le
+--  frais d'inscription, choisi par `baremesApplicables`. Le fichier le dit
+--  lui-même : « la rappeler ici transformerait un guichet d'admission en
+--  écran de recouvrement, et donnerait au secrétariat un chiffre dont il n'a
+--  que faire au moment d'ouvrir un dossier ». La mensualité se recouvre au
+--  fil de l'année, dans le module Paiements.
+--
+--  ⚠️ UNE SEULE CHOSE, AU GUICHET, PORTE LA SCOLARITÉ ENTIÈRE : la ligne
+--  « reste dû » imprimée sur le REÇU, qui vient de `decompteDuProvider` et non
+--  du seul frais d'inscription — « l'imprimer à partir d'une seule ligne
+--  annoncerait "soldé" à un élève qui doit encore neuf mois ».
+--
+--  Et c'est précisément là que la règle publique tient toute seule : le
+--  décompte se construit à partir des BARÈMES PUBLIÉS. Un groupe public n'en
+--  a aucun de type `mensualite` — le garde l'interdit — donc le décompte d'un
+--  élève du public ne peut structurellement contenir aucun mois de scolarité.
+--  Ce n'est pas un cas particulier codé quelque part : c'est une conséquence.
+--
+--  ── CE QUE LE GUICHET RÉCLAME, SECTEUR PAR SECTEUR ───────────────────────
+--  PUBLIC (12 écoles) — inscription 3 000 (5 000 en classe d'examen)
+--                     + cotisation APE 2 000. Puis, le moment venu, le frais
+--                     d'examen au tarif d'État. RIEN D'AUTRE.
+--  PRIVÉ (7 écoles)   — inscription 15 000 à 30 000 selon le groupe
+--                     + mensualité 12 000 à 25 000 × 9 mois
+--                     + cotisation APE 3 000 à 6 000.
+--
+--  ── ET L'INSCRIPTION N'EST JAMAIS BLOQUÉE SUR UN IMPAYÉ ──────────────────
+--  Doctrine inscrite dans `frais_inscription_provider.dart` : « Refuser
+--  l'entrée d'un enfant à l'école pour un versement en retard serait pire que
+--  le mal. » On avertit, on laisse passer, on garde la trace — la même règle
+--  que pour les pièces manquantes du dossier.
+--
+--  ⚠️ « Aucun barème » n'est pas « à jour ». Une école sans tarif publié
+--  affiche `EtatObligation.sansBareme`, jamais « réglé » : afficher soldé un
+--  élève dont l'école n'a rien publié serait aussi faux que l'afficher
+--  débiteur.
+--
+--  Base : 344 Mo, 69 %.
+-- ════════════════════════════════════════════════════════════════════════════
