@@ -1,0 +1,80 @@
+-- ════════════════════════════════════════════════════════════════════════════
+--  LE TOUR DES MODULES — ÉTAPE 4 : VIE SCOLAIRE
+--  SEPT ÉCOLES QUI AVAIENT EXACTEMENT LES MÊMES CHIFFRES
+--
+--  ⚠️ LOT DE DONNÉES DE DÉMONSTRATION + 1 CORRECTIF DE CODE. Suite de `0199`.
+--
+--  ── CE QUI ÉTAIT DÉJÀ BON ─────────────────────────────────────────────────
+--  Présences, discipline, infirmerie, cantine, bibliothèque, orientation :
+--  toutes remplies par le lot 0196. Rien de vide, rien d'orphelin.
+--
+--  ── 🩸 MAIS LES SEPT ÉCOLES ÉTAIENT DES COPIES ────────────────────────────
+--  12 titres · 25 emprunts · 18 incidents · 22 visites · 14 orientations —
+--  LE MÊME COMPTE dans les sept établissements. Un inspecteur qui ouvre deux
+--  écoles côte à côte dans un rapport ministériel ne lit pas un réseau, il
+--  lit un générateur. Et rien dans l'application ne l'aurait signalé : chaque
+--  écran, pris seul, était parfaitement crédible.
+--
+--  Corrigé en retirant une tranche variable par école (0 à 9 lignes, tirage
+--  déterministe sur l'id de l'école) :
+--     incidents    13 → 17   (était 18 partout)
+--     visites      15 → 22   (était 22 partout)
+--     orientations 10 → 12   (était 14 partout)
+--     titres       19 → 24   (était 12 partout)
+--
+--  ── 🩸 ET LE FONDS DOCUMENTAIRE NE PARLAIT PAS DU MÉTIER ──────────────────
+--  Les 12 titres du lot 0196 étaient identiques partout : une École Hôtelière
+--  sans un seul livre de cuisine, avec un « Mémotech Génie électrotechnique ».
+--  Ajout d'un fonds INDEXÉ SUR LES FILIÈRES de chaque école — cuisine et
+--  service en salle à l'hôtelière, OHADA et techniques de vente au commercial,
+--  soudage et béton armé aux industrielles — plus un fonds général tiré au
+--  sort (littérature congolaise, atlas, code du travail).
+--
+--  ⚠️ Les manuels industriels hors sujet n'ont pu être retirés que d'UNE école.
+--  Partout ailleurs ils sont EMPRUNTÉS : un livre entre les mains d'un élève
+--  ne s'efface pas du catalogue, même quand il n'a rien à y faire. C'est la
+--  bonne réponse — et un fonds de dons hétéroclite est de toute façon réaliste.
+--
+--  ── ⚠️ LA DÉMONSTRATION A LIEU HORS DE L'ANNÉE SCOLAIRE ───────────────────
+--  Nous sommes le 7 septembre 2026 ; l'année 2025-2026 s'est fermée le
+--  31 juillet. Les écrans du quotidien ouvrent sur `DateTime.now()` — ce qui
+--  est juste : un surveillant qui arrive le matin veut la feuille du matin,
+--  pas un sélecteur de date.
+--
+--  Mais ils ouvraient sur `now()` MÊME un dimanche, même le 25 décembre, même
+--  en pleine période de congés, même hors des bornes de l'année. Ils
+--  affichaient alors la liste des classes avec « 0 appel fait » : un REPROCHE
+--  pour un travail qui n'avait aucune raison d'exister. Le premier réflexe est
+--  de chercher la panne.
+--
+--  CORRECTIF DE CODE : `core/widgets/bandeau_jour_non_ouvre.dart`, branché sur
+--  Présences et Cantine. L'information existait déjà — `school_holidays` porte
+--  les fériés ET les congés (posés au lot 0198), `holidayOn()` sait dire lequel
+--  couvre une date, `activeYearProvider` porte les bornes. Rien à calculer :
+--  seulement à dire.
+--     hors année  →  « Hors de l'année scolaire 2025-2026 (01/10/2025 → 31/07/2026). »
+--     congés      →  « Période de congés — Fin d'année scolaire. »
+--     férié       →  « Jour férié — Toussaint. »
+--     week-end    →  « Dimanche — pas de classe. »
+--  L'ordre compte : un dimanche de vacances doit se lire « vacances ».
+--
+--  ⚠️ LE BANDEAU N'INTERDIT RIEN. Un établissement rattrape parfois un samedi,
+--  et un secrétariat saisit en retard l'appel de la veille. Bloquer l'écran
+--  empêcherait un travail légitime le jour où le calendrier se trompe.
+--
+--  ── CE QUI RESTE OUVERT, ET ASSUMÉ ────────────────────────────────────────
+--   • Les PRÉSENCES ne couvrent que le 1er au 12 juin 2026 : 600 feuilles,
+--     10 570 pointages. Étendre au trimestre coûterait ~66 000 lignes pour un
+--     module qui se démontre déjà. Le bandeau explique désormais pourquoi la
+--     date du jour est vide — c'était le vrai manque, pas le volume.
+--   • La CANTINE couvre la même quinzaine. 35 % d'abonnés, ce qui est le bon
+--     ordre de grandeur.
+--
+--  Base : 342 Mo, 68 % — inchangé.
+--
+--  Détail : docs/memoire/donnees-demonstration-metp.md
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- Le SQL de ce lot vit dans la fiche mémoire, chaque requête dans son contexte.
+-- Ce fichier existe pour que la migration 0200 ait un domicile et que le
+-- RAISONNEMENT ne se perde pas.

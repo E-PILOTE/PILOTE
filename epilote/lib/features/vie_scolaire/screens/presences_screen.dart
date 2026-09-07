@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/bandeau_jour_non_ouvre.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
@@ -122,6 +123,10 @@ class _BodyState extends ConsumerState<_Body> {
           ]),
         ),
         const SizedBox(height: 20),
+        // Un dimanche, un jour férié ou une date hors année scolaire, l'écran
+        // listait les classes avec « 0 appel fait » — un reproche pour un
+        // travail qui n'avait pas lieu d'être. Il le dit maintenant.
+        BandeauJourNonOuvre(date: _date),
         overview.when(
           loading: () => const Padding(
               padding: EdgeInsets.only(top: 60),
