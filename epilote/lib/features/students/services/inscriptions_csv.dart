@@ -1,7 +1,4 @@
-import 'dart:io';
-
-import 'package:path_provider/path_provider.dart';
-
+import '../../../core/utils/enregistrer_csv.dart';
 import '../providers/inscriptions_data_provider.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -37,9 +34,11 @@ String _csvCell(String? v) {
   return '"$s"';
 }
 
-/// Génère un CSV (séparateur `;` — compatible Excel FR) des inscriptions filtrées
-/// et l'écrit dans le dossier Documents de l'appareil. Retourne le chemin.
-Future<String> exportInscriptionsCsv(List<InscriptionRow> rows) async {
+/// Génère un CSV (séparateur `;` — compatible Excel FR) des inscriptions
+/// filtrées et demande à l'agent où l'enregistrer.
+///
+/// Retourne le chemin écrit, ou `null` s'il a fermé la fenêtre sans choisir.
+Future<String?> exportInscriptionsCsv(List<InscriptionRow> rows) async {
   final b = StringBuffer();
   b.writeln([
     // ⚠️ « Date de naissance » est la colonne qui rend ce fichier réutilisable :
@@ -65,10 +64,14 @@ Future<String> exportInscriptionsCsv(List<InscriptionRow> rows) async {
       r.enrollmentDate?.toIso8601String().substring(0, 10) ?? '',
     ].map(_csvCell).join(';'));
   }
-  final dir = await getApplicationDocumentsDirectory();
+  // ⚠️ « Enregistrer sous », et non une écriture silencieuse dans Documents.
+  // Sous Windows, « Documents » est le plus souvent redirigé vers OneDrive :
+  // la liste nominative des élèves partait dans le nuage du compte Microsoft
+  // du poste, pendant que l'agent la cherchait dans ses téléchargements.
   final ts = DateTime.now().toIso8601String().substring(0, 10);
-  final file = File('${dir.path}/inscriptions_$ts.csv');
-  // BOM UTF-8 pour qu'Excel lise correctement les accents.
-  await file.writeAsString('﻿${b.toString()}');
-  return file.path;
+  return enregistrerCsvSous(
+    nomPropose: 'inscriptions_$ts.csv',
+    contenu: b.toString(),
+    titreFenetre: 'Enregistrer la liste des inscriptions',
+  );
 }
