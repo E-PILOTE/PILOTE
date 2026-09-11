@@ -6,6 +6,7 @@ import '../models/exam_fee.dart';
 import '../providers/exam_candidates_provider.dart';
 import '../providers/exam_fees_provider.dart';
 import '../providers/exam_registration_provider.dart';
+import '../providers/exam_verbes.dart';
 import 'candidate_file_dialog.dart';
 import 'exam_dossier_dialog.dart';
 import 'exam_payment_dialog.dart';
@@ -68,38 +69,45 @@ class ExamCandidateActions extends ConsumerWidget {
       tooltip: 'Parcours — examens et stages',
       visualDensity: VisualDensity.compact,
     );
-    if (!canEdit) {
-      return Row(mainAxisSize: MainAxisSize.min, children: [fiche, history]);
+    final actions = <Widget>[fiche, history];
+
+    // ── LA CAISSE NE SUIT PAS `canEdit` ───────────────────────────────────
+    //  `canEdit` vaut `examens/update`. Le profil « Comptabilité » LIT ce
+    //  module sans aucun droit d'écriture dessus : le bouton Frais lui était
+    //  donc caché, alors que la politique `payments_insert` accepte son
+    //  `paiements-eleves/create` depuis toujours. Un comptable ne pouvait pas
+    //  encaisser des frais d'examen dans l'écran où on les encaisse.
+    //  Le verbe est celui de l'ACTE — l'écriture va dans `student_payments`,
+    //  pas dans `exam_candidates`. Voir `providers/exam_verbes.dart`.
+    if (ref.watch(peutEncaisserFraisExamenProvider)) {
+      // Frais : la couleur dit l'état (impayé / partiel / soldé) sans un clic.
+      final fees = ref.watch(examFeesProvider(sessionId)).valueOrNull;
+      final feeState = fees?.stateFor(row.studentId);
+      actions.add(IconButton(
+        onPressed: () => showExamPaymentDialog(
+          context,
+          sessionId: sessionId,
+          studentId: row.studentId,
+          studentName: row.fullName,
+        ),
+        icon: const Icon(Icons.payments_outlined, size: 18),
+        color: switch (feeState) {
+          FeePaymentState.solde => kGreen,
+          FeePaymentState.partiel => kAccent,
+          FeePaymentState.impaye => kRed,
+          null => kTextMuted,
+        },
+        tooltip: feeState == null
+            ? 'Frais d\'examen'
+            : 'Frais — ${feeStateLabel(feeState)}',
+        visualDensity: VisualDensity.compact,
+      ));
     }
 
-    // Frais : la couleur dit l'état (impayé / partiel / soldé) sans un clic.
-    final fees = ref.watch(examFeesProvider(sessionId)).valueOrNull;
-    final feeState = fees?.stateFor(row.studentId);
-    final paiement = IconButton(
-      onPressed: () => showExamPaymentDialog(
-        context,
-        sessionId: sessionId,
-        studentId: row.studentId,
-        studentName: row.fullName,
-      ),
-      icon: const Icon(Icons.payments_outlined, size: 18),
-      color: switch (feeState) {
-        FeePaymentState.solde => kGreen,
-        FeePaymentState.partiel => kAccent,
-        FeePaymentState.impaye => kRed,
-        null => kTextMuted,
-      },
-      tooltip: feeState == null
-          ? 'Frais d\'examen'
-          : 'Frais — ${feeStateLabel(feeState)}',
-      visualDensity: VisualDensity.compact,
-    );
-
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      fiche,
-      history,
-      paiement,
-      IconButton(
+    // Dossier et résultat écrivent tous deux `UPDATE exam_candidates` : c'est
+    // bien `examens/update`, le verbe que porte `canEdit`.
+    if (canEdit) {
+      actions.add(IconButton(
         onPressed: () => showExamDossierDialog(context, candidateId: row.id),
         icon: const Icon(Icons.fact_check_outlined, size: 18),
         color: row.missingCount > 0 ? kRed : kTextMuted,
@@ -107,16 +115,24 @@ class ExamCandidateActions extends ConsumerWidget {
             ? '${row.missingCount} pièce(s) manquante(s)'
             : 'Dossier',
         visualDensity: VisualDensity.compact,
-      ),
-      IconButton(
+      ));
+      actions.add(IconButton(
         onPressed: () =>
             showExamResultDialog(context, row: row, sessionId: sessionId),
         icon: const Icon(Icons.emoji_events_outlined, size: 18),
         color: row.hasResult ? kGreen : kTextMuted,
         tooltip: row.hasResult ? 'Modifier le résultat' : 'Saisir le résultat',
         visualDensity: VisualDensity.compact,
-      ),
-      IconButton(
+      ));
+    }
+
+    // ── LE RETRAIT DEMANDE `delete`, PAS `update` ─────────────────────────
+    //  `unregisterCandidate` fait un DELETE ; la politique
+    //  `exam_candidates_delete` exige `examens/delete`. Le garder sur `update`
+    //  laissait un bouton actif pour un geste que le serveur refuserait en
+    //  `42501` — code FATAL, qui fait jeter le lot PowerSync entier.
+    if (ref.watch(peutRetirerCandidatProvider)) {
+      actions.add(IconButton(
         onPressed: row.isSubmitted ? null : () => _confirmRemove(context, ref),
         icon: const Icon(Icons.person_remove_outlined, size: 18),
         color: row.isSubmitted ? kTextMuted.withValues(alpha: 0.4) : kTextMuted,
@@ -124,8 +140,10 @@ class ExamCandidateActions extends ConsumerWidget {
             ? 'Dossier déposé — retrait impossible'
             : 'Retirer la candidature',
         visualDensity: VisualDensity.compact,
-      ),
-    ]);
+      ));
+    }
+
+    return Row(mainAxisSize: MainAxisSize.min, children: actions);
   }
 
   Future<void> _confirmRemove(BuildContext context, WidgetRef ref) async {

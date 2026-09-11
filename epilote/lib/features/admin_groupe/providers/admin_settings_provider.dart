@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../../core/utils/booleen_en_ligne.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../core/utils/erreur_metier.dart';
@@ -145,20 +146,22 @@ final adminGroupStatsProvider =
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
   if (groupId == null) return const GroupStats();
   try {
-    final schoolsRows = await client
+    final schoolsRows = await fetchAllRows(() => client
         .from('schools')
         .select('id, is_active')
-        .eq('group_id', groupId) as List;
+        .eq('group_id', groupId)
+        .order('id'));
     final totalSchools  = schoolsRows.length;
     final activeSchools =
         schoolsRows.where((r) => actifEnLigne((r as Map)['is_active'])).length;
 
-    final usersRows = await client
+    final usersRows = await fetchAllRows(() => client
         .from('profiles')
         .select('id, is_active')
         .eq('group_id', groupId)
         .neq('role', 'super_admin')
-        .neq('role', 'admin_groupe') as List;
+        .neq('role', 'admin_groupe')
+        .order('id'));
     final totalUsers  = usersRows.length;
     final activeUsers =
         usersRows.where((r) => actifEnLigne((r as Map)['is_active'])).length;

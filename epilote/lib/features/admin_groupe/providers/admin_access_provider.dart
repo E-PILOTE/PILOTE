@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../core/utils/erreur_metier.dart';
 import '../../../core/utils/garder_au_chaud.dart';
@@ -234,10 +235,11 @@ final adminAccessProvider =
   int withoutProfileCount = 0;
   int totalGrpMembers     = 0;
   try {
-    final rows = await client.from('profiles')
+    final rows = await fetchAllRows(() => client.from('profiles')
         .select('access_profile_id')
         .eq('group_id', groupId)
-        .eq('is_active', true) as List;
+        .eq('is_active', true)
+        .order('id'));
     for (final r in rows) {
       totalGrpMembers++;
       final pid = r['access_profile_id'] as String?;

@@ -110,9 +110,15 @@ List<NavSection> _superAdminSections() => const [
           label: 'Catégories & Modules',
           route: Routes.superModules,
         ),
+        // ⚠️ RENOMMÉE le 2026-09-10. La catégorie `ia` a été RETIRÉE du
+        // catalogue — plus aucun module `ia` n'existe en base. L'écran, lui,
+        // reste utile : il lit les groupes, les factures et les écoles, et en
+        // tire des actions à mener. Ce n'est pas un module vendu, c'est le
+        // tableau de conseil du fondateur. Le laisser sous un nom retiré du
+        // catalogue laissait croire à une fonctionnalité facturable.
         NavEntry.item(
-          icon: Icons.psychology_rounded,
-          label: 'Intelligence Artificielle',
+          icon: Icons.lightbulb_outline_rounded,
+          label: 'Actions à mener',
           route: Routes.superIa,
         ),
         // Sans cette page, une correction ne peut atteindre le parc que par

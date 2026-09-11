@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart' show BuildContext;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
@@ -12,6 +13,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../../core/services/official_pdf_kit.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
 
 import '../providers/invoices_provider.dart';
 import '../providers/receipts_provider.dart';
@@ -155,12 +157,27 @@ class ReceiptPdfService {
     return doc.save();
   }
 
-  static Future<void> printReceipt(ReceiptModel r) async {
-    await Printing.layoutPdf(
-      onLayout: (_) => buildPdf(r),
-      name: 'Recu_${r.receiptNumber}.pdf',
-    );
-  }
+  /// Aperçu du reçu, puis Imprimer ou Enregistrer.
+  ///
+  /// ⛔ Remplace `printReceipt`, qui appelait `Printing.layoutPdf` — la boîte
+  /// d'impression du SYSTÈME, sans aperçu. Sur un poste Windows dont
+  /// l'imprimante par défaut est « Microsoft Print to PDF » — le cas courant —
+  /// cliquer « Imprimer » sur un reçu produisait un fichier que **personne
+  /// n'avait vu**, à un emplacement que personne n'avait choisi. Sur une pièce
+  /// comptable, c'est la pire des sorties possibles.
+  ///
+  /// Les fiches administrateur, groupe, module, plan et abonnement passent,
+  /// elles, par une modale d'aperçu maison avant d'imprimer ; le reçu et la
+  /// facture étaient les deux seules pièces à n'en avoir aucune.
+  static Future<void> apercuRecu(BuildContext context, ReceiptModel r) =>
+      showPdfPreviewDialog(
+        context,
+        title: 'Reçu ${r.receiptNumber}',
+        subtitle: 'Vérifiez la pièce avant de l\'imprimer ou de l\'enregistrer',
+        build: (_) => buildPdf(r),
+        pdfFileName: 'Recu_${r.receiptNumber}.pdf',
+        onDownload: () => downloadReceipt(r),
+      );
 
   static Future<void> shareReceipt(ReceiptModel r) async {
     final bytes = await buildPdf(r);
@@ -280,12 +297,20 @@ class InvoicePdfService {
     return doc.save();
   }
 
-  static Future<void> printInvoice(InvoiceDetail inv) async {
-    await Printing.layoutPdf(
-      onLayout: (_) => buildPdf(inv),
-      name: 'Facture_${inv.invoiceNumber}.pdf',
-    );
-  }
+  /// Aperçu de la facture, puis Imprimer ou Enregistrer.
+  /// Même motif que [ReceiptPdfService.apercuRecu] : `printInvoice` ouvrait
+  /// directement la boîte d'impression système, sans que personne ne voie la
+  /// pièce.
+  static Future<void> apercuFacture(
+          BuildContext context, InvoiceDetail inv) =>
+      showPdfPreviewDialog(
+        context,
+        title: 'Facture ${inv.invoiceNumber}',
+        subtitle: 'Vérifiez la pièce avant de l\'imprimer ou de l\'enregistrer',
+        build: (_) => buildPdf(inv),
+        pdfFileName: 'Facture_${inv.invoiceNumber}.pdf',
+        onDownload: () => downloadInvoice(inv),
+      );
 
   static Future<void> shareInvoice(InvoiceDetail inv) async {
     final bytes = await buildPdf(inv);

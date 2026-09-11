@@ -13,6 +13,7 @@ import '../widgets/vs_kit.dart';
 import '../widgets/vs_form_chrome.dart';
 import '../widgets/vs_student_field.dart';
 import '../../../core/utils/erreur_metier.dart';
+import '../../../core/utils/message_erreur.dart';
 
 part 'biblio_forms.dart';
 part 'biblio_cards.dart';
@@ -95,8 +96,28 @@ class _BodyState extends ConsumerState<_Body> {
 
   @override
   Widget build(BuildContext context) {
-    final items = ref.watch(libraryItemsProvider).valueOrNull ?? const [];
-    final loans = ref.watch(libraryLoansProvider).valueOrNull ?? const [];
+    // ⚠️ CE QUI ÉTAIT ÉCRIT ICI : `.valueOrNull ?? const []` sur les deux
+    //  lectures, sans état de chargement ni d'erreur. Les quatre cartes de
+    //  l'en-tête — Titres, Exemplaires, Empruntés, **En retard** — se
+    //  calculent sur ces listes. Pendant le chargement, et POUR TOUJOURS si la
+    //  lecture échoue, l'écran affichait donc « En retard : 0 » : le
+    //  responsable n'a personne à relancer, et le catalogue paraît vide alors
+    //  qu'il ne l'est pas.
+    //
+    //  C'est mot pour mot le défaut que garde `zero_nest_pas_je_ne_sais_pas_test`
+    //  ailleurs dans l'application : « — », jamais 0, et l'échec se dit avant
+    //  les chiffres.
+    final itemsAsync = ref.watch(libraryItemsProvider);
+    final loansAsync = ref.watch(libraryLoansProvider);
+    if (itemsAsync.hasError || loansAsync.hasError) {
+      return AdminErrorBanner(
+          message: messageErreur(itemsAsync.error ?? loansAsync.error!));
+    }
+    if (!itemsAsync.hasValue || !loansAsync.hasValue) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final items = itemsAsync.requireValue;
+    final loans = loansAsync.requireValue;
     final canCreate = ref.watch(canProvider((slug: _kSlug, action: 'create')));
     final canEdit = ref.watch(canProvider((slug: _kSlug, action: 'update')));
     final canDelete = ref.watch(canProvider((slug: _kSlug, action: 'delete')));

@@ -216,6 +216,15 @@ final inscriptionsDataProvider =
         '''$_kInscriptionSelect
         WHERE  ce.school_id = ? AND ce.academic_year_id = ?
         AND    ce.status != 'active'
+        -- ⚠️ Le guichet montrait les dossiers d'élèves RETIRÉS du registre.
+        -- Un dossier `pending_validation` dont l'élève est désactivé n'a plus
+        -- d'issue : aucune action de cet écran ne peut l'en sortir, et il
+        -- gonflait le KPI « En attente » indéfiniment. Le registre, Classes et
+        -- Paiements posent tous ce filtre — pas lui.
+        -- (La lecture d'UN dossier par son id, l. 286, ne le pose pas : une
+        -- clé déjà résolue doit rester consultable, sinon une fiche ouverte
+        -- deviendrait introuvable après désactivation.)
+        AND    COALESCE(s.is_active, 1) <> 0
         ${scope?.clause ?? ''}
         ORDER  BY s.last_name, s.first_name
         ''',

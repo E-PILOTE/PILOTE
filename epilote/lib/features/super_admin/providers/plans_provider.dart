@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
+import '../../../core/utils/paged_fetch.dart';
 import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
 import '../../../core/utils/tarif_ecoles.dart';
@@ -262,10 +263,10 @@ final plansProvider = FutureProvider.autoDispose<PlansData>((ref) async {
   // parcourir un par un au lieu de multiplier un tarif par un effectif.
   final Map<String, List<Map<String, dynamic>>> activeGroupsByPlan = {};
   try {
-    final rows = await client
+    final rows = await fetchAllRows(() => client
         .from('school_groups')
         .select('plan_id, subscription_status, price_override_xaf, billed_schools')
-        as List;
+        .order('id'));
     for (final r in rows) {
       final m = Map<String, dynamic>.from(r as Map);
       final pid = m['plan_id'] as String?;

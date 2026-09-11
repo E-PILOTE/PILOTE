@@ -160,7 +160,7 @@ class _InvoiceDetailModal extends StatelessWidget {
               _IconBtn(
                 icon: Icons.print_rounded,
                 tooltip: 'Imprimer',
-                onTap: () => InvoicePdfService.printInvoice(inv),
+                onTap: () => InvoicePdfService.apercuFacture(context, inv),
               ),
               const SizedBox(width: 8),
               _IconBtn(

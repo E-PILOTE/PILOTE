@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../../core/widgets/admin_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/tarif_ecoles.dart' show mensualiteGroupe;
@@ -83,12 +84,16 @@ class AiData {
 final aiProvider = FutureProvider.autoDispose<AiData>((ref) async {
   final client = ref.watch(supabaseClientProvider);
 
+  // ⚠️ Paginé (2026-09-09) : cet écran conseille à partir de ces trois
+  // lectures. Tronquées à 1 000 lignes, elles auraient fait recommander des
+  // actions sur une plateforme imaginaire, plus petite que la vraie.
   final results = await Future.wait([
-    client.from('school_groups').select(
+    fetchAllRows(() => client.from('school_groups').select(
         'id, name, subscription_status, subscription_end, plan_id, '
-        'price_override_xaf, billed_schools, subscription_plans!plan_id(name, price_xaf, billing_period, extra_school_2_5_xaf, extra_school_6_10_xaf, extra_school_11_20_xaf, extra_school_21p_xaf)'),
-    client.from('group_invoices').select('group_id, amount_xaf, status, created_at, paid_at'),
-    client.from('schools').select('id, group_id'),
+        'price_override_xaf, billed_schools, subscription_plans!plan_id(name, price_xaf, billing_period, extra_school_2_5_xaf, extra_school_6_10_xaf, extra_school_11_20_xaf, extra_school_21p_xaf)').order('id')),
+    fetchAllRows(() => client.from('group_invoices')
+        .select('group_id, amount_xaf, status, created_at, paid_at').order('id')),
+    fetchAllRows(() => client.from('schools').select('id, group_id').order('id')),
   ]);
 
   final groups   = results[0] as List;
@@ -310,7 +315,13 @@ class AiScreen extends ConsumerWidget {
     final async = ref.watch(aiProvider);
 
     return AppShell(
-      title: 'Intelligence Artificielle',
+      // ⚠️ « Intelligence Artificielle » était un nom de vitrine pour ce qui
+      // est, en vérité, un tableau de règles lues sur des faits : abonnements
+      // à risque, renouvellements dus, relances de paiement, onboarding
+      // incomplet. La catégorie `ia` a été retirée du catalogue le
+      // 2026-09-03 ; l'écran garde sa route (`/super/ia`) pour ne pas casser
+      // les liens, et porte désormais le nom de ce qu'il fait.
+      title: 'Actions à mener',
       child: Column(
         children: [
           Container(
@@ -485,7 +496,7 @@ class _RecommendationsSection extends StatelessWidget {
     if (data.recommendations.isEmpty) return const SizedBox.shrink();
 
     return _Card(
-      title:    'Recommandations IA',
+      title:    'Recommandations',
       subtitle: '${data.recommendations.length} actions prioritaires identifiées',
       child: Column(
         children: data.recommendations.map((r) => _RecoTile(rec: r)).toList(),

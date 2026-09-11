@@ -130,3 +130,45 @@ int mensualiteGroupe(Map? groupe, {String planKey = 'subscription_plans'}) {
   final du = negocie ?? tarifPlanRow(planMap, assiette);
   return monthlyEquivalent(du, planMap['billing_period'] as String?);
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+//  LE NOMBRE D'ÉCOLES D'UN GROUPE — UN SEUL FOYER
+//
+//  ── POURQUOI CETTE FONCTION EXISTE (2026-09-10) ────────────────────────────
+//  Le PRIX d'un groupe suit son NOMBRE D'ÉCOLES (migration 0159,
+//  `plan_price_xaf(plan, n)` en base, `mensualiteGroupe` ci-dessus côté
+//  client). Ce nombre est donc une donnée FACTURABLE.
+//
+//  Il était pourtant recompté à SIX endroits — la liste des groupes, les
+//  abonnements, le tableau de bord fondateur, les rapports nationaux, la carte
+//  nationale et l'écran de conseil — chacun avec sa propre boucle, sa propre
+//  clé de repli et sa propre gestion du `group_id` nul. Six lectures
+//  indépendantes d'un chiffre qui décide d'une facture, c'est six occasions de
+//  diverger. Le précédent du produit est connu : le revenu mensuel affiché
+//  120 000 F sur un écran et 184 000 F sur un autre.
+//
+//  ⚠️ LA SUBTILITÉ QUI FAISAIT DÉJÀ DIVERGER LES SIX COPIES : le `group_id`
+//  nul. Deux d'entre elles rangeaient ces écoles sous la clé `''` (elles
+//  comptaient donc dans un « groupe » fantôme), deux les ignoraient. Ici on
+//  les IGNORE, et c'est le bon choix : une école sans groupe n'est facturée à
+//  personne, et l'inventer sous une clé vide fait apparaître un groupe qui
+//  n'existe pas dans les ventilations par groupe.
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Le nombre d'écoles par groupe, à partir de lignes `schools` déjà lues.
+///
+/// [lignes] doit contenir la colonne `group_id`. Les écoles sans groupe sont
+/// écartées — cf. l'en-tête.
+///
+/// ⚠️ Les lignes doivent avoir été ramenées par `fetchAllRows` : PostgREST
+/// tronque à 1 000 sans le dire, et un parc tronqué c'est une facturation
+/// fausse. Cf. `core/utils/paged_fetch.dart`.
+Map<String, int> ecolesParGroupe(Iterable<Map<String, dynamic>> lignes) {
+  final out = <String, int>{};
+  for (final l in lignes) {
+    final gid = (l['group_id'] as String?)?.trim();
+    if (gid == null || gid.isEmpty) continue;
+    out[gid] = (out[gid] ?? 0) + 1;
+  }
+  return out;
+}

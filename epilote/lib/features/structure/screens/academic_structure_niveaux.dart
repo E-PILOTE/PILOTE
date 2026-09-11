@@ -10,6 +10,7 @@ class _NiveauBlock extends StatelessWidget {
     required this.classes,
     required this.color,
     required this.readOnly,
+    required this.canAdd,
     required this.narrow,
     required this.onAdd,
     required this.onEdit,
@@ -17,7 +18,7 @@ class _NiveauBlock extends StatelessWidget {
   final StructLevel level;
   final List<StructClass> classes;
   final Color color;
-  final bool readOnly, narrow;
+  final bool readOnly, canAdd, narrow;
   final VoidCallback onAdd;
   final void Function(StructClass) onEdit;
 
@@ -56,8 +57,11 @@ class _NiveauBlock extends StatelessWidget {
                           '${level.capacity > 0 ? '/${level.capacity}' : ''} ${level.enrolled <= 1 ? 'élève' : 'élèves'}',
                   style: TextStyle(fontSize: 11.5, color: kTextMuted)),
             ),
-            if (!readOnly)
-              _MiniAddBtn(color: color, onTap: onAdd),
+            // `canAdd` et non `!readOnly` : le droit de CRÉER une classe se
+            // règle séparément de celui de la modifier. Un « + » offert sans
+            // `classes.create` déclenche un `42501` au serveur — code fatal
+            // pour PowerSync, qui jette alors tout le lot en attente du poste.
+            if (canAdd) _MiniAddBtn(color: color, onTap: onAdd),
           ]),
         ),
         if (classes.isNotEmpty)

@@ -101,11 +101,15 @@ final nationalMapProvider = FutureProvider.autoDispose<NationalMapData>((ref) as
   final client = ref.watch(supabaseClientProvider);
 
   final results = await Future.wait([
-    client.from('school_groups').select(
+    fetchAllRows(() => client.from('school_groups').select(
         'id, name, department, subscription_status, '
-        'subscription_plans(name)'),
-    client.from('schools').select('id, group_id, department'),
-    fetchAllRows(() => client.from('students').select('id, school_id')),
+        'subscription_plans(name)').order('id')),
+    // ⚠️ Les écoles aussi (2026-09-09) : la carte nationale en vise plus de
+    // 1 000. Tronquée, elle aurait laissé des départements entiers vides sur
+    // l'écran que le ministère ouvre en premier.
+    fetchAllRows(
+        () => client.from('schools').select('id, group_id, department').order('id')),
+    fetchAllRows(() => client.from('students').select('id, school_id').order('id')),
   ]);
 
   final groups   = results[0] as List;

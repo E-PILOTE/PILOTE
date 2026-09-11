@@ -349,46 +349,46 @@ class StageExportService {
           PdfKpi('Dues', '$due', due > 0 ? kPdfRed : kPdfNavy),
         ], width: 130),
         pw.SizedBox(height: 16),
-        if (rows.isEmpty)
-          OfficialPdfKit.empty('Aucun stage enregistré.', f.regular)
-        else
-          OfficialPdfKit.frame(
-            title: 'STAGES',
-            color: kPdfNavy,
-            fonts: f,
-            child: OfficialPdfKit.table(
-              headers: const [
-                'N°',
-                'Élève',
-                'Classe',
-                'Filière',
-                'Entreprise',
-                'Période',
-                'Statut',
-                'Attest.',
+        // ⚠️ PAGINÉ le 2026-09-10 — l'état des stages ne sortait pas passé une
+        //  vingtaine de lignes (page PAYSAGE). `frame()` ne se scinde pas ;
+        //  au-delà d'une feuille, `MultiPage` boucle jusqu'à
+        //  `TooManyPagesException` et l'on n'obtient AUCUN document. Une
+        //  classe de terminale professionnelle part en stage en entier.
+        ...OfficialPdfKit.tableSection(
+          title: 'STAGES',
+          color: kPdfNavy,
+          fonts: f,
+          headers: const [
+            'N°',
+            'Élève',
+            'Classe',
+            'Filière',
+            'Entreprise',
+            'Période',
+            'Statut',
+            'Attest.',
+          ],
+          rows: [
+            for (final (i, r) in rows.indexed)
+              [
+                '${i + 1}',
+                r.studentName,
+                r.className ?? '—',
+                r.filiereLabel ?? '—',
+                r.companyName ?? '—',
+                r.startDate == null
+                    ? '—'
+                    : '${_d(r.startDate)}–${_d(r.endDate)}',
+                _statusLabel(
+                    r.status.name == 'enCours' ? 'en_cours' : r.status.name),
+                r.hasAttestation ? 'Oui' : (r.attestationOverdue ? 'DUE' : '—'),
               ],
-              rows: [
-                for (final (i, r) in rows.indexed)
-                  [
-                    '${i + 1}',
-                    r.studentName,
-                    r.className ?? '—',
-                    r.filiereLabel ?? '—',
-                    r.companyName ?? '—',
-                    r.startDate == null
-                        ? '—'
-                        : '${_d(r.startDate)}–${_d(r.endDate)}',
-                    _statusLabel(r.status.name == 'enCours'
-                        ? 'en_cours'
-                        : r.status.name),
-                    r.hasAttestation ? 'Oui' : (r.attestationOverdue ? 'DUE' : '—'),
-                  ],
-              ],
-              fonts: f,
-              flex: const [2, 7, 4, 4, 6, 5, 3, 3],
-              leftAlignCols: const {1, 4},
-            ),
-          ),
+          ],
+          flex: const [2, 7, 4, 4, 6, 5, 3, 3],
+          leftAlignCols: const {1, 4},
+          emptyLabel: 'Aucun stage enregistré.',
+          perBlock: OfficialPdfKit.kRowsPerBlockLandscape,
+        ),
         pw.SizedBox(height: 8),
       ],
     ));

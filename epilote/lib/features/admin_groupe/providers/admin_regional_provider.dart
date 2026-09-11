@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import 'school_geocoder_provider.dart';
 
@@ -224,17 +225,22 @@ final adminRegionalProvider =
   // Timeout défensif : sans cela, un réseau lent/HS bloquerait le provider
   // indéfiniment. La carte territoriale s'affiche de toute façon sans attendre
   // (cf. AdminRegionalView) ; ici on échoue proprement plutôt que de pendre.
+  // ⚠️ Paginé (2026-09-09) : le plus gros groupe porte 3 781 élèves. Sans
+  // cela, la carte territoriale en comptait 1 000 — un tiers du réel, réparti
+  // sur les seules écoles que la première page contenait.
   final results = await Future.wait([
-    client
+    fetchAllRows(() => client
         .from('schools')
         .select('id, name, school_type, department, city, is_active, logo_url, '
                 'latitude, longitude, location_source, location_captured_at')
-        .eq('group_id', groupId),
-    client
+        .eq('group_id', groupId)
+        .order('id')),
+    fetchAllRows(() => client
         .from('students')
         .select('school_id')
         .eq('group_id', groupId)
-        .eq('is_active', true),
+        .eq('is_active', true)
+        .order('id')),
   ]).timeout(const Duration(seconds: 20));
 
   final schools  = results[0] as List;
@@ -308,11 +314,12 @@ final adminProjectsProvider =
   final groupId = profile?.groupId;
   if (groupId == null) return [];
 
-  final rows = await client
+  final rows = await fetchAllRows(() => client
       .from('school_projects')
       .select()
       .eq('group_id', groupId)
-      .order('created_at', ascending: false);
+      .order('created_at', ascending: false)
+      .order('id'));
 
   return (rows as List).map((r) {
     final m = r as Map;

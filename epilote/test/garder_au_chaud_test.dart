@@ -78,7 +78,23 @@ void main() {
       final sub = c.listen(p, (_, _) {});
       await c.read(p.future);
       sub.close();
-      await Future<void>.delayed(const Duration(milliseconds: 120));
+
+      // ⚠️ MARGE VOLONTAIREMENT ÉNORME — corrigé le 2026-09-10.
+      //
+      //  L'attente était de 120 ms pour une échéance de 40 : trois fois. Ce
+      //  test échouait donc par intermittence dans la suite complète, et
+      //  passait toujours en isolation — le pire profil qui soit, celui qui
+      //  fait douter de la suite entière puis relancer sans chercher.
+      //
+      //  La cause n'est pas le code gardé : c'est que `Timer` promet de tirer
+      //  « au plus tôt à l'échéance », jamais « à l'échéance ». Sur une
+      //  machine qui exécute 2 500 tests, il peut attendre son tour bien
+      //  au-delà de 120 ms.
+      //
+      //  Vingt-cinq fois l'échéance coûte une seconde et ne ment plus. La
+      //  valeur mesurée n'a aucune importance ici : ce qu'on vérifie, c'est
+      //  qu'une échéance FINIT par relâcher, pas qu'elle relâche vite.
+      await Future<void>.delayed(const Duration(seconds: 1));
 
       c.listen(p, (_, _) {});
       await c.read(p.future);

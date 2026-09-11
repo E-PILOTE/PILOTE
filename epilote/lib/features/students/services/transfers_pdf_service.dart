@@ -85,29 +85,35 @@ class TransfersPdfService {
         if (rows.isEmpty)
           OfficialPdfKit.empty('Aucun transfert à exporter.', f.regular)
         else
+          // DECOUPE_OBLIGATOIRE — c'est le plus GROS statut qui décide, pas le
+          // total : un seul groupe de plus de 28 lignes suffisait à empêcher
+          // TOUT le registre de sortir.
           for (final k in keys) ...[
-            OfficialPdfKit.frame(
+            ...OfficialPdfKit.tableSection(
               title: (_names[k] ?? k).toUpperCase(),
               color: _color(k),
               fonts: f,
-              child: OfficialPdfKit.table(
-                headers: const ['Élève', 'Classe', 'École destination', 'Date',
-                  'Motif'],
-                rows: byStatus[k]!
-                    .map((t) => [
-                          t.lastFirst,
-                          t.className ?? '—',
-                          t.toSchoolName ?? '—',
-                          t.transferDate != null
-                              ? fmtDate.format(t.transferDate!)
-                              : '—',
-                          (t.reason ?? '—').replaceAll('\n', ' '),
-                        ])
-                    .toList(),
-                fonts: f,
-                flex: const [4, 2, 4, 2, 4],
-                leftAlignCols: const {2, 4},
-              ),
+              headers: const [
+                'Élève',
+                'Classe',
+                'École destination',
+                'Date',
+                'Motif'
+              ],
+              rows: byStatus[k]!
+                  .map((t) => [
+                        t.lastFirst,
+                        t.className ?? '—',
+                        t.toSchoolName ?? '—',
+                        t.transferDate != null
+                            ? fmtDate.format(t.transferDate!)
+                            : '—',
+                        (t.reason ?? '—').replaceAll('\n', ' '),
+                      ])
+                  .toList(),
+              flex: const [4, 2, 4, 2, 4],
+              leftAlignCols: const {2, 4},
+              emptyLabel: 'Aucun transfert dans cet état.',
             ),
             pw.SizedBox(height: 14),
           ],

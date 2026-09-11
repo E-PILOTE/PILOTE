@@ -507,6 +507,23 @@ class OfficialPdfKit {
   /// Lignes par bloc — cellules de [kTallRowHeight].
   static const int kTallRowsPerBlock = 20;
 
+  /// Lignes par bloc **en page PAYSAGE** — trouvé le 2026-09-10.
+  ///
+  /// ⚠️ [kRowsPerBlock] vaut 28 parce qu'il a été calculé sur une A4 PORTRAIT
+  /// (842 pt de haut). Une A4 paysage n'en fait que 595 : le même bloc de 28
+  /// lignes n'y tient pas. Or un bloc est enveloppé dans `frame()`, qui ne sait
+  /// pas se scinder — un bloc plus haut qu'une page fait boucler `MultiPage`
+  /// jusqu'à `TooManyPagesException`, et l'on n'obtient **aucun document**.
+  ///
+  /// Le défaut ne se voit pas sur un jeu de démonstration : il apparaît au
+  /// premier document réel. Mesuré sur la liste des candidats à un examen —
+  /// **90 candidats suffisaient**, et une session de BEPC en porte couramment
+  /// 300.
+  ///
+  /// 16 laisse de la marge pour l'en-tête, le pied, un bloc de titre et une
+  /// grille de KPI sur la première page. `pdf_pagination_test` garde la valeur.
+  static const int kRowsPerBlockLandscape = 16;
+
   // ── Section = cadre + tableau, paginés ensemble ─────────────────────────────
   //  LE POINT D'ENTRÉE À UTILISER pour toute liste dont la longueur suit les
   //  données. Trois services avaient chacun leur découpe ; deux ne l'avaient

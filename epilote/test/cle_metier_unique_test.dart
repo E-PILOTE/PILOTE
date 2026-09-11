@@ -315,7 +315,18 @@ void main() {
     final fautes = <String>[];
     for (final f in _dartsSous('lib')) {
       final rel = _relatif(f);
-      for (final m in motif.allMatches(f.readAsStringSync())) {
+      // Sans les commentaires. Un fichier de DOCTRINE nomme les requêtes qu'il
+      // explique — `core/utils/contrat_inscriptions.dart` cite le `grep` qui
+      // recense les écrivains de `class_enrollments` — sans en exécuter une
+      // seule. Compter ces mentions ferait de chaque explication écrite une
+      // fausse alerte, et la première réaction serait de retirer
+      // l'explication.
+      final src = f
+          .readAsStringSync()
+          .split('\n')
+          .where((l) => !l.trimLeft().startsWith('//'))
+          .join('\n');
+      for (final m in motif.allMatches(src)) {
         final t = m.group(1)!;
         if (!tables.contains(t)) continue;
         if (connus.contains('$t|$rel')) continue;

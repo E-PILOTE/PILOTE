@@ -74,44 +74,54 @@ class _ClassFormModalState extends ConsumerState<_ClassFormModal> {
         return;
       }
     }
-    try {
-      if (_isEdit) {
-        await updateClassInfo(
-          classId: widget.existing!.id,
-          name: name,
-          capacity: int.tryParse(_capacity.text.trim()),
-          room: _room.text.trim(),
-          mainTeacherId: _teacherId,
-          clearTeacher: _teacherId == null,
-          filiereCode: _filiereCode,
-          filiereLabel: _filiereLabel,
-        );
-      } else {
-        await createStructuredClass(
-          schoolId: profile!.schoolId!,
-          groupId: profile.groupId!,
-          academicYearId: yearId!,
-          name: name,
-          levelId: widget.level.id,
-          cycleCode: widget.cycle.code,
-          levelCode: widget.level.code,
-          levelOrder: widget.level.order,
-          capacity: int.tryParse(_capacity.text.trim()),
-          room: _room.text.trim().isEmpty ? null : _room.text.trim(),
-          mainTeacherId: _teacherId,
-          filiereCode: _filiereCode,
-          filiereLabel: _filiereLabel,
-        );
-      }
-      if (mounted) {
-        Navigator.of(context).pop();
-        _snack(_isEdit ? 'Classe modifiée.' : 'Classe créée.', kGreen);
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _saving = false);
-        _snack(messageErreur(e), kRed);
-      }
+    // ⚠️ `runModuleWrite` et non un `try/catch` nu. Le formulaire jumeau de
+    // `/user/classes` (`classes_parts.dart:640-941`) passe par lui depuis
+    // toujours ; celui-ci ne l'a jamais fait, et les deux écrans écrivent
+    // pourtant la MÊME table. Ce que le `try/catch` ne faisait pas :
+    //   — le verrou LICENCE en lecture seule (refus AVANT l'écriture locale,
+    //     sans jamais toucher la synchro, contrainte C4) ;
+    //   — la remontée uniforme des erreurs de module.
+    // Il annonçait en plus « Classe créée. » sur une écriture purement locale :
+    // le refus serveur arrive plus tard, hors de sa portée.
+    final ok = await runModuleWrite(
+      context,
+      () async {
+        if (_isEdit) {
+          await updateClassInfo(
+            classId: widget.existing!.id,
+            name: name,
+            capacity: int.tryParse(_capacity.text.trim()),
+            room: _room.text.trim(),
+            mainTeacherId: _teacherId,
+            clearTeacher: _teacherId == null,
+            filiereCode: _filiereCode,
+            filiereLabel: _filiereLabel,
+          );
+        } else {
+          await createStructuredClass(
+            schoolId: profile!.schoolId!,
+            groupId: profile.groupId!,
+            academicYearId: yearId!,
+            name: name,
+            levelId: widget.level.id,
+            cycleCode: widget.cycle.code,
+            levelCode: widget.level.code,
+            levelOrder: widget.level.order,
+            capacity: int.tryParse(_capacity.text.trim()),
+            room: _room.text.trim().isEmpty ? null : _room.text.trim(),
+            mainTeacherId: _teacherId,
+            filiereCode: _filiereCode,
+            filiereLabel: _filiereLabel,
+          );
+        }
+      },
+      success: _isEdit ? 'Classe modifiée.' : 'Classe créée.',
+    );
+    if (!mounted) return;
+    if (ok) {
+      Navigator.of(context).pop();
+    } else {
+      setState(() => _saving = false);
     }
   }
 

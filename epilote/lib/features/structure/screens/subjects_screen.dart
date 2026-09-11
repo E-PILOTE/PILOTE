@@ -135,6 +135,9 @@ class _BodyState extends ConsumerState<_Body> {
     if (list.isEmpty) return;
     try {
       final path = await exportSubjectsCsv(list);
+      // `null` = fenêtre « Enregistrer sous » fermée sans choisir. Ni fichier,
+      // ni message : annuler doit rester sans conséquence visible.
+      if (path == null) return;
       _snack('Export CSV : ${list.length} ligne(s) → $path', kGreen);
     } catch (e) {
       _snack(messageErreur(e, contexte: 'Export'), kRed);

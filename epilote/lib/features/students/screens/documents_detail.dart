@@ -23,7 +23,30 @@ class _DossierDetailState extends ConsumerState<_DossierDetail> {
     final profile = ref.read(authNotifierProvider).valueOrNull;
     final schoolId = profile?.schoolId ?? '';
     final groupId = profile?.groupId ?? '';
-    if (schoolId.isEmpty || groupId.isEmpty) return;
+    // ⚠️ Ce `return;` était MUET. L'agent cliquait « Ajouter », le sélecteur
+    // de fichier ne s'ouvrait pas, et rien ne s'affichait : ni erreur, ni
+    // explication. Il concluait à un bug de l'application et recommençait.
+    //
+    // 20 comptes sur 67 avaient `school_id` ET `group_id` à NULL en production
+    // (audit du 2026-07-18) : ce n'est pas un cas de bord. Refuser est la
+    // bonne décision — écrire avec une identité vide ferait rejeter le LOT
+    // PowerSync entier en `22P02` — mais un refus doit se DIRE, et nommer ce
+    // qu'il faut réparer.
+    if (schoolId.isEmpty || groupId.isEmpty) {
+      if (!mounted) return;
+      final missing = missingWriteIds(
+        groupId: profile?.groupId,
+        schoolId: profile?.schoolId,
+        actorId: profile?.id,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(writeIdentityMessage(
+            missing.isEmpty ? const ['école', 'groupe'] : missing)),
+        backgroundColor: kRed,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
 
     final res = await FilePicker.platform.pickFiles(
       type: FileType.custom,

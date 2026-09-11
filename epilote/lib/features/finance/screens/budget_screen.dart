@@ -85,9 +85,17 @@ class _BodyState extends ConsumerState<_Body> {
         // dépense sur un poste non budgété n'apparaissait nulle part, et deux
         // lignes d'un même poste la comptaient deux fois.
         final reel = ref.watch(budgetReelProvider);
+        // ⚠️ « — », JAMAIS 0, tant que les dépenses ne sont pas lues.
+        //
+        //  Trois des quatre cartouches DÉRIVENT du réalisé. À zéro par défaut,
+        //  l'écran annonçait « Réalisé : 0 · Disponible : tout le budget ·
+        //  Exécution : 0 % » — c'est-à-dire « vous n'avez rien dépensé » — à
+        //  un comptable sur le point d'engager une dépense. Le cartouche
+        //  « Budgété », lui, ne dépend que des lignes : il reste juste.
         final actual = reel.total;
         final gap = budgeted - actual;
         final rate = budgeted == 0 ? 0 : actual * 100 ~/ budgeted;
+        String siConnu(String v) => reel.connu ? v : '—';
         return SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -99,18 +107,38 @@ class _BodyState extends ConsumerState<_Body> {
                   : null,
             ),
             const SizedBox(height: 20),
+            if (!reel.connu) ...[
+              _BandeauRealiseInconnu(erreur: reel.erreur),
+              const SizedBox(height: 14),
+            ],
             VsHeroKpis(cards: [
               (Icons.account_balance_wallet_rounded, 'Budgété',
                   fmtCompact(budgeted), kNavy, 'FCFA prévus'),
-              (Icons.payments_rounded, 'Réalisé', fmtCompact(actual),
+              (Icons.payments_rounded, 'Réalisé', siConnu(fmtCompact(actual)),
                   const Color(0xFFF59E0B),
-                  reel.horsBudget > 0
-                      ? 'dont ${fmtCompact(reel.horsBudget)} hors budget'
-                      : 'FCFA engagés'),
-              (Icons.savings_rounded, 'Disponible', fmtCompact(gap),
-                  gap < 0 ? kRed : kGreen, gap < 0 ? 'dépassement' : 'restant'),
-              (Icons.speed_rounded, 'Exécution', '$rate%',
-                  rate > 100 ? kRed : const Color(0xFF8B5CF6), 'du budget'),
+                  !reel.connu
+                      ? 'dépenses non lues'
+                      : reel.horsBudget > 0
+                          ? 'dont ${fmtCompact(reel.horsBudget)} hors budget'
+                          : 'FCFA engagés'),
+              (Icons.savings_rounded, 'Disponible', siConnu(fmtCompact(gap)),
+                  !reel.connu
+                      ? kTextMuted
+                      : gap < 0
+                          ? kRed
+                          : kGreen,
+                  !reel.connu
+                      ? 'inconnu'
+                      : gap < 0
+                          ? 'dépassement'
+                          : 'restant'),
+              (Icons.speed_rounded, 'Exécution', siConnu('$rate%'),
+                  !reel.connu
+                      ? kTextMuted
+                      : rate > 100
+                          ? kRed
+                          : const Color(0xFF8B5CF6),
+                  'du budget'),
             ]),
             const SizedBox(height: 18),
             if (all.isEmpty)
@@ -267,4 +295,55 @@ class _AddBtn extends StatelessWidget {
           ),
         ),
       );
+}
+
+
+/// Dit que le réalisé n'est pas connu — et se lit AVANT les chiffres.
+///
+/// ⚠️ Placé au-dessus des cartouches, jamais en dessous : sous les chiffres,
+/// le comptable s'est déjà fait une opinion.
+class _BandeauRealiseInconnu extends StatelessWidget {
+  const _BandeauRealiseInconnu({this.erreur});
+  final Object? erreur;
+
+  @override
+  Widget build(BuildContext context) {
+    const or = Color(0xFFF59E0B);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: or.withValues(alpha: 0.08),
+        border: Border.all(color: or.withValues(alpha: 0.35)),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Icon(Icons.info_outline_rounded, size: 18, color: or),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(
+                erreur == null
+                    ? 'Lecture des dépenses en cours'
+                    : 'Dépenses illisibles',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: kTextPrimary)),
+            const SizedBox(height: 4),
+            Text(
+              erreur == null
+                  ? "Le réalisé, le disponible et le taux d'exécution "
+                      'affichent « — » tant que les dépenses ne sont pas lues. '
+                      'Le budget prévu, lui, est exact.'
+                  : "Le réalisé n'a pas pu être calculé : "
+                      '${messageErreur(erreur!, contexte: 'Dépenses')}. '
+                      'Les montants « — » ne valent pas zéro — '
+                      "n'engagez rien sur cette base.",
+              style: TextStyle(fontSize: 12.5, height: 1.45, color: kTextMuted),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
 }

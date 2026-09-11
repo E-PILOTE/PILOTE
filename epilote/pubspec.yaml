@@ -70,6 +70,13 @@ dependencies:
   package_info_plus: ^9.0.1
   url_launcher: ^6.3.1
   powersync: ^1.18.0
+  # ⚠️ Déclaré EXPLICITEMENT bien qu'il arrive par `powersync` : le code y
+  # prend `SqliteWriteContext`, le type d'une transaction locale, pour écrire
+  # un élève et son inscription dans UN seul acte (cf. `createStudent`).
+  # S'appuyer sur une dépendance transitive sans la nommer, c'est laisser une
+  # montée de version de PowerSync casser la compilation sans prévenir.
+  # Version alignée sur celle que `powersync 1.18` verrouille (pubspec.lock).
+  sqlite_async: ^0.13.1
   fl_chart: ^1.2.0
   syncfusion_flutter_charts: ^33.2.8
   path_provider: ^2.1.5

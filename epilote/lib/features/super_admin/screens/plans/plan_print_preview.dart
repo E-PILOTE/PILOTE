@@ -37,16 +37,33 @@ class _PlanPrintPreviewModalState extends State<_PlanPrintPreviewModal> {
     try {
       final path = await PlanPdfService.downloadPlan(p);
       if (mounted) {
+        // ⚠️ `path == null` ne veut pas dire « généré sans être rangé » : il
+        // veut dire que les DEUX tentatives d'enregistrement ont échoué — le
+        // sélecteur de fichier, PUIS le repli sur le dossier Documents
+        // (`downloadXxx`, chaîne `try/catch` du service). Rien n'a été écrit
+        // nulle part. L'annoncer « PDF généré » en vert avec une coche faisait
+        // fermer la fenêtre à l'utilisateur, qui cherchait ensuite un fichier
+        // qui n'existait pas. Un échec se dit en rouge et nomme le recours.
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Row(children: [
-          const Icon(Icons.check_circle_rounded, color: Colors.white, size: 16),
+          Icon(
+            path != null
+                ? Icons.check_circle_rounded
+                : Icons.error_outline_rounded,
+            color: Colors.white,
+            size: 16,
+          ),
           const SizedBox(width: 8),
           Expanded(child: Text(
-            path != null ? 'PDF sauvegardé : $path' : 'PDF généré',
+            path != null
+                ? 'PDF sauvegardé : $path'
+                : "Enregistrement impossible : le fichier n'a pas pu "
+                    'être écrit. Réessayez, ou choisissez un autre '
+                    'dossier.',
             overflow: TextOverflow.ellipsis,
           )),
         ]),
-        backgroundColor: _kGreen,
+        backgroundColor: path != null ? _kGreen : _kRed,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ));

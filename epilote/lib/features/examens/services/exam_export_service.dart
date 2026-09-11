@@ -83,45 +83,64 @@ class ExamExportService {
           PdfKpi('Filles', '$filles', const PdfColor.fromInt(0xFF0EA5E9)),
         ], width: 130),
         pw.SizedBox(height: 16),
-        if (candidates.isEmpty)
-          OfficialPdfKit.empty(
-              'Aucun candidat inscrit à cette session.', f.regular)
-        else
-          OfficialPdfKit.frame(
-            title: 'CANDIDATS — ${examShortName.toUpperCase()}',
-            color: kPdfNavy,
-            fonts: f,
-            child: OfficialPdfKit.table(
-              headers: const [
-                'N°',
-                'Nom et prénom',
-                'INE',
-                'Matricule',
-                'Né(e) le',
-                'Sexe',
-                'Classe',
-                'N° candidat',
-                'Dossier',
+        // ⚠️ DEUX DÉFAUTS CORRIGÉS ICI LE 2026-09-10 — c'est LE document du
+        //  module, celui qu'on dépose à la DEC.
+        //
+        //  1. NEUF colonnes déclarées, HUIT valeurs de `flex`. La neuvième —
+        //     « Dossier », celle qui dit si le candidat est en règle — n'avait
+        //     pas de largeur.
+        //  2. `frame(table(...))` : `frame()` enveloppe son contenu dans un
+        //     `Padding`, qui ne sait pas se scinder entre deux pages. Une
+        //     session porte couramment 90 à 300 candidats ; passé une feuille,
+        //     `MultiPage` boucle jusqu'à `TooManyPagesException` et l'on
+        //     n'obtient AUCUN document — pas un document tronqué. D'où
+        //     `tableSection`, qui découpe en blocs paginables.
+        //
+        //  `exam_export_test.dart` construit désormais les quatre documents de
+        //  ce fichier : un PDF qui lève ne s'imprime pas, et c'est au dépôt
+        //  qu'on s'en aperçoit.
+        ...OfficialPdfKit.tableSection(
+          title: 'CANDIDATS — ${examShortName.toUpperCase()}',
+          color: kPdfNavy,
+          fonts: f,
+          headers: const [
+            'N°',
+            'Nom et prénom',
+            'INE',
+            'Matricule',
+            'Né(e) le',
+            'Sexe',
+            'Classe',
+            'Filière',
+            'N° candidat',
+            'Dossier',
+          ],
+          rows: [
+            for (final (i, c) in candidates.indexed)
+              [
+                '${i + 1}',
+                c.fullName,
+                formatIne(c.ine),
+                c.matricule ?? '—',
+                _fmtDate(c.dateOfBirth),
+                c.gender ?? '—',
+                c.className ?? '—',
+                c.filiereLabel ?? '—',
+                c.candidateNumber ?? '—',
+                _dossierLabel(c.dossierStatus),
               ],
-              rows: [
-                for (final (i, c) in candidates.indexed)
-                  [
-                    '${i + 1}',
-                    c.fullName,
-                    formatIne(c.ine),
-                    c.matricule ?? '—',
-                    _fmtDate(c.dateOfBirth),
-                    c.gender ?? '—',
-                    c.className ?? '—',
-                    c.candidateNumber ?? '—',
-                    _dossierLabel(c.dossierStatus),
-                  ],
-              ],
-              fonts: f,
-              flex: const [2, 7, 4, 4, 2, 4, 4, 4],
-              leftAlignCols: const {1, 2},
-            ),
-          ),
+          ],
+          // Dix colonnes, dix largeurs. Le nom respire (7), l'INE et le
+          // matricule tiennent en entier (4), le numéro d'ordre et le sexe se
+          // serrent (2).
+          flex: const [2, 7, 4, 4, 3, 2, 4, 4, 4, 4],
+          leftAlignCols: const {1, 2},
+          emptyLabel: 'Aucun candidat inscrit à cette session.',
+          // ⚠️ Cette page est en PAYSAGE : 595 pt de haut, pas 842. Le défaut
+          // par bloc (28) est calculé pour le portrait et ne tient pas ici —
+          // et un bloc qui déborde fait boucler `MultiPage`.
+          perBlock: OfficialPdfKit.kRowsPerBlockLandscape,
+        ),
         pw.SizedBox(height: 8),
       ],
     ));

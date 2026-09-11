@@ -3,10 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/message_erreur.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../communication/providers/messages_provider.dart';
 import '../providers/tutelle_destinataires_provider.dart';
 import '../providers/tutelle_reseau_provider.dart';
+import '../services/tutelle_instruction_pdf_service.dart';
+import '../services/tutelle_pdf_commun.dart';
 
 part 'tutelle_message_destinataires.dart';
 
@@ -170,6 +173,23 @@ class _TutelleMessageDialogState extends ConsumerState<TutelleMessageDialog> {
     setState(() => _envoi = true);
     final messenger = ScaffoldMessenger.of(context);
     final combien = _coches.length;
+
+    // ⚠️ Capturés AVANT l'envoi, et avant le `pop`.
+    //
+    //  L'objet et le corps sont lus des contrôleurs, que `dispose()` videra
+    //  dès la fermeture de la modale ; les destinataires sont résolus depuis
+    //  la liste chargée, qui ne survivra pas non plus. La pièce doit porter ce
+    //  qui a été ENVOYÉ, pas ce qui restait à l'écran une frame plus tard.
+    final objet = _objet.text.trim();
+    final corps = _corps.text.trim();
+    final tous = ref.read(destinatairesTutelleProvider(widget.groupe.id))
+            .valueOrNull ??
+        const <DestinataireTutelle>[];
+    final vises = [for (final d in tous) if (_coches.contains(d.userId)) d];
+    // Le contexte de la PAGE, pas celui de la modale : c'est lui qui portera
+    // l'aperçu une fois la modale fermée.
+    final page = Navigator.of(context).context;
+
     try {
       await sendMessageToMany(
         client: ref.read(supabaseClientProvider),
@@ -179,9 +199,12 @@ class _TutelleMessageDialogState extends ConsumerState<TutelleMessageDialog> {
         // `msg_insert` exige. Ils le liront quand même — `msg_select` le rend
         // par `recipient_id`, sans condition de groupe.
         groupId: monGroupe,
-        subject: _objet.text.trim(),
-        body: _corps.text.trim(),
+        subject: objet,
+        body: corps,
       );
+      // L'heure de l'ENVOI, arrêtée ici : le document doit porter la date de
+      // l'acte, jamais celle d'une réimpression trois mois plus tard.
+      final emiseLe = DateTime.now();
       if (!mounted) return;
       Navigator.of(context).pop();
       messenger.showSnackBar(SnackBar(
@@ -190,12 +213,79 @@ class _TutelleMessageDialogState extends ConsumerState<TutelleMessageDialog> {
             : 'Message envoyé à $combien destinataires.'),
         backgroundColor: kGreen,
       ));
+      // ⚠️ L'ARCHIVE OPPOSABLE — c'est ici, et pas ailleurs, qu'elle a du sens.
+      //
+      //  Une instruction de tutelle est un acte administratif. Le message
+      //  part par la messagerie (aucun canal de plus), mais le ministère doit
+      //  pouvoir CLASSER ce qu'il a prescrit : l'objet, le texte, la date, et
+      //  la liste NOMMÉE des destinataires. Proposé immédiatement, parce que
+      //  c'est le seul moment où l'on tient encore les destinataires exacts —
+      //  après, il ne reste qu'un fil de discussion, qui ne se classe pas.
+      if (page.mounted) {
+        await _proposerArchive(
+          page,
+          objet: objet,
+          corps: corps,
+          vises: vises,
+          emiseLe: emiseLe,
+          // `profil` est non nul ici : la garde du haut a déjà rendu la main
+          // si `monGroupe` ou `moi` manquait.
+          signataire: profil!.fullName,
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _envoi = false);
       messenger.showSnackBar(SnackBar(
         content: Text(messageErreur(e, contexte: 'Envoi')),
         backgroundColor: kRed,
+      ));
+    }
+  }
+
+  /// Ouvre l'aperçu de l'instruction, prête à imprimer ou à enregistrer.
+  ///
+  /// ⚠️ Aucune erreur ici ne doit ressembler à un échec d'envoi. Le message
+  /// EST parti — c'est acquis et l'agent vient de le lire. Si la pièce ne se
+  /// construit pas (police introuvable, disque plein), on le dit dans ces
+  /// termes, sans laisser croire qu'il faut renvoyer.
+  Future<void> _proposerArchive(
+    BuildContext page, {
+    required String objet,
+    required String corps,
+    required List<DestinataireTutelle> vises,
+    required DateTime emiseLe,
+    String? signataire,
+  }) async {
+    final g = widget.groupe;
+    try {
+      await showPdfPreviewDialog(
+        page,
+        title: 'Instruction — $objet',
+        subtitle: 'Le message est parti. Voici la pièce à classer : '
+            "destinataires nommés, texte intégral, date d'envoi.",
+        accent: g.estPublic ? kNavy : kAccent,
+        build: (_) => TutelleInstructionPdfService.build(
+          objet: objet,
+          corps: corps,
+          groupeNom: g.nom,
+          destinataires: vises,
+          emiseLe: emiseLe,
+          // ⚠️ La tutelle de l'ÉMETTEUR, pas du groupe visé : c'est le
+          // ministère qui instruit, et c'est son sigle qui doit figurer en
+          // tête de l'acte. Même source que les trois autres documents de cet
+          // espace (`tutelle_reseau_screen.dart:117`).
+          tutelle: ref.read(tutelleDuGroupeProvider).valueOrNull,
+          signataire: signataire,
+        ),
+        pdfFileName: pdfNomFichier('Instruction', objet),
+      );
+    } catch (e) {
+      if (!page.mounted) return;
+      ScaffoldMessenger.of(page).showSnackBar(SnackBar(
+        content: Text("Message envoyé. L'archive n'a pas pu être produite : "
+            '${messageErreur(e, contexte: 'Archive')}'),
+        backgroundColor: kAccent,
       ));
     }
   }

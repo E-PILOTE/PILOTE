@@ -68,40 +68,39 @@ class DocumentsPdfService {
           PdfKpi('Pièces vérifiées', '$verified', kPdfGold),
         ]),
         pw.SizedBox(height: 16),
-        if (dossiers.isEmpty)
-          OfficialPdfKit.empty('Aucun élève à exporter.', f.regular)
-        else
-          OfficialPdfKit.frame(
-            title: 'REGISTRE DE CONFORMITÉ',
-            color: kPdfNavy,
-            fonts: f,
-            child: OfficialPdfKit.table(
-              headers: [
-                'Élève',
-                'Classe',
-                for (final e in required) _short(e.value),
-                'Dossier',
+        // ⚠️ `tableSection`, JAMAIS `frame(table())` : `frame` enveloppe son
+        // contenu dans un `Padding`, qui ne sait pas se scinder entre deux
+        // pages. Passé ~28 lignes, `MultiPage` boucle et lève
+        // `TooManyPagesException` — on n'obtient AUCUN document.
+        ...OfficialPdfKit.tableSection(
+          title: 'REGISTRE DE CONFORMITÉ',
+          color: kPdfNavy,
+          fonts: f,
+          headers: [
+            'Élève',
+            'Classe',
+            for (final e in required) _short(e.value),
+            'Dossier',
+          ],
+          rows: [
+            for (final d in dossiers)
+              [
+                d.student.lastFirst,
+                d.student.className ?? '—',
+                for (final e in required)
+                  d.presentTypes.contains(e.key)
+                      ? (d.docs.any(
+                              (x) => x.documentType == e.key && x.isVerified)
+                          ? '✓ vérifié'
+                          : 'déposé')
+                      : '—',
+                d.isComplete ? 'COMPLET' : 'Incomplet',
               ],
-              rows: [
-                for (final d in dossiers)
-                  [
-                    d.student.lastFirst,
-                    d.student.className ?? '—',
-                    for (final e in required)
-                      d.presentTypes.contains(e.key)
-                          ? (d.docs.any((x) =>
-                                  x.documentType == e.key && x.isVerified)
-                              ? '✓ vérifié'
-                              : 'déposé')
-                          : '—',
-                    d.isComplete ? 'COMPLET' : 'Incomplet',
-                  ],
-              ],
-              fonts: f,
-              flex: [4, 2, for (final _ in required) 2, 2],
-              leftAlignCols: const {0},
-            ),
-          ),
+          ],
+          flex: [4, 2, for (final _ in required) 2, 2],
+          leftAlignCols: const {0},
+          emptyLabel: 'Aucun élève à exporter.',
+        ),
         pw.SizedBox(height: 8),
       ],
     ));

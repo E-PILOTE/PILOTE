@@ -452,21 +452,23 @@ final schoolUsersProvider =
   if (schoolId.isEmpty) return [];
   final client = ref.watch(supabaseClientProvider);
   try {
-    final rows = await client
+    final rows = await fetchAllRows(() => client
         .from('profiles')
         .select('id, first_name, last_name, role, is_active, access_profiles(id, name)')
         .eq('school_id', schoolId)
-        .order('last_name', ascending: true) as List;
-    return [for (final r in rows) SchoolUser.fromRow(r as Map<String, dynamic>)];
+        .order('last_name', ascending: true)
+        .order('id'));
+    return [for (final r in rows) SchoolUser.fromRow(r)];
   } catch (_) {
     // Fallback sans join si la FK n'est pas exposée en REST
     try {
-      final rows = await client
+      final rows = await fetchAllRows(() => client
           .from('profiles')
           .select('id, first_name, last_name, role, is_active')
           .eq('school_id', schoolId)
-          .order('last_name', ascending: true) as List;
-      return [for (final r in rows) SchoolUser.fromRow(r as Map<String, dynamic>)];
+          .order('last_name', ascending: true)
+          .order('id'));
+      return [for (final r in rows) SchoolUser.fromRow(r)];
     } catch (_) {
       return [];
     }

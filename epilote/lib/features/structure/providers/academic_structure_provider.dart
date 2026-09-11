@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../navigation/providers/permissions_provider.dart';
 import 'academic_year_context.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -95,6 +96,12 @@ final academicStructureProvider =
   if (schoolId == null || schoolId.isEmpty || yearId == null) {
     return Stream.value(AcademicStructure.empty);
   }
+  // Verrou 4 — le périmètre du module `niveaux`, et non celui d'un voisin.
+  // 201 enseignants sont en `own_classes` : sans cette clause, l'écran
+  // Structure leur rendait l'école entière (classes, effectifs, professeurs
+  // principaux), pendant que l'administration croyait le cadenas fermé.
+  if (!permissionsLoaded(ref)) return const Stream.empty();
+  final scope = classScopeClause(ref, 'niveaux', column: 'c.id');
 
   return db.watch(
     '''
@@ -115,8 +122,17 @@ final academicStructureProvider =
       c.main_teacher_id AS teacher_id,
       (SELECT TRIM(COALESCE(p.first_name,'') || ' ' || COALESCE(p.last_name,''))
          FROM profiles p WHERE p.id = c.main_teacher_id) AS teacher_name,
+      -- ⚠️ La jointure sur `students` n'est pas décorative : sans elle, cet
+      -- écran comptait les élèves DÉSACTIVÉS, alors que `/user/classes`
+      -- (`class_provider.dart:86-90`), le registre et les Paiements les
+      -- excluent. Deux écrans voisins annonçaient deux effectifs pour la même
+      -- classe. « Quand deux écrans affichent la même chose, ils doivent la
+      -- lire au même endroit. » L'inscription d'un élève retiré du registre
+      -- reste `active` en base : c'est `students.is_active` qui tranche.
       (SELECT COUNT(*) FROM class_enrollments ce
-         WHERE ce.class_id = c.id AND ce.status = 'active') AS enrolled
+         JOIN students s ON s.id = ce.student_id
+        WHERE ce.class_id = c.id AND ce.status = 'active'
+          AND COALESCE(s.is_active, 1) <> 0) AS enrolled
     FROM school_cycles sc
     JOIN education_cycles ec ON ec.id = sc.cycle_id
     LEFT JOIN school_levels sl
@@ -136,10 +152,15 @@ final academicStructureProvider =
           AND c.school_id = ?
           AND c.academic_year_id = ?
           AND COALESCE(c.is_active, 1) <> 0
+          -- Le périmètre porte sur la JOINTURE, pas sur le WHERE : un membre
+          -- restreint doit continuer à voir l'arbre Cycle ▸ Niveau de son
+          -- école (c'est le référentiel que le réseau lui envoie), mais
+          -- seulement SES classes accrochées dessous.
+          ${scope?.clause ?? ''}
     WHERE sc.school_id = ?
     ORDER BY ec.order_index, sl.order_index, c.name
     ''',
-    parameters: [schoolId, yearId, schoolId],
+    parameters: [schoolId, yearId, ...?scope?.params, schoolId],
   ).map(_foldStructure);
 });
 

@@ -42,12 +42,24 @@ class _NewTransferDialogState extends ConsumerState<_NewTransferDialog> {
       _err('Indiquez l\'établissement de destination');
       return;
     }
-    final groupId = profile?.groupId;
-    final schoolId = profile?.schoolId;
-    if (groupId == null || schoolId == null) {
-      _err('Profil incomplet');
+    // ⚠️ `== null` laissait passer la chaîne VIDE. En base, `group_id` et
+    // `from_school_id` sont des `uuid` NOT NULL : `''` s'écrit sans broncher
+    // dans le SQLite local, l'écran affiche « enregistré », et le refus tombe
+    // à la remontée en `22P02` — qui abandonne le LOT PowerSync ENTIER, avec
+    // les inscriptions, les paiements et les présences de la même matinée.
+    // 20 comptes sur 67 avaient ces colonnes à NULL en production (audit du
+    // 2026-07-18). Même garde que la sortie d'élève
+    // (`eleves_actions_parts.dart:74-81`).
+    if (!isUsableId(profile?.groupId)) {
+      _err(writeIdentityMessage(const ['groupe']));
       return;
     }
+    if (!isUsableId(profile?.schoolId)) {
+      _err(writeIdentityMessage(const ['école']));
+      return;
+    }
+    final groupId = profile!.groupId!.trim();
+    final schoolId = profile.schoolId!.trim();
     setState(() => _saving = true);
     final yearId = ref.read(activeYearIdProvider);
     final ok = await runModuleWrite(
@@ -168,11 +180,19 @@ class _NewTransferDialogState extends ConsumerState<_NewTransferDialog> {
           ),
         ),
         const SizedBox(height: 16),
-        const _FieldLabel('Motif (optionnel)'),
+        // Ce champ n'est PAS le motif au sens de la statistique : le motif
+        // normalisé (`transfert`, cf. `core/utils/sortie_motif.dart`) est posé
+        // à l'approbation par `setEnrollmentExit`. Ici c'est le commentaire —
+        // « la catégorie sert à compter, le commentaire à comprendre ». Le
+        // libellé disait « Motif », ce qui laissait croire que ce texte libre
+        // alimentait un décompte ; il n'alimentait rien.
+        const _FieldLabel('Commentaire (optionnel)'),
         TextField(
           controller: _reason,
           maxLines: 3,
-          decoration: adminFilledInput('Raison du transfert…'),
+          decoration: adminFilledInput(
+              'Précision sur ce transfert : établissement pressenti, '
+              'circonstances…'),
         ),
       ]),
     );

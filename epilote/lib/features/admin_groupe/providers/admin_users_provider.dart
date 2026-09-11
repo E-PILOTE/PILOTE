@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/paged_fetch.dart';
 import '../services/photo_utilisateur_service.dart';
 import 'package:realtime_client/realtime_client.dart';
 
@@ -258,11 +259,12 @@ final adminUsersProvider =
   // Écoles du groupe (pour le formulaire / filtres)
   final List<SchoolOption> schools = [];
   try {
-    final rows = await client.from('schools')
+    final rows = await fetchAllRows(() => client.from('schools')
         .select('id, name')
         .eq('group_id', groupId)
         .eq('is_active', true)
-        .order('name', ascending: true) as List;
+        .order('name', ascending: true)
+        .order('id'));
     for (final s in rows) {
       schools.add(SchoolOption(id: s['id'] as String, name: s['name'] as String? ?? '—'));
     }

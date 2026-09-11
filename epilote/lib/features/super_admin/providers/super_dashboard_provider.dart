@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/utils/tarif_ecoles.dart' show mensualiteGroupe;
+import '../../../core/utils/paged_fetch.dart';
+import '../../../core/utils/tarif_ecoles.dart'
+    show ecolesParGroupe, mensualiteGroupe;
 import 'package:realtime_client/realtime_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 
@@ -346,9 +348,14 @@ final superDashboardProvider =
   // ── Écoles + Groupes ───────────────────────────────────────────────────────
   Future<void> lireEcolesGroupes() async {
     try {
-      final schools = await client
+      // ⚠️ Paginé (2026-09-09) : la cible est 1 000 écoles. Tronquée à
+      // 1 000 lignes, cette lecture aurait sous-compté le parc, les
+      // départements couverts ET le nombre d'écoles par groupe — dont le
+      // TARIF dépend (mig. 0159).
+      final schools = await fetchAllRows(() => client
           .from('schools')
-          .select('id, group_id, latitude, longitude, department') as List;
+          .select('id, group_id, latitude, longitude, department')
+          .order('id'));
       ecolesTotal = schools.length;
 
       final coveredDepts = <String>{};
@@ -361,17 +368,16 @@ final superDashboardProvider =
       }
       departementsCouverts = coveredDepts.length;
 
-      final Map<String, int> schoolsByGroup = {};
-      for (final s in schools) {
-        final gid = s['group_id'] as String? ?? '';
-        schoolsByGroup[gid] = (schoolsByGroup[gid] ?? 0) + 1;
-      }
+  // ⚠️ Un seul foyer : `ecolesParGroupe` (`core/utils/tarif_ecoles.dart`).
+    // Ce nombre décide du PRIX du groupe (mig. 0159) ; il était recompté à
+    // six endroits, avec des traitements DIFFÉRENTS du `group_id` nul.
+      final schoolsByGroup = ecolesParGroupe(schools);
 
-      final groups = await client.from('school_groups').select(
+      final groups = await fetchAllRows(() => client.from('school_groups').select(
         'id, name, department, is_active, subscription_status, '
         'subscription_end, created_at, '
         'price_override_xaf, billed_schools, subscription_plans!plan_id(name, price_xaf, billing_period, extra_school_2_5_xaf, extra_school_6_10_xaf, extra_school_11_20_xaf, extra_school_21p_xaf)',
-      ) as List;
+      ).order('id'));
 
       groupesTotal  = groups.length;
       groupesActifs = groups.where((g) => actifEnLigne(g['is_active'])).length;
@@ -457,10 +463,11 @@ final superDashboardProvider =
   List<MapEntry<String, int>> personnelByRole = const [];
   Future<void> lirePersonnelParRole() async {
     try {
-      final staffRows = await client
+      final staffRows = await fetchAllRows(() => client
           .from('profiles')
           .select('role')
-          .not('role', 'in', '(super_admin,admin_groupe)') as List;
+          .not('role', 'in', '(super_admin,admin_groupe)')
+          .order('id'));
       final Map<String, int> roleMap = {};
       for (final r in staffRows) {
         final role = _shortenRole(r['role'] as String? ?? 'autre');
@@ -511,12 +518,18 @@ final superDashboardProvider =
   List<MonthlyPoint> trendEleves  = const [];
   List<MonthlyPoint> trendRevenus = const [];
 
-  final sixMo = DateTime.now().subtract(const Duration(days: 182));
+  // ⚠️ LES TROIS COURBES SE COMPTENT, ELLES NE SE RAMÈNENT PLUS (2026-09-09).
+  //
+  //  Elles lisaient les LIGNES des six derniers mois pour les compter par mois
+  //  côté client. À l'échelle visée, la courbe des élèves aurait transféré
+  //  des centaines de milliers de lignes pour six points — et surtout, elle
+  //  serait retombée sous le plafond de 1 000 de PostgREST : passé ce seuil,
+  //  la tendance se serait aplatie d'elle-même, sans erreur ni signe.
+  //  Six `count(exact)` en parallèle : aucun transfert, un chiffre juste.
   Future<void> lireTendanceGroupes() async {
     try {
-      final rows = await client.from('school_groups').select('created_at')
-          .gte('created_at', sixMo.toIso8601String()) as List;
-      trendGroupes = _monthly6m(rows);
+      trendGroupes =
+          _points(await countsByMonth6m(client, table: 'school_groups'));
     } catch (e) {
       echecs.add(MesuresDashboard.tendances);
       debugPrint('ℹ️ Tableau de bord : mesure « tendances » illisible ($e).');
@@ -524,9 +537,7 @@ final superDashboardProvider =
   }
   Future<void> lireTendanceEcoles() async {
     try {
-      final rows = await client.from('schools').select('created_at')
-          .gte('created_at', sixMo.toIso8601String()) as List;
-      trendEcoles = _monthly6m(rows);
+      trendEcoles = _points(await countsByMonth6m(client, table: 'schools'));
     } catch (e) {
       echecs.add(MesuresDashboard.tendances);
       debugPrint('ℹ️ Tableau de bord : mesure « tendances » illisible ($e).');
@@ -534,9 +545,7 @@ final superDashboardProvider =
   }
   Future<void> lireTendanceEleves() async {
     try {
-      final rows = await client.from('students').select('created_at')
-          .gte('created_at', sixMo.toIso8601String()) as List;
-      trendEleves = _monthly6m(rows);
+      trendEleves = _points(await countsByMonth6m(client, table: 'students'));
     } catch (e) {
       echecs.add(MesuresDashboard.tendances);
       debugPrint('ℹ️ Tableau de bord : mesure « tendances » illisible ($e).');
@@ -666,21 +675,18 @@ const _kMonthLabels = [
   'Juil','Aoû','Sep','Oct','Nov','Déc',
 ];
 
-List<MonthlyPoint> _monthly6m(List rows) {
-  final now    = DateTime.now();
+/// Six comptes mensuels (du plus ancien au mois courant) → six points nommés.
+///
+/// Le calendrier vient de `countsByMonth6m`, qui a construit les fenêtres :
+/// les deux doivent se lire ensemble, sinon les étiquettes glissent d'un mois.
+List<MonthlyPoint> _points(List<int> comptes) {
+  final now = DateTime.now();
   final months = List.generate(6, (i) => DateTime(now.year, now.month - 5 + i));
-  final Map<String, int> cnt = {};
-  for (final r in rows) {
-    final dt = DateTime.tryParse(r['created_at'] as String? ?? '');
-    if (dt == null) continue;
-    final k = '${dt.year}-${dt.month}';
-    cnt[k] = (cnt[k] ?? 0) + 1;
-  }
-  return months.map((m) {
-    final norm = DateTime(m.year, m.month);
-    return MonthlyPoint(
-        _kMonthLabels[norm.month - 1], (cnt['${norm.year}-${norm.month}'] ?? 0).toDouble());
-  }).toList();
+  return [
+    for (var i = 0; i < months.length; i++)
+      MonthlyPoint(_kMonthLabels[months[i].month - 1],
+          (i < comptes.length ? comptes[i] : 0).toDouble()),
+  ];
 }
 
 // ⚠️ Deux fabriques de courbes ont été supprimées ici : `_revenueTrend6m` et

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/tarif_ecoles.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -261,28 +262,34 @@ final economieProvider =
 
   // ⚠️ Aucun `catch (_) {}` muet ici. Un tableau d'économie qui affiche 0
   // parce qu'une requête a échoué est pire que pas de tableau du tout.
-  final coutsRows = await client
+  // ⚠️ Paginées (2026-09-09) : le MRR se reconstitue à partir de CES lignes.
+  // Un plafond à 1 000 groupes ferait disparaître du chiffre d'affaires sans
+  // erreur — et l'écart ne se verrait qu'en comparant deux écrans.
+  final coutsRows = await fetchAllRows(() => client
       .from('platform_costs')
       .select('id, label, fournisseur, categorie, montant_xaf, periodicite, '
           'montant_origine, devise_origine, is_active, notes')
-      .order('montant_xaf', ascending: false) as List;
+      .order('montant_xaf', ascending: false)
+      .order('id'));
 
-  final licencesRows = await client
+  final licencesRows = await fetchAllRows(() => client
       .from('tutelle_licences')
       .select('id, group_id, tutelle, intitule, date_debut, date_fin, '
           'montant_xaf, avance_xaf, montant_regle_xaf, statut, '
           'reference_marche, signataire, notes, motif_statut, '
           'statut_change_le, school_groups!group_id(name, acces_suspendu, '
           'acces_suspendu_motif)')
-      .order('date_fin', ascending: false) as List;
+      .order('date_fin', ascending: false)
+      .order('id'));
 
-  final groupes = await client
+  final groupes = await fetchAllRows(() => client
       .from('school_groups')
       .select('name, plan_id, subscription_status, billed_schools, '
           'price_override_xaf, '
           'subscription_plans!plan_id(price_xaf, billing_period, '
           'extra_school_2_5_xaf, extra_school_6_10_xaf, '
-          'extra_school_11_20_xaf, extra_school_21p_xaf)') as List;
+          'extra_school_11_20_xaf, extra_school_21p_xaf)')
+      .order('id'));
 
   var mrr = 0;
   var inactifs = 0;
@@ -330,11 +337,12 @@ final groupesSuperviseursProvider =
         (ref) async {
   garderAuChaud(ref);
   final client = ref.read(supabaseClientProvider);
-  final rows = await client
+  final rows = await fetchAllRows(() => client
       .from('school_groups')
       .select('id, name, tutelle')
       .eq('administre_referentiel_national', true)
-      .order('name') as List;
+      .order('name')
+      .order('id'));
   return [
     for (final r in rows)
       (

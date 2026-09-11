@@ -51,11 +51,11 @@ class _SubjectFormState extends ConsumerState<_SubjectForm> {
           await updateSubject(
               id: widget.existing!.id, name: name, coefficient: _coef);
         } else {
+          // `schoolId` n'est plus transmis : une matière appartient au
+          // GROUPE (clé unique `(group_id, level_id, slug)`). Cf. l'en-tête
+          // de `createSubject`.
           await createSubject(
-              groupId: groupId,
-              schoolId: schoolId,
-              name: name,
-              coefficient: _coef);
+              groupId: groupId, name: name, coefficient: _coef);
         }
       },
       success: _isEdit ? 'Matière mise à jour' : 'Matière créée',

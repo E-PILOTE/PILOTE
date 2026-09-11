@@ -72,7 +72,7 @@ final yearInscriptionTotalsProvider =
     return Stream.value(const YearInscriptionTotals());
   }
   if (!permissionsLoaded(ref)) return const Stream.empty();
-  final scope = classScopeClause(ref, 'inscriptions', column: 'class_id');
+  final scope = classScopeClause(ref, 'inscriptions', column: 'ce.class_id');
   // Une seule requête pour les totaux ET le rythme : on groupe par mois, puis
   // Dart additionne. `substr(...,1,7)` plutôt que `strftime` — la date est
   // stockée en texte « AAAA-MM-JJ » et le découpage ne dépend alors d'aucune
@@ -81,16 +81,26 @@ final yearInscriptionTotalsProvider =
       .watch(
         '''
         SELECT
-          substr(COALESCE(enrollment_date, ''), 1, 7)                       AS mois,
-          SUM(CASE WHEN status = 'active'                 THEN 1 ELSE 0 END) AS enrolled,
-          SUM(CASE WHEN status = 'pending_validation'     THEN 1 ELSE 0 END) AS att,
-          SUM(CASE WHEN inscription_type = 'reinscription' THEN 1 ELSE 0 END) AS re,
-          SUM(CASE WHEN inscription_type = 'transfer'      THEN 1 ELSE 0 END) AS tr,
-          SUM(CASE WHEN COALESCE(inscription_type, 'new') NOT IN
-                        ('reinscription', 'transfer')      THEN 1 ELSE 0 END) AS nw,
-          SUM(CASE WHEN is_repeating = 1                  THEN 1 ELSE 0 END) AS rep
-        FROM class_enrollments
-        WHERE school_id = ? AND academic_year_id = ?
+          substr(COALESCE(ce.enrollment_date, ''), 1, 7)                       AS mois,
+          SUM(CASE WHEN ce.status = 'active'                 THEN 1 ELSE 0 END) AS enrolled,
+          SUM(CASE WHEN ce.status = 'pending_validation'     THEN 1 ELSE 0 END) AS att,
+          SUM(CASE WHEN ce.inscription_type = 'reinscription' THEN 1 ELSE 0 END) AS re,
+          SUM(CASE WHEN ce.inscription_type = 'transfer'      THEN 1 ELSE 0 END) AS tr,
+          SUM(CASE WHEN COALESCE(ce.inscription_type, 'new') NOT IN
+                        ('reinscription', 'transfer')         THEN 1 ELSE 0 END) AS nw,
+          SUM(CASE WHEN ce.is_repeating = 1                  THEN 1 ELSE 0 END) AS rep
+        FROM class_enrollments ce
+        -- ⚠️ Cette jointure manquait, et avec elle le seul filtre qui compte.
+        -- La courbe « Rythme des inscriptions » et celle de l'effectif
+        -- (`students_registry_provider.dart:240`) répondaient à la même
+        -- question sur deux pages voisines, et ne donnaient pas le même
+        -- nombre : celle-ci comptait les élèves retirés du registre. Le KPI
+        -- « En attente » ne redescendait d'ailleurs jamais — un dossier
+        -- `pending_validation` d'élève désactivé y restait pour toujours,
+        -- aucune action de l'écran ne pouvant l'en retirer.
+        JOIN students s
+          ON s.id = ce.student_id AND COALESCE(s.is_active, 1) <> 0
+        WHERE ce.school_id = ? AND ce.academic_year_id = ?
         ${scope?.clause ?? ''}
         GROUP BY mois
         ORDER BY mois

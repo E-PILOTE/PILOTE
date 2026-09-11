@@ -1,10 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/utils/enregistrer_csv.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../classes/providers/class_provider.dart' show setEnrollmentExit;
 import '../../navigation/providers/permissions_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
 import '../../../services/powersync/powersync_service.dart';
@@ -342,16 +341,27 @@ Future<void> approveTransfer({
     [approvedBy, now, now, transferId],
   );
   if (enrollmentId != null && enrollmentId.isNotEmpty) {
-    await db.execute(
-      '''
-      UPDATE class_enrollments
-      SET    status = 'transferred', withdrawal_date = ?,
-             withdrawal_reason = ?, updated_at = ?
-      WHERE  id = ?
-      ''',
-      [now.substring(0, 10),
-       (reason?.trim().isNotEmpty ?? false) ? reason!.trim() : 'Transfert',
-       now, enrollmentId],
+    // ⚠️ Cet UPDATE était écrit à la main et n'a JAMAIS posé
+    // `withdrawal_motif` — la seule colonne que compte
+    // `v_sorties_par_motif`, c'est-à-dire la statistique de déperdition
+    // scolaire que le ministère publie. Résultat : la voie OFFICIELLE du
+    // transfert était la seule sortie invisible de la statistique, quand la
+    // radiation (`class_provider.dart:675`), l'exclusion disciplinaire
+    // (`discipline_provider.dart:232`) et le non-retour
+    // (`non_revenus_provider.dart:230`) y figuraient toutes.
+    //
+    // On passe désormais par `setEnrollmentExit`, point d'écriture unique
+    // d'une sortie d'effectif. Le motif est `transfert` — le code de
+    // `kMotifsTransfert` (`core/utils/sortie_motif.dart`), aligné sur la
+    // contrainte CHECK de la migration 0082 : un code refusé en base ferait
+    // abandonner le LOT PowerSync entier.
+    await setEnrollmentExit(
+      enrollmentId: enrollmentId,
+      status: 'transferred',
+      motif: 'transfert',
+      // Le texte libre reste le COMMENTAIRE : la catégorie sert à compter, le
+      // commentaire à comprendre un cas particulier.
+      reason: (reason?.trim().isNotEmpty ?? false) ? reason!.trim() : 'Transfert',
     );
   }
 }
@@ -383,8 +393,11 @@ Future<void> deleteTransfer(String transferId) async {
   await db.execute('DELETE FROM student_transfers WHERE id = ?', [transferId]);
 }
 
-/// Export CSV (séparateur `;`, BOM UTF-8). Retourne le chemin.
-Future<String> exportTransfersCsv(List<TransferRow> rows) async {
+/// Compose le CSV des transferts (séparateur `;`, BOM UTF-8) et demande à
+/// l'agent où l'enregistrer.
+///
+/// Retourne le chemin écrit, ou `null` s'il a fermé la fenêtre sans choisir.
+Future<String?> exportTransfersCsv(List<TransferRow> rows) async {
   String cell(String? v) => '"${(v ?? '').replaceAll('"', '""')}"';
   String date(DateTime? d) =>
       d == null ? '' : d.toIso8601String().substring(0, 10);
@@ -404,9 +417,12 @@ Future<String> exportTransfersCsv(List<TransferRow> rows) async {
       r.statusLabel,
     ].map(cell).join(';'));
   }
-  final dir = await getApplicationDocumentsDirectory();
+  // ⚠️ « Enregistrer sous », et non une écriture silencieuse dans Documents :
+  // sous Windows ce dossier est le plus souvent redirigé vers OneDrive.
   final ts = DateTime.now().toIso8601String().substring(0, 10);
-  final file = File('${dir.path}/transferts_$ts.csv');
-  await file.writeAsString('﻿${b.toString()}');
-  return file.path;
+  return enregistrerCsvSous(
+    nomPropose: 'transferts_$ts.csv',
+    contenu: b.toString(),
+    titreFenetre: 'Enregistrer la liste des transferts',
+  );
 }

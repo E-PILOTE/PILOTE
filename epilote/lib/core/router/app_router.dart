@@ -285,7 +285,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         // lisent l'école entière, hors du périmètre de classes de l'agent. Sans
         // ce garde, un enseignant atteignant l'URL éditerait un « État des
         // effectifs de l'établissement » portant sur toutes les classes.
-        if (loc == Routes.calendrier || loc == Routes.userRapports) {
+        //
+        // ⚠️ `userAudit` A ÉTÉ AJOUTÉE ICI LE 2026-09-09, et c'est une
+        // correction, pas un durcissement. La sidebar la masquait déjà aux
+        // autres rôles (`nav_config.dart`, bloc `ZoneNav.etablissement`), et
+        // `toute_page_ecole_est_un_module_test` la dispensait de verrou de
+        // module en écrivant noir sur blanc « gardé par le rôle ». Le routeur,
+        // lui, ne la gardait pas : l'URL tapée à la main ouvrait à n'importe
+        // quel agent le journal de TOUTE l'école — qui a touché à quelle note,
+        // à quel paiement, à quel dossier du personnel. Une dispense qui
+        // s'appuie sur une garde inexistante est pire que pas de dispense.
+        // `garde_des_pages_de_direction_test.dart` confronte désormais les
+        // deux fichiers.
+        if (loc == Routes.calendrier ||
+            loc == Routes.userRapports ||
+            loc == Routes.userAudit) {
           if (!AppConstants.directionRoles.contains(role)) {
             return Routes.userDashboard;
           }
@@ -729,14 +743,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) =>
             const StaffAnnouncementsScreen(initialTab: 1),
       ),
+      // ⚠️ LE SEUL ÉCRAN NON BÂTI DU PRODUIT — et c'est une décision assumée,
+      //  pas un oubli (2026-09-10).
+      //
+      //  État vérifié : **zéro compte porte le rôle `parent`** en production,
+      //  aucun écran ne propose de le créer, et l'entrée de barre est déjà
+      //  gardée par `if (!isParent)` (`nav_config.dart:431`). Personne, à ce
+      //  jour, ne peut atteindre cette page — la route existe pour que le rôle
+      //  reste cohérent avec l'enum `user_role`, qui le contient.
+      //
+      //  Le message ne dit plus « bientôt ». Une promesse sans date est ce qui
+      //  fait attendre une famille : il dit ce qui existe MAINTENANT et par
+      //  quel chemin, ce qui est vrai et utilisable aujourd'hui.
       GoRoute(
         path: Routes.espaceParent,
         builder: (_, _) => const StaffComingSoonScreen(
           title: 'Espace Parent',
           icon: Icons.family_restroom_rounded,
           message:
-              'Le suivi de votre enfant (notes, présences, paiements) '
-              'sera bientôt accessible ici.',
+              'Le suivi en ligne des familles n\'est pas encore ouvert : il '
+              'demande un espace distinct de celui du personnel, et il sera '
+              'bâti après le déploiement national.\n\n'
+              'En attendant, l\'établissement remet ces informations sur '
+              'papier : le bulletin est édité par le module Bulletins, le '
+              'relevé d\'assiduité par Vie scolaire, et le reçu de paiement '
+              'est délivré au guichet à chaque encaissement.',
         ),
       ),
       GoRoute(

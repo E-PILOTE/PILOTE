@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../core/utils/garder_au_chaud.dart';
 
@@ -61,11 +62,12 @@ final unpaidInvoicesProvider =
     FutureProvider.autoDispose<List<UnpaidInvoice>>((ref) async {
   garderAuChaud(ref);
   final client = ref.watch(supabaseClientProvider);
-  final rows = await client
+  final rows = await fetchAllRows(() => client
       .from('group_invoices')
       .select('id, invoice_number, amount_xaf, status, school_groups(name)')
       .inFilter('status', ['pending', 'overdue'])
-      .order('created_at', ascending: false) as List;
+      .order('created_at', ascending: false)
+      .order('id'));
   return rows.map((r) {
     final m  = r as Map;
     final sg = m['school_groups'] as Map? ?? {};
@@ -122,7 +124,7 @@ final receiptsProvider = FutureProvider.autoDispose<ReceiptsData>((ref) async {
   ref.keepAlive();
   final client = ref.watch(supabaseClientProvider);
 
-  final rows = await client
+  final rows = await fetchAllRows(() => client
       .from('group_invoices')
       .select(
         'id, invoice_number, group_id, amount_xaf, period_start, period_end, '
@@ -130,7 +132,8 @@ final receiptsProvider = FutureProvider.autoDispose<ReceiptsData>((ref) async {
         'school_groups(name), subscription_plans(name)',
       )
       .eq('status', 'paid')
-      .order('paid_at', ascending: false);
+      .order('paid_at', ascending: false)
+      .order('id'));
 
   final receipts = (rows as List).map((r) {
     final m = r as Map;

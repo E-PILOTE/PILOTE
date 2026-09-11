@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/utils/garder_au_chaud.dart';
 
@@ -219,11 +220,12 @@ final groupFilieresProvider =
   final client = ref.watch(supabaseClientProvider);
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
   if (groupId == null) return const [];
-  final rows = await client
+  final rows = await fetchAllRows(() => client
       .from('classes')
       .select('filiere_label')
       .eq('group_id', groupId)
-      .not('filiere_label', 'is', null);
+      .not('filiere_label', 'is', null)
+      .order('id'));
   final set = <String>{
     for (final r in rows as List)
       if ((r['filiere_label'] as String?)?.trim().isNotEmpty ?? false)

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/utils/erreur_metier.dart';
 
@@ -488,17 +489,23 @@ class ArchiveActions {
     } else if (scope == PubScope.departement && department != null) {
       q = q.eq('department', department);
     }
+    // ⚠️ Paginé : un ministère-groupe supervise des centaines d'écoles.
+    // Tronquée, cette liste ferait « publier à toutes les écoles » un document
+    // que les dernières ne recevraient jamais — sans erreur, et sans qu'aucun
+    // écran ne puisse le dire.
     final schools = [
-      for (final r in await q) r['id'] as String,
+      for (final r in await fetchAllRows(() => q.order('id')))
+        r['id'] as String,
     ];
     if (schools.isEmpty) return 0;
 
-    final heads = await client
+    final heads = await fetchAllRows(() => client
         .from('profiles')
         .select('id')
         .eq('group_id', groupId)
         .inFilter('school_id', schools)
-        .inFilter('role', ['directeur', 'proviseur']);
+        .inFilter('role', ['directeur', 'proviseur'])
+        .order('id'));
 
     final rows = [
       for (final h in heads as List)

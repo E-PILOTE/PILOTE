@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/utils/garder_au_chaud.dart';
 
@@ -129,11 +130,12 @@ Future<int?> examRuleMatchCount(
 final ruleScopeGroupsProvider =
     FutureProvider.autoDispose<List<(String, String)>>((ref) async {
   garderAuChaud(ref, pendant: kChaudReferentiel);
-  final rows = await ref
-      .watch(supabaseClientProvider)
+  final client = ref.watch(supabaseClientProvider);
+  final rows = await fetchAllRows(() => client
       .from('school_groups')
       .select('id, name')
-      .order('name');
+      .order('name')
+      .order('id'));
   return [
     for (final r in rows)
       (r['id'] as String, (r['name'] as String?) ?? 'Groupe sans nom'),

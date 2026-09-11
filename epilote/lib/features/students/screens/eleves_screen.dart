@@ -315,6 +315,9 @@ class _BodyState extends ConsumerState<_Body> {
     if (list.isEmpty) return;
     try {
       final path = await exportStudentsCsv(list);
+      // `null` = fenêtre « Enregistrer sous » fermée sans choisir. Ni fichier,
+      // ni message : annuler doit rester sans conséquence visible.
+      if (path == null) return;
       _snack('Export CSV : ${list.length} ligne(s) → $path', kGreen);
     } catch (e) {
       _snack(messageErreur(e, contexte: 'Export'), kRed);
@@ -394,11 +397,13 @@ class _BodyState extends ConsumerState<_Body> {
       data: (all) {
         final filtered = _apply(all);
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+        // ── ⚠️ `CustomScrollView`, PAS `SingleChildScrollView` ────────────
+        //  L'en-tête (indicateurs, graphiques, filtres) reste construit d'un
+        //  bloc : il est court et toujours visible. La LISTE, elle, passe en
+        //  slivers — sans quoi les 868 élèves de l'école la plus chargée du
+        //  parc étaient tous construits, à chaque tick de synchro, pour en
+        //  montrer une douzaine. Voir `studentListSlivers`.
+        final entete = <Widget>[
               _Kpis(
                 students: all,
                 active: _particularite,
@@ -497,28 +502,38 @@ class _BodyState extends ConsumerState<_Body> {
                     message: 'Ajustez la recherche ou les filtres.',
                   ),
                 )
-              else if (_isTable)
-                _StudentTable(
-                  rows: filtered,
-                  sortAsc: _sortAsc,
-                  selected: _selected,
-                  readOnly: readOnly,
-                  onSort: () => setState(() => _sortAsc = !_sortAsc),
-                  onSelect: _toggle,
-                  onSelectAll: (v) => _toggleAll(filtered, v),
-                  onOpen: _openDrawer,
-                )
-              else
-                _StudentCards(
-                  rows: filtered,
-                  selected: _selected,
-                  readOnly: readOnly,
-                  onSelect: _toggle,
-                  onOpen: _openDrawer,
-                ),
-              const SizedBox(height: 24),
-            ],
-          ),
+            ];
+
+        // Le corps : rien si la liste est vide (les états vides sont déjà
+        // dans l'en-tête ci-dessus), sinon la liste virtualisée.
+        final corps = (all.isEmpty || filtered.isEmpty)
+            ? const <Widget>[]
+            : studentListSlivers(
+                rows: filtered,
+                isTable: _isTable,
+                sortAsc: _sortAsc,
+                readOnly: readOnly,
+                selected: _selected,
+                onSort: () => setState(() => _sortAsc = !_sortAsc),
+                onSelect: _toggle,
+                onSelectAll: (v) => _toggleAll(filtered, v),
+                onOpen: _openDrawer,
+              );
+
+        return CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate.fixed(entete),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              sliver: SliverMainAxisGroup(slivers: corps),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          ],
         );
       },
     );

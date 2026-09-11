@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../core/utils/mesures_manquantes.dart';
+import '../../../core/utils/paged_fetch.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  RAPPORTS · agrégation filtrée (période + école) — scope group_id, Supabase
@@ -10,6 +11,15 @@ import '../../../core/utils/mesures_manquantes.dart';
 //  brutes du groupe (élèves, personnel, écoles, paiements) puis on agrège côté
 //  client selon la période/établissement sélectionnés : zéro requête réseau au
 //  changement de filtre, drill-down instantané.
+//
+//  ⚠️ TOUTE lecture de table passe par `fetchAllRows` (2026-09-09). PostgREST
+//  plafonne une réponse à 1 000 lignes et ne le dit pas. Mesuré ce jour-là sur
+//  la base de production : le plus gros groupe compte 3 781 élèves et 3 461
+//  paiements. Sans pagination, ce fichier lisait 1 000 des uns et 1 000 des
+//  autres, puis agrégeait — l'état des effectifs du réseau annonçait 1 000
+//  élèves au lieu de 3 781, et le recouvrement 29 % de ce qui est encaissé.
+//  Le chiffre part en PDF signé : il n'a pas le droit d'être la limite de
+//  pagination déguisée en mesure. Cf. `core/utils/paged_fetch.dart`.
 // ════════════════════════════════════════════════════════════════════════════
 
 // ─── Granularité de période ──────────────────────────────────────────────────
@@ -462,11 +472,15 @@ final reportsSnapshotProvider =
   final List<SchoolRaw> schools = [];
   Future<void> lireEcoles() async {
     try {
-      final rows = await client
+      final rows = await fetchAllRows(() => client
           .from('schools')
           .select('id, name, school_type, city, department, is_active')
           .eq('group_id', groupId)
-          .order('name', ascending: true) as List;
+          .order('name', ascending: true)
+          // Deux écoles homonymes existent (« CEG de Kinkala ») : `id` clôt le
+          // tri pour qu'aucune ligne ne saute ni ne compte deux fois à la
+          // frontière de deux pages.
+          .order('id'));
       for (final s in rows) {
         final dept = (s['department'] as String?)?.trim();
         schools.add(SchoolRaw(
@@ -487,11 +501,12 @@ final reportsSnapshotProvider =
   final List<StudentRaw> students = [];
   Future<void> lireEleves() async {
     try {
-      final rows = await client
+      final rows = await fetchAllRows(() => client
           .from('students')
           .select('school_id, gender, created_at')
           .eq('group_id', groupId)
-          .eq('is_active', true) as List;
+          .eq('is_active', true)
+          .order('id'));
       for (final r in rows) {
         students.add(StudentRaw(
           schoolId: r['school_id'] as String? ?? '',
@@ -508,11 +523,12 @@ final reportsSnapshotProvider =
   final List<StaffRaw> staff = [];
   Future<void> lirePersonnel() async {
     try {
-      final rows = await client
+      final rows = await fetchAllRows(() => client
           .from('staff_members')
           .select('school_id, contract_type, hire_date')
           .eq('group_id', groupId)
-          .eq('is_active', true) as List;
+          .eq('is_active', true)
+          .order('id'));
       for (final r in rows) {
         staff.add(StaffRaw(
           schoolId: r['school_id'] as String? ?? '',
@@ -529,11 +545,12 @@ final reportsSnapshotProvider =
   final Map<String, int> classesBySchool = {};
   Future<void> lireClasses() async {
     try {
-      final rows = await client
+      final rows = await fetchAllRows(() => client
           .from('classes')
           .select('school_id')
           .eq('group_id', groupId)
-          .eq('is_active', true) as List;
+          .eq('is_active', true)
+          .order('id'));
       for (final r in rows) {
         final sid = r['school_id'] as String? ?? '';
         classesBySchool[sid] = (classesBySchool[sid] ?? 0) + 1;
@@ -547,11 +564,12 @@ final reportsSnapshotProvider =
   final List<PaymentRaw> payments = [];
   Future<void> lirePaiements() async {
     try {
-      final rows = await client
+      final rows = await fetchAllRows(() => client
           .from('student_payments')
           .select('school_id, student_id, amount_xaf, payment_date, status')
           .eq('group_id', groupId)
-          .eq('status', 'confirmed') as List;
+          .eq('status', 'confirmed')
+          .order('id'));
       for (final r in rows) {
         payments.add(PaymentRaw(
           schoolId: r['school_id'] as String? ?? '',

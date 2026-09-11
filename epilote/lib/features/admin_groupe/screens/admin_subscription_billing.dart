@@ -227,12 +227,20 @@ class _InvoiceRowState extends State<_InvoiceRow> {
                     child: CircularProgressIndicator(strokeWidth: 2, color: kNavy)),
               )
             : Row(mainAxisSize: MainAxisSize.min, children: [
+                // ⛔ `printInvoice` / `printReceipt` ouvraient la boîte
+                // d'impression du système sans aucun aperçu. Sur un poste
+                // Windows dont l'imprimante par défaut est « Microsoft Print
+                // to PDF », l'école obtenait un fichier qu'elle n'avait pas vu,
+                // là où elle ne l'avait pas choisi — sur sa facture et son
+                // reçu d'abonnement.
                 _pdfBtn('Facture', Icons.description_rounded, kNavy,
-                    () => _run(() => InvoicePdfService.printInvoice(i))),
+                    () => _run(
+                        () => InvoicePdfService.apercuFacture(context, i))),
                 if (i.isPaid) ...[
                   const SizedBox(width: 8),
                   _pdfBtn('Reçu', Icons.receipt_rounded, kGreen,
-                      () => _run(() => ReceiptPdfService.printReceipt(_toReceipt(i)))),
+                      () => _run(() => ReceiptPdfService.apercuRecu(
+                          context, _toReceipt(i)))),
                 ],
               ]);
         if (narrow) {

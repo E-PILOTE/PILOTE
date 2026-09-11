@@ -2,6 +2,41 @@ import 'package:powersync/powersync.dart';
 
 /// Schéma PowerSync — toutes les tables offline (phases 1-8 + navigation).
 /// Tables admin-only (super_admin / admin_groupe) restent en Supabase direct.
+///
+/// ══════════════════════════════════════════════════════════════════════════
+///  POURQUOI LES `indexes:` (2026-09-09)
+/// ══════════════════════════════════════════════════════════════════════════
+///  PowerSync ne range pas une table en colonnes : il stocke la ligne entière
+///  dans un blob JSON (`ps_data__<table>.data`) et expose la table comme une
+///  VUE dont chaque colonne est un `json_extract(data, r'$.colonne')`.
+///
+///  Conséquence : **sans index déclaré, tout `WHERE class_id = ?` est un
+///  balayage complet de la table, avec un décodage JSON par ligne.** Rien ne
+///  le signale — c'est simplement lent, et de plus en plus lent à mesure que
+///  l'année scolaire avance. Le défaut ne se voit pas à la recette de
+///  septembre ; il se voit au troisième trimestre, sur les 1 000 postes.
+///
+///  Mesuré sur la base de production le 2026-09-09, avec 44 écoles seulement
+///  sur les 1 000+ visées : l'école la plus chargée porte **38 544 notes** et
+///  12 824 lignes de bulletin. Chaque `db.watch()` se rejoue à chaque tick de
+///  synchro, et une page de saisie en ouvre plusieurs. Le poste visé est un
+///  portable Windows d'entrée de gamme, hors ligne, en salle des professeurs.
+///
+///  Les 78 index ci-dessous couvrent les colonnes de jointure et de filtre
+///  réellement utilisées par le code (relevées sur tout le SQL du dépôt), sur
+///  les tables dont le volume croît avec le nombre d'élèves, de jours de
+///  classe ou d'années scolaires. Ils sont créés une seule fois à l'ouverture
+///  de la base, et ne changent aucun résultat.
+///
+///  ⚠️ DEUX CONTRAINTES, toutes deux gardées par
+///  `test/index_local_powersync_test.dart` :
+///   1. `Index.ascending(...)` est une FABRIQUE, pas un constructeur `const` :
+///      dans ce littéral `const`, il faut écrire
+///      `Index('nom', [IndexedColumn.ascending('col')])`.
+///   2. Une colonne indexée DOIT figurer dans la liste `columns` de sa table.
+///      `IndexedColumn.toJson` la cherche avec `firstWhere` : si elle manque,
+///      l'application lève un StateError AU DÉMARRAGE, avant son premier
+///      écran.
 const schema = Schema([
 
   // ════════════════════════════════════════════════════════════════════════
@@ -134,6 +169,8 @@ const schema = Schema([
     Column.text('pin_reset_requested_at'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_ecole', [IndexedColumn.ascending('school_id')]),
   ]),
 
   // Groupe scolaire — contient plan_id → clé de navigation offline
@@ -357,6 +394,8 @@ const schema = Schema([
     Column.integer('is_active'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_ecole_annee', [IndexedColumn.ascending('school_id'), IndexedColumn.ascending('academic_year_id')]),
   ]),
 
   Table('class_enrollments', [
@@ -401,6 +440,11 @@ const schema = Schema([
     Column.text('promotion_decided_by'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_classe_statut', [IndexedColumn.ascending('class_id'), IndexedColumn.ascending('status')]),
+    Index('par_eleve', [IndexedColumn.ascending('student_id')]),
+    Index('par_annee_statut', [IndexedColumn.ascending('academic_year_id'), IndexedColumn.ascending('status')]),
+    Index('par_ecole_annee', [IndexedColumn.ascending('school_id'), IndexedColumn.ascending('academic_year_id')]),
   ]),
 
   // ════════════════════════════════════════════════════════════════════════
@@ -441,6 +485,10 @@ const schema = Schema([
     Column.integer('is_active'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_ecole', [IndexedColumn.ascending('school_id')]),
+    Index('par_matricule', [IndexedColumn.ascending('matricule')]),
+    Index('par_ine', [IndexedColumn.ascending('ine')]),
   ]),
 
   Table('student_tutors', [
@@ -470,6 +518,8 @@ const schema = Schema([
     Column.integer('is_emergency_contact'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_eleve', [IndexedColumn.ascending('student_id')]),
   ]),
 
   // Demandes de changement de photo d'agent (migration 0113).
@@ -515,6 +565,9 @@ const schema = Schema([
     Column.integer('is_active'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_ecole', [IndexedColumn.ascending('school_id')]),
+    Index('par_profil', [IndexedColumn.ascending('profile_id')]),
   ]),
 
   Table('teacher_subjects', [
@@ -527,6 +580,9 @@ const schema = Schema([
     Column.integer('weekly_hours'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_agent', [IndexedColumn.ascending('staff_id')]),
+    Index('par_classe', [IndexedColumn.ascending('class_id')]),
   ]),
 
   Table('subjects', [
@@ -553,6 +609,8 @@ const schema = Schema([
     Column.integer('weekly_hours'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_classe', [IndexedColumn.ascending('class_id')]),
   ]),
 
   // Programme pédagogique / syllabus d'une matière à un niveau (optionnellement
@@ -702,6 +760,10 @@ const schema = Schema([
     Column.integer('is_active'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_classe', [IndexedColumn.ascending('class_id')]),
+    Index('par_ecole_annee', [IndexedColumn.ascending('school_id'), IndexedColumn.ascending('academic_year_id')]),
+    Index('par_agent', [IndexedColumn.ascending('staff_id')]),
   ]),
 
   Table('lesson_entries', [
@@ -720,6 +782,9 @@ const schema = Schema([
     Column.text('resources'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_classe_date', [IndexedColumn.ascending('class_id'), IndexedColumn.ascending('entry_date')]),
+    Index('par_agent', [IndexedColumn.ascending('staff_id')]),
   ]),
 
   Table('attendance_records', [
@@ -734,6 +799,9 @@ const schema = Schema([
     Column.integer('is_finalized'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_classe_date', [IndexedColumn.ascending('class_id'), IndexedColumn.ascending('record_date')]),
+    Index('par_ecole_date', [IndexedColumn.ascending('school_id'), IndexedColumn.ascending('record_date')]),
   ]),
 
   Table('attendance_entries', [
@@ -749,6 +817,9 @@ const schema = Schema([
     Column.text('notified_at'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_feuille', [IndexedColumn.ascending('attendance_record_id')]),
+    Index('par_eleve', [IndexedColumn.ascending('student_id')]),
   ]),
 
   // ════════════════════════════════════════════════════════════════════════
@@ -792,6 +863,9 @@ const schema = Schema([
     Column.text('notes'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_classe_annee', [IndexedColumn.ascending('class_id'), IndexedColumn.ascending('academic_year_id')]),
+    Index('par_ecole_annee', [IndexedColumn.ascending('school_id'), IndexedColumn.ascending('academic_year_id')]),
   ]),
 
   // ⚠️ Schéma aligné sur la base LIVE (2026-06-09) : grade NORMALISÉ → relié à
@@ -812,6 +886,10 @@ const schema = Schema([
     Column.text('created_by'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_evaluation', [IndexedColumn.ascending('evaluation_id')]),
+    Index('par_inscription', [IndexedColumn.ascending('enrollment_id')]),
+    Index('par_eleve', [IndexedColumn.ascending('student_id')]),
   ]),
 
   Table('competence_grades', [
@@ -825,6 +903,9 @@ const schema = Schema([
     Column.text('created_by'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_evaluation', [IndexedColumn.ascending('evaluation_id')]),
+    Index('par_eleve', [IndexedColumn.ascending('student_id')]),
   ]),
 
   Table('bulletins', [
@@ -853,6 +934,10 @@ const schema = Schema([
     Column.text('pdf_url'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_eleve_annee', [IndexedColumn.ascending('student_id'), IndexedColumn.ascending('academic_year_id')]),
+    Index('par_inscription', [IndexedColumn.ascending('enrollment_id')]),
+    Index('par_ecole_annee', [IndexedColumn.ascending('school_id'), IndexedColumn.ascending('academic_year_id')]),
   ]),
 
   Table('bulletin_subject_lines', [
@@ -868,6 +953,8 @@ const schema = Schema([
     Column.text('appreciation'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_bulletin', [IndexedColumn.ascending('bulletin_id')]),
   ]),
 
   // ════════════════════════════════════════════════════════════════════════
@@ -905,6 +992,8 @@ const schema = Schema([
     // d'assemblée APE). Un montant sans texte fondateur n'est pas un tarif,
     // c'est un chiffre. Cf. migration 0096.
     Column.text('source_reference'),
+  ], indexes: [
+    Index('par_ecole_annee', [IndexedColumn.ascending('school_id'), IndexedColumn.ascending('academic_year_id')]),
   ]),
 
   // api_key et api_secret exclus intentionnellement (données sensibles)
@@ -965,6 +1054,10 @@ const schema = Schema([
     Column.text('refunded_at'),
     Column.text('refunded_by'),
     Column.text('refund_reason'),
+  ], indexes: [
+    Index('par_eleve_annee', [IndexedColumn.ascending('student_id'), IndexedColumn.ascending('academic_year_id')]),
+    Index('par_ecole_annee', [IndexedColumn.ascending('school_id'), IndexedColumn.ascending('academic_year_id')]),
+    Index('par_inscription', [IndexedColumn.ascending('enrollment_id')]),
   ]),
 
   Table('budget_lines', [
@@ -977,6 +1070,8 @@ const schema = Schema([
     Column.text('notes'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_ecole_annee', [IndexedColumn.ascending('school_id'), IndexedColumn.ascending('academic_year_id')]),
   ]),
 
   Table('expenses', [
@@ -993,6 +1088,8 @@ const schema = Schema([
     Column.text('created_by'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_ecole_annee', [IndexedColumn.ascending('school_id'), IndexedColumn.ascending('academic_year_id')]),
   ]),
 
   Table('payroll', [
@@ -1013,6 +1110,9 @@ const schema = Schema([
     Column.text('created_by'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_ecole_periode', [IndexedColumn.ascending('school_id'), IndexedColumn.ascending('period_year'), IndexedColumn.ascending('period_month')]),
+    Index('par_agent', [IndexedColumn.ascending('staff_id')]),
   ]),
 
   // ════════════════════════════════════════════════════════════════════════
@@ -1035,6 +1135,9 @@ const schema = Schema([
     Column.text('follow_up_notes'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_eleve', [IndexedColumn.ascending('student_id')]),
+    Index('par_ecole_annee', [IndexedColumn.ascending('school_id'), IndexedColumn.ascending('academic_year_id')]),
   ]),
 
   Table('infirmary_visits', [
@@ -1059,6 +1162,9 @@ const schema = Schema([
     Column.text('follow_up_notes'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_eleve', [IndexedColumn.ascending('student_id')]),
+    Index('par_ecole_date', [IndexedColumn.ascending('school_id'), IndexedColumn.ascending('visit_date')]),
   ]),
 
   Table('canteen_records', [
@@ -1071,6 +1177,9 @@ const schema = Schema([
     Column.text('notes'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_eleve_date', [IndexedColumn.ascending('student_id'), IndexedColumn.ascending('record_date')]),
+    Index('par_ecole_date', [IndexedColumn.ascending('school_id'), IndexedColumn.ascending('record_date')]),
   ]),
 
   Table('library_items', [
@@ -1100,6 +1209,10 @@ const schema = Schema([
     Column.text('notes'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_emprunteur', [IndexedColumn.ascending('borrower_id')]),
+    Index('par_exemplaire', [IndexedColumn.ascending('item_id')]),
+    Index('par_ecole_statut', [IndexedColumn.ascending('school_id'), IndexedColumn.ascending('status')]),
   ]),
 
   // ════════════════════════════════════════════════════════════════════════
@@ -1178,6 +1291,8 @@ const schema = Schema([
     Column.text('group_id'),
     Column.text('reaction'),
     Column.text('created_at'),
+  ], indexes: [
+    Index('par_annonce', [IndexedColumn.ascending('announcement_id')]),
   ]),
 
   // Commentaires sur annonces (avec support de réponses imbriquées via parent_id)
@@ -1189,6 +1304,8 @@ const schema = Schema([
     Column.text('parent_id'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_annonce', [IndexedColumn.ascending('announcement_id')]),
   ]),
 
   // Annonces enregistrées ("bookmarks") — 1 par utilisateur par annonce
@@ -1197,6 +1314,8 @@ const schema = Schema([
     Column.text('user_id'),
     Column.text('group_id'),
     Column.text('created_at'),
+  ], indexes: [
+    Index('par_membre', [IndexedColumn.ascending('user_id')]),
   ]),
 
   // Stories éphémères 24h (type WhatsApp) — image/vidéo/texte, scope-aware
@@ -1219,6 +1338,8 @@ const schema = Schema([
     Column.text('group_id'),
     Column.text('viewer_id'),
     Column.text('viewed_at'),
+  ], indexes: [
+    Index('par_story', [IndexedColumn.ascending('story_id')]),
   ]),
 
   // Messages privés (sender ↔ recipient) OU de groupe (conversation_id)
@@ -1238,6 +1359,9 @@ const schema = Schema([
     Column.text('edited_at'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_conversation', [IndexedColumn.ascending('conversation_id')]),
+    Index('par_destinataire', [IndexedColumn.ascending('recipient_id')]),
   ]),
 
   // Conversations de groupe (chat multi-membres)
@@ -1260,6 +1384,9 @@ const schema = Schema([
     Column.text('role'),          // member | admin
     Column.text('joined_at'),
     Column.text('last_read_at'),
+  ], indexes: [
+    Index('par_membre', [IndexedColumn.ascending('user_id')]),
+    Index('par_conversation', [IndexedColumn.ascending('conversation_id')]),
   ]),
 
   // Notifications de l'application (jsonb data stocké en TEXT).
@@ -1280,6 +1407,8 @@ const schema = Schema([
     Column.text('sent_at'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_destinataire', [IndexedColumn.ascending('recipient_id')]),
   ]),
 
   // Demandes au support plateforme (sync-rules : uniquement les siennes)
@@ -1337,6 +1466,9 @@ const schema = Schema([
     Column.text('expiry_date'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_eleve', [IndexedColumn.ascending('student_id')]),
+    Index('par_candidat', [IndexedColumn.ascending('exam_candidate_id')]),
   ]),
 
   // ── Registre des documents DÉLIVRÉS (migration 0149) ─────────────────────
@@ -1369,6 +1501,9 @@ const schema = Schema([
     Column.text('issued_at'),
     Column.text('purpose'),
     Column.text('created_at'),
+  ], indexes: [
+    Index('par_eleve', [IndexedColumn.ascending('student_id')]),
+    Index('par_ecole_annee', [IndexedColumn.ascending('school_id'), IndexedColumn.ascending('academic_year_id')]),
   ]),
 
   Table('student_orientations', [
@@ -1384,6 +1519,8 @@ const schema = Schema([
     Column.integer('parent_consulted'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_eleve', [IndexedColumn.ascending('student_id')]),
   ]),
 
   Table('student_transfers', [
@@ -1400,6 +1537,8 @@ const schema = Schema([
     Column.text('academic_year_id'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_eleve', [IndexedColumn.ascending('student_id')]),
   ]),
 
   Table('leave_requests', [
@@ -1417,6 +1556,8 @@ const schema = Schema([
     Column.text('rejection_reason'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_agent', [IndexedColumn.ascending('staff_id')]),
   ]),
 
   // ── RH : pointage quotidien des agents (staff_id -> profiles.id) ───────────
@@ -1432,6 +1573,9 @@ const schema = Schema([
     Column.text('recorded_by'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_ecole_date', [IndexedColumn.ascending('school_id'), IndexedColumn.ascending('record_date')]),
+    Index('par_agent', [IndexedColumn.ascending('staff_id')]),
   ]),
 
   // ── RH : parcours professionnel de l'agent (migration 0023) ───────────────
@@ -1447,6 +1591,8 @@ const schema = Schema([
     Column.text('notes'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_profil', [IndexedColumn.ascending('profile_id')]),
   ]),
 
   // ── RH : diplômes & qualifications de l'agent (migration 0023) ────────────
@@ -1462,6 +1608,8 @@ const schema = Schema([
     Column.text('file_url'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_profil', [IndexedColumn.ascending('profile_id')]),
   ]),
 
   // ════════════════════════════════════════════════════════════════════════
@@ -1595,6 +1743,10 @@ const schema = Schema([
     Column.text('created_by'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_session', [IndexedColumn.ascending('session_id')]),
+    Index('par_eleve', [IndexedColumn.ascending('student_id')]),
+    Index('par_classe', [IndexedColumn.ascending('class_id')]),
   ]),
 
   // ── TRANSMISSIONS (migration 0054) — dépôt OPPOSABLE à la DEC ──────────────
@@ -1634,6 +1786,8 @@ const schema = Schema([
     Column.integer('position'),
     Column.text('payload'),         // jsonb -> texte : nom, matricule, classe…
     Column.text('created_at'),
+  ], indexes: [
+    Index('par_transmission', [IndexedColumn.ascending('transmission_id')]),
   ]),
 
   // ════════════════════════════════════════════════════════════════════════
@@ -1683,6 +1837,9 @@ const schema = Schema([
     Column.text('created_by'),
     Column.text('created_at'),
     Column.text('updated_at'),
+  ], indexes: [
+    Index('par_eleve', [IndexedColumn.ascending('student_id')]),
+    Index('par_ecole_annee', [IndexedColumn.ascending('school_id'), IndexedColumn.ascending('academic_year_id')]),
   ]),
 
   // Référentiel territorial (0043) — 15 départements, national.

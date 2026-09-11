@@ -155,6 +155,9 @@ class _BodyState extends ConsumerState<_Body> {
     if (list.isEmpty) return;
     try {
       final path = await exportClassesCsv(list);
+      // `null` = fenêtre « Enregistrer sous » fermée sans choisir. Ni fichier,
+      // ni message : annuler doit rester sans conséquence visible.
+      if (path == null) return;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Export CSV : ${list.length} ligne(s) → $path'),

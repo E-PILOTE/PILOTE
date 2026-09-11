@@ -25,7 +25,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../../data/models/academic_year_model.dart';
-import '../../auth/providers/auth_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
 import '../../structure/providers/academic_year_provider.dart';
 import '../../students/services/carte_scolaire_pdf_service.dart';
@@ -216,10 +215,11 @@ Future<void> imprimerCarteEleve(
   );
 }
 
-/// L'agent connecté peut-il produire des cartes ? Réservé au personnel de
-/// l'établissement — le rôle sert de garde-fou local, le verrou qui compte
-/// reste le module `cartes` (profil d'accès) et la RLS.
-bool peutProduireDesCartes(WidgetRef ref) {
-  final role = ref.read(authNotifierProvider).valueOrNull?.role;
-  return role != null && role != 'eleve' && role != 'parent';
-}
+// RETIRÉ le 2026-09-09 : `peutProduireDesCartes(ref)` — un test de rôle
+// (`role != 'eleve' && role != 'parent'`) déclaré et appelé NULLE PART. Son
+// propre commentaire admettait que « le verrou qui compte reste le module
+// `cartes` (profil d'accès) et la RLS » ; ces deux-là existent et fonctionnent.
+// Une garde annoncée mais jamais invoquée est pire que son absence : elle fait
+// renoncer à en chercher une vraie. Le vrai périmètre est désormais posé dans
+// `cartes_provider.dart` (`classScopeClause(ref, kSlugCartes, …)`), et le droit
+// d'export garde les deux boutons d'impression.

@@ -5,11 +5,36 @@ import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../classes/providers/class_provider.dart';
+import '../../navigation/providers/permissions_provider.dart' show canProvider;
 import '../../navigation/widgets/module_scaffold.dart';
 import '../../students/widgets/inscription_form_kit.dart';
 import '../providers/academic_structure_provider.dart';
 import '../providers/academic_year_context.dart';
 import '../../../core/utils/message_erreur.dart';
+
+// ═════════════════════════════════════════════════════════════════════════
+//  DEUX ÉCRANS ÉCRIVENT `classes`, ET C'EST ASSUMÉ — décidé le 2026-09-10
+// ═════════════════════════════════════════════════════════════════════════
+//  Cet écran (Structure académique) et l'écran Classes créent tous deux une
+//  classe. La question de les fusionner a été posée ; la réponse est NON, et
+//  la voici pour qu'on ne la repose pas tous les six mois :
+//
+//   • ils servent deux gestes différents. Ici, on BÂTIT la structure — cycles,
+//     niveaux, puis les classes qui les portent, en une fois, avant la
+//     rentrée. Là-bas, on GÈRE une classe qui existe : son effectif, son
+//     professeur principal, sa salle, en cours d'année.
+//   • ils ne s'adressent pas aux mêmes personnes ni au même moment.
+//
+//  ⚠️ CE QUI DEVAIT ÊTRE CORRIGÉ L'A ÉTÉ. Le risque n'était pas d'avoir deux
+//  formulaires : c'était d'avoir deux ÉCRITURES divergentes. Les deux passent
+//  désormais par `createStructuredClass`, la seule qui pose les colonnes
+//  dénormalisées (`cycle_code`, `level_code`, `level_order`, `filiere_*`) dont
+//  dépendent l'État de rentrée et les KPI d'inscriptions. La fonction amputée
+//  qui vivait à côté (`createClass`, sans appelant) a été supprimée.
+//
+//  Règle : deux portes, une seule serrure. Toute nouvelle porte vers `classes`
+//  passe par `createStructuredClass`.
+// ═════════════════════════════════════════════════════════════════════════
 
 part 'academic_structure_cycles.dart';
 part 'academic_structure_detail.dart';
@@ -78,7 +103,28 @@ class _BodyState extends ConsumerState<_Body> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(academicStructureProvider);
-    final readOnly = ref.watch(yearReadOnlyProvider);
+    // ⚠️ DEUX verrous distincts, et l'un manquait entièrement.
+    //
+    //  `yearReadOnlyProvider` ferme l'écran quand l'année est verrouillée ou
+    //  qu'aucune n'est courante. Il ne dit RIEN du droit du membre.
+    //
+    //  Or ces boutons écrivent dans `classes`, dont la politique RLS
+    //  `classes_insert` exige `classes.create`. 38 membres « Secrétariat »
+    //  voyaient donc un « + » qui leur renvoyait un `42501` — un code que
+    //  PowerSync traite comme fatal : le LOT ENTIER du poste est jeté, avec
+    //  les inscriptions, les présences et les paiements de la même fenêtre.
+    //  Un bouton qu'on ne peut pas actionner doit être absent, pas punitif.
+    //
+    //  Le droit interrogé est celui du module `classes` (la table écrite), pas
+    //  celui de `niveaux` (le module de l'écran) : on demande à l'écran de
+    //  prédire ce que le serveur acceptera.
+    final readOnlyYear = ref.watch(yearReadOnlyProvider);
+    final canCreateClass =
+        ref.watch(canProvider((slug: 'classes', action: 'create')));
+    final canUpdateClass =
+        ref.watch(canProvider((slug: 'classes', action: 'update')));
+    final readOnly = readOnlyYear || !canUpdateClass;
+    final canAdd = !readOnlyYear && canCreateClass;
 
     return async.when(
       skipLoadingOnReload: true,
@@ -145,6 +191,7 @@ class _BodyState extends ConsumerState<_Body> {
                           child: _DetailPanel(
                             cycle: cycle,
                             readOnly: readOnly,
+                            canAdd: canAdd,
                             search: _search,
                             filiere: _filiere,
                             onSearch: (_) => setState(() {}),
@@ -171,6 +218,7 @@ class _BodyState extends ConsumerState<_Body> {
                   _DetailPanel(
                     cycle: cycle,
                     readOnly: readOnly,
+                    canAdd: canAdd,
                     search: _search,
                     filiere: _filiere,
                     narrow: true,

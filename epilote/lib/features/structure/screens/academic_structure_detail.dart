@@ -8,6 +8,7 @@ class _DetailPanel extends StatelessWidget {
   const _DetailPanel({
     required this.cycle,
     required this.readOnly,
+    required this.canAdd,
     required this.search,
     required this.filiere,
     required this.onSearch,
@@ -17,7 +18,17 @@ class _DetailPanel extends StatelessWidget {
     this.narrow = false,
   });
   final StructCycle cycle;
-  final bool readOnly, narrow;
+
+  /// Lecture seule : année verrouillée, **ou** droit `classes.update` absent.
+  /// Distinct de [canAdd] : créer et modifier sont deux verbes séparés dans
+  /// `profile_permissions`, et la RLS les distingue aussi.
+  final bool readOnly;
+
+  /// Le membre peut-il créer une classe (`classes.create`) ? Sans ce droit, le
+  /// « + » doit être ABSENT : le serveur répondrait `42501`, code fatal qui
+  /// fait jeter tout le lot PowerSync du poste.
+  final bool canAdd;
+  final bool narrow;
   final TextEditingController search;
   final String? filiere;
   final ValueChanged<String> onSearch;
@@ -50,6 +61,7 @@ class _DetailPanel extends StatelessWidget {
         classes: classes,
         color: _cycleColor(cycle.code),
         readOnly: readOnly,
+        canAdd: canAdd,
         narrow: narrow,
         onAdd: () => onAdd(lvl),
         onEdit: (c) => onEdit(lvl, c),

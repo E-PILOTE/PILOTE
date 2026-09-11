@@ -34,6 +34,12 @@ import 'package:flutter_test/flutter_test.dart';
 // ════════════════════════════════════════════════════════════════════════════
 
 const _source = 'lib/features/audit/providers/audit_data.dart';
+
+/// La courbe des 30 jours a quitté `audit_data.dart` le 2026-09-09 — le
+/// fichier passait 500 lignes. Elle emporte AVEC ELLE l'un des deux échecs de
+/// résolution de noms que ce test garde : sans cette seconde source, la sonde
+/// resterait verte tout en ne voyant plus que la moitié du sujet.
+const _sourceTimeline = 'lib/features/audit/providers/audit_timeline.dart';
 const _modale = 'lib/features/audit/screens/widgets/audit_export_dialog.dart';
 
 String _lire(String chemin) {
@@ -112,11 +118,21 @@ void main() {
     });
 
     test('les deux échecs de résolution laissent une trace', () {
+      // Les deux vivent désormais dans deux fichiers : la page du journal
+      // (`audit_data`) et la courbe des 30 jours (`audit_timeline`).
       final src = _sansCommentaires(_lire(_source));
-      expect('nomsIllisibles = true;'.allMatches(src).length, 2);
+      final srcTimeline = _sansCommentaires(_lire(_sourceTimeline));
+      expect(
+        'nomsIllisibles = true;'.allMatches(src).length +
+            'nomsIllisibles = true;'.allMatches(srcTimeline).length,
+        2,
+        reason: 'Les deux résolutions de noms — celle de la page et celle du '
+            'top des acteurs — doivent chacune signaler leur échec.',
+      );
       expect(src.contains('debugPrint('), isTrue,
           reason: 'Sans journal, un « Nom non résolu » se diagnostique en '
               'interrogeant l’utilisateur — ce qui n’arrive jamais.');
+      expect(srcTimeline.contains('debugPrint('), isTrue);
     });
   });
 }

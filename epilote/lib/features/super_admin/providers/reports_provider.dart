@@ -147,12 +147,16 @@ final reportsProvider = FutureProvider.autoDispose<ReportsData>((ref) async {
   // national à 1 000 lignes (cf. `paged_fetch.dart`). Le personnel vit dans
   // `profiles`, pas dans `staff_members` — table vide que rien n'écrit.
   final results = await Future.wait([
-    client.from('school_groups').select(
+    fetchAllRows(() => client.from('school_groups').select(
         'id, name, department, subscription_status, plan_id, group_type, '
-        'price_override_xaf, billed_schools, subscription_plans!plan_id(name, price_xaf, billing_period, extra_school_2_5_xaf, extra_school_6_10_xaf, extra_school_11_20_xaf, extra_school_21p_xaf)'),
-    client.from('schools').select('id, group_id'),
-    client.from('group_invoices').select(
-        'id, amount_xaf, status, created_at, group_id'),
+        'price_override_xaf, billed_schools, subscription_plans!plan_id(name, price_xaf, billing_period, extra_school_2_5_xaf, extra_school_6_10_xaf, extra_school_11_20_xaf, extra_school_21p_xaf)').order('id')),
+    // ⚠️ Les trois sont paginées (2026-09-09), pas seulement les élèves : la
+    // cible est 1 000 écoles, et les factures s'accumulent tous les mois. Un
+    // rapport national tronqué à 1 000 lignes sous-compte les établissements
+    // ET le chiffre d'affaires, sans un mot.
+    fetchAllRows(() => client.from('schools').select('id, group_id').order('id')),
+    fetchAllRows(() => client.from('group_invoices').select(
+        'id, amount_xaf, status, created_at, group_id').order('id')),
   ]);
 
   final groups   = results[0] as List;

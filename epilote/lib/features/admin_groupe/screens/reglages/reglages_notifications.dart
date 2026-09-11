@@ -1,284 +1,194 @@
 part of '../admin_settings_screen.dart';
 
-// Onglet Notifications.
+// ═════════════════════════════════════════════════════════════════════════════
+//  ONGLET NOTIFICATIONS
+//
+//  ── CE QUI A ÉTÉ RETIRÉ, ET POURQUOI (2026-09-10) ──────────────────────────
+//  Cet onglet proposait VINGT réglages : trois canaux (courriel, SMS, push),
+//  quatre déclencheurs, un résumé quotidien avec son heure d'envoi, trois
+//  seuils d'alerte, quatre paramètres de relance de facturation et quatre
+//  destinataires par rôle. Ils s'enregistraient correctement, et **rien ne les
+//  lisait**.
+//
+//  Vérifié des DEUX côtés, comme l'exige la règle du projet :
+//   · `grep -rn "<champ>" lib/` en excluant cet écran, son provider et son
+//     service → **0 lecteur, pour les 20 champs** ;
+//   · `pg_get_functiondef` sur les colonnes correspondantes → **0 fonction**
+//     en base ne les consulte.
+//
+//  Un premier temps avait rendu l'écran honnête : un bandeau prévenait que les
+//  choix n'étaient pas appliqués. C'était le minimum, pas la réponse. Un
+//  réglage qu'un directeur de réseau coche, qui affiche « enregistré » et qui
+//  ne produit rien coûte plus cher en confiance qu'il ne rapporte — et il fait
+//  renoncer à chercher une vraie alerte.
+//
+//  ⚠️ LES DONNÉES NE SONT PAS DÉTRUITES. Les colonnes de `group_settings`
+//  restent en place et gardent ce que chaque groupe avait coché : le jour où
+//  l'émetteur existera, les préférences déjà exprimées seront là. On retire
+//  l'OFFRE, pas la mémoire. Le modèle `NotificationSettings`, son provider et
+//  son service restent donc intacts et testés.
+//
+//  ── CE QUI EXISTE VRAIMENT, ET QUE CET ONGLET DIT MAINTENANT ───────────────
+//  Les notifications DANS l'application fonctionnent, et ne se règlent pas :
+//  dix fonctions en base écrivent la table `notifications` (message reçu,
+//  annonce publiée, facture émise, échéance d'abonnement, année scolaire
+//  publiée, rappel aux écoles en attente…). C'est la cloche de la barre du
+//  haut, et elle est fiable. L'onglet l'énonce plutôt que de laisser croire
+//  qu'il faut l'activer.
+// ═════════════════════════════════════════════════════════════════════════════
 
 class _NotificationsTab extends ConsumerWidget {
   const _NotificationsTab();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(adminGroupSettingsProvider);
     return _TabScaffold(
       onRefresh: () async {
         ref.invalidate(adminGroupSettingsProvider);
         await ref.read(adminGroupSettingsProvider.future);
       },
-      children: [
-        settings.when(
-          skipLoadingOnReload: true,
-          skipLoadingOnRefresh: true,
-          loading: () => const _CardLoader(),
-          error: (e, _) => AdminCard(child: AdminErrorBanner(message: messageErreur(e))),
-          data: (s) => _NotificationsCard(initial: s.notifications),
-        ),
-        const SizedBox(height: 24),
+      children: const [
+        _CeQuiNotifieAujourdhui(),
+        SizedBox(height: 20),
+        _CeQuiNexistePasEncore(),
+        SizedBox(height: 24),
       ],
     );
   }
 }
 
-class _NotificationsCard extends ConsumerStatefulWidget {
-  const _NotificationsCard({required this.initial});
-  final NotificationSettings initial;
+/// Ce que la plateforme envoie réellement — et qui n'a pas de réglage.
+class _CeQuiNotifieAujourdhui extends StatelessWidget {
+  const _CeQuiNotifieAujourdhui();
 
-  @override
-  ConsumerState<_NotificationsCard> createState() => _NotificationsCardState();
-}
-
-class _NotificationsCardState extends ConsumerState<_NotificationsCard> {
-  late NotificationSettings _s = widget.initial;
-  bool _saving = false;
-  String? _error;
-
-  Future<void> _save() async {
-    setState(() { _saving = true; _error = null; });
-    try {
-      await ref.read(adminSettingsServiceProvider).saveNotifications(_s);
-      if (mounted) _toast(context, 'Préférences de notification enregistrées.');
-    } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
+  /// Les déclencheurs qui écrivent vraiment dans `notifications`.
+  ///
+  /// Relevé en base, pas supposé : dix fonctions y insèrent. La liste dit ce
+  /// qu'un administrateur de réseau voit arriver dans sa cloche.
+  static const _declencheurs = <(IconData, String, String)>[
+    (Icons.mail_outline_rounded, 'Message reçu',
+        'Dès qu\'un message vous est adressé dans la messagerie.'),
+    (Icons.campaign_outlined, 'Annonce publiée',
+        'Dès qu\'une annonce paraît dans votre périmètre.'),
+    (Icons.receipt_long_outlined, 'Facture émise',
+        'À chaque facture de renouvellement d\'abonnement.'),
+    (Icons.event_busy_outlined, 'Échéance d\'abonnement',
+        'À l\'approche de la fin de l\'abonnement du groupe.'),
+    (Icons.calendar_month_outlined, 'Année scolaire publiée',
+        'Quand le groupe publie une année à ses établissements.'),
+    (Icons.pending_actions_outlined, 'École en attente',
+        'Rappel aux établissements qui n\'ont pas adopté l\'année.'),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      AdminCard(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const AdminSectionTitle('Canaux de notification',
-              icon: Icons.campaign_outlined,
-              subtitle: 'Comment le groupe est notifié'),
-          const SizedBox(height: 8),
-          _ToggleRow(
-            icon: Icons.email_outlined,
-            title: 'Email',
-            subtitle: 'Notifications par courriel',
-            value: _s.emailEnabled,
-            onChanged: (v) => setState(() => _s = _s.copyWith(emailEnabled: v)),
+    return AdminCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const AdminSectionTitle(
+          'Ce qui vous notifie aujourd\'hui',
+          icon: Icons.notifications_active_outlined,
+          subtitle: 'Dans l\'application — aucun réglage nécessaire',
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Ces notifications arrivent dans la cloche de la barre du haut. '
+          'Elles sont émises par la base de données elle-même : rien ne peut '
+          'les désactiver par erreur.',
+          style: TextStyle(fontSize: 12.5, height: 1.45, color: kTextMuted),
+        ),
+        const SizedBox(height: 14),
+        for (final (icone, titre, detail) in _declencheurs)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: kGreen.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(icone, size: 17, color: kGreen),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(titre,
+                        style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            color: kTextPrimary)),
+                    const SizedBox(height: 2),
+                    Text(detail,
+                        style: TextStyle(
+                            fontSize: 12, height: 1.4, color: kTextMuted)),
+                  ],
+                ),
+              ),
+            ]),
           ),
-          _ToggleRow(
-            icon: Icons.sms_outlined,
-            title: 'SMS',
-            subtitle: 'Notifications par message texte',
-            value: _s.smsEnabled,
-            onChanged: (v) => setState(() => _s = _s.copyWith(smsEnabled: v)),
-          ),
-          _ToggleRow(
-            icon: Icons.notifications_active_outlined,
-            title: 'Push',
-            subtitle: "Notifications dans l'application mobile",
-            value: _s.pushEnabled,
-            onChanged: (v) => setState(() => _s = _s.copyWith(pushEnabled: v)),
-          ),
-        ]),
+      ]),
+    );
+  }
+}
+
+/// Dit ce que la plateforme n'envoie pas — au lieu d'offrir de le régler.
+class _CeQuiNexistePasEncore extends StatelessWidget {
+  const _CeQuiNexistePasEncore();
+
+  @override
+  Widget build(BuildContext context) {
+    const or = Color(0xFFF59E0B);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        color: or.withValues(alpha: 0.07),
+        border: Border.all(color: or.withValues(alpha: 0.32)),
+        borderRadius: BorderRadius.circular(12),
       ),
-      const SizedBox(height: 20),
-      AdminCard(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const AdminSectionTitle('Événements suivis',
-              icon: Icons.event_note_outlined,
-              subtitle: 'Déclencheurs envoyant une notification'),
-          const SizedBox(height: 8),
-          _ToggleRow(
-            icon: Icons.how_to_reg_outlined,
-            title: 'Nouvelle inscription',
-            subtitle: 'À chaque élève inscrit',
-            value: _s.notifyNewEnrollment,
-            onChanged: (v) => setState(() => _s = _s.copyWith(notifyNewEnrollment: v)),
-          ),
-          _ToggleRow(
-            icon: Icons.payments_outlined,
-            title: 'Paiement reçu',
-            subtitle: 'À chaque encaissement de frais',
-            value: _s.notifyPaymentReceived,
-            onChanged: (v) => setState(() => _s = _s.copyWith(notifyPaymentReceived: v)),
-          ),
-          _ToggleRow(
-            icon: Icons.person_off_outlined,
-            title: 'Absence',
-            subtitle: "À chaque absence d'élève signalée",
-            value: _s.notifyAbsence,
-            onChanged: (v) => setState(() => _s = _s.copyWith(notifyAbsence: v)),
-          ),
-          _ToggleRow(
-            icon: Icons.trending_down_rounded,
-            title: 'Assiduité faible',
-            subtitle: "Alerte quand l'assiduité chute",
-            value: _s.notifyLowAttendance,
-            onChanged: (v) => setState(() => _s = _s.copyWith(notifyLowAttendance: v)),
-          ),
-        ]),
-      ),
-      const SizedBox(height: 20),
-      AdminCard(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const AdminSectionTitle('Résumé quotidien',
-              icon: Icons.summarize_outlined),
-          const SizedBox(height: 8),
-          _ToggleRow(
-            icon: Icons.schedule_send_outlined,
-            title: 'Activer le résumé quotidien',
-            subtitle: 'Un récapitulatif envoyé chaque jour',
-            value: _s.dailyDigest,
-            onChanged: (v) => setState(() => _s = _s.copyWith(dailyDigest: v)),
-          ),
-          if (_s.dailyDigest)
-            _NumberStepper(
-              icon: Icons.access_time_rounded,
-              title: "Heure d'envoi",
-              subtitle: 'Heure locale du résumé',
-              value: _s.digestHour,
-              min: 0,
-              max: 23,
-              suffix: 'h',
-              onChanged: (v) => setState(() => _s = _s.copyWith(digestHour: v)),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Icon(Icons.schedule_rounded, size: 19, color: or),
+        const SizedBox(width: 12),
+        Expanded(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Courriel, SMS et notifications mobiles : pas encore',
+                style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: kTextPrimary)),
+            const SizedBox(height: 6),
+            Text(
+              'La plateforme n\'envoie aujourd\'hui aucun courriel, aucun SMS '
+              'et aucune notification mobile. Il n\'y a donc ni résumé '
+              'quotidien, ni alerte d\'assiduité, ni relance automatique de '
+              'facturation.',
+              style: TextStyle(fontSize: 12.5, height: 1.45, color: kTextMuted),
             ),
-        ]),
-      ),
-      const SizedBox(height: 20),
-      // ── Seuils d'alerte ────────────────────────────────────────────────────
-      AdminCard(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const AdminSectionTitle("Seuils d'alerte",
-              icon: Icons.warning_amber_rounded,
-              subtitle: 'Déclenchent une alerte automatique au franchissement'),
-          const SizedBox(height: 4),
-          _NumberStepper(
-            icon: Icons.event_available_outlined,
-            title: "Seuil d'assiduité",
-            subtitle: 'Alerter sous ce taux de présence',
-            value: _s.attendanceAlertThreshold,
-            min: 50,
-            max: 100,
-            step: 5,
-            suffix: '%',
-            onChanged: (v) => setState(() => _s = _s.copyWith(attendanceAlertThreshold: v)),
-          ),
-          _NumberStepper(
-            icon: Icons.trending_down_rounded,
-            title: 'Seuil de note',
-            subtitle: 'Alerter sous cette moyenne (sur 20)',
-            value: _s.gradeAlertThreshold,
-            min: 0,
-            max: 20,
-            suffix: '/20',
-            onChanged: (v) => setState(() => _s = _s.copyWith(gradeAlertThreshold: v)),
-          ),
-          _NumberStepper(
-            icon: Icons.money_off_csred_rounded,
-            title: 'Retard de paiement',
-            subtitle: "Alerter après ce délai d'impayé",
-            value: _s.unpaidAlertDays,
-            min: 7,
-            max: 120,
-            suffix: 'jours',
-            onChanged: (v) => setState(() => _s = _s.copyWith(unpaidAlertDays: v)),
-          ),
-        ]),
-      ),
-      const SizedBox(height: 20),
-      // ── Rappels automatiques de paiement ───────────────────────────────────
-      AdminCard(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const AdminSectionTitle('Rappels automatiques de paiement',
-              icon: Icons.notification_important_outlined,
-              subtitle: 'Relances envoyées aux familles ayant un solde dû'),
-          const SizedBox(height: 8),
-          _ToggleRow(
-            icon: Icons.autorenew_rounded,
-            title: 'Activer les rappels',
-            subtitle: "Programme jusqu'à trois relances échelonnées",
-            value: _s.billingReminderEnabled,
-            onChanged: (v) => setState(() => _s = _s.copyWith(billingReminderEnabled: v)),
-          ),
-          if (_s.billingReminderEnabled) ...[
-            _NumberStepper(
-              icon: Icons.looks_one_outlined,
-              title: 'Premier rappel',
-              subtitle: "Jours après l'émission de la facture",
-              value: _s.billingReminderDay1,
-              min: 1,
-              max: 90,
-              suffix: 'j',
-              onChanged: (v) => setState(() => _s = _s.copyWith(billingReminderDay1: v)),
+            const SizedBox(height: 8),
+            Text(
+              'Les réglages qui permettaient de les paramétrer ont été retirés '
+              'de cet écran : ils s\'enregistraient sans que rien ne les lise. '
+              'Vos choix précédents sont conservés et seront repris tels quels '
+              'le jour où ces canaux existeront.',
+              style: TextStyle(fontSize: 12.5, height: 1.45, color: kTextMuted),
             ),
-            _NumberStepper(
-              icon: Icons.looks_two_outlined,
-              title: 'Deuxième rappel',
-              subtitle: "Jours après l'émission de la facture",
-              value: _s.billingReminderDay2,
-              min: 1,
-              max: 120,
-              suffix: 'j',
-              onChanged: (v) => setState(() => _s = _s.copyWith(billingReminderDay2: v)),
+            const SizedBox(height: 10),
+            Text(
+              'En attendant, une relance se fait depuis Recouvrement, et une '
+              'consigne depuis Annonces ou Messagerie — les deux laissent une '
+              'trace, ce qu\'un envoi automatique ne ferait pas.',
+              style: TextStyle(
+                  fontSize: 12.5,
+                  height: 1.45,
+                  color: kTextMuted,
+                  fontStyle: FontStyle.italic),
             ),
-            _NumberStepper(
-              icon: Icons.looks_3_outlined,
-              title: 'Dernier rappel',
-              subtitle: "Jours après l'émission de la facture",
-              value: _s.billingReminderDay3,
-              min: 1,
-              max: 180,
-              suffix: 'j',
-              onChanged: (v) => setState(() => _s = _s.copyWith(billingReminderDay3: v)),
-            ),
-          ],
-        ]),
-      ),
-      const SizedBox(height: 20),
-      // ── Destinataires par rôle ─────────────────────────────────────────────
-      AdminCard(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const AdminSectionTitle('Destinataires par rôle',
-              icon: Icons.groups_2_outlined,
-              subtitle: 'Qui reçoit chaque type de notification'),
-          const SizedBox(height: 8),
-          _ToggleRow(
-            icon: Icons.account_balance_outlined,
-            title: 'Directeur — paiements',
-            subtitle: 'Notifier le directeur à chaque encaissement',
-            value: _s.notifyDirectorOnPayment,
-            onChanged: (v) => setState(() => _s = _s.copyWith(notifyDirectorOnPayment: v)),
-          ),
-          _ToggleRow(
-            icon: Icons.person_off_outlined,
-            title: 'Directeur — absences',
-            subtitle: 'Notifier le directeur des absences signalées',
-            value: _s.notifyDirectorOnAbsence,
-            onChanged: (v) => setState(() => _s = _s.copyWith(notifyDirectorOnAbsence: v)),
-          ),
-          _ToggleRow(
-            icon: Icons.calculate_outlined,
-            title: 'Comptable — paiements',
-            subtitle: 'Notifier le comptable à chaque encaissement',
-            value: _s.notifyAccountantOnPayment,
-            onChanged: (v) => setState(() => _s = _s.copyWith(notifyAccountantOnPayment: v)),
-          ),
-          _ToggleRow(
-            icon: Icons.co_present_outlined,
-            title: 'Enseignant — absences',
-            subtitle: "Notifier l'enseignant des absences de sa classe",
-            value: _s.notifyTeacherOnAbsence,
-            onChanged: (v) => setState(() => _s = _s.copyWith(notifyTeacherOnAbsence: v)),
-          ),
-        ]),
-      ),
-      const SizedBox(height: 20),
-      _SaveBar(saving: _saving, onSave: _save, error: _error),
-      const SizedBox(height: 24),
-    ]);
+          ]),
+        ),
+      ]),
+    );
   }
 }
 

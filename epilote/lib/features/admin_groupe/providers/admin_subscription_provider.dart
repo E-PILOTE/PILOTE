@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
 import '../../../core/utils/subscription_days.dart';
@@ -627,10 +628,11 @@ final adminSubscriptionProvider =
   final List<InvoiceDetail> invoices = [];
   Future<void> lireFactures() async {
     try {
-      final rows = await client.from('group_invoices')
+      final rows = await fetchAllRows(() => client.from('group_invoices')
           .select('*, school_groups(name), subscription_plans(name)')
           .eq('group_id', groupId)
-          .order('created_at', ascending: false) as List;
+          .order('created_at', ascending: false)
+          .order('id'));
       for (final r in rows) {
         final m = Map<String, dynamic>.from(r as Map);
         m['group_name'] = (r['school_groups'] as Map?)?['name'];

@@ -5,7 +5,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 
 import '../../../core/services/attestation_kit.dart';
 import '../../../core/services/official_pdf_kit.dart';
@@ -328,17 +327,14 @@ class AcademicYearPdfService {
       s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
 
   // ── Impression / enregistrement ─────────────────────────────────────────────
-  static Future<void> printReport({
-    required AdminYear year,
-    required AdminYearAnalytics analytics,
-    required List<AdminYear> allYears,
-  }) async {
-    await Printing.layoutPdf(
-      onLayout: (_) =>
-          buildPdf(year: year, analytics: analytics, allYears: allYears),
-      name: 'Bilan_${_slug(year.label)}.pdf',
-    );
-  }
+  //
+  // RETIRÉ le 2026-09-09 : `printReport(...)` — dernier appel à
+  // `Printing.layoutPdf` de ce service, et **plus aucun appelant** depuis que
+  // l'en-tête est passée à l'aperçu partagé (`admin_year_header.dart:167` en
+  // porte la trace). Une méthode morte qui contient le geste banni est un
+  // piège : le prochain écran qui cherche « comment imprimer un bilan ? » la
+  // trouve et la rebranche. L'aperçu (`showPdfPreviewDialog` sur `buildPdf`)
+  // est le seul chemin.
 
   static Future<String?> downloadReport({
     required AdminYear year,

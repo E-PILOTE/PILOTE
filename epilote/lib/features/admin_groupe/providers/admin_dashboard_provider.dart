@@ -329,11 +329,12 @@ final adminDashboardProvider =
   int publicCount = 0, priveCount = 0;
   Future<void> lireEcoles() async {
     try {
-      final rows = await client
+      final rows = await fetchAllRows(() => client
           .from('schools')
           .select('id, name, school_type, city, department, is_active')
           .eq('group_id', groupId)
-          .order('name', ascending: true) as List;
+          .order('name', ascending: true)
+          .order('id'));
       schoolRows.addAll(rows.cast<Map<String, dynamic>>());
       for (final s in schoolRows) {
         final id   = s['id'] as String;
@@ -447,10 +448,11 @@ final adminDashboardProvider =
   int enseignantsTotal = 0, adminsTotal = 0;
   Future<void> lireCorps() async {
     try {
-      final rows = await client
+      final rows = await fetchAllRows(() => client
           .from('profiles')
           .select('role')
-          .eq('group_id', groupId) as List;
+          .eq('group_id', groupId)
+          .order('id'));
       for (final r in rows) {
         switch (r['role'] as String?) {
           case 'enseignant':   enseignantsTotal++; break;
@@ -492,12 +494,17 @@ final adminDashboardProvider =
       final yearStart = DateTime(now.month >= 9 ? now.year : now.year - 1, 9, 1);
       final from6 = DateTime(now.year, now.month - 5, 1);
       final from = yearStart.isBefore(from6) ? yearStart : from6;
-      final rows = await client
+      // ⚠️ Paginé (2026-09-09) : le plus gros groupe porte déjà 3 461
+      // paiements. Sans `fetchAllRows`, la courbe des recettes et le compte
+      // d'élèves à jour se calculaient sur les 1 000 premières lignes rendues
+      // par PostgREST — un tiers du réel, présenté comme le tout.
+      final rows = await fetchAllRows(() => client
           .from('student_payments')
           .select('amount_xaf, student_id, status, payment_date')
           .eq('group_id', groupId)
           .eq('status', 'confirmed')
-          .gte('payment_date', from.toIso8601String().substring(0, 10)) as List;
+          .gte('payment_date', from.toIso8601String().substring(0, 10))
+          .order('id'));
       for (final r in rows) {
         final amount = (r['amount_xaf'] as num? ?? 0).toDouble();
         final dt = DateTime.tryParse(r['payment_date'] as String? ?? '');

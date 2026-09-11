@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
+import '../../../core/utils/paged_fetch.dart';
 import '../../../core/constants/caractere_groupe.dart';
 import '../../../core/constants/licence_statut.dart';
 import '../../../core/constants/tutelle.dart';
 import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/booleen_en_ligne.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
+import '../../../core/utils/tarif_ecoles.dart' show ecolesParGroupe;
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../core/utils/garder_au_chaud.dart';
 
@@ -342,26 +344,32 @@ final schoolGroupsProvider =
   } catch (_) {}
 
   // ── Nombre d'écoles par groupe ────────────────────────────────────────────
-  final Map<String, int> schoolsByGroup = {};
+  Map<String, int> schoolsByGroup = {};
   try {
-    final schools = await client.from('schools').select('id, group_id') as List;
-    for (final s in schools) {
-      final gid = s['group_id'] as String? ?? '';
-      schoolsByGroup[gid] = (schoolsByGroup[gid] ?? 0) + 1;
-    }
+    // ⚠️ Paginé (2026-09-09) : le PRIX d'un groupe suit son NOMBRE
+    // D'ÉCOLES (mig. 0159). Au-delà de 1 000 établissements sur la plateforme,
+    // PostgREST tronquait la réponse sans le dire et des groupes entiers
+    // seraient tombés à zéro école — donc au tarif d'une seule.
+    // ⚠️ Un seul foyer : `ecolesParGroupe` (`core/utils/tarif_ecoles.dart`).
+    // Ce nombre décide du PRIX du groupe (mig. 0159) ; il était recompté à
+    // six endroits, avec des traitements DIFFÉRENTS du `group_id` nul.
+    final schools = await fetchAllRows(
+        () => client.from('schools').select('id, group_id').order('id'));
+    schoolsByGroup = ecolesParGroupe(schools);
   } catch (_) {}
 
   // ── Groupes scolaires ─────────────────────────────────────────────────────
   List<GroupDetail> groups = [];
   try {
-    final rows = await client.from('school_groups').select(
+    final rows = await fetchAllRows(() => client.from('school_groups').select(
       'id, name, slug, group_type, department, plan_id, subscription_status, '
       'subscription_start, subscription_end, admin_email, phone, address, '
       'logo_url, is_active, notes, founded_year, tutelle, '
       'administre_referentiel_national, caractere, '
       'agrement_numero, agrement_type, agrement_date, created_at, updated_at, '
       'subscription_plans!plan_id(name, price_xaf, billing_period, max_schools, max_students)',
-    ).order('created_at', ascending: false) as List;
+    ).order('created_at', ascending: false)
+    .order('id'));
 
     groups = rows.map((r) =>
         GroupDetail.fromMap(r, schoolsByGroup[r['id'] as String? ?? ''] ?? 0)
