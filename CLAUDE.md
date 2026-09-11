@@ -56,6 +56,21 @@ bool isStaffRole(String? role) =>
 ```
 C'est `isStaffRole` qui décide d'appeler `db.connect()` (= activer la synchro offline). Les écritures locales remontent vers Supabase via `SupabasePowerSyncConnector.uploadData` (upsert/patch/delete).
 
+**L'exception, et elle est plus large qu'on ne l'a longtemps écrit** : c'est
+**tout le cycle de vie de l'agent** qui exige le réseau, pas seulement sa
+création. `features/staff/providers/agent_creation_provider.dart` appelle
+**cinq** RPC — `contexte_creation_agent`, `creer_agent_ecole`,
+`corriger_fiche_agent`, `renseigner_statut_agent`,
+`annuler_enregistrement_agent`.
+
+C'est légitime : un compte de connexion vit dans `auth.users`, hors PowerSync,
+et la RLS `profiles_update` interdit à une direction d'écrire dans la fiche
+d'un AUTRE agent — un UPDATE passé par PowerSync serait rejeté en `42501`,
+code fatal, et **emporterait le lot entier en silence**. La dégradation hors
+ligne est explicite (`ContexteCreationAgent.horsLigne`, distinct de
+`autorise`). Une règle énoncée trop étroitement finit par être invoquée contre
+du code correct.
+
 ### Couche PowerSync (offline)
 - Schéma SQLite local : `lib/services/powersync/powersync_schema.dart` (déclare les tables synchronisables).
 - Connecteur JWT + upload : `lib/services/powersync/powersync_connector.dart`.
@@ -69,7 +84,7 @@ C'est `isStaffRole` qui décide d'appeler `db.connect()` (= activer la synchro o
 - `features/<domaine>/` — organisation **feature-first** : sous-dossiers `screens/`, `providers/` (Riverpod), `services/`, `widgets/`. Domaines : `auth`, `super_admin`, `admin_groupe`, `students`, `classes`, `structure`, `navigation`, `user`, `staff`, `communication`, `audit`, `examens`, `finance`, `vie_scolaire`, `evaluation`, `stages`, `cartes`, `tutelle`, `profil`…
   ⚠️ **Modules transverses scope-aware** (un seul code, périmètre déduit du rôle) : `communication/` et `profil/` (« Mon profil » : les routes `/super/profil`, `/admin/profil` et `/user/profil` mènent au MÊME écran). Ne jamais en refaire une copie par espace.
 - `services/` — `supabase_service.dart` + `powersync/`.
-- `licensing/` — **module transverse** (îlot hexagonal : `domain/`/`application/`/`infrastructure/`/`presentation/`) du système de licence offline-first. Enforcement **dormant** tant que `licensePinnedKeysProvider` est vide. Décisions gelées : `docs/adr/ADR-licence.md` ; org. code : `docs/ABONNEMENT_ARCHITECTURE_LOGICIELLE.md`. Ne JAMAIS gater la synchro PowerSync sur la licence (C4).
+- `licensing/` — **module transverse** (îlot hexagonal : `domain/`/`application/`/`infrastructure/`/`presentation/`) du système de licence offline-first. ⚠️ **Enforcement ACTIF depuis le 2026-07-04** (go-live pilote) : `licensePinnedKeysProvider` porte la clé `2026-07`, il n'est plus vide. Le périmètre est borné **côté serveur** par `LICENSE_PILOT_GROUP_IDS` (Edge Function `license-issuer`) : hors pilote → 403 → aucune licence → le groupe reste dormant. Vider ce map ramène tout le parc à dormant (`docs/LICENCE_GOLIVE.md`). Décisions gelées : `docs/adr/ADR-licence.md` ; org. code : `docs/ABONNEMENT_ARCHITECTURE_LOGICIELLE.md`. Ne JAMAIS gater la synchro PowerSync sur la licence (C4).
 
 Navigation : ajouter un écran = créer screen + provider, déclarer la route dans `core/router/app_router.dart` et la constante dans `core/constants/routes.dart`.
 

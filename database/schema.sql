@@ -1,3 +1,23 @@
+-- ═════════════════════════════════════════════════════════════════
+--  ⛔ SCHÉMA PÉRIMÉ — NE JAMAIS S'Y FIER, NE JAMAIS L'EXÉCUTER
+--
+--  Généré le 25 mai 2026, et jamais régénéré depuis. Plus de deux cents
+--  migrations ont été appliquées après lui : colonnes ajoutées, contraintes
+--  posées, fonctions supprimées, politiques RLS réécrites. Il annonce même
+--  PostgreSQL 15 — la base tourne en 17.
+--
+--  Le lire pour décider d'une requête produit du `42703` (colonne inconnue) en
+--  production, et un `42703` est le défaut le plus coûteux du parc : la file
+--  PowerSync se bloque, l'école continue de travailler, et plus rien ne remonte.
+--
+--  LA SOURCE DE VÉRITÉ EST LA BASE ELLE-MÊME :
+--    • MCP Supabase — `list_tables`, `execute_sql` ;
+--    • `information_schema.columns` / `pg_policies` / `pg_constraint` ;
+--    • l'historique réel → `database/migrations/`.
+--
+--  Conservé comme trace de la conception initiale. Rien d'autre.
+-- ═════════════════════════════════════════════════════════════════
+
 -- ================================================================
 -- E-PILOTE CONGO v3.0 — Schéma Base de Données PostgreSQL
 -- Stack : Supabase (PostgreSQL 15) + PowerSync + Flutter

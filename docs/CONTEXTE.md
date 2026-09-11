@@ -1,3 +1,21 @@
+> # ⛔ DOCUMENT PÉRIMÉ — NE PAS S'EN SERVIR POUR CONCLURE
+>
+> **Figé au 26 mai 2026.** Il décrit un état du projet qui n'existe plus :
+> 55 tables (il y en a ~66), un rôle `utilisateur` qui **n'a jamais existé**
+> dans l'énumération `user_role`, et un espace personnel « à construire »
+> alors qu'il est livré depuis des mois.
+>
+> Ce fichier a déjà fait conclure de travers. Il est conservé pour l'histoire
+> du projet, pas comme référence.
+>
+> **Où regarder à la place :**
+> - l'état du code → `CLAUDE.md`, et `epilote/lib/core/router/app_router.dart`
+>   (compter les écrans inachevés y prend dix secondes) ;
+> - l'état de la base → le **MCP Supabase** (`list_tables`, `execute_sql`),
+>   jamais un fichier du dépôt ;
+> - le cahier des charges → `docs/ANALYSE.md`, qui reste fiable ;
+> - l'analyse modulaire de septembre 2026 → `docs/analyse-2026-09/`.
+
 # 🧠 CONTEXTE DE SESSION — E-PILOTE CONGO v3.0
 > **À lire en début de nouvelle session** : "Lis /home/melack/E-PILOTE/docs/CONTEXTE.md et reprends le travail sur E-PILOTE CONGO v3.0"
 
