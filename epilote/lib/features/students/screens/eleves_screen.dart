@@ -2,7 +2,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/constants/routes.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/capture_webcam.dart';
 import '../../../core/widgets/photo_avatar.dart';
@@ -54,6 +56,27 @@ part 'eleves_kpi_parts.dart';
 /// Le slug de CE module, déclaré une seule fois : un littéral recopié est
 /// ce qui laisse un périmètre dériver sans que rien ne le dise.
 const _kSlug = 'eleves';
+
+/// Ouvre l'assistant de modification d'un élève — identité puis tuteurs.
+///
+/// ⚠️ SEUL POINT D'ENTRÉE PUBLIC vers `_StudentEditModal`. Cet assistant porte
+/// les gardes d'écriture (`edition_eleve_garde.dart`) qui empêchent un
+/// `group_id` vide de faire perdre un lot de synchronisation entier, et une
+/// fiche de tuteur commencée d'être jetée en silence. La fiche élève avait
+/// besoin d'y accéder depuis sa propre bibliothèque : exposer cette fonction
+/// vaut infiniment mieux que d'y recopier un second formulaire, qui aurait
+/// dérivé exactement comme celui du guichet l'avait fait avant lui.
+Future<void> showStudentEditModal(
+  BuildContext context, {
+  required String studentId,
+  required String fullName,
+}) =>
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) =>
+          _StudentEditModal(studentId: studentId, fullName: fullName),
+    );
 
 // ─── Référentiel cycles (couleur / nom / ordre) ──────────────────────────────
 Map<String, Color> get _cycleColors => <String, Color>{

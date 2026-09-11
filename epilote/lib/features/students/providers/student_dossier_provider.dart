@@ -42,6 +42,24 @@ class StudentDossier {
 
   String s(String k) => (student[k] as String?)?.trim() ?? '';
   DateTime? get dob => _d(student['date_of_birth']);
+
+  /// « NGOMA Aïcha » — le nom tel qu'un registre l'écrit : patronyme d'abord.
+  String get nomComplet => '${s('last_name')} ${s('first_name')}'.trim();
+
+  /// L'âge en années révolues, ou `null` si la date de naissance manque.
+  ///
+  /// ⚠️ Calculé sur le jour et le mois, et non sur la seule différence
+  /// d'années : un enfant né en décembre n'a pas encore l'âge que la
+  /// soustraction lui donnerait, et c'est précisément sur ces cas-là que se
+  /// jouent les limites d'âge aux examens d'État.
+  int? get age {
+    final d = dob;
+    if (d == null) return null;
+    final now = DateTime.now();
+    var a = now.year - d.year;
+    if (now.month < d.month || (now.month == d.month && now.day < d.day)) a--;
+    return a < 0 ? null : a;
+  }
 }
 
 /// Dossier élève (offline) : ligne students + tuteurs. Invalidé après édition.

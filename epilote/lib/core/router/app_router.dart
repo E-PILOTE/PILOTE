@@ -56,6 +56,7 @@ import '../../features/admin_groupe/screens/admin_module_screen.dart';
 import '../../features/admin_groupe/screens/admin_modules_screen.dart';
 import '../../features/students/screens/inscriptions_screen.dart';
 import '../../features/students/screens/eleves_screen.dart';
+import '../../features/students/screens/fiche_eleve_screen.dart';
 import '../../features/students/screens/annuaire_screen.dart';
 import '../../features/cartes/screens/cartes_screen.dart';
 import '../../features/students/screens/documents_screen.dart';
@@ -540,23 +541,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const UserDashboardScreen(),
       ),
       GoRoute(path: Routes.eleves, builder: (_, _) => const ElevesScreen()),
-      // ⚠️ ROUTE MORTE, conservée en REDIRECTION et non en écran.
+      // ── LA ROUTE MORTE EST REDEVENUE VIVANTE ──────────────────────────
       //
-      //  `Routes.eleveDetail` n'était référencé que par sa propre déclaration :
-      //  aucun code de l'application ne navigue vers `/user/eleves/<id>`. Le
-      //  détail d'un élève se lit dans le tiroir d'`eleves_screen.dart`.
+      //  Elle a longtemps redirigé vers la liste, faute de destination :
+      //  aucun code ne naviguait vers `/user/eleves/<id>`, et le placeholder
+      //  qu'elle affichait n'apprenait rien. Le commentaire d'alors disait
+      //  « à rebrancher LE JOUR où quelque chose en produit ».
       //
-      //  Elle affichait donc un placeholder « Élève · <uuid> » — un cul-de-sac
-      //  que seul un lien collé pouvait atteindre, et qui n'apprenait rien.
-      //  La supprimer ferait tomber une telle URL sur l'écran d'erreur ; la
-      //  rediriger la fait atterrir sur la liste, d'où l'élève s'ouvre.
+      //  Ce jour est venu : le tiroir de la liste ouvre désormais la FICHE
+      //  COMPLÈTE, qui vit ici. Le tiroir garde le coup d'œil qu'on fait
+      //  cinquante fois par jour ; la fiche répond à l'autre question, celle
+      //  qu'on pose en instruisant un dossier.
       //
-      //  À rebrancher sur un vrai lien profond LE JOUR où quelque chose en
-      //  produit (une notification, un partage) — pas avant : un lien que
-      //  personne n'émet est une fonctionnalité qu'on ne peut pas vérifier.
+      //  ⚠️ L'écran gère lui-même l'élève introuvable — un lien profond peut
+      //  désigner un enfant d'une autre école, ou un enfant créé sur un autre
+      //  poste dont la synchronisation n'est pas encore descendue.
       GoRoute(
         path: Routes.eleveDetail,
-        redirect: (_, _) => Routes.eleves,
+        builder: (_, state) =>
+            FicheEleveScreen(studentId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: Routes.inscriptions,
