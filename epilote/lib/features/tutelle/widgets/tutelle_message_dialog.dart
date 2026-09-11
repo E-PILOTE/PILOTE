@@ -8,6 +8,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../communication/providers/messages_provider.dart';
 import '../providers/tutelle_destinataires_provider.dart';
 import '../providers/tutelle_reseau_provider.dart';
+import '../services/tutelle_instruction_docx_service.dart';
 import '../services/tutelle_instruction_pdf_service.dart';
 import '../services/tutelle_pdf_commun.dart';
 
@@ -277,6 +278,26 @@ class _TutelleMessageDialogState extends ConsumerState<TutelleMessageDialog> {
           // espace (`tutelle_reseau_screen.dart:117`).
           tutelle: ref.read(tutelleDuGroupeProvider).valueOrNull,
           signataire: signataire,
+        ),
+        // ⚠️ LA VERSION MODIFIABLE. Le corps d'une instruction est du TEXTE
+        // LIBRE, écrit phrase par phrase par un agent du ministère : c'est la
+        // pièce de toute l'application où la retouche avant signature est la
+        // règle, pas l'exception. Un visa hiérarchique se relit, un
+        // considérant se reformule, un délai se précise.
+        //
+        // Elle ne remplace pas l'archive : le PDF reste la pièce opposable, et
+        // porte la date d'ENVOI. Le document Word le dit dans son pied.
+        onWord: () => TutelleInstructionDocxService.enregistrer(
+          octets: TutelleInstructionDocxService.build(
+            objet: objet,
+            corps: corps,
+            groupeNom: g.nom,
+            destinataires: vises,
+            emiseLe: emiseLe,
+            tutelle: ref.read(tutelleDuGroupeProvider).valueOrNull,
+            signataire: signataire,
+          ),
+          objet: objet,
         ),
         pdfFileName: pdfNomFichier('Instruction', objet),
       );

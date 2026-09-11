@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/routes.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/barre_export.dart';
 import '../../../core/widgets/capture_webcam.dart';
 import '../../../core/widgets/photo_avatar.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
@@ -478,6 +479,8 @@ class _BodyState extends ConsumerState<_Body> {
                   filtered: filtered.length,
                   onExportPdf:
                       filtered.isEmpty ? null : () => _previewPdf(filtered),
+                  onDonnees:
+                      filtered.isEmpty ? null : () => _bulkExport(filtered),
                 ),
               const SizedBox(height: 12),
               if (all.isEmpty)

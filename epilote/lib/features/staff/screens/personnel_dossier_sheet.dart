@@ -14,6 +14,7 @@ import '../../vie_scolaire/widgets/vs_form_chrome.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../structure/providers/academic_year_provider.dart';
 import '../providers/staff_dossier_provider.dart';
+import '../services/attestation_travail_docx_service.dart';
 import '../services/attestation_travail_pdf_service.dart';
 import '../../../core/utils/message_erreur.dart';
 
@@ -77,6 +78,50 @@ Future<void> _attestationTravail(
         _ => null,
       },
     ),
+    // ⚠️ LA VERSION MODIFIABLE. L'agent qui demande ce papier sait, lui, à QUI
+    // il le destine — et le destinataire a souvent une exigence de
+    // formulation que l'établissement découvre au guichet : « pour servir
+    // auprès de la BCI », « en vue d'une demande de visa ». Le PDF fige le
+    // texte avant qu'on la connaisse, et le secrétariat retapait alors
+    // l'attestation entière dans Word.
+    //
+    // ⚠️ Aucun montant n'y figure et il ne doit pas y en être ajouté : cette
+    // pièce atteste un EMPLOI, pas une rémunération — c'est ce qui lui permet
+    // de circuler. Le document Word le rappelle à qui s'apprête à le modifier.
+    onWord: () {
+      final agent = AttestationAgent(
+        firstName: d.firstName,
+        lastName: d.lastName,
+        fonction: staffRoleLabel(d.role),
+        employeeNumber: d.employeeNumber,
+        employmentStatus: d.employmentStatus,
+        grade: d.grade,
+        echelon: d.echelon,
+        gender: d.gender,
+        birthPlace: d.birthPlace,
+        dateOfBirth:
+            d.dateOfBirth == null ? null : DateTime.tryParse(d.dateOfBirth!),
+        hireDate: d.hireDate == null ? null : DateTime.tryParse(d.hireDate!),
+      );
+      return AttestationTravailDocxService.enregistrer(
+        octets: AttestationTravailDocxService.build(
+          agent: agent,
+          schoolName:
+              (school?['name'] as String?)?.trim().isNotEmpty ?? false
+                  ? (school!['name'] as String).trim()
+                  : 'l\'établissement',
+          city:
+              (school?['city'] as String?) ?? (school?['department'] as String?),
+          signataire: nom.isEmpty ? null : nom,
+          fonctionSignataire: switch (moi?.role) {
+            'directeur' => 'Le Directeur',
+            'proviseur' => 'Le Proviseur',
+            _ => null,
+          },
+        ),
+        agent: agent,
+      );
+    },
   );
 }
 

@@ -301,9 +301,14 @@ class _ResetChip extends StatelessWidget {
 
 class _ResultHeader extends StatelessWidget {
   const _ResultHeader(
-      {required this.total, required this.filtered, this.onExportPdf});
+      {required this.total, required this.filtered, this.onExportPdf, this.onDonnees});
   final int total, filtered;
   final VoidCallback? onExportPdf;
+
+  /// ⚠️ Le fichier de données n'était atteignable qu'après sélection, sous un
+  /// libellé (« Exporter ») qui ne disait pas ce qu'il produisait. Il est ici,
+  /// en second, et son intitulé nomme son usage.
+  final VoidCallback? onDonnees;
   @override
   Widget build(BuildContext context) {
     final txt = filtered == total
@@ -316,7 +321,8 @@ class _ResultHeader extends StatelessWidget {
           style: TextStyle(
               fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
       const Spacer(),
-      if (onExportPdf != null) AdminPdfButton(onTap: onExportPdf!),
+      if (onExportPdf != null)
+        BarreExport(onApercuPdf: onExportPdf!, onDonnees: onDonnees),
     ]);
   }
 }

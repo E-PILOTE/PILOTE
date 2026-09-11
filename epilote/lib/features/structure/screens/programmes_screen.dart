@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/barre_export.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
@@ -353,6 +354,8 @@ class _BodyState extends ConsumerState<_Body> {
                   filtered: filtered.length,
                   onExportPdf:
                       filtered.isEmpty ? null : () => _previewPdf(filtered),
+                  onDonnees:
+                      filtered.isEmpty ? null : () => _bulkExport(filtered),
                 ),
               const SizedBox(height: 12),
               if (all.isEmpty)
