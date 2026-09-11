@@ -96,7 +96,7 @@ void main() {
         expect(f.existsSync(), isTrue,
             reason: '$chemin a disparu : si la page a été déplacée, déplacer '
                 'aussi son entrée dans _pagesAPerimetre.');
-        final src = f.readAsStringSync();
+        final src = f.readAsStringSync().replaceAll('\r\n', '\n');
         expect(
           src.contains("classScopeClause(ref, '$slug'") ||
               // `students_registry_provider` sert TROIS modules (eleves,
@@ -119,7 +119,7 @@ void main() {
       // une entrée distincte du profil d'accès, et lire sous `eleves` y
       // appliquerait les droits d'une autre page.
       final src =
-          File('$_kProviders/annuaire_provider.dart').readAsStringSync();
+          File('$_kProviders/annuaire_provider.dart').readAsStringSync().replaceAll('\r\n', '\n');
       expect(src.contains("studentsRegistryProvider('annuaire')"), isTrue,
           reason: 'Le répertoire des familles — noms, téléphones et adresses '
               'des parents — doit passer par le registre scopé, sous son '
@@ -131,7 +131,7 @@ void main() {
       // « Tuteurs » et « Urgence » de l'école entière : la même rangée
       // affichait « 12 familles » et « 847 tuteurs ».
       final src =
-          File('$_kProviders/annuaire_provider.dart').readAsStringSync();
+          File('$_kProviders/annuaire_provider.dart').readAsStringSync().replaceAll('\r\n', '\n');
       final stats = src.substring(src.indexOf('annuaireStatsProvider'));
       expect(stats.contains('schoolTutorsProvider'), isFalse,
           reason: 'Les compteurs de l\'annuaire doivent se lire sur les '

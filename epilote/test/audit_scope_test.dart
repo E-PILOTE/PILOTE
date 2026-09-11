@@ -101,7 +101,7 @@ void main() {
     String source() {
       final f = File('lib/features/audit/screens/audit_screen.dart');
       expect(f.existsSync(), isTrue, reason: 'Sonde aveugle : ecran absent.');
-      return f.readAsStringSync();
+      return f.readAsStringSync().replaceAll('\r\n', '\n');
     }
 
     test('l ecran distingue injoignable de vide', () {

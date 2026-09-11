@@ -154,6 +154,13 @@ Duration pinCooldown(int failCount) {
 bool pinResetInvalidates(DateTime? resetAt, DateTime? setAt) =>
     resetAt != null && (setAt == null || resetAt.isAfter(setAt));
 
+/// Longueur du code PIN d'agent. Déclarée ici, à côté du service qui le hache,
+/// parce que DEUX écrans la manipulent désormais : l'écran-verrou (saisie et
+/// enrôlement) et « Mon profil » (changement). Deux constantes séparées se
+/// seraient tôt ou tard contredites — et le symptôme aurait été un code posé
+/// à un endroit que l'autre refuse de reconnaître.
+const int kAgentPinLength = 4;
+
 // ─── Service PIN (haché localement, jamais synchronisé) ─────────────────────
 class AgentPinService {
   const AgentPinService();

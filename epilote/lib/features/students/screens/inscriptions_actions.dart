@@ -470,6 +470,9 @@ extension _InscriptionsActions on _InscriptionsBodyState {
     if (rows.isEmpty) return;
     try {
       final path = await exportInscriptionsCsv(rows);
+      // `null` = fenêtre « Enregistrer sous » fermée sans choisir. Ni fichier,
+      // ni message : annuler doit rester sans conséquence visible.
+      if (path == null) return;
       _snack('Export CSV : ${rows.length} ligne(s) → $path', kGreen);
     } catch (e) {
       _snack(messageErreur(e, contexte: 'Export'), kRed);

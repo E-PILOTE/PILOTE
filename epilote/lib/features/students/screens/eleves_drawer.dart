@@ -98,6 +98,32 @@ class _DwHeader extends StatelessWidget {
             ]),
           ),
         ]),
+        const SizedBox(height: 12),
+        // ── LA PORTE VERS LA FICHE COMPLÈTE ────────────────────────────────
+        //
+        // ⚠️ Ce tiroir ne montrera JAMAIS tout, et c'est délibéré : il fait
+        // 460 pixels et sert le geste qu'on répète cinquante fois par jour —
+        // qui est cet enfant, quelle classe, quel numéro j'appelle. Onze
+        // registres n'y tiennent pas, et les y entasser alourdirait le geste
+        // fréquent pour servir le geste rare.
+        //
+        // Ce qui manquait n'était donc pas de la place ici, mais une
+        // DESTINATION : la fiche complète, sur `/user/eleves/<id>`, qui porte
+        // le parcours, les résultats, la vie scolaire, les finances et les
+        // actes. Ce bouton est le premier lien de l'application à naviguer
+        // vers elle — la route existait, elle ne redirigeait faute d'émetteur.
+        SizedBox(
+          width: double.infinity,
+          child: AdminActionButton(
+            label: 'Ouvrir la fiche complète',
+            icon: Icons.open_in_full_rounded,
+            filled: true,
+            onPressed: () {
+              Navigator.of(context).pop();
+              context.push(Routes.eleveDetail.replaceFirst(':id', row.id));
+            },
+          ),
+        ),
       ]),
     );
   }

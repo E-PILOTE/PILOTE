@@ -86,7 +86,7 @@ void main() {
     test('les deux valeurs mortes ont disparu', () {
       final src = File(
         'lib/features/super_admin/providers/super_dashboard_provider.dart',
-      ).readAsStringSync();
+      ).readAsStringSync().replaceAll('\r\n', '\n');
       // ⚠️ On cherche la valeur ENTRE GUILLEMETS : le fichier documente
       // désormais l'erreur en prose, et cette prose doit rester lisible.
       expect(src.contains("'directeur_ecole'"), isFalse,
@@ -100,7 +100,7 @@ void main() {
     test('il délègue à la source unique plutôt que de recopier', () {
       final src = File(
         'lib/features/super_admin/providers/super_dashboard_provider.dart',
-      ).readAsStringSync();
+      ).readAsStringSync().replaceAll('\r\n', '\n');
       expect(src.contains('staffRoleLabel(role)'), isTrue,
           reason: 'Une seconde table d’étiquettes finirait par diverger de la '
               'première — c’est déjà arrivé au barème des mentions, à quatre '

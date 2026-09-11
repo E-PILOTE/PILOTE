@@ -64,37 +64,43 @@ class PersonnelExportService {
               agents.length - actifs > 0 ? kPdfRed : kPdfMuted),
         ], width: 130),
         pw.SizedBox(height: 16),
-        if (agents.isEmpty)
-          OfficialPdfKit.empty('Aucun agent à exporter.', f.regular)
-        else
-          OfficialPdfKit.frame(
-            title: 'PERSONNEL',
-            color: kPdfNavy,
-            fonts: f,
-            child: OfficialPdfKit.table(
-              headers: const [
-                'Nom', 'Fonction', 'Statut', 'Cycle', 'Matricule', 'Téléphone'
+        // ⚠️ PAGINÉ le 2026-09-10 — la liste ne sortait pas passé ~20 agents.
+        //
+        //  `frame()` enveloppe son contenu dans un `Padding`, qui ne sait pas
+        //  se scinder entre deux pages. Une table plus haute qu'une feuille
+        //  fait boucler `MultiPage` jusqu'à `TooManyPagesException` : on
+        //  n'obtient pas un document tronqué, on n'obtient AUCUN document.
+        //  Et cette page est en PAYSAGE — 595 pt de haut au lieu de 842 —,
+        //  donc le seuil arrive encore plus tôt qu'en portrait.
+        //
+        //  Une école congolaise compte couramment 40 agents.
+        ...OfficialPdfKit.tableSection(
+          title: 'PERSONNEL',
+          color: kPdfNavy,
+          fonts: f,
+          headers: const [
+            'Nom', 'Fonction', 'Statut', 'Cycle', 'Matricule', 'Téléphone'
+          ],
+          rows: [
+            for (final a in agents)
+              [
+                a.lastFirst,
+                staffRoleLabel(a.role),
+                (a.employmentStatus ?? '').isEmpty
+                    ? '—'
+                    : employmentStatusLabel(a.employmentStatus),
+                (a.teachingCycle ?? '').isEmpty
+                    ? '—'
+                    : scopeCycleName(a.teachingCycle),
+                a.employeeNumber ?? '—',
+                a.phone ?? '—',
               ],
-              rows: [
-                for (final a in agents)
-                  [
-                    a.lastFirst,
-                    staffRoleLabel(a.role),
-                    (a.employmentStatus ?? '').isEmpty
-                        ? '—'
-                        : employmentStatusLabel(a.employmentStatus),
-                    (a.teachingCycle ?? '').isEmpty
-                        ? '—'
-                        : scopeCycleName(a.teachingCycle),
-                    a.employeeNumber ?? '—',
-                    a.phone ?? '—',
-                  ],
-              ],
-              fonts: f,
-              flex: const [5, 4, 3, 3, 3, 3],
-              leftAlignCols: const {0, 1},
-            ),
-          ),
+          ],
+          flex: const [5, 4, 3, 3, 3, 3],
+          leftAlignCols: const {0, 1},
+          emptyLabel: 'Aucun agent à exporter.',
+          perBlock: OfficialPdfKit.kRowsPerBlockLandscape,
+        ),
         pw.SizedBox(height: 8),
       ],
     ));

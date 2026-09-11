@@ -75,7 +75,7 @@ void main() {
       // arrivé en écrivant ce garde). On vérifie donc la chose elle-même.
       final src = File(
         'lib/features/super_admin/screens/release_form_dialog.dart',
-      ).readAsStringSync();
+      ).readAsStringSync().replaceAll('\r\n', '\n');
       expect(src.contains('jsonDecode(brut)'), isTrue,
           reason: 'Le décodage doit porter sur le texte NETTOYÉ.');
       expect(src.contains('jsonDecode(_colle.text)'), isFalse,

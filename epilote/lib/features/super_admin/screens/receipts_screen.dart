@@ -413,7 +413,7 @@ class _TableRow extends StatelessWidget {
             children: [
               _IconBtn(icon: Icons.visibility_rounded, tooltip: 'Voir', onTap: () => _showDetail(ctx, receipt)),
               _IconBtn(icon: Icons.picture_as_pdf_rounded, tooltip: 'Imprimer / PDF',
-                  onTap: () => ReceiptPdfService.printReceipt(receipt)),
+                  onTap: () => ReceiptPdfService.apercuRecu(ctx, receipt)),
             ],
           )),
         ]),
@@ -782,7 +782,8 @@ class _ReceiptDetail extends StatelessWidget {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => ReceiptPdfService.printReceipt(receipt),
+                      onPressed: () =>
+                          ReceiptPdfService.apercuRecu(context, receipt),
                       icon: const Icon(Icons.print_rounded, size: 14),
                       label: const Text('Imprimer'),
                       style: OutlinedButton.styleFrom(

@@ -12,6 +12,7 @@ import '../services/transfers_pdf_service.dart';
 import '../widgets/transfer_destination_picker.dart';
 import '../../../core/utils/message_erreur.dart';
 import '../../../core/utils/date_scolaire.dart';
+import '../../../core/utils/write_identity.dart';
 
 part 'transferts_parts.dart';
 part 'transferts_form.dart';

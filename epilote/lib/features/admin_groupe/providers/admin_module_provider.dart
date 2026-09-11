@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import 'admin_access_provider.dart' show PermRow;
 
@@ -92,9 +93,10 @@ final adminModuleProvider = FutureProvider.autoDispose
   // 4. Membres (personnel actif) rattachés à chaque profil
   final Map<String, int> membersByProfile = {};
   try {
-    final r = await client.from('profiles')
+    final r = await fetchAllRows(() => client.from('profiles')
         .select('access_profile_id')
-        .eq('group_id', groupId).eq('is_active', true) as List;
+        .eq('group_id', groupId).eq('is_active', true)
+        .order('id'));
     for (final p in r) {
       final pid = p['access_profile_id'] as String?;
       if (pid != null) membersByProfile[pid] = (membersByProfile[pid] ?? 0) + 1;

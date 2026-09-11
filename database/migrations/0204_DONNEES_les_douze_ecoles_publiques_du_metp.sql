@@ -1,0 +1,137 @@
+-- ════════════════════════════════════════════════════════════════════════════
+--  LES DOUZE ÉCOLES PUBLIQUES DU METP — CELLES QU'ON VA MONTRER AU MINISTÈRE
+--
+--  ⚠️ LOT DE DONNÉES DE DÉMONSTRATION. Suite de `0203`.
+--
+--  ── 🩸 L'ERREUR DE MÉTHODE, D'ABORD ───────────────────────────────────────
+--  Le tour des modules a commencé par les écoles PRIVÉES, parce que c'est là
+--  qu'il y avait déjà des données à inspecter. Chaque correctif — titulaires de
+--  classe, lieu de naissance, pièces du dossier, tuteurs, trimestres manquants,
+--  vie scolaire, fonds documentaire — a donc été appliqué au privé, et à lui
+--  seul. Les 12 écoles PUBLIQUES n'ont jamais été rattrapées.
+--
+--  Or la présentation a lieu au MINISTÈRE DE L'ENSEIGNEMENT TECHNIQUE ET
+--  PROFESSIONNEL. Ce sont ses propres écoles qu'il va ouvrir. Recommander une
+--  école privée à un ministère public était une erreur de cadrage, pas un
+--  diagnostic : le diagnostic (« huit modules vides côté public ») était exact,
+--  la conclusion (« n'ouvre pas le public ») était la mauvaise. La bonne
+--  conclusion, c'était : remplis le public d'abord.
+--
+--  ── 🩸 PIRE QUE DU VIDE : UN EMPLOI DU TEMPS IMPOSSIBLE ───────────────────
+--  Première grille posée pour le public : 940 créneaux, et **257 collisions** —
+--  le même professeur devant deux à trois classes à la même heure. Vérification
+--  étendue aux 7 écoles privées : **100 % de leurs créneaux sont en collision**
+--  (Saint-Joseph Industriel : 60 triplets prof/jour/heure, tous multiples).
+--
+--  La cause est arithmétique, pas informatique. Une école privée a 9 classes et
+--  4 enseignants déclarés : 9 classes × 20 h = 180 h à couvrir, 4 professeurs
+--  × 20 h = 80 h disponibles. Aucun ordonnancement ne peut réussir. La grille
+--  n'était pas « imparfaite », elle était impossible.
+--
+--  CONSTRUCTION DE REMPLACEMENT (carré latin) : à l'heure p, la classe i est
+--  prise par le professeur (i + p) mod n. Deux classes distinctes ne peuvent
+--  pas tomber sur le même enseignant, par construction et non par chance.
+--  Grille ramenée à 15 séances de 2 h (30 h/semaine, l'horaire réel d'un lycée
+--  congolais) : 5 à 6 professeurs suffisent alors pour 3 à 5 classes.
+--     705 créneaux · 0 conflit professeur · 0 conflit salle · 0 conflit classe
+--     charge : 12 h mini, 21 h en moyenne, 26 h maxi
+--  Et le SERVICE DES ENSEIGNANTS est désormais DÉDUIT de la grille (265 lignes)
+--  au lieu d'être posé à côté : ce qui est au tableau est ce qui est au service,
+--  aucun écart n'est possible.
+--
+--  ⚠️ LES 7 ÉCOLES PRIVÉES RESTENT EN COLLISION TOTALE. Les réparer suppose de
+--  créer des enseignants, donc des lignes dans `auth.users` (contrainte
+--  `profiles_id_fkey`). Je ne crée pas de comptes : décision produit à prendre.
+--  → NE PAS OUVRIR L'EMPLOI DU TEMPS D'UNE ÉCOLE PRIVÉE.
+--
+--  ── CE QUI ÉTAIT VIDE CÔTÉ PUBLIC, ET NE L'EST PLUS ───────────────────────
+--    Salles                142   (aucune n'existait — le module Salles aussi
+--                                 s'ouvrait sur rien)
+--    Emploi du temps       705   sur 12 versions publiées et validées
+--    Cahier de textes      705   30 titres réels, indexés sur la matière
+--    Pointages élèves   17 746   sur 472 feuilles, 1er → 12 juin 2026
+--                                (88 % présents · 7 % absents · 5 % retards)
+--    Discipline            189   12 à 18 par école, 6 motifs, sanctions datées
+--    Infirmerie            212   14 à 22 par école, tenue par le surveillant
+--                                général — aucune de ces écoles n'a d'infirmier
+--    Cantine             5 500   repas sur la même quinzaine, 31 % d'abonnés
+--    Bibliothèque          145 titres · 290 emprunts (rendus / en cours / en
+--                                retard, exemplaires décomptés du disponible)
+--    Paie                1 017   bulletins, 113 agents, 196,8 M XAF
+--    Présences agents    1 130   ·  Congés 63 (accordés / en attente / refusés)
+--    Passage en classe   1 149   verdicts : 824 passent (moy. 13,15),
+--                                325 redoublent (moy. 8,22) — 72 % de réussite
+--
+--  ── 🩸 ET L'ÉTAT CIVIL DES 1 774 ÉLÈVES ÉTAIT VIDE ────────────────────────
+--  Exactement les manques corrigés au privé à l'étape 1, jamais reportés :
+--    ni lieu de naissance (il s'IMPRIME sur le certificat de scolarité),
+--    ni adresse, ni groupe sanguin (l'infirmerie en a besoin),
+--    ni situation familiale, ni tuteur, ni pièce de dossier.
+--  Posés : état civil complet · 2 352 tuteurs (1 784 élèves couverts, un second
+--  contact pour 4 dossiers sur 10) · 7 033 pièces de dossier · 2 034 documents
+--  délivrés (1 601 cartes scolaires, 387 certificats, 46 attestations).
+--
+--  🩸 `file_url` reste NULL sur les pièces : elles sont reçues sur PAPIER et
+--  enregistrées, pas numérisées. C'est la pratique réelle, et l'écran le dit
+--  correctement depuis le correctif de l'étape 1.
+--
+--  ── 🩸 LES FICHES AGENTS N'AVAIENT NI STATUT NI GRADE ─────────────────────
+--  113 profils publics sans `employment_status`, `grade`, `echelon`,
+--  `category`, `hire_date`, `speciality`. Dans le public, c'est précisément ce
+--  que la tutelle regarde. Renseignés :
+--     63 fonctionnaires · 34 contractuels · 16 volontaires
+--  Cette répartition n'est pas décorative : elle EXPLIQUE la ligne suivante.
+--
+--  ── 🩸 LA PAIE DU PUBLIC : L'ÉTABLISSEMENT NE PAIE PAS, IL CONSTATE ───────
+--  Depuis l'accord du 16/10/2023, l'État rémunère DIRECTEMENT les agents des
+--  écoles publiques. Les 1 017 bulletins portent donc une référence TRESOR- et
+--  la mention « ne transite pas par la caisse de l'établissement », et surtout
+--  AUCUNE dépense correspondante n'a été créée dans le budget de l'école.
+--  Le poste « Personnel » reste à zéro face à 196,8 M XAF de paie : ce n'est
+--  pas une incohérence, c'est la démonstration. Une école privée du même écran
+--  montre l'inverse. (Cohérent avec la doctrine posée en `0201`.)
+--
+--  ── LES COMPTEURS IDENTIQUES, ENCORE ──────────────────────────────────────
+--  14 orientations, 18 stages, 12 dépenses, 6 lignes de budget — le MÊME compte
+--  dans les 12 écoles. Deux écoles ouvertes côte à côte dans un rapport
+--  ministériel, et on ne lit plus un réseau mais un générateur. Dispersés :
+--  orientations 8→13, stages 12→17, dépenses 14→19.
+--
+--  ── ⚠️ CE QUI RESTE OUVERT ────────────────────────────────────────────────
+--   • Emploi du temps des 7 écoles PRIVÉES : impossible en l'état (voir plus
+--     haut). Ne pas l'ouvrir tant qu'on n'a pas créé d'enseignants.
+--   • Les 3 CET (Nkayi, Ouésso, Sibiti) n'ont pas de filière déclarée : normal
+--     pour un premier cycle technique, mais le champ s'affiche vide.
+--   • `canteen_subscriptions` n'est NI dans `powersync_schema.dart` NI dans
+--     `sync-rules.yaml` — et n'est lue nulle part dans l'application. Table
+--     morte : les 1 774 lignes posées ne descendront jamais sur un appareil et
+--     ne servent à rien. À supprimer du schéma, pas urgent.
+--   • Aucune SUBVENTION DE FONCTIONNEMENT de l'État n'apparaît en recette : le
+--     budget d'une école publique se limite ici aux inscriptions et à l'APE
+--     (380 000 à 830 000 XAF/an). C'est cohérent avec la loi, mais incomplet —
+--     inventer un montant de subvention aurait été inventer un fait.
+--
+--  ── ✅ ÉTAT DE PRÉPARATION ────────────────────────────────────────────────
+--  Les 32 modules du plan « Licence de tutelle » ont désormais des données dans
+--  LES 12 ÉCOLES. Le plus petit compteur, tous modules et toutes écoles
+--  confondus, vaut 4. Aucun écran vide.
+--
+--  ÉCOLE RECOMMANDÉE : **Lycée Technique Industriel Thomas Sankara**
+--    218 élèves · 12 dossiers en attente · 5 classes · 10 agents · 14 salles
+--    75 créneaux · 75 entrées de cahier de textes · 2 180 pointages
+--    13 632 notes · 436 bulletins · 130 verdicts de passage
+--    88 candidats aux examens · 17 stages · 18 incidents · 20 visites
+--    740 repas · 23 emprunts · 90 bulletins de paie · 221 documents délivrés
+--    855 pièces de dossier · 296 tuteurs · 443 encaissements · 14 dépenses
+--  Équivalentes : Lycée Technique de Pointe-Noire (216), Lycée Technique du
+--  1er Mai (215), Lycée Technique Commercial de Bacongo (209).
+--
+--  ⚠️ PRÉSENCES ET CANTINE : choisir une date entre le 1er et le 12 juin 2026.
+--  Nous sommes le 7 septembre, hors année scolaire ; le bandeau le dit de
+--  lui-même, mais la feuille du jour est légitimement vide.
+--
+--  Base : 359 Mo, 72 %.
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- Le SQL de ce lot vit dans la fiche mémoire, chaque requête dans son contexte.
+-- Ce fichier existe pour que le RAISONNEMENT ne se perde pas.

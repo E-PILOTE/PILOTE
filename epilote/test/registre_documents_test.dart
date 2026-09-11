@@ -18,7 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 //     toujours alors que la donnée existe côté serveur.
 // ════════════════════════════════════════════════════════════════════════════
 
-String _lire(String chemin) => File(chemin).readAsStringSync();
+String _lire(String chemin) => File(chemin).readAsStringSync().replaceAll('\r\n', '\n');
 
 /// Le corps d'un bloc `Table('nom', [ ... ])` du schéma PowerSync local.
 String _blocSchema(String src, String table) {
@@ -59,7 +59,7 @@ void main() {
           'certificats de scolarité et de radiation',
       'lib/features/cartes/services/cartes_actions.dart':
           'cartes scolaires (planche et duplicata)',
-      'lib/features/staff/screens/personnel_dossier_sheet.dart':
+      'lib/features/staff/services/attestation_travail_actions.dart':
           'attestation de travail',
     };
 

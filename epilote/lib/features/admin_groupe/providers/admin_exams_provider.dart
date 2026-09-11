@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../examens/models/exam_stats.dart';
 import 'ministry_exam_rows.dart';
@@ -216,27 +217,33 @@ final adminExamsProvider =
 
   // Candidatures du réseau, jointes à l'examen, à l'école (+ département) et à
   // la classe (+ filière) : ce sont les deux axes que le ministère pilote.
-  final rows = await client
+  // ⚠️ Paginé : 2 470 candidatures déjà en base pour 44 écoles. Sans
+  // `fetchAllRows`, les taux d'admission du réseau se calculeraient sur les
+  // 1 000 premières lignes rendues par PostgREST.
+  final rows = await fetchAllRows(() => client
       .from('exam_candidates')
       .select('school_id, student_id, dossier_status, result, '
           'schools!inner(name, department), '
           'classes(filiere_label), '
           'exam_sessions!inner(id, year_label, '
           'national_exams!inner(code, short_name, tutelle))')
-      .eq('group_id', groupId);
+      .eq('group_id', groupId)
+      .order('id'));
 
   // Transmissions du réseau (dépôts opposables à la DEC).
-  final trRows = await client
+  final trRows = await fetchAllRows(() => client
       .from('transmissions')
       .select('school_id, status, transmitted_at')
-      .eq('group_id', groupId);
+      .eq('group_id', groupId)
+      .order('id'));
 
   // Module STAGES agrégé : le ministère pilote les deux modules.
-  final internRows = await client
+  final internRows = await fetchAllRows(() => client
       .from('internships')
       .select('student_id, attestation_issued_at')
-      .eq('group_id', groupId);
-  final internshipsTotal = (internRows as List).length;
+      .eq('group_id', groupId)
+      .order('id'));
+  final internshipsTotal = internRows.length;
   var attestationsTotal = 0;
   final studentsWithAttestation = <String>{};
   for (final i in internRows) {
@@ -322,16 +329,16 @@ class MinistryExamActions {
     if (groupId == null) return 0;
 
     final byId = {for (final s in schools) s.schoolId: s};
-    final heads = await client
+    final heads = await fetchAllRows(() => client
         .from('profiles')
         .select('id, school_id')
         .eq('group_id', groupId)
         .inFilter('school_id', byId.keys.toList())
-        .inFilter('role', ['directeur', 'proviseur']);
+        .inFilter('role', ['directeur', 'proviseur'])
+        .order('id'));
 
     final rows = <Map<String, dynamic>>[];
-    for (final h in heads as List) {
-      final head = h as Map<String, dynamic>;
+    for (final head in heads) {
       final school = byId[head['school_id'] as String?];
       if (school == null) continue;
       rows.add({

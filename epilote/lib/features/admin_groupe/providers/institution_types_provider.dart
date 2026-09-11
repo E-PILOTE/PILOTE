@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LE TYPE D'ÉTABLISSEMENT — ce qu'une école EST
@@ -94,6 +95,7 @@ class InstitutionType {
 /// ministère.
 final institutionTypesProvider = FutureProvider.autoDispose
     .family<List<InstitutionType>, String?>((ref, tutelle) async {
+  garderAuChaud(ref, pendant: kChaudReferentiel);
   final client = ref.watch(supabaseClientProvider);
   var q = client
       .from('institution_types')

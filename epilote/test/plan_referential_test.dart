@@ -56,7 +56,7 @@ void main() {
         final path = entity.path.replaceAll(r'\', '/');
         if (_exemptions.containsKey(path)) continue;
 
-        final source = entity.readAsStringSync();
+        final source = entity.readAsStringSync().replaceAll('\r\n', '\n');
         if (!source.contains('subscription_plans')) continue;
         if (!_planFields.any(source.contains)) continue;
 

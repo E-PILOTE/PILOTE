@@ -1,3 +1,5 @@
+import 'billing_period.dart' show monthlyEquivalent;
+
 // ════════════════════════════════════════════════════════════════════════════
 //  LE PRIX SUIT LE NOMBRE D'ÉCOLES
 //
@@ -89,4 +91,84 @@ int coutEcoleSuivante({
       );
   final n = ecoles < 1 ? 1 : ecoles;
   return p(n + 1) - p(n);
+}
+
+// ─── La contribution mensuelle d'un groupe ────────────────────────────────────
+//
+//  ⚠️ POURQUOI CETTE FONCTION EXISTE (2026-09-04)
+//  Cinq endroits de l'espace fondateur calculaient le revenu récurrent, et les
+//  cinq prenaient le tarif d'AFFICHE du plan : `price_xaf`, rien d'autre. Ni
+//  les écoles supplémentaires, ni le tarif négocié. La page Abonnements
+//  annonçait donc 120 000 F là où « Économie & licences » — seul écran à
+//  passer par `tarifPlanRow` — en calculait 184 000. Trente-cinq pour cent
+//  d'écart, sur le chiffre d'affaires du fondateur, entre deux pages du même
+//  logiciel.
+//
+//  Un tarif ne veut rien dire sans son assiette. Il n'y a donc plus qu'UNE
+//  façon de répondre à « combien ce groupe rapporte-t-il ce mois-ci ».
+
+/// Ce que rapporte un groupe CE MOIS-CI, ramené au mois.
+///
+/// [groupe] est une ligne `school_groups` telle que PostgREST la rend, avec le
+/// plan joint sous [planKey] (« subscription_plans » par défaut, « plan » quand
+/// la requête l'a aliasé).
+///
+/// Ordre des sources, du plus contractuel au plus général :
+///   1. `price_override_xaf` — un tarif négocié ne se recalcule jamais ;
+///   2. sinon le barème du plan appliqué à `billed_schools` (l'assiette des
+///      factures, pas un recomptage parallèle des écoles).
+/// Le résultat est ensuite ramené au mois : un plan annuel ne rapporte pas son
+/// montant entier chaque mois.
+int mensualiteGroupe(Map? groupe, {String planKey = 'subscription_plans'}) {
+  if (groupe == null) return 0;
+  final plan = groupe[planKey];
+  final planMap = plan is Map ? plan : null;
+  if (planMap == null) return 0;
+
+  final negocie = (groupe['price_override_xaf'] as num?)?.toInt();
+  final assiette = (groupe['billed_schools'] as num?)?.toInt() ?? 1;
+  final du = negocie ?? tarifPlanRow(planMap, assiette);
+  return monthlyEquivalent(du, planMap['billing_period'] as String?);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  LE NOMBRE D'ÉCOLES D'UN GROUPE — UN SEUL FOYER
+//
+//  ── POURQUOI CETTE FONCTION EXISTE (2026-09-10) ────────────────────────────
+//  Le PRIX d'un groupe suit son NOMBRE D'ÉCOLES (migration 0159,
+//  `plan_price_xaf(plan, n)` en base, `mensualiteGroupe` ci-dessus côté
+//  client). Ce nombre est donc une donnée FACTURABLE.
+//
+//  Il était pourtant recompté à SIX endroits — la liste des groupes, les
+//  abonnements, le tableau de bord fondateur, les rapports nationaux, la carte
+//  nationale et l'écran de conseil — chacun avec sa propre boucle, sa propre
+//  clé de repli et sa propre gestion du `group_id` nul. Six lectures
+//  indépendantes d'un chiffre qui décide d'une facture, c'est six occasions de
+//  diverger. Le précédent du produit est connu : le revenu mensuel affiché
+//  120 000 F sur un écran et 184 000 F sur un autre.
+//
+//  ⚠️ LA SUBTILITÉ QUI FAISAIT DÉJÀ DIVERGER LES SIX COPIES : le `group_id`
+//  nul. Deux d'entre elles rangeaient ces écoles sous la clé `''` (elles
+//  comptaient donc dans un « groupe » fantôme), deux les ignoraient. Ici on
+//  les IGNORE, et c'est le bon choix : une école sans groupe n'est facturée à
+//  personne, et l'inventer sous une clé vide fait apparaître un groupe qui
+//  n'existe pas dans les ventilations par groupe.
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Le nombre d'écoles par groupe, à partir de lignes `schools` déjà lues.
+///
+/// [lignes] doit contenir la colonne `group_id`. Les écoles sans groupe sont
+/// écartées — cf. l'en-tête.
+///
+/// ⚠️ Les lignes doivent avoir été ramenées par `fetchAllRows` : PostgREST
+/// tronque à 1 000 sans le dire, et un parc tronqué c'est une facturation
+/// fausse. Cf. `core/utils/paged_fetch.dart`.
+Map<String, int> ecolesParGroupe(Iterable<Map<String, dynamic>> lignes) {
+  final out = <String, int>{};
+  for (final l in lignes) {
+    final gid = (l['group_id'] as String?)?.trim();
+    if (gid == null || gid.isEmpty) continue;
+    out[gid] = (out[gid] ?? 0) + 1;
+  }
+  return out;
 }

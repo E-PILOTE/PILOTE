@@ -113,7 +113,7 @@ final pdfIssuerProvider = FutureProvider.autoDispose<PdfIssuer?>((ref) async {
   // ⚠️ admin_groupe NE CONNECTE JAMAIS POWERSYNC.
   //
   // C'est la règle centrale du projet : son espace travaille en ligne, sur
-  // Supabase direct (`_isStaffRole` l'exclut de `db.connect()`). Sa base SQLite
+  // Supabase direct (`isStaffRole` l'exclut de `db.connect()`). Sa base SQLite
   // locale est donc VIDE, et son profil n'a pas de `school_id` — les deux
   // raisons pour lesquelles `currentSchoolProvider`, puis `currentGroupProvider`
   // qui en dérive, ne rendent rien pour lui.

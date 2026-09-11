@@ -4,6 +4,8 @@ import 'package:uuid/uuid.dart';
 import '../../../core/utils/identite_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../navigation/providers/permissions_provider.dart'
+    show classScopeClause, permissionsLoaded;
 import 'academic_year_context.dart';
 
 part 'timetable_conflicts.dart';
@@ -91,7 +93,21 @@ class TimetableSlot {
   }
 }
 
+/// Slug de ce module au catalogue, déclaré **une seule fois pour le module**.
+const String kSlugEmploiDuTemps = 'emploi-du-temps';
+
 /// Tous les créneaux ACTIFS de l'école (année active), joints aux libellés.
+///
+/// ⚠️ VERROU 4 POSÉ LE 2026-09-10.
+///
+///  L'écran filtrait déjà ses classes par `classesForModuleProvider(_kSlug)`,
+///  mais CETTE lecture, elle, rendait tous les créneaux de l'établissement —
+///  avec le nom de l'enseignant de chaque cours. Un membre restreint à ses
+///  classes lisait donc l'emploi du temps complet de ses collègues dès qu'un
+///  écran, un export ou un KPI passait par ce provider plutôt que par la
+///  liste filtrée.
+///
+///  Le filtre de l'écran gardait un chemin ; il n'en gardait qu'un.
 final timetableSlotsProvider =
     StreamProvider.autoDispose<List<TimetableSlot>>((ref) {
   ref.keepAlive();
@@ -99,6 +115,8 @@ final timetableSlotsProvider =
   final schoolId = profile?.schoolId;
   final yearId = ref.watch(activeYearIdProvider);
   if (schoolId == null || schoolId.isEmpty) return Stream.value(const []);
+  if (!permissionsLoaded(ref)) return const Stream.empty();
+  final scope = classScopeClause(ref, kSlugEmploiDuTemps, column: 't.class_id');
   return db
       .watch(
         '''
@@ -116,9 +134,10 @@ final timetableSlotsProvider =
         WHERE  t.school_id = ?
           AND  t.academic_year_id = ?
           AND  COALESCE(t.is_active, 1) <> 0
+          ${scope?.clause ?? ''}
         ORDER  BY t.day_of_week, t.start_time
         ''',
-        parameters: [schoolId, yearId ?? ''],
+        parameters: [schoolId, yearId ?? '', ...?scope?.params],
       )
       .map((rows) => [
             for (final r in rows)

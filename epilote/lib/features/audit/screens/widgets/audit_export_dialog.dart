@@ -7,8 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/widgets/admin_ui.dart';
+import '../../../../core/widgets/pdf_preview_dialog.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../providers/audit_data.dart';
+import '../../services/audit_pdf_service.dart';
 import 'audit_export_parts.dart';
 import '../../../../core/utils/message_erreur.dart';
 
@@ -55,33 +57,74 @@ class _AuditExportDialogState extends ConsumerState<AuditExportDialog> {
     'User Agent': false,
   };
 
+  /// Les lignes à sortir — la page affichée, ou tout le périmètre filtré.
+  ///
+  /// Extrait de `_doExport` pour servir les DEUX sorties. Le journal se sort
+  /// désormais en document imprimable autant qu'en fichier de données, et
+  /// recharger le périmètre deux fois pour deux boutons serait deux fois la
+  /// même attente sur un réseau congolais intermittent.
+  Future<List<AuditEntry>?> _entrees() async {
+    if (_scope == _ExportScope.currentPage) return widget.currentPageEntries;
+    try {
+      final client = ref.read(supabaseClientProvider);
+      return await fetchAllAuditForExport(
+        client: client,
+        scope: widget.scope,
+        filters: widget.filters,
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _errorMsg = messageErreur(e, contexte: 'Récupération');
+        });
+      }
+      return null;
+    }
+  }
+
+  /// LE JOURNAL EN DOCUMENT — la sortie qui manquait.
+  ///
+  /// ⚠️ Ce dialogue ne produisait QU'UN CSV. Or le journal est la pièce qu'on
+  /// produit quand quelque chose est contesté : qui a modifié cette note, qui
+  /// a annulé ce paiement. Une pièce qui sert à trancher doit être datée,
+  /// paginée et porter l'en-tête de l'établissement — un tableur n'a rien de
+  /// tout cela. Le CSV reste pour l'enquête, quand il y a des milliers de
+  /// lignes à recouper.
+  Future<void> _apercuPdf() async {
+    setState(() {
+      _loading = true;
+      _errorMsg = null;
+    });
+    final entries = await _entrees();
+    if (entries == null || !mounted) return;
+    setState(() => _loading = false);
+
+    final periode = _scope == _ExportScope.currentPage
+        ? 'page affichée'
+        : 'ensemble des résultats filtrés';
+    showPdfPreviewDialog(
+      context,
+      title: 'Journal d\'audit',
+      subtitle: '${entries.length} opération'
+          '${entries.length > 1 ? 's' : ''} · $periode',
+      pdfFileName: 'Journal_audit.pdf',
+      build: (_) =>
+          AuditPdfService.buildPdf(entries: entries, periodeLabel: periode),
+      onDownload: () =>
+          AuditPdfService.downloadDoc(entries: entries, periodeLabel: periode),
+    );
+  }
+
   Future<void> _doExport() async {
     setState(() {
       _loading = true;
       _errorMsg = null;
     });
 
-    List<AuditEntry> entries;
-    if (_scope == _ExportScope.currentPage) {
-      entries = widget.currentPageEntries;
-    } else {
-      try {
-        final client = ref.read(supabaseClientProvider);
-        entries = await fetchAllAuditForExport(
-          client: client,
-          scope: widget.scope,
-          filters: widget.filters,
-        );
-      } catch (e) {
-        if (mounted) {
-          setState(() {
-            _loading = false;
-            _errorMsg = messageErreur(e, contexte: 'Récupération');
-          });
-        }
-        return;
-      }
-    }
+    final fetched = await _entrees();
+    if (fetched == null) return;
+    final entries = fetched;
 
     final activeCols =
         _cols.entries.where((e) => e.value).map((e) => e.key).toList();
@@ -379,21 +422,47 @@ class _AuditExportDialogState extends ConsumerState<AuditExportDialog> {
                 ),
               ),
               const SizedBox(width: 12),
+              // ── LE DOCUMENT D'ABORD, LES DONNÉES ENSUITE ─────────────────
+              //
+              // ⚠️ « Exporter en CSV » était le SEUL bouton, et il était le
+              // bouton plein. L'agent qui vient chercher une pièce à produire
+              // repartait donc avec un tableur — sans en-tête, sans date
+              // d'édition, sans pagination, et qui s'ouvre différemment sur
+              // chaque poste. Le CSV n'est pas supprimé : il sert à recouper
+              // des milliers de lignes. Il cesse seulement d'avoir l'air d'un
+              // document.
               Expanded(
-                flex: 2,
-                child: FilledButton.icon(
+                child: OutlinedButton.icon(
                   onPressed: _loading || _cols.values.every((v) => !v)
                       ? null
                       : _doExport,
+                  icon: const Icon(Icons.table_chart_outlined, size: 16),
+                  label: const Text('Données (CSV)'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: kTextMuted,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    side: BorderSide(color: kBorder),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    textStyle: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: FilledButton.icon(
+                  onPressed: _loading ? null : _apercuPdf,
                   icon: _loading
                       ? const SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
                               color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.download_rounded, size: 16),
+                      : const Icon(Icons.picture_as_pdf_outlined, size: 16),
                   label: Text(
-                      _loading ? 'Génération en cours…' : 'Exporter en CSV'),
+                      _loading ? 'Génération en cours…' : 'Aperçu du document'),
                   style: FilledButton.styleFrom(
                     backgroundColor: kNavy,
                     foregroundColor: Colors.white,

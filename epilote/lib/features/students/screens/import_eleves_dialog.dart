@@ -277,7 +277,8 @@ class _ImportState extends ConsumerState<_ImportElevesDialog> {
     );
   }
 
-  /// Écrit le modèle à remplir et la liste des classes de l'école.
+  /// Demande où enregistrer le modèle à remplir, puis l'écrit avec la liste
+  /// des classes de l'école, déposée dans le même dossier.
   Future<void> _telechargerModele() async {
     setState(() {
       _modeleEnCours = true;
@@ -286,7 +287,16 @@ class _ImportState extends ConsumerState<_ImportElevesDialog> {
     try {
       final classes = await ref.read(classesImportProvider.future);
       final m = await genererModeleImport(classes);
-      if (mounted) setState(() { _modele = m; _modeleEnCours = false; });
+      // `null` = la fenêtre « Enregistrer sous » a été fermée sans choisir.
+      // Rien n'a été écrit, mais rien n'a échoué non plus : on retire l'attente
+      // sans afficher d'erreur, et sans effacer le panneau vert d'un
+      // enregistrement précédent.
+      if (mounted) {
+        setState(() {
+          if (m != null) _modele = m;
+          _modeleEnCours = false;
+        });
+      }
     } catch (e) {
       if (mounted) {
         setState(() {

@@ -6,13 +6,17 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 import '../../../core/constants/routes.dart';
 import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/barre_export.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../../data/models/class_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
 import '../../structure/providers/academic_structure_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
+import '../../structure/providers/academic_year_provider.dart';
 import '../providers/class_provider.dart';
+import '../services/classes_pdf_service.dart';
 import '../../../core/utils/message_erreur.dart';
 
 part 'classes_parts.dart';
@@ -149,12 +153,46 @@ class _BodyState extends ConsumerState<_Body> {
     }
   }
 
+  /// L'ÉTAT DES CLASSES, en document.
+  ///
+  /// ── POURQUOI CETTE MÉTHODE N'EXISTAIT PAS ────────────────────────────────
+  /// ⚠️ Cet écran était le seul de l'espace école à ne proposer QU'UN fichier
+  /// de données. Or la répartition des classes est exactement une pièce qu'on
+  /// imprime : on l'affiche au mur à la rentrée, on la remet à l'inspection,
+  /// on la joint à une demande de poste. Un tableur n'a ni en-tête
+  /// d'établissement, ni date d'édition, ni pagination.
+  ///
+  /// L'aperçu n'est pas un confort : c'est ce qui évite de lancer l'impression
+  /// pour découvrir une colonne coupée.
+  void _apercuPdf(List<ClassModel> rows) {
+    if (rows.isEmpty) return;
+    final year = ref.read(activeYearProvider)?.label;
+    // Le nom de l'établissement, sans quoi le document ne dit pas de quelle
+    // école il parle — défaut déjà corrigé sur l'effectif élèves.
+    final school = ref.read(currentSchoolProvider).valueOrNull;
+    final schoolName = (school?['name'] as String?)?.trim();
+    showPdfPreviewDialog(
+      context,
+      title: 'État des classes',
+      subtitle: '${rows.length} classe${rows.length > 1 ? 's' : ''}'
+          '${year != null ? ' · $year' : ''}',
+      pdfFileName: 'Classes.pdf',
+      build: (format) => ClassesPdfService.buildPdf(
+          rows: rows, yearLabel: year, schoolName: schoolName),
+      onDownload: () => ClassesPdfService.downloadDoc(
+          rows: rows, yearLabel: year, schoolName: schoolName),
+    );
+  }
+
   Future<void> _bulkExport(List<ClassModel> rows) async {
     final targets = rows.where((c) => _selected.contains(c.id)).toList();
     final list = targets.isEmpty ? rows : targets;
     if (list.isEmpty) return;
     try {
       final path = await exportClassesCsv(list);
+      // `null` = fenêtre « Enregistrer sous » fermée sans choisir. Ni fichier,
+      // ni message : annuler doit rester sans conséquence visible.
+      if (path == null) return;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Export CSV : ${list.length} ligne(s) → $path'),
@@ -280,11 +318,18 @@ class _BodyState extends ConsumerState<_Body> {
                 _ClassBulkBar(
                   count: _selected.length,
                   onArchive: () => _bulkArchive(filtered),
+                  onApercuPdf: () => _apercuPdf(
+                      filtered.where((c) => _selected.contains(c.id)).toList()),
                   onExport: () => _bulkExport(filtered),
                   onClear: _clearSel,
                 )
               else
-                _ResultHeader(total: all.length, filtered: filtered.length),
+                _ResultHeader(
+                  total: all.length,
+                  filtered: filtered.length,
+                  onApercuPdf: () => _apercuPdf(filtered),
+                  onDonnees: () => _bulkExport(filtered),
+                ),
               const SizedBox(height: 12),
               if (all.isEmpty)
                 Padding(

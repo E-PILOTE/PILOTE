@@ -124,7 +124,7 @@ void main() {
     test('le document imprime les lacunes en tête, avant tout tableau', () {
       final src = File(
               'lib/features/students/services/etat_rentree_pdf_service.dart')
-          .readAsStringSync();
+          .readAsStringSync().replaceAll('\r\n', '\n');
       final iLacunes = src.indexOf('_lacunes(f, etat.lacunes)');
       final iTableau = src.indexOf('_tableEffectifs(f, etat)');
       expect(iLacunes, greaterThan(-1));
@@ -136,7 +136,7 @@ void main() {
     test('la date de référence est imprimée, jamais sous-entendue', () {
       final src = File(
               'lib/features/students/services/etat_rentree_pdf_service.dart')
-          .readAsStringSync();
+          .readAsStringSync().replaceAll('\r\n', '\n');
       expect(src.contains('Âges calculés au'), isTrue);
     });
   });

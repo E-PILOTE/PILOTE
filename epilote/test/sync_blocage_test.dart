@@ -102,7 +102,7 @@ void main() {
     String lireConnecteur() {
       final f = File('lib/services/powersync/powersync_connector.dart');
       expect(f.existsSync(), isTrue, reason: 'Sonde aveugle : connecteur absent.');
-      return f.readAsStringSync();
+      return f.readAsStringSync().replaceAll('\r\n', '\n');
     }
 
     test('le rejeu est consigné AVANT d\'être relancé', () {
@@ -124,7 +124,7 @@ void main() {
 
     test('le journal local porte la colonne qui distingue les deux', () {
       final schema =
-          File('lib/services/powersync/powersync_schema.dart').readAsStringSync();
+          File('lib/services/powersync/powersync_schema.dart').readAsStringSync().replaceAll('\r\n', '\n');
       final i = schema.indexOf("Table.localOnly('sync_failures'");
       expect(i, greaterThan(0), reason: 'Sonde aveugle : table introuvable.');
       final bloc = schema.substring(i, i + 700);

@@ -53,7 +53,7 @@ void main() {
     test('l\'application refuse AVANT d\'appeler la base', () {
       final src =
           File('lib/features/staff/providers/payroll_provider.dart')
-              .readAsStringSync();
+              .readAsStringSync().replaceAll('\r\n', '\n');
       final i = src.indexOf('Future<void> deletePayroll(');
       expect(i, greaterThan(0), reason: 'Sonde aveugle : deletePayroll absent.');
       final corps = src.substring(i, i + 900);
@@ -69,7 +69,7 @@ void main() {
 
     test('l\'écran désactive la suppression d\'un bulletin payé', () {
       final src = File('lib/features/staff/screens/paie_screen.dart')
-          .readAsStringSync();
+          .readAsStringSync().replaceAll('\r\n', '\n');
       expect(src.contains('enabled: !l.estPaye'), isTrue,
           reason: 'L\'entrée « Supprimer » doit être DÉSACTIVÉE, pas masquée : '
               'la masquer ferait croire à un droit manquant.');
@@ -79,7 +79,7 @@ void main() {
     test('la base LÈVE, elle ne refuse pas en silence', () {
       final sql = File('../database/migrations/'
               '0165_AVANT_LE_BUILD_un_bulletin_paye_ne_seface_plus.sql')
-          .readAsStringSync();
+          .readAsStringSync().replaceAll('\r\n', '\n');
       expect(sql.contains('RAISE EXCEPTION'), isTrue);
       expect(sql.contains("ERRCODE = '42501'"), isTrue,
           reason: 'Sans code fatal, le connecteur rejouerait indéfiniment.');
@@ -94,7 +94,7 @@ void main() {
     test('le journal de synchro sait nommer un bulletin de paie', () {
       // Sans libellé, un abandon afficherait « payroll » à une comptable.
       final src = File('lib/services/powersync/powersync_connector.dart')
-          .readAsStringSync();
+          .readAsStringSync().replaceAll('\r\n', '\n');
       expect(src.contains("'payroll':"), isTrue);
       expect(src.contains('Bulletin de paie'), isTrue);
     });
@@ -106,7 +106,7 @@ void main() {
       // Vérifié en base : UPDATE sur un bulletin payé → 1 ligne.
       final sql = File('../database/migrations/'
               '0165_AVANT_LE_BUILD_un_bulletin_paye_ne_seface_plus.sql')
-          .readAsStringSync();
+          .readAsStringSync().replaceAll('\r\n', '\n');
       expect(sql.contains('BEFORE UPDATE'), isFalse,
           reason: 'Fermer aussi la modification empêcherait de corriger une '
               'référence de virement, et forcerait le logiciel à mentir.');

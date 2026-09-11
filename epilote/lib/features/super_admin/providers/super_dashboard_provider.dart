@@ -1,10 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/utils/paged_fetch.dart';
+import '../../../core/utils/tarif_ecoles.dart'
+    show ecolesParGroupe, mensualiteGroupe;
 import 'package:realtime_client/realtime_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 
-import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/booleen_en_ligne.dart';
 import '../../../core/utils/plan_referential_realtime.dart';
 import '../../../core/constants/app_constants.dart';
@@ -88,6 +91,45 @@ class DeptStat {
   int get schoolCount => groups.fold(0, (s, g) => s + g.schoolsCount);
 }
 
+// ─── Ce que le tableau de bord n'a PAS pu lire ────────────────────────────────
+//
+//  ⚠️ NEUF LECTURES ÉTAIENT AVALÉES EN SILENCE (`catch (_) {}`). Une requête
+//  qui échoue — réseau coupé, RLS resserrée, colonne renommée — laissait donc
+//  la mesure à ZÉRO, et l'écran annonçait « 0 élève », « 0 FCFA de revenus »,
+//  « 0 groupe actif » au fondateur avec le même aplomb que la vérité.
+//
+//  C'est le défaut de famille de cet écran : il portait déjà « Sync réussie
+//  99,7 % », « SLA 99,5 % » et une courbe de revenus fabriquée (voir plus bas).
+//  Zéro n'est pas « je ne sais pas ». Chaque échec se nomme désormais, l'écran
+//  le dit, et les cartes concernées affichent « — » au lieu d'un chiffre faux.
+class MesuresDashboard {
+  const MesuresDashboard._();
+
+  static const eleves = 'eleves';
+  static const personnel = 'personnel';
+  static const departements = 'departements';
+
+  /// La lecture qui porte le plus : groupes, revenus, abonnements, plans,
+  /// départements, écoles. Si elle tombe, la moitié de l'écran est inconnue.
+  static const ecolesEtGroupes = 'ecoles_et_groupes';
+
+  static const personnelParRole = 'personnel_par_role';
+  static const activite = 'activite';
+  static const tendances = 'tendances';
+
+  /// Le nom lisible d'une mesure, pour le bandeau d'avertissement.
+  static String libelle(String cle) => switch (cle) {
+        eleves => 'effectif des élèves',
+        personnel => 'effectif du personnel',
+        departements => 'départements du pays',
+        ecolesEtGroupes => 'écoles, groupes et revenus',
+        personnelParRole => 'répartition du personnel',
+        activite => 'activité récente',
+        tendances => 'tendances mensuelles',
+        _ => cle,
+      };
+}
+
 // ─── Modèle stats dashboard ───────────────────────────────────────────────────
 
 class SuperDashboardData {
@@ -117,6 +159,7 @@ class SuperDashboardData {
     this.ecolesGeolocalisees = 0,
     this.departementsCouverts = 0,
     this.departementsTotal = 0,
+    this.mesuresIndisponibles = const {},
   });
 
   final int    groupesActifs;
@@ -164,6 +207,15 @@ class SuperDashboardData {
 
   // ── Historique revenus 12 mois ────────────────────────────────────────────
   final List<MonthlyRevenue>        revenueMonthly;
+
+  /// Les mesures que cette lecture n'a PAS pu obtenir — cf. [MesuresDashboard].
+  ///
+  /// Vide dans le cas normal. Non vide, elle veut dire « ces cases ne sont pas
+  /// à zéro : elles sont inconnues ». L'écran doit le dire, jamais l'arrondir.
+  final Set<String> mesuresIndisponibles;
+
+  /// Une mesure donnée a-t-elle échoué ?
+  bool indisponible(String cle) => mesuresIndisponibles.contains(cle);
 
   static const empty = SuperDashboardData(
     groupesActifs:       0,
@@ -235,6 +287,10 @@ final superDashboardProvider =
   final List<ActivityItem>              activity   = [];
   final Map<String, List<DeptGroupInfo>> deptMap   = {};
 
+  // Ce qui n'aura pas pu être lu. Rempli par les `catch` ci-dessous, rendu
+  // avec les données : une page qui montre des zéros sans le dire ment.
+  final echecs = <String>{};
+
   // ── Élèves ─────────────────────────────────────────────────────────────────
   //
   // ⚠️ COMPTER, PAS RAMENER. `select('id')` puis `.length` compte les lignes
@@ -243,21 +299,31 @@ final superDashboardProvider =
   // ministère comme un effectif national. À l'échelle visée (1 000+ écoles), la
   // mesure aurait été fausse d'un ordre de grandeur, et d'autant plus crédible
   // qu'elle est ronde.
-  try {
-    elevesTotal = await client.from('students').count(CountOption.exact);
-  } catch (_) {}
+  Future<void> lireEleves() async {
+    try {
+      elevesTotal = await client.from('students').count(CountOption.exact);
+    } catch (e) {
+      echecs.add(MesuresDashboard.eleves);
+      debugPrint('ℹ️ Tableau de bord : mesure « eleves » illisible ($e).');
+    }
+  }
 
   // ── Personnel (hors super_admin / admin_groupe) ───────────────────────────
-  try {
-    // `count()` s'applique au constructeur de requête : le filtre passe donc
-    // par `select()` avant d'être compté.
-    personnelTotal = (await client
-            .from('profiles')
-            .select()
-            .not('role', 'in', '(super_admin,admin_groupe)')
-            .count(CountOption.exact))
-        .count;
-  } catch (_) {}
+  Future<void> lirePersonnel() async {
+    try {
+      // `count()` s'applique au constructeur de requête : le filtre passe donc
+      // par `select()` avant d'être compté.
+      personnelTotal = (await client
+              .from('profiles')
+              .select()
+              .not('role', 'in', '(super_admin,admin_groupe)')
+              .count(CountOption.exact))
+          .count;
+    } catch (e) {
+      echecs.add(MesuresDashboard.personnel);
+      debugPrint('ℹ️ Tableau de bord : mesure « personnel » illisible ($e).');
+    }
+  }
 
   // ── Historique revenus 12 mois ────────────────────────────────────────────
   List<MonthlyRevenue> revenueMonthly = const [];
@@ -269,162 +335,182 @@ final superDashboardProvider =
   // pas, et surtout il ne s'écrit pas en dur deux fois avec deux valeurs
   // différentes.
   var ecolesGeolocalisees = 0, departementsCouverts = 0, departementsTotal = 0;
-  try {
-    departementsTotal =
-        await client.from('departments').count(CountOption.exact);
-  } catch (_) {}
+  Future<void> lireDepartements() async {
+    try {
+      departementsTotal =
+          await client.from('departments').count(CountOption.exact);
+    } catch (e) {
+      echecs.add(MesuresDashboard.departements);
+      debugPrint('ℹ️ Tableau de bord : mesure « departements » illisible ($e).');
+    }
+  }
 
   // ── Écoles + Groupes ───────────────────────────────────────────────────────
-  try {
-    final schools = await client
-        .from('schools')
-        .select('id, group_id, latitude, longitude, department') as List;
-    ecolesTotal = schools.length;
+  Future<void> lireEcolesGroupes() async {
+    try {
+      // ⚠️ Paginé (2026-09-09) : la cible est 1 000 écoles. Tronquée à
+      // 1 000 lignes, cette lecture aurait sous-compté le parc, les
+      // départements couverts ET le nombre d'écoles par groupe — dont le
+      // TARIF dépend (mig. 0159).
+      final schools = await fetchAllRows(() => client
+          .from('schools')
+          .select('id, group_id, latitude, longitude, department')
+          .order('id'));
+      ecolesTotal = schools.length;
 
-    final coveredDepts = <String>{};
-    for (final s in schools) {
-      if (s['latitude'] != null && s['longitude'] != null) {
-        ecolesGeolocalisees++;
+      final coveredDepts = <String>{};
+      for (final s in schools) {
+        if (s['latitude'] != null && s['longitude'] != null) {
+          ecolesGeolocalisees++;
+        }
+        final d = (s['department'] as String?)?.trim();
+        if (d != null && d.isNotEmpty) coveredDepts.add(d.toLowerCase());
       }
-      final d = (s['department'] as String?)?.trim();
-      if (d != null && d.isNotEmpty) coveredDepts.add(d.toLowerCase());
-    }
-    departementsCouverts = coveredDepts.length;
+      departementsCouverts = coveredDepts.length;
 
-    final Map<String, int> schoolsByGroup = {};
-    for (final s in schools) {
-      final gid = s['group_id'] as String? ?? '';
-      schoolsByGroup[gid] = (schoolsByGroup[gid] ?? 0) + 1;
-    }
+  // ⚠️ Un seul foyer : `ecolesParGroupe` (`core/utils/tarif_ecoles.dart`).
+    // Ce nombre décide du PRIX du groupe (mig. 0159) ; il était recompté à
+    // six endroits, avec des traitements DIFFÉRENTS du `group_id` nul.
+      final schoolsByGroup = ecolesParGroupe(schools);
 
-    final groups = await client.from('school_groups').select(
-      'id, name, department, is_active, subscription_status, '
-      'subscription_end, created_at, '
-      'subscription_plans!plan_id(name, price_xaf, billing_period)',
-    ) as List;
+      final groups = await fetchAllRows(() => client.from('school_groups').select(
+        'id, name, department, is_active, subscription_status, '
+        'subscription_end, created_at, '
+        'price_override_xaf, billed_schools, subscription_plans!plan_id(name, price_xaf, billing_period, extra_school_2_5_xaf, extra_school_6_10_xaf, extra_school_11_20_xaf, extra_school_21p_xaf)',
+      ).order('id'));
 
-    groupesTotal  = groups.length;
-    groupesActifs = groups.where((g) => actifEnLigne(g['is_active'])).length;
+      groupesTotal  = groups.length;
+      groupesActifs = groups.where((g) => actifEnLigne(g['is_active'])).length;
 
-    final now  = DateTime.now();
-    final in30 = now.add(const Duration(days: 30));
+      final now  = DateTime.now();
+      final in30 = now.add(const Duration(days: 30));
 
-    for (final grp in groups) {
-      final plan     = grp['subscription_plans'] as Map<String, dynamic>?;
-      final status   = grp['subscription_status'] as String? ?? '';
-      final dept     = (grp['department'] as String?)?.trim().isNotEmpty == true
-          ? grp['department'] as String
-          : 'Autres';
-      final planName = plan?['name'] as String? ?? 'Inconnu';
-      // Revenu MENSUEL : un plan annuel à 2 500 000 FCFA pèse 208 333 par
-      // mois. Sommer les tarifs bruts multipliait le revenu par douze.
-      final price    = monthlyPriceOfPlanRow(plan);
-
-      if (status == 'active') {
-        revenusXafMois += price;
-        abonnementsActifs++;
-      }
-      planMap[planName]   = (planMap[planName]   ?? 0) + 1;
-      statusMap[status]   = (statusMap[status]   ?? 0) + 1;
-
-      final endStr = grp['subscription_end'] as String?;
-      final subEnd = endStr != null ? DateTime.tryParse(endStr) : null;
-      if (subEnd != null && subEnd.isAfter(now) &&
-          subEnd.isBefore(in30) && status == 'active') {
-        expirantDans30j++;
-      }
-
-      final id = grp['id'] as String? ?? '';
-      deptMap.putIfAbsent(dept, () => []).add(DeptGroupInfo(
-        id:              id,
-        name:            grp['name'] as String? ?? '—',
-        planName:        planName,
-        status:          status,
-        schoolsCount:    schoolsByGroup[id] ?? 0,
-        isActive:        actifEnLigne(grp['is_active']),
-        subscriptionEnd: subEnd,
-      ));
-    }
-
-    // ── Calcul MRR par mois (12 derniers mois) ─────────────────────────────
-    final nowM = DateTime.now();
-    final mrList = <MonthlyRevenue>[];
-    for (int i = 11; i >= 0; i--) {
-      final mDate  = DateTime(nowM.year, nowM.month - i, 1);
-      final mEnd   = DateTime(mDate.year, mDate.month + 1, 1)
-          .subtract(const Duration(seconds: 1));
-      double mrr  = 0;
-      int    subs = 0;
       for (final grp in groups) {
-        final created = DateTime.tryParse(grp['created_at'] as String? ?? '');
-        if (created == null || created.isAfter(mEnd)) continue;
-        final subEndStr2 = grp['subscription_end'] as String?;
-        final subEnd2    = subEndStr2 != null ? DateTime.tryParse(subEndStr2) : null;
-        if (subEnd2 != null && subEnd2.isBefore(mDate)) continue;
-        final plan2  = grp['subscription_plans'] as Map<String, dynamic>?;
-        final price2 = monthlyPriceOfPlanRow(plan2);
-        if (price2 > 0) { mrr += price2; subs++; }
+        final plan     = grp['subscription_plans'] as Map<String, dynamic>?;
+        final status   = grp['subscription_status'] as String? ?? '';
+        final dept     = (grp['department'] as String?)?.trim().isNotEmpty == true
+            ? grp['department'] as String
+            : 'Autres';
+        final planName = plan?['name'] as String? ?? 'Inconnu';
+        // Revenu MENSUEL : un plan annuel à 2 500 000 FCFA pèse 208 333 par
+        // mois. Sommer les tarifs bruts multipliait le revenu par douze.
+        // Le MEME bareme que partout ailleurs : ecoles supplementaires et
+        // tarif negocie compris. Sans cela cette carte annonce 120 K la ou
+        // la page Abonnements en affiche 184 000.
+        final price    = mensualiteGroupe(grp as Map).toDouble();
+
+        if (status == 'active') {
+          revenusXafMois += price;
+          abonnementsActifs++;
+        }
+        planMap[planName]   = (planMap[planName]   ?? 0) + 1;
+        statusMap[status]   = (statusMap[status]   ?? 0) + 1;
+
+        final endStr = grp['subscription_end'] as String?;
+        final subEnd = endStr != null ? DateTime.tryParse(endStr) : null;
+        if (subEnd != null && subEnd.isAfter(now) &&
+            subEnd.isBefore(in30) && status == 'active') {
+          expirantDans30j++;
+        }
+
+        final id = grp['id'] as String? ?? '';
+        deptMap.putIfAbsent(dept, () => []).add(DeptGroupInfo(
+          id:              id,
+          name:            grp['name'] as String? ?? '—',
+          planName:        planName,
+          status:          status,
+          schoolsCount:    schoolsByGroup[id] ?? 0,
+          isActive:        actifEnLigne(grp['is_active']),
+          subscriptionEnd: subEnd,
+        ));
       }
-      mrList.add(MonthlyRevenue(
-        month: mDate.month, year: mDate.year,
-        label: _kMonthLabels[mDate.month - 1],
-        amount: mrr, subscriptions: subs,
-      ));
+
+      // ── Calcul MRR par mois (12 derniers mois) ─────────────────────────────
+      final nowM = DateTime.now();
+      final mrList = <MonthlyRevenue>[];
+      for (int i = 11; i >= 0; i--) {
+        final mDate  = DateTime(nowM.year, nowM.month - i, 1);
+        final mEnd   = DateTime(mDate.year, mDate.month + 1, 1)
+            .subtract(const Duration(seconds: 1));
+        double mrr  = 0;
+        int    subs = 0;
+        for (final grp in groups) {
+          final created = DateTime.tryParse(grp['created_at'] as String? ?? '');
+          if (created == null || created.isAfter(mEnd)) continue;
+          final subEndStr2 = grp['subscription_end'] as String?;
+          final subEnd2    = subEndStr2 != null ? DateTime.tryParse(subEndStr2) : null;
+          if (subEnd2 != null && subEnd2.isBefore(mDate)) continue;
+          final price2 = mensualiteGroupe(grp as Map).toDouble();
+          if (price2 > 0) { mrr += price2; subs++; }
+        }
+        mrList.add(MonthlyRevenue(
+          month: mDate.month, year: mDate.year,
+          label: _kMonthLabels[mDate.month - 1],
+          amount: mrr, subscriptions: subs,
+        ));
+      }
+      // Pas de repli inventé : le calcul ci-dessus reconstitue le revenu
+      // récurrent à partir des groupes et des plans RÉELS. Quand il ne donne
+      // rien, c'est qu'il n'y a rien — et c'est ce qu'il faut montrer.
+      revenueMonthly = mrList;
+    } catch (e) {
+      echecs.add(MesuresDashboard.ecolesEtGroupes);
+      debugPrint('ℹ️ Tableau de bord : mesure « ecoles_et_groupes » illisible ($e).');
     }
-    // Pas de repli inventé : le calcul ci-dessus reconstitue le revenu
-    // récurrent à partir des groupes et des plans RÉELS. Quand il ne donne
-    // rien, c'est qu'il n'y a rien — et c'est ce qu'il faut montrer.
-    revenueMonthly = mrList;
-  } catch (_) {}
+  }
 
   // ── Personnel par rôle (barres horizontales) ──────────────────────────────
   List<MapEntry<String, int>> personnelByRole = const [];
-  try {
-    final staffRows = await client
-        .from('profiles')
-        .select('role')
-        .not('role', 'in', '(super_admin,admin_groupe)') as List;
-    final Map<String, int> roleMap = {};
-    for (final r in staffRows) {
-      final role = _shortenRole(r['role'] as String? ?? 'autre');
-      roleMap[role] = (roleMap[role] ?? 0) + 1;
+  Future<void> lirePersonnelParRole() async {
+    try {
+      final staffRows = await fetchAllRows(() => client
+          .from('profiles')
+          .select('role')
+          .not('role', 'in', '(super_admin,admin_groupe)')
+          .order('id'));
+      final Map<String, int> roleMap = {};
+      for (final r in staffRows) {
+        final role = _shortenRole(r['role'] as String? ?? 'autre');
+        roleMap[role] = (roleMap[role] ?? 0) + 1;
+      }
+      personnelByRole = (roleMap.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value)))
+          .take(4)
+          .toList();
+    } catch (e) {
+      echecs.add(MesuresDashboard.personnelParRole);
+      debugPrint('ℹ️ Tableau de bord : mesure « personnel_par_role » illisible ($e).');
     }
-    personnelByRole = (roleMap.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value)))
-        .take(4)
-        .toList();
-  } catch (_) {}
+  }
 
-  // ── Abonnements par statut (barres horizontales) ──────────────────────────
-  final abonnementsByStatus = (statusMap.entries
-      .map((e) => MapEntry(_shortenStatus(e.key), e.value))
-      .toList()
-    ..sort((a, b) => b.value.compareTo(a.value)))
-      .take(4)
-      .toList();
 
   // ── Activité récente ───────────────────────────────────────────────────────
-  try {
-    final logs = await client
-        .from('audit_logs')
-        .select('created_at, action, table_name, new_values')
-        .order('created_at', ascending: false)
-        .limit(8) as List;
+  Future<void> lireActivite() async {
+    try {
+      final logs = await client
+          .from('audit_logs')
+          .select('created_at, action, table_name, new_values')
+          .order('created_at', ascending: false)
+          .limit(8) as List;
 
-    for (final log in logs) {
-      final action  = log['action']     as String?               ?? '';
-      final table   = log['table_name'] as String?               ?? '';
-      final details = log['new_values'] as Map<String, dynamic>? ?? {};
-      final dt = DateTime.tryParse(log['created_at'] as String? ?? '');
-      activity.add(ActivityItem(
-        time:   dt != null ? _timeAgo(dt) : '—',
-        title:  _actionTitle(action, table, details),
-        detail: details['name']       as String? ??
-                details['first_name'] as String? ?? table,
-        icon:   _tableIcon(table, action),
-      ));
+      for (final log in logs) {
+        final action  = log['action']     as String?               ?? '';
+        final table   = log['table_name'] as String?               ?? '';
+        final details = log['new_values'] as Map<String, dynamic>? ?? {};
+        final dt = DateTime.tryParse(log['created_at'] as String? ?? '');
+        activity.add(ActivityItem(
+          time:   dt != null ? _timeAgo(dt) : '—',
+          title:  _actionTitle(action, table, details),
+          detail: details['name']       as String? ??
+                  details['first_name'] as String? ?? table,
+          icon:   _tableIcon(table, action),
+        ));
+      }
+    } catch (e) {
+      echecs.add(MesuresDashboard.activite);
+      debugPrint('ℹ️ Tableau de bord : mesure « activite » illisible ($e).');
     }
-  } catch (_) {}
+  }
 
   // ── Tendances mensuelles sparklines ───────────────────────────────────────
   List<MonthlyPoint> trendGroupes = const [];
@@ -432,22 +518,72 @@ final superDashboardProvider =
   List<MonthlyPoint> trendEleves  = const [];
   List<MonthlyPoint> trendRevenus = const [];
 
-  final sixMo = DateTime.now().subtract(const Duration(days: 182));
-  try {
-    final rows = await client.from('school_groups').select('created_at')
-        .gte('created_at', sixMo.toIso8601String()) as List;
-    trendGroupes = _monthly6m(rows);
-  } catch (_) {}
-  try {
-    final rows = await client.from('schools').select('created_at')
-        .gte('created_at', sixMo.toIso8601String()) as List;
-    trendEcoles = _monthly6m(rows);
-  } catch (_) {}
-  try {
-    final rows = await client.from('students').select('created_at')
-        .gte('created_at', sixMo.toIso8601String()) as List;
-    trendEleves = _monthly6m(rows);
-  } catch (_) {}
+  // ⚠️ LES TROIS COURBES SE COMPTENT, ELLES NE SE RAMÈNENT PLUS (2026-09-09).
+  //
+  //  Elles lisaient les LIGNES des six derniers mois pour les compter par mois
+  //  côté client. À l'échelle visée, la courbe des élèves aurait transféré
+  //  des centaines de milliers de lignes pour six points — et surtout, elle
+  //  serait retombée sous le plafond de 1 000 de PostgREST : passé ce seuil,
+  //  la tendance se serait aplatie d'elle-même, sans erreur ni signe.
+  //  Six `count(exact)` en parallèle : aucun transfert, un chiffre juste.
+  Future<void> lireTendanceGroupes() async {
+    try {
+      trendGroupes =
+          _points(await countsByMonth6m(client, table: 'school_groups'));
+    } catch (e) {
+      echecs.add(MesuresDashboard.tendances);
+      debugPrint('ℹ️ Tableau de bord : mesure « tendances » illisible ($e).');
+    }
+  }
+  Future<void> lireTendanceEcoles() async {
+    try {
+      trendEcoles = _points(await countsByMonth6m(client, table: 'schools'));
+    } catch (e) {
+      echecs.add(MesuresDashboard.tendances);
+      debugPrint('ℹ️ Tableau de bord : mesure « tendances » illisible ($e).');
+    }
+  }
+  Future<void> lireTendanceEleves() async {
+    try {
+      trendEleves = _points(await countsByMonth6m(client, table: 'students'));
+    } catch (e) {
+      echecs.add(MesuresDashboard.tendances);
+      debugPrint('ℹ️ Tableau de bord : mesure « tendances » illisible ($e).');
+    }
+  }
+
+  // ── LES DIX LECTURES PARTENT ENSEMBLE ──────────────────────────────────────
+  //
+  //  Elles s'enchaînaient en `await` successifs. Dix allers-retours l'un après
+  //  l'autre : sur une liaison à 400 ms, quatre secondes pour afficher la page
+  //  que le fondateur ouvre en premier chaque matin.
+  //
+  //  Rien d'autre n'a changé : mêmes requêtes, mêmes agrégations, mêmes
+  //  chiffres. Chacune garde son `catch` et nomme sa mesure — un échec isolé
+  //  n'emporte donc pas les neuf autres, exactement comme avant.
+  //
+  //  ⚠️ CE QUI SUIT L'ATTENTE N'EST PAS DÉCORATIF. `abonnementsByStatus`,
+  //  `planList` et `deptList` lisent des tables remplies par
+  //  `lireEcolesGroupes`. Les laisser au-dessus les ferait calculer sur du
+  //  vide, sans la moindre erreur pour le signaler.
+  await Future.wait([
+    lireEleves(),
+    lirePersonnel(),
+    lireDepartements(),
+    lireEcolesGroupes(),
+    lirePersonnelParRole(),
+    lireActivite(),
+    lireTendanceGroupes(),
+    lireTendanceEcoles(),
+    lireTendanceEleves(),
+  ]);
+  // ── Abonnements par statut (barres horizontales) ──────────────────────────
+  final abonnementsByStatus = (statusMap.entries
+      .map((e) => MapEntry(_shortenStatus(e.key), e.value))
+      .toList()
+    ..sort((a, b) => b.value.compareTo(a.value)))
+      .take(4)
+      .toList();
   // ⚠️ Les revenus se lisent sur les FACTURES ENCAISSÉES, pas sur une courbe
   // fabriquée. La version précédente prenait le revenu du mois courant et le
   // multipliait par [0.62, 0.70, 0.79, 0.87, 0.93, 1.0] : le graphique
@@ -495,6 +631,7 @@ final superDashboardProvider =
     departementsCouverts: departementsCouverts,
     departementsTotal:    departementsTotal,
     revenueMonthly:      revenueMonthly,
+    mesuresIndisponibles: echecs,
   );
 });
 
@@ -538,21 +675,18 @@ const _kMonthLabels = [
   'Juil','Aoû','Sep','Oct','Nov','Déc',
 ];
 
-List<MonthlyPoint> _monthly6m(List rows) {
-  final now    = DateTime.now();
+/// Six comptes mensuels (du plus ancien au mois courant) → six points nommés.
+///
+/// Le calendrier vient de `countsByMonth6m`, qui a construit les fenêtres :
+/// les deux doivent se lire ensemble, sinon les étiquettes glissent d'un mois.
+List<MonthlyPoint> _points(List<int> comptes) {
+  final now = DateTime.now();
   final months = List.generate(6, (i) => DateTime(now.year, now.month - 5 + i));
-  final Map<String, int> cnt = {};
-  for (final r in rows) {
-    final dt = DateTime.tryParse(r['created_at'] as String? ?? '');
-    if (dt == null) continue;
-    final k = '${dt.year}-${dt.month}';
-    cnt[k] = (cnt[k] ?? 0) + 1;
-  }
-  return months.map((m) {
-    final norm = DateTime(m.year, m.month);
-    return MonthlyPoint(
-        _kMonthLabels[norm.month - 1], (cnt['${norm.year}-${norm.month}'] ?? 0).toDouble());
-  }).toList();
+  return [
+    for (var i = 0; i < months.length; i++)
+      MonthlyPoint(_kMonthLabels[months[i].month - 1],
+          (i < comptes.length ? comptes[i] : 0).toDouble()),
+  ];
 }
 
 // ⚠️ Deux fabriques de courbes ont été supprimées ici : `_revenueTrend6m` et

@@ -186,8 +186,14 @@ class _ViewToggle extends StatelessWidget {
 
 // ─── En-tête de résultats ────────────────────────────────────────────────────
 class _ResultHeader extends StatelessWidget {
-  const _ResultHeader({required this.total, required this.filtered});
+  const _ResultHeader({
+    required this.total,
+    required this.filtered,
+    required this.onApercuPdf,
+    required this.onDonnees,
+  });
   final int total, filtered;
+  final VoidCallback onApercuPdf, onDonnees;
   @override
   Widget build(BuildContext context) {
     final txt = filtered == total
@@ -199,6 +205,19 @@ class _ResultHeader extends StatelessWidget {
       Text(txt,
           style: TextStyle(
               fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
+      const Spacer(),
+      // ⚠️ LA SORTIE VIT ICI DÉSORMAIS, ET PLUS SEULEMENT DANS LA BARRE DE
+      // SÉLECTION. Il fallait auparavant cocher des classes pour pouvoir
+      // exporter quoi que ce soit — or le geste courant est de sortir l'état
+      // ENTIER, pas une sélection. Et ce qui sortait était un tableur.
+      if (filtered > 0)
+        BarreExport(
+          onApercuPdf: onApercuPdf,
+          onDonnees: onDonnees,
+          libelleDonnees: 'Fichier de données (CSV)',
+          aQuoiServentLesDonnees:
+              'Pour retravailler la répartition dans un tableur',
+        ),
     ]);
   }
 }
@@ -1035,11 +1054,12 @@ class _ClassBulkBar extends StatelessWidget {
   const _ClassBulkBar({
     required this.count,
     required this.onArchive,
+    required this.onApercuPdf,
     required this.onExport,
     required this.onClear,
   });
   final int count;
-  final VoidCallback onArchive, onExport, onClear;
+  final VoidCallback onArchive, onApercuPdf, onExport, onClear;
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -1055,8 +1075,16 @@ class _ClassBulkBar extends StatelessWidget {
         const Spacer(),
         _BulkBtn(
             icon: Icons.archive_outlined, label: 'Archiver', onTap: onArchive),
+        // Le document d'abord, le fichier de données ensuite — et l'intitulé
+        // dit lequel est lequel. « Exporter » tout court ne le disait pas.
         _BulkBtn(
-            icon: Icons.download_rounded, label: 'Exporter', onTap: onExport),
+            icon: Icons.picture_as_pdf_outlined,
+            label: 'Aperçu PDF',
+            onTap: onApercuPdf),
+        _BulkBtn(
+            icon: Icons.table_chart_outlined,
+            label: 'Données',
+            onTap: onExport),
         const SizedBox(width: 4),
         IconButton(
           tooltip: 'Désélectionner',

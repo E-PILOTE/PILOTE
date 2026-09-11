@@ -5,6 +5,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../../core/utils/identite_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
 import 'passage_provider.dart' show TargetClass;
+import '../../../core/utils/decisions.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  CLÔTURE DES CLASSES D'EXAMEN — ce que la proclamation déclenche.
@@ -600,7 +601,15 @@ Future<int> applyExamResults({
         '  promotion_average = ?, promotion_target_class_id = ?, '
         '  promotion_decided_at = ?, promotion_decided_by = ?, updated_at = ? '
         'WHERE id = ?',
-        [verdict, e.examAverage, target, now, actorId, now, e.enrollmentId],
+        [
+          verdictPassageValide(verdict),
+          e.examAverage,
+          target,
+          now,
+          actorId,
+          now,
+          e.enrollmentId,
+        ],
       );
       n++;
     }
@@ -703,14 +712,41 @@ Future<int> graduateLeavers({
   final todo = session.leavers;
   if (todo.isEmpty) return 0;
   final now = DateTime.now().toIso8601String();
+  final today = now.substring(0, 10);
   var n = 0;
   await db.writeTransaction((tx) async {
     for (final e in todo) {
+      // ── ⚠️ UNE SORTIE SANS MOTIF EST UNE SORTIE INEXPLIQUÉE ────────────
+      //  `v_sorties_par_motif` — la statistique nationale de déperdition —
+      //  compte les TROIS statuts de sortie (`transferred`, `withdrawn`,
+      //  `graduated`) et les groupe par `withdrawal_motif`. Cette écriture
+      //  posait `graduated` sans motif : une promotion entière de Terminale
+      //  serait tombée dans un seau `NULL`, au milieu des abandons qu'on ne
+      //  sait pas expliquer. Le ministère aurait lu une déperdition là où il
+      //  y a des diplômés.
+      //
+      //  Aucune ligne `graduated` n'existe encore en production — la clôture
+      //  d'année n'a pas encore tourné. Le défaut se serait déclaré à la
+      //  toute première, en juin, sur tout le parc à la fois.
+      //
+      //  `fin_de_scolarite` est le code de `core/utils/sortie_motif.dart`,
+      //  accepté par `class_enrollments_withdrawal_motif_check` (mig. 0082).
       await tx.execute(
         'UPDATE class_enrollments SET status = ?, promotion_decision = ?, '
         '  promotion_target_class_id = NULL, promotion_decided_at = ?, '
-        '  promotion_decided_by = ?, updated_at = ? WHERE id = ?',
-        ['graduated', 'passe', now, actorId, now, e.enrollmentId],
+        '  promotion_decided_by = ?, withdrawal_motif = ?, '
+        '  withdrawal_date = COALESCE(withdrawal_date, ?), '
+        '  updated_at = ? WHERE id = ?',
+        [
+          'graduated',
+          verdictPassageValide('passe'),
+          now,
+          actorId,
+          'fin_de_scolarite',
+          today,
+          now,
+          e.enrollmentId,
+        ],
       );
       n++;
     }

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../../core/utils/subscription_days.dart';
 import '../../admin_groupe/providers/subscription_access_provider.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -71,20 +72,24 @@ final dunningProvider =
   final settings = await ref.watch(subscriptionSettingsProvider.future);
 
   try {
-    final groups = await client
+    final groups = await fetchAllRows(() => client
         .from('school_groups')
         .select('id, name, subscription_status, subscription_end, '
-            'subscription_plans!plan_id(name)') as List;
+            'subscription_plans!plan_id(name)')
+        .order('id'));
 
     // Impayés par groupe (statuts pending/overdue).
     final Map<String, int> due = {};
     try {
-      final inv = await client
+      // ⚠️ Paginé : les factures s'accumulent tous les mois pour chaque
+      // groupe. Tronqué à 1 000, l'encours des impayés se serait mis à
+      // RÉTRÉCIR à mesure que la dette grossissait.
+      final inv = await fetchAllRows(() => client
           .from('group_invoices')
           .select('group_id, amount_xaf, status')
-          .inFilter('status', ['pending', 'overdue']) as List;
-      for (final r in inv) {
-        final m = r as Map;
+          .inFilter('status', ['pending', 'overdue'])
+          .order('id'));
+      for (final m in inv) {
         final gid = m['group_id'] as String?;
         if (gid == null) continue;
         due[gid] = (due[gid] ?? 0) + ((m['amount_xaf'] as num?)?.toInt() ?? 0);

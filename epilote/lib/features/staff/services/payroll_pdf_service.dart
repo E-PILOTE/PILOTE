@@ -186,34 +186,35 @@ class PayrollPdfService {
           PdfKpi('Agents', '${lines.length}', const PdfColor.fromInt(0xFF0EA5E9)),
         ], width: 130),
         pw.SizedBox(height: 16),
-        if (lines.isEmpty)
-          OfficialPdfKit.empty('Aucun bulletin pour cette période.', f.regular)
-        else
-          OfficialPdfKit.frame(
-            title: 'BULLETINS — $period',
-            color: kPdfNavy,
-            fonts: f,
-            child: OfficialPdfKit.table(
-              headers: const [
-                'Agent', 'Base', 'Primes', 'Retenues', 'Net', 'Méthode', 'Statut'
+        // ⚠️ PAGINÉ le 2026-09-10 — le journal de paie ne sortait pas passé
+        //  une vingtaine d'agents (page PAYSAGE : 595 pt, pas 842).
+        //  `frame()` ne se scinde pas ; au-delà d'une feuille, `MultiPage`
+        //  boucle jusqu'à `TooManyPagesException` et l'on n'obtient AUCUN
+        //  document. C'est la pièce que le comptable classe chaque mois.
+        ...OfficialPdfKit.tableSection(
+          title: 'BULLETINS — $period',
+          color: kPdfNavy,
+          fonts: f,
+          headers: const [
+            'Agent', 'Base', 'Primes', 'Retenues', 'Net', 'Méthode', 'Statut'
+          ],
+          rows: [
+            for (final l in lines)
+              [
+                l.staffName.isEmpty ? '—' : l.staffName,
+                _xaf(l.base),
+                _xaf(l.bonuses),
+                _xaf(l.deductions),
+                _xaf(l.net),
+                payMethodLabel(l.method),
+                payStatusLabel(l.status),
               ],
-              rows: [
-                for (final l in lines)
-                  [
-                    l.staffName.isEmpty ? '—' : l.staffName,
-                    _xaf(l.base),
-                    _xaf(l.bonuses),
-                    _xaf(l.deductions),
-                    _xaf(l.net),
-                    payMethodLabel(l.method),
-                    payStatusLabel(l.status),
-                  ],
-              ],
-              fonts: f,
-              flex: const [5, 3, 3, 3, 3, 3, 2],
-              leftAlignCols: const {0},
-            ),
-          ),
+          ],
+          flex: const [5, 3, 3, 3, 3, 3, 2],
+          leftAlignCols: const {0},
+          emptyLabel: 'Aucun bulletin pour cette période.',
+          perBlock: OfficialPdfKit.kRowsPerBlockLandscape,
+        ),
         pw.SizedBox(height: 8),
       ],
     ));

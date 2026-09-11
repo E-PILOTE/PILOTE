@@ -89,22 +89,31 @@ const _kEcrituresConnues = <String, Set<String>>{
     'subscription_plans',
     'support_tickets',
   },
-  // Module communication — partagé, scope-aware, en ligne lui aussi.
+  // Modules PARTAGÉS, scope-aware, en ligne : communication et profil.
   'autre': {
     'announcement_comments',
-    // Circulaires de tutelle (migration 0161). Emission par la seule tutelle
-    // emettrice : politique `circulaires_emetteur`, FOR ALL, USING ET
-    // WITH CHECK sur `auth_peut_superviser() AND emetteur_group_id =
-    // auth_group_id()`. ⚠️ La PUBLICATION et l'ACCUSE ne passent PAS par
-    // PostgREST : ce sont deux RPC SECURITY DEFINER, precisement pour qu'un
-    // refus LEVE au lieu de toucher zero ligne en silence.
-    'circulaires',
+    // ⚠️ `circulaires` a quitte ce releve le 2026-09-02 : l'application n'y
+    // ecrit plus rien. La circulaire de tutelle ajoutait un quatrieme canal
+    // de communication a cote des annonces, de la messagerie et des tickets,
+    // pour un objet dont la base ne comptait aucune ligne ; un ministere ecrit
+    // desormais a un groupe supervise par la MESSAGERIE. La table survit en
+    // base, dormante — la retirer suppose de defaire cinq migrations et des
+    // regles PowerSync.
     'announcement_reactions',
     'announcements',
     'conversation_members',
     'conversations',
     'events',
     'messages',
+    // « Mon profil » (features/profil) écrit SA PROPRE ligne.
+    // Politiques relevées le 2026-09-04 : `profiles_update` accepte
+    // `id = auth.uid()` — troisième branche du USING, celle qui vaut ici.
+    // ⚠️ Et le déclencheur `profiles_garde_colonnes_de_pouvoir` (0188) GÈLE
+    // en silence `role`, `access_profile_id`, `school_id`, `group_id`,
+    // `is_active` et les trois `sync_*` sur sa propre ligne : la page n'écrit
+    // donc que `first_name`, `last_name`, `phone` et `avatar_url`. Les autres
+    // afficheraient « enregistré » sur une valeur remise comme avant.
+    'profiles',
     'notifications',
     'saved_announcements',
     'stories',

@@ -315,7 +315,18 @@ void main() {
     final fautes = <String>[];
     for (final f in _dartsSous('lib')) {
       final rel = _relatif(f);
-      for (final m in motif.allMatches(f.readAsStringSync())) {
+      // Sans les commentaires. Un fichier de DOCTRINE nomme les requêtes qu'il
+      // explique — `core/utils/contrat_inscriptions.dart` cite le `grep` qui
+      // recense les écrivains de `class_enrollments` — sans en exécuter une
+      // seule. Compter ces mentions ferait de chaque explication écrite une
+      // fausse alerte, et la première réaction serait de retirer
+      // l'explication.
+      final src = f
+          .readAsStringSync()
+          .split('\n')
+          .where((l) => !l.trimLeft().startsWith('//'))
+          .join('\n');
+      for (final m in motif.allMatches(src)) {
         final t = m.group(1)!;
         if (!tables.contains(t)) continue;
         if (connus.contains('$t|$rel')) continue;
@@ -363,11 +374,11 @@ void main() {
       // `fn_enforce_student_quota` lève un `check_violation` (23514) BEFORE
       // INSERT ON students : inscrire un enfant de trop jetterait le lot.
       final prov = File('lib/features/students/providers/students_provider.dart')
-          .readAsStringSync();
+          .readAsStringSync().replaceAll('\r\n', '\n');
       expect(prov.contains('checkStudentQuota'), isTrue);
       final ecran =
           File('lib/features/students/screens/add_inscription_screen.dart')
-              .readAsStringSync();
+              .readAsStringSync().replaceAll('\r\n', '\n');
       expect(ecran.contains('await checkStudentQuota('), isTrue,
           reason: 'Le garde doit être APPELÉ, pas seulement défini.');
     });
@@ -376,7 +387,7 @@ void main() {
       // CHECK ((is_absent AND score IS NULL) OR (NOT is_absent AND score IS
       // NOT NULL)) : garder 12 en cochant « absent » lèverait un 23514.
       final src = File('lib/features/evaluation/screens/notes_grades.dart')
-          .readAsStringSync();
+          .readAsStringSync().replaceAll('\r\n', '\n');
       expect(src.contains('score: isAbsent ? null : score'), isTrue);
     });
 
@@ -389,8 +400,10 @@ void main() {
       // `choisirDateScolaire` (core/utils/date_scolaire.dart), partagé et
       // testé à part (`date_scolaire_test.dart`). Le garde suit la logique là
       // où elle est allée.
-      final src = File('lib/features/structure/screens/edt_calendar_tab.dart')
-          .readAsStringSync();
+      // ⚠️ Le formulaire a quitté `edt_calendar_tab.dart` le 2026-09-04 :
+      // l'onglet AFFICHE les jours fériés, la pièce ci-dessous les SAISIT.
+      final src = File('lib/features/structure/screens/edt_calendar_holiday_form.dart')
+          .readAsStringSync().replaceAll('\r\n', '\n');
       expect(src.contains('choisirDateScolaire(context, ref'), isTrue,
           reason: 'Les bornes doivent venir de l\'année, jamais d\'un repli.');
       expect(src.contains('showDatePicker('), isFalse);
@@ -399,8 +412,8 @@ void main() {
 
     test('le calendrier tient l\'ordre des dates', () {
       // CHECK (end_date >= start_date).
-      final src = File('lib/features/structure/screens/edt_calendar_tab.dart')
-          .readAsStringSync();
+      final src = File('lib/features/structure/screens/edt_calendar_holiday_form.dart')
+          .readAsStringSync().replaceAll('\r\n', '\n');
       expect(src.contains('if (_end == null || _end!.isBefore(picked)) _end = picked;'),
           isTrue);
       expect(src.contains('if (_start == null || _start!.isAfter(picked)) _start = picked;'),
@@ -411,7 +424,7 @@ void main() {
       // `fn_guard_locked_year` lève un 42501 sur une année verrouillée. Cet
       // onglet était le SEUL écran d'écriture à ne pas lire l'état de l'année.
       final src = File('lib/features/structure/screens/edt_calendar_tab.dart')
-          .readAsStringSync();
+          .readAsStringSync().replaceAll('\r\n', '\n');
       expect(src.contains('yearReadOnlyProvider'), isTrue);
       expect(src.contains('&& !readOnly'), isTrue);
     });

@@ -31,7 +31,7 @@ import 'package:flutter_test/flutter_test.dart';
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('$chemin introuvable — lancer depuis `epilote/`.');
-  return f.readAsStringSync();
+  return f.readAsStringSync().replaceAll('\r\n', '\n');
 }
 
 const _kFiche = 'lib/features/stages/widgets/stage_file_dialog.dart';

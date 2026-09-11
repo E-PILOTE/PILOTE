@@ -21,6 +21,30 @@ import 'media_viewer.dart';
 /// Taille maximale d'une pièce jointe (Storage) : 25 Mo.
 const int kMaxAttachmentBytes = 25 * 1024 * 1024;
 
+/// Plafond d'une VIDÉO sur un appareil qui ne sait pas la ré-encoder.
+///
+/// ⚠️ POURQUOI CE SECOND PLAFOND EXISTE.
+/// `compressForUpload` compresse les images en pur Dart — partout, y compris
+/// sur le bureau. La VIDÉO, elle, passe par `video_compress`, un plugin natif
+/// **Android/iOS uniquement** : sur Windows — la plateforme de déploiement —
+/// `compressVideoBytes` rend l'original tel quel, sans le dire. Une vidéo de
+/// téléphone de 24 Mo passait donc le contrôle des 25 Mo et partait BRUTE.
+///
+/// Trois raisons de ne pas laisser faire : la liaison congolaise qui doit la
+/// porter, le quota Storage du plan, et le destinataire qui la retéléchargera.
+/// Faute de pouvoir transcoder, on REFUSE en disant quoi faire — un refus
+/// explicite vaut mieux qu'un envoi de 24 Mo que personne n'a voulu.
+///
+/// ~10 Mo = environ 45 s de 720p. Au-delà, l'agent raccourcit, ou envoie
+/// depuis un téléphone où l'application compresse toute seule.
+const int kMaxVideoBytesSansTranscodage = 10 * 1024 * 1024;
+
+/// Le plafond applicable à [mime] sur CET appareil.
+int plafondPieceJointe(String mime) =>
+    (mime.startsWith('video/') && !videoCompressionSupported)
+        ? kMaxVideoBytesSansTranscodage
+        : kMaxAttachmentBytes;
+
 String humanFileSize(int bytes) {
   if (bytes <= 0) return '';
   const units = ['o', 'Ko', 'Mo', 'Go'];
@@ -389,10 +413,21 @@ Future<List<MessageAttachment>> pickAndUploadAttachments({
     // de 8 Mo tombe à ~400 Ko et passe sous la limite ; data économisée.
     final c = await compressForUpload(
         bytes: raw, fileName: f.name, mime: rawMime);
-    if (c.bytes.length > kMaxAttachmentBytes) {
+
+    // ⚠️ Le plafond dépend de l'appareil : une vidéo n'est ré-encodée que sur
+    // mobile. Sur un poste Windows, `compressForUpload` l'a rendue INCHANGÉE.
+    final plafond = plafondPieceJointe(c.mime);
+    if (c.bytes.length > plafond) {
       throw AttachmentUploadException(
-          '« ${f.name} » dépasse la taille maximale '
-          '(${humanFileSize(kMaxAttachmentBytes)}) même après compression.');
+        plafond == kMaxVideoBytesSansTranscodage
+            ? '« ${f.name} » pèse ${humanFileSize(c.bytes.length)}. Cet '
+                'appareil ne sait pas ré-encoder une vidéo : elle partirait '
+                'telle quelle. Raccourcissez-la (${humanFileSize(plafond)} '
+                'maximum, soit ~45 s), ou envoyez-la depuis un téléphone — '
+                'l’application y compresse automatiquement.'
+            : '« ${f.name} » dépasse la taille maximale '
+                '(${humanFileSize(plafond)}) même après compression.',
+      );
     }
     try {
       out.add(await uploadMessageAttachment(

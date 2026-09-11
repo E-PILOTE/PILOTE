@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../communication/providers/messages_provider.dart'
     show MessageAttachment, parseAttachments;
@@ -97,14 +98,15 @@ final ticketsProvider = FutureProvider.autoDispose<TicketsData>((ref) async {
     });
   } catch (_) {}
 
-  final rows = await client
+  final rows = await fetchAllRows(() => client
       .from('support_tickets')
       .select(
         'id, group_id, submitted_by, subject, body, category, status, '
         'priority, created_at, response, resolved_at, attachments, '
         'school_groups!group_id(name)',
       )
-      .order('created_at', ascending: false);
+      .order('created_at', ascending: false)
+      .order('id'));
 
   final tickets = (rows as List).map((r) {
     final m  = r as Map;

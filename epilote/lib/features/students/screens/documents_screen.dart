@@ -20,6 +20,7 @@ import '../providers/students_registry_provider.dart';
 import '../services/documents_pdf_service.dart';
 import '../widgets/scope_drilldown_panel.dart';
 import '../../../core/utils/message_erreur.dart';
+import '../../../core/utils/write_identity.dart';
 
 part 'documents_parts.dart';
 part 'documents_detail.dart';

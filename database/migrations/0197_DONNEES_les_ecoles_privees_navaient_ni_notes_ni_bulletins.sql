@@ -1,0 +1,58 @@
+-- ════════════════════════════════════════════════════════════════════════════
+--  LES SEPT ÉCOLES PRIVÉES N'AVAIENT NI NOTES NI BULLETINS
+--
+--  ⚠️ LOT DE DONNÉES DE DÉMONSTRATION. Suite de `0195` et `0196`.
+--
+--  ── L'OUBLI ───────────────────────────────────────────────────────────────
+--  Après les deux premiers lots, un audit de cohérence a montré le trou : les
+--  sept établissements privés du METP avaient des classes, des élèves, un
+--  emploi du temps, un cahier de textes, des paiements, une bibliothèque — et
+--  ZÉRO évaluation, ZÉRO note, ZÉRO bulletin, ZÉRO candidat aux examens.
+--
+--  Tout était plein autour, et le cœur du métier scolaire était vide. Un
+--  visiteur qui ouvrait « Notes » ou « Bulletins » sur une de ces écoles
+--  tombait sur un écran blanc au milieu d'une démonstration pleine.
+--
+--  ── 🩸 LES BULLETINS SONT CALCULÉS, PAS TIRÉS AU SORT ─────────────────────
+--  C'est le point qui compte. Un bulletin fabriqué indépendamment des notes
+--  afficherait 14 de moyenne là où l'écran des notes en montre 11 — et le
+--  premier qui croise les deux écrans perd confiance dans TOUT le reste.
+--
+--  Chaîne réellement calculée :
+--     notes → moyenne par matière → moyenne pondérée par coefficient
+--           → rang dans la classe → moyenne de classe → mention → décision
+--
+--  Contrôle : moyenne des notes = 11,49 ; moyenne des bulletins = 11,48.
+--  L'écart vient des trois pour cent d'absents, exclus du calcul. C'est le bon
+--  écart — il prouve que le lien est réel.
+--
+--  ── ⚠️ `get_mention()` N'EXISTE PAS EN BASE ───────────────────────────────
+--  Le `CLAUDE.md` affirme « mentions alignées sur `get_mention()` en base ».
+--  Cette fonction N'EXISTE PAS — aucune fonction ne porte « mention » dans son
+--  nom. Le barème a donc été relevé sur les 18 285 bulletins déjà présents,
+--  qui font foi :
+--     Insuffisant < 10 · Passable < 12 · Assez Bien < 14 · Bien < 16
+--     Très Bien < 18 · Excellent ≥ 18
+--  ⚠️ Noter la CAPITALE à « Assez Bien » et « Très Bien ». Les appréciations
+--  de notes de ce lot ont dû être reprises : elles portaient une minuscule.
+--
+--  ── CE QUI A ÉTÉ POSÉ ─────────────────────────────────────────────────────
+--   1 320 évaluations  — 2 par matière et par classe (devoir surveillé +
+--                        composition), 3e trimestre, publiées
+--  23 254 notes        — moyenne 11,49 ; 3 % d'absents ; de 3,02 à 19,95
+--   1 057 bulletins    — 23 redoublements, 4 mentions représentées
+--  11 615 lignes       — moyenne, moyenne de classe, rang et appréciation
+--                        pour chacune des 11 matières
+--     344 candidats    — session CAP 2025-2026, statut « open » : la campagne
+--                        est EN COURS, avec 99 dossiers incomplets et leurs
+--                        pièces manquantes nommées. Une session close n'aurait
+--                        rien montré du travail d'un secrétariat.
+--
+--  Base : 340 Mo, 68 % du plan gratuit.
+--
+--  Détail : docs/memoire/donnees-demonstration-metp.md
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- Le SQL de ce lot vit dans la fiche mémoire, avec chaque requête dans son
+-- contexte. Ce fichier existe pour que la migration 0197 ait un domicile et
+-- que le RAISONNEMENT ne se perde pas.

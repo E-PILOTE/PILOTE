@@ -69,6 +69,16 @@ int monthlyEquivalent(int priceXaf, String? period) {
 /// Chaque tableau de bord refaisait ce calcul à la main sur la ligne jointe —
 /// et tous l'ont fait faux de la même façon, en oubliant la période. Un seul
 /// endroit, donc, et un seul endroit à corriger.
+/// ⚠️ CECI EST LE TARIF D'AFFICHE D'UN PLAN, PAS CE QUE RAPPORTE UN GROUPE.
+///
+/// Cinq écrans de l'espace fondateur s'en servaient pour calculer le revenu
+/// récurrent, et les cinq sous-estimaient : le prix d'un groupe dépend de
+/// son nombre d'écoles et peut être négocié. La page Abonnements annonçait
+/// 120 000 F quand la page Économie en calculait 184 000.
+///
+/// Pour le revenu d'un GROUPE : `mensualiteGroupe` dans `tarif_ecoles.dart`.
+/// Celle-ci ne sert qu'à afficher le tarif d'un plan au catalogue, là où il
+/// n'y a ni groupe ni assiette. Gardée par `revenu_mensuel_un_seul_chiffre`.
 double monthlyPriceOfPlanRow(Map? plan) {
   if (plan == null) return 0;
   final price = (plan['price_xaf'] as num?)?.toInt() ?? 0;

@@ -5,7 +5,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 
 import '../../../core/services/official_pdf_kit.dart';
 import '../providers/programmes_provider.dart';
@@ -206,17 +205,12 @@ class ProgrammesPdfService {
   }
 
   // ── Impression / téléchargement ────────────────────────────────────────────
-  static Future<void> printDoc({
-    required List<ProgrammeRow> rows,
-    String? schoolName,
-    String? yearLabel,
-  }) async {
-    await Printing.layoutPdf(
-      onLayout: (_) =>
-          buildPdf(rows: rows, schoolName: schoolName, yearLabel: yearLabel),
-      name: 'Programmes_pedagogiques.pdf',
-    );
-  }
+  //
+  // RETIRÉ le 2026-09-09 : `printDoc(...)` — **aucun appelant**. L'écran des
+  // programmes passe déjà par l'aperçu partagé (`programmes_screen.dart:239`
+  // sur `buildPdf`, puis `downloadDoc`). C'était le seul `Printing.layoutPdf`
+  // restant de tout l'espace école : une méthode morte portant le geste banni,
+  // que le prochain écran aurait recopiée en croyant bien faire.
 
   static Future<String?> downloadDoc({
     required List<ProgrammeRow> rows,

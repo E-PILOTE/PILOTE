@@ -8,11 +8,38 @@ import 'package:video_compress/video_compress.dart';
 // ════════════════════════════════════════════════════════════════════════════
 //  Compression média AVANT upload — l'« effet WhatsApp ».
 //  • Images  : pur Dart (`image`) → marche partout (mobile, desktop, web, Linux
-//    dev). Redimensionne au plus long côté ≤ kMaxImageEdge, ré-encode JPEG q80.
+//    dev). Redimensionne au plus long côté ≤ kMaxImageEdge, ré-encode JPEG.
 //  • Vidéos  : `video_compress` → mobile uniquement (Android/iOS). Ailleurs on
 //    renvoie l'original inchangé (les admins desktop ont une bonne connexion).
 //  Objectif : diviser par 10-30 le poids transféré, économiser la data des
 //  utilisateurs (Congo, connexions lentes) et tenir sous la limite de 25 Mo.
+//
+//  ── ⚠️ TROIS DÉFAUTS CORRIGÉS, TOUS INVISIBLES À LA LECTURE ───────────────
+//
+//  1. `copyResize` INTERPOLE EN « NEAREST » PAR DÉFAUT (image 4.8). C'est le
+//     pire filtre possible pour RÉDUIRE : il jette les pixels au lieu de les
+//     moyenner, et une photo divisée par trois en ressort crénelée — escaliers
+//     sur les visages, moirage sur un tableau, texte d'un document illisible.
+//     Deux fonctions de ce fichier passaient `Interpolation.average`, la
+//     troisième — celle des photos partagées, la plus utilisée — non. Tout
+//     passe désormais par `_reduire`, qui l'impose.
+//
+//  2. LES MÉTADONNÉES EXIF ÉTAIENT RECOPIÉES dans le fichier envoyé
+//     (`_writeExif` de l'encodeur). Une photo prise au téléphone y porte le
+//     modèle de l'appareil, l'heure exacte, et surtout les COORDONNÉES GPS.
+//     Sur la photo d'identité d'un élève, c'est l'adresse où elle a été prise
+//     qui part sur le serveur. On les retire : quelques kilo-octets de moins,
+//     et une donnée personnelle qui ne quitte plus l'appareil.
+//
+//  3. LE SOUS-ÉCHANTILLONNAGE DE CHROMINANCE ÉTAIT DÉSACTIVÉ. `encodeJpg`
+//     encode en 4:4:4 par défaut — chaque pixel garde sa couleur pleine. L'œil
+//     ne distingue pas le 4:2:0 sur une photo, qui pèse 20 à 30 % de moins.
+//     Les PHOTOS y passent ; les LOGOS restent en 4:4:4, parce qu'un aplat de
+//     couleur et un texte fin y gagnent des franges visibles.
+//
+//  ⚠️ Ce qui NE change pas : une pièce d'archive d'examen n'est jamais
+//  compressée (`exam_archives_provider`) — ré-encoder son scan changerait son
+//  empreinte SHA-256, donc sa valeur probante.
 // ════════════════════════════════════════════════════════════════════════════
 
 /// Plus long côté (px) cible pour une image partagée.
@@ -22,7 +49,24 @@ const int kMaxImageEdge = 1600;
 const int kImageJpegQuality = 80;
 
 /// En dessous de ce poids, une image n'est pas recompressée (déjà légère).
+///
+/// ⚠️ Ce seuil ne suffit PAS à lui seul, et c'était un bug : un JPEG très
+/// compressé de 100 Ko peut mesurer 4 000 × 3 000. Il passait donc tel quel,
+/// et l'application décodait douze millions de pixels en mémoire pour en
+/// afficher un million. On exige désormais les DEUX conditions — léger ET pas
+/// plus grand que la cible (cf. `_dejaAssezLeger`).
 const int kImageCompressFloor = 120 * 1024; // 120 Ko
+
+/// Poids visé pour une image partagée. Au-dessus, la qualité redescend d'un
+/// palier et on ré-encode — jusqu'à [kImageJpegQualityMin].
+///
+/// 400 Ko, c'est ~8 secondes sur une 3G congolaise à 400 kbit/s. Au-delà,
+/// l'envoi d'une photo dans une conversation cesse d'être instantané et
+/// l'utilisateur ré-appuie, ce qui double la facture.
+const int kImageTargetBytes = 400 * 1024;
+
+/// Plancher de qualité : en dessous, les artefacts se voient sur un visage.
+const int kImageJpegQualityMin = 62;
 
 /// Résultat d'une compression : octets prêts à l'upload + nom/MIME ajustés.
 class CompressedMedia {
@@ -34,6 +78,54 @@ class CompressedMedia {
   final Uint8List bytes;
   final String fileName;
   final String mime;
+}
+
+// ─── Les deux gestes que TOUT passage par ce fichier doit faire ────────────
+
+/// Réduit [src] pour que son plus long côté tienne dans [maxEdge].
+///
+/// ⚠️ `Interpolation.average` n'est pas un réglage de confort : c'est la
+/// différence entre une réduction propre et une image crénelée. Le défaut du
+/// paquet (`nearest`) jette les pixels au lieu de les moyenner — visible dès
+/// qu'on divise par deux, insupportable au-delà. Ne jamais appeler
+/// `copyResize` directement ailleurs dans le dépôt.
+img.Image _reduire(img.Image src, int maxEdge) {
+  final longest = src.width > src.height ? src.width : src.height;
+  if (longest <= maxEdge) return src;
+  return src.width >= src.height
+      ? img.copyResize(src, width: maxEdge, interpolation: img.Interpolation.average)
+      : img.copyResize(src, height: maxEdge, interpolation: img.Interpolation.average);
+}
+
+/// Retire les métadonnées EXIF avant ré-encodage.
+///
+/// ⚠️ Sur la photo d'identité d'un élève, l'EXIF d'un téléphone porte les
+/// COORDONNÉES GPS du lieu de la prise de vue — donc, très souvent, l'adresse
+/// de sa famille. Elle n'a rien à faire sur le serveur, et personne ne la
+/// verrait jamais partir. Accessoirement, c'est aussi quelques kilo-octets par
+/// image, et l'orientation est déjà appliquée aux pixels par le décodeur.
+img.Image _sansMetadonnees(img.Image im) => im..exif = img.ExifData();
+
+/// Vrai si l'image est déjà légère ET déjà à la bonne taille.
+///
+/// ⚠️ Les DEUX conditions. Ne regarder que le poids laissait passer des images
+/// de très grande dimension mais fortement compressées.
+bool _dejaAssezLeger(Uint8List bytes, int maxEdge) {
+  if (bytes.length >= kImageCompressFloor) return false;
+  final t = _dimensions(bytes);
+  if (t == null) return true; // indécodable : on n'y touche pas
+  final longest = t.$1 > t.$2 ? t.$1 : t.$2;
+  return longest <= maxEdge;
+}
+
+/// Largeur/hauteur sans décoder tous les pixels quand c'est possible.
+(int, int)? _dimensions(Uint8List bytes) {
+  try {
+    final im = img.decodeImage(bytes);
+    return im == null ? null : (im.width, im.height);
+  } catch (_) {
+    return null;
+  }
 }
 
 /// Vrai si l'appareil sait transcoder la vidéo (plugin natif mobile).
@@ -48,7 +140,7 @@ Future<CompressedMedia> compressImage({
   required String mime,
 }) async {
   // Sur le web, `compute` reste sur le thread principal ; pas de gain mais OK.
-  if (!mime.startsWith('image/') || bytes.length < kImageCompressFloor) {
+  if (!mime.startsWith('image/') || mime.contains('svg')) {
     return CompressedMedia(bytes: bytes, fileName: fileName, mime: mime);
   }
   try {
@@ -72,8 +164,9 @@ CompressedMedia compressImageBytes({
   required String fileName,
   required String mime,
 }) {
-  // PNG/JPEG/WebP… : on tente de décoder. Échec → original (ex. SVG, GIF animé).
-  if (!mime.startsWith('image/') || bytes.length < kImageCompressFloor) {
+  if (!mime.startsWith('image/') ||
+      mime.contains('svg') ||
+      _dejaAssezLeger(bytes, kMaxImageEdge)) {
     return CompressedMedia(bytes: bytes, fileName: fileName, mime: mime);
   }
   img.Image? decoded;
@@ -86,18 +179,21 @@ CompressedMedia compressImageBytes({
     return CompressedMedia(bytes: bytes, fileName: fileName, mime: mime);
   }
 
-  // Redimensionne si un côté dépasse la cible (en conservant le ratio).
-  final longest = decoded.width > decoded.height ? decoded.width : decoded.height;
-  var out = decoded;
-  if (longest > kMaxImageEdge) {
-    if (decoded.width >= decoded.height) {
-      out = img.copyResize(decoded, width: kMaxImageEdge);
-    } else {
-      out = img.copyResize(decoded, height: kMaxImageEdge);
-    }
+  final out = _sansMetadonnees(_reduire(decoded, kMaxImageEdge));
+
+  // Un palier de qualité à la fois, tant qu'on dépasse le budget. Trois essais
+  // au plus : q80 → q71 → q62. Au-delà les artefacts se voient sur un visage,
+  // et une image un peu lourde vaut mieux qu'une image abîmée.
+  //
+  // ⚠️ Le ré-encodage porte sur l'image DÉJÀ réduite, en mémoire : on ne
+  // redécode rien. Chaque tour coûte l'encodage seul, pas le décodage.
+  var q = kImageJpegQuality;
+  var jpg = img.encodeJpg(out, quality: q, chroma: img.JpegChroma.yuv420);
+  while (jpg.length > kImageTargetBytes && q > kImageJpegQualityMin) {
+    q = (q - 9).clamp(kImageJpegQualityMin, kImageJpegQuality);
+    jpg = img.encodeJpg(out, quality: q, chroma: img.JpegChroma.yuv420);
   }
 
-  final jpg = img.encodeJpg(out, quality: kImageJpegQuality);
   // Garde-fou : si la « compression » alourdit (rare), garde l'original.
   if (jpg.length >= bytes.length) {
     return CompressedMedia(bytes: bytes, fileName: fileName, mime: mime);
@@ -168,20 +264,15 @@ CompressedMedia compressLogoBytes({
     return CompressedMedia(bytes: bytes, fileName: fileName, mime: mime);
   }
 
-  var out = decoded;
-  final longest =
-      decoded.width > decoded.height ? decoded.width : decoded.height;
-  if (longest > kMaxLogoEdge) {
-    out = decoded.width >= decoded.height
-        ? img.copyResize(decoded,
-            width: kMaxLogoEdge, interpolation: img.Interpolation.average)
-        : img.copyResize(decoded,
-            height: kMaxLogoEdge, interpolation: img.Interpolation.average);
-  }
+  final out = _sansMetadonnees(_reduire(decoded, kMaxLogoEdge));
 
   final detoure = out.hasAlpha && _hasTransparency(out);
-  final encoded =
-      detoure ? img.encodePng(out, level: 9) : img.encodeJpg(out, quality: kLogoJpegQuality);
+  // ⚠️ 4:4:4 ici, et NON 4:2:0 comme pour les photos. Un logo, ce sont des
+  // aplats et du texte fin : sous-échantillonner la chrominance y laisse des
+  // franges colorées sur les bords nets, très visibles à 512 px.
+  final encoded = detoure
+      ? img.encodePng(out, level: 9)
+      : img.encodeJpg(out, quality: kLogoJpegQuality);
   if (encoded.length >= bytes.length) {
     return CompressedMedia(bytes: bytes, fileName: fileName, mime: mime);
   }
@@ -266,14 +357,7 @@ Uint8List _compressLogoForPdfIsolate(Uint8List bytes) {
   final dejaAuBonFormat = detoure ? _estPng(bytes) : _estJpeg(bytes);
   if (dejaPetit && dejaAuBonFormat) return bytes;
 
-  final out = dejaPetit
-      ? decoded
-      : decoded.width >= decoded.height
-          ? img.copyResize(decoded,
-              width: kMaxPdfLogoEdge, interpolation: img.Interpolation.average)
-          : img.copyResize(decoded,
-              height: kMaxPdfLogoEdge,
-              interpolation: img.Interpolation.average);
+  final out = _sansMetadonnees(_reduire(decoded, kMaxPdfLogoEdge));
 
   final encoded = detoure
       ? img.encodePng(out, level: 9)
@@ -345,20 +429,14 @@ CompressedMedia _resizeEncode(
     return CompressedMedia(bytes: bytes, fileName: fileName, mime: mime);
   }
 
-  var out = decoded;
-  final longest =
-      decoded.width > decoded.height ? decoded.width : decoded.height;
-  if (longest > maxEdge) {
-    out = decoded.width >= decoded.height
-        ? img.copyResize(decoded,
-            width: maxEdge, interpolation: img.Interpolation.average)
-        : img.copyResize(decoded,
-            height: maxEdge, interpolation: img.Interpolation.average);
-  }
+  final out = _sansMetadonnees(_reduire(decoded, maxEdge));
 
   final alpha = keepAlpha && out.hasAlpha && _hasTransparency(out);
-  final encoded =
-      alpha ? img.encodePng(out, level: 9) : img.encodeJpg(out, quality: quality);
+  // Un avatar est une PHOTO : 4:2:0, comme les images partagées. À 256 px, la
+  // chrominance réduite est invisible sur un visage et pèse un quart de moins.
+  final encoded = alpha
+      ? img.encodePng(out, level: 9)
+      : img.encodeJpg(out, quality: quality, chroma: img.JpegChroma.yuv420);
   if (encoded.length >= bytes.length) {
     return CompressedMedia(bytes: bytes, fileName: fileName, mime: mime);
   }

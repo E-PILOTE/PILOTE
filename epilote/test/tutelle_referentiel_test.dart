@@ -68,7 +68,7 @@ void main() {
       final chemin = f.path.replaceAll('\\', '/');
       // Le référentiel lui-même, évidemment.
       if (chemin.endsWith('core/constants/tutelle.dart')) continue;
-      final src = f.readAsStringSync();
+      final src = f.readAsStringSync().replaceAll('\r\n', '\n');
       // Un `switch` ou un `?:` qui traduit 'mepsa' en quelque chose. On ne
       // traque PAS toute mention de 'mepsa' (une clause SQL, un filtre ou une
       // valeur par défaut sont légitimes) — seulement la RÉÉCRITURE du

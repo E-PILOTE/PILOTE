@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/mesures_manquantes.dart';
+import '../../../core/utils/paged_fetch.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  RAPPORTS · agrégation filtrée (période + école) — scope group_id, Supabase
@@ -9,6 +11,15 @@ import '../../../features/auth/providers/auth_provider.dart';
 //  brutes du groupe (élèves, personnel, écoles, paiements) puis on agrège côté
 //  client selon la période/établissement sélectionnés : zéro requête réseau au
 //  changement de filtre, drill-down instantané.
+//
+//  ⚠️ TOUTE lecture de table passe par `fetchAllRows` (2026-09-09). PostgREST
+//  plafonne une réponse à 1 000 lignes et ne le dit pas. Mesuré ce jour-là sur
+//  la base de production : le plus gros groupe compte 3 781 élèves et 3 461
+//  paiements. Sans pagination, ce fichier lisait 1 000 des uns et 1 000 des
+//  autres, puis agrégeait — l'état des effectifs du réseau annonçait 1 000
+//  élèves au lieu de 3 781, et le recouvrement 29 % de ce qui est encaissé.
+//  Le chiffre part en PDF signé : il n'a pas le droit d'être la limite de
+//  pagination déguisée en mesure. Cf. `core/utils/paged_fetch.dart`.
 // ════════════════════════════════════════════════════════════════════════════
 
 // ─── Granularité de période ──────────────────────────────────────────────────
@@ -146,6 +157,35 @@ class ReportSchoolRow {
 }
 
 // ─── Agrégat complet d'un rapport (déjà filtré) ──────────────────────────────
+/// Les mesures d'un rapport, nommées — cf. `MesuresManquantes`.
+///
+/// ⚠️ SEPT LECTURES ÉTAIENT MUETTES. Un rapport de groupe part au ministère :
+/// une requête qui échoue laissait « 0 école », « 0 élève », « 0 FCFA
+/// encaissé », et rien ne disait que le chiffre venait d'un échec plutôt que
+/// de la réalité. Un zéro rond est d'autant plus crédible.
+class MesuresRapport {
+  const MesuresRapport._();
+
+  static const groupe = 'groupe';
+  static const anneeScolaire = 'annee_scolaire';
+  static const ecoles = 'ecoles';
+  static const eleves = 'eleves';
+  static const personnel = 'personnel';
+  static const classes = 'classes';
+  static const paiements = 'paiements';
+
+  static String libelle(String cle) => switch (cle) {
+        groupe => 'identité du groupe',
+        anneeScolaire => 'année scolaire',
+        ecoles => 'établissements',
+        eleves => 'effectifs élèves',
+        personnel => 'personnel',
+        classes => 'classes',
+        paiements => 'paiements',
+        _ => cle,
+      };
+}
+
 class ReportData {
   const ReportData({
     required this.groupName,
@@ -178,7 +218,16 @@ class ReportData {
     required this.revenueTrend,
     required this.schoolRows,
     required this.allSchools,
+    this.mesuresManquantes = const {},
   });
+
+  /// Les mesures que la lecture n'a PAS pu obtenir — cf. [MesuresRapport].
+  ///
+  /// Vide dans le cas normal. Non vide, elle veut dire « ces chiffres ne sont
+  /// pas à zéro : ils sont inconnus ». Un rapport de groupe part au ministère.
+  final Set<String> mesuresManquantes;
+
+  bool manque(String cle) => mesuresManquantes.contains(cle);
 
   final String groupName, planName, periodLabel, scopeLabel;
   final DateTime periodStart, periodEnd;
@@ -332,6 +381,7 @@ class ReportsSnapshot {
     required this.staff,
     required this.classesBySchool,
     required this.payments,
+      this.mesuresManquantes = const {},
   });
 
   final String groupName, planName;
@@ -341,6 +391,9 @@ class ReportsSnapshot {
   final List<StaffRaw> staff;
   final Map<String, int> classesBySchool;
   final List<PaymentRaw> payments;
+
+  /// Les mesures que cette lecture n'a PAS pu obtenir. Vide dans le cas normal.
+  final Set<String> mesuresManquantes;
 }
 
 // ─── Provider snapshot (1 chargement réseau, realtime, keepAlive) ────────────
@@ -364,6 +417,11 @@ final reportsSnapshotProvider =
     );
   }
 
+  // Ce que la lecture n'aura pas pu obtenir. Rempli par les `catch` ci-dessous
+  // et rendu avec les données : un rapport qui affiche des zéros sans dire
+  // qu'il n'a rien lu est un rapport faux.
+  final manquantes = MesuresManquantes();
+
   // Le pré-chargement réseau est lourd ; on n'invalide pas en boucle.
   // (Le bouton Actualiser + le pull-to-refresh suffisent ; pas de realtime ici
   //  pour éviter de recharger toutes les lignes du groupe à chaque écriture.)
@@ -373,121 +431,179 @@ final reportsSnapshotProvider =
   final now = DateTime.now();
   DateTime academicStart = DateTime(now.year, 9, 1);
   DateTime academicEnd = DateTime(now.year + 1, 7, 31);
-  try {
-    final g = await client
-        .from('school_groups')
-        .select('name, subscription_plans!plan_id(name)')
-        .eq('id', groupId)
-        .maybeSingle();
-    if (g != null) {
-      groupName = g['name'] as String? ?? '—';
-      final plan = g['subscription_plans'] as Map<String, dynamic>?;
-      planName = plan?['name'] as String? ?? '—';
+  Future<void> lireGroupe() async {
+    try {
+      final g = await client
+          .from('school_groups')
+          .select('name, subscription_plans!plan_id(name)')
+          .eq('id', groupId)
+          .maybeSingle();
+      if (g != null) {
+        groupName = g['name'] as String? ?? '—';
+        final plan = g['subscription_plans'] as Map<String, dynamic>?;
+        planName = plan?['name'] as String? ?? '—';
+      }
+    } catch (e) {
+      manquantes.note(MesuresRapport.groupe, e, ecran: 'Rapports');
     }
-  } catch (_) {}
-  try {
-    final ay = await client
-        .from('academic_years')
-        .select('start_date, end_date, is_current')
-        .eq('group_id', groupId)
-        .eq('is_current', true)
-        .order('start_date', ascending: false)
-        .limit(1)
-        .maybeSingle();
-    if (ay != null) {
-      final sd = DateTime.tryParse(ay['start_date'] as String? ?? '');
-      final ed = DateTime.tryParse(ay['end_date'] as String? ?? '');
-      if (sd != null) academicStart = sd;
-      if (ed != null) academicEnd = ed;
+  }
+  Future<void> lireAnneeScolaire() async {
+    try {
+      final ay = await client
+          .from('academic_years')
+          .select('start_date, end_date, is_current')
+          .eq('group_id', groupId)
+          .eq('is_current', true)
+          .order('start_date', ascending: false)
+          .limit(1)
+          .maybeSingle();
+      if (ay != null) {
+        final sd = DateTime.tryParse(ay['start_date'] as String? ?? '');
+        final ed = DateTime.tryParse(ay['end_date'] as String? ?? '');
+        if (sd != null) academicStart = sd;
+        if (ed != null) academicEnd = ed;
+      }
+    } catch (e) {
+      manquantes.note(MesuresRapport.anneeScolaire, e, ecran: 'Rapports');
     }
-  } catch (_) {}
+  }
 
   // ── Écoles ────────────────────────────────────────────────────────────────
   final List<SchoolRaw> schools = [];
-  try {
-    final rows = await client
-        .from('schools')
-        .select('id, name, school_type, city, department, is_active')
-        .eq('group_id', groupId)
-        .order('name', ascending: true) as List;
-    for (final s in rows) {
-      final dept = (s['department'] as String?)?.trim();
-      schools.add(SchoolRaw(
-        id: s['id'] as String,
-        name: s['name'] as String? ?? '—',
-        type: s['school_type'] as String? ?? 'prive',
-        department: (dept == null || dept.isEmpty) ? 'Non précisé' : dept,
-        isActive: s['is_active'] as bool? ?? true,
-        city: s['city'] as String?,
-      ));
+  Future<void> lireEcoles() async {
+    try {
+      final rows = await fetchAllRows(() => client
+          .from('schools')
+          .select('id, name, school_type, city, department, is_active')
+          .eq('group_id', groupId)
+          .order('name', ascending: true)
+          // Deux écoles homonymes existent (« CEG de Kinkala ») : `id` clôt le
+          // tri pour qu'aucune ligne ne saute ni ne compte deux fois à la
+          // frontière de deux pages.
+          .order('id'));
+      for (final s in rows) {
+        final dept = (s['department'] as String?)?.trim();
+        schools.add(SchoolRaw(
+          id: s['id'] as String,
+          name: s['name'] as String? ?? '—',
+          type: s['school_type'] as String? ?? 'prive',
+          department: (dept == null || dept.isEmpty) ? 'Non précisé' : dept,
+          isActive: s['is_active'] as bool? ?? true,
+          city: s['city'] as String?,
+        ));
+      }
+    } catch (e) {
+      manquantes.note(MesuresRapport.ecoles, e, ecran: 'Rapports');
     }
-  } catch (_) {}
+  }
 
   // ── Élèves ──────────────────────────────────────────────────────────────────
   final List<StudentRaw> students = [];
-  try {
-    final rows = await client
-        .from('students')
-        .select('school_id, gender, created_at')
-        .eq('group_id', groupId)
-        .eq('is_active', true) as List;
-    for (final r in rows) {
-      students.add(StudentRaw(
-        schoolId: r['school_id'] as String? ?? '',
-        gender: (r['gender'] as String?) ?? '',
-        createdAt: DateTime.tryParse(r['created_at'] as String? ?? ''),
-      ));
+  Future<void> lireEleves() async {
+    try {
+      final rows = await fetchAllRows(() => client
+          .from('students')
+          .select('school_id, gender, created_at')
+          .eq('group_id', groupId)
+          .eq('is_active', true)
+          .order('id'));
+      for (final r in rows) {
+        students.add(StudentRaw(
+          schoolId: r['school_id'] as String? ?? '',
+          gender: (r['gender'] as String?) ?? '',
+          createdAt: DateTime.tryParse(r['created_at'] as String? ?? ''),
+        ));
+      }
+    } catch (e) {
+      manquantes.note(MesuresRapport.eleves, e, ecran: 'Rapports');
     }
-  } catch (_) {}
+  }
 
   // ── Personnel ───────────────────────────────────────────────────────────────
   final List<StaffRaw> staff = [];
-  try {
-    final rows = await client
-        .from('staff_members')
-        .select('school_id, contract_type, hire_date')
-        .eq('group_id', groupId)
-        .eq('is_active', true) as List;
-    for (final r in rows) {
-      staff.add(StaffRaw(
-        schoolId: r['school_id'] as String? ?? '',
-        contract: (r['contract_type'] as String?) ?? 'permanent',
-        hireDate: DateTime.tryParse(r['hire_date'] as String? ?? ''),
-      ));
+  Future<void> lirePersonnel() async {
+    try {
+      final rows = await fetchAllRows(() => client
+          .from('staff_members')
+          .select('school_id, contract_type, hire_date')
+          .eq('group_id', groupId)
+          .eq('is_active', true)
+          .order('id'));
+      for (final r in rows) {
+        staff.add(StaffRaw(
+          schoolId: r['school_id'] as String? ?? '',
+          contract: (r['contract_type'] as String?) ?? 'permanent',
+          hireDate: DateTime.tryParse(r['hire_date'] as String? ?? ''),
+        ));
+      }
+    } catch (e) {
+      manquantes.note(MesuresRapport.personnel, e, ecran: 'Rapports');
     }
-  } catch (_) {}
+  }
 
   // ── Classes (compte par école) ──────────────────────────────────────────────
   final Map<String, int> classesBySchool = {};
-  try {
-    final rows = await client
-        .from('classes')
-        .select('school_id')
-        .eq('group_id', groupId)
-        .eq('is_active', true) as List;
-    for (final r in rows) {
-      final sid = r['school_id'] as String? ?? '';
-      classesBySchool[sid] = (classesBySchool[sid] ?? 0) + 1;
+  Future<void> lireClasses() async {
+    try {
+      final rows = await fetchAllRows(() => client
+          .from('classes')
+          .select('school_id')
+          .eq('group_id', groupId)
+          .eq('is_active', true)
+          .order('id'));
+      for (final r in rows) {
+        final sid = r['school_id'] as String? ?? '';
+        classesBySchool[sid] = (classesBySchool[sid] ?? 0) + 1;
+      }
+    } catch (e) {
+      manquantes.note(MesuresRapport.classes, e, ecran: 'Rapports');
     }
-  } catch (_) {}
+  }
 
   // ── Paiements confirmés (toute l'année scolaire pour permettre le filtre) ───
   final List<PaymentRaw> payments = [];
-  try {
-    final rows = await client
-        .from('student_payments')
-        .select('school_id, student_id, amount_xaf, payment_date, status')
-        .eq('group_id', groupId)
-        .eq('status', 'confirmed') as List;
-    for (final r in rows) {
-      payments.add(PaymentRaw(
-        schoolId: r['school_id'] as String? ?? '',
-        studentId: r['student_id'] as String?,
-        amount: (r['amount_xaf'] as num? ?? 0).toDouble(),
-        date: DateTime.tryParse(r['payment_date'] as String? ?? ''),
-      ));
+  Future<void> lirePaiements() async {
+    try {
+      final rows = await fetchAllRows(() => client
+          .from('student_payments')
+          .select('school_id, student_id, amount_xaf, payment_date, status')
+          .eq('group_id', groupId)
+          .eq('status', 'confirmed')
+          .order('id'));
+      for (final r in rows) {
+        payments.add(PaymentRaw(
+          schoolId: r['school_id'] as String? ?? '',
+          studentId: r['student_id'] as String?,
+          amount: (r['amount_xaf'] as num? ?? 0).toDouble(),
+          date: DateTime.tryParse(r['payment_date'] as String? ?? ''),
+        ));
+      }
+    } catch (e) {
+      manquantes.note(MesuresRapport.paiements, e, ecran: 'Rapports');
     }
-  } catch (_) {}
+  }
+
+  // ── LES SEPT LECTURES PARTENT ENSEMBLE ────────────────────────────────────
+  //
+  //  Elles s'enchaînaient en `await` successifs : sept allers-retours pour
+  //  ouvrir la page Rapports — celle dont sort le PDF envoyé au ministère.
+  //
+  //  Les sept sont indépendantes : le groupe, l'année scolaire, les écoles,
+  //  les élèves, le personnel, les classes et les paiements ne se lisent pas
+  //  l'un dans l'autre. Une seule vague suffit donc.
+  //
+  //  Rien d'autre n'a changé : mêmes requêtes, mêmes agrégats, mêmes chiffres,
+  //  et chaque lecture garde son `catch` qui nomme sa mesure.
+  await Future.wait([
+    lireGroupe(),
+    lireAnneeScolaire(),
+    lireEcoles(),
+    lireEleves(),
+    lirePersonnel(),
+    lireClasses(),
+    lirePaiements(),
+  ]);
+
 
   return ReportsSnapshot(
     groupName: groupName,
@@ -499,6 +615,7 @@ final reportsSnapshotProvider =
     staff: staff,
     classesBySchool: classesBySchool,
     payments: payments,
+    mesuresManquantes: manquantes.cles,
   );
 });
 
@@ -691,6 +808,7 @@ ReportData _aggregate(ReportsSnapshot s, ReportFilter f) {
       : (byId[schoolId]?.name ?? 'École');
 
   return ReportData(
+    mesuresManquantes: s.mesuresManquantes,
     groupName: s.groupName,
     planName: s.planName,
     periodLabel: f.period.label,

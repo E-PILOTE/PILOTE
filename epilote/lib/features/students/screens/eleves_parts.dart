@@ -260,7 +260,9 @@ class _BulkBar extends StatelessWidget {
             label: 'Annuler l\'inscription',
             onTap: onRevert),
         _BulkBtn(
-            icon: Icons.download_rounded, label: 'Exporter', onTap: onExport),
+            icon: Icons.table_chart_outlined,
+            label: 'Données (CSV)',
+            onTap: onExport),
         const SizedBox(width: 4),
         IconButton(
           tooltip: 'Désélectionner',
@@ -306,10 +308,21 @@ class _BulkBtn extends StatelessWidget {
 
 // ─── En-tête de résultats ────────────────────────────────────────────────────
 class _ResultHeader extends StatelessWidget {
-  const _ResultHeader(
-      {required this.total, required this.filtered, this.onExportPdf});
+  const _ResultHeader({
+    required this.total,
+    required this.filtered,
+    this.onExportPdf,
+    this.onDonnees,
+  });
   final int total, filtered;
   final VoidCallback? onExportPdf;
+
+  /// ⚠️ Le fichier de données n'était atteignable QU'APRÈS avoir coché des
+  /// élèves, sous le libellé « Exporter » — qui ne disait pas ce qu'il
+  /// produisait. Une secrétaire venue chercher la liste officielle repartait
+  /// avec un tableur. Il est ici, en second, et son intitulé dit son usage.
+  final VoidCallback? onDonnees;
+
   @override
   Widget build(BuildContext context) {
     final txt = filtered == total
@@ -322,7 +335,14 @@ class _ResultHeader extends StatelessWidget {
           style: TextStyle(
               fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
       const Spacer(),
-      if (onExportPdf != null) AdminPdfButton(onTap: onExportPdf!),
+      if (onExportPdf != null)
+        BarreExport(
+          onApercuPdf: onExportPdf!,
+          onDonnees: onDonnees,
+          aQuoiServentLesDonnees:
+              'Pour envoyer les effectifs à une autre école, ou les corriger '
+              'en masse avant de les réimporter',
+        ),
     ]);
   }
 }

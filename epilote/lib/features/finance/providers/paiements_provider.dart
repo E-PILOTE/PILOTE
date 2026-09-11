@@ -117,13 +117,24 @@ final paymentsOverviewProvider =
   // `paiements-eleves` n'avait aucun effet : il n'était lu nulle part.
   final classes = ref.watch(classesForModuleProvider(kSlugPaiements)).valueOrNull;
   final yearId = ref.watch(activeYearIdProvider);
-  final baremes = ref.watch(baremesApplicablesProvider).valueOrNull ?? const [];
-  final calendrier = ref.watch(calendrierDuProvider);
+  // ⚠️ Le périmètre et l'année se tranchent AVANT d'attendre le barème : un
+  // membre sans classe dans son périmètre n'a rien à voir, et il n'a pas à
+  // patienter sur un tarif qui ne le concernera pas. (Le même ordre inversé,
+  // quelques lignes plus bas dans `classPaymentsProvider`, a fait échouer
+  // `perimetre_par_module_test` : un refus de périmètre y devenait un
+  // « en chargement ».)
   if (classes == null || classes.isEmpty || yearId == null) {
     return const PaymentsOverview(
         rows: [], collected: 0, confirmedCount: 0, pendingCount: 0,
         payers: 0, students: 0);
   }
+  // ⚠️ `await …future` et non `.valueOrNull ?? const []`. Un barème pas encore
+  // lu se lisait comme « aucun barème » : le total DÛ tombait à zéro pendant
+  // que l'ENCAISSÉ affichait de l'argent réel — soit un taux de recouvrement
+  // de 100 % sur un écran de recouvrement. Attendre la valeur laisse la page
+  // en chargement, ce qui est la vérité.
+  final baremes = await ref.watch(baremesApplicablesProvider.future);
+  final calendrier = ref.watch(calendrierDuProvider);
   final ids = [for (final c in classes) c.id];
   final ph = List.filled(ids.length, '?').join(',');
 
@@ -359,12 +370,18 @@ class StudentPayRow {
 final classPaymentsProvider = StreamProvider.autoDispose
     .family<List<StudentPayRow>, String>((ref, classId) {
   final yearId = ref.watch(activeYearIdProvider);
-  final baremes = ref.watch(baremesApplicablesProvider).valueOrNull ?? const [];
-  final calendrier = ref.watch(calendrierDuProvider);
-  // ⚠️ FAIL-CLOSED : `classId` vient de la route, pas d'une liste déjà filtrée.
-  // Sans ce contrôle, connaître l'identifiant d'une classe hors périmètre
-  // suffisait à en obtenir les élèves et leurs versements — le SQL ci-dessous
-  // ne filtre que sur `ce.class_id = ?2`.
+
+  // ⚠️ ORDRE IMPORTANT — le refus de PÉRIMÈTRE passe en premier.
+  //
+  //  FAIL-CLOSED : `classId` vient de la route, pas d'une liste déjà filtrée.
+  //  Sans ce contrôle, connaître l'identifiant d'une classe hors périmètre
+  //  suffisait à en obtenir les élèves et leurs versements — le SQL ci-dessous
+  //  ne filtre que sur `ce.class_id = ?2`.
+  //
+  //  Ce refus ne dépend PAS du barème : une classe qu'on n'a pas le droit de
+  //  voir se refuse tout de suite, même si le tarif n'est pas encore chargé.
+  //  L'avoir placé après la garde de barème faisait rendre « en chargement »
+  //  au lieu de « rien » — ce qu'un test de périmètre a immédiatement attrapé.
   final classes =
       ref.watch(classesForModuleProvider(kSlugPaiements)).valueOrNull;
   if (classes == null) return Stream.value(const []);
@@ -372,6 +389,17 @@ final classPaymentsProvider = StreamProvider.autoDispose
   if (classe == null) return Stream.value(const []);
   final niveau = classe.levelId;
   if (yearId == null) return Stream.value(const []);
+
+  // La classe est dans le périmètre : on peut parler d'argent. Ici seulement,
+  // « pas encore lu » ne doit pas se confondre avec « aucun barème » — sans
+  // quoi la liste afficherait un reste dû nul pour chaque élève.
+  final baremesAsync = ref.watch(baremesApplicablesProvider);
+  if (baremesAsync.hasError) {
+    return Stream.error(baremesAsync.error!, baremesAsync.stackTrace);
+  }
+  if (!baremesAsync.hasValue) return const Stream.empty();
+  final baremes = baremesAsync.requireValue;
+  final calendrier = ref.watch(calendrierDuProvider);
   return db.watch(
     '''
     SELECT s.id AS sid, ce.id AS enr, s.first_name, s.last_name, s.matricule,

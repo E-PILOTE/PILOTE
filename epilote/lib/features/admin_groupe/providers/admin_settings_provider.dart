@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../../core/utils/booleen_en_ligne.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../core/utils/erreur_metier.dart';
@@ -32,6 +33,9 @@ class GroupProfile {
     this.subscriptionStart,
     this.logoUrl,
     this.isActive = true,
+    this.tutelle,
+    this.estMinistere = false,
+    this.caractere,
   });
   final String name;
   final String groupType;
@@ -46,6 +50,19 @@ class GroupProfile {
   final DateTime? subscriptionEnd;
   final DateTime? subscriptionStart;
   final String? logoUrl;
+
+  /// Ministère de tutelle du groupe, et — surtout — s'il EST ce ministère.
+  ///
+  /// ⚠️ Sans ça, la fiche du MEPSA affichait « Public » et rien d'autre :
+  /// l'administration de tutelle se lisait comme n'importe quel groupe public.
+  /// C'est son PROPRE écran ; s'il ne dit pas ce qu'elle est, aucun autre ne
+  /// le fera.
+  final String? tutelle;
+  final bool    estMinistere;
+
+  /// Caractère du groupe (migration 0180) — indépendant du secteur porté par
+  /// [groupType]. `null` = non renseigné.
+  final String? caractere;
   final bool isActive;
 }
 
@@ -59,7 +76,8 @@ final adminGroupProfileProvider =
     final g = await client.from('school_groups')
         .select('name, slug, group_type, department, admin_email, phone, address, '
             'founded_year, logo_url, subscription_status, subscription_start, '
-            'subscription_end, is_active, subscription_plans!plan_id(name)')
+            'subscription_end, is_active, tutelle, caractere, '
+            'administre_referentiel_national, subscription_plans!plan_id(name)')
         .eq('id', groupId)
         .maybeSingle();
     if (g == null) return null;
@@ -79,6 +97,10 @@ final adminGroupProfileProvider =
       subscriptionStart:  DateTime.tryParse(g['subscription_start'] as String? ?? ''),
       subscriptionEnd:    DateTime.tryParse(g['subscription_end'] as String? ?? ''),
       isActive:           g['is_active'] as bool? ?? true,
+      tutelle:            g['tutelle'] as String?,
+      estMinistere:
+          g['administre_referentiel_national'] as bool? ?? false,
+      caractere:          g['caractere'] as String?,
     );
   } catch (_) {
     return null;
@@ -124,20 +146,22 @@ final adminGroupStatsProvider =
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
   if (groupId == null) return const GroupStats();
   try {
-    final schoolsRows = await client
+    final schoolsRows = await fetchAllRows(() => client
         .from('schools')
         .select('id, is_active')
-        .eq('group_id', groupId) as List;
+        .eq('group_id', groupId)
+        .order('id'));
     final totalSchools  = schoolsRows.length;
     final activeSchools =
         schoolsRows.where((r) => actifEnLigne((r as Map)['is_active'])).length;
 
-    final usersRows = await client
+    final usersRows = await fetchAllRows(() => client
         .from('profiles')
         .select('id, is_active')
         .eq('group_id', groupId)
         .neq('role', 'super_admin')
-        .neq('role', 'admin_groupe') as List;
+        .neq('role', 'admin_groupe')
+        .order('id'));
     final totalUsers  = usersRows.length;
     final activeUsers =
         usersRows.where((r) => actifEnLigne((r as Map)['is_active'])).length;

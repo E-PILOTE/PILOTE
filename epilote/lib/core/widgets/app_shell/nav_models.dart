@@ -30,6 +30,28 @@ class NavSection {
   final bool pinnedTop;
 }
 
+/// Une section se replie-t-elle par son en-tête ?
+///
+/// ⚠️ RÈGLE EXTRAITE ICI POUR ÊTRE TESTÉE. Elle vivait en une ligne au milieu
+/// du `build()` de la barre — donc vérifiable seulement en rendant tout le
+/// shell (licence, synchro, profil), ce qu'aucun test ne fait. Une règle qu'on
+/// ne peut pas éprouver se casse en silence.
+///
+/// ⚠️ ÊTRE ÉPINGLÉ N'EST PAS ÊTRE FIGÉ. La règle a longtemps été
+/// `titrée && !épinglée` : une seule ligne pour deux questions sans rapport —
+/// *où* la section est rendue (en bas, hors défilement) et *si* on peut en
+/// masquer les entrées. COMMUNICATION et SYSTÈME restent en bas, à portée, et
+/// se replient comme les autres : un agent qui n'écrit pas de la journée
+/// préfère rendre ces lignes à ses modules.
+///
+/// - Pas de titre → rien à cliquer. C'est le cas du bloc de tête (« Tableau de
+///   bord » seul) : lui donner un chevron reviendrait à proposer de masquer la
+///   seule entrée toujours visible de la barre.
+/// - [expanded] faux (barre en mode icônes) → pas d'en-tête à l'écran, donc
+///   rien à replier.
+bool sectionEstRepliable(NavSection s, {required bool expanded}) =>
+    s.title.isNotEmpty && expanded;
+
 class NavEntry {
   /// Item navigable.
   const NavEntry.item({

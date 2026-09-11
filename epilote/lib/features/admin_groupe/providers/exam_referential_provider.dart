@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/utils/erreur_metier.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  RÉFÉRENTIEL DES EXAMENS — le catalogue ET les règles qui le branchent.
@@ -171,6 +172,7 @@ DateTime? _date(Object? v) =>
 /// comptage en Dart reste lisible et testable.
 final examReferentialProvider =
     FutureProvider.autoDispose<ExamReferentialData>((ref) async {
+  garderAuChaud(ref, pendant: kChaudReferentiel);
   final client = ref.watch(supabaseClientProvider);
 
   final examRows = await client

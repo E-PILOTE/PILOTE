@@ -363,30 +363,47 @@ Future<BilanImport> executerImport({
       // rien de plus : c'est le serveur qui attribue l'identifiant national
       // (migration 0080), et un numéro recopié d'un ancien cahier
       // rattacherait le dossier au parcours de quelqu'un d'autre.
-      final studentId = await createStudent(
-        schoolId: schoolId,
-        groupId: groupId,
-        firstName: l.prenom,
-        lastName: l.nom,
-        dateOfBirth: date,
-        gender: sexe,
-        placeOfBirth: l.lieuNaissance,
-        nationality: l.nationalite,
-        address: l.adresse,
-      );
-      // Statut `pending_validation`, comme toute inscription saisie à la main :
-      // un import ne court-circuite pas le regard du chef d'établissement.
-      await enrollStudent(
-        groupId: groupId,
-        schoolId: schoolId,
-        studentId: studentId,
-        classId: classe,
-        academicYearId: yearId,
-        isRepeating: l.redoublant,
-        inscriptionType: 'new',
-        notes: 'Importé depuis un fichier',
-        createdBy: saisiPar,
-      );
+      // ⚠️ UNE SEULE TRANSACTION POUR L'ÉLÈVE ET SON INSCRIPTION (2026-09-09).
+      //
+      //  Les deux écritures partaient séparément. Un échec entre les deux — et
+      //  il y en a : matricule introuvable, classe disparue, disque plein —
+      //  laissait une fiche d'élève SANS inscription. Elle n'apparaît nulle
+      //  part (tous les écrans de scolarité entrent par `class_enrollments`)
+      //  et occupe pourtant un matricule définitivement pris. Sur un import de
+      //  rentrée, ces orphelins ne se découvrent qu'aux effectifs de janvier.
+      //
+      //  L'autre effet compte autant : PowerSync remonte UNE requête HTTP par
+      //  transaction locale. 1 200 élèves faisaient 2 400 allers-retours ;
+      //  ils en font 1 200.
+      await db.writeTransaction((tx) async {
+        final studentId = await createStudent(
+          schoolId: schoolId,
+          groupId: groupId,
+          firstName: l.prenom,
+          lastName: l.nom,
+          dateOfBirth: date,
+          gender: sexe,
+          placeOfBirth: l.lieuNaissance,
+          nationality: l.nationalite,
+          address: l.adresse,
+          tx: tx,
+        );
+        // Statut `pending_validation`, comme toute inscription saisie à la
+        // main : un import ne court-circuite pas le regard du chef
+        // d'établissement.
+        await enrollStudent(
+          groupId: groupId,
+          schoolId: schoolId,
+          studentId: studentId,
+          classId: classe,
+          academicYearId: yearId,
+          isRepeating: l.redoublant,
+          inscriptionType: 'new',
+          notes: 'Importé depuis un fichier',
+          createdBy: saisiPar,
+          tx: tx,
+        );
+      });
     } catch (e) {
       echecs.add((ligne: l.numero, nom: l.nomAffiche, cause: '$e'));
     }

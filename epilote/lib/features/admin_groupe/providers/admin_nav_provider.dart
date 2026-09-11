@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 
 // ─── Modèles catalogue modules (espace admin_groupe) ─────────────────────────
@@ -90,16 +91,22 @@ final adminModuleAdoptionProvider =
   try {
     // Fetch en parallèle : écoles actives (id+name) + liens profil-école + permissions
     final results = await Future.wait([
-      client.from('schools')
+      // ⚠️ Paginées : un ministère-groupe porte des centaines d'écoles et des
+      // milliers d'agents. Tronquées à 1 000 lignes, les écoles manquantes
+      // seraient absentes de la barre de navigation et leurs agents sans
+      // droits visibles — sans la moindre erreur à l'écran.
+      fetchAllRows(() => client.from('schools')
           .select('id, name')
           .eq('group_id', groupId)
-          .eq('is_active', true),
-      client.from('profiles')
+          .eq('is_active', true)
+          .order('id')),
+      fetchAllRows(() => client.from('profiles')
           .select('school_id, access_profile_id')
           .eq('group_id', groupId)
           .eq('is_active', true)
           .not('school_id', 'is', null)
-          .not('access_profile_id', 'is', null),
+          .not('access_profile_id', 'is', null)
+          .order('id')),
       client.from('profile_permissions')
           .select('profile_id, module_id, can_read, can_create, can_update, '
               'can_delete, can_export, can_import, can_validate, can_approve, can_manage')

@@ -40,6 +40,7 @@ class KpiData {
     this.trend,
     this.trendUp = true,
     this.progressValue,
+    this.onTap,
   });
 
   final String label;
@@ -52,6 +53,13 @@ class KpiData {
   final double? progressValue;
   final IconData icon;
   final Color color;
+
+  /// Ouvre le détail. `null` = carte inerte (le cas de la plupart).
+  ///
+  /// ⚠️ Quand il est fourni, la carte prend le curseur « main » et un chevron
+  /// discret. Un KPI cliquable qui ne se signale pas ne se clique pas : le
+  /// détail existe et personne ne le trouve.
+  final VoidCallback? onTap;
 }
 
 class KpiGrid extends StatelessWidget {
@@ -122,6 +130,9 @@ class _KpiCardState extends State<KpiCard> with SingleTickerProviderStateMixin {
       child: SlideTransition(
         position: _slide,
         child: MouseRegion(
+          cursor: d.onTap == null
+              ? MouseCursor.defer
+              : SystemMouseCursors.click,
           onEnter: (_) => setState(() => _hov = true),
           onExit: (_) => setState(() => _hov = false),
           child: AnimatedContainer(
@@ -140,7 +151,11 @@ class _KpiCardState extends State<KpiCard> with SingleTickerProviderStateMixin {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
-              child: Column(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: d.onTap,
+                  child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   AnimatedContainer(
@@ -203,6 +218,20 @@ class _KpiCardState extends State<KpiCard> with SingleTickerProviderStateMixin {
                                 ),
                                 child: Icon(d.icon, color: d.color, size: 18),
                               ),
+                              // Le chevron ne s'affiche QUE s'il y a un détail
+                              // à ouvrir, et il se réveille au survol : une
+                              // affordance permanente sur quatre cartes ferait
+                              // du bruit sans rien apprendre.
+                              if (d.onTap != null)
+                                AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 160),
+                                  opacity: _hov ? 1 : 0.35,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(left: 2),
+                                    child: Icon(Icons.chevron_right_rounded,
+                                        size: 18, color: d.color),
+                                  ),
+                                ),
                             ],
                           ),
                           const Spacer(),
@@ -237,6 +266,8 @@ class _KpiCardState extends State<KpiCard> with SingleTickerProviderStateMixin {
                     ),
                   ),
                 ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -510,15 +541,28 @@ class ListResultHeader extends StatelessWidget {
     required this.total,
     required this.filtered,
     this.noun = 'résultat',
+    this.nounPlural,
   });
 
   final int total;
   final int filtered;
   final String noun;
 
+  /// Pluriel EXPLICITE, pour les noms que le « + s » ne sait pas accorder.
+  ///
+  /// ⚠️ Le pluriel par défaut colle un `s` au groupe nominal ENTIER : « école »
+  /// devient bien « écoles », mais « groupe scolaire » devenait « groupe
+  /// scolaires » — vu à l'écran le 2026-09-03, en tête de « Réseau sous
+  /// tutelle ». Tout nom composé, tout mot en -al ou -ail tombera dans le même
+  /// trou ; on le donne alors à la main.
+  final String? nounPlural;
+
   @override
   Widget build(BuildContext context) => Row(children: [
-        Text('$filtered $noun${filtered > 1 ? 's' : ''}',
+        Text(
+            filtered > 1
+                ? '$filtered ${nounPlural ?? '${noun}s'}'
+                : '$filtered $noun',
             style: TextStyle(
                 color: kTextPrimary, fontSize: 14, fontWeight: FontWeight.w700)),
         if (filtered < total) ...[

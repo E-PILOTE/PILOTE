@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/barre_export.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../../data/models/subject_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -13,7 +14,11 @@ import '../services/subjects_pdf_service.dart';
 import 'subject_detail_dialog.dart';
 import '../../../core/utils/message_erreur.dart';
 
-part 'subjects_parts.dart';
+part 'subjects_filters.dart';
+part 'subjects_table.dart';
+part 'subjects_cards.dart';
+part 'subjects_form.dart';
+part 'subjects_bulk.dart';
 
 const _kSlug = 'matieres';
 
@@ -131,6 +136,9 @@ class _BodyState extends ConsumerState<_Body> {
     if (list.isEmpty) return;
     try {
       final path = await exportSubjectsCsv(list);
+      // `null` = fenêtre « Enregistrer sous » fermée sans choisir. Ni fichier,
+      // ni message : annuler doit rester sans conséquence visible.
+      if (path == null) return;
       _snack('Export CSV : ${list.length} ligne(s) → $path', kGreen);
     } catch (e) {
       _snack(messageErreur(e, contexte: 'Export'), kRed);
@@ -240,6 +248,8 @@ class _BodyState extends ConsumerState<_Body> {
                   filtered: filtered.length,
                   onExportPdf:
                       filtered.isEmpty ? null : () => _previewPdf(filtered),
+                  onDonnees:
+                      filtered.isEmpty ? null : () => _bulkExport(filtered),
                 ),
               const SizedBox(height: 12),
               if (all.isEmpty)
