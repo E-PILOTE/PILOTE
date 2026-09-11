@@ -59,7 +59,7 @@ void main() {
           'certificats de scolarité et de radiation',
       'lib/features/cartes/services/cartes_actions.dart':
           'cartes scolaires (planche et duplicata)',
-      'lib/features/staff/screens/personnel_dossier_sheet.dart':
+      'lib/features/staff/services/attestation_travail_actions.dart':
           'attestation de travail',
     };
 

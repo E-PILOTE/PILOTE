@@ -7,123 +7,16 @@ import '../../auth/providers/auth_provider.dart';
 import '../../communication/widgets/user_avatar.dart';
 import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
-import '../../students/services/registre_documents.dart';
 import '../../students/widgets/scope_drilldown_panel.dart' show scopeCycleName;
 import '../../user/widgets/staff_account_widgets.dart' show staffRoleLabel;
 import '../../vie_scolaire/widgets/vs_form_chrome.dart';
-import '../../../core/widgets/pdf_preview_dialog.dart';
-import '../../structure/providers/academic_year_provider.dart';
 import '../providers/staff_dossier_provider.dart';
-import '../services/attestation_travail_docx_service.dart';
-import '../services/attestation_travail_pdf_service.dart';
+import '../services/attestation_travail_actions.dart';
 import '../../../core/utils/message_erreur.dart';
 
 part 'personnel_dossier_forms.dart';
 
 const _kSlug = 'personnel';
-
-/// Délivre l'attestation de travail de l'agent.
-///
-/// Le signataire n'est proposé que si l'agent connecté dirige l'établissement :
-/// un secrétaire imprime le document, il ne le signe pas. Mieux vaut une ligne
-/// vide qu'un nom qui n'a pas qualité.
-Future<void> _attestationTravail(
-    BuildContext context, WidgetRef ref, StaffDossier d) async {
-  final school = ref.read(currentSchoolProvider).valueOrNull;
-  final moi = ref.read(authNotifierProvider).valueOrNull;
-  final dirige = moi?.role == 'directeur' || moi?.role == 'proviseur';
-  final nom = dirige ? '${moi?.firstName ?? ''} ${moi?.lastName ?? ''}'.trim() : '';
-
-  // Au registre comme les papiers d'élèves : une attestation de travail sert à
-  // ouvrir un compte, obtenir un prêt, justifier un revenu. L'établissement
-  // doit pouvoir dire qui l'a délivrée. Ne lève jamais.
-  await noterDocumentEmis(
-    ref,
-    documentType: TypeDocument.attestationTravail,
-    staffProfileId: d.id,
-    recipientName: d.fullName,
-    recipientRef: staffRoleLabel(d.role),
-  );
-  if (!context.mounted) return;
-
-  await showPdfPreviewDialog(
-    context,
-    title: 'Attestation de travail',
-    subtitle: '${d.fullName} · ${staffRoleLabel(d.role)}',
-    pdfFileName:
-        'attestation_travail_${d.lastName}_${d.firstName}.pdf'.replaceAll(' ', '_'),
-    build: (_) => AttestationTravailPdfService.build(
-      agent: AttestationAgent(
-        firstName: d.firstName,
-        lastName: d.lastName,
-        fonction: staffRoleLabel(d.role),
-        employeeNumber: d.employeeNumber,
-        employmentStatus: d.employmentStatus,
-        grade: d.grade,
-        echelon: d.echelon,
-        gender: d.gender,
-        birthPlace: d.birthPlace,
-        dateOfBirth:
-            d.dateOfBirth == null ? null : DateTime.tryParse(d.dateOfBirth!),
-        hireDate: d.hireDate == null ? null : DateTime.tryParse(d.hireDate!),
-      ),
-      schoolName: (school?['name'] as String?)?.trim().isNotEmpty ?? false
-          ? (school!['name'] as String).trim()
-          : 'l\'établissement',
-      city: (school?['city'] as String?) ?? (school?['department'] as String?),
-      signataire: nom.isEmpty ? null : nom,
-      fonctionSignataire: switch (moi?.role) {
-        'directeur' => 'Le Directeur',
-        'proviseur' => 'Le Proviseur',
-        _ => null,
-      },
-    ),
-    // ⚠️ LA VERSION MODIFIABLE. L'agent qui demande ce papier sait, lui, à QUI
-    // il le destine — et le destinataire a souvent une exigence de
-    // formulation que l'établissement découvre au guichet : « pour servir
-    // auprès de la BCI », « en vue d'une demande de visa ». Le PDF fige le
-    // texte avant qu'on la connaisse, et le secrétariat retapait alors
-    // l'attestation entière dans Word.
-    //
-    // ⚠️ Aucun montant n'y figure et il ne doit pas y en être ajouté : cette
-    // pièce atteste un EMPLOI, pas une rémunération — c'est ce qui lui permet
-    // de circuler. Le document Word le rappelle à qui s'apprête à le modifier.
-    onWord: () {
-      final agent = AttestationAgent(
-        firstName: d.firstName,
-        lastName: d.lastName,
-        fonction: staffRoleLabel(d.role),
-        employeeNumber: d.employeeNumber,
-        employmentStatus: d.employmentStatus,
-        grade: d.grade,
-        echelon: d.echelon,
-        gender: d.gender,
-        birthPlace: d.birthPlace,
-        dateOfBirth:
-            d.dateOfBirth == null ? null : DateTime.tryParse(d.dateOfBirth!),
-        hireDate: d.hireDate == null ? null : DateTime.tryParse(d.hireDate!),
-      );
-      return AttestationTravailDocxService.enregistrer(
-        octets: AttestationTravailDocxService.build(
-          agent: agent,
-          schoolName:
-              (school?['name'] as String?)?.trim().isNotEmpty ?? false
-                  ? (school!['name'] as String).trim()
-                  : 'l\'établissement',
-          city:
-              (school?['city'] as String?) ?? (school?['department'] as String?),
-          signataire: nom.isEmpty ? null : nom,
-          fonctionSignataire: switch (moi?.role) {
-            'directeur' => 'Le Directeur',
-            'proviseur' => 'Le Proviseur',
-            _ => null,
-          },
-        ),
-        agent: agent,
-      );
-    },
-  );
-}
 
 // ════════════════════════════════════════════════════════════════════════════
 //  DOSSIER RH DE L'AGENT — feuille plein écran : identité étendue (lecture, du
@@ -230,7 +123,7 @@ class _DossierBody extends ConsumerWidget {
           // recopiait de mémoire.
           IconButton(
               tooltip: 'Attestation de travail',
-              onPressed: () => _attestationTravail(context, ref, d),
+              onPressed: () => delivrerAttestationTravailAgent(context, ref, d),
               icon: const Icon(Icons.workspace_premium_outlined, size: 20)),
           IconButton(
               onPressed: () => Navigator.pop(context),
