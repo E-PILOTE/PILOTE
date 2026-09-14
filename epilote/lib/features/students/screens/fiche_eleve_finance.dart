@@ -160,25 +160,47 @@ class _Decompte extends ConsumerWidget {
                       l.libelle,
                       CurrencyFormatter.format(d.duDe(l)),
                       CurrencyFormatter.format(l.verse),
-                      CurrencyFormatter.format(
-                        (d.duDe(l) - l.verse).clamp(0, d.duDe(l)),
-                      ),
+                      // `resteDe` et non le calcul refait à la main : c'est lui
+                      // qui porte la règle « un trop-versé sur la cantine ne
+                      // vient pas éponger l'inscription », et tous les autres
+                      // écrans de caisse l'appellent.
+                      CurrencyFormatter.format(d.resteDe(l)),
                     ],
                 ],
               ),
-              // ⚠️ Ce montant DOIT rester visible. Ce sont les versements que
-              // le décompte ne sait plus rattacher — barème retiré, changement
-              // de niveau, encaissement « libre ». Les taire ferait
-              // réapparaître l'élève débiteur d'une somme qu'il a payée.
+              // ⚠️ CE MONTANT EXPLIQUE UNE CONTRADICTION, IL NE SUFFIT PAS DE
+              // L'AFFICHER. Les cartouches comptent `verseLibre` dans
+              // « encaissé » ; le tableau, lui, ne le rattache à aucun poste.
+              // Résultat vu en démonstration : « reste dû 0 » au-dessus d'une
+              // ligne « Inscription — reste 3 000 ». Les deux sont justes, sur
+              // deux bases différentes — et sur un écran de CAISSE, l'agent
+              // qui lit la ligne réclame une somme déjà payée, celui qui lit
+              // le cartouche laisse partir un dossier impayé.
+              //
+              // Le montant DOIT rester visible (le taire ferait réapparaître
+              // l'élève débiteur de ce qu'il a versé) : ce qui manquait, c'est
+              // la phrase qui réconcilie les deux lectures. Le module Finance
+              // la dit déjà — `decompte_card.dart` — la fiche s'aligne.
               if (d.verseLibre > 0)
                 FicheLigne(
                   label: 'Versements non rattachés à un poste',
-                  valeur: CurrencyFormatter.format(d.verseLibre),
+                  valeur: '${CurrencyFormatter.format(d.verseLibre)} — '
+                      'encaissés hors décompte (versement libre ou barème '
+                      'retiré). Ils comptent dans « encaissé » sans solder '
+                      'aucun poste : un poste peut donc rester ouvert alors '
+                      'que le reste dû global est nul.',
                 ),
-              FicheLigne(
-                label: 'Mensualités dues',
-                valeur: '${d.mois}',
-              ),
+              // ⚠️ `mois` vient de la fenêtre de PRÉSENCE, jamais des barèmes :
+              // il vaut 10 même quand aucune scolarité mensuelle ne s'applique.
+              // C'est le cas de TOUTE école publique, qui n'en perçoit pas — et
+              // la fiche annonçait « Mensualités dues : 10 » sous un décompte
+              // où pas un franc n'était mensuel. Dix mensualités de rien : le
+              // nombre mort qui fait poser une mauvaise question au guichet.
+              if (d.lignes.any((l) => l.feeType == 'mensualite'))
+                FicheLigne(
+                  label: 'Mensualités dues',
+                  valeur: '${d.mois}',
+                ),
             ],
           ],
         ),

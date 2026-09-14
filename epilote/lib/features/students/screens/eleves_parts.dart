@@ -108,8 +108,15 @@ class _ElevesFilterBar extends StatelessWidget {
         _ViewToggle(isTable: isTable, onToggle: onToggleView),
         if (!readOnly) ...[
           const SizedBox(width: 10),
+          // ⚠️ `kSlugInscription`, PAS `eleves`. Ce bouton ouvre l'assistant
+          // d'inscription, qui écrit `class_enrollments`. Gardé par `eleves`,
+          // il offrait le geste du module Inscriptions à qui n'avait que le
+          // module Élèves — la permission du guichet se contournait par le
+          // registre. Le libellé reste « Nouvel élève » : c'est ce que
+          // l'agent croit faire, et il a raison, l'assistant crée bien la
+          // fiche en plus de l'inscription.
           PermissionGate(
-            slug: 'eleves',
+            slug: kSlugInscription,
             action: 'create',
             child: AdminPrimaryButton(
               label: 'Nouvel élève',

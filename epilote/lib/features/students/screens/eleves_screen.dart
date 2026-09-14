@@ -394,8 +394,13 @@ class _BodyState extends ConsumerState<_Body> {
     // le verbe `create`, l'`AdminEmptyState` doit le faire aussi. La RLS
     // exige ce verbe à l'INSERT ; un refus est un 42501, code FATAL pour le
     // connecteur PowerSync — le lot d'écritures entier est jeté.
+    // ⚠️ `kSlugInscription` et non `_kSlug` : l'état vide propose le MÊME
+    // assistant que la barre d'outils, donc il doit demander la même clé.
+    // Deux portes vers un seul geste qui n'exigent pas le même droit, c'est
+    // la porte la plus permissive qui décide.
     final canCreate =
-        ref.watch(canProvider((slug: _kSlug, action: 'create'))) && !readOnly;
+        ref.watch(canProvider((slug: kSlugInscription, action: 'create'))) &&
+            !readOnly;
 
     return async.when(
       skipLoadingOnReload: true,
