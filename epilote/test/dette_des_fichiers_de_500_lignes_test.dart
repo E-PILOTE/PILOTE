@@ -34,11 +34,13 @@ import 'source_bibliotheque.dart';
 //  bibliothèques-là sont donc tenues à la règle stricte.
 // ════════════════════════════════════════════════════════════════════════════
 
-/// Nombre de fichiers de `lib/` dépassant 500 lignes, au 2026-09-06.
+/// Nombre de fichiers de `lib/` dépassant 500 lignes, au 2026-09-14.
 ///
 /// Il en restait 98 le 2026-09-05 au matin. Neuf écrans ont été découpés,
-/// puis l'écran de démarrage (575 → 485, décor et pied sortis à part).
-const int _plafond = 82;
+/// puis l'écran de démarrage (575 → 485, décor et pied sortis à part), puis
+/// `eleves_actions_parts.dart` (502) éclaté en un service et trois widgets
+/// atteignables depuis la fiche de l'élève.
+const int _plafond = 81;
 
 const int _limite = 500;
 

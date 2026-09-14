@@ -10,10 +10,7 @@ import '../../../core/widgets/barre_export.dart';
 import '../../../core/widgets/capture_webcam.dart';
 import '../../../core/widgets/photo_avatar.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
-import '../../../data/models/class_model.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../cartes/providers/cartes_provider.dart' show CarteEleveRow;
-import '../../cartes/services/cartes_actions.dart' show imprimerCarteEleve;
 import '../../classes/providers/class_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
@@ -25,23 +22,20 @@ import '../providers/students_provider.dart';
 import '../models/eleve_libelles.dart';
 import '../models/tutor_draft.dart';
 import '../providers/students_registry_provider.dart';
-import '../providers/transfers_provider.dart';
 import '../../structure/providers/academic_year_provider.dart';
-import '../services/attestation_actions.dart';
+import '../services/eleve_cycle_actions.dart';
 import '../services/capacite_classe.dart';
 import '../services/filtre_eleves.dart';
 import '../services/edition_eleve_garde.dart';
-import '../services/attestations_pdf_service.dart';
 import '../services/students_pdf_service.dart';
 import '../widgets/monthly_evolution_card.dart';
 import '../widgets/scope_drilldown_panel.dart';
-import '../widgets/transfer_destination_picker.dart';
+import '../widgets/class_chooser_dialog.dart';
+import '../widgets/eleve_actions_menu.dart';
 import '../widgets/inscription_form_kit.dart';
 import '../widgets/tuteur_edit_card.dart';
 import 'add_inscription_screen.dart';
 import '../../../core/utils/ine.dart';
-import '../../../core/utils/write_identity.dart';
-import '../../../core/utils/sortie_motif.dart';
 import '../../../core/utils/message_erreur.dart';
 import '../../../services/powersync/avatar_upload.dart'
     show queueAvatarUpload;
@@ -50,7 +44,6 @@ import '../../../services/powersync/avatar_upload.dart'
 part 'eleves_parts.dart';
 part 'eleves_liste_parts.dart';
 part 'eleves_drawer.dart';
-part 'eleves_actions_parts.dart';
 part 'eleves_edit.dart';
 part 'eleves_kpi_parts.dart';
 
@@ -188,7 +181,30 @@ class _BodyState extends ConsumerState<_Body> {
         ),
       );
 
-  void _openDrawer(StudentRow s) => showGeneralDialog(
+  // ══════════════════════════════════════════════════════════════════════════
+  //  DEUX DESTINATIONS, ET LAQUELLE MÉRITE LE CLIC
+  //
+  //  ⚠️ LE CLIC SUR LA LIGNE OUVRAIT LE TIROIR, et la fiche complète — onze
+  //  registres, l'aperçu imprimable — n'était atteignable que par un bouton À
+  //  L'INTÉRIEUR de ce tiroir. Il fallait donc déjà avoir ouvert la vue
+  //  superficielle pour découvrir que la vue profonde existait. Ce n'est pas
+  //  un défaut d'architecture : c'est un défaut de DESTINATION. Cliquer sur le
+  //  nom d'une personne doit ouvrir le dossier de cette personne.
+  //
+  //  Le tiroir ne meurt pas pour autant : il sert le geste qu'on répète
+  //  cinquante fois par jour — qui est cet enfant, quelle classe, quel numéro
+  //  j'appelle. Le supprimer ferait payer une navigation complète à l'action
+  //  la PLUS fréquente pour servir la plus rare. Il garde donc un clic, sur
+  //  une cible explicite en bout de ligne, au lieu de confisquer celui du nom.
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /// La fiche complète, sur son adresse propre : elle s'envoie à un collègue,
+  /// se met en favori, et le retour ramène la liste avec ses filtres intacts.
+  void _ouvrirFiche(StudentRow s) =>
+      context.push(Routes.eleveDetail.replaceFirst(':id', s.id));
+
+  /// Le coup d'œil — 460 pixels, ce qu'on lit sans quitter la liste.
+  void _apercu(StudentRow s) => showGeneralDialog(
         context: context,
         barrierDismissible: true,
         barrierLabel: 'Fermer',
@@ -228,13 +244,9 @@ class _BodyState extends ConsumerState<_Body> {
     final targets =
         rows.where((r) => _selected.contains(r.enrollmentId)).toList();
     if (targets.isEmpty) return;
-    final classId = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _ClassChooserDialog(
-          title: 'Changer de classe',
-          subtitle: '${targets.length} élève(s) sélectionné(s)'),
-    );
+    final classId = await choisirClasseEleve(context,
+        titre: 'Changer de classe',
+        sousTitre: '${targets.length} élève(s) sélectionné(s)');
     if (classId == null || !mounted) return;
     if (!await _confirmeDebordement(classId, targets.length)) return;
     var n = 0;
@@ -520,7 +532,8 @@ class _BodyState extends ConsumerState<_Body> {
                 onSort: () => setState(() => _sortAsc = !_sortAsc),
                 onSelect: _toggle,
                 onSelectAll: (v) => _toggleAll(filtered, v),
-                onOpen: _openDrawer,
+                onOpen: _ouvrirFiche,
+                onApercu: _apercu,
               );
 
         return CustomScrollView(

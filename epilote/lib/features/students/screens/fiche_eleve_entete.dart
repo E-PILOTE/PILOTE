@@ -84,6 +84,7 @@ class FicheEntete extends ConsumerWidget {
               studentId: studentId,
               dossier: dossier,
               annee: annee,
+              inscription: insc,
               peutModifier: peutModifier,
               etroit: etroit,
             ),
@@ -180,6 +181,7 @@ class _Actions extends ConsumerWidget {
     required this.studentId,
     required this.dossier,
     required this.annee,
+    required this.inscription,
     required this.peutModifier,
     required this.etroit,
   });
@@ -187,7 +189,32 @@ class _Actions extends ConsumerWidget {
   final String studentId;
   final StudentDossier dossier;
   final AnneeFiche? annee;
+
+  /// L'inscription de l'année affichée : c'est elle que les gestes du cycle de
+  /// vie modifient. Sans elle, le menu n'offre que ce qui s'imprime.
+  final ParcoursAnnee? inscription;
   final bool peutModifier, etroit;
+
+  /// ⚠️ Ce que les papiers officiels consomment. Le lieu de naissance est lu
+  /// ICI, au dossier, et non déduit : un certificat sans lieu de naissance se
+  /// fait refuser au guichet.
+  EleveCible get _cible => EleveCible(
+        id: studentId,
+        firstName: dossier.s('first_name'),
+        lastName: dossier.s('last_name'),
+        matricule: dossier.s('matricule'),
+        ine: dossier.s('ine').isEmpty ? null : dossier.s('ine'),
+        gender: dossier.s('gender').isEmpty ? null : dossier.s('gender'),
+        dateOfBirth: dossier.dob,
+        placeOfBirth: dossier.s('place_of_birth').isEmpty
+            ? null
+            : dossier.s('place_of_birth'),
+        photoUrl: dossier.s('photo_url').isEmpty ? null : dossier.s('photo_url'),
+        className: inscription?.classe,
+        enrollmentId: inscription?.enrollmentId,
+        enrollmentStatus: inscription?.statut,
+        isBoarder: vraiOffline(dossier.student['is_boarder']),
+      );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -212,6 +239,27 @@ class _Actions extends ConsumerWidget {
           icon: Icons.print_outlined,
           filled: false,
           onPressed: () => _choisirPortee(context, ref),
+        ),
+        // ⚠️ LA FICHE NE SAVAIT PAS AGIR. Elle porte onze registres et n'avait
+        // que Modifier et Imprimer : les sept gestes du cycle de vie —
+        // certificat, carte, réaffectation, transfert, radiation — vivaient
+        // dans le tiroir de la liste. L'agent qui instruit un dossier lit ICI
+        // ce qui motive une sortie, et devait refermer la fiche, retrouver
+        // l'élève dans la liste et rouvrir le tiroir pour l'exécuter.
+        EleveActionsMenu(
+          cible: _cible,
+          // ⚠️ LE VRAI DRAPEAU D'ANNÉE, et non `!peutModifier`. Ce dernier
+          // mélange l'année clôturée et le droit de MODIFIER : un agent qui
+          // peut supprimer sans pouvoir modifier aurait vu « Désactiver »
+          // disparaître, sans que rien ne le lui dise. Le menu recoupe
+          // lui-même ses deux permissions, comme il le fait pour le tiroir.
+          readOnly: ref.watch(yearReadOnlyProvider),
+          compact: true,
+          // L'élève ne fait plus partie de l'effectif : rester sur sa fiche
+          // laisserait lire un dossier que la liste derrière ne contient plus.
+          onApresSortie: () => context.canPop()
+              ? context.pop()
+              : context.go(Routes.eleves),
         ),
       ],
     );

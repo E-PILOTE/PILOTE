@@ -52,6 +52,7 @@ List<Widget> studentListSlivers({
   required void Function(String, bool) onSelect,
   required ValueChanged<bool> onSelectAll,
   required ValueChanged<StudentRow> onOpen,
+  required ValueChanged<StudentRow> onApercu,
 }) {
   if (isTable) {
     final allSel = rows.isNotEmpty &&
@@ -92,6 +93,7 @@ List<Widget> studentListSlivers({
               selected: selected.contains(rows[i].enrollmentId),
               onSelect: (v) => onSelect(rows[i].enrollmentId!, v),
               onOpen: () => onOpen(rows[i]),
+              onApercu: () => onApercu(rows[i]),
             ),
           ),
         ]),
@@ -128,6 +130,7 @@ List<Widget> studentListSlivers({
                         selected: selected.contains(rows[j].enrollmentId),
                         onSelect: (v) => onSelect(rows[j].enrollmentId!, v),
                         onOpen: () => onOpen(rows[j]),
+                        onApercu: () => onApercu(rows[j]),
                       ),
                     ),
                   ],
@@ -224,11 +227,17 @@ class _StudentRow extends StatelessWidget {
     required this.selected,
     required this.onSelect,
     required this.onOpen,
+    required this.onApercu,
   });
   final StudentRow s;
   final bool last, readOnly, selected;
   final ValueChanged<bool> onSelect;
+
+  /// Le nom mène au dossier.
   final VoidCallback onOpen;
+
+  /// Le coup d'œil, sur sa propre cible — voir l'en-tête de `eleves_screen`.
+  final VoidCallback onApercu;
 
   @override
   Widget build(BuildContext context) {
@@ -311,9 +320,19 @@ class _StudentRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, color: kTextMuted)),
           ),
+          // ⚠️ CE CHEVRON NE FAISAIT RIEN : 36 pixels de décor, à l'endroit
+          // exact où l'œil cherche une action. Il porte désormais l'aperçu,
+          // dont le clic ne va plus au dossier.
           SizedBox(
             width: 36,
-            child: Icon(Icons.chevron_right_rounded, color: kTextMuted),
+            child: IconButton(
+              tooltip: 'Aperçu rapide',
+              onPressed: onApercu,
+              icon: Icon(Icons.visibility_outlined, size: 18, color: kTextMuted),
+              splashRadius: 18,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+            ),
           ),
         ]),
       ),
@@ -348,11 +367,12 @@ class _StudentCard extends StatelessWidget {
     required this.selected,
     required this.onSelect,
     required this.onOpen,
+    required this.onApercu,
   });
   final StudentRow s;
   final bool readOnly, selected;
   final ValueChanged<bool> onSelect;
-  final VoidCallback onOpen;
+  final VoidCallback onOpen, onApercu;
 
   @override
   Widget build(BuildContext context) {
@@ -392,6 +412,15 @@ class _StudentCard extends StatelessWidget {
           if ((s.levelCode ?? '').isNotEmpty)
             Text(s.levelCode!,
                 style: TextStyle(fontSize: 12, color: kTextMuted)),
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: 'Aperçu rapide',
+            onPressed: onApercu,
+            icon: Icon(Icons.visibility_outlined, size: 17, color: kTextMuted),
+            splashRadius: 17,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+          ),
         ]),
         if (s.isBoarder || s.hasScholarship || s.hasSocialAid || s.isAffecte) ...[
           const SizedBox(height: 10),

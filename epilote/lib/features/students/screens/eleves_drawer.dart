@@ -49,7 +49,19 @@ class _StudentDrawer extends ConsumerWidget {
             // précisément pour une année passée qu'on réclame ce papier : un
             // ancien élève monte un dossier de bourse, de visa, d'équivalence.
             // Imprimer n'est pas écrire. La barre reste, réduite à ce qui se lit.
-            _DwActionBar(row: row, readOnly: readOnly),
+            EleveActionsBar(
+              cible: row.versCible,
+              readOnly: readOnly,
+              onModifier: () => showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) =>
+                    _StudentEditModal(studentId: row.id, fullName: row.fullName),
+              ),
+              // L'élève vient de quitter l'effectif : ce tiroir parle de
+              // quelqu'un qui n'est plus dans la liste derrière lui.
+              onApresSortie: () => Navigator.of(context).pop(),
+            ),
           ]),
         ),
       ),
@@ -259,4 +271,25 @@ class _DwBody extends StatelessWidget {
 
   static String _od(String v) => v.isEmpty ? '—' : v;
   static String _rel(String c) => tutorRelationshipLabel(c);
+}
+
+// ─── De la ligne de liste à la cible d'un geste ──────────────────────────────
+extension StudentRowCible on StudentRow {
+  /// ⚠️ Tous les champs que les papiers officiels consomment passent ici. Un
+  /// oubli ne casse rien à l'écran : il sort un certificat à la ligne vide.
+  EleveCible get versCible => EleveCible(
+        id: id,
+        firstName: firstName,
+        lastName: lastName,
+        matricule: matricule,
+        ine: ine,
+        gender: gender,
+        dateOfBirth: dateOfBirth,
+        placeOfBirth: placeOfBirth,
+        photoUrl: photoUrl,
+        className: className,
+        enrollmentId: enrollmentId,
+        enrollmentStatus: enrollmentStatus,
+        isBoarder: isBoarder,
+      );
 }

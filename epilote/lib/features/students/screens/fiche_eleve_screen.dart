@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/routes.dart';
+import '../../../core/utils/booleen_offline.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/discipline_vocab.dart';
 import '../../../core/utils/ine.dart';
@@ -31,7 +32,9 @@ import '../providers/fiche_eleve_vie_provider.dart';
 import '../providers/documents_provider.dart' show kRequiredDocTypes;
 import '../providers/student_documents_provider.dart';
 import '../providers/student_dossier_provider.dart';
+import '../services/eleve_cycle_actions.dart';
 import '../services/fiche_eleve_pdf_service.dart';
+import '../widgets/eleve_actions_menu.dart';
 import '../widgets/fiche_eleve_kit.dart';
 import 'eleves_screen.dart' show showStudentEditModal;
 
