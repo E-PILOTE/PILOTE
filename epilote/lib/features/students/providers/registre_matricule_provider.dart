@@ -28,6 +28,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../navigation/providers/permissions_provider.dart';
 
 /// Une ligne du grand livre.
 class LigneRegistre {
@@ -114,6 +115,21 @@ final registreMatriculeProvider =
     return const Registre(lignes: [], lacunes: 0);
   }
 
+  // ⚠️ LE GRAND LIVRE SUIT LE PÉRIMÈTRE DU MODULE, LUI AUSSI.
+  //
+  // La vue « Par élève » de Documents est restreinte par `classScopeClause` ;
+  // ce sous-écran ne l'était pas. Un membre en `documents = own_classes` y
+  // voyait donc douze dossiers d'un côté, et l'ÉCOLE ENTIÈRE de l'autre — avec
+  // état civil, adresse, et nom et téléphone du tuteur. Un clic d'écart.
+  //
+  // On peut soutenir qu'un grand livre est par nature exhaustif. Mais alors
+  // c'est une DÉCISION, qui s'accorde en donnant `own_school` : aujourd'hui
+  // c'était un effet de bord, et un réglage que l'école avait explicitement
+  // posé ne valait plus rien dès qu'on ouvrait l'autre porte.
+  //
+  // Le helper est fermé par défaut : profil pas encore lu ⇒ `AND 0 = 1`.
+  final scope = classScopeClause(ref, 'documents', column: 'e.class_id');
+
   final eleves = await db.getAll(
     'SELECT id, matricule, ine, last_name, first_name, gender, date_of_birth, '
     '       place_of_birth, address, is_active '
@@ -126,9 +142,9 @@ final registreMatriculeProvider =
     '       e.withdrawal_date, e.withdrawal_motif, c.name AS class_name '
     '  FROM class_enrollments e '
     '  LEFT JOIN classes c ON c.id = e.class_id '
-    ' WHERE e.school_id = ? '
+    ' WHERE e.school_id = ? ${scope?.clause ?? ""} '
     ' ORDER BY COALESCE(e.enrollment_date, e.created_at)',
-    [schoolId],
+    [schoolId, ...?scope?.params],
   );
 
   // ⚠️ PAS de `WHERE is_primary_contact <> 0`. La case se décochait librement
@@ -184,8 +200,25 @@ final registreMatriculeProvider =
     tuteur.putIfAbsent(sid, () => (nom, t['phone_primary'] as String?));
   }
 
+  // `students` ne porte aucune classe : le SQL ne peut pas la filtrer. En
+  // périmètre restreint, le registre retient donc les élèves passés par une
+  // classe du membre — c'est-à-dire ceux que `inscriptions`, déjà filtré, a
+  // fait apparaître. Un élève sans la moindre inscription n'a rien qui le
+  // rattache à ce membre ; il sort, comme il sort déjà de la vue « Par élève »
+  // (cf. `schoolDocumentsProvider`).
+  //
+  // ⚠️ `scope == null` signifie `own_school` : AUCUN filtrage. Ne pas confondre
+  // avec la liste vide, qui est une restriction totale.
+  final vus = {
+    for (final r in inscriptions)
+      if (r['student_id'] != null) r['student_id'] as String,
+  };
+  final retenus = scope == null
+      ? eleves
+      : [for (final e in eleves) if (vus.contains(e['id'])) e];
+
   final lignes = <LigneRegistre>[
-    for (final e in eleves)
+    for (final e in retenus)
       LigneRegistre(
         studentId: e['id'] as String,
         matricule: (e['matricule'] as String?) ?? '',
@@ -207,7 +240,7 @@ final registreMatriculeProvider =
   ]..sort((a, b) => compareMatricule(a.matricule, b.matricule));
 
   // ── Les lacunes : inscriptions dont l'élève manque sur ce poste ───────────
-  final connus = {for (final e in eleves) e['id'] as String};
+  final connus = {for (final e in retenus) e['id'] as String};
   final manquants = <String>{};
   for (final r in inscriptions) {
     final sid = r['student_id'] as String?;

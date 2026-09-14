@@ -108,6 +108,128 @@ class DocumentsPdfService {
     return doc.save();
   }
 
+  // ══════════════════════════════════════════════════════════════════════════
+  //  LE REGISTRE DES PIÈCES — ce que la vue « Registre » a sous les yeux
+  //
+  //  ⚠️ CE BUILDER MANQUAIT, ET L'ÉCRAN EXPORTAIT L'AUTRE. En vue « Registre »,
+  //  l'en-tête comptait des PIÈCES et le bouton PDF juste à côté sortait la
+  //  liste des DOSSIERS par élève, titrée « Dossiers documentaires ». L'agent
+  //  croyait imprimer ce qu'il voyait — et le papier partait de l'école.
+  //
+  //  Les deux vues ne répondent pas à la même question : « ce dossier est-il
+  //  complet ? » d'un côté, « cette pièce a-t-elle été vérifiée, et quand
+  //  expire-t-elle ? » de l'autre. Un seul document ne peut pas servir les
+  //  deux.
+  // ══════════════════════════════════════════════════════════════════════════
+  static Future<Uint8List> buildRegistrePdf({
+    required List<DocRow> pieces,
+    String? schoolName,
+    String? yearLabel,
+  }) async {
+    final f = await OfficialPdfKit.loadFonts();
+    final logo = await OfficialPdfKit.loadLogo();
+    final now = DateFormat('dd/MM/yyyy • HH:mm', 'fr').format(DateTime.now());
+    final ref = DateFormat('yyyyMMdd-HHmm').format(DateTime.now());
+    final genDate = DateFormat('dd MMMM yyyy', 'fr').format(DateTime.now());
+    final jour = DateFormat('dd/MM/yyyy', 'fr');
+
+    final verifiees = pieces.where((p) => p.isVerified).length;
+    final maintenant = DateTime.now();
+    final expirees = pieces
+        .where((p) =>
+            p.expiryDate != null && p.expiryDate!.isBefore(maintenant))
+        .length;
+
+    final doc = pw.Document(
+      title: 'Registre des pièces',
+      author: 'E-PILOTE CONGO',
+      creator: 'E-PILOTE CONGO',
+      subject: 'Pièces déposées au dossier des élèves',
+    );
+
+    doc.addPage(pw.MultiPage(
+      pageFormat: PdfPageFormat.a4,
+      margin: pw.EdgeInsets.zero,
+      header: (ctx) => OfficialPdfKit.header(logo, f, badge: 'REGISTRE\nPIÈCES'),
+      footer: (ctx) => OfficialPdfKit.footer(ctx, f, now, ref),
+      build: (ctx) => [
+        pw.SizedBox(height: 14),
+        OfficialPdfKit.titleBlock(f,
+            kicker: 'PIÈCES DÉPOSÉES AU DOSSIER',
+            title: schoolName?.trim().isNotEmpty ?? false
+                ? schoolName!.trim()
+                : 'Registre des pièces',
+            line1: yearLabel?.trim().isNotEmpty ?? false
+                ? 'Année scolaire : ${yearLabel!.trim()}'
+                : null,
+            line2: 'Édité le $genDate'),
+        pw.SizedBox(height: 16),
+        OfficialPdfKit.kpiGrid(f, [
+          PdfKpi('Pièces', '${pieces.length}', kPdfNavy),
+          PdfKpi('Vérifiées', '$verifiees', kPdfGreen),
+          PdfKpi('Expirées', '$expirees',
+              expirees > 0 ? kPdfRed : const PdfColor.fromInt(0xFF0EA5E9)),
+        ]),
+        pw.SizedBox(height: 16),
+        ...OfficialPdfKit.tableSection(
+          title: 'REGISTRE DES PIÈCES',
+          color: kPdfNavy,
+          fonts: f,
+          headers: const [
+            'Élève',
+            'Classe',
+            'Pièce',
+            'Déposée le',
+            'Expire le',
+            'État',
+          ],
+          rows: [
+            for (final p in pieces)
+              [
+                '${p.lastName} ${p.firstName}'.trim(),
+                p.className ?? '—',
+                docTypeLabel(p.documentType),
+                p.createdAt == null ? '—' : jour.format(p.createdAt!),
+                p.expiryDate == null ? '—' : jour.format(p.expiryDate!),
+                p.isVerified ? '✓ vérifiée' : 'déposée',
+              ],
+          ],
+          flex: const [4, 2, 4, 2, 2, 2],
+          leftAlignCols: const {0, 2},
+          emptyLabel: 'Aucune pièce à exporter.',
+        ),
+        pw.SizedBox(height: 8),
+      ],
+    ));
+
+    return doc.save();
+  }
+
+  static Future<String?> downloadRegistre({
+    required List<DocRow> pieces,
+    String? schoolName,
+    String? yearLabel,
+  }) async {
+    final bytes = await buildRegistrePdf(
+        pieces: pieces, schoolName: schoolName, yearLabel: yearLabel);
+    final fileName =
+        'Registre_pieces_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf';
+    final savePath = await FilePicker.platform.saveFile(
+      dialogTitle: 'Enregistrer le registre des pièces',
+      fileName: fileName,
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      bytes: bytes,
+    );
+    if (savePath != null) {
+      final file = File(savePath);
+      if (!await file.exists() || await file.length() == 0) {
+        await file.writeAsBytes(bytes);
+      }
+    }
+    return savePath;
+  }
+
   // Libellé court pour l'en-tête de colonne (pièce exigée).
   static String _short(String label) => switch (label) {
         "Extrait d'acte de naissance" => 'Acte naiss.',

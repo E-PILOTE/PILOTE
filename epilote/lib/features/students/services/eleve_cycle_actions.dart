@@ -16,7 +16,8 @@ import '../providers/transfers_provider.dart';
 import '../widgets/class_chooser_dialog.dart';
 import '../widgets/sortie_eleve_dialog.dart';
 import 'attestation_actions.dart';
-import 'attestations_pdf_service.dart' show AttestationEleve;
+import 'attestations_pdf_service.dart'
+    show AttestationEleve, peutDelivrerRadiation;
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LE CYCLE DE VIE D'UN ÉLÈVE — les sept gestes, enfin partageables
@@ -279,6 +280,53 @@ Future<void> certificatScolariteEleve(
     eleve: e.versAttestation(lieuNaissance: lieu.isEmpty ? null : lieu),
     enrollmentStatus: e.enrollmentStatus,
     studentId: e.id,
+  );
+}
+
+/// `true` quand l'élève est SORTI : le certificat de radiation a un objet.
+///
+/// ⚠️ Exposé ici pour que le menu puisse conditionner le geste sans importer
+/// le service des attestations : une garde recopiée dans le widget finirait
+/// par ne plus dire la même chose que celle qui refuse à l'écriture.
+bool peutReclamerRadiation(EleveCible e) =>
+    peutDelivrerRadiation(e.enrollmentStatus);
+
+/// Le certificat de radiation, RÉÉMIS.
+///
+/// ⚠️ IL N'EXISTAIT QU'À LA SECONDE DE LA SORTIE. `sortirEleve` le propose une
+/// fois, pendant que la famille est encore au guichet — c'est le bon moment,
+/// et ça reste. Mais après, plus rien : `delivrerCertificatRadiation` n'avait
+/// aucun autre appelant dans toute l'application. Une famille qui revient six
+/// mois plus tard — dossier de bourse, inscription ailleurs, équivalence —
+/// repartait les mains vides, alors que `peutDelivrerRadiation` accepte
+/// parfaitement les statuts passés.
+///
+/// ⚠️ LE MOTIF ET LA DATE SE RELISENT, ILS NE SE REDEMANDENT PAS. Les ressaisir
+/// ferait diverger deux exemplaires du même certificat — et c'est l'école
+/// d'accueil qui lirait deux vérités.
+Future<void> certificatRadiationEleve(
+    BuildContext context, WidgetRef ref, EleveCible e) async {
+  final lieu = e.placeOfBirth ??
+      (await ref.read(studentDossierProvider(e.id).future)).s('place_of_birth');
+
+  String? motif;
+  DateTime? dateSortie;
+  final id = e.enrollmentId;
+  if (id != null && id.isNotEmpty) {
+    final row = await ref.read(enrollmentDetailProvider(id).future);
+    motif = row['withdrawal_motif'] as String?;
+    dateSortie = DateTime.tryParse((row['withdrawal_date'] as String?) ?? '');
+  }
+
+  if (!context.mounted) return;
+  await delivrerCertificatRadiation(
+    context,
+    ref,
+    eleve: e.versAttestation(lieuNaissance: lieu.isEmpty ? null : lieu),
+    enrollmentStatus: e.enrollmentStatus,
+    studentId: e.id,
+    motif: motif,
+    dateSortie: dateSortie,
   );
 }
 

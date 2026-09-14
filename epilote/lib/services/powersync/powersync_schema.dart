@@ -1862,4 +1862,23 @@ const schema = Schema([
     Column.integer('attempts'), // tentatives d'envoi
     Column.text('last_error'),  // dernier échec (diagnostic)
   ]),
+
+  // ⚠️ LA SYMÉTRIQUE DE `upload_outbox` — SANS ELLE, RETIRER UNE PIÈCE DU
+  // DOSSIER LAISSAIT SON FICHIER AU STORAGE, POUR TOUJOURS.
+  //
+  // `deleteStudentDocument` effaçait la ligne et rien d'autre ; son propre
+  // commentaire l'admettait. Ce n'est pas de l'encombrement : le fichier
+  // supprimé est un acte de naissance, un certificat médical, la photo d'un
+  // enfant. Une pièce qu'un parent a demandé de retirer restait accessible à
+  // qui détenait une URL signée, et l'école croyait l'avoir détruite.
+  //
+  // Supprimer exige le réseau, comme téléverser : même remède. Le chemin part
+  // ici, la suppression se rejoue au retour du réseau.
+  Table.localOnly('storage_deletions', [
+    Column.text('bucket'),
+    Column.text('storage_path'),
+    Column.text('created_at'),  // ISO-8601 UTC
+    Column.integer('attempts'),
+    Column.text('last_error'),
+  ]),
 ]);

@@ -148,6 +148,35 @@ class _BodyState extends ConsumerState<_Body> {
         builder: (_) => _DossierDetail(dossier: d),
       );
 
+  /// Le registre des PIÈCES — ce que la vue « Registre » a sous les yeux.
+  ///
+  /// ⚠️ Une vue, un document. Le bouton PDF sortait les dossiers par élève quel
+  /// que soit l'onglet : l'en-tête comptait des pièces, le papier listait des
+  /// élèves. Un export doit dire ce qui est à l'écran — sinon il ment, sur un
+  /// papier qui quitte l'école.
+  ///
+  /// Les deux vues ne répondent pas à la même question : « ce dossier est-il
+  /// complet ? » d'un côté, « cette pièce est-elle vérifiée, et quand
+  /// expire-t-elle ? » de l'autre.
+  void _previewRegistrePdf(List<DocRow> pieces) {
+    if (pieces.isEmpty) {
+      _snack('Aucune pièce à exporter', kTextMuted);
+      return;
+    }
+    final year = ref.read(activeYearProvider)?.label;
+    showPdfPreviewDialog(
+      context,
+      title: 'Registre des pièces',
+      subtitle: '${pieces.length} pièce${pieces.length > 1 ? 's' : ''}'
+          '${year != null ? ' · $year' : ''}',
+      pdfFileName: 'Registre_pieces.pdf',
+      build: (_) =>
+          DocumentsPdfService.buildRegistrePdf(pieces: pieces, yearLabel: year),
+      onDownload: () =>
+          DocumentsPdfService.downloadRegistre(pieces: pieces, yearLabel: year),
+    );
+  }
+
   void _previewPdf(List<StudentDossier> dossiers) {
     if (dossiers.isEmpty) {
       _snack('Aucun dossier à exporter', kTextMuted);
@@ -234,9 +263,15 @@ class _BodyState extends ConsumerState<_Body> {
                 byStudent: _byStudent,
                 count: _byStudent ? filteredDossiers.length : filteredDocs.length,
                 total: _byStudent ? allDossiers.length : docs.length,
-                onExportPdf: filteredDossiers.isEmpty
-                    ? null
-                    : () => _previewPdf(filteredDossiers),
+                // Chaque vue exporte ce qu'elle montre, et se désactive sur
+                // sa propre vacuité — pas sur celle de l'autre.
+                onExportPdf: _byStudent
+                    ? (filteredDossiers.isEmpty
+                        ? null
+                        : () => _previewPdf(filteredDossiers))
+                    : (filteredDocs.isEmpty
+                        ? null
+                        : () => _previewRegistrePdf(filteredDocs)),
               ),
               if (_hasPick) ...[
                 const SizedBox(height: 10),

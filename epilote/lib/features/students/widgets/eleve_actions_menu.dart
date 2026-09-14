@@ -56,6 +56,8 @@ class EleveActionsMenu extends ConsumerWidget {
     switch (v) {
       case 'certificat':
         await certificatScolariteEleve(context, ref, cible);
+      case 'radiation':
+        await certificatRadiationEleve(context, ref, cible);
       case 'carte':
         await carteScolaireEleve(context, ref, cible);
       case 'class':
@@ -102,6 +104,18 @@ class EleveActionsMenu extends ConsumerWidget {
         // Le duplicata : un élève perd sa carte en cours d'année et se présente
         // au guichet. La fabrication de MASSE, elle, est le module « Cartes
         // scolaires » — pas ce menu.
+        // ⚠️ N'APPARAÎT QUE POUR UN ÉLÈVE SORTI, et c'est tout l'objet : le
+        // certificat de radiation n'existait qu'à l'instant de la sortie.
+        // Passé ce moment, une famille qui revenait — bourse, inscription
+        // ailleurs, équivalence — n'avait plus aucun moyen de l'obtenir.
+        // Il vient AVANT la carte parce que, pour un élève parti, c'est le
+        // seul des deux papiers qui ait encore un sens.
+        if (peutReclamerRadiation(cible))
+          const PopupMenuItem(
+              value: 'radiation',
+              child: _MenuRow(
+                  icon: Icons.exit_to_app_rounded,
+                  label: 'Certificat de radiation')),
         const PopupMenuItem(
             value: 'carte',
             child:

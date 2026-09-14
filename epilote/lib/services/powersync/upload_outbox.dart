@@ -159,6 +159,93 @@ Future<void> flushUploadOutbox(SupabaseClient client) async {
   }
 }
 
+// ─── La file de SUPPRESSION ─────────────────────────────────────────────────
+//
+//  Supprimer un fichier du Storage exige le réseau, exactement comme le
+//  téléverser. Sans file, `deleteStudentDocument` effaçait la ligne et
+//  abandonnait le fichier — un acte de naissance, un certificat médical, la
+//  photo d'un enfant — accessible à qui détenait encore une URL signée, pendant
+//  que l'école se croyait quitte.
+
+/// Met un chemin Storage en file de suppression.
+///
+/// ⚠️ SI LE FICHIER N'EST JAMAIS PARTI, ON NE MET RIEN EN FILE : on retire
+/// l'entrée d'envoi et les octets du disque. Téléverser pour supprimer ensuite
+/// ferait voyager sur un réseau congolais, parfois facturé au mégaoctet, un
+/// fichier dont personne ne veut plus.
+Future<void> enqueueStorageDeletion({
+  required String bucket,
+  required String storagePath,
+}) async {
+  try {
+    final enAttente = await db.getOptional(
+      'SELECT id, local_path FROM upload_outbox WHERE storage_path = ? LIMIT 1',
+      [storagePath],
+    );
+    if (enAttente != null) {
+      await db.execute(
+          'DELETE FROM upload_outbox WHERE id = ?', [enAttente['id']]);
+      try {
+        final f = File(enAttente['local_path'] as String);
+        if (f.existsSync()) await f.delete();
+      } catch (_) {/* le fichier partira à la purge du cache */}
+      return;
+    }
+
+    await db.execute(
+      'INSERT INTO storage_deletions '
+      '(id, bucket, storage_path, created_at, attempts, last_error) '
+      'VALUES (uuid(), ?, ?, ?, 0, NULL)',
+      [bucket, storagePath, DateTime.now().toUtc().toIso8601String()],
+    );
+  } catch (_) {
+    // Fail-soft : la pièce doit disparaître du dossier même si la file échoue.
+  }
+}
+
+bool _deleting = false;
+
+/// Rejoue les suppressions en attente. Mêmes règles que la vidange d'envoi :
+/// hors réseau on s'arrête et la file reste ; un refus DÉFINITIF du serveur
+/// retire l'entrée, sinon la file ne se viderait jamais.
+///
+/// ⚠️ Un fichier absent n'est PAS une erreur : Supabase répond sans broncher à
+/// la suppression d'un chemin inexistant, et c'est le résultat voulu — le
+/// fichier n'est plus là.
+Future<void> flushStorageDeletions(SupabaseClient client) async {
+  if (_deleting) return;
+  _deleting = true;
+  try {
+    final rows = await db.getAll(
+      'SELECT id, bucket, storage_path FROM storage_deletions '
+      'ORDER BY created_at ASC',
+    );
+    for (final r in rows) {
+      final id = r['id'] as String;
+      try {
+        await client.storage
+            .from(r['bucket'] as String)
+            .remove([r['storage_path'] as String]);
+        await db.execute('DELETE FROM storage_deletions WHERE id = ?', [id]);
+      } catch (e) {
+        if (isTransportFailure(e)) {
+          await db.execute(
+            'UPDATE storage_deletions SET attempts = attempts + 1, '
+            'last_error = ? WHERE id = ?',
+            [e.toString(), id],
+          );
+          break;
+        }
+        await db.execute('DELETE FROM storage_deletions WHERE id = ?', [id]);
+      }
+    }
+  } catch (_) {
+    // Fail-soft : une file d'attente ne fait jamais tomber l'app.
+  } finally {
+    _deleting = false;
+  }
+}
+
 /// Supprime du DISQUE les fichiers en attente. `powersync_clear()` vide la
 /// table `upload_outbox` mais laisse les octets sur le disque : sans ce ménage,
 /// un appareil réattribué à une autre école garderait les photos de la

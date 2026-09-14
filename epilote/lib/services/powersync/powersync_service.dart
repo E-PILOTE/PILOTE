@@ -163,6 +163,9 @@ Future<void> initPowerSync() async {
   db.statusStream.listen((status) {
     if (status.connected && _syncEnabled) {
       unawaited(flushUploadOutbox(supabase));
+      // Les suppressions aussi : sans elles, un fichier retiré du dossier hors
+      // réseau resterait au Storage jusqu'à la fin des temps.
+      unawaited(flushStorageDeletions(supabase));
     }
   });
 

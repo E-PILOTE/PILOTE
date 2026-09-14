@@ -55,6 +55,14 @@ const _pagesAPerimetre = <String, String>{
   '$_kProviders/inscriptions_data_provider.dart': 'inscriptions',
   '$_kProviders/inscriptions_rythme_provider.dart': 'inscriptions',
   '$_kProviders/documents_provider.dart': 'documents',
+  // ⚠️ LES SOUS-ÉCRANS DE `documents` MANQUAIENT À CETTE LISTE, ET DONC AU
+  // PÉRIMÈTRE. `/user/documents` était restreint, `/user/documents/registre` et
+  // `/user/documents/registre-matricule` ne l'étaient pas : un membre en
+  // `own_classes` voyait douze dossiers d'un côté et l'école entière de
+  // l'autre — état civil, adresse, nom et téléphone du tuteur. Un clic
+  // d'écart, et le test ne regardait pas là.
+  '$_kProviders/registre_provider.dart': 'documents',
+  '$_kProviders/registre_matricule_provider.dart': 'documents',
   '$_kProviders/transfers_provider.dart': 'transferts',
 };
 
