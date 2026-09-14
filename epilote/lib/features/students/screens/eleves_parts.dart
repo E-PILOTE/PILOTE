@@ -46,14 +46,13 @@ class _ElevesFilterBar extends StatelessWidget {
     required this.onParticularite,
     required this.onToggleView,
     required this.onReset,
-    required this.onAdd,
   });
   final TextEditingController searchCtrl;
   final String? gender, particularite;
   final bool isTable, readOnly;
   final ValueChanged<String> onSearch;
   final ValueChanged<String?> onGender, onParticularite;
-  final VoidCallback onToggleView, onReset, onAdd;
+  final VoidCallback onToggleView, onReset;
 
   @override
   Widget build(BuildContext context) {
@@ -106,26 +105,23 @@ class _ElevesFilterBar extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         _ViewToggle(isTable: isTable, onToggle: onToggleView),
-        if (!readOnly) ...[
-          const SizedBox(width: 10),
-          // ⚠️ `kSlugInscription`, PAS `eleves`. Ce bouton ouvre l'assistant
-          // d'inscription, qui écrit `class_enrollments`. Gardé par `eleves`,
-          // il offrait le geste du module Inscriptions à qui n'avait que le
-          // module Élèves — la permission du guichet se contournait par le
-          // registre. Le libellé reste « Nouvel élève » : c'est ce que
-          // l'agent croit faire, et il a raison, l'assistant crée bien la
-          // fiche en plus de l'inscription.
-          PermissionGate(
-            slug: kSlugInscription,
-            action: 'create',
-            child: AdminPrimaryButton(
-              label: 'Nouvel élève',
-              icon: Icons.person_add_alt_1_rounded,
-              color: kNavy,
-              onTap: onAdd,
-            ),
-          ),
-        ],
+        // ⚠️ PAS DE « NOUVEL ÉLÈVE » ICI. Ce bouton ouvrait l'assistant
+        // d'inscription depuis le REGISTRE. Trois raisons de l'avoir retiré,
+        // dans l'ordre de gravité :
+        //
+        //  • il écrivait `class_enrollments` sous la permission `eleves` — le
+        //    droit d'inscrire s'obtenait donc en n'ayant que celui de
+        //    consulter ;
+        //  • l'écran se contredisait : son propre état vide explique qu'un
+        //    élève « apparaît ici une fois son inscription VALIDÉE, depuis la
+        //    page Inscriptions », et un bouton juste au-dessus proposait de
+        //    l'inscrire sur place ;
+        //  • un même geste offert à deux endroits finit par diverger — une
+        //    garde ajoutée d'un côté seulement, et deux écoles qui n'ont pas
+        //    le même parcours d'inscription selon la porte empruntée.
+        //
+        // Le registre consulte, le guichet inscrit. L'état vide renvoie au
+        // guichet plutôt que de faire le geste à sa place.
       ]),
     );
   }

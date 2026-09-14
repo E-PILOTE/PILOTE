@@ -19,41 +19,45 @@ String _lire(String chemin) =>
     File(chemin).readAsStringSync().replaceAll('\r\n', '\n');
 
 void main() {
-  group('Inscrire exige la clé du guichet, d’où qu’on parte', () {
-    // ⚠️ `AddInscriptionScreen` écrit `class_enrollments`. Le geste est une
-    // inscription, que l'agent l'ouvre depuis Inscriptions ou depuis Élèves.
-    // Deux portes vers un seul geste : si l'une demande moins que l'autre,
-    // c'est la plus permissive qui décide, et la permission du module
-    // Inscriptions ne veut plus rien dire.
-    const formulaire =
-        'lib/features/students/screens/add_inscription_screen.dart';
+  group('Le registre consulte, le guichet inscrit', () {
+    // ⚠️ `AddInscriptionScreen` écrit `class_enrollments`. Le module Élèves le
+    // montait aussi, sous la permission `eleves` : le droit d'inscrire
+    // s'obtenait donc en n'ayant que celui de consulter. Le bouton est retiré
+    // — un même geste offert à deux endroits finit par diverger, et l'écran se
+    // contredisait lui-même (son état vide renvoie à la page Inscriptions).
+    const registre = 'lib/features/students/screens/eleves_parts.dart';
+    const ecran = 'lib/features/students/screens/eleves_screen.dart';
 
     test('le formulaire nomme publiquement la permission qu’il exige', () {
-      final src = _lire(formulaire);
+      final src =
+          _lire('lib/features/students/screens/add_inscription_screen.dart');
       expect(src, contains("const kSlugInscription = 'inscriptions';"),
           reason: 'La constante servait déjà au périmètre des classes, mais '
               'elle était privée : les écrans qui montent l’assistant ne '
               'pouvaient pas s’y adosser et gardaient la porte autrement.');
     });
 
-    test('les deux portes du module Élèves demandent cette clé', () {
-      for (final f in const [
-        'lib/features/students/screens/eleves_parts.dart',
-        'lib/features/students/screens/eleves_screen.dart',
-      ]) {
-        final src = _lire(f);
-        expect(src, contains('kSlugInscription'),
-            reason: '$f ouvre l’assistant d’inscription : il doit exiger '
-                'inscriptions:create, pas eleves:create.');
-      }
+    test('la barre d’outils du registre n’offre plus « Nouvel élève »', () {
+      expect(_lire(registre).contains("label: 'Nouvel élève'"), isFalse,
+          reason: 'Le registre proposait d’inscrire, au-dessus d’un état vide '
+              'expliquant que l’inscription se fait ailleurs.');
     });
 
-    test('aucune des deux ne garde « créer » sous le slug du registre', () {
-      final parts = _lire('lib/features/students/screens/eleves_parts.dart');
-      expect(parts.contains("slug: 'eleves',\n            action: 'create'"),
-          isFalse,
-          reason: 'Consulter le registre et inscrire un enfant ne sont pas le '
-              'même droit.');
+    test('l’écran ne monte plus l’assistant d’inscription', () {
+      // La coquille reste dangereuse tant qu'elle est montable : un futur
+      // bouton la rebrancherait sans repasser par le guichet.
+      expect(_lire(ecran).contains('child: AddInscriptionScreen()'), isFalse,
+          reason: 'L’assistant est encore monté depuis le module Élèves.');
+    });
+
+    test('l’état vide MÈNE au guichet au lieu de s’en passer', () {
+      final src = _lire(ecran);
+      expect(src, contains('Routes.inscriptions'),
+          reason: 'Le message nomme la page Inscriptions : l’action doit y '
+              'conduire.');
+      expect(src, contains('kSlugInscription'),
+          reason: 'Le raccourci n’est offert qu’à qui a le droit d’inscrire — '
+              'sinon la porte se referme sur l’agent au bout du trajet.');
     });
   });
 

@@ -171,16 +171,6 @@ class _BodyState extends ConsumerState<_Body> {
       });
   void _clearSel() => setState(_selected.clear);
 
-  void _openAdd() => showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => const Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: EdgeInsets.symmetric(horizontal: 40, vertical: 32),
-          child: AddInscriptionScreen(),
-        ),
-      );
-
   // ══════════════════════════════════════════════════════════════════════════
   //  DEUX DESTINATIONS, ET LAQUELLE MÉRITE LE CLIC
   //
@@ -472,7 +462,6 @@ class _BodyState extends ConsumerState<_Body> {
                 onParticularite: (v) => setState(() => _particularite = v),
                 onToggleView: () => setState(() => _isTable = !_isTable),
                 onReset: _resetFilters,
-                onAdd: _openAdd,
               ),
               if (_scope.active) ...[
                 const SizedBox(height: 12),
@@ -509,8 +498,14 @@ class _BodyState extends ConsumerState<_Body> {
                     message:
                         'Les élèves apparaissent ici une fois leur inscription '
                         'VALIDÉE (depuis la page Inscriptions).',
-                    actionLabel: canCreate ? 'Nouvel élève' : null,
-                    onAction: canCreate ? _openAdd : null,
+                    // Le message dit d'où viennent les élèves ; l'action y
+                    // MÈNE, au lieu de proposer de s'en passer. Offerte au
+                    // seul agent qui a le droit d'inscrire : renvoyer les
+                    // autres vers une porte qui se refermera sur eux, c'est
+                    // leur faire perdre le trajet.
+                    actionLabel: canCreate ? 'Ouvrir les inscriptions' : null,
+                    onAction:
+                        canCreate ? () => context.go(Routes.inscriptions) : null,
                   ),
                 )
               else if (filtered.isEmpty)
