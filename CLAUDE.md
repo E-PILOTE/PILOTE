@@ -136,7 +136,7 @@ Navigation : ajouter un écran = créer screen + provider, déclarer la route da
   |---|---|
   | `/user/espace-parent` | `StaffComingSoonScreen` — le rôle `parent` n'a pas son espace |
   | ~~`/user/rapports`~~ | ✅ livré le 2026-08-17 — états des effectifs, du recouvrement et du personnel, PDF signables |
-  | ~~`/user/eleves/:id`~~ | ✅ route morte neutralisée en redirection vers `/user/eleves` |
+  | ~~`/user/eleves/:id`~~ | ✅ **fiche de l'élève livrée le 2026-09-11** — six onglets, onze registres en `db.watch`. N'est plus une redirection. Le clic sur une ligne de la liste y mène depuis le 2026-09-14 ; le tiroir de 460 px reste, sur l'œil en bout de ligne |
 
   ⚠️ **`/user/rapports` est une page de DIRECTION** : elle lit l'école entière,
   hors du périmètre de classes de l'agent. Deux verrous, tous deux nécessaires —
