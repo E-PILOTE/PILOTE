@@ -19,6 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 class ReleasePubliee {
   const ReleasePubliee({
@@ -70,6 +71,7 @@ class ReleasePubliee {
 /// Toutes les versions publiées, la plus récente d'abord.
 final releasesProvider =
     FutureProvider.autoDispose<List<ReleasePubliee>>((ref) async {
+  garderAuChaud(ref, pendant: kChaudReferentiel);
   final client = ref.watch(supabaseClientProvider);
   final rows = await client
       .from('app_releases')

@@ -46,14 +46,13 @@ class _ElevesFilterBar extends StatelessWidget {
     required this.onParticularite,
     required this.onToggleView,
     required this.onReset,
-    required this.onAdd,
   });
   final TextEditingController searchCtrl;
   final String? gender, particularite;
   final bool isTable, readOnly;
   final ValueChanged<String> onSearch;
   final ValueChanged<String?> onGender, onParticularite;
-  final VoidCallback onToggleView, onReset, onAdd;
+  final VoidCallback onToggleView, onReset;
 
   @override
   Widget build(BuildContext context) {
@@ -106,19 +105,23 @@ class _ElevesFilterBar extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         _ViewToggle(isTable: isTable, onToggle: onToggleView),
-        if (!readOnly) ...[
-          const SizedBox(width: 10),
-          PermissionGate(
-            slug: 'eleves',
-            action: 'create',
-            child: AdminPrimaryButton(
-              label: 'Nouvel élève',
-              icon: Icons.person_add_alt_1_rounded,
-              color: kNavy,
-              onTap: onAdd,
-            ),
-          ),
-        ],
+        // ⚠️ PAS DE « NOUVEL ÉLÈVE » ICI. Ce bouton ouvrait l'assistant
+        // d'inscription depuis le REGISTRE. Trois raisons de l'avoir retiré,
+        // dans l'ordre de gravité :
+        //
+        //  • il écrivait `class_enrollments` sous la permission `eleves` — le
+        //    droit d'inscrire s'obtenait donc en n'ayant que celui de
+        //    consulter ;
+        //  • l'écran se contredisait : son propre état vide explique qu'un
+        //    élève « apparaît ici une fois son inscription VALIDÉE, depuis la
+        //    page Inscriptions », et un bouton juste au-dessus proposait de
+        //    l'inscrire sur place ;
+        //  • un même geste offert à deux endroits finit par diverger — une
+        //    garde ajoutée d'un côté seulement, et deux écoles qui n'ont pas
+        //    le même parcours d'inscription selon la porte empruntée.
+        //
+        // Le registre consulte, le guichet inscrit. L'état vide renvoie au
+        // guichet plutôt que de faire le geste à sa place.
       ]),
     );
   }
@@ -260,7 +263,9 @@ class _BulkBar extends StatelessWidget {
             label: 'Annuler l\'inscription',
             onTap: onRevert),
         _BulkBtn(
-            icon: Icons.download_rounded, label: 'Exporter', onTap: onExport),
+            icon: Icons.table_chart_outlined,
+            label: 'Données (CSV)',
+            onTap: onExport),
         const SizedBox(width: 4),
         IconButton(
           tooltip: 'Désélectionner',
@@ -306,10 +311,21 @@ class _BulkBtn extends StatelessWidget {
 
 // ─── En-tête de résultats ────────────────────────────────────────────────────
 class _ResultHeader extends StatelessWidget {
-  const _ResultHeader(
-      {required this.total, required this.filtered, this.onExportPdf});
+  const _ResultHeader({
+    required this.total,
+    required this.filtered,
+    this.onExportPdf,
+    this.onDonnees,
+  });
   final int total, filtered;
   final VoidCallback? onExportPdf;
+
+  /// ⚠️ Le fichier de données n'était atteignable QU'APRÈS avoir coché des
+  /// élèves, sous le libellé « Exporter » — qui ne disait pas ce qu'il
+  /// produisait. Une secrétaire venue chercher la liste officielle repartait
+  /// avec un tableur. Il est ici, en second, et son intitulé dit son usage.
+  final VoidCallback? onDonnees;
+
   @override
   Widget build(BuildContext context) {
     final txt = filtered == total
@@ -322,73 +338,14 @@ class _ResultHeader extends StatelessWidget {
           style: TextStyle(
               fontSize: 13, fontWeight: FontWeight.w700, color: kTextPrimary)),
       const Spacer(),
-      if (onExportPdf != null) AdminPdfButton(onTap: onExportPdf!),
+      if (onExportPdf != null)
+        BarreExport(
+          onApercuPdf: onExportPdf!,
+          onDonnees: onDonnees,
+          aQuoiServentLesDonnees:
+              'Pour envoyer les effectifs à une autre école, ou les corriger '
+              'en masse avant de les réimporter',
+        ),
     ]);
-  }
-}
-
-// ─── Sélecteur de classe (cascade) — renvoie l'id de classe choisi ───────────
-class _ClassChooserDialog extends ConsumerStatefulWidget {
-  const _ClassChooserDialog({required this.title, required this.subtitle});
-  final String title, subtitle;
-  @override
-  ConsumerState<_ClassChooserDialog> createState() =>
-      _ClassChooserDialogState();
-}
-
-class _ClassChooserDialogState extends ConsumerState<_ClassChooserDialog> {
-  String? _classId;
-
-  ClassPickerEntry _entry(ClassModel c) {
-    final cyc = inscriptionCycleFromCode(c.cycleCode, c.name);
-    return ClassPickerEntry(
-      id: c.id,
-      name: c.name,
-      cycleCode: cyc.code,
-      cycleLabel: cyc.label,
-      cycleOrder: cyc.order,
-      levelCode: c.levelCode ?? '',
-      levelOrder: c.levelOrder ?? 999,
-      capacity: c.capacity,
-      count: c.studentCount,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final classesAsync = ref.watch(classesForModuleProvider(_kSlug));
-    return AdminFormDialog(
-      icon: Icons.swap_horiz_rounded,
-      title: widget.title,
-      subtitle: widget.subtitle,
-      width: 520,
-      submitLabel: 'Valider',
-      submitIcon: Icons.check_rounded,
-      // ⚠️ `onSubmit: () { if (_classId == null) return; }` ne faisait RIEN :
-      // le bouton restait actif, l'agent cliquait, la fenêtre ne bougeait pas
-      // et rien n'expliquait pourquoi. Un bouton désactivé dit la même chose,
-      // mais avant le clic.
-      onSubmit: _classId == null
-          ? null
-          : () => Navigator.pop(context, _classId),
-      body: classesAsync.when(
-        loading: () => const Padding(
-            padding: EdgeInsets.all(20),
-            child: Center(child: CircularProgressIndicator())),
-        error: (e, _) =>
-            Text(messageErreur(e), style: TextStyle(color: kRed)),
-        data: (classes) {
-          if (classes.isEmpty) {
-            return Text('Aucune classe disponible.',
-                style: TextStyle(color: kTextMuted, fontSize: 13));
-          }
-          return CycleLevelClassPicker(
-            entries: [for (final c in classes) _entry(c)],
-            classId: _classId,
-            onChanged: (v) => setState(() => _classId = v),
-          );
-        },
-      ),
-    );
   }
 }

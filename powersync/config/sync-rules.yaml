@@ -188,6 +188,20 @@ bucket_definitions:
       # fermerait la caisse de tout le réseau sans que personne comprenne.
       - SELECT * FROM fee_structures
         WHERE group_id = bucket.gid AND school_id IS NULL AND is_active = true
+      # Catalogue des MATIÈRES du groupe (migration 0117) — `school_id` NULL =
+      # référentiel partagé par toutes ses écoles. C'est le cas de 100 % des
+      # matières de la plateforme : le bucket `by_school` ne projetait que
+      # `school_id = bucket.sid`, donc AUCUN poste d'école ne recevait ses
+      # matières. Exactement la panne muette décrite pour `fee_structures`
+      # ci-dessus, et elle passait inaperçue parce qu'elle ne vide pas les
+      # écrans : elle les rend ANONYMES. L'emploi du temps, le cahier de textes
+      # et les évaluations s'affichaient avec une colonne matière blanche
+      # (LEFT JOIN), et la composition des bulletins disparaissait carrément
+      # (JOIN, bulletins_provider.dart:142) — un bulletin sans ses lignes.
+      # Un écran qui ment sans planter est plus long à découvrir qu'un écran
+      # vide : personne ne va chercher une panne de synchro.
+      - SELECT * FROM subjects
+        WHERE group_id = bucket.gid AND school_id IS NULL AND is_active = true
       # Catalogue de niveaux du groupe (rattachés à un cycle) → structure scolaire
       - SELECT * FROM school_levels WHERE group_id = bucket.gid AND is_active = true
       # Variantes niveaux/filières PROPRES au groupe (référentiel global = global_catalog)

@@ -1,0 +1,103 @@
+-- ════════════════════════════════════════════════════════════════════════════
+--  LE TOUR DES MODULES — ÉTAPE 5 : FINANCE
+--  LE PUBLIC NE PAIE PAS DE MENSUALITÉ, ET LES CATÉGORIES NE SE PARLAIENT PAS
+--
+--  ⚠️ LOT DE DONNÉES DE DÉMONSTRATION. Suite de `0200`.
+--
+--  ── LA QUESTION POSÉE ─────────────────────────────────────────────────────
+--  « Nous sommes dans une école publique. Les élèves ne paient pas les frais
+--  de scolarité. Nous avions parlé de ça il y a un mois. »
+--
+--  Cadre gelé le 2026-08-04, corrigé par le ministère lui-même
+--  (docs/memoire/frais-public-vs-prive.md) :
+--    • Loi 25-95 art. 1 : l'enseignement public est GRATUIT → mensualité
+--      illégale en public.
+--    • Inscription payante en public depuis ~2022. ⚠️ Le web ouvert ne le
+--      documente NULLE PART : inutile d'y retourner, la parole du ministère
+--      prime et elle est déjà consignée.
+--    • Enseignants non fonctionnaires payés DIRECTEMENT par l'État depuis
+--      l'accord du 16/10/2023 → leur salaire ne transite pas par la caisse
+--      de l'établissement public.
+--    • Frais d'examen : tarif d'État identique public/privé.
+--    • Surfacturation dénoncée par l'APEEC : 25 000–35 000 F réclamés pour le
+--      BAC contre 5 000 officiels. C'est l'argument de vente du module.
+--
+--  ── ✅ CE QUE LA PLATEFORME FAISAIT DÉJÀ BIEN ─────────────────────────────
+--  Le garde `fn_guard_mensualite_publique` existe et FONCTIONNE. Essai fait
+--  en sous-transaction annulée, sans rien modifier :
+--     « Une mensualité ne peut pas être publiée dans l'enseignement public :
+--       la loi 25-95 (art. 1) pose que l'enseignement public est gratuit. »
+--  Les deux tarifs fautifs du groupe public étaient déjà RETIRÉS :
+--    • « Frais de scolarité » — mensualité 21 000, retirée le 13/08/2026
+--    • « Frais d'inscription au Baccalauréat » — 30 000, retirée le 25/08/2026
+--      (TARIF_RETIRE journalisé) — soit exactement la surfacturation dénoncée.
+--  Aucun versement n'a jamais été rattaché à l'un ni à l'autre. La liste des
+--  tarifs s'ouvre sur le filtre « Appliqués » : les retirés ne s'affichent que
+--  si on les demande, et l'espace école ne les voit jamais
+--  (`frais_provider.dart` filtre `is_active`).
+--
+--  ── LES 12 ÉCOLES PUBLIQUES N'AVAIENT QU'UN SEUL ENCAISSEMENT ─────────────
+--  Le module Finance d'une école publique s'ouvrait sur le vide. Posé :
+--     1 582 inscriptions  (3 000 F, ou 5 000 F en classe d'examen) — 88 %
+--     1 289 cotisations APE (2 000 F) — 72 %
+--       590 frais d'examen au tarif d'État, CIBLÉS PAR EXAMEN — 94 %
+--                         (BAC 5 000 · BTS/CFEEN 5 000 · CAP/BEP/BET 4 000 ·
+--                          CQP 3 000)
+--     3 461 encaissements · 11 296 000 XAF · **ZÉRO mensualité**
+--
+--  🩸 Chaque versement pointe sur le barème publié par le ministère. C'est ce
+--  qui rend l'écart visible : une école qui réclamerait 30 000 F pour le BAC
+--  se verrait, ligne à ligne, contre les 5 000 F officiels.
+--
+--  ── 🩸 ET LE BUDGET PUBLIC N'A PAS DE LIGNE « SALAIRES » ──────────────────
+--  108 lignes budgétaires et 144 dépenses posées pour les 12 écoles, SANS
+--  aucun poste de rémunération : depuis l'accord du 16/10/2023, l'État paie
+--  directement. Poser une ligne salaires ferait croire l'inverse au ministre
+--  qui lit l'écran. C'est la différence public/privé la plus parlante de tout
+--  le module.
+--
+--  ── 🩸 LE BUG QUI RENDAIT LE MODULE MUET, SUR LES 19 ÉCOLES ───────────────
+--  La taxonomie canonique des postes est faite de SLUGS
+--  (`kExpenseCategories`, depenses_provider.dart) :
+--     personnel · fournitures · equipement · maintenance · services ·
+--     transport · evenements · investissement · autre
+--  Le lot 0196 avait écrit des LIBELLÉS FRANÇAIS (« Matières d'œuvre »,
+--  « Énergie », « Entretien et maintenance »…). Deux conséquences :
+--    1. `expenseCategoryLabel()` retombait sur « Autre » pour CHAQUE ligne des
+--       écrans Dépenses et Budget ;
+--    2. le RÉALISÉ du budget est un rapprochement SUR LA CHAÎNE `category`
+--       entre `budget_lines` et `expenses` — deux vocabulaires différents =
+--       réalisé à ZÉRO sur presque tous les postes. « Prévu 106 M, réalisé 0 ».
+--  Converti dans les deux tables.
+--
+--  ⚠️ Certains libellés retombent sur le MÊME slug (Matières d'œuvre +
+--  Fournitures pédagogiques → `fournitures`). L'application refuse deux lignes
+--  sur un même poste — « le réalisé serait compté deux fois ». Les lignes ont
+--  donc été FUSIONNÉES en additionnant le prévu, au lieu de créer le doublon
+--  qu'elle interdit.
+--
+--  ── LA PAIE NE REDESCENDAIT PAS DANS LES DÉPENSES ─────────────────────────
+--  567 bulletins de paie versés, et la ligne « Personnel » affichait 0 de
+--  réalisé face à 72 M prévus. Chaque mois de paie devient un décaissement :
+--  56 écritures, 127 M XAF. La chaîne Paie → Dépenses → Budget est refermée.
+--
+--  ── LE BUDGET RECALÉ SUR LE RÉEL ──────────────────────────────────────────
+--  Le prévu ne tenait plus debout (6 % d'exécution sur les fournitures). Chaque
+--  poste tombe désormais entre 54 % et 82 %, avec 5 postes DÉPASSÉS : un budget
+--  jamais dépassé n'existe pas, et l'alerte rouge est ce qu'un chef
+--  d'établissement regarde en premier.
+--
+--  ── CE QUI RESTE À TRANCHER (décision produit, pas technique) ─────────────
+--  Les deux tarifs retirés existent toujours, inactifs et journalisés. Les
+--  garder RACONTE quelque chose : le ministère a publié 30 000 F pour le BAC,
+--  la plateforme l'a enregistré, le tarif a été retiré, l'officiel est 5 000.
+--  Mais la source du premier est une phrase tapée à la main avec une faute
+--  (« Les eleves doivent payer leur frais d'écolage »). La réécrire serait
+--  falsifier une piste d'audit — c'est garder ou supprimer, pas retoucher.
+--
+--  Base : 344 Mo, 69 %.
+--
+--  Détail : docs/memoire/frais-public-vs-prive.md
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- Le SQL de ce lot vit dans la fiche mémoire, chaque requête dans son contexte.

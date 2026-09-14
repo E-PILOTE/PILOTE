@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../navigation/widgets/module_scaffold.dart';
 import '../providers/registre_provider.dart';
 import '../services/registre_documents.dart';
+import '../services/registre_documents_pdf_service.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  REGISTRE DES DOCUMENTS DÉLIVRÉS
@@ -54,6 +56,33 @@ class _BodyState extends ConsumerState<_Body> {
     super.dispose();
   }
 
+  /// Ce que le PDF doit ANNONCER, pour qu'un extrait ne passe pas pour le
+  /// registre entier. `null` quand rien n'est filtré.
+  String? get _libelleFiltre {
+    final q = _recherche.text.trim();
+    final morceaux = [
+      if (_type != 'tous') libelleTypeDocument(_type),
+      if (q.isNotEmpty) 'recherche « $q »',
+    ];
+    return morceaux.isEmpty ? null : 'Extrait filtré — ${morceaux.join(' · ')}';
+  }
+
+  void _apercu(List<DocumentEmis> vus) {
+    if (vus.isEmpty) return;
+    final filtre = _libelleFiltre;
+    showPdfPreviewDialog(
+      context,
+      title: 'Registre des délivrances',
+      subtitle: '${vus.length} délivrance${vus.length > 1 ? 's' : ''}'
+          '${filtre != null ? ' · extrait filtré' : ''}',
+      pdfFileName: 'Registre_delivrances.pdf',
+      build: (_) =>
+          RegistreDocumentsPdfService.buildPdf(lignes: vus, filtre: filtre),
+      onDownload: () =>
+          RegistreDocumentsPdfService.download(lignes: vus, filtre: filtre),
+    );
+  }
+
   List<DocumentEmis> _filtrer(List<DocumentEmis> tous) {
     final q = _recherche.text.trim().toLowerCase();
     return tous.where((d) {
@@ -96,6 +125,7 @@ class _BodyState extends ConsumerState<_Body> {
               onRecherche: () => setState(() {}),
               total: tous.length,
               affiches: vus.length,
+              onExportPdf: vus.isEmpty ? null : () => _apercu(vus),
             ),
             Divider(height: 1, color: kBorder),
             Expanded(
@@ -129,6 +159,7 @@ class _Filtres extends StatelessWidget {
     required this.onRecherche,
     required this.total,
     required this.affiches,
+    this.onExportPdf,
   });
 
   final TextEditingController controleur;
@@ -136,6 +167,7 @@ class _Filtres extends StatelessWidget {
   final ValueChanged<String> onType;
   final VoidCallback onRecherche;
   final int total, affiches;
+  final VoidCallback? onExportPdf;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -170,6 +202,10 @@ class _Filtres extends StatelessWidget {
             color: kNavy,
             icon: Icons.receipt_long_rounded,
           ),
+          if (onExportPdf != null) ...[
+            const SizedBox(width: 12),
+            AdminPdfButton(onTap: onExportPdf!),
+          ],
         ]),
       );
 }

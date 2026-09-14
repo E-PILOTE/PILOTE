@@ -3,9 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/bandeau_jour_non_ouvre.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
+import '../../structure/providers/academic_year_provider.dart'
+    show currentSchoolProvider;
+import '../../../core/widgets/pdf_preview_dialog.dart';
+import '../providers/assiduite_mensuelle_provider.dart';
+import '../services/assiduite_pdf_service.dart';
 import '../../structure/providers/academic_year_context.dart';
 import '../../students/widgets/scope_drilldown_panel.dart';
 import '../providers/presences_provider.dart';
@@ -119,9 +125,22 @@ class _BodyState extends ConsumerState<_Body> {
                 _openClassId = null;
               }),
             ),
+            const SizedBox(width: 10),
+            // LE RELEVE DU MOIS. L'appel etait saisi chaque jour et totalise
+            // nulle part : l'ecole detenait la donnee et devait la recompter a
+            // la main pour la circonscription. Le mois est celui de la date
+            // affichee -- le selecteur de date sert deja a le choisir.
+            _BoutonReleve(
+              mois: (annee: _date.year, mois: _date.month),
+              libelle: libelleMois((annee: _date.year, mois: _date.month)),
+            ),
           ]),
         ),
         const SizedBox(height: 20),
+        // Un dimanche, un jour férié ou une date hors année scolaire, l'écran
+        // listait les classes avec « 0 appel fait » — un reproche pour un
+        // travail qui n'avait pas lieu d'être. Il le dit maintenant.
+        BandeauJourNonOuvre(date: _date),
         overview.when(
           loading: () => const Padding(
               padding: EdgeInsets.only(top: 60),
@@ -246,6 +265,86 @@ class _PeriodToggle extends StatelessWidget {
         seg('AM', 'Matin'),
         seg('PM', 'Après-midi'),
       ]),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  LE RELEVÉ MENSUEL — la sortie qui manquait à un calcul qui existait
+//
+//  `attendanceOverviewProvider` répond à « où en est l'appel CE MATIN ». La
+//  circonscription, elle, demande le relevé DU MOIS. Il était calculable et
+//  n'était calculé nulle part : l'école recomptait à la main.
+//
+//  ⚠️ Le bouton suit `export`, pas `update` : produire l'état est une lecture.
+//  Un enseignant qui pointe sans droit d'export ne le voit pas ; un directeur
+//  qui ne pointe jamais le voit.
+// ════════════════════════════════════════════════════════════════════════════
+class _BoutonReleve extends ConsumerWidget {
+  const _BoutonReleve({required this.mois, required this.libelle});
+
+  final MoisScolaire mois;
+  final String libelle;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(canProvider((slug: _kSlug, action: 'export')))) {
+      return const SizedBox.shrink();
+    }
+    return Tooltip(
+      message: 'Relevé d\'assiduité de $libelle — par classe, plus les élèves '
+          'à suivre',
+      child: OutlinedButton.icon(
+        onPressed: () => _ouvrir(context, ref),
+        icon: const Icon(Icons.summarize_outlined, size: 16),
+        label: const Text('Relevé du mois'),
+        style: OutlinedButton.styleFrom(foregroundColor: kNavy),
+      ),
+    );
+  }
+
+  Future<void> _ouvrir(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final EtatAssiduiteMensuel etat;
+    try {
+      etat = await ref.read(assiduiteMensuelleProvider(mois).future);
+    } catch (e) {
+      messenger.showSnackBar(
+          SnackBar(content: Text(messageErreur(e)), backgroundColor: kRed));
+      return;
+    }
+    if (!context.mounted) return;
+
+    // ⚠️ « Je ne sais pas » n'est pas « zéro ». Tant que le périmètre n'est
+    // pas chargé, produire le document donnerait un état VIDE qui se lit
+    // comme un établissement sans aucune classe.
+    if (!etat.perimetreCharge) {
+      messenger.showSnackBar(const SnackBar(
+          content: Text('Vos droits d\'accès chargent encore — réessayez '
+              'dans un instant.')));
+      return;
+    }
+
+    final school =
+        ref.read(currentSchoolProvider).valueOrNull?['name'] as String?;
+    final year = ref.read(activeYearProvider)?.label;
+
+    showPdfPreviewDialog(
+      context,
+      title: 'Relevé d\'assiduité — $libelle',
+      // Le sous-titre dit la VÉRITÉ du document avant de l'ouvrir : un mois
+      // sans aucun appel se signale ici, pas seulement à la page 1.
+      subtitle: etat.aucunPointage
+          ? 'Aucun appel enregistré ce mois-ci'
+          : '${etat.classes.length} classe(s) · ${etat.demiJournees} '
+              'demi-journée(s) d\'appel'
+              '${etat.alertes.isEmpty ? '' : ' · ${etat.alertes.length} élève(s) à suivre'}',
+      pdfFileName:
+          'Assiduite_${mois.annee}-${mois.mois.toString().padLeft(2, '0')}.pdf',
+      build: (_) => AssiduitePdfService.buildPdf(
+          etat: etat, schoolName: school, yearLabel: year),
+      onDownload: () => AssiduitePdfService.downloadDoc(
+          etat: etat, schoolName: school, yearLabel: year),
     );
   }
 }

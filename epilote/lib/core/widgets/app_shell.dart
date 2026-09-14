@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../constants/app_constants.dart';
+import '../../features/admin_groupe/providers/acces_groupe_provider.dart';
+import 'acces_suspendu_page.dart';
 import '../../features/updates/widgets/update_banner.dart';
 import '../services/pdf_issuer.dart';
 import '../../features/auth/providers/auth_provider.dart';
@@ -121,6 +123,18 @@ class _AppShellState extends ConsumerState<AppShell> {
     final isFamille = profile != null &&
         (profile.role == AppConstants.roleParent ||
             profile.role == AppConstants.roleEleve);
+    // Accès du groupe coupé pour impayé (0187) — `null` = accès ouvert, et
+    // c'est le cas de tout le monde sauf exception. Ne concerne QUE l'admin de
+    // groupe : couper un enseignant de Kinkala parce qu'un mandat ministériel
+    // traîne au Trésor punirait une école pour la dette d'une administration.
+    // ⚠️ Fail-soft : le provider retombe sur « ouvert » à la moindre erreur.
+    final accesCoupe = profile?.role == AppConstants.roleAdminGroupe
+        ? switch (ref.watch(accesGroupeProvider).valueOrNull) {
+            final a? when a.suspendu => a,
+            _ => null,
+          }
+        : null;
+
     // Sur poste partagé, la sidebar suit l'AGENT ACTIF (rôle + profil d'accès),
     // pas l'utilisateur qui a authentifié l'appareil.
     final activeProfile = isStaff
@@ -212,7 +226,18 @@ class _AppShellState extends ConsumerState<AppShell> {
                     Expanded(
                       child: Stack(
                         children: [
-                          Positioned.fill(child: widget.child),
+                          // ⚠️ ACCÈS COUPÉ POUR IMPAYÉ (0187). La porte est
+                          // déjà fermée côté serveur — `auth_peut_superviser`
+                          // rend faux et les quatre RPC de tutelle refusent en
+                          // 42501. Cet écran ne fait qu'EXPLIQUER, et il ne
+                          // s'affiche que pour l'admin du groupe : le personnel
+                          // des écoles du réseau n'a rien à voir dans un
+                          // différend de facturation entre deux institutions.
+                          Positioned.fill(
+                            child: accesCoupe == null
+                                ? widget.child
+                                : AccesSuspenduPage(acces: accesCoupe),
+                          ),
                           if (contentOverlay != null)
                             Positioned.fill(child: contentOverlay),
                         ],

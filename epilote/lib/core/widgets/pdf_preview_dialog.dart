@@ -27,6 +27,22 @@ Future<void> showPdfPreviewDialog(
   required PdfBuilder build,
   required String pdfFileName,
   Future<String?> Function()? onDownload,
+
+  /// Produit la version WORD MODIFIABLE du même document.
+  ///
+  /// ── POURQUOI CE BOUTON VIT DANS L'APERÇU ─────────────────────────────────
+  /// ⚠️ C'est ICI que l'agent découvre qu'il doit amender quelque chose : il
+  /// lit le document, voit une formulation à nuancer, un motif à préciser. Le
+  /// lui faire refermer l'aperçu pour chercher un autre bouton ailleurs, c'est
+  /// la garantie qu'il retapera la pièce dans Word à partir de rien — ce qu'il
+  /// faisait avant la plateforme, et ce qui se recopie faux.
+  ///
+  /// `null` — le cas courant — quand le document n'a pas vocation à être
+  /// amendé. Un état de trois cents élèves en Word est PIRE qu'en PDF : il se
+  /// repagine chez le lecteur, et deux impressions ne donnent pas le même
+  /// document. Voir `core/services/docx_kit.dart`.
+  Future<String?> Function()? onWord,
+
   /// Ajoute le bouton « Ouvrir / Partager ». Voir [_PdfPreviewDialog].
   bool partage = false,
   // Résolu au corps, pas en défaut : une valeur par défaut doit être une
@@ -45,6 +61,7 @@ Future<void> showPdfPreviewDialog(
       builder: build,
       pdfFileName: pdfFileName,
       onDownload: onDownload,
+      onWord: onWord,
       partage: partage,
       accent: acc,
     ),
@@ -58,6 +75,7 @@ class _PdfPreviewDialog extends StatelessWidget {
     required this.builder,
     required this.pdfFileName,
     required this.onDownload,
+    required this.onWord,
     required this.partage,
     required this.accent,
   });
@@ -66,6 +84,7 @@ class _PdfPreviewDialog extends StatelessWidget {
   final PdfBuilder builder;
   final String pdfFileName;
   final Future<String?> Function()? onDownload;
+  final Future<String?> Function()? onWord;
 
   /// ⚠️ LE LIBELLÉ SUIT LA PLATEFORME, PARCE QUE LE GESTE DIFFÈRE.
   ///
@@ -214,6 +233,36 @@ class _PdfPreviewDialog extends StatelessWidget {
                         messenger.showSnackBar(SnackBar(
                             backgroundColor: kRed,
                             content: Text(messageErreur(e, contexte: 'Enregistrement'))));
+                      }
+                    },
+                  ),
+                // ⚠️ LA VERSION MODIFIABLE SE PROPOSE ICI, PAS AILLEURS.
+                // L'agent découvre en LISANT le document qu'une formulation
+                // doit être nuancée ou un motif précisé. S'il doit refermer
+                // l'aperçu pour aller chercher le bouton ailleurs, il retapera
+                // la pièce dans Word à partir de rien — ce qu'il faisait avant
+                // la plateforme, et ce qui se recopie faux.
+                if (onWord != null)
+                  PdfPreviewAction(
+                    icon: const Icon(Icons.description_outlined),
+                    onPressed: (ctx, _, _) async {
+                      final messenger = ScaffoldMessenger.of(ctx);
+                      try {
+                        final path = await onWord!();
+                        // `null` = fenêtre fermée sans choisir. Ni fichier, ni
+                        // message : annuler reste sans conséquence.
+                        if (path != null) {
+                          messenger.showSnackBar(SnackBar(
+                            backgroundColor: kGreen,
+                            content: Text('Document Word enregistré : $path'),
+                          ));
+                        }
+                      } catch (e) {
+                        messenger.showSnackBar(SnackBar(
+                          backgroundColor: kRed,
+                          content: Text(
+                              messageErreur(e, contexte: 'Export Word')),
+                        ));
                       }
                     },
                   ),

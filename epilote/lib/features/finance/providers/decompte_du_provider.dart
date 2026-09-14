@@ -141,7 +141,29 @@ class DecompteDu {
 /// depuis chacun des écrans qui encaissent, et l'un d'eux finirait par oublier.
 final decompteDuProvider =
     StreamProvider.autoDispose.family<DecompteDu, String>((ref, enrollmentId) {
-  final baremes = ref.watch(baremesApplicablesProvider).valueOrNull ?? const [];
+  // ⚠️ TROIS ÉTATS, PAS DEUX — et le décompte se lit à la caisse.
+  //
+  //  `valueOrNull ?? const []` confondait « barème pas encore lu » avec
+  //  « aucun barème posé ». Or `baremes.isEmpty` renvoie un `DecompteDu()`
+  //  vide : zéro ligne, zéro dû, zéro versé. Pendant la fenêtre de chargement
+  //  — et pour toujours si la lecture échoue — l'écran de recouvrement
+  //  affichait donc **« reste dû : 0 »** à côté du bouton « Nouveau
+  //  paiement ». Le caissier laisse repartir la famille.
+  //
+  //  « Aucun barème » est un état RÉEL et signifiant (pas de barème = pas
+  //  d'encaissement, migration 0099) ; il doit rester distinct de « je ne sais
+  //  pas encore ». C'est la règle du garde `zero_nest_pas_je_ne_sais_pas_test`.
+  final baremesAsync = ref.watch(baremesApplicablesProvider);
+  if (baremesAsync.hasError) {
+    // L'erreur REMONTE : l'écran doit dire qu'il n'a pas pu lire le barème,
+    // jamais afficher un solde.
+    return Stream.error(baremesAsync.error!, baremesAsync.stackTrace);
+  }
+  if (!baremesAsync.hasValue) {
+    // Encore en chargement : on ne PUBLIE rien, l'écran garde son squelette.
+    return const Stream.empty();
+  }
+  final baremes = baremesAsync.requireValue;
   final calendrier = ref.watch(calendrierDuProvider);
   final yearId = ref.watch(activeYearIdProvider);
   if (yearId == null || baremes.isEmpty) {

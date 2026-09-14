@@ -50,11 +50,17 @@ class Routes {
   /// montre les écoles que le groupe POSSÈDE. Pour un ministère les deux
   /// nombres diffèrent (le MEPSA possède 14 des 25 écoles de sa tutelle).
   static const String adminTutelle      = '/admin/tutelle';
-  /// Les circulaires ÉMISES par une tutelle vers son réseau.
-  static const String adminCirculairesEmises = '/admin/tutelle/circulaires';
-  /// Les circulaires REÇUES de sa tutelle — tout groupe en a, un ministère
-  /// compris (il est sous sa propre tutelle).
-  static const String adminCirculaires  = '/admin/circulaires';
+  // ⚠️ `adminCirculairesEmises` et `adminCirculaires` ont été retirés le
+  // 2026-09-02. La plateforme portait DÉJÀ trois canaux (annonces, messagerie,
+  // tickets) ; la circulaire en ajoutait un quatrième, avec ses écrans et son
+  // vocabulaire, pour un objet dont la base ne comptait aucune ligne. Un
+  // ministère qui veut écrire à un groupe supervisé le sélectionne dans
+  // « Réseau sous tutelle » et lui envoie un MESSAGE.
+  //
+  // Les tables `circulaires` / `circulaire_destinataires` restent en base,
+  // dormantes : les retirer suppose de défaire cinq migrations et des règles
+  // de synchronisation PowerSync, chantier plus risqué que ce qu'il rapporte
+  // tant qu'aucune ligne n'existe.
   static const String adminEcoleDetail  = '/admin/ecoles/:id';
   static const String adminUtilisateurs = '/admin/utilisateurs';
   static const String adminEleves       = '/admin/eleves';
@@ -146,9 +152,6 @@ class Routes {
   static const String notifications   = '/user/notifications';
   static const String messagerie      = '/user/messagerie';
   static const String evenements      = '/user/evenements';
-  /// Les circulaires de tutelle REÇUES par l'établissement (migration 0167).
-  /// Réservée à la direction : le routeur ET la sidebar la gardent.
-  static const String userCirculaires = '/user/circulaires';
   static const String espaceParent    = '/user/espace-parent';
   static const String userSupport     = '/user/support';
 

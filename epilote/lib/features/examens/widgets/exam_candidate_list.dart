@@ -82,10 +82,19 @@ class ExamBulkBar extends StatelessWidget {
     required this.onRemove,
     required this.onClear,
     required this.onAssign,
+    required this.canDeposit,
+    required this.canRemove,
   });
 
   final List<ExamCandidateRow> selected;
   final VoidCallback onDeposit, onRemove, onClear, onAssign;
+
+  /// `examens/validate` — marquer déposé engage l'établissement auprès du
+  /// centre d'examen, et seul ce verbe peut ROUVRIR le dossier ensuite.
+  final bool canDeposit;
+
+  /// `examens/delete` — le retrait fait un DELETE côté serveur.
+  final bool canRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -111,19 +120,33 @@ class ExamBulkBar extends StatelessWidget {
           label: const Text('N° de candidat'),
           style: TextButton.styleFrom(foregroundColor: kNavy),
         ),
-        TextButton.icon(
-          onPressed: depositable > 0 ? onDeposit : null,
-          icon: const Icon(Icons.upload_file_rounded, size: 16),
-          label: Text('Marquer déposé(s)'
-              '${depositable > 0 ? ' ($depositable)' : ''}'),
-          style: TextButton.styleFrom(foregroundColor: kNavy),
+        // ⚠️ DÉSACTIVÉ AVEC SA RAISON, JAMAIS RETIRÉ. Un bouton absent laisse
+        //  l'agent chercher ; un bouton grisé qui dit pourquoi lui apprend à
+        //  qui s'adresser. Le droit se donne d'une case dans le profil d'accès.
+        Tooltip(
+          message: canDeposit
+              ? 'Marquer les dossiers complets comme déposés au centre'
+              : 'Réservé au droit « valider » du module Examens — c\'est le '
+                  'même droit qui permet de ROUVRIR un dossier déposé.',
+          child: TextButton.icon(
+            onPressed: canDeposit && depositable > 0 ? onDeposit : null,
+            icon: const Icon(Icons.upload_file_rounded, size: 16),
+            label: Text('Marquer déposé(s)'
+                '${depositable > 0 ? ' ($depositable)' : ''}'),
+            style: TextButton.styleFrom(foregroundColor: kNavy),
+          ),
         ),
         const SizedBox(width: 4),
-        TextButton.icon(
-          onPressed: onRemove,
-          icon: const Icon(Icons.person_remove_outlined, size: 16),
-          label: const Text('Retirer'),
-          style: TextButton.styleFrom(foregroundColor: kRed),
+        Tooltip(
+          message: canRemove
+              ? 'Retirer les candidatures sélectionnées'
+              : 'Réservé au droit « supprimer » du module Examens.',
+          child: TextButton.icon(
+            onPressed: canRemove ? onRemove : null,
+            icon: const Icon(Icons.person_remove_outlined, size: 16),
+            label: const Text('Retirer'),
+            style: TextButton.styleFrom(foregroundColor: kRed),
+          ),
         ),
         const SizedBox(width: 4),
         IconButton(

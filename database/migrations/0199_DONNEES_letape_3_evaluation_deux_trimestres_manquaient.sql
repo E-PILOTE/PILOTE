@@ -1,0 +1,103 @@
+-- ════════════════════════════════════════════════════════════════════════════
+--  LE TOUR DES MODULES — ÉTAPE 3 : ÉVALUATION
+--  DEUX TRIMESTRES SUR TROIS N'EXISTAIENT PAS
+--
+--  ⚠️ LOT DE DONNÉES DE DÉMONSTRATION. Suite de `0198`.
+--
+--  ── LE CONSTAT ────────────────────────────────────────────────────────────
+--  Les 7 écoles privées METP n'avaient QUE le 3e trimestre. Les trimestres 1
+--  et 2 existaient comme lignes de calendrier — `is_locked = true`, comme si
+--  l'année s'était déroulée — mais portaient 0 évaluation, 0 note, 0 bulletin.
+--
+--  Conséquences en cascade, invisibles depuis le 3e trimestre :
+--    • le sélecteur de trimestre des écrans Notes et Bulletins ouvrait deux
+--      onglets vides sur trois ;
+--    • le module PASSAGE était mort. `passage_provider.dart` calcule la
+--      moyenne annuelle comme `(MT1 + MT2 + MT3) / 3` — les trois nombres
+--      imprimés sur les trois bulletins remis à la famille. Avec un seul
+--      trimestre, aucun verdict ne pouvait se proposer.
+--    • aucune progression dans l'année : un seul point ne fait pas une courbe.
+--
+--  ── CE QUI A ÉTÉ POSÉ ─────────────────────────────────────────────────────
+--   2 640 évaluations  — 2 par matière et par trimestre, une par SÉQUENCE
+--                        (le découpage réel : 2 séquences par trimestre)
+--  46 508 notes        — T1 : 10,63 · T2 : 11,09 · T3 : 11,49
+--   2 114 bulletins    — T1 : 10,62 · T2 : 11,08 · T3 : 11,48
+--  23 235 lignes de bulletin
+--
+--  ── 🩸 LES NOTES DE T1 ET T2 SONT ANCRÉES SUR CELLES DE T3 ────────────────
+--  Chaque note tourne autour de la moyenne que l'élève a RÉELLEMENT obtenue
+--  DANS CETTE MATIÈRE au 3e trimestre, décalée vers le bas (−0,85 au T1,
+--  −0,40 au T2) et bruitée.
+--
+--  Sans cet ancrage, un cancre du 3e trimestre pourrait être premier au 1er.
+--  La moyenne annuelle ne voudrait alors plus rien dire — et c'est elle qui
+--  décide du redoublement. Le tirage indépendant produit des nombres
+--  plausibles un par un et un élève incohérent d'un bout à l'autre.
+--
+--  Contrôle de bout en bout, un élève réel de COM2 — Commerce :
+--     T1 10,43 (13e/21) · T2 11,44 (7e/21) · T3 11,64 (9e/21)
+--     moyenne annuelle inscrite au dossier : 11,17
+--     (10,43 + 11,44 + 11,64) / 3 = 11,17 — à la deuxième décimale.
+--
+--  ── 🩸 DEUX COLONNES, DEUX SENS : L'ERREUR DU LOT 0197 ────────────────────
+--  Le lot précédent avait écrit « Admis en classe supérieure » / « Redouble »
+--  dans `bulletins.decision`. Cette colonne attend une DISTINCTION DE CONSEIL,
+--  par CODE : `felicitations`, `encouragements`, `tableau_honneur`,
+--  `avertissement_travail`, `avertissement_conduite`, `blame`.
+--
+--  Rien n'avait levé d'erreur. `awardFor()` renvoie simplement `null` sur un
+--  code inconnu : les 1 057 bulletins s'affichaient SANS distinction et tous
+--  les compteurs du module Conseils (Félicitations, Encouragements,
+--  Avertissements) restaient à zéro. Un module entier vide, avec 1 057
+--  bulletins derrière. Les 18 285 bulletins du reste de la plateforme, eux,
+--  portaient bien les codes — c'est la comparaison qui a trahi l'erreur.
+--  Corrigé avec le barème de `suggestedAward()`, à l'identique.
+--
+--  Le verdict annuel a été porté là où il vit vraiment :
+--  `class_enrollments.promotion_decision` + `promotion_average` +
+--  `promotion_target_class_id` (la classe d'accueil est le niveau suivant de
+--  la MÊME filière) + `promotion_decided_at/by`.
+--
+--  ⚠️ Nsangu et La Fraternité sont DÉLIBÉRÉS (400 passages, 25 redoublements).
+--  Saint-Joseph reste OUVERT : c'est l'école de la démonstration, et un
+--  conseil déjà rendu ne se démontre pas — l'écran doit pouvoir proposer ses
+--  verdicts et les faire valider en direct.
+--  Les 3es années ne passent pas : elles présentent l'examen, et c'est la DEC
+--  qui proclame (`passage_provider.dart` les exclut explicitement).
+--
+--  ── AUTRE CORRECTIF ───────────────────────────────────────────────────────
+--  Une note ≥ 18 était appréciée « Très Bien ». Le barème unique
+--  (`core/utils/mention.dart`) réserve « Excellent » à ≥ 18. 16 516 notes.
+--
+--  ⚠️ `get_mention()` N'EXISTE PLUS en base : supprimée le 2026-08-25
+--  (migration 0117) avec les constantes mortes `AppConstants.seuil*`, parce
+--  qu'aucune des deux n'avait d'appelant — donc aucun test, donc une dérive
+--  silencieuse de 2 points qui faisait ressortir 8/20 en « Passable ».
+--  Le `CLAUDE.md` l'affirmait encore : corrigé dans le même commit.
+--
+--  ── CE QUI RESTE OUVERT, ET ASSUMÉ ────────────────────────────────────────
+--   • Les PRÉSENCES ne couvrent que le 1er au 12 juin 2026 — deux semaines,
+--     toutes dans le 3e trimestre. Les totaux d'absences des bulletins T1/T2
+--     sont donc un décompte de trimestre, pas une somme de feuilles d'appel.
+--     C'est aussi ce que fait une école qui tient l'appel sur papier.
+--   • 77 bulletins en BROUILLON sans lignes (Lycée du 1er Mai, CET de Ouésso).
+--     État légitime « en préparation » — laissé tel quel : il montre que tous
+--     les bulletins ne sont pas publiés.
+--   • 6 fichiers du module dépassent 500 lignes (`passage_provider` 914,
+--     `cloture_examen_section` 894, `passage_parts` 843…). Dette connue, à
+--     résorber quand on les touche — ce lot ne les a pas touchés.
+--
+--  ── ESPACE ────────────────────────────────────────────────────────────────
+--  Le lot a fait passer la base de 342 à 380 Mo. Un REINDEX de `grades`,
+--  `bulletin_subject_lines`, `bulletins` et `evaluations` a rendu 36 Mo
+--  d'index gonflés : retour à **342 Mo, 68 %**. Deux trimestres entiers pour
+--  zéro octet net.
+--  ⚠️ Mesurer APRÈS la fin du REINDEX : `pg_database_size()` oscille pendant.
+--
+--  Détail : docs/memoire/donnees-demonstration-metp.md
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- Le SQL de ce lot vit dans la fiche mémoire, chaque requête dans son contexte.
+-- Ce fichier existe pour que la migration 0199 ait un domicile et que le
+-- RAISONNEMENT ne se perde pas — c'est lui qui coûte à reconstituer.

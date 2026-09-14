@@ -17,6 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/booleen_en_ligne.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'admin_users_provider.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 String _jour(DateTime d) => d.toIso8601String().substring(0, 10);
 
@@ -79,6 +80,7 @@ class Affectation {
 /// L'historique complet d'un agent, du poste actuel au plus ancien.
 final agentCarriereProvider =
     FutureProvider.autoDispose.family<List<Affectation>, String>((ref, profileId) async {
+  garderAuChaud(ref);
   final client = ref.watch(supabaseClientProvider);
   final rows = await client
       .from('staff_affectations')

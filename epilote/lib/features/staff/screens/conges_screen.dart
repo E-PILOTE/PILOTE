@@ -9,11 +9,13 @@ import '../../navigation/widgets/module_scaffold.dart';
 import '../../vie_scolaire/widgets/vs_form_chrome.dart';
 import '../../vie_scolaire/widgets/vs_kit.dart';
 import '../providers/leave_provider.dart';
+import '../providers/solde_conges_provider.dart';
 import '../providers/staff_directory_provider.dart';
 import '../widgets/staff_kit.dart';
 import '../../../core/utils/message_erreur.dart';
 
 part 'conges_form.dart';
+part 'conges_carte.dart';
 
 const _kSlug = 'conges';
 
@@ -166,6 +168,12 @@ class _BodyState extends ConsumerState<_Body> {
     final agentsAll = ref.watch(staffDirectoryProvider).valueOrNull ?? const [];
     final byId = {for (final a in agentsAll) a.id: a};
 
+    // CE QUE L'AGENT A DÉJÀ PRIS. Sans ce chiffre, approuver un congé est
+    // une décision prise à l'aveugle : rien ne disait que l'agent en était à
+    // son quarantième jour. Dérivé des demandes déjà chargées — aucune
+    // requête de plus, aucune écriture.
+    final consommation = ref.watch(consommationCongesProvider);
+
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -278,6 +286,7 @@ class _BodyState extends ConsumerState<_Body> {
               for (final r in list)
                 _LeaveCard(
                   req: r,
+                  conso: consommation[r.staffId],
                   canReview: canReview,
                   canDelete: canDelete,
                   onApprove: () => _approve(r),
@@ -327,122 +336,6 @@ class _FilterBar extends StatelessWidget {
               side: BorderSide(color: kBorder)),
         ),
       );
-}
-
-// ─── Carte demande ───────────────────────────────────────────────────────────
-class _LeaveCard extends StatelessWidget {
-  const _LeaveCard({
-    required this.req,
-    required this.canReview,
-    required this.canDelete,
-    required this.onApprove,
-    required this.onReject,
-    required this.onEdit,
-    required this.onDelete,
-  });
-  final LeaveRequest req;
-  final bool canReview, canDelete;
-  final VoidCallback onApprove, onReject, onEdit, onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final r = req;
-    final c = _leaveColor(r.status);
-    final period = [
-      if ((r.startDate ?? '').isNotEmpty) r.startDate!,
-      if ((r.endDate ?? '').isNotEmpty) r.endDate!,
-    ].join(' → ');
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
-      decoration: BoxDecoration(
-        color: kCardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kBorder),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(
-            child: Text(r.staffName.isEmpty ? '—' : r.staffName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    fontSize: 14.5, fontWeight: FontWeight.w800)),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-                color: c.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(6)),
-            child: Text(leaveStatusLabel(r.status),
-                style: TextStyle(
-                    fontSize: 10.5, fontWeight: FontWeight.w800, color: c)),
-          ),
-          if (canDelete || (canReview && r.status != 'pending'))
-            PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert_rounded,
-                  size: 18, color: kTextMuted),
-              onSelected: (v) => v == 'edit' ? onEdit() : onDelete(),
-              itemBuilder: (_) => [
-                if (canReview && r.isPending)
-                  const PopupMenuItem(value: 'edit', child: Text('Modifier')),
-                if (canDelete)
-                  PopupMenuItem(
-                      value: 'delete',
-                      child: Text('Supprimer', style: TextStyle(color: kRed))),
-              ],
-            )
-          else
-            const SizedBox(width: 8),
-        ]),
-        const SizedBox(height: 4),
-        Text(
-            '${leaveTypeLabel(r.leaveType)} · ${r.daysCount} jour'
-            '${r.daysCount > 1 ? 's' : ''}${period.isNotEmpty ? ' · $period' : ''}',
-            style: TextStyle(
-                fontSize: 12.5, fontWeight: FontWeight.w600, color: kNavy)),
-        if ((r.reason ?? '').trim().isNotEmpty) ...[
-          const SizedBox(height: 3),
-          Text(r.reason!.trim(),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, color: kTextMuted)),
-        ],
-        if (r.status == 'rejected' && (r.rejectionReason ?? '').trim().isNotEmpty) ...[
-          const SizedBox(height: 3),
-          Text('Refus : ${r.rejectionReason!.trim()}',
-              style: TextStyle(fontSize: 11.5, color: kRed)),
-        ],
-        if (canReview && r.isPending) ...[
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: onReject,
-                style: OutlinedButton.styleFrom(
-                    foregroundColor: kRed,
-                    side: BorderSide(color: kRed),
-                    padding: const EdgeInsets.symmetric(vertical: 8)),
-                icon: const Icon(Icons.close_rounded, size: 16),
-                label: const Text('Refuser'),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: onApprove,
-                style: FilledButton.styleFrom(
-                    backgroundColor: kGreen,
-                    padding: const EdgeInsets.symmetric(vertical: 8)),
-                icon: const Icon(Icons.check_rounded, size: 16),
-                label: const Text('Approuver'),
-              ),
-            ),
-          ]),
-        ],
-      ]),
-    );
-  }
 }
 
 class _AddBtn extends StatelessWidget {

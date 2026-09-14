@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../core/utils/rang.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  ESPACE ADMIN_GROUPE — Analyses d'une année scolaire (online / Supabase).
@@ -178,6 +179,7 @@ class YearDepartmentDetail {
 /// Ventilation d'une année par département / type d'établissement / école.
 final adminYearAnalyticsProvider = FutureProvider.autoDispose
     .family<AdminYearAnalytics, String>((ref, yearId) async {
+  garderAuChaud(ref);
   final client = ref.watch(supabaseClientProvider);
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
   if (groupId == null) return AdminYearAnalytics.empty;

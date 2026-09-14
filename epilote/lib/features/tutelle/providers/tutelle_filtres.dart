@@ -212,3 +212,146 @@ List<String> typesEtablissementDe(List<TutelleEcole> ecoles) =>
         .toSet()
         .toList()
       ..sort());
+
+// ════════════════════════════════════════════════════════════════════════════
+//  LA DISPOSITION PAR GROUPE — pourquoi le PRIVÉ vient en premier
+//
+//  Un ministère possède ses écoles publiques : il les connaît, elles sont déjà
+//  sous « Mes écoles ». Ce qu'il ne connaît PAS, ce sont les établissements
+//  privés qu'il agrée sans les administrer — 7 des 25 écoles du MEPSA au
+//  2026-09-02, aucune sous son toit. C'est l'angle mort que cette page existe
+//  pour couvrir, et un angle mort ne se range pas en second.
+//
+//  ⚠️ LE SECTEUR EST CELUI DU GROUPE, pas de l'école. `group_type` descend sur
+//  `schools.school_type` par le déclencheur `trg_cascade_group_type` : un
+//  groupe n'est donc jamais mixte. Sectionner sur l'école produirait le même
+//  découpage aujourd'hui et un découpage FAUX le jour où le déclencheur change.
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Les écoles d'une sélection, rangées par groupe propriétaire.
+Map<String, List<TutelleEcole>> ecolesParGroupe(List<TutelleEcole> ecoles) {
+  final out = <String, List<TutelleEcole>>{};
+  for (final e in ecoles) {
+    out.putIfAbsent(e.groupId, () => []).add(e);
+  }
+  return out;
+}
+
+/// Un pan du réseau : les groupes d'un secteur et le bilan de leurs écoles.
+class SectionReseau {
+  const SectionReseau({
+    required this.prive,
+    required this.groupes,
+    required this.bilan,
+  });
+
+  final bool prive;
+  final List<TutelleGroupe> groupes;
+
+  /// ⚠️ Bilan des écoles RETENUES par les filtres, pas du secteur entier.
+  final BilanReseau bilan;
+
+  String get titre => prive ? 'Réseau privé sous tutelle' : 'Réseau public';
+
+  /// Ce que la section recouvre, en une ligne. Dit au lecteur POURQUOI les deux
+  /// pans sont séparés — sinon la coupure passe pour un tri cosmétique.
+  String get explication => prive
+      ? 'Établissements agréés par le ministère et administrés par des '
+          'personnes morales privées. Le ministère les supervise ; il ne les '
+          'gère pas.'
+      : 'Établissements du secteur public, tous groupes confondus — y compris '
+          'ceux qui ne relèvent pas de votre propre groupe.';
+}
+
+/// Découpe le réseau en deux pans — le PRIVÉ D'ABORD (voir l'en-tête).
+///
+/// Un groupe dont aucune école ne passe les filtres disparaît : afficher une
+/// carte à zéro école au-dessus d'une liste filtrée ferait croire à un groupe
+/// vide alors qu'il est seulement hors sélection.
+List<SectionReseau> sectionsDuReseau(
+  List<TutelleGroupe> groupes,
+  List<TutelleEcole> ecolesFiltrees,
+) {
+  final parGroupe = ecolesParGroupe(ecolesFiltrees);
+  final out = <SectionReseau>[];
+  for (final prive in [true, false]) {
+    final retenus = [
+      for (final g in groupes)
+        if (g.estPublic != prive && parGroupe.containsKey(g.id)) g,
+    ];
+    if (retenus.isEmpty) continue;
+    out.add(SectionReseau(
+      prive: prive,
+      groupes: retenus,
+      bilan: BilanReseau.de([
+        for (final g in retenus) ...parGroupe[g.id]!,
+      ]),
+    ));
+  }
+  return out;
+}
+
+// ─── Répartition territoriale (écran ET document) ───────────────────────────
+
+/// Une ligne de répartition : un libellé, et le bilan des écoles qu'il couvre.
+class LigneReseau {
+  const LigneReseau(this.libelle, this.bilan);
+  final String libelle;
+  final BilanReseau bilan;
+}
+
+/// Le réseau par département, du plus peuplé au moins peuplé.
+///
+/// ⚠️ Les écoles sans département forment une ligne NOMMÉE (« Non renseigné »)
+/// au lieu d'être écartées : un état ministériel dont les lignes ne totalisent
+/// pas l'effectif annoncé en tête est un état qu'on ne peut pas signer.
+List<LigneReseau> repartitionParDepartement(List<TutelleEcole> ecoles) {
+  final parDept = <String, List<TutelleEcole>>{};
+  for (final e in ecoles) {
+    final d = (e.departement ?? '').trim();
+    parDept.putIfAbsent(d.isEmpty ? 'Non renseigné' : d, () => []).add(e);
+  }
+  final lignes = [
+    for (final entry in parDept.entries)
+      LigneReseau(entry.key, BilanReseau.de(entry.value)),
+  ];
+  lignes.sort((a, b) {
+    final parEleves = b.bilan.nbEleves.compareTo(a.bilan.nbEleves);
+    return parEleves != 0 ? parEleves : a.libelle.compareTo(b.libelle);
+  });
+  return lignes;
+}
+
+/// Le réseau par secteur — deux lignes, dans l'ordre de la page.
+List<LigneReseau> repartitionParSecteur(List<TutelleEcole> ecoles) {
+  final prives = [for (final e in ecoles) if (!e.estPublic) e];
+  final publics = [for (final e in ecoles) if (e.estPublic) e];
+  return [
+    if (prives.isNotEmpty) LigneReseau('Privé', BilanReseau.de(prives)),
+    if (publics.isNotEmpty) LigneReseau('Public', BilanReseau.de(publics)),
+  ];
+}
+
+// ─── Ce qu'un document doit dire de sa propre sélection ──────────────────────
+
+/// Décrit les filtres actifs en une phrase, ou `null` si la vue est complète.
+///
+/// ⚠️ CE N'EST PAS UN ORNEMENT. Un PDF exporté depuis une liste filtrée porte
+/// des totaux PARTIELS. Sans cette phrase imprimée sous le titre, « 7 écoles,
+/// 1 204 élèves » se lit comme l'état du réseau entier — et c'est ce chiffre-là
+/// qui remonte dans une note au ministre.
+String? descriptionDesFiltres(FiltreReseau f, {String? nomGroupe}) {
+  final parts = <String>[
+    if (f.secteur == 'prive') 'secteur privé',
+    if (f.secteur == 'public') 'secteur public',
+    if (f.departement != null) 'département de ${f.departement}',
+    if (f.typeEtablissement != null) 'type ${f.typeEtablissement}',
+    if (f.agrement == FiltreAgrement.declare) 'agrément déclaré',
+    if (f.agrement == FiltreAgrement.nonDeclare) 'agrément non déclaré',
+    if (f.actifSeulement) 'établissements actifs',
+    if (nomGroupe != null) 'groupe « $nomGroupe »',
+    if (f.recherche.trim().isNotEmpty) 'recherche « ${f.recherche.trim()} »',
+  ];
+  if (parts.isEmpty) return null;
+  return 'Sélection : ${parts.join(' · ')}';
+}

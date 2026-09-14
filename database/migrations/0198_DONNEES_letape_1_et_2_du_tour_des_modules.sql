@@ -1,0 +1,124 @@
+-- ════════════════════════════════════════════════════════════════════════════
+--  LE TOUR DES MODULES — ÉTAPES 1 (SCOLARITÉ) ET 2 (ENSEIGNEMENT)
+--
+--  ⚠️ LOT DE DONNÉES DE DÉMONSTRATION + 1 CORRECTIF DE CODE. Suite de `0197`.
+--
+--  ── LA MÉTHODE ────────────────────────────────────────────────────────────
+--  Les modules sont une CHAÎNE, pas une liste. Un bulletin faux vient d'une
+--  note fausse, qui vient d'une évaluation mal rattachée, qui vient d'une
+--  inscription bancale. On remonte donc la chaîne dans l'ordre de l'année
+--  scolaire, et à chaque arrêt on pose trois questions :
+--     1. l'écran s'ouvre-t-il sur des données ?
+--     2. le maillon amont tient-il ?
+--     3. ce qu'on écrit ici redescend-il en aval ?
+--
+--  ── NIVEAU 0 : LA PLOMBERIE — PROPRE ──────────────────────────────────────
+--  83 tables lues par l'espace école, confrontées aux deux passages obligés :
+--     • absentes de `powersync_schema.dart` ...... 0
+--     • absentes de `sync-rules.yaml` ............ 0
+--     • `supabase.from()` dans l'espace école .... 0   (règle offline-first)
+--  Aucun module n'est structurellement coupé du poste. C'est la panne la plus
+--  vicieuse (on remplit Postgres, l'écran reste blanc sans erreur) : elle est
+--  écartée.
+--
+--  ── 🩸 CE QUE LA BASE A REFUSÉ, ET ELLE AVAIT RAISON ──────────────────────
+--  Tentative : passer le groupe privé Saint-Joseph en plan « Institutionnel »
+--  pour rendre visibles l'infirmerie et la cantine, déjà remplies.
+--  `fn_plan_coherent_avec_secteur()` a refusé :
+--     « Le plan Institutionnel est réservé au secteur public : un groupe privé
+--       qui y serait posé échapperait au hard-lock pour impayé. »
+--  Le garde a raison — et il révèle un TROU DE CATALOGUE, pas un bug :
+--  `infirmerie` et `cantine` n'existent que dans Institutionnel et Licence de
+--  tutelle, tous deux réservés au public. **Aucune école privée ne peut donc
+--  acheter le module infirmerie ni le module cantine**, alors qu'une école
+--  privée avec cantine est la norme au Congo. Décision produit à trancher :
+--  soit les ajouter au plan Pro, soit créer un palier privé supérieur.
+--  Rien n'a été modifié ici : le catalogue commercial n'est pas au code.
+--
+--  ── ÉTAPE 1 — SCOLARITÉ : QUATRE TROUS BOUCHÉS ────────────────────────────
+--   • 60 classes sans PROFESSEUR PRINCIPAL (les 60 que le lot 0196 avait
+--     créées). Le titulaire est désormais l'enseignant qui a le plus d'heures
+--     DANS la classe — pas un nom tiré au hasard : un titulaire qui n'enseigne
+--     pas à ses élèves ne tient pas trois secondes devant un inspecteur.
+--     554/554 classes ont un titulaire.
+--   • 1 057 élèves sans LIEU DE NAISSANCE, ADRESSE, VILLE, DÉPARTEMENT,
+--     GROUPE SANGUIN ni SITUATION FAMILIALE. Or le lieu de naissance et
+--     l'adresse s'impriment sur le certificat de scolarité et la carte
+--     scolaire : la fiche élève était un squelette et les papiers sortaient
+--     troués. Rempli de façon déterministe (hash de l'id) : 15 villes,
+--     11 départements, quartiers réels de Brazzaville et Pointe-Noire.
+--     Les internes viennent d'ailleurs (35 % de la ville de l'école contre
+--     88 % pour les externes) — c'est ce qui justifie l'internat.
+--   • DOCUMENTS DÉLIVRÉS : 0 → 1 197. Cartes scolaires (rentrée), certificats
+--     de scolarité (toute l'année, avec le motif : bourse, visa, CNSS…),
+--     attestations de travail pour le personnel. Le registre `issued_documents`
+--     ne porte AUCUN fichier : c'est un journal d'actes, pas un coffre.
+--   • DOSSIERS ÉLÈVES : 0 → 3 690 pièces. 763 dossiers complets, 294
+--     incomplets, 122 certificats médicaux périmés. Un module de conformité
+--     où tout est conforme ne montre rien.
+--
+--  ── 🩸 POURQUOI CES PIÈCES N'ONT PAS DE FICHIER ───────────────────────────
+--  `insertStudentDocumentRow` prévient : « appeler cette fonction avec un
+--  chemin qui n'a pas été mis en file écrirait une pièce qui ne pointe sur
+--  rien ». Inventer des chemins Storage aurait donné un bouton « Consulter »
+--  qui échoue. `file_url` est donc NULL — sémantiquement juste : le
+--  secrétariat a reçu l'acte de naissance SUR PAPIER, l'a classé, l'a noté au
+--  dossier, et n'a pas de scanner. C'est le cas ordinaire.
+--
+--  CORRECTIF DE CODE associé (`documents_detail.dart`) : une pièce sans
+--  fichier affichait quand même l'œil « Consulter », qui répondait « aperçu
+--  indisponible (CONNEXION REQUISE) » — un message qui accuse le réseau d'un
+--  fichier qui n'a jamais existé, et qui envoie l'agent chercher une panne
+--  ailleurs. Désormais : l'œil ne s'affiche pas, la ligne dit « Reçue le … ·
+--  papier », et l'appel direct répond « Pièce reçue sur papier — aucun fichier
+--  numérisé ».
+--
+--  ── ÉTAPE 2 — ENSEIGNEMENT : LA FILIÈRE MANQUAIT AU TECHNIQUE ─────────────
+--   • Les 60 classes techniques n'avaient NI `cycle_code`, NI `level_code`,
+--     NI `level_order`, NI `filiere_code`, NI `filiere_label` — les 494 autres
+--     classes les avaient. Ces colonnes dénormalisées portent le tri, le
+--     regroupement par cycle et l'affichage « Classe · Filière » dans toute
+--     l'app. Reconstruites depuis `school_levels` (qui, eux, portaient bien
+--     `cycle_id` et `program_id`).
+--     ⚠️ Le référentiel des 39 filières existe déjà en base, `group_id` NULL
+--     donc partagé (Mécanique, Soudure, Hôtellerie, Comptabilité, séries F et
+--     G…). Rien à créer : `cycleFilieresProvider` le lisait déjà.
+--   • INCOHÉRENCE DE NOM : une « École Hôtelière » qui enseignait la
+--     maintenance industrielle et l'agriculture ; un « Lycée Commercial » sans
+--     commerce ; un « Lycée Industriel » avec de l'agriculture. Un ministre du
+--     technique le voit en une seconde. Filières réalignées sur le nom de
+--     l'établissement.
+--   • COLLISION DE CODES : « Élevage » et « Électronique » produisaient tous
+--     deux `ELE` (générateur de codes courts du lot 0196, `substr(...,1,3)`).
+--     Les 3 niveaux « Élevage » du Lycée Commercial étaient orphelins — aucune
+--     classe. Supprimés.
+--   • CALENDRIER SCOLAIRE : 0 ligne pour les 3 groupes privés, et AUCUN groupe
+--     de la plateforme n'avait la moindre PÉRIODE DE VACANCES — que des jours
+--     fériés. Or `joursOuvres()` retranche les jours non ouvrés du compte des
+--     séances, des présences et des projections d'emploi du temps : sans
+--     vacances, elle comptait faux partout. Les 10 groupes ont désormais
+--     9 à 18 fériés + 4 périodes de congés.
+--     ⚠️ `fn_check_holiday_period()` refuse toute période hors des bornes de
+--     l'année (ici 01/10/2025 → 31/07/2026) : « Grandes vacances » jusqu'au
+--     06/09 a été rejetée, ramenée au 31/07 sous le nom « Fin d'année
+--     scolaire ». Le garde a raison.
+--   • ⚠️ Le renommage des classes DOIT être borné aux 7 écoles privées : les
+--     36 autres nomment autrement (« 1ere — Première ») et la contrainte
+--     `classes_school_id_academic_year_id_name_key` casse. Vu en direct.
+--   • `issued_documents.recipient_ref` fige la classe au jour de l'émission :
+--     les 1 197 lignes créées dix minutes plus tôt citaient les anciens noms.
+--     Réalignées AVANT lecture — après, ce serait réécrire le passé.
+--
+--  ── INTÉGRITÉ RÉFÉRENTIELLE : 18 CONTRÔLES, 0 ORPHELIN ────────────────────
+--  Aucune note sans évaluation, aucune inscription sans classe, aucun paiement
+--  sans élève, aucune ligne de bulletin sans matière. Les liens tiennent. Ce
+--  qui manquait était de la COUVERTURE, pas de la COHÉRENCE.
+--
+--  Base : 342 Mo, 68 % du plan gratuit.
+--
+--  Détail : docs/memoire/donnees-demonstration-metp.md
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- Le SQL de ce lot vit dans la fiche mémoire, chaque requête dans son contexte.
+-- Ce fichier existe pour que la migration 0198 ait un domicile et que le
+-- RAISONNEMENT ne se perde pas — c'est lui qui coûte à reconstituer.

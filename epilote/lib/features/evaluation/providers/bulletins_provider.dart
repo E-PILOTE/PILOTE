@@ -116,10 +116,24 @@ final bulletinComputationProvider = FutureProvider.autoDispose
   final evalParams = <Object?>[args.classId];
   if (args.trimesterId != null) evalParams.add(args.trimesterId);
 
-  // 1) Évaluations de la classe (et trimestre) avec barème + coefficient.
+  // 1) Évaluations PUBLIÉES de la classe (et trimestre), avec barème + coef.
+  //
+  // ⚠️ Le filtre `status = 'published'` manquait ici, et ici SEULEMENT. Le
+  // moteur du réseau le pose explicitement
+  // (`admin_groupe/providers/student_results_provider.dart:143`) avec sa
+  // raison : « une évaluation non publiée n'est pas un résultat — un brouillon
+  // de l'enseignant n'a rien à faire dans un dossier consulté par le
+  // ministère ». Sans lui, le bulletin remis à la famille et le dossier lu par
+  // la tutelle calculaient sur deux ensembles différents dès qu'un brouillon
+  // existait : deux moyennes, deux rangs, deux mentions pour le même élève.
+  //
+  // Aucune divergence en production aujourd'hui — les 15 672 évaluations sont
+  // toutes `published` (relevé live le 2026-09-09). Le défaut est DORMANT : il
+  // se réveille à la première note saisie et non publiée, c'est-à-dire au
+  // premier usage normal du cycle de vie (`setEvaluationStatus`).
   final evals = await db.getAll(
     'SELECT id, subject_id, coefficient, max_score FROM evaluations e '
-    'WHERE e.class_id = ? $trimClause',
+    "WHERE e.class_id = ? AND e.status = 'published' $trimClause",
     evalParams,
   );
   final evalCoef = <String, int>{};

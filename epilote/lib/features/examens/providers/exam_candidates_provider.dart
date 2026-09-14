@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../services/powersync/powersync_service.dart';
+import '../../navigation/providers/permissions_provider.dart'
+    show classScopeClause, permissionsLoaded;
 import '../../students/widgets/scope_drilldown_panel.dart' show ScopeUnit;
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -118,10 +120,30 @@ class ExamSessionCandidates {
 
 DateTime? _date(Object? v) => v == null ? null : DateTime.tryParse(v as String);
 
+/// Slug de ce module au catalogue, déclaré **une seule fois pour le module**.
+const String kSlugExamens = 'examens';
+
 /// Candidats d'une session, enrichis de leur position dans la structure.
+///
+/// ⚠️ VERROU 4 POSÉ LE 2026-09-10.
+///
+///  Cette lecture ne portait **aucun** périmètre. Le SQLite local ne contient
+///  que l'école — la RLS et les sync-rules s'en chargent —, mais le profil
+///  d'accès `own_classes` ne s'y appliquait pas : un enseignant restreint à
+///  ses classes lisait **tous les candidats de l'établissement**, avec nom,
+///  prénom, INE, date de naissance et résultat.
+///
+///  Le module `examens` compte 7 profils en `own_classes` en production.
+///
+///  ⚠️ `permissionsLoaded` D'ABORD, et `Future.value(null)` tant que les
+///  droits chargent. Sans lui, `classScopeClause` rend `AND 0 = 1` — le bon
+///  choix par défaut — mais l'écran afficherait « aucun candidat » pendant la
+///  fenêtre de chargement, ce qui est un zéro menteur d'un autre genre.
 final sessionCandidatesProvider = FutureProvider.autoDispose
     .family<ExamSessionCandidates?, String>((ref, sessionId) async {
   ref.keepAlive();
+  if (!permissionsLoaded(ref)) return null;
+  final scope = classScopeClause(ref, kSlugExamens, column: 'ec.class_id');
 
   final head = await db.getAll(
     'SELECT s.id, s.year_label, s.written_from, '
@@ -143,8 +165,9 @@ final sessionCandidatesProvider = FutureProvider.autoDispose
     '  JOIN students st ON st.id = ec.student_id '
     '  LEFT JOIN classes c ON c.id = ec.class_id '
     ' WHERE ec.session_id = ? '
+    '${scope?.clause ?? ''} '
     ' ORDER BY c.level_order, c.name, st.last_name, st.first_name',
-    [sessionId],
+    [sessionId, ...?scope?.params],
   );
 
   return ExamSessionCandidates(

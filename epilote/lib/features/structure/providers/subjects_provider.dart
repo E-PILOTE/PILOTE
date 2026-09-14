@@ -1,9 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/utils/enregistrer_csv.dart';
 import '../../../data/models/subject_model.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../services/powersync/powersync_service.dart';
@@ -22,6 +20,28 @@ final subjectsProvider = StreamProvider.autoDispose<List<SubjectModel>>((ref) {
   if (profile?.schoolId == null || profile!.schoolId!.isEmpty) {
     return Stream.value([]);
   }
+  // ⚠️ LA MATIÈRE EST CANONIQUE AU GROUPE, PAS À L'ÉCOLE.
+  //
+  //  Cette requête filtrait `s.school_id = ?`. Or en production, **94 des 95
+  //  matières ont `school_id IS NULL`** (relevé live le 2026-09-09) : le
+  //  référentiel est porté par le GROUPE, et c'est cohérent — le slug
+  //  d'une matière est unique par `group_id` (`_uniqueSlug`), pas par école.
+  //  L'écran n'en affichait donc qu'UNE sur 95, et son état vide invitait à
+  //  recréer un catalogue qui existait déjà.
+  //
+  //  La conséquence dépassait l'écran : sans matière, pas d'affectation de
+  //  professeur, donc `teacher_subjects` gelé, donc `scopedClassIdsProvider`
+  //  vide — et le périmètre `own_classes` de TOUS les modules retombait à
+  //  zéro classe pour les enseignants.
+  //
+  //  La forme retenue est celle qu'emploie déjà `programmesProvider`
+  //  (`programmes_provider.dart:102`) : celles de l'école, PLUS celles du
+  //  groupe non rattachées à une école.
+  //
+  //  ⚠️ La sync-rule `by_group` correspondante doit être DÉPLOYÉE au dashboard
+  //  PowerSync Cloud (commit `33ecf02`) — sans elle, la ligne n'est pas sur le
+  //  poste et le correctif Dart ne montre rien.
+  //
   // ⚠️ « Classes » et « Niveaux » COMPTAIENT TOUTES LES ANNÉES. `class_subjects`
   // ne porte pas d'année ; `classes` en porte une. Sans le filtre, l'empreinte
   // d'une matière additionnait les classes de cette année et celles de toutes
@@ -43,13 +63,15 @@ final subjectsProvider = StreamProvider.autoDispose<List<SubjectModel>>((ref) {
                     AND c.school_id = ? AND c.academic_year_id = ?
                     AND c.level_code IS NOT NULL) AS niveaux
         FROM   subjects s
-        WHERE  s.school_id = ? AND COALESCE(s.is_active, 1) <> 0
+        WHERE  (s.school_id = ?
+                OR (s.school_id IS NULL AND s.group_id = ?))
+          AND  COALESCE(s.is_active, 1) <> 0
         ORDER  BY s.display_order, s.name
         ''',
         parameters: [
           profile.schoolId, yearId ?? '',
           profile.schoolId, yearId ?? '',
-          profile.schoolId,
+          profile.schoolId, profile.groupId ?? '',
         ],
       )
       .map((rows) => rows.map(SubjectModel.fromMap).toList());
@@ -89,9 +111,31 @@ Future<String> _uniqueSlug(String groupId, String name) async {
 
 /// Crée une matière canonique. [coefficient] = coef PAR DÉFAUT (ajustable par
 /// classe ensuite via le détail de la matière).
+///
+/// ⚠️ `school_id` EST LAISSÉ NUL — décidé le 2026-09-10, et ce n'est pas un
+/// détail d'implémentation.
+///
+///  Une matière appartient au GROUPE, pas à une école. Trois preuves
+///  concordantes, aucune n'est une opinion :
+///
+///   1. la clé unique de la table est `(group_id, level_id, slug)` —
+///      `school_id` ne fait **pas** partie de l'identité d'une matière ;
+///   2. `_uniqueSlug` calcule déjà l'unicité **sur tout le groupe**, jamais
+///      sur l'école ;
+///   3. en production, **94 matières sur 95** portent `school_id IS NULL`.
+///      La 95ᵉ — la seule créée par cet écran — était l'exception.
+///
+///  Et cette exception a coûté cher : tant que la lecture filtrait sur
+///  `school_id = ?`, l'écran des matières n'en montrait qu'UNE sur 95, et le
+///  catalogue vide se propageait jusqu'au périmètre `own_classes` de chaque
+///  enseignant. Réparer la lecture sans réparer l'écriture aurait laissé la
+///  cause en place.
+///
+///  Conséquence assumée : une matière créée ici est visible par **toutes les
+///  écoles du groupe**. C'est la sémantique de la table, et le formulaire le
+///  dit à celui qui crée.
 Future<String> createSubject({
   required String groupId,
-  required String schoolId,
   required String name,
   required int coefficient,
 }) async {
@@ -103,9 +147,9 @@ Future<String> createSubject({
     INSERT INTO subjects (
       id, group_id, school_id, name, slug,
       coefficient, is_active, display_order, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?, ?)
+    ) VALUES (?, ?, NULL, ?, ?, ?, 1, 0, ?, ?)
     ''',
-    [id, groupId, schoolId, name.trim(), slug, coefficient, now, now],
+    [id, groupId, name.trim(), slug, coefficient, now, now],
   );
   return id;
 }
@@ -130,8 +174,11 @@ Future<void> archiveSubject(String id) async {
   );
 }
 
-/// Export CSV des matières (séparateur `;`, BOM UTF-8). Retourne le chemin.
-Future<String> exportSubjectsCsv(List<SubjectModel> rows) async {
+/// Compose le CSV des matières (séparateur `;`, BOM UTF-8) et demande à
+/// l'agent où l'enregistrer.
+///
+/// Retourne le chemin écrit, ou `null` s'il a fermé la fenêtre sans choisir.
+Future<String?> exportSubjectsCsv(List<SubjectModel> rows) async {
   String cell(String? v) => '"${(v ?? '').replaceAll('"', '""')}"';
   final b = StringBuffer();
   b.writeln(['Matière', 'Coefficient par défaut', 'Classes', 'Niveaux']
@@ -145,9 +192,12 @@ Future<String> exportSubjectsCsv(List<SubjectModel> rows) async {
       r.niveaux.join(' '),
     ].map(cell).join(';'));
   }
-  final dir = await getApplicationDocumentsDirectory();
+  // ⚠️ « Enregistrer sous », et non une écriture silencieuse dans Documents :
+  // sous Windows ce dossier est le plus souvent redirigé vers OneDrive.
   final ts = DateTime.now().toIso8601String().substring(0, 10);
-  final file = File('${dir.path}/matieres_$ts.csv');
-  await file.writeAsString('﻿${b.toString()}');
-  return file.path;
+  return enregistrerCsvSous(
+    nomPropose: 'matieres_$ts.csv',
+    contenu: b.toString(),
+    titreFenetre: 'Enregistrer la liste des matières',
+  );
 }

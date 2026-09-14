@@ -20,6 +20,8 @@ class NotificationModel {
     required this.createdAt,
     this.groupId,
     this.groupName,
+    this.groupEstMinistere = false,
+    this.groupTutelle,
     this.recipientId,
     this.sentAt,
     this.data,
@@ -33,6 +35,14 @@ class NotificationModel {
   final String  createdAt;
   final String? groupId;
   final String? groupName;
+
+  /// ⚠️ Une notification venue d'un MINISTÈRE ne se lit pas comme une
+  /// notification venue d'un groupe scolaire : c'est la tutelle qui parle.
+  /// La ligne portait une icône « école » et la raison sociale enregistrée —
+  /// « MEPSA — Ministère Enseign. Primaire » d'un côté, « Ministère de
+  /// l'Enseignement Technique et Professionnel » de l'autre.
+  final bool    groupEstMinistere;
+  final String? groupTutelle;
   final String? recipientId;
   final String? sentAt;
   final Map<String, dynamic>? data;
@@ -46,6 +56,8 @@ class NotificationModel {
     createdAt:   createdAt,
     groupId:     groupId,
     groupName:   groupName,
+    groupEstMinistere: groupEstMinistere,
+    groupTutelle: groupTutelle,
     recipientId: recipientId,
     sentAt:      sentAt,
     data:        data,
@@ -140,13 +152,21 @@ final notificationsProvider =
       .toList();
 
   final Map<String, String> groupNames = {};
+  final Map<String, String?> groupTutelles = {};
+  final ministeres = <String>{};
   if (groupIds.isNotEmpty) {
     final groups = await client
         .from('school_groups')
-        .select('id, name')
+        .select('id, name, tutelle, administre_referentiel_national')
         .inFilter('id', groupIds);
     for (final g in groups as List) {
-      groupNames[(g as Map)['id'] as String] = g['name'] as String;
+      final m = g as Map;
+      final id = m['id'] as String;
+      groupNames[id] = m['name'] as String;
+      groupTutelles[id] = m['tutelle'] as String?;
+      if (m['administre_referentiel_national'] as bool? ?? false) {
+        ministeres.add(id);
+      }
     }
   }
 
@@ -162,6 +182,8 @@ final notificationsProvider =
       createdAt:   m['created_at'] as String? ?? '',
       groupId:     gid,
       groupName:   gid != null ? groupNames[gid] : null,
+      groupEstMinistere: gid != null && ministeres.contains(gid),
+      groupTutelle: gid != null ? groupTutelles[gid] : null,
       recipientId: m['recipient_id'] as String?,
       sentAt:      m['sent_at'] as String?,
       data:        m['data'] as Map<String, dynamic>?,

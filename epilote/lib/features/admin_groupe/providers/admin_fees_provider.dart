@@ -4,7 +4,12 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/utils/paged_fetch.dart';
 import '../../auth/providers/auth_provider.dart';
-import 'admin_settings_provider.dart' show adminGroupProfileProvider;
+import '../../../core/utils/garder_au_chaud.dart';
+
+// Le vocabulaire des frais et la règle de gratuité du public vivent à part,
+// mais restent visibles d'ici : les écrans importent ce fichier.
+export 'admin_fees_vocabulaire.dart';
+import 'admin_fees_vocabulaire.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  FRAIS & TARIFS DU GROUPE — le seul endroit où un montant se crée.
@@ -27,55 +32,6 @@ import 'admin_settings_provider.dart' show adminGroupProfileProvider;
 
 const _uuid = Uuid();
 
-/// Le catalogue des types de frais, aligné sur l'enum `fee_type` en base
-/// (`inscription, mensualite, frais_examens, autre, cotisation_ape`).
-///
-/// Il vit ici, avec la donnée, et non dans le formulaire : l'écran, la ligne de
-/// liste et la boîte de saisie le lisent tous les trois. Deux libellés qui
-/// dérivent l'un de l'autre sur une page d'argent, c'est un ticket de support.
-const kAdminFeeTypes = <String, String>{
-  'inscription': 'Inscription',
-  'mensualite': 'Mensualité',
-  'frais_examens': 'Frais d\'examens',
-  'cotisation_ape': 'Cotisation APE',
-  'autre': 'Autre',
-};
-
-String adminFeeTypeLabel(String? t) => kAdminFeeTypes[t] ?? 'Autre';
-
-/// Le groupe relève-t-il de l'enseignement PUBLIC ? Lu en base (`group_type`),
-/// jamais déduit d'un nom. `null` tant que le secteur n'est pas connu.
-final adminGroupePublicProvider = Provider.autoDispose<bool?>((ref) {
-  final g = ref.watch(adminGroupProfileProvider).valueOrNull;
-  return g == null ? null : g.groupType == 'public';
-});
-
-/// Les types de frais qu'on peut proposer à ce groupe.
-///
-/// ⚠️ **La mensualité disparaît du choix quand le groupe est PUBLIC** : la loi
-/// 25-95 (art. 1) pose que l'enseignement public est gratuit. Le serveur la
-/// refuse de toute façon (migration 0100) — mais un choix qui n'existe pas vaut
-/// mieux qu'un refus après coup. C'est la même doctrine que le retrait des
-/// mutations de barème côté école : « l'absence de bouton est la vraie
-/// protection, la règle serveur n'est que le filet ».
-///
-/// Deux précautions :
-///  • secteur INCONNU (chargement, erreur) → on ne présume rien, on laisse la
-///    liste entière et c'est le serveur qui tranche, avec son message ;
-///  • [typeActuel] est toujours réintroduit — on modifie un barème hérité sans
-///    que la liste perde sa propre valeur (un `DropdownButtonFormField` dont la
-///    `value` est absente des `items` lève une assertion), et le RETRAIT d'une
-///    mensualité devenue illégale reste possible.
-Map<String, String> typesDeFraisProposables({
-  required bool? groupePublic,
-  String? typeActuel,
-}) {
-  if (groupePublic != true) return kAdminFeeTypes;
-  return {
-    for (final e in kAdminFeeTypes.entries)
-      if (e.key != 'mensualite' || e.key == typeActuel) e.key: e.value,
-  };
-}
 
 /// Portée d'un barème : tout le réseau, ou une école désignée.
 /// Dans les deux cas c'est le GROUPE qui écrit — `school_id` dit « s'applique
@@ -140,6 +96,7 @@ class AdminFee {
 /// masquer les retirés ici rendrait le retrait irréversible depuis l'interface.
 final adminFeesProvider = FutureProvider.autoDispose
     .family<List<AdminFee>, String>((ref, yearId) async {
+  garderAuChaud(ref);
   final client = ref.watch(supabaseClientProvider);
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
   if (groupId == null || yearId.isEmpty) return const [];
@@ -201,6 +158,7 @@ typedef NiveauRef = ({String id, String name, bool duGroupe});
 /// Les écoles du groupe — choix de portée du barème.
 final adminFeeSchoolsProvider =
     FutureProvider.autoDispose<List<OptionRef>>((ref) async {
+  garderAuChaud(ref);
   final client = ref.watch(supabaseClientProvider);
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
   if (groupId == null) return const [];
@@ -233,6 +191,7 @@ final adminFeeSchoolsProvider =
 /// le ministère choisirait au hasard.
 final adminEducationLevelsProvider =
     FutureProvider.autoDispose<List<NiveauRef>>((ref) async {
+  garderAuChaud(ref, pendant: kChaudReferentiel);
   final client = ref.watch(supabaseClientProvider);
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
   if (groupId == null) return const [];
@@ -299,6 +258,7 @@ final adminEducationLevelsProvider =
 /// seul `group_id` avait déjà fait remonter 42 niveaux au lieu de 6.
 final adminFeeLevelsProvider = FutureProvider.autoDispose
     .family<List<OptionRef>, String>((ref, schoolId) async {
+  garderAuChaud(ref);
   final client = ref.watch(supabaseClientProvider);
   if (schoolId.isEmpty) return const [];
   final rows = await fetchAllRows(() => client
@@ -334,6 +294,7 @@ final adminFeeLevelsProvider = FutureProvider.autoDispose
 /// choix sans le restreindre.
 final adminNationalExamsProvider =
     FutureProvider.autoDispose<List<OptionRef>>((ref) async {
+  garderAuChaud(ref, pendant: kChaudReferentiel);
   final client = ref.watch(supabaseClientProvider);
   final rows = await fetchAllRows(() => client
       .from('national_exams')

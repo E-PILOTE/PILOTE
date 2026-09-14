@@ -1,8 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:sqlite_async/sqlite_async.dart' show SqliteWriteContext;
 
+import '../../../core/utils/enregistrer_csv.dart';
 import '../../../data/models/class_model.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/navigation/providers/permissions_provider.dart';
@@ -212,48 +211,23 @@ final enrolledStudentCountProvider = StreamProvider.autoDispose<int>((ref) {
 
 // ─── Mutations (offline-first) ────────────────────────────────────────────────
 
-/// Crée une classe dans SQLite local — PowerSync la synchronise vers Supabase
-/// dès que la connexion est disponible.
-Future<String> createClass({
-  required String schoolId,
-  required String groupId,
-  required String academicYearId,
-  required String name,
-  int? capacity,
-  String? mainTeacherId,
-  String? room,
-  String? levelId,
-}) async {
-  // Pré-validation anti-perte silencieuse : contrainte UNIQUE
-  // (school_id, academic_year_id, name). Sans ce contrôle, un doublon part en
-  // local « avec succès » puis est rejeté en silence (23505) à la synchro.
-  final dup = await db.getAll(
-    'SELECT 1 FROM classes '
-    'WHERE school_id = ? AND academic_year_id = ? AND name = ? LIMIT 1',
-    [schoolId, academicYearId, name],
-  );
-  if (dup.isNotEmpty) {
-    throw ErreurMetier('Une classe « $name » existe déjà pour cette année scolaire.');
-  }
-
-  // Déduit de `UNIQUE (school_id, academic_year_id, name)`. Le garde par nom
-  // ci-dessus arrête le doublon SUR CE POSTE ; deux appareils qui préparent la
-  // rentrée hors ligne tiraient deux identifiants au sort pour la même classe,
-  // et le serveur en refusait un en 23505 — code fatal, lot entier jeté.
-  final id  = idDeterministe('class', [schoolId, academicYearId, name]);
-  final now = DateTime.now().toIso8601String();
-  await db.execute(
-    '''
-    INSERT INTO classes
-      (id, school_id, group_id, academic_year_id, name, capacity,
-       main_teacher_id, room, level_id, is_active, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
-    ''',
-    [id, schoolId, groupId, academicYearId, name,
-     capacity, mainTeacherId, room, levelId, now, now],
-  );
-  return id;
-}
+// ⚠️ `createClass` A ÉTÉ SUPPRIMÉE ICI le 2026-09-09, et c'est délibéré.
+//
+//  Elle écrivait `classes` SANS les colonnes dénormalisées `cycle_code`,
+//  `level_code`, `level_order`, `filiere_code` et `filiere_label` — celles que
+//  `createStructuredClass` ci-dessous pose expressément, et dont dépendent
+//  l'État de rentrée, le registre matricule, les documents annuels et les KPI
+//  d'inscriptions (`ORDER BY level_order`).
+//
+//  Elle n'avait AUCUN appelant : les deux écrans qui créent une classe
+//  (`classes_parts.dart:746` et `academic_structure_class_form.dart:101`)
+//  passent tous deux par `createStructuredClass`. C'est précisément ce qui la
+//  rendait dangereuse — deux fonctions voisines, l'une complète et l'autre
+//  amputée, la plus courte portant le nom le plus évident. Une classe créée
+//  par erreur avec elle ne serait pas vide sur les états : elle se rangerait
+//  DERRIÈRE la Terminale, parce que les lectures retombent sur `?? 999`.
+//
+//  Il n'y a donc qu'une seule porte pour créer une classe.
 
 /// Crée une classe RATTACHÉE à un niveau de la structure académique : pose le
 /// vrai `level_id` ET les champs dénormalisés (cycle_code/level_code/level_order
@@ -338,8 +312,11 @@ Future<void> archiveClass(String classId) async {
   );
 }
 
-/// Export CSV des classes (séparateur `;`, BOM UTF-8). Retourne le chemin.
-Future<String> exportClassesCsv(List<ClassModel> rows) async {
+/// Compose le CSV des classes (séparateur `;`, BOM UTF-8) et demande à l'agent
+/// où l'enregistrer.
+///
+/// Retourne le chemin écrit, ou `null` s'il a fermé la fenêtre sans choisir.
+Future<String?> exportClassesCsv(List<ClassModel> rows) async {
   String cell(String? v) => '"${(v ?? '').replaceAll('"', '""')}"';
   final b = StringBuffer();
   b.writeln(['Classe', 'Niveau', 'Filière', 'Effectif', 'Capacité', 'Salle']
@@ -351,11 +328,14 @@ Future<String> exportClassesCsv(List<ClassModel> rows) async {
       '${r.studentCount ?? 0}', r.capacity?.toString() ?? '', r.room ?? '',
     ].map(cell).join(';'));
   }
-  final dir = await getApplicationDocumentsDirectory();
+  // ⚠️ « Enregistrer sous », et non une écriture silencieuse dans Documents :
+  // sous Windows ce dossier est le plus souvent redirigé vers OneDrive.
   final ts = DateTime.now().toIso8601String().substring(0, 10);
-  final file = File('${dir.path}/classes_$ts.csv');
-  await file.writeAsString('﻿${b.toString()}');
-  return file.path;
+  return enregistrerCsvSous(
+    nomPropose: 'classes_$ts.csv',
+    contenu: b.toString(),
+    titreFenetre: 'Enregistrer la liste des classes',
+  );
 }
 
 // ─── Inscriptions en attente de validation ────────────────────────────────────
@@ -410,12 +390,18 @@ Future<String> enrollStudent({
   String? filiereId,                     // filière FP → education_programs (0007)
   String? notes,                         // notes internes (0007)
   String? createdBy,                     // agent ayant saisi l'inscription (0007)
+
+  /// Transaction locale dans laquelle écrire — cf. `createStudent`.
+  /// L'élève et son inscription forment UN acte : les séparer laisse des
+  /// fiches orphelines quand la seconde moitié échoue.
+  SqliteWriteContext? tx,
 }) async {
+  final ecrire = tx ?? db;
   // Pré-validation anti-perte silencieuse : contrainte UNIQUE
   // (student_id, academic_year_id) — un élève = une seule inscription par année
   // (tout statut confondu). Sans ce contrôle, le doublon serait rejeté en
   // silence (23505) à la synchro et l'inscription « disparaîtrait ».
-  final dup = await db.getAll(
+  final dup = await ecrire.getAll(
     'SELECT 1 FROM class_enrollments '
     'WHERE student_id = ? AND academic_year_id = ? LIMIT 1',
     [studentId, academicYearId],
@@ -431,7 +417,7 @@ Future<String> enrollStudent({
   final id    = idDeterministe('class_enrollment', [studentId, academicYearId]);
   final now   = DateTime.now().toIso8601String();
   final today = now.substring(0, 10);
-  await db.execute(
+  await ecrire.execute(
     '''
     INSERT INTO class_enrollments
       (id, group_id, school_id, student_id, class_id, academic_year_id,

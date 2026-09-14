@@ -18,6 +18,7 @@ import '../../../core/utils/message_erreur.dart';
 
 part 'cahier_textes_parts.dart';
 part 'cahier_textes_form.dart';
+part 'cahier_textes_form_fields.dart';
 
 const _kSlug = kSlugCahierTextes;
 

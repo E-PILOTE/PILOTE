@@ -1,6 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../services/powersync/powersync_service.dart';
+import '../../../services/powersync/student_document_upload.dart'
+    show kStudentDocsBucket;
+import '../../../services/powersync/upload_outbox.dart'
+    show enqueueStorageDeletion, flushStorageDeletions;
+import '../../../services/supabase_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
@@ -268,7 +275,27 @@ Future<void> setDocumentExpiry({
   );
 }
 
-/// Retire une pièce du dossier (la ligne ; le fichier Storage reste orphelin).
+/// Retire une pièce du dossier — LA LIGNE ET LE FICHIER.
+///
+/// ⚠️ LE FICHIER RESTAIT AU STORAGE, ET CE N'ÉTAIT PAS DE L'ENCOMBREMENT. Ce
+/// qu'on retire d'un dossier scolaire, c'est un acte de naissance, un
+/// certificat médical, la photo d'un enfant. Une pièce qu'un parent avait
+/// demandé de retirer restait servie à qui détenait encore une URL signée, et
+/// l'école se croyait quitte. Le commentaire de cette fonction l'admettait
+/// depuis le début : un défaut connu et écrit n'est pas un défaut accepté.
+///
+/// L'ordre compte : la ligne d'abord. Supprimer exige le réseau, la ligne non —
+/// et une pièce qui ne disparaît de l'écran qu'au retour du réseau serait
+/// re-supprimée dix fois par un agent qui croit son clic perdu.
 Future<void> deleteStudentDocument(String id) async {
+  final row = await db.getOptional(
+      'SELECT file_url FROM student_documents WHERE id = ?', [id]);
+  final chemin = (row?['file_url'] as String?)?.trim() ?? '';
+
   await db.execute('DELETE FROM student_documents WHERE id = ?', [id]);
+
+  if (chemin.isEmpty) return;
+  await enqueueStorageDeletion(
+      bucket: kStudentDocsBucket, storagePath: chemin);
+  unawaited(flushStorageDeletions(SupabaseService.client));
 }

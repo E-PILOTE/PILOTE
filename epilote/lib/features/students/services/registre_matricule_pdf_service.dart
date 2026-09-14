@@ -169,6 +169,19 @@ class RegistreMatriculePdfService {
       border: pw.TableBorder.all(color: kPdfBorder, width: 0.4),
       children: [
         pw.TableRow(
+          // ⚠️ `repeat` — SANS LUI, UNE SEULE PAGE PORTE LES INTITULÉS.
+          //
+          // Treize colonnes, 800 élèves, une vingtaine de pages : à partir de
+          // la deuxième, le lecteur avait treize colonnes muettes. « Cette
+          // date, c'est l'entrée ou la sortie ? » — sur une pièce
+          // réglementaire que l'inspection consulte, et qu'on ne peut pas
+          // annoter pour rattraper.
+          //
+          // Le reste du registre ne bouge pas : les largeurs sont fixes et
+          // calées sur un A4 paysage à treize colonnes, `tableSection` répartit
+          // en `flex`. On répare l'en-tête, on ne refait pas la mise en page
+          // d'un document officiel.
+          repeat: true,
           decoration: const pw.BoxDecoration(color: kPdfSurface),
           children: [
             for (var i = 0; i < kEntetesRegistre.length; i++)

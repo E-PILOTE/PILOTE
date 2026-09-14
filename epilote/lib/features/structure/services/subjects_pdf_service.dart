@@ -64,28 +64,27 @@ class SubjectsPdfService {
           PdfKpi('Coef. moyen', avgCoef.toStringAsFixed(1), kPdfNavy),
         ]),
         pw.SizedBox(height: 16),
-        if (rows.isEmpty)
-          OfficialPdfKit.empty('Aucune matière à exporter.', f.regular)
-        else
-          OfficialPdfKit.frame(
-            title: 'LISTE DES MATIÈRES',
-            color: kPdfNavy,
-            fonts: f,
-            child: OfficialPdfKit.table(
-              headers: const ['Matière', 'Coef. déf.', 'Classes', 'Niveaux'],
-              rows: sorted
-                  .map((s) => [
-                        s.name,
-                        '${s.coefficient}',
-                        '${s.classCount}',
-                        s.niveaux.isEmpty ? '—' : s.niveaux.join('  '),
-                      ])
-                  .toList(),
-              fonts: f,
-              flex: const [4, 2, 2, 5],
-              leftAlignCols: const {3},
-            ),
-          ),
+        // ⚠️ `tableSection`, JAMAIS `frame(table())` : `frame` enveloppe son
+        // contenu dans un `Padding`, qui ne sait pas se scinder entre deux
+        // pages. Passé ~28 lignes, `MultiPage` boucle et lève
+        // `TooManyPagesException` — on n'obtient AUCUN document.
+        ...OfficialPdfKit.tableSection(
+          title: 'LISTE DES MATIÈRES',
+          color: kPdfNavy,
+          fonts: f,
+          headers: const ['Matière', 'Coef. déf.', 'Classes', 'Niveaux'],
+          rows: sorted
+              .map((s) => [
+                    s.name,
+                    '${s.coefficient}',
+                    '${s.classCount}',
+                    s.niveaux.isEmpty ? '—' : s.niveaux.join('  '),
+                  ])
+              .toList(),
+          flex: const [4, 2, 2, 5],
+          leftAlignCols: const {3},
+          emptyLabel: 'Aucune matière à exporter.',
+        ),
         pw.SizedBox(height: 8),
       ],
     ));

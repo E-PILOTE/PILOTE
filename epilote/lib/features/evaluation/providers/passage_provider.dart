@@ -7,10 +7,21 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../../core/utils/identite_offline.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../navigation/providers/permissions_provider.dart'
+    show classScopeClause, permissionsLoaded;
 import 'bulletins_provider.dart';
+import '../../../core/utils/decisions.dart';
+
 
 export '../../../core/utils/passage_bareme.dart'
     show BaremePassage, PropositionPassage, propositionPour, verdictPropose;
+
+/// Slug de ce module au catalogue, déclaré **une seule fois pour le module**.
+///
+/// ⚠️ `passage`, et non `conseils`. Ce sont deux modules distincts en base
+/// depuis la migration 0147, avec des droits propres — cf. l'en-tête de
+/// `passage_screen.dart`.
+const String kSlugPassage = 'passage';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  PASSAGE EN CLASSE SUPÉRIEURE — le verdict de fin d'année.
@@ -331,6 +342,13 @@ class PassageClass {
 final passageClassesProvider = FutureProvider.autoDispose
     .family<List<PassageClass>, String>((ref, yearId) async {
   ref.keepAlive();
+  // ⚠️ VERROU 4 — posé le 2026-09-10. Sept profils sont en `own_classes` sur
+  //  `passage` : sans cette clause, un enseignant restreint à ses classes
+  //  voyait — et pouvait délibérer — sur TOUTES les classes de l'école.
+  //  `permissionsLoaded` d'abord : « je ne sais pas » se traite comme
+  //  « restreint », mais l'écran doit montrer un chargement, pas une liste vide.
+  if (!permissionsLoaded(ref)) return const [];
+  final scope = classScopeClause(ref, kSlugPassage, column: 'c.id');
   final next = await _nextYear(yearId);
   final rows = await db.getAll(
     '''
@@ -345,10 +363,11 @@ final passageClassesProvider = FutureProvider.autoDispose
              ON e.class_id = c.id AND e.status = 'active'
      WHERE c.academic_year_id = ? AND COALESCE(c.is_active, 1) <> 0
        AND COALESCE(c.exam_status, 'passage') = 'passage'
+       ${scope?.clause ?? ''}
      GROUP BY c.id, c.name, c.filiere_label, ec.name, ec.order_index
      ORDER BY cycle_order, c.level_order, c.name
     ''',
-    [yearId],
+    [yearId, ...?scope?.params],
   );
 
   // Réinscrits : élèves de la classe qui ont déjà une inscription l'an prochain.
@@ -659,7 +678,8 @@ Future<void> savePassageDecision({
     '  promotion_target_class_id = ?, promotion_decided_at = ?, '
     '  promotion_decided_by = ?, updated_at = ? WHERE id = ?',
     [
-      clear ? null : decision,
+      // Refuse une distinction de conseil glissée ici — core/utils/decisions.dart
+      clear ? null : verdictPassageValide(decision),
       clear ? null : average,
       clear ? null : targetClassId,
       clear ? null : now,

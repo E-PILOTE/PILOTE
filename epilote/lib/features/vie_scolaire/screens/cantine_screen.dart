@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/write_identity.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/bandeau_jour_non_ouvre.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
@@ -127,6 +128,10 @@ class _BodyState extends ConsumerState<_Body> {
           ]),
         ),
         const SizedBox(height: 20),
+        // Même règle qu'aux présences : pas de service de cantine un
+        // dimanche ni pendant les congés. L'écran le dit au lieu de
+        // réclamer un pointage.
+        BandeauJourNonOuvre(date: _date),
         overview.when(
           loading: () => const Padding(
               padding: EdgeInsets.only(top: 60),

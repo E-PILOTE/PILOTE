@@ -6,6 +6,7 @@ import '../../navigation/providers/permissions_provider.dart';
 import '../models/exam_fee.dart';
 import '../providers/exam_fees_provider.dart';
 import '../providers/exam_registration_provider.dart';
+import '../providers/exam_verbes.dart';
 import 'candidate_file_dialog.dart';
 import 'exam_dossier_dialog.dart';
 import 'exam_payment_dialog.dart';
@@ -129,6 +130,7 @@ class _State extends ConsumerState<_ClassCandidatesDialog> {
                       row: rows[i],
                       sessionId: reg.sessionId,
                       canEdit: canEdit,
+                      canEncaisser: ref.watch(peutEncaisserFraisExamenProvider),
                       feeState: fees?.stateFor(rows[i].studentId),
                     ),
                   ),
@@ -280,12 +282,17 @@ class _CandidateLine extends StatelessWidget {
     required this.row,
     required this.sessionId,
     required this.canEdit,
+    required this.canEncaisser,
     required this.feeState,
   });
 
   final ExamStudentRow row;
   final String? sessionId;
   final bool canEdit;
+
+  /// La caisse suit `payments_insert`, pas `examens/update` : le comptable
+  /// LIT ce module sans droit d'écriture dessus. Voir `exam_verbes.dart`.
+  final bool canEncaisser;
   final FeePaymentState? feeState;
 
   @override
@@ -377,7 +384,7 @@ class _CandidateLine extends StatelessWidget {
               tooltip: 'Dossier',
               visualDensity: VisualDensity.compact,
             ),
-          if (canEdit && sessionId != null)
+          if (canEncaisser && sessionId != null)
             IconButton(
               onPressed: () => showExamPaymentDialog(
                 context,

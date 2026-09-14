@@ -111,7 +111,7 @@ void main() {
     test('la RPC ne reçoit ni profil, ni groupe, ni école', () {
       final src = File(
         'lib/features/updates/providers/update_provider.dart',
-      ).readAsStringSync();
+      ).readAsStringSync().replaceAll('\r\n', '\n');
       final i = src.indexOf("rpc('signaler_version'");
       expect(i, greaterThan(-1));
       final appel = src.substring(i, src.indexOf('}', i));
@@ -135,7 +135,7 @@ void main() {
         'vérification de mise à jour', () {
       final src = File(
         'lib/features/updates/providers/update_provider.dart',
-      ).readAsStringSync();
+      ).readAsStringSync().replaceAll('\r\n', '\n');
       expect(src.contains('unawaited(_signalerVersion('), isTrue,
           reason: 'Attendre le relevé retarderait d’un aller-retour la seule '
               'chose qui compte : savoir qu’un correctif existe.');
@@ -151,8 +151,8 @@ void main() {
         'sync-rules', () {
       final schema = File(
         'lib/services/powersync/powersync_schema.dart',
-      ).readAsStringSync();
-      final regles = File('../powersync/config/sync-rules.yaml').readAsStringSync();
+      ).readAsStringSync().replaceAll('\r\n', '\n');
+      final regles = File('../powersync/config/sync-rules.yaml').readAsStringSync().replaceAll('\r\n', '\n');
       expect(schema.contains('app_installations'), isFalse,
           reason: 'Ce n’est pas une donnée de travail : personne ne la lit '
               'hors ligne, et elle n’a rien à faire dans les buckets d’une '

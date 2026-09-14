@@ -2,15 +2,15 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/constants/routes.dart';
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/barre_export.dart';
 import '../../../core/widgets/capture_webcam.dart';
 import '../../../core/widgets/photo_avatar.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
-import '../../../data/models/class_model.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../cartes/providers/cartes_provider.dart' show CarteEleveRow;
-import '../../cartes/services/cartes_actions.dart' show imprimerCarteEleve;
 import '../../classes/providers/class_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
 import '../../navigation/widgets/module_scaffold.dart';
@@ -22,23 +22,20 @@ import '../providers/students_provider.dart';
 import '../models/eleve_libelles.dart';
 import '../models/tutor_draft.dart';
 import '../providers/students_registry_provider.dart';
-import '../providers/transfers_provider.dart';
 import '../../structure/providers/academic_year_provider.dart';
-import '../services/attestation_actions.dart';
+import '../services/eleve_cycle_actions.dart';
 import '../services/capacite_classe.dart';
 import '../services/filtre_eleves.dart';
 import '../services/edition_eleve_garde.dart';
-import '../services/attestations_pdf_service.dart';
 import '../services/students_pdf_service.dart';
 import '../widgets/monthly_evolution_card.dart';
 import '../widgets/scope_drilldown_panel.dart';
-import '../widgets/transfer_destination_picker.dart';
+import '../widgets/class_chooser_dialog.dart';
+import '../widgets/eleve_actions_menu.dart';
 import '../widgets/inscription_form_kit.dart';
 import '../widgets/tuteur_edit_card.dart';
 import 'add_inscription_screen.dart';
 import '../../../core/utils/ine.dart';
-import '../../../core/utils/write_identity.dart';
-import '../../../core/utils/sortie_motif.dart';
 import '../../../core/utils/message_erreur.dart';
 import '../../../services/powersync/avatar_upload.dart'
     show queueAvatarUpload;
@@ -47,13 +44,33 @@ import '../../../services/powersync/avatar_upload.dart'
 part 'eleves_parts.dart';
 part 'eleves_liste_parts.dart';
 part 'eleves_drawer.dart';
-part 'eleves_actions_parts.dart';
 part 'eleves_edit.dart';
 part 'eleves_kpi_parts.dart';
 
 /// Le slug de CE module, déclaré une seule fois : un littéral recopié est
 /// ce qui laisse un périmètre dériver sans que rien ne le dise.
 const _kSlug = 'eleves';
+
+/// Ouvre l'assistant de modification d'un élève — identité puis tuteurs.
+///
+/// ⚠️ SEUL POINT D'ENTRÉE PUBLIC vers `_StudentEditModal`. Cet assistant porte
+/// les gardes d'écriture (`edition_eleve_garde.dart`) qui empêchent un
+/// `group_id` vide de faire perdre un lot de synchronisation entier, et une
+/// fiche de tuteur commencée d'être jetée en silence. La fiche élève avait
+/// besoin d'y accéder depuis sa propre bibliothèque : exposer cette fonction
+/// vaut infiniment mieux que d'y recopier un second formulaire, qui aurait
+/// dérivé exactement comme celui du guichet l'avait fait avant lui.
+Future<void> showStudentEditModal(
+  BuildContext context, {
+  required String studentId,
+  required String fullName,
+}) =>
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) =>
+          _StudentEditModal(studentId: studentId, fullName: fullName),
+    );
 
 // ─── Référentiel cycles (couleur / nom / ordre) ──────────────────────────────
 Map<String, Color> get _cycleColors => <String, Color>{
@@ -154,17 +171,30 @@ class _BodyState extends ConsumerState<_Body> {
       });
   void _clearSel() => setState(_selected.clear);
 
-  void _openAdd() => showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => const Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: EdgeInsets.symmetric(horizontal: 40, vertical: 32),
-          child: AddInscriptionScreen(),
-        ),
-      );
+  // ══════════════════════════════════════════════════════════════════════════
+  //  DEUX DESTINATIONS, ET LAQUELLE MÉRITE LE CLIC
+  //
+  //  ⚠️ LE CLIC SUR LA LIGNE OUVRAIT LE TIROIR, et la fiche complète — onze
+  //  registres, l'aperçu imprimable — n'était atteignable que par un bouton À
+  //  L'INTÉRIEUR de ce tiroir. Il fallait donc déjà avoir ouvert la vue
+  //  superficielle pour découvrir que la vue profonde existait. Ce n'est pas
+  //  un défaut d'architecture : c'est un défaut de DESTINATION. Cliquer sur le
+  //  nom d'une personne doit ouvrir le dossier de cette personne.
+  //
+  //  Le tiroir ne meurt pas pour autant : il sert le geste qu'on répète
+  //  cinquante fois par jour — qui est cet enfant, quelle classe, quel numéro
+  //  j'appelle. Le supprimer ferait payer une navigation complète à l'action
+  //  la PLUS fréquente pour servir la plus rare. Il garde donc un clic, sur
+  //  une cible explicite en bout de ligne, au lieu de confisquer celui du nom.
+  // ══════════════════════════════════════════════════════════════════════════
 
-  void _openDrawer(StudentRow s) => showGeneralDialog(
+  /// La fiche complète, sur son adresse propre : elle s'envoie à un collègue,
+  /// se met en favori, et le retour ramène la liste avec ses filtres intacts.
+  void _ouvrirFiche(StudentRow s) =>
+      context.push(Routes.eleveDetail.replaceFirst(':id', s.id));
+
+  /// Le coup d'œil — 460 pixels, ce qu'on lit sans quitter la liste.
+  void _apercu(StudentRow s) => showGeneralDialog(
         context: context,
         barrierDismissible: true,
         barrierLabel: 'Fermer',
@@ -204,13 +234,9 @@ class _BodyState extends ConsumerState<_Body> {
     final targets =
         rows.where((r) => _selected.contains(r.enrollmentId)).toList();
     if (targets.isEmpty) return;
-    final classId = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _ClassChooserDialog(
-          title: 'Changer de classe',
-          subtitle: '${targets.length} élève(s) sélectionné(s)'),
-    );
+    final classId = await choisirClasseEleve(context,
+        titre: 'Changer de classe',
+        sousTitre: '${targets.length} élève(s) sélectionné(s)');
     if (classId == null || !mounted) return;
     if (!await _confirmeDebordement(classId, targets.length)) return;
     var n = 0;
@@ -292,6 +318,9 @@ class _BodyState extends ConsumerState<_Body> {
     if (list.isEmpty) return;
     try {
       final path = await exportStudentsCsv(list);
+      // `null` = fenêtre « Enregistrer sous » fermée sans choisir. Ni fichier,
+      // ni message : annuler doit rester sans conséquence visible.
+      if (path == null) return;
       _snack('Export CSV : ${list.length} ligne(s) → $path', kGreen);
     } catch (e) {
       _snack(messageErreur(e, contexte: 'Export'), kRed);
@@ -355,8 +384,13 @@ class _BodyState extends ConsumerState<_Body> {
     // le verbe `create`, l'`AdminEmptyState` doit le faire aussi. La RLS
     // exige ce verbe à l'INSERT ; un refus est un 42501, code FATAL pour le
     // connecteur PowerSync — le lot d'écritures entier est jeté.
+    // ⚠️ `kSlugInscription` et non `_kSlug` : l'état vide propose le MÊME
+    // assistant que la barre d'outils, donc il doit demander la même clé.
+    // Deux portes vers un seul geste qui n'exigent pas le même droit, c'est
+    // la porte la plus permissive qui décide.
     final canCreate =
-        ref.watch(canProvider((slug: _kSlug, action: 'create'))) && !readOnly;
+        ref.watch(canProvider((slug: kSlugInscription, action: 'create'))) &&
+            !readOnly;
 
     return async.when(
       skipLoadingOnReload: true,
@@ -371,11 +405,13 @@ class _BodyState extends ConsumerState<_Body> {
       data: (all) {
         final filtered = _apply(all);
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+        // ── ⚠️ `CustomScrollView`, PAS `SingleChildScrollView` ────────────
+        //  L'en-tête (indicateurs, graphiques, filtres) reste construit d'un
+        //  bloc : il est court et toujours visible. La LISTE, elle, passe en
+        //  slivers — sans quoi les 868 élèves de l'école la plus chargée du
+        //  parc étaient tous construits, à chaque tick de synchro, pour en
+        //  montrer une douzaine. Voir `studentListSlivers`.
+        final entete = <Widget>[
               _Kpis(
                 students: all,
                 active: _particularite,
@@ -426,7 +462,6 @@ class _BodyState extends ConsumerState<_Body> {
                 onParticularite: (v) => setState(() => _particularite = v),
                 onToggleView: () => setState(() => _isTable = !_isTable),
                 onReset: _resetFilters,
-                onAdd: _openAdd,
               ),
               if (_scope.active) ...[
                 const SizedBox(height: 12),
@@ -450,6 +485,8 @@ class _BodyState extends ConsumerState<_Body> {
                   filtered: filtered.length,
                   onExportPdf:
                       filtered.isEmpty ? null : () => _previewPdf(filtered),
+                  onDonnees:
+                      filtered.isEmpty ? null : () => _bulkExport(filtered),
                 ),
               const SizedBox(height: 12),
               if (all.isEmpty)
@@ -461,8 +498,14 @@ class _BodyState extends ConsumerState<_Body> {
                     message:
                         'Les élèves apparaissent ici une fois leur inscription '
                         'VALIDÉE (depuis la page Inscriptions).',
-                    actionLabel: canCreate ? 'Nouvel élève' : null,
-                    onAction: canCreate ? _openAdd : null,
+                    // Le message dit d'où viennent les élèves ; l'action y
+                    // MÈNE, au lieu de proposer de s'en passer. Offerte au
+                    // seul agent qui a le droit d'inscrire : renvoyer les
+                    // autres vers une porte qui se refermera sur eux, c'est
+                    // leur faire perdre le trajet.
+                    actionLabel: canCreate ? 'Ouvrir les inscriptions' : null,
+                    onAction:
+                        canCreate ? () => context.go(Routes.inscriptions) : null,
                   ),
                 )
               else if (filtered.isEmpty)
@@ -474,28 +517,39 @@ class _BodyState extends ConsumerState<_Body> {
                     message: 'Ajustez la recherche ou les filtres.',
                   ),
                 )
-              else if (_isTable)
-                _StudentTable(
-                  rows: filtered,
-                  sortAsc: _sortAsc,
-                  selected: _selected,
-                  readOnly: readOnly,
-                  onSort: () => setState(() => _sortAsc = !_sortAsc),
-                  onSelect: _toggle,
-                  onSelectAll: (v) => _toggleAll(filtered, v),
-                  onOpen: _openDrawer,
-                )
-              else
-                _StudentCards(
-                  rows: filtered,
-                  selected: _selected,
-                  readOnly: readOnly,
-                  onSelect: _toggle,
-                  onOpen: _openDrawer,
-                ),
-              const SizedBox(height: 24),
-            ],
-          ),
+            ];
+
+        // Le corps : rien si la liste est vide (les états vides sont déjà
+        // dans l'en-tête ci-dessus), sinon la liste virtualisée.
+        final corps = (all.isEmpty || filtered.isEmpty)
+            ? const <Widget>[]
+            : studentListSlivers(
+                rows: filtered,
+                isTable: _isTable,
+                sortAsc: _sortAsc,
+                readOnly: readOnly,
+                selected: _selected,
+                onSort: () => setState(() => _sortAsc = !_sortAsc),
+                onSelect: _toggle,
+                onSelectAll: (v) => _toggleAll(filtered, v),
+                onOpen: _ouvrirFiche,
+                onApercu: _apercu,
+              );
+
+        return CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate.fixed(entete),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              sliver: SliverMainAxisGroup(slivers: corps),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          ],
         );
       },
     );

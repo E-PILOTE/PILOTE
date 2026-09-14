@@ -6,7 +6,7 @@ publish_to: 'none'
 # en retard (mig 0087). Il ne doit donc jamais reculer ni stagner entre deux
 # binaires différents — 3.1.7+18 a été livré deux fois, le 06/08 et le 14/08,
 # ce qui les rendait indistinguables pour le mécanisme de mise à jour.
-version: 3.4.3+27
+version: 3.5.18+52
 
 environment:
   sdk: ^3.12.0
@@ -70,6 +70,13 @@ dependencies:
   package_info_plus: ^9.0.1
   url_launcher: ^6.3.1
   powersync: ^1.18.0
+  # ⚠️ Déclaré EXPLICITEMENT bien qu'il arrive par `powersync` : le code y
+  # prend `SqliteWriteContext`, le type d'une transaction locale, pour écrire
+  # un élève et son inscription dans UN seul acte (cf. `createStudent`).
+  # S'appuyer sur une dépendance transitive sans la nommer, c'est laisser une
+  # montée de version de PowerSync casser la compilation sans prévenir.
+  # Version alignée sur celle que `powersync 1.18` verrouille (pubspec.lock).
+  sqlite_async: ^0.13.1
   fl_chart: ^1.2.0
   syncfusion_flutter_charts: ^33.2.8
   path_provider: ^2.1.5
@@ -93,6 +100,11 @@ dependencies:
   camera: ^0.11.0             # prise de photo à la webcam (fiche élève/agent)
   camera_windows: ^0.2.6      # ⚠️ NON endossé par `camera` : à déclarer à part
   file_picker: ^8.1.7         # upload logos groupes
+  # Un .docx EST une archive ZIP de fichiers XML : c'est ce qui permet de
+  # produire un document Word MODIFIABLE sans aucune bibliothèque tierce —
+  # il n'en existe pas de mûre en Dart. Voir `core/services/docx_kit.dart`.
+  # Déjà présente en transitive ; déclarée ici parce qu'on l'importe.
+  archive: ^4.0.9
   pdf: ^3.12.0                # génération PDF
   printing: ^5.14.3           # impression + téléchargement PDF
   pdfrx: ^2.4.4

@@ -1,7 +1,6 @@
-import 'dart:io';
+import 'package:path/path.dart' as p;
 
-import 'package:path_provider/path_provider.dart';
-
+import '../../../core/utils/enregistrer_csv.dart';
 import '../providers/import_eleves_provider.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -37,12 +36,36 @@ import '../providers/import_eleves_provider.dart';
 //  élèves, ou à noyer l'écran de contrôle sous des lignes rejetées. Deux
 //  fichiers nommés clairement coûtent un clic et ne polluent rien.
 //
+//  ── OÙ ILS SONT ÉCRITS ─────────────────────────────────────────────────────
+//  ⚠️ L'AGENT CHOISIT. Ce code écrivait dans `getApplicationDocumentsDirectory()`
+//  sans rien demander : sous Windows, « Documents » est le plus souvent redirigé
+//  vers OneDrive, et le modèle partait donc dans le nuage d'un compte Microsoft
+//  au lieu du dossier de téléchargement où l'agent allait le chercher. Il
+//  cliquait « Télécharger », le panneau vert annonçait un succès, et le fichier
+//  restait introuvable. On passe donc par « Enregistrer sous »
+//  (`core/utils/enregistrer_csv.dart`), comme tous nos exports PDF.
+//
+//  UNE SEULE FENÊTRE, pour deux fichiers : l'agent place le modèle, et la liste
+//  des classes est déposée À CÔTÉ, dans le dossier qu'il vient de désigner.
+//  Enchaîner deux « Enregistrer sous » pour un seul clic ferait fermer la
+//  seconde fenêtre sans la lire — et la liste des classes est justement le
+//  fichier qui évite la moitié des rejets.
+//
 //  ── ENCODAGE ───────────────────────────────────────────────────────────────
 //  ⚠️ Séparateur « ; » et BOM UTF-8, comme l'export du guichet. Sans eux, Excel
 //  en français rouvre notre propre modèle en « PrÃ©nom » et en une seule
 //  colonne — c'est-à-dire exactement les deux pièges que l'import documente. On
-//  ne peut pas livrer un modèle qui tombe dedans.
+//  ne peut pas livrer un modèle qui tombe dedans. (Le BOM est posé par
+//  `enregistrerCsvSous` / `ecrireCsvA`.)
 // ════════════════════════════════════════════════════════════════════════════
+
+/// Nom proposé pour le modèle d'élèves. L'agent peut le changer dans la
+/// fenêtre ; c'est sous ce nom que le panneau de confirmation le retrouvera.
+const String kNomModeleImport = 'modele-import-eleves.csv';
+
+/// Nom du fichier des classes, déposé à côté du modèle. Fixe volontairement :
+/// il n'est pas nommé par l'agent, donc il doit rester reconnaissable.
+const String kNomClassesEcole = 'classes-de-mon-ecole.csv';
 
 /// Ce qui a été écrit, et où.
 class ModeleImport {
@@ -73,14 +96,11 @@ const _entetes = <String>[
   'Nationalité',
 ];
 
-/// Écrit le modèle d'import et, si l'école a des classes, leur liste.
+/// Le modèle à remplir, sous forme de texte CSV.
 ///
-/// [classes] vient de `classesImportProvider` : les classes ouvertes pour
-/// l'année courante, c'est-à-dire les seules destinations qu'un import peut
-/// viser.
-Future<ModeleImport> genererModeleImport(List<ClasseCible> classes) async {
-  final dir = await getApplicationDocumentsDirectory();
-
+/// Séparé de l'écriture pour rester vérifiable sans disque ni fenêtre système :
+/// c'est ce texte-là que le lecteur d'import doit savoir relire.
+String csvModeleImport(List<ClasseCible> classes) {
   // La classe d'exemple est une VRAIE classe de l'école quand il y en a une :
   // la ligne d'exemple montre alors le libellé exact à recopier, au lieu d'un
   // « 6e A » qui n'existe peut-être pas ici.
@@ -111,25 +131,40 @@ Future<ModeleImport> genererModeleImport(List<ClasseCible> classes) async {
       'Congolaise',
     ].map(_cell).join(';'));
 
-  final fModele = File('${dir.path}/modele-import-eleves.csv');
-  await _ecrireAvecBom(fModele, m.toString());
+  return m.toString();
+}
 
-  if (classes.isEmpty) {
-    return ModeleImport(modele: fModele.path, classes: null);
-  }
-
+/// La liste des classes réelles de l'école, sous forme de texte CSV.
+String csvClassesEcole(List<ClasseCible> classes) {
   final c = StringBuffer()
     ..writeln(['Classe', 'Niveau', 'Filière'].map(_cell).join(';'));
   for (final cl in classes) {
     c.writeln([cl.nom, cl.niveau ?? '', cl.filiere ?? ''].map(_cell).join(';'));
   }
-
-  final fClasses = File('${dir.path}/classes-de-mon-ecole.csv');
-  await _ecrireAvecBom(fClasses, c.toString());
-
-  return ModeleImport(modele: fModele.path, classes: fClasses.path);
+  return c.toString();
 }
 
-/// Écrit avec le BOM UTF-8 en tête — sans lui, Excel FR mange les accents.
-Future<void> _ecrireAvecBom(File f, String contenu) =>
-    f.writeAsString('﻿$contenu');
+/// Demande où enregistrer le modèle, l'écrit, puis dépose la liste des classes
+/// dans le même dossier.
+///
+/// [classes] vient de `classesImportProvider` : les classes ouvertes pour
+/// l'année courante, c'est-à-dire les seules destinations qu'un import peut
+/// viser.
+///
+/// Retourne `null` si l'agent a fermé la fenêtre sans choisir — une annulation
+/// n'est pas un échec et ne doit pas s'afficher en rouge.
+Future<ModeleImport?> genererModeleImport(List<ClasseCible> classes) async {
+  final chemin = await enregistrerCsvSous(
+    nomPropose: kNomModeleImport,
+    contenu: csvModeleImport(classes),
+    titreFenetre: 'Enregistrer le modèle d\'import',
+  );
+  if (chemin == null) return null;
+
+  if (classes.isEmpty) return ModeleImport(modele: chemin, classes: null);
+
+  final cheminClasses = p.join(p.dirname(chemin), kNomClassesEcole);
+  await ecrireCsvA(cheminClasses, csvClassesEcole(classes));
+
+  return ModeleImport(modele: chemin, classes: cheminClasses);
+}

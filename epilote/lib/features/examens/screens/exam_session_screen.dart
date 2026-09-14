@@ -12,6 +12,7 @@ import '../../students/widgets/scope_drilldown_panel.dart';
 import '../../structure/providers/academic_year_provider.dart' show currentSchoolProvider;
 import '../providers/exam_candidates_provider.dart';
 import '../providers/exam_registration_provider.dart';
+import '../providers/exam_verbes.dart';
 import '../services/convocation_service.dart';
 import '../services/exam_export_service.dart';
 import '../widgets/examens_widgets.dart' show ExamErrorCard;
@@ -420,6 +421,11 @@ class _State extends ConsumerState<ExamSessionScreen> {
           onDeposit: () => _bulkDeposit(selectedRows),
           onRemove: () => _bulkRemove(selectedRows),
           onClear: () => setState(_selected.clear),
+          // Chaque bouton porte le verbe de SON acte, pas celui de la barre :
+          // l'attribution d'un numéro est un `update`, le dépôt un `validate`,
+          // le retrait un `delete` (cf. `providers/exam_verbes.dart`).
+          canDeposit: ref.watch(peutDeposerDossierProvider),
+          canRemove: ref.watch(peutRetirerCandidatProvider),
         )),
       ],
       _gap(16),

@@ -178,7 +178,7 @@ void main() {
           '0158_AVANT_LE_BUILD_lagrement_du_groupe_et_la_vue_de_tutelle.sql');
       expect(f.existsSync(), isTrue,
           reason: 'Sonde aveugle : la migration 0158 est introuvable.');
-      final sql = f.readAsStringSync();
+      final sql = f.readAsStringSync().replaceAll('\r\n', '\n');
 
       // La décision : ÉTABLISSEMENTS en clair, PERSONNES en agrégats. La seule
       // exception nominative est le chef d'établissement, lu sur `profiles`.

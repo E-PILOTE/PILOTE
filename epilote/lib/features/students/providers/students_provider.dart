@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sqlite_async/sqlite_async.dart' show SqliteWriteContext;
 import 'package:uuid/uuid.dart';
 
 import '../../../data/models/student_model.dart';
@@ -71,10 +72,11 @@ String _generateMatricule() {
 /// Le tirage large rend la collision improbable ; la relecture la rend
 /// impossible CONTRE CE QUI EST DÉJÀ LÀ — c'est le terme dominant, puisque tout
 /// élève déjà synchronisé est dans la base locale.
-Future<String> _matriculeLibre(String groupId) async {
+Future<String> _matriculeLibre(String groupId,
+    {SqliteWriteContext? tx}) async {
   for (var i = 0; i < 5; i++) {
     final m = _generateMatricule();
-    final pris = await db.getAll(
+    final pris = await (tx ?? db).getAll(
       'SELECT 1 FROM students WHERE group_id = ? AND matricule = ? LIMIT 1',
       [groupId, m],
     );
@@ -228,7 +230,19 @@ Future<String> createStudent({
   bool hasSocialAid = false,
   String? socialAidType,
   bool isAffecte = false,
+
+  /// Transaction locale dans laquelle écrire, quand l'appelant en ouvre une.
+  ///
+  /// ⚠️ Ce n'est pas une commodité de style. Un élève et son inscription
+  /// sont UN seul acte : écrits en deux transactions séparées, un échec au
+  /// milieu laisse une fiche d'élève orpheline — invisible partout (tous les
+  /// écrans passent par `class_enrollments`) et occupant pourtant un
+  /// matricule. En prime, PowerSync remonte UNE requête HTTP par transaction
+  /// locale : sur un import de 1 200 élèves, les regrouper divise par deux le
+  /// nombre d'allers-retours sur une liaison congolaise.
+  SqliteWriteContext? tx,
 }) async {
+  final ecrire     = tx ?? db;
   final sid        = id ?? _uuid.v4();
   // ⚠️ `students_ine_ecole_key (ine, school_id) WHERE ine IS NOT NULL` : un INE
   // revendiqué deux fois dans la même école — deux dossiers ouverts sur le même
@@ -236,7 +250,7 @@ Future<String> createStudent({
   // fait refuser en 23505, code FATAL : le connecteur jette le LOT ENTIER en
   // attente. On le dit ici, en clair, avant d'écrire.
   if (claimedIne != null && claimedIne.trim().isNotEmpty) {
-    final pris = await db.getAll(
+    final pris = await ecrire.getAll(
       'SELECT id FROM students WHERE school_id = ? AND ine = ? LIMIT 1',
       [schoolId, claimedIne.trim()],
     );
@@ -246,10 +260,10 @@ Future<String> createStudent({
     }
   }
 
-  final matricule  = await _matriculeLibre(groupId);
+  final matricule  = await _matriculeLibre(groupId, tx: tx);
   final now        = DateTime.now().toIso8601String();
 
-  await db.execute(
+  await ecrire.execute(
     '''
     INSERT INTO students (
       id, school_id, group_id, matricule, ine,

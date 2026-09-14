@@ -220,8 +220,27 @@ Future<int> copySchoolClassesToYear({
   );
   final taken =
       existing.map((r) => (r['name'] as String).toLowerCase().trim()).toSet();
+  // ⚠️ LES COLONNES DÉNORMALISÉES SE RECOPIENT AUSSI (2026-09-09).
+  //
+  //  Cette fonction ne reprenait que `name/capacity/room/level_id/
+  //  main_teacher_id`. Or `classes` porte aussi `cycle_code`, `level_code`,
+  //  `level_order`, `filiere_code` et `filiere_label` — dénormalisés EXPRÈS,
+  //  et lus tels quels par l'État de rentrée, le registre matricule, les
+  //  documents annuels et les KPI d'inscriptions (`ORDER BY level_order`).
+  //  `createStructuredClass` les pose, `class_rollover` les recopie ; il n'y
+  //  avait que ce chemin-ci pour les perdre.
+  //
+  //  Les perdre ne vide rien : les lectures retombent sur `?? 99` / `?? 999`.
+  //  Une classe de 6e préparée depuis le Calendrier scolaire se serait donc
+  //  rangée en fin de tableau, derrière la Terminale, sur un état signé — sans
+  //  la moindre erreur. C'est pire qu'une absence : c'est un faux ordre.
+  //
+  //  Deux chemins préparent la rentrée (« Calendrier scolaire » ici,
+  //  « Passage » via `class_rollover`) : ils doivent produire la MÊME classe.
   final src = await db.getAll(
-    'SELECT name, capacity, room, level_id, main_teacher_id FROM classes '
+    'SELECT name, capacity, room, level_id, main_teacher_id, '
+    '       cycle_code, level_code, level_order, filiere_code, filiere_label '
+    'FROM classes '
     'WHERE academic_year_id = ? AND school_id = ? AND COALESCE(is_active, 1) <> 0',
     [sourceYearId, schoolId],
   );
@@ -231,14 +250,19 @@ Future<int> copySchoolClassesToYear({
     await db.execute(
       '''INSERT INTO classes
          (id, school_id, group_id, academic_year_id, name, capacity,
-          main_teacher_id, room, level_id, is_active, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)''',
+          main_teacher_id, room, level_id, cycle_code, level_code,
+          level_order, filiere_code, filiere_label,
+          is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)''',
       [
         // Deduit de `UNIQUE (school_id, academic_year_id, name)`.
         idDeterministe('class',
             [schoolId, targetYearId, (c['name'] as String).trim()]),
         schoolId, groupId, targetYearId, c['name'], c['capacity'],
-        c['main_teacher_id'], c['room'], c['level_id'], _now, _now,
+        c['main_teacher_id'], c['room'], c['level_id'],
+        c['cycle_code'], c['level_code'], c['level_order'],
+        c['filiere_code'], c['filiere_label'],
+        _now, _now,
       ],
     );
     created++;

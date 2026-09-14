@@ -191,6 +191,18 @@ final etatRentreeProvider =
       LEFT JOIN education_cycles ec ON ec.code = c.cycle_code
       LEFT JOIN students s       ON s.id = e.student_id
      WHERE e.school_id = ? AND e.academic_year_id = ? AND e.status = 'active'
+       -- ⚠️ L'état de rentrée est le document qui part à la circonscription,
+       -- et c'est de lui que découlent les DOTATIONS. Il comptait les élèves
+       -- retirés du registre, quand le registre lui-même, Classes et
+       -- Paiements les excluent : l'école se déclarait plus nombreuse
+       -- qu'elle ne l'est.
+       --
+       -- Le filtre est au WHERE et non sur la jointure, à dessein : la
+       -- jointure est un LEFT JOIN et l'écran compte à part les inscriptions
+       -- SANS élève (`sansEleve`). `COALESCE(NULL, 1) <> 0` reste vrai, donc
+       -- ce décompte-là est préservé ; seuls les élèves existants et
+       -- désactivés sortent.
+       AND COALESCE(s.is_active, 1) <> 0
     ''',
     [schoolId, year.id],
   );

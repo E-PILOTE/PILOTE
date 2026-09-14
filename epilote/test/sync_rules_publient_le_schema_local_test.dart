@@ -173,7 +173,7 @@ void main() {
       final f = File('../database/checks/0169_refus_muets_update_et_delete.sql');
       expect(f.existsSync(), isTrue,
           reason: 'Sonde aveugle : le contrôle des refus muets a disparu.');
-      final sql = f.readAsStringSync();
+      final sql = f.readAsStringSync().replaceAll('\r\n', '\n');
       final debut = sql.indexOf('tables text[] := ARRAY[');
       expect(debut, greaterThan(-1),
           reason: 'Sonde aveugle : tableau des tables introuvable.');
@@ -213,7 +213,7 @@ void main() {
       final f = File(
           'lib/features/structure/providers/school_holidays_provider.dart');
       expect(f.existsSync(), isTrue, reason: 'Sonde aveugle : provider absent.');
-      final src = f.readAsStringSync();
+      final src = f.readAsStringSync().replaceAll('\r\n', '\n');
 
       for (final nom in ['updateHoliday', 'deleteHoliday']) {
         final debut = src.indexOf('Future<void> $nom(');

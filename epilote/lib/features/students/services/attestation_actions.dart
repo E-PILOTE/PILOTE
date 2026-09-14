@@ -19,6 +19,7 @@ import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../structure/providers/academic_year_context.dart';
 import '../../structure/providers/academic_year_provider.dart';
+import 'attestations_docx_service.dart';
 import 'attestations_pdf_service.dart';
 import 'registre_documents.dart';
 
@@ -107,6 +108,23 @@ Future<void> delivrerCertificatScolarite(
       signataire: e.signataire,
       fonction: e.fonction,
     ),
+    // ⚠️ LA VERSION MODIFIABLE. Un certificat n'est pas un état : c'est une
+    // lettre. « Pour servir et valoir ce que de droit auprès de … » se
+    // complète, une école ajoute la ligne que sa tutelle exige. Le PDF fige
+    // tout cela, et l'agent qui a besoin d'un mot de plus retapait la pièce
+    // entière dans Word à partir de rien — ce qui se recopie faux.
+    onWord: () => AttestationsDocxService.enregistrer(
+      octets: AttestationsDocxService.certificatScolarite(
+        eleve: eleve,
+        schoolName: e.schoolName,
+        yearLabel: e.yearLabel,
+        city: e.city,
+        signataire: e.signataire,
+        fonction: e.fonction,
+      ),
+      base: 'certificat_scolarite',
+      eleve: eleve,
+    ),
   );
 }
 
@@ -159,6 +177,24 @@ Future<void> delivrerCertificatRadiation(
       city: e.city,
       signataire: e.signataire,
       fonction: e.fonction,
+    ),
+    // Le motif d'une radiation se FORMULE : « transfert » ou « abandon » ne
+    // disent pas ce que l'école d'accueil a besoin de lire. C'est la pièce de
+    // toute l'application qui appelle le plus une retouche avant signature.
+    onWord: () => AttestationsDocxService.enregistrer(
+      octets: AttestationsDocxService.certificatRadiation(
+        eleve: eleve,
+        schoolName: e.schoolName,
+        yearLabel: e.yearLabel,
+        motif: motif,
+        dateSortie: dateSortie,
+        observations: observations,
+        city: e.city,
+        signataire: e.signataire,
+        fonction: e.fonction,
+      ),
+      base: 'certificat_radiation',
+      eleve: eleve,
     ),
   );
 }

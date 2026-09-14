@@ -9,6 +9,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../providers/national_map_provider.dart';
 
+// ═════════════════════════════════════════════════════════════════════════════
+//  POURQUOI LA CARTOGRAPHIE N'EST PAS DANS `features/tutelle/`
+//  — décidé le 2026-09-10, après l'avoir sérieusement envisagé.
+//
+//  Métier, une carte du parc scolaire est un outil de TUTELLE : c'est un
+//  ministère qui la regarde, et la vue régionale est d'ailleurs fermée aux
+//  groupes privés. Code, elle est éclatée en deux : cette carte NATIONALE ici
+//  (espace fondateur) et la vue RÉGIONALE dans `admin_groupe/screens/regional/`
+//  (~3 000 lignes).
+//
+//  Elle ne déménage pas, et ce n'est pas de la paresse :
+//   • les deux vues ne partagent ni leur portée (pays / groupe), ni leur
+//     source (`schools` de tout le parc / `schools` d'un groupe), ni leurs
+//     droits. Les réunir sous `tutelle/` créerait un dossier dont la moitié
+//     n'est pas de la tutelle ;
+//   • `features/tutelle/` est aujourd'hui le périmètre le plus sain du dépôt
+//     — 0 fichier de plus de 500 lignes, 0 `catch (_) {}`. Y verser 3 800
+//     lignes venues d'ailleurs détruirait précisément ce qui en fait un
+//     modèle ;
+//   • le déplacement casserait des imports dans deux espaces pour un gain
+//     purement nominal, à trois semaines d'un déploiement national.
+//
+//  Ce qui manquait n'était pas le rangement : c'était la trace écrite. La
+//  voici. Cf. `docs/analyse-2026-09/11-espace-tutelle.md` §D.7.
+// ═════════════════════════════════════════════════════════════════════════════
+
 // ─── Design tokens ────────────────────────────────────────────────────────────
 Color get _kNavy => kNavy;
 Color get _kGreen => kGreen;

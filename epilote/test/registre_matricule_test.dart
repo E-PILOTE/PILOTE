@@ -162,7 +162,7 @@ void main() {
     test('le document imprime l’avertissement quand il y a des lacunes', () {
       final src = File(
               'lib/features/students/services/registre_matricule_pdf_service.dart')
-          .readAsStringSync();
+          .readAsStringSync().replaceAll('\r\n', '\n');
       expect(src.contains('REGISTRE INCOMPLET'), isTrue);
       expect(src.contains('if (!registre.complet)'), isTrue,
           reason: 'Un registre qui se prétend complet sans l’être est pire '
@@ -173,7 +173,7 @@ void main() {
     test('l’écran met l’alerte AVANT le bouton d’impression', () {
       final src =
           File('lib/features/students/screens/registre_matricule_screen.dart')
-              .readAsStringSync();
+              .readAsStringSync().replaceAll('\r\n', '\n');
       final iAlerte = src.indexOf('_AlerteLacunes(lacunes:');
       final iEntete = src.indexOf('_Entete(');
       expect(iAlerte, greaterThan(-1));
@@ -211,7 +211,7 @@ void main() {
   group('L’élève archivé reste au grand livre', () {
     test('les sync-rules ne filtrent plus `is_active` sur students', () {
       final rules =
-          File('../powersync/config/sync-rules.yaml').readAsStringSync();
+          File('../powersync/config/sync-rules.yaml').readAsStringSync().replaceAll('\r\n', '\n');
       expect(
         rules.contains(
             'SELECT * FROM students WHERE school_id = bucket.sid AND is_active = true'),
@@ -231,7 +231,7 @@ void main() {
     test('le document marque l’archivé plutôt que de le taire', () {
       final src = File(
               'lib/features/students/services/registre_matricule_pdf_service.dart')
-          .readAsStringSync();
+          .readAsStringSync().replaceAll('\r\n', '\n');
       expect(src.contains('(archivé)'), isTrue);
     });
   });

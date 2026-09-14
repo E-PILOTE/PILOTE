@@ -135,7 +135,7 @@ class _CoutFormDialogState extends ConsumerState<_CoutFormDialog> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 560, maxHeight: 660),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          _EnteteDialog(
+          EnteteDialog(
             icone: Icons.dns_rounded,
             titre: _edition ? 'Modifier le coût' : 'Nouveau coût d\'exploitation',
             sousTitre: 'Le montant en FCFA est celui qui fait foi.',
@@ -185,7 +185,7 @@ class _CoutFormDialogState extends ConsumerState<_CoutFormDialog> {
                             setState(() => _categorie = v ?? 'autre'),
                       ),
                       const SizedBox(height: 18),
-                      const _SousTitreDialog('MONTANT'),
+                      const SousTitreDialog('MONTANT'),
                       const SizedBox(height: 12),
                       Row(children: [
                         Expanded(
@@ -288,7 +288,7 @@ class _CoutFormDialogState extends ConsumerState<_CoutFormDialog> {
               ),
             ),
           ),
-          _PiedDialog(
+          PiedDialog(
             saving: _saving,
             onAnnuler: () => Navigator.pop(context),
             onSupprimer: _edition ? _supprimer : null,
@@ -302,98 +302,5 @@ class _CoutFormDialogState extends ConsumerState<_CoutFormDialog> {
 
 // ─── Chrome partagé par les deux formulaires ────────────────────────────────
 
-class _EnteteDialog extends StatelessWidget {
-  const _EnteteDialog({
-    required this.icone,
-    required this.titre,
-    required this.sousTitre,
-    required this.onFermer,
-  });
 
-  final IconData icone;
-  final String titre, sousTitre;
-  final VoidCallback onFermer;
 
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.fromLTRB(22, 18, 14, 16),
-        decoration:
-            BoxDecoration(border: Border(bottom: BorderSide(color: kBorder))),
-        child: Row(children: [
-          Icon(icone, size: 21, color: kNavy),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(titre,
-                      style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w800)),
-                  Text(sousTitre,
-                      style: TextStyle(fontSize: 11.5, color: kTextMuted)),
-                ]),
-          ),
-          IconButton(
-              onPressed: onFermer,
-              icon: const Icon(Icons.close_rounded, size: 19)),
-        ]),
-      );
-}
-
-class _PiedDialog extends StatelessWidget {
-  const _PiedDialog({
-    required this.saving,
-    required this.onAnnuler,
-    required this.onEnregistrer,
-    this.onSupprimer,
-  });
-
-  final bool saving;
-  final VoidCallback onAnnuler;
-  final VoidCallback? onEnregistrer, onSupprimer;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.fromLTRB(22, 14, 22, 18),
-        decoration:
-            BoxDecoration(border: Border(top: BorderSide(color: kBorder))),
-        child: Row(children: [
-          if (onSupprimer != null)
-            TextButton.icon(
-              onPressed: saving ? null : onSupprimer,
-              icon: const Icon(Icons.delete_outline_rounded, size: 16),
-              label: const Text('Supprimer'),
-              style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFFEF4444)),
-            ),
-          const Spacer(),
-          TextButton(
-              onPressed: saving ? null : onAnnuler,
-              child: const Text('Annuler')),
-          const SizedBox(width: 10),
-          FilledButton.icon(
-            onPressed: saving ? null : onEnregistrer,
-            icon: saving
-                ? const SizedBox(
-                    width: 14, height: 14,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.save_rounded, size: 16),
-            label: const Text('Enregistrer'),
-          ),
-        ]),
-      );
-}
-
-class _SousTitreDialog extends StatelessWidget {
-  const _SousTitreDialog(this.texte);
-  final String texte;
-
-  @override
-  Widget build(BuildContext context) => Text(texte,
-      style: TextStyle(
-          fontSize: 10.5,
-          fontWeight: FontWeight.w800,
-          letterSpacing: .6,
-          color: kTextMuted));
-}

@@ -32,7 +32,18 @@ part 'add_inscription_steps_3_5.dart';
 
 /// L'assistant inscrit : son périmètre est celui du module `inscriptions`,
 /// pas celui du module `classes` dont il empruntait la liste.
-const _kSlug = 'inscriptions';
+///
+/// ⚠️ C'EST LA PERMISSION QUE CE FORMULAIRE EXIGE, OÙ QU'IL SOIT MONTÉ. Il
+/// écrit `class_enrollments` : le geste est une INSCRIPTION, quel que soit
+/// l'écran d'où on l'ouvre.
+///
+/// Elle servait déjà à choisir les classes proposées (`classesForModuleProvider`),
+/// mais elle était PRIVÉE — donc les écrans qui montent l'assistant ne
+/// pouvaient pas s'y adosser, et gardaient la porte avec leur propre slug. Le
+/// module Élèves offrait ainsi le même assistant derrière `eleves:create` : une
+/// école ayant accordé Élèves sans Inscriptions voyait inscrire quand même. Le
+/// périmètre des classes et le droit d'inscrire viennent désormais du même nom.
+const kSlugInscription = 'inscriptions';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 Color get _kNavy => kNavy;

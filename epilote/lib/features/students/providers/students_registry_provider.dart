@@ -1,8 +1,6 @@
-import 'dart:io';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 
+import '../../../core/utils/enregistrer_csv.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
@@ -307,18 +305,24 @@ List<String> ligneExportEleve(StudentRow r) => [
       (r.hasScholarship || r.hasSocialAid) ? 'Oui' : 'Non',
     ];
 
-/// Écrit l'effectif (filtré) en CSV (séparateur `;`, BOM UTF-8 pour Excel FR)
-/// dans le dossier Documents de l'appareil. Retourne le chemin.
-Future<String> exportStudentsCsv(List<StudentRow> rows) async {
+/// Compose l'effectif (filtré) en CSV (séparateur `;`, BOM UTF-8 pour Excel
+/// FR) et demande à l'agent où l'enregistrer.
+///
+/// Retourne le chemin écrit, ou `null` s'il a fermé la fenêtre sans choisir.
+Future<String?> exportStudentsCsv(List<StudentRow> rows) async {
   final b = StringBuffer();
   b.writeln(kEnTetesExportEleves.map(_csv).join(';'));
   for (final r in rows) {
     b.writeln(ligneExportEleve(r).map(_csv).join(';'));
   }
-  final dir = await getApplicationDocumentsDirectory();
+  // ⚠️ « Enregistrer sous », et non une écriture silencieuse dans Documents :
+  // sous Windows ce dossier est le plus souvent redirigé vers OneDrive, et la
+  // liste nominative de l'effectif partait dans le nuage du compte Microsoft
+  // du poste pendant que l'agent la cherchait dans ses téléchargements.
   final ts = DateTime.now().toIso8601String().substring(0, 10);
-  final file = File('${dir.path}/eleves_$ts.csv');
-  // BOM UTF-8, sans quoi Excel rend « Ngoué » en « NgouÃ© ».
-  await file.writeAsString('\u{FEFF}${b.toString()}');
-  return file.path;
+  return enregistrerCsvSous(
+    nomPropose: 'eleves_$ts.csv',
+    contenu: b.toString(),
+    titreFenetre: 'Enregistrer la liste des élèves',
+  );
 }

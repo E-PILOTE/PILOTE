@@ -85,11 +85,18 @@ final orientationOverviewProvider = FutureProvider.autoDispose
   // L'année est explicite : `academic_year_id` est NOT NULL, écrit depuis
   // toujours, et n'était lu NULLE PART.
   final rows = await db.getAll(
+    // ⚠️ Le NUMÉRATEUR de la couverture d'orientation ignorait
+    // `students.is_active`, alors que son DÉNOMINATEUR — l'effectif de la
+    // classe, `class_provider.dart:86-90` — l'applique. Résultat possible :
+    // « 13 / 12 orientés », un taux au-dessus de 100 %. Deux moitiés d'un même
+    // ratio ne peuvent pas compter deux populations différentes.
     'SELECT DISTINCT ce.class_id AS cid, o.student_id AS sid, '
     '       o.parent_consulted AS pc '
     'FROM student_orientations o '
     'JOIN class_enrollments ce ON ce.student_id = o.student_id '
     "AND ce.status = 'active' AND ce.academic_year_id = ? "
+    'JOIN students s ON s.id = o.student_id '
+    'AND COALESCE(s.is_active, 1) <> 0 '
     'WHERE o.academic_year_id = ? AND ce.class_id IN ($ph) $trimClause',
     params,
   );

@@ -61,7 +61,7 @@ String _lireMigration() {
   final f = File('../database/migrations/'
       '0144_un_journal_qui_ne_note_que_les_actes_administratifs.sql');
   if (!f.existsSync()) fail('Migration 0144 introuvable.');
-  return f.readAsStringSync();
+  return f.readAsStringSync().replaceAll('\r\n', '\n');
 }
 
 void main() {

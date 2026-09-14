@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!--
+    ════════════════════════════════════════════════════════════════════════
+      LA MARQUE SEULE — le même logo, sans ses mots.
+
+      `logo.svg` est un BLOC COMPLET : il porte la toque, l'étoile, MAIS
+      AUSSI les textes « E-PILOTE », « CONGO », « GESTION SCOLAIRE » et une
+      barre tricolore. À 46 px (barre du haut, PDF, barre latérale) ces
+      textes sont illisibles : le bloc se lit comme une icône, tout va bien.
+
+      À 140 px — la taille de l'écran de démarrage — ils redeviennent
+      LISIBLES. L'écran affichait alors « E-PILOTE / CONGO / GESTION
+      SCOLAIRE » dans le rond, puis « E-PILOTE CONGO » en grand juste
+      dessous, puis « Plateforme Nationale de Gestion Scolaire » encore
+      dessous. Le nom trois fois, la vocation deux fois, le drapeau cinq
+      fois sur le même écran.
+
+      D'où ce second fichier : la MARQUE (toque + étoile + anneaux), sans un
+      seul mot. Le nom est dit une fois, en typographie, par l'écran.
+
+      ⚠️ `logo.svg` n'est pas modifié : il reste le bloc complet partout où
+      il sert de signature — en-têtes de PDF, barre latérale, connexion.
+      Les deux fichiers doivent rester visuellement frères ; toute retouche
+      de l'un se reporte sur l'autre.
+    ════════════════════════════════════════════════════════════════════════
+  -->
+  <defs>
+    <radialGradient id="bgGrad" cx="40%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#1E3A5F"/>
+      <stop offset="100%" stop-color="#0F2340"/>
+    </radialGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FBBC04"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+  </defs>
+
+  <!-- === FOND CERCLE PRINCIPAL === -->
+  <circle cx="100" cy="100" r="96" fill="#0F2340"/>
+  <circle cx="100" cy="100" r="94" fill="url(#bgGrad)"/>
+
+  <!-- === ANNEAU EXTÉRIEUR VERT CONGO === -->
+  <circle cx="100" cy="100" r="94" fill="none" stroke="#009A44" stroke-width="3.5"/>
+  <circle cx="100" cy="100" r="94" fill="none"
+    stroke="#009A44" stroke-width="1" stroke-opacity="0.3"
+    stroke-dasharray="8,6"/>
+
+  <!-- === ANNEAU INTÉRIEUR SUBTIL === -->
+  <circle cx="100" cy="100" r="84" fill="none"
+    stroke="#1E3A5F" stroke-width="1.5" stroke-opacity="0.8"/>
+
+  <!--
+    La toque occupait le haut du rond (y 15 → 114) parce que les textes
+    tenaient le bas. Sans eux elle flotterait en hauteur : on la recentre et
+    on l'agrandit d'un cinquième pour qu'elle habite le disque.
+    Le point (100 ; 64,5) — son centre — vient se poser sur (100 ; 100).
+  -->
+  <g transform="translate(100,100) scale(1.19) translate(-100,-64.5)">
+    <!-- Plateau principal -->
+    <polygon points="100,38  148,58  100,78  52,58" fill="url(#goldGrad)"/>
+    <!-- Plateau — faces avant (volume) -->
+    <polygon points="52,58  100,78  100,82  52,62" fill="#D97706" opacity="0.7"/>
+    <polygon points="148,58  100,78  100,82  148,62" fill="#B45309" opacity="0.5"/>
+
+    <!-- Montant vertical central -->
+    <rect x="97" y="58" width="6" height="32" rx="3" fill="white" opacity="0.95"/>
+
+    <!--
+      ⚠️ Corps et base ASSOMBRIS par rapport à `logo.svg`
+      (#1A3050 / #152A44). Ces deux teintes se confondaient avec le
+      dégradé du disque : la toque n’apparaissait que par ses
+      lisérés verts, comme un ressort. Dans le bloc complet, le texte
+      la masquait à moitié et cachait le défaut ; seule et en 140 px,
+      elle devait redevenir une toque.
+    -->
+    <!-- Corps de la toque -->
+    <ellipse cx="100" cy="90" rx="28" ry="7" fill="#0A1B2E"/>
+    <rect x="72" y="78" width="56" height="28" rx="2" fill="#0A1B2E"/>
+
+    <!-- Base de la toque -->
+    <ellipse cx="100" cy="106" rx="32" ry="8" fill="#071322"/>
+
+    <!-- Pompon / cordon -->
+    <line x1="148" y1="58" x2="148" y2="76"
+      stroke="url(#goldGrad)" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="148" cy="80" r="5" fill="url(#goldGrad)"/>
+
+    <!-- Étoile Congo -->
+    <g transform="translate(100,22)">
+      <polygon
+        points="0,-7 1.8,-2.5 6.6,-2.5 2.8,0.9 4.2,6.2 0,3.5 -4.2,6.2 -2.8,0.9 -6.6,-2.5 -1.8,-2.5"
+        fill="url(#goldGrad)"/>
+    </g>
+  </g>
+</svg>

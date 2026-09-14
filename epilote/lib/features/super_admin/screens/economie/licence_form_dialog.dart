@@ -1,4 +1,30 @@
-part of '../economie_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/constants/licence_statut.dart';
+import '../../../../core/utils/message_erreur.dart';
+import '../../../../core/widgets/admin_ui.dart';
+import '../../providers/economie_provider.dart';
+import 'economie_chrome.dart';
+
+/// Ouvre le formulaire de licence — depuis Économie OU depuis Abonnements.
+///
+/// ⚠️ UN SEUL FORMULAIRE, DEUX PORTES. Le fondateur gère les abonnements
+/// mensuels sur une page ; les licences vivaient sur une autre, qu'il fallait
+/// savoir chercher. Il a activé une licence puis est allé la voir là où il
+/// gère les abonnements — elle n'y était pas. Écrire un second formulaire
+/// « rapide » aurait réglé sa gêne et créé le vrai problème : deux saisies du
+/// même contrat, qui divergent au premier champ ajouté.
+Future<void> ouvrirFormulaireLicence(
+  BuildContext context, {
+  LicenceTutelle? edition,
+  String? groupeImpose,
+}) =>
+    showDialog<void>(
+      context: context,
+      builder: (_) =>
+          LicenceFormDialog(edition: edition, groupeImpose: groupeImpose),
+    );
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LA LICENCE ANNUELLE DE TUTELLE — SAISIE
@@ -14,20 +40,31 @@ part of '../economie_screen.dart';
 //  ET le marché.
 // ════════════════════════════════════════════════════════════════════════════
 
-class _LicenceFormDialog extends ConsumerStatefulWidget {
-  const _LicenceFormDialog({this.edition});
+class LicenceFormDialog extends ConsumerStatefulWidget {
+  const LicenceFormDialog({super.key, this.edition, this.groupeImpose});
+
   final LicenceTutelle? edition;
 
+  /// Groupe pré-sélectionné et VERROUILLÉ — quand on arrive depuis la ligne
+  /// d'un ministère sur la page Abonnements. Le choix a déjà été fait ; le
+  /// reproposer ouvrirait la porte à créer la licence sur le mauvais.
+  final String? groupeImpose;
+
   @override
-  ConsumerState<_LicenceFormDialog> createState() => _LicenceFormDialogState();
+  ConsumerState<LicenceFormDialog> createState() => LicenceFormDialogState();
 }
 
-class _LicenceFormDialogState extends ConsumerState<_LicenceFormDialog> {
+class LicenceFormDialogState extends ConsumerState<LicenceFormDialog> {
   final _formKey = GlobalKey<FormState>();
   final _intitule = TextEditingController(text: 'Licence annuelle de tutelle');
   final _reference = TextEditingController();
   final _signataire = TextEditingController();
-  final _montant = TextEditingController(text: '0');
+  // ⚠️ Proposé, pas imposé : c'est le montant de DÉPART d'une licence de
+  // tutelle (40 M), et un marché public se négocie. Un champ à « 0 » sur la
+  // saisie d'un marché national invitait à l'oubli — et une licence à 0 F
+  // ressemble à une licence gracieuse dans tous les écrans qui la lisent.
+  final _montant =
+      TextEditingController(text: '$kLicenceMontantDepartXaf');
   final _avance = TextEditingController(text: '0');
   final _regle = TextEditingController(text: '0');
   final _notes = TextEditingController();
@@ -43,6 +80,14 @@ class _LicenceFormDialogState extends ConsumerState<_LicenceFormDialog> {
   @override
   void initState() {
     super.initState();
+    // ⚠️ ACTIVE PAR DÉFAUT, et c'est le correctif principal. Le brouillon
+    // était le défaut : on remplissait le formulaire, on enregistrait, et il
+    // ne se passait RIEN de visible — le marché ne comptait aucun revenu et
+    // n'apparaissait nulle part comme validé. Créer une licence, c'est
+    // presque toujours enregistrer un marché signé ; le brouillon est le cas
+    // rare, il reste disponible dans la liste.
+    _statut = 'active';
+    _groupId = widget.groupeImpose;
     final l = widget.edition;
     if (l != null) {
       _groupId = l.groupId;
@@ -146,7 +191,7 @@ class _LicenceFormDialogState extends ConsumerState<_LicenceFormDialog> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 620, maxHeight: 700),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          _EnteteDialog(
+          EnteteDialog(
             icone: Icons.account_balance_rounded,
             titre: _edition ? 'Modifier la licence' : 'Nouvelle licence de tutelle',
             sousTitre: 'Montants libres, modifiables à tout moment.',
@@ -172,7 +217,10 @@ class _LicenceFormDialogState extends ConsumerState<_LicenceFormDialog> {
                           for (final g in groupes)
                             DropdownMenuItem(value: g.id, child: Text(g.nom)),
                         ],
-                        onChanged: _edition
+                        // Verrouillé en édition (on ne déplace pas un marché
+                        // d'un ministère à l'autre) ET quand on arrive depuis
+                        // la ligne d'un ministère : le choix est déjà fait.
+                        onChanged: _edition || widget.groupeImpose != null
                             ? null
                             : (v) => setState(() => _groupId = v),
                         validator: (v) => v == null ? 'Requis' : null,
@@ -208,7 +256,7 @@ class _LicenceFormDialogState extends ConsumerState<_LicenceFormDialog> {
                           ),
                         ),
                       const SizedBox(height: 18),
-                      const _SousTitreDialog('MONTANTS (FCFA)'),
+                      const SousTitreDialog('MONTANTS (FCFA)'),
                       const SizedBox(height: 12),
                       Row(children: [
                         Expanded(child: TextFormField(
@@ -238,24 +286,39 @@ class _LicenceFormDialogState extends ConsumerState<_LicenceFormDialog> {
                           avance: _n(_avance), debut: _debut, fin: _fin),
                       const SizedBox(height: 18),
                       Row(children: [
+                        // ⚠️ EN ÉDITION, LE STATUT NE SE CHANGE PLUS ICI.
+                        //  Ce formulaire écrit en direct dans la table : il
+                        //  contournerait les quatre règles de
+                        //  `licence_changer_statut` (0186) — motif obligatoire
+                        //  pour arrêter, refus de ressusciter un marché
+                        //  résilié, refus d'activer un marché terminé. Le
+                        //  statut se change par les boutons de la fiche, qui
+                        //  passent par la RPC et laissent une trace.
                         Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: _statut,
-                            isExpanded: true,
-                            decoration: const InputDecoration(labelText: 'Statut'),
-                            items: const [
-                              DropdownMenuItem(
-                                  value: 'brouillon', child: Text('Brouillon')),
-                              DropdownMenuItem(
-                                  value: 'active', child: Text('Active')),
-                              DropdownMenuItem(
-                                  value: 'echue', child: Text('Échue')),
-                              DropdownMenuItem(
-                                  value: 'resiliee', child: Text('Résiliée')),
-                            ],
-                            onChanged: (v) =>
-                                setState(() => _statut = v ?? 'brouillon'),
-                          ),
+                          child: _edition
+                              ? _StatutFige(statut: _statut)
+                              : DropdownButtonFormField<String>(
+                                  initialValue: _statut,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                      labelText: 'Statut à la création'),
+                                  // À la création, deux choix seulement : on
+                                  // saisit un marché en préparation, ou un
+                                  // marché déjà signé. Les trois autres états
+                                  // sont des SORTIES — ils se décident après.
+                                  items: [
+                                    for (final st in const [
+                                      'brouillon',
+                                      'active'
+                                    ])
+                                      DropdownMenuItem(
+                                          value: st,
+                                          child: Text(
+                                              libelleStatutLicenceOuTiret(st))),
+                                  ],
+                                  onChanged: (v) => setState(
+                                      () => _statut = v ?? 'brouillon'),
+                                ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(child: TextFormField(
@@ -284,7 +347,7 @@ class _LicenceFormDialogState extends ConsumerState<_LicenceFormDialog> {
               ),
             ),
           ),
-          _PiedDialog(
+          PiedDialog(
             saving: _saving,
             onAnnuler: () => Navigator.pop(context),
             onSupprimer: _edition ? _supprimer : null,
@@ -404,4 +467,26 @@ class _ChampDate extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Le statut, en lecture seule, avec l'endroit où il se change.
+class _StatutFige extends StatelessWidget {
+  const _StatutFige({required this.statut});
+
+  final String statut;
+
+  @override
+  Widget build(BuildContext context) => InputDecorator(
+        decoration: const InputDecoration(labelText: 'Statut'),
+        child: Row(children: [
+          PuceEconomie(
+              texte: libelleStatutLicenceOuTiret(statut).toUpperCase(),
+              couleur: couleurStatutLicence(statut)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text('se change depuis la fiche',
+                style: TextStyle(fontSize: 11, color: kTextMuted)),
+          ),
+        ]),
+      );
 }

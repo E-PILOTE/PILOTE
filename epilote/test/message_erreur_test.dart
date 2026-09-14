@@ -169,7 +169,7 @@ void main() {
         'lib/features/communication/providers/announcements_provider.dart',
       ];
       for (final chemin in sites) {
-        final src = File(chemin).readAsStringSync();
+        final src = File(chemin).readAsStringSync().replaceAll('\r\n', '\n');
         expect(RegExp(r'throw (const )?ErreurMetier\(').hasMatch(src), isTrue,
             reason: '$chemin doit lever `ErreurMetier` : levée en '
                 '`Exception`, sa phrase est remplacée par « Une erreur '

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../communication/providers/messages_provider.dart'
     show MessageAttachment, parseAttachments;
@@ -148,14 +149,15 @@ final adminTicketsProvider =
     });
   } catch (_) {}
 
-  final rows = await client
+  final rows = await fetchAllRows(() => client
       .from('support_tickets')
       .select('id, subject, body, category, status, priority, response, '
           'resolved_at, created_at, submitted_by, attachments')
       .eq('group_id', groupId)
-      .order('created_at', ascending: false) as List;
+      .order('created_at', ascending: false)
+      .order('id'));
 
-  final tickets = [for (final r in rows) AdminTicket.fromRow(r as Map<String, dynamic>)];
+  final tickets = [for (final r in rows) AdminTicket.fromRow(r)];
 
   return AdminTicketsData(
     tickets:    tickets,

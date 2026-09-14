@@ -124,7 +124,7 @@ Future<void> saveBudgetLine({
   }
 }
 
-/// Le réalisé VRAI de l'année, et la part qui n'a pas de poste au budget.
+/// Le réalisé de l'année — ou l'aveu qu'on ne le connaît pas.
 ///
 /// ⚠️ L'écran totalisait le réalisé en additionnant les LIGNES du budget. Deux
 /// conséquences, opposées et simultanées :
@@ -133,18 +133,70 @@ Future<void> saveBudgetLine({
 ///   • deux lignes sur un même poste la comptaient deux fois.
 /// Le réalisé se lit donc à sa source, les dépenses ; les lignes ne servent
 /// qu'à le répartir.
-final budgetReelProvider =
-    Provider.autoDispose<({int total, int horsBudget})>((ref) {
-  final byCat = ref.watch(expensesByCategoryProvider).valueOrNull ?? const {};
-  final lignes = ref.watch(budgetLinesProvider).valueOrNull ?? const [];
-  final postesBudgetes = {for (final l in lignes) l.category};
+///
+/// ⚠️ ET IL PEUT ÊTRE INCONNU — corrigé le 2026-09-10.
+///
+///  Ce provider faisait `valueOrNull ?? const {}` sur les dépenses. Pendant
+///  le chargement, ou après un échec de lecture, le total retombait à **0** —
+///  et l'écran affichait alors TROIS chiffres faux d'un coup, présentés comme
+///  des faits :
+///    « Réalisé : 0 F », « Disponible : `tout le budget` », « Exécution : 0 % ».
+///
+///  Autrement dit : « vous n'avez rien dépensé, tout votre budget est
+///  disponible ». Sur l'écran où un comptable décide d'un engagement, c'est le
+///  pire des mensonges possibles — celui qui rassure.
+///
+///  `connu` porte désormais la différence entre « zéro dépense » et « je ne
+///  sais pas ». L'écran affiche « — » dans le second cas, et le dit.
+class BudgetReel {
+  const BudgetReel({
+    required this.total,
+    required this.horsBudget,
+    required this.connu,
+    this.erreur,
+  });
+
+  /// Le cas normal : on a lu les dépenses, voici ce qu'elles disent.
+  const BudgetReel.su(this.total, this.horsBudget)
+      : connu = true,
+        erreur = null;
+
+  /// La lecture n'a pas abouti : on ne sait pas, et on ne prétend pas savoir.
+  const BudgetReel.inconnu({this.erreur})
+      : total = 0,
+        horsBudget = 0,
+        connu = false;
+
+  final int total;
+  final int horsBudget;
+
+  /// Faux tant que les dépenses ne sont pas lues. ⚠️ Ne JAMAIS afficher
+  /// `total`, ni rien qui en dérive, quand il est faux.
+  final bool connu;
+
+  /// Renseignée quand la lecture a échoué (par opposition à « en cours »).
+  final Object? erreur;
+}
+
+final budgetReelProvider = Provider.autoDispose<BudgetReel>((ref) {
+  final depenses = ref.watch(expensesByCategoryProvider);
+  final lignesAsync = ref.watch(budgetLinesProvider);
+
+  final erreur = depenses.error ?? lignesAsync.error;
+  if (erreur != null) return BudgetReel.inconnu(erreur: erreur);
+  if (!depenses.hasValue || !lignesAsync.hasValue) {
+    return const BudgetReel.inconnu();
+  }
+
+  final byCat = depenses.requireValue;
+  final postesBudgetes = {for (final l in lignesAsync.requireValue) l.category};
   var total = 0;
   var hors = 0;
   for (final e in byCat.entries) {
     total += e.value;
     if (!postesBudgetes.contains(e.key)) hors += e.value;
   }
-  return (total: total, horsBudget: hors);
+  return BudgetReel.su(total, hors);
 });
 
 Future<void> deleteBudgetLine(String id) async {

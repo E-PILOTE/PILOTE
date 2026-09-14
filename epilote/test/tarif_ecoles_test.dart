@@ -126,7 +126,7 @@ void main() {
           '0159_AVANT_LE_BUILD_le_prix_suit_le_nombre_decoles.sql');
       expect(f.existsSync(), isTrue,
           reason: 'Sonde aveugle : la migration 0159 est introuvable.');
-      final sql = f.readAsStringSync();
+      final sql = f.readAsStringSync().replaceAll('\r\n', '\n');
 
       // Les valeurs du bloc de vérification en base, une par une. Changer la
       // grille en SQL sans la changer ici fait tomber ce test.
@@ -151,7 +151,7 @@ void main() {
     test('les quatre tranches de chaque plan sont écrites dans la migration', () {
       final sql = File('../database/migrations/'
               '0159_AVANT_LE_BUILD_le_prix_suit_le_nombre_decoles.sql')
-          .readAsStringSync();
+          .readAsStringSync().replaceAll('\r\n', '\n');
       // Standard : les valeurs que ce fichier de test tient pour vraies.
       expect(
           sql.contains('extra_school_2_5_xaf = 10000') ||

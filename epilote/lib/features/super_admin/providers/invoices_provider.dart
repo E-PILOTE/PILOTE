@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 
 // ─── Modèles ──────────────────────────────────────────────────────────────────
@@ -95,10 +96,11 @@ final invoicesProvider = FutureProvider.autoDispose<InvoicesData>((ref) async {
   ref.keepAlive();
   final client = ref.watch(supabaseClientProvider);
 
-  final rows = await client
+  final rows = await fetchAllRows(() => client
       .from('group_invoices')
       .select('*, school_groups(name), subscription_plans(name)')
-      .order('created_at', ascending: false);
+      .order('created_at', ascending: false)
+      .order('id'));
 
   final invoices = (rows as List).map((r) {
     final m = Map<String, dynamic>.from(r as Map);

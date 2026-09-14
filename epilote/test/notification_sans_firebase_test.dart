@@ -45,7 +45,7 @@ const _kProvider =
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('$chemin introuvable — tourner depuis `epilote/`.');
-  return f.readAsStringSync();
+  return f.readAsStringSync().replaceAll('\r\n', '\n');
 }
 
 /// Toutes les lignes non commentées d'un fichier YAML/Dart.

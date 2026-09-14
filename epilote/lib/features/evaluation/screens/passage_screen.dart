@@ -22,7 +22,24 @@ import '../../../core/utils/rang.dart';
 
 part 'passage_parts.dart';
 
-const _kSlug = 'conseils';
+// ⚠️ `passage`, ET NON `conseils` — corrigé le 2026-09-10.
+//
+//  Cet écran décide qui passe et qui redouble : il écrit
+//  `class_enrollments.promotion_decision` puis réinscrit une classe entière
+//  dans l'année suivante. C'est l'écriture la plus lourde de conséquence de
+//  l'année scolaire.
+//
+//  Il portait pourtant le slug du module VOISIN, `conseils`. Deux effets :
+//   • la console d'administration montrait un module « Passage en classe
+//     supérieure » dont les droits ne commandaient rien — un cadenas sans
+//     serrure ;
+//   • retirer `passage` à un profil ne le retirait pas de l'écran, et le
+//     retirer de `conseils` fermait les deux.
+//
+//  La bascule ne ferme la porte à personne : la migration 0147 a créé le
+//  module ET recopié à l'identique les droits de `conseils`. Vérifié en base
+//  le 2026-09-10 — 21 profils en lecture et 7 en `own_classes` des DEUX côtés.
+const _kSlug = 'passage';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  PASSAGE EN CLASSE SUPÉRIEURE — le conseil de fin d'année.

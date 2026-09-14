@@ -49,7 +49,19 @@ class _StudentDrawer extends ConsumerWidget {
             // précisément pour une année passée qu'on réclame ce papier : un
             // ancien élève monte un dossier de bourse, de visa, d'équivalence.
             // Imprimer n'est pas écrire. La barre reste, réduite à ce qui se lit.
-            _DwActionBar(row: row, readOnly: readOnly),
+            EleveActionsBar(
+              cible: row.versCible,
+              readOnly: readOnly,
+              onModifier: () => showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) =>
+                    _StudentEditModal(studentId: row.id, fullName: row.fullName),
+              ),
+              // L'élève vient de quitter l'effectif : ce tiroir parle de
+              // quelqu'un qui n'est plus dans la liste derrière lui.
+              onApresSortie: () => Navigator.of(context).pop(),
+            ),
           ]),
         ),
       ),
@@ -98,6 +110,32 @@ class _DwHeader extends StatelessWidget {
             ]),
           ),
         ]),
+        const SizedBox(height: 12),
+        // ── LA PORTE VERS LA FICHE COMPLÈTE ────────────────────────────────
+        //
+        // ⚠️ Ce tiroir ne montrera JAMAIS tout, et c'est délibéré : il fait
+        // 460 pixels et sert le geste qu'on répète cinquante fois par jour —
+        // qui est cet enfant, quelle classe, quel numéro j'appelle. Onze
+        // registres n'y tiennent pas, et les y entasser alourdirait le geste
+        // fréquent pour servir le geste rare.
+        //
+        // Ce qui manquait n'était donc pas de la place ici, mais une
+        // DESTINATION : la fiche complète, sur `/user/eleves/<id>`, qui porte
+        // le parcours, les résultats, la vie scolaire, les finances et les
+        // actes. Ce bouton est le premier lien de l'application à naviguer
+        // vers elle — la route existait, elle ne redirigeait faute d'émetteur.
+        SizedBox(
+          width: double.infinity,
+          child: AdminActionButton(
+            label: 'Ouvrir la fiche complète',
+            icon: Icons.open_in_full_rounded,
+            filled: true,
+            onPressed: () {
+              Navigator.of(context).pop();
+              context.push(Routes.eleveDetail.replaceFirst(':id', row.id));
+            },
+          ),
+        ),
       ]),
     );
   }
@@ -233,4 +271,25 @@ class _DwBody extends StatelessWidget {
 
   static String _od(String v) => v.isEmpty ? '—' : v;
   static String _rel(String c) => tutorRelationshipLabel(c);
+}
+
+// ─── De la ligne de liste à la cible d'un geste ──────────────────────────────
+extension StudentRowCible on StudentRow {
+  /// ⚠️ Tous les champs que les papiers officiels consomment passent ici. Un
+  /// oubli ne casse rien à l'écran : il sort un certificat à la ligne vide.
+  EleveCible get versCible => EleveCible(
+        id: id,
+        firstName: firstName,
+        lastName: lastName,
+        matricule: matricule,
+        ine: ine,
+        gender: gender,
+        dateOfBirth: dateOfBirth,
+        placeOfBirth: placeOfBirth,
+        photoUrl: photoUrl,
+        className: className,
+        enrollmentId: enrollmentId,
+        enrollmentStatus: enrollmentStatus,
+        isBoarder: isBoarder,
+      );
 }

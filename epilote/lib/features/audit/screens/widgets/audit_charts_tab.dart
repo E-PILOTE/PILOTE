@@ -42,9 +42,21 @@ class AuditChartsTab extends ConsumerWidget {
         return ListView(
           padding: const EdgeInsets.all(24),
           children: [
+            // ⚠️ Le plafond de lecture atteint SE DIT. Les KPI du haut de page
+            // restent exacts (ils viennent de `count(exact)`) ; ce sont ces
+            // graphiques qui ne portent alors que sur les événements les plus
+            // récents. Sans cette ligne, le début du mois paraîtrait calme
+            // alors qu'il est simplement hors de la fenêtre lue.
+            if (timeline.tronquee) ...[
+              const _BandeauTronquee(),
+              const SizedBox(height: 16),
+            ],
             _ChartCard(
               title: 'Activité des 30 derniers jours',
-              subtitle: 'Créations · Modifications · Suppressions par jour',
+              subtitle: timeline.tronquee
+                  ? 'Créations · Modifications · Suppressions par jour — '
+                      'vue partielle'
+                  : 'Créations · Modifications · Suppressions par jour',
               child: SizedBox(
                 height: 220,
                 child: _TimelineChart(buckets: timeline.buckets),
@@ -451,4 +463,33 @@ class _RankingRow extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Dit que la courbe ne couvre pas toute la période demandée.
+class _BandeauTronquee extends StatelessWidget {
+  const _BandeauTronquee();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: kAccent.withValues(alpha: .10),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: kAccent.withValues(alpha: .35)),
+        ),
+        child: Row(children: [
+          Icon(Icons.info_outline_rounded, size: 18, color: kAccent),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Période très chargée : ces graphiques portent sur les '
+              '$kAuditTimelineMax événements les plus récents, pas sur la '
+              'totalité des 30 jours. Les compteurs du haut de page, eux, '
+              'restent exacts. Resserrez les filtres ou la plage de dates '
+              'pour une courbe complète.',
+              style: TextStyle(fontSize: 12.5, height: 1.4),
+            ),
+          ),
+        ]),
+      );
 }

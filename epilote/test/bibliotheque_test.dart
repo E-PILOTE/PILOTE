@@ -36,7 +36,7 @@ const _kPredicatStatut = "COALESCE(l.status, 'active') <> 'returned'";
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('$chemin introuvable — tourner depuis `epilote/`.');
-  return f.readAsStringSync();
+  return f.readAsStringSync().replaceAll('\r\n', '\n');
 }
 
 void main() {

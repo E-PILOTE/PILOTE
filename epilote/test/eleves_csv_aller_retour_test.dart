@@ -48,9 +48,9 @@ final _eleve = StudentRow(
 );
 
 /// Le fichier tel que `exportStudentsCsv` l'écrit — mêmes en-têtes, mêmes
-/// cellules. L'écriture disque elle-même (`getApplicationDocumentsDirectory`)
-/// n'est pas disponible en test unitaire ; ce qui compte, et ce que ce test
-/// verrouille, c'est que ce contenu-là soit relu.
+/// cellules. L'écriture disque elle-même (« Enregistrer sous », via
+/// `enregistrerCsvSous`) n'est pas disponible en test unitaire ; ce qui compte,
+/// et ce que ce test verrouille, c'est que ce contenu-là soit relu.
 String _csvDe(List<StudentRow> rows) {
   final b = StringBuffer()..writeln(_ligne(kEnTetesExportEleves));
   for (final r in rows) {

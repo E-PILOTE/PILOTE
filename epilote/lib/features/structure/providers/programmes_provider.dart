@@ -1,9 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/utils/enregistrer_csv.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../services/powersync/powersync_service.dart';
 import 'academic_year_context.dart';
@@ -263,8 +261,11 @@ Future<void> deleteProgramme(String id) async {
   await db.execute('DELETE FROM school_programs WHERE id = ?', [id]);
 }
 
-/// Export CSV (séparateur `;`, BOM UTF-8). Retourne le chemin.
-Future<String> exportProgrammesCsv(List<ProgrammeRow> rows) async {
+/// Compose le CSV des programmes (séparateur `;`, BOM UTF-8) et demande à
+/// l'agent où l'enregistrer.
+///
+/// Retourne le chemin écrit, ou `null` s'il a fermé la fenêtre sans choisir.
+Future<String?> exportProgrammesCsv(List<ProgrammeRow> rows) async {
   String cell(String? v) => '"${(v ?? '').replaceAll('"', '""')}"';
   final b = StringBuffer();
   b.writeln(['Titre', 'Matière', 'Niveau', 'Trimestre', 'Type', 'Contenu']
@@ -280,9 +281,12 @@ Future<String> exportProgrammesCsv(List<ProgrammeRow> rows) async {
       (r.content ?? '').replaceAll('\n', ' '),
     ].map(cell).join(';'));
   }
-  final dir = await getApplicationDocumentsDirectory();
+  // ⚠️ « Enregistrer sous », et non une écriture silencieuse dans Documents :
+  // sous Windows ce dossier est le plus souvent redirigé vers OneDrive.
   final ts = DateTime.now().toIso8601String().substring(0, 10);
-  final file = File('${dir.path}/programmes_$ts.csv');
-  await file.writeAsString('﻿${b.toString()}');
-  return file.path;
+  return enregistrerCsvSous(
+    nomPropose: 'programmes_$ts.csv',
+    contenu: b.toString(),
+    titreFenetre: 'Enregistrer la liste des programmes',
+  );
 }

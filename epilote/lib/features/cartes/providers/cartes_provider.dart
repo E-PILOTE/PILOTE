@@ -23,7 +23,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/photo_octets.dart';
 import '../../../services/powersync/powersync_service.dart';
 import '../../../services/powersync/upload_outbox.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../navigation/providers/permissions_provider.dart';
 import '../../students/services/carte_scolaire_pdf_service.dart';
+
+/// Slug de ce module au catalogue, déclaré **une seule fois pour le module**
+/// (providers, écran et garde). C'est lui que [classScopeClause] doit
+/// recevoir, jamais celui d'un module voisin — sinon l'écran applique le
+/// périmètre de quelqu'un d'autre.
+const String kSlugCartes = 'cartes';
 
 // ─── Les classes de l'année, avec leur avancement photo ──────────────────────
 
@@ -71,6 +79,16 @@ class CarteClasse {
 /// entrelacerait CP1, 6ème et 2nde.
 final cartesClassesProvider = StreamProvider.autoDispose
     .family<List<CarteClasse>, String>((ref, yearId) {
+  final schoolId =
+      ref.watch(authNotifierProvider).valueOrNull?.schoolId;
+  if (schoolId == null || schoolId.isEmpty) return Stream.value(const []);
+  // Tant que le profil d'accès n'est pas lu, on ne PUBLIE rien : la campagne
+  // garde son squelette. Émettre la liste complète montrerait à un agent
+  // restreint les classes qu'il n'a pas à voir — et cet écran sert des
+  // données nominatives et une donnée de santé.
+  if (!permissionsLoaded(ref)) return const Stream.empty();
+  final scope = classScopeClause(ref, kSlugCartes, column: 'c.id');
+
   return db
       .watch(
         '''
@@ -78,20 +96,29 @@ final cartesClassesProvider = StreamProvider.autoDispose
                c.level_code,
                COALESCE(ec.name, 'Autres') AS cycle_name,
                COALESCE(ec.order_index, 9) AS cycle_order,
-               COUNT(e.id) AS eleves,
+               -- COUNT(s.id) et non COUNT(e.id) : la jointure écarte les
+               -- élèves désactivés, mais leur INSCRIPTION reste active en
+               -- base. Compter les lignes d'inscription donnerait une planche
+               -- plus longue que la classe, et une carte à qui n'est plus au
+               -- registre. Le registre, Classes et Paiements comptent déjà
+               -- ainsi (`students_registry_provider.dart:160`).
+               COUNT(s.id) AS eleves,
                SUM(CASE WHEN s.photo_url IS NOT NULL AND s.photo_url <> ''
                         THEN 1 ELSE 0 END) AS avec_photo
           FROM classes c
           LEFT JOIN education_cycles ec ON ec.code = c.cycle_code
           LEFT JOIN class_enrollments e
                  ON e.class_id = c.id AND e.status = 'active'
-          LEFT JOIN students s ON s.id = e.student_id
-         WHERE c.academic_year_id = ? AND COALESCE(c.is_active, 1) <> 0
+          LEFT JOIN students s
+                 ON s.id = e.student_id AND COALESCE(s.is_active, 1) <> 0
+         WHERE c.academic_year_id = ? AND c.school_id = ?
+           AND COALESCE(c.is_active, 1) <> 0
+         ${scope?.clause ?? ''}
          GROUP BY c.id, c.name, c.cycle_code, c.level_code, c.level_order,
                   c.filiere_label, ec.name, ec.order_index
          ORDER BY cycle_order, c.level_order, c.name
         ''',
-        parameters: [yearId],
+        parameters: [yearId, schoolId, ...?scope?.params],
       )
       .map((rows) => [
             for (final r in rows)
@@ -152,7 +179,11 @@ class CarteEleveRow {
   bool get aUnePhoto => photoUrl != null && photoUrl!.isNotEmpty;
 }
 
-const String _selectEleves = '''
+/// ⚠️ La clause de périmètre est INTERPOLÉE, jamais optionnelle : cette
+/// requête sert `blood_group`, une donnée de santé. Un appelant qui passerait
+/// un `classId` hors du périmètre du membre doit repartir les mains vides,
+/// même si l'écran ne lui propose que des classes déjà bornées.
+String _selectEleves(String scopeClause) => '''
   SELECT s.id, s.first_name, s.last_name, s.matricule, s.ine, s.gender,
          s.date_of_birth, s.place_of_birth, s.blood_group, s.is_boarder,
          s.photo_url, c.name AS class_name, e.status
@@ -160,6 +191,8 @@ const String _selectEleves = '''
     JOIN students s ON s.id = e.student_id
     JOIN classes  c ON c.id = e.class_id
    WHERE e.class_id = ? AND e.status = 'active'
+     AND s.school_id = ? AND COALESCE(s.is_active, 1) <> 0
+     $scopeClause
    ORDER BY s.last_name COLLATE NOCASE, s.first_name COLLATE NOCASE
 ''';
 
@@ -181,8 +214,17 @@ CarteEleveRow _rowVers(Map<String, dynamic> r) => CarteEleveRow(
 
 final cartesElevesProvider = StreamProvider.autoDispose
     .family<List<CarteEleveRow>, String>((ref, classId) {
+  final schoolId =
+      ref.watch(authNotifierProvider).valueOrNull?.schoolId;
+  if (schoolId == null || schoolId.isEmpty) return Stream.value(const []);
+  if (!permissionsLoaded(ref)) return const Stream.empty();
+  final scope = classScopeClause(ref, kSlugCartes, column: 'e.class_id');
+
   return db
-      .watch(_selectEleves, parameters: [classId])
+      .watch(
+        _selectEleves(scope?.clause ?? ''),
+        parameters: [classId, schoolId, ...?scope?.params],
+      )
       .map((rows) => rows.map(_rowVers).toList());
 });
 

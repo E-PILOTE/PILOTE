@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realtime_client/realtime_client.dart';
+import '../../../core/utils/paged_fetch.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 
 // ─── Modèle AdminDetail ───────────────────────────────────────────────────────
@@ -147,11 +148,12 @@ final administratorsProvider =
   // ── Groupes scolaires actifs (pour le formulaire) ─────────────────────────
   List<GroupInfo> groups = [];
   try {
-    final rows = await client
+    final rows = await fetchAllRows(() => client
         .from('school_groups')
         .select('id, name, logo_url')
         .eq('is_active', true)
-        .order('name', ascending: true) as List;
+        .order('name', ascending: true)
+        .order('id'));
     groups = rows.map((r) => GroupInfo(
       id:      r['id']       as String,
       name:    r['name']     as String,

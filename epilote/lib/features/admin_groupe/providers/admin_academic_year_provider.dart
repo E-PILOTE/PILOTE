@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  ESPACE ADMIN_GROUPE — Années scolaires (online / Supabase direct).
@@ -118,6 +119,7 @@ List<AdminYear> filterAndSortYears(List<AdminYear> years, String filter) {
 /// rejouées à chaque visite.
 final adminAcademicYearsProvider =
     FutureProvider.autoDispose<List<AdminYear>>((ref) async {
+  garderAuChaud(ref, pendant: kChaudReferentiel);
   final client = ref.watch(supabaseClientProvider);
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
   if (groupId == null) return const [];
@@ -224,6 +226,7 @@ class AdminHoliday {
 
 final adminYearHolidaysProvider = FutureProvider.autoDispose
     .family<List<AdminHoliday>, String>((ref, yearId) async {
+  garderAuChaud(ref);
   final client = ref.watch(supabaseClientProvider);
 
   final rows = await client
@@ -252,6 +255,7 @@ final adminYearHolidaysProvider = FutureProvider.autoDispose
 /// selon la version du client.
 final adminYearCalendarProvider = FutureProvider.autoDispose
     .family<List<AdminTrimester>, String>((ref, yearId) async {
+  garderAuChaud(ref);
   final client = ref.watch(supabaseClientProvider);
 
   final rows = await client

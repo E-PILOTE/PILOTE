@@ -53,7 +53,7 @@ const _kPortes = <String>[
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('$chemin introuvable — tourner depuis `epilote/`.');
-  return f.readAsStringSync();
+  return f.readAsStringSync().replaceAll('\r\n', '\n');
 }
 
 /// Rend chaque bloc `AdminEmptyState( … )` du fichier, parenthèses équilibrées.

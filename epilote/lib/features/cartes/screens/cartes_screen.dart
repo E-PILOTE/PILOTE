@@ -5,6 +5,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../navigation/widgets/module_scaffold.dart';
 import '../../structure/providers/academic_year_context.dart';
 import '../../students/widgets/scope_drilldown_panel.dart';
+import '../../../core/utils/message_erreur.dart';
 import '../providers/cartes_filtres.dart';
 import '../providers/cartes_provider.dart';
 import '../services/cartes_actions.dart';
@@ -12,7 +13,7 @@ import 'cartes_filtres_barre.dart';
 import 'cartes_parts.dart';
 import 'import_photos_dialog.dart';
 
-const String kSlugCartes = 'cartes';
+// `kSlugCartes` vient de `cartes_provider.dart` : un slug, une déclaration.
 
 // ════════════════════════════════════════════════════════════════════════════
 //  CARTES SCOLAIRES — la campagne de rentrée
@@ -76,7 +77,10 @@ class _BodyState extends ConsumerState<_Body> {
 
     return classesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => AdminErrorBanner(message: '$e'),
+      // `messageErreur` et non `'$e'` : les six autres modules de la catégorie
+      // passent par lui, et une exception SQLite brute jetée à l'écran d'une
+      // école ne dit rien à personne.
+      error: (e, _) => AdminErrorBanner(message: messageErreur(e)),
       data: (classes) {
         final peuplees = classes.where((c) => c.eleves > 0).toList();
         if (peuplees.isEmpty) {
@@ -287,15 +291,24 @@ class _EnTeteClasses extends StatelessWidget {
           subtitle: 'Une planche A4 porte 10 cartes, recto-verso',
         ),
       ),
+      // Même verbe que le bouton « Imprimer » d'une classe
+      // (`cartes_parts.dart:225`) : éditer une planche est un EXPORT. Sans
+      // cette garde, un profil privé du droit d'export sortait toute l'école
+      // par le bouton de sélection, alors que le bouton par classe lui était
+      // fermé.
       if (onImprimerSelection != null)
-        FilledButton.icon(
-          onPressed: onImprimerSelection,
-          style: FilledButton.styleFrom(backgroundColor: kNavy),
-          icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
-          label: Text(nbClasses == 1
-              ? 'Éditer la classe'
-              : 'Éditer la sélection ($planches planche'
-                  '${planches > 1 ? 's' : ''})'),
+        PermissionGate(
+          slug: kSlugCartes,
+          action: 'export',
+          child: FilledButton.icon(
+            onPressed: onImprimerSelection,
+            style: FilledButton.styleFrom(backgroundColor: kNavy),
+            icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+            label: Text(nbClasses == 1
+                ? 'Éditer la classe'
+                : 'Éditer la sélection ($planches planche'
+                    '${planches > 1 ? 's' : ''})'),
+          ),
         ),
     ]);
   }

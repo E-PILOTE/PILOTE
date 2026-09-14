@@ -17,6 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../widgets/parc_section.dart';
+import '../widgets/version_non_publiee.dart';
 import '../providers/releases_provider.dart';
 import 'release_form_dialog.dart';
 import '../../../core/utils/message_erreur.dart';
@@ -43,6 +44,9 @@ class _ReleasesBody extends ConsumerWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // ⚠️ AVANT tout le reste. Cet encart est la seule chose de la page qui
+        // signale une étape SAUTÉE ; le reste décrit comment faire l'étape.
+        const VersionNonPubliee(),
         const _Avertissement(),
         const SizedBox(height: 18),
         // Le parc AVANT le catalogue : ce qui tourne réellement se lit avant ce

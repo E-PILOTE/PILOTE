@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show SupabaseClient;
 
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/utils/erreur_metier.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  SESSIONS D'EXAMEN — administration du CALENDRIER NATIONAL.
@@ -111,6 +112,7 @@ DateTime? _d(Object? v) => v == null ? null : DateTime.tryParse(v as String);
 /// pas par `code` (qui donnait un ordre alphabétique dénué de sens et faisait
 /// croire que « des examens manquaient »).
 final examRefsProvider = FutureProvider.autoDispose<List<ExamRef>>((ref) async {
+  garderAuChaud(ref, pendant: kChaudReferentiel);
   final rows = await ref
       .watch(supabaseClientProvider)
       .from('national_exams')
@@ -134,6 +136,7 @@ final examRefsProvider = FutureProvider.autoDispose<List<ExamRef>>((ref) async {
 
 final examSessionsAdminProvider =
     FutureProvider.autoDispose<List<ExamSessionAdminRow>>((ref) async {
+  garderAuChaud(ref);
   final rows = await ref
       .watch(supabaseClientProvider)
       .from('exam_sessions')

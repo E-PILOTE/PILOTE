@@ -31,7 +31,7 @@ const _kProvider = 'lib/features/evaluation/providers/bulletins_provider.dart';
 String _lire(String chemin) {
   final f = File(chemin);
   if (!f.existsSync()) fail('$chemin introuvable — tourner depuis `epilote/`.');
-  return f.readAsStringSync();
+  return f.readAsStringSync().replaceAll('\r\n', '\n');
 }
 
 /// Le fichier sans ses lignes de commentaire : l'en-tête d'un correctif cite

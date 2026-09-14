@@ -342,17 +342,37 @@ class AuditSchoolStat {
   final int count;
 }
 
+/// Nombre maximal d'événements lus pour bâtir la courbe de 30 jours.
+///
+/// Ce n'est pas une préférence d'affichage : c'est la limite au-delà de
+/// laquelle on refuse de télécharger le journal entier d'un réseau pour
+/// dessiner trente barres. Le dépassement se DIT (`AuditTimeline.tronquee`).
+const int kAuditTimelineMax = 5000;
+
 class AuditTimeline {
   const AuditTimeline({
     required this.buckets,
     required this.topActors,
     required this.topEntities,
     required this.topSchools,
+    this.tronquee = false,
   });
   final List<AuditDayBucket> buckets;
   final List<AuditTopActor> topActors;
   final List<AuditEntityStat> topEntities;
   final List<AuditSchoolStat> topSchools;
+
+  /// Vrai quand la fenêtre de 30 jours contenait PLUS d'événements que la
+  /// lecture n'en ramène (plafond `kAuditTimelineMax`).
+  ///
+  /// ⚠️ Les KPI du haut de page restent EXACTS : ils viennent de
+  /// `count(exact)`, pas de ces lignes. Ce sont la courbe et les trois
+  /// classements (acteurs, entités, écoles) qui ne portent alors que sur les
+  /// événements les plus récents. Un graphique bâti sur une fraction du
+  /// période sans le dire est exactement le « zéro menteur » appliqué à une
+  /// courbe : la barre du 1er du mois paraîtrait vide alors qu'elle est
+  /// simplement hors de la fenêtre lue.
+  final bool tronquee;
 
   static const empty = AuditTimeline(
     buckets: [],

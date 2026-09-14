@@ -22,13 +22,7 @@ class _SchoolLogoUploadBox extends StatelessWidget {
 
   static List<Color> get _colors => [kNavy, kGreen, _kPurple, _kOrange, _kBlue];
 
-  String get _initials {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.length >= 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    }
-    return name.isNotEmpty ? name[0].toUpperCase() : 'É';
-  }
+  String get _initials => initialesEtablissement(name);
 
   Color get _color =>
       name.isNotEmpty ? _colors[name.codeUnitAt(0) % _colors.length] : kNavy;

@@ -113,7 +113,14 @@ class _RenewSubscriptionDialogState
         ]),
         const SizedBox(height: 18),
         _row('Plan', s.planName),
-        _row('Montant', s.priceXaf == 0 ? 'Gratuit' : '${fmtXaf(s.priceXaf)} / an'),
+        // ⚠️ « / an » était écrit en dur, sur des plans qui sont tous MENSUELS :
+        // le client lisait 50 000 F pour une année là où il s'engage pour un
+        // mois. C'est le mensonge d'un facteur douze que la migration 0077
+        // avait corrigé en base — cet écran ne l'avait jamais suivi.
+        // `periodSuffix` vient du plan, il ne se devine pas.
+        _row('Montant',
+            s.priceXaf == 0 ? 'Gratuit' : '${fmtXaf(s.priceXaf)} / ${s.periodSuffix}'),
+        _row('Période', s.periodLabel),
         const SizedBox(height: 14),
         Container(
           padding: const EdgeInsets.all(12),
@@ -186,12 +193,16 @@ class _RenewSubscriptionDialogState
     final already = r['already_pending'] == true;
     final amount = (r['amount_xaf'] as num?)?.toInt() ?? widget.sub.priceXaf;
     final invNo = r['invoice_number'] as String?;
+    final finPeriode = r['period_end'] as String?;
+    final finLisible = finPeriode == null ? null : _jour(finPeriode);
 
     final title = free
         ? 'Abonnement renouvelé'
         : (already ? 'Facture déjà en attente' : 'Facture de renouvellement générée');
     final body = free
-        ? 'Votre plan gratuit a été prolongé d\'un an.'
+        ? (finLisible == null
+            ? 'Votre plan gratuit est prolongé.'
+            : 'Votre plan gratuit est prolongé jusqu’au $finLisible.')
         : (already
             ? 'Une facture de renouvellement était déjà en attente de paiement. '
                 'Réglez-la auprès de la plateforme pour réactiver votre abonnement.'
@@ -226,6 +237,10 @@ class _RenewSubscriptionDialogState
         if (!free) ...[
           if (invNo != null) _row('Facture', invNo),
           _row('Montant dû', fmtXaf(amount)),
+          // Un montant dû sans la période qu'il couvre ne se vérifie pas.
+          if (r['period_start'] != null && finLisible != null)
+            _row('Période',
+                '${_jour(r['period_start'] as String)} → $finLisible'),
           const SizedBox(height: 12),
         ],
         Text(body,
@@ -245,6 +260,14 @@ class _RenewSubscriptionDialogState
         ),
       ],
     );
+  }
+
+  /// « 2026-10-04 » → « 04/10/2026 ». Les RPC rendent des dates ISO.
+  static String _jour(String iso) {
+    final d = DateTime.tryParse(iso);
+    if (d == null) return iso;
+    String deux(int n) => n.toString().padLeft(2, '0');
+    return '${deux(d.day)}/${deux(d.month)}/${d.year}';
   }
 
   Widget _row(String label, String value) => Padding(

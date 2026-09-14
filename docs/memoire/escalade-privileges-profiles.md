@@ -185,3 +185,97 @@ Chacune se traitera avec son module, quand l'audit y arrivera.
 
 Voir [[evaluation-notes-bulletins]], [[presences-appel-identite-deduite]],
 [[modules-acces-hierarchie]], [[sync-rules-data-protection]].
+
+## 🩸 LE REMÈDE A CASSÉ LA CRÉATION DE COMPTES (2026-09-04 → 06, mig 0194)
+
+**Pendant deux jours, plus aucun compte ne pouvait être créé** — sauf par un
+super_admin — et **rien ne le disait**. Le formulaire affichait « Utilisateur
+créé avec succès », le compte s'authentifiait auprès de Supabase, puis
+l'application le rejetait. Deux comptes en sont morts (Ramsos MELACK le 04,
+Grace MENGOBI le 06) ; trouvés parce que le fondateur n'arrivait pas à se
+reconnecter avec un compte qu'il venait de créer, la veille de la présentation
+au ministre.
+
+### Le mécanisme
+
+`create_school_user` procède en **deux instructions** :
+
+1. `insert into auth.users` → le déclencheur `fn_handle_new_user` tire un
+   profil des seules métadonnées : prénom, nom, rôle. **`group_id` et
+   `school_id` y sont NULS** ;
+2. `update profiles set group_id = …, school_id = …` — c'est CETTE
+   instruction qui rattache la personne.
+
+Le garde de la 0188 évalue, sur cet UPDATE :
+
+```sql
+IF v_admin_groupe AND OLD.group_id IS NOT DISTINCT FROM auth_group_id()
+```
+
+`OLD.group_id` vaut NULL — le profil vient d'être inséré vide.
+**`NULL IS NOT DISTINCT FROM '<uuid>'` vaut FAUX.** Le bloc est sauté, on
+tombe dans le repli, et `group_id` / `school_id` / `access_profile_id` sont
+remis à NULL **au moment même où ils s'écrivent**. Prénom, nom et téléphone
+passent — ils ne sont pas des colonnes de pouvoir — d'où un profil qui a l'air
+complet et n'appartient à rien.
+
+⚠️ **Le même défaut fermait `creer_agent_ecole`** : un chef d'établissement
+n'est ni super_admin ni admin_groupe, il tombait droit dans le repli. **Les
+deux seules portes de provisionnement du produit étaient closes.**
+
+### Pourquoi c'est resté invisible
+
+**Un déclencheur BEFORE qui réécrit `NEW` ne lève rien et ne journalise rien.**
+L'UPDATE « réussit » — il écrit simplement autre chose que ce qu'on lui a
+demandé. Même famille que les `catch (_) {}` : le silence d'un refus le rend
+invisible, pas inoffensif. Un garde qui corrige en silence est un garde qu'on
+ne peut pas déboguer.
+
+### Le correctif (0194)
+
+Le garde protège contre une écriture **directe du client** — PostgREST écrit
+sous `authenticated`. Il n'a jamais eu pour objet d'entraver les fonctions
+d'approvisionnement, `SECURITY DEFINER`, propriété de `postgres`, qui portent
+déjà des contrôles **plus stricts** que lui. On distingue les deux mondes par
+`current_user`.
+
+⚠️ **La règle « super_admin ne se donne pas » reste AVANT ce laissez-passer** :
+elle s'applique même au code de confiance. C'est l'invariant de la 0188 et il
+ne bouge pas.
+
+### ⚠️⚠️ LE PIÈGE : `current_user` DANS UN DÉCLENCHEUR `SECURITY DEFINER`
+
+**Premier jet appliqué en production, faux, et dangereux.** Le garde restait
+`SECURITY DEFINER` et testait `current_user`. **Dans une fonction SECURITY
+DEFINER, `current_user` vaut TOUJOURS le propriétaire** (`postgres`), quel que
+soit l'appelant → la condition était vraie à chaque écriture → **le garde ne
+gardait plus rien du tout**.
+
+Repéré immédiatement parce que le test de non-régression — « un admin de
+groupe ne peut pas se déplacer de groupe » — est passé alors qu'il devait
+échouer. Corrigé dans la minute : déclencheur en **`SECURITY INVOKER`**, où
+`current_user` désigne enfin celui qui écrit vraiment. Le garde n'a besoin
+d'aucun privilège propre : `is_super_admin`, `is_admin_groupe` et
+`auth_group_id` sont elles-mêmes SECURITY DEFINER.
+
+**Ne JAMAIS remettre ce déclencheur en SECURITY DEFINER sans retirer le test
+`current_user`** — les deux ensemble ouvrent la table en grand. Un garde de
+recette dans la 0194 refuse ce retour en arrière.
+
+**Leçon générale : vérifier un correctif de sécurité, c'est vérifier qu'il
+REFUSE encore, pas seulement qu'il autorise.** Le premier jet passait le test
+« créer un compte marche » à la perfection.
+
+### 🩸 `seed_account` était ouvert à tous les comptes connectés
+
+`SECURITY DEFINER`, **aucun contrôle de permission**, `EXECUTE` accordé à
+`authenticated` : elle insère dans `auth.users` avec le rôle, le groupe et
+l'école qu'on lui passe. Le garde en **masquait** la moitié (les écritures de
+profil étaient annulées) ; l'ouvrir aux fonctions de confiance l'aurait rendue
+pleinement exploitable — un admin_groupe fabriqué dans n'importe quel réseau.
+**Révoquée dans la 0194** (PUBLIC, anon, authenticated).
+
+⚠️ Ce cas dit qu'il faut **auditer la liste des `SECURITY DEFINER` exécutables
+par `authenticated`** à chaque fois qu'on assouplit un garde : ce sont elles
+qui héritent de l'assouplissement. Les dix autres qui écrivent dans `profiles`
+ont bien leur propre contrôle — vérifié une par une le 2026-09-06.

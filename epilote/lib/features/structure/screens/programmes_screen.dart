@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/admin_ui.dart';
+import '../../../core/widgets/barre_export.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../navigation/providers/permissions_provider.dart';
@@ -13,9 +14,13 @@ import '../providers/subjects_provider.dart';
 import '../services/programmes_pdf_service.dart';
 import '../../../core/utils/message_erreur.dart';
 
-part 'programmes_parts.dart';
 part 'programmes_cycle_view.dart';
 part 'programmes_form.dart';
+part 'programmes_breakdown.dart';
+part 'programmes_filters.dart';
+part 'programmes_table.dart';
+part 'programmes_cards.dart';
+part 'programmes_bulk.dart';
 
 const _kSlug = 'programmes';
 
@@ -244,6 +249,9 @@ class _BodyState extends ConsumerState<_Body> {
     if (list.isEmpty) return;
     try {
       final path = await exportProgrammesCsv(list);
+      // `null` = fenêtre « Enregistrer sous » fermée sans choisir. Ni fichier,
+      // ni message : annuler doit rester sans conséquence visible.
+      if (path == null) return;
       _snack('Export CSV : ${list.length} ligne(s) → $path', kGreen);
     } catch (e) {
       _snack(messageErreur(e, contexte: 'Export'), kRed);
@@ -346,17 +354,49 @@ class _BodyState extends ConsumerState<_Body> {
                   filtered: filtered.length,
                   onExportPdf:
                       filtered.isEmpty ? null : () => _previewPdf(filtered),
+                  onDonnees:
+                      filtered.isEmpty ? null : () => _bulkExport(filtered),
                 ),
               const SizedBox(height: 12),
               if (all.isEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 30),
+                  // ⚠️ L'ÉTAT VIDE DIT QUI REMPLIT — décidé le 2026-09-10.
+                  //
+                  //  Mesuré en production : **1 seule ligne** dans
+                  //  `school_programs` sur 44 écoles, alors que le module est
+                  //  vendu dans trois plans, que 21 profils d'accès le lisent
+                  //  et que 14 peuvent y écrire. Ce n'est donc ni un défaut de
+                  //  droits, ni un défaut de plan : personne n'a publié de
+                  //  programme.
+                  //
+                  //  Le module reste vendu — un syllabus national est
+                  //  exactement ce qu'une plateforme d'État doit porter, et le
+                  //  mécanisme existe déjà (`school_id IS NULL` = programme
+                  //  partagé par le réseau, lecture seule pour l'école, même
+                  //  patron que les matières).
+                  //
+                  //  Ce qui manquait : l'école qui ouvre la page sur du vide
+                  //  en conclut que le module est cassé. L'état vide nomme
+                  //  désormais les deux sources, et distingue l'agent qui PEUT
+                  //  créer de celui qui attend son réseau.
                   child: AdminEmptyState(
                     icon: Icons.article_outlined,
-                    title: 'Aucun programme',
-                    message:
-                        'Définissez le programme (syllabus) de chaque matière par '
-                        'niveau et par trimestre — officiel ou propre à l\'école.',
+                    title: 'Aucun programme publié',
+                    message: canCreate
+                        ? 'Un programme décrit ce qui doit être enseigné dans '
+                            'une matière, à un niveau, sur un trimestre. Deux '
+                            'sources : celui que votre réseau publie pour '
+                            'toutes ses écoles, et celui que vous écrivez pour '
+                            'la vôtre.\n\nVotre réseau n\'en a pas encore '
+                            'publié — vous pouvez créer les vôtres dès '
+                            'maintenant.'
+                        : 'Un programme décrit ce qui doit être enseigné dans '
+                            'une matière, à un niveau, sur un trimestre. Il est '
+                            'publié par votre réseau, ou saisi par la direction '
+                            'de l\'établissement.\n\nAucun n\'a encore été '
+                            'publié. Ce n\'est pas une panne : la page se '
+                            'remplira dès la première publication.',
                     actionLabel: canCreate ? 'Nouveau programme' : null,
                     onAction: canCreate ? () => _openForm() : null,
                   ),

@@ -1,5 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+
+import '../../../core/providers/identite_etablissement.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -552,7 +554,7 @@ class _SchoolLogoBadge extends StatelessWidget {
       alignment: Alignment.center,
       color: Colors.white.withValues(alpha: 0.12),
       child: Text(
-        avatarInitials(schoolName == '—' ? null : schoolName),
+        initialesEtablissement(schoolName == '—' ? null : schoolName),
         style: const TextStyle(
             color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800),
       ),

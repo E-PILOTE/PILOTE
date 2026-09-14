@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/paged_fetch.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../../core/utils/garder_au_chaud.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  RÉSULTATS PAR MATIÈRE — le profil scolaire de l'élève, dans son dossier.
@@ -119,6 +121,7 @@ class ResultsKey {
 
 final studentResultsProvider =
     FutureProvider.autoDispose.family<StudentResults, ResultsKey>((ref, k) async {
+  garderAuChaud(ref);
   final client = ref.watch(supabaseClientProvider);
   final groupId = ref.watch(authNotifierProvider).valueOrNull?.groupId;
   if (groupId == null) return StudentResults.empty;
@@ -143,16 +146,59 @@ final studentResultsProvider =
   // le calcul, l'année entière l'étend — mais l'écran doit dire lequel.
   if (k.trimesterId != null) q = q.eq('trimester_id', k.trimesterId!);
 
-  final rows = await q;
+  // ⚠️ Paginé : une classe peut porter plusieurs centaines d'évaluations sur
+  // l'année, et chacune ramène les notes de tous ses élèves. Tronquées, les
+  // moyennes du dossier seraient calculées sur une partie des évaluations —
+  // une moyenne fausse qui ressemble à une moyenne juste.
+  // `q` est `dynamic` (chaque filtre PostgREST rend un type différent) :
+  // la fermeture est retypée par son contexte.
+  final rows = await fetchAllRows(() => q.order('id'));
 
-  return computeResults(rows as List, k.studentId);
+  // ⚠️ LE COEFFICIENT EFFECTIF, PAS LE COEFFICIENT PAR DÉFAUT (2026-09-10).
+  //
+  //  `subjects.coefficient` n'est qu'un DÉFAUT proposé — le modèle le dit
+  //  lui-même (`data/models/subject_model.dart:7`). Le coefficient qui compte
+  //  vit sur `class_subjects`, parce qu'une Terminale C ne pondère pas les
+  //  mathématiques comme une Terminale A, et l'écran qui l'édite existe
+  //  (`class_subjects_provider.dart:188`).
+  //
+  //  Le bulletin — le document que reçoit la famille — lit déjà
+  //  `COALESCE(cs.coefficient, subj.coefficient)`. Ce dossier lisait le défaut.
+  //  Tant qu'aucune classe n'avait surchargé un coefficient, les deux tombaient
+  //  d'accord par accident ; à la première surcharge, le ministère et la
+  //  famille auraient lu deux moyennes différentes pour le même élève.
+  //
+  //  Une requête de plus, bornée par les matières de LA classe (une quinzaine
+  //  de lignes). Cf. `docs/analyse-2026-09/20-transversal-doublons.md` §B.1.
+  final csRows = await fetchAllRows(() => client
+      .from('class_subjects')
+      .select('subject_id, coefficient')
+      .eq('class_id', k.classId)
+      .order('id'));
+  final coefficientsDeLaClasse = <String, int>{
+    for (final r in csRows)
+      if (r['subject_id'] != null && r['coefficient'] != null)
+        r['subject_id'] as String: (r['coefficient'] as num).toInt(),
+  };
+
+  return computeResults(rows, k.studentId,
+      coefficientsDeLaClasse: coefficientsDeLaClasse);
 });
 
 /// Calcul des moyennes à partir des évaluations publiées d'une classe.
 ///
 /// Fonction PURE, séparée de la requête pour être testable : ce sont ces règles
 /// — et non le réseau — qui décident si un élève paraît en échec.
-StudentResults computeResults(List rows, String studentId) {
+StudentResults computeResults(
+  List rows,
+  String studentId, {
+  /// Coefficient EFFECTIF par `subject_id`, quand la classe l'a surchargé
+  /// (`class_subjects.coefficient`). Vide = on retombe sur le coefficient par
+  /// défaut de la matière, ce qui reste juste tant qu'aucune surcharge
+  /// n'existe. C'est la MÊME règle que le bulletin :
+  /// `COALESCE(cs.coefficient, subj.coefficient)`.
+  Map<String, int> coefficientsDeLaClasse = const {},
+}) {
   // Accumulateurs par matière : somme pondérée et somme des coefficients, pour
   // l'élève d'un côté, pour la classe de l'autre.
   final acc = <String, _Acc>{};
@@ -167,10 +213,13 @@ StudentResults computeResults(List rows, String studentId) {
     final maxScore = (m['max_score'] as num?)?.toDouble() ?? 20;
     if (maxScore <= 0) continue;
 
+    final subjectId = m['subject_id'] as String?;
     final a = acc.putIfAbsent(
       name,
       () => _Acc(
-        subjectCoef: (subject?['coefficient'] as num?)?.toInt() ?? 1,
+        subjectCoef: coefficientsDeLaClasse[subjectId] ??
+            (subject?['coefficient'] as num?)?.toInt() ??
+            1,
       ),
     );
 

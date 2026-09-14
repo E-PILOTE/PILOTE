@@ -32,7 +32,7 @@ import '../../features/super_admin/screens/tickets_screen.dart';
 import '../../features/super_admin/screens/platform_service_messages_screen.dart';
 import '../../features/super_admin/screens/platform_partners_screen.dart';
 import '../../features/super_admin/screens/national_map_screen.dart';
-import '../../features/super_admin/screens/profile_screen.dart';
+import '../../features/profil/screens/mon_profil_screen.dart';
 import '../../features/admin_groupe/screens/admin_academic_years_screen.dart';
 import '../../features/admin_groupe/screens/admin_fees_screen.dart';
 import '../../features/admin_groupe/screens/admin_rattachement_screen.dart';
@@ -44,8 +44,6 @@ import '../../features/admin_groupe/screens/admin_reports_screen.dart';
 import '../../features/admin_groupe/screens/admin_exams_screen.dart';
 import '../../features/admin_groupe/screens/exam_referential_screen.dart';
 import '../../features/tutelle/screens/tutelle_reseau_screen.dart';
-import '../../features/communication/screens/circulaires_emises_screen.dart';
-import '../../features/communication/screens/circulaires_recues_screen.dart';
 import '../../features/admin_groupe/screens/exam_sessions_screen.dart';
 import '../../features/admin_groupe/screens/admin_exam_results_screen.dart';
 import '../../features/admin_groupe/screens/admin_merit_screen.dart';
@@ -54,11 +52,11 @@ import '../../features/admin_groupe/screens/admin_subscription_screen.dart';
 import '../../features/audit/screens/audit_screen.dart' as shared_audit;
 import '../../features/admin_groupe/screens/admin_settings_screen.dart';
 import '../../features/communication/screens/support_requester_screen.dart';
-import '../../features/admin_groupe/screens/admin_profile_screen.dart';
 import '../../features/admin_groupe/screens/admin_module_screen.dart';
 import '../../features/admin_groupe/screens/admin_modules_screen.dart';
 import '../../features/students/screens/inscriptions_screen.dart';
 import '../../features/students/screens/eleves_screen.dart';
+import '../../features/students/screens/fiche_eleve_screen.dart';
 import '../../features/students/screens/annuaire_screen.dart';
 import '../../features/cartes/screens/cartes_screen.dart';
 import '../../features/students/screens/documents_screen.dart';
@@ -97,7 +95,6 @@ import '../../features/navigation/widgets/module_coming_soon.dart';
 import '../../features/user/screens/rapports_screen.dart';
 import '../../features/user/screens/renewal_wall_screen.dart';
 import '../../features/user/screens/user_dashboard_screen.dart';
-import '../../features/user/screens/user_profile_screen.dart';
 import '../../features/user/screens/user_settings_screen.dart';
 import '../../features/classes/screens/classes_screen.dart';
 import '../../features/classes/screens/classe_detail_screen.dart';
@@ -288,14 +285,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         // lisent l'école entière, hors du périmètre de classes de l'agent. Sans
         // ce garde, un enseignant atteignant l'URL éditerait un « État des
         // effectifs de l'établissement » portant sur toutes les classes.
-        // ⚠️ `userCirculaires` aussi : une circulaire est adressée à
-        // l'ÉTABLISSEMENT, et l'accusé de lecture qu'on en attend engage sa
-        // direction. Un enseignant qui atteindrait l'URL pourrait accuser
-        // réception au nom de l'école — une preuve administrative signée par
-        // qui n'en a pas la charge.
+        //
+        // ⚠️ `userAudit` A ÉTÉ AJOUTÉE ICI LE 2026-09-09, et c'est une
+        // correction, pas un durcissement. La sidebar la masquait déjà aux
+        // autres rôles (`nav_config.dart`, bloc `ZoneNav.etablissement`), et
+        // `toute_page_ecole_est_un_module_test` la dispensait de verrou de
+        // module en écrivant noir sur blanc « gardé par le rôle ». Le routeur,
+        // lui, ne la gardait pas : l'URL tapée à la main ouvrait à n'importe
+        // quel agent le journal de TOUTE l'école — qui a touché à quelle note,
+        // à quel paiement, à quel dossier du personnel. Une dispense qui
+        // s'appuie sur une garde inexistante est pire que pas de dispense.
+        // `garde_des_pages_de_direction_test.dart` confronte désormais les
+        // deux fichiers.
         if (loc == Routes.calendrier ||
             loc == Routes.userRapports ||
-            loc == Routes.userCirculaires) {
+            loc == Routes.userAudit) {
           if (!AppConstants.directionRoles.contains(role)) {
             return Routes.userDashboard;
           }
@@ -432,7 +436,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.superProfil,
-        builder: (_, _) => const ProfileScreen(),
+        builder: (_, _) => const MonProfilScreen(),
       ),
 
       // ── Admin Groupe ──────────────────────────────────────────────────
@@ -476,17 +480,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.adminTutelle,
         builder: (_, _) => const TutelleReseauScreen(),
       ),
-      // Même raisonnement : l'écran refuse lui-même, et la RPC de publication
-      // refuse en base (42501). Une route absente donnerait un 404 au moment
-      // précis où le droit vient d'être accordé.
-      GoRoute(
-        path: Routes.adminCirculairesEmises,
-        builder: (_, _) => const CirculairesEmisesScreen(),
-      ),
-      GoRoute(
-        path: Routes.adminCirculaires,
-        builder: (_, _) => const CirculairesRecuesScreen(),
-      ),
       GoRoute(
         path: Routes.adminReferentiel,
         builder: (_, _) => const ExamReferentialScreen(),
@@ -529,7 +522,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.adminProfil,
-        builder: (_, _) => const AdminProfileScreen(),
+        builder: (_, _) => const MonProfilScreen(),
       ),
       GoRoute(
         path: Routes.adminModules,
@@ -562,23 +555,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const UserDashboardScreen(),
       ),
       GoRoute(path: Routes.eleves, builder: (_, _) => const ElevesScreen()),
-      // ⚠️ ROUTE MORTE, conservée en REDIRECTION et non en écran.
+      // ── LA ROUTE MORTE EST REDEVENUE VIVANTE ──────────────────────────
       //
-      //  `Routes.eleveDetail` n'était référencé que par sa propre déclaration :
-      //  aucun code de l'application ne navigue vers `/user/eleves/<id>`. Le
-      //  détail d'un élève se lit dans le tiroir d'`eleves_screen.dart`.
+      //  Elle a longtemps redirigé vers la liste, faute de destination :
+      //  aucun code ne naviguait vers `/user/eleves/<id>`, et le placeholder
+      //  qu'elle affichait n'apprenait rien. Le commentaire d'alors disait
+      //  « à rebrancher LE JOUR où quelque chose en produit ».
       //
-      //  Elle affichait donc un placeholder « Élève · <uuid> » — un cul-de-sac
-      //  que seul un lien collé pouvait atteindre, et qui n'apprenait rien.
-      //  La supprimer ferait tomber une telle URL sur l'écran d'erreur ; la
-      //  rediriger la fait atterrir sur la liste, d'où l'élève s'ouvre.
+      //  Ce jour est venu : le tiroir de la liste ouvre désormais la FICHE
+      //  COMPLÈTE, qui vit ici. Le tiroir garde le coup d'œil qu'on fait
+      //  cinquante fois par jour ; la fiche répond à l'autre question, celle
+      //  qu'on pose en instruisant un dossier.
       //
-      //  À rebrancher sur un vrai lien profond LE JOUR où quelque chose en
-      //  produit (une notification, un partage) — pas avant : un lien que
-      //  personne n'émet est une fonctionnalité qu'on ne peut pas vérifier.
+      //  ⚠️ L'écran gère lui-même l'élève introuvable — un lien profond peut
+      //  désigner un enfant d'une autre école, ou un enfant créé sur un autre
+      //  poste dont la synchronisation n'est pas encore descendue.
       GoRoute(
         path: Routes.eleveDetail,
-        redirect: (_, _) => Routes.eleves,
+        builder: (_, state) =>
+            FicheEleveScreen(studentId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: Routes.inscriptions,
@@ -737,13 +732,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.annonces,
         builder: (_, _) => const StaffAnnouncementsScreen(),
       ),
-      // Circulaires reçues de la tutelle — MÊME écran que l'espace groupe.
-      // Le provider déduit son périmètre du rôle : `admin_groupe` lit Supabase
-      // en ligne, le personnel d'école lit sa base locale PowerSync.
-      GoRoute(
-        path: Routes.userCirculaires,
-        builder: (_, _) => const CirculairesRecuesScreen(),
-      ),
       // Notifications = cloche + drawer dans le header (pas une page de route).
       GoRoute(
         path: Routes.messagerie,
@@ -755,14 +743,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) =>
             const StaffAnnouncementsScreen(initialTab: 1),
       ),
+      // ⚠️ LE SEUL ÉCRAN NON BÂTI DU PRODUIT — et c'est une décision assumée,
+      //  pas un oubli (2026-09-10).
+      //
+      //  État vérifié : **zéro compte porte le rôle `parent`** en production,
+      //  aucun écran ne propose de le créer, et l'entrée de barre est déjà
+      //  gardée par `if (!isParent)` (`nav_config.dart:431`). Personne, à ce
+      //  jour, ne peut atteindre cette page — la route existe pour que le rôle
+      //  reste cohérent avec l'enum `user_role`, qui le contient.
+      //
+      //  Le message ne dit plus « bientôt ». Une promesse sans date est ce qui
+      //  fait attendre une famille : il dit ce qui existe MAINTENANT et par
+      //  quel chemin, ce qui est vrai et utilisable aujourd'hui.
       GoRoute(
         path: Routes.espaceParent,
         builder: (_, _) => const StaffComingSoonScreen(
           title: 'Espace Parent',
           icon: Icons.family_restroom_rounded,
           message:
-              'Le suivi de votre enfant (notes, présences, paiements) '
-              'sera bientôt accessible ici.',
+              'Le suivi en ligne des familles n\'est pas encore ouvert : il '
+              'demande un espace distinct de celui du personnel, et il sera '
+              'bâti après le déploiement national.\n\n'
+              'En attendant, l\'établissement remet ces informations sur '
+              'papier : le bulletin est édité par le module Bulletins, le '
+              'relevé d\'assiduité par Vie scolaire, et le reçu de paiement '
+              'est délivré au guichet à chaque encaissement.',
         ),
       ),
       GoRoute(
@@ -783,7 +788,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.userProfil,
-        builder: (_, _) => const UserProfileScreen(),
+        builder: (_, _) => const MonProfilScreen(),
       ),
       GoRoute(
         path: Routes.userRenew,

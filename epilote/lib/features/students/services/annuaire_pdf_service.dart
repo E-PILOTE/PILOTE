@@ -63,36 +63,35 @@ class AnnuairePdfService {
               const PdfColor.fromInt(0xFF0EA5E9)),
         ]),
         pw.SizedBox(height: 16),
-        if (families.isEmpty)
-          OfficialPdfKit.empty('Aucune famille à exporter.', f.regular)
-        else
-          OfficialPdfKit.frame(
-            title: 'RÉPERTOIRE',
-            color: kPdfNavy,
-            fonts: f,
-            child: OfficialPdfKit.table(
-              headers: const [
-                'Élève',
-                'Classe',
-                'Contact principal',
-                'Lien',
-                'Téléphone(s)'
+        // ⚠️ `tableSection`, JAMAIS `frame(table())` : `frame` enveloppe son
+        // contenu dans un `Padding`, qui ne sait pas se scinder entre deux
+        // pages. Passé ~28 lignes, `MultiPage` boucle et lève
+        // `TooManyPagesException` — on n'obtient AUCUN document.
+        ...OfficialPdfKit.tableSection(
+          title: 'RÉPERTOIRE',
+          color: kPdfNavy,
+          fonts: f,
+          headers: const [
+            'Élève',
+            'Classe',
+            'Contact principal',
+            'Lien',
+            'Téléphone(s)'
+          ],
+          rows: [
+            for (final x in families)
+              [
+                x.student.lastFirst,
+                x.student.className ?? '—',
+                x.primary?.fullName ?? '— aucun —',
+                x.primary?.relationshipLabel ?? '—',
+                x.phones.isEmpty ? '—' : x.phones.join(' · '),
               ],
-              rows: [
-                for (final x in families)
-                  [
-                    x.student.lastFirst,
-                    x.student.className ?? '—',
-                    x.primary?.fullName ?? '— aucun —',
-                    x.primary?.relationshipLabel ?? '—',
-                    x.phones.isEmpty ? '—' : x.phones.join(' · '),
-                  ],
-              ],
-              fonts: f,
-              flex: const [4, 2, 4, 2, 4],
-              leftAlignCols: const {0, 2, 4},
-            ),
-          ),
+          ],
+          flex: const [4, 2, 4, 2, 4],
+          leftAlignCols: const {0, 2, 4},
+          emptyLabel: 'Aucune famille à exporter.',
+        ),
         pw.SizedBox(height: 8),
       ],
     ));

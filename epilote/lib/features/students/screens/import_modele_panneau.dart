@@ -8,6 +8,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 
 import '../../../core/widgets/admin_ui.dart';
 import '../services/modele_import_csv.dart';
@@ -66,13 +67,15 @@ class OffreModele extends StatelessWidget {
                   Text(
                       nbClasses == 0
                           ? 'Nous pouvons écrire un modèle vide aux bonnes '
-                              'colonnes, prêt à remplir.'
+                              'colonnes, prêt à remplir. Vous choisissez le '
+                              'dossier où l\'enregistrer.'
                           : 'Nous pouvons écrire deux fichiers : un modèle aux '
                               'bonnes colonnes, et la liste des '
                               '$nbClasses classe${nbClasses > 1 ? 's' : ''} de '
                               'votre école — à recopier dans la colonne '
                               '« Classe » pour qu\'aucune ligne ne soit '
-                              'rejetée.',
+                              'rejetée. Vous choisissez le dossier où les '
+                              'enregistrer.',
                       style: TextStyle(
                           fontSize: 11.5, color: kTextMuted, height: 1.45)),
                 ]),
@@ -102,8 +105,8 @@ class OffreModele extends StatelessWidget {
 /// Ce qui vient d'être écrit sur le disque, et à quoi chaque fichier sert.
 ///
 /// ⚠️ On NOMME les deux fichiers et on donne le dossier. Un « modèle
-/// téléchargé ✓ » sans chemin oblige l'école à fouiller ses Documents ; et
-/// comme rien ne s'ouvre tout seul sur un poste d'école, elle abandonne.
+/// téléchargé ✓ » sans chemin oblige l'école à fouiller son disque ; et comme
+/// rien ne s'ouvre tout seul sur un poste d'école, elle abandonne.
 class ModeleTelecharge extends StatelessWidget {
   const ModeleTelecharge(
       {super.key, required this.modele, required this.nbClasses});
@@ -111,15 +114,14 @@ class ModeleTelecharge extends StatelessWidget {
   final ModeleImport modele;
   final int nbClasses;
 
-  String get _dossier {
-    final i = modele.modele.lastIndexOf(RegExp(r'[\/]'));
-    return i <= 0 ? modele.modele : modele.modele.substring(0, i);
-  }
+  // ⚠️ `package:path` et non un découpage à la main sur « / ». Le code
+  // d'origine cherchait `RegExp(r'[\/]')`, qui ne décrit QUE la barre oblique :
+  // sous Windows — la plateforme de déploiement — aucun séparateur n'était
+  // trouvé, et l'écran affichait le chemin complet à la place du nom de
+  // fichier, puis une deuxième fois à la place du dossier.
+  String get _dossier => p.dirname(modele.modele);
 
-  String _nom(String chemin) {
-    final i = chemin.lastIndexOf(RegExp(r'[\/]'));
-    return i < 0 ? chemin : chemin.substring(i + 1);
-  }
+  String _nom(String chemin) => p.basename(chemin);
 
   @override
   Widget build(BuildContext context) {
@@ -134,7 +136,7 @@ class ModeleTelecharge extends StatelessWidget {
         Row(children: [
           Icon(Icons.check_circle_outline_rounded, size: 17, color: kGreen),
           const SizedBox(width: 8),
-          Text('Enregistré dans vos Documents',
+          Text('Enregistré dans ce dossier',
               style: TextStyle(
                   fontSize: 12.5, fontWeight: FontWeight.w800, color: kGreen)),
         ]),

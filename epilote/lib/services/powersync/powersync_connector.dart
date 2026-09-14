@@ -294,6 +294,29 @@ class SupabasePowerSyncConnector extends PowerSyncBackendConnector {
         .then((_) => null, onError: (_) => null);
   }
 
+  /// ⚠️ `getNextCrudTransaction()` ET NON `getCrudBatch()` — décidé le
+  /// 2026-09-10, après l'avoir mesuré et envisagé.
+  ///
+  ///  PowerSync remonte **une requête HTTP par opération**, et une transaction
+  ///  locale par appel. `getCrudBatch(limit)` regrouperait les opérations
+  ///  au-delà des frontières de transaction et diviserait encore les
+  ///  allers-retours — ce qui, sur une liaison congolaise, n'est pas rien.
+  ///
+  ///  **Refusé, et voici le prix qu'on ne veut pas payer.** Tout ce fichier
+  ///  repose sur une distinction : un refus DÉFINITIF abandonne *une*
+  ///  transaction et la journalise (`sync_failures`, kind `abandon`), un refus
+  ///  REJOUABLE ne perd rien et se signale (kind `blocage`). Avec un lot, un
+  ///  seul refus emporterait jusqu'à cent opérations **sans rapport entre
+  ///  elles** — les notes d'une classe partiraient avec le paiement qui a
+  ///  échoué. On échangerait de la latence contre de la perte silencieuse.
+  ///
+  ///  Le vrai levier était ailleurs, et il a été pris : l'import d'élèves
+  ///  écrit la fiche et l'inscription dans UNE `writeTransaction`
+  ///  (`import_eleves_provider.dart`), ce qui a divisé par deux les
+  ///  allers-retours d'une rentrée **sans toucher aux frontières d'échec**.
+  ///
+  ///  À reconsidérer seulement si le réseau devient mesurablement le goulot,
+  ///  et alors avec un journal de lot, pas sans.
   @override
   Future<void> uploadData(PowerSyncDatabase database) async {
     final transaction = await database.getNextCrudTransaction();

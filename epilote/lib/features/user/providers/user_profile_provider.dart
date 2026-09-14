@@ -26,6 +26,11 @@ final myProfileRowProvider =
 
 /// Met à jour l'identité du membre (prénom / nom / téléphone) en local.
 /// Écriture offline-first : remontée vers Supabase gérée par le connecteur.
+///
+/// ⚠️ N'ÉCRIT PAS `avatar_url`. La photo d'un profil ne s'écrit jamais en local
+/// (elle reviendrait en 42501 pour la fiche d'autrui, code fatal qui emporte le
+/// lot entier) : elle passe par `staff_photo_requests` — voir
+/// `features/profil/services/mon_avatar_service.dart`.
 Future<void> updateMyProfile({
   required String id,
   required String firstName,

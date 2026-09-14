@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../services/powersync/powersync_service.dart';
 import 'bulletins_provider.dart';
+import '../../../core/utils/decisions.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  CONSEIL DE CLASSE — la délibération de fin de trimestre. Le conseil examine
@@ -183,7 +184,8 @@ Future<void> saveCouncilDecision({
     'UPDATE bulletins SET decision = ?, teacher_comment = ?, updated_at = ? '
     'WHERE enrollment_id = ? AND trimester_id = ?',
     [
-      (award == null || award.isEmpty) ? null : award,
+      // Refuse un verdict de passage glissé ici — cf. core/utils/decisions.dart
+      distinctionConseilValide(award),
       (appreciation == null || appreciation.trim().isEmpty)
           ? null
           : appreciation.trim(),
@@ -210,7 +212,7 @@ Future<int> autofillAwards({
     await db.execute(
       'UPDATE bulletins SET decision = ?, updated_at = ? '
       'WHERE enrollment_id = ? AND trimester_id = ?',
-      [s, now, e.enrollmentId, trimesterId],
+      [distinctionConseilValide(s), now, e.enrollmentId, trimesterId],
     );
     n++;
   }
