@@ -83,6 +83,23 @@ Deno.serve(async (req: Request) => {
       .filter((m: any) => m && m.is_active)
       .map((m: any) => m.slug);
 
+    // 3a) QUOTAS du plan, portés par la licence SIGNÉE (migration 0207).
+    //     C'est l'app qui les applique, AVANT l'écriture locale : refuser côté
+    //     serveur, sur le chemin hors ligne, c'est JETER l'écriture (23514 est
+    //     un code fatal pour le connecteur PowerSync). Seules les limites
+    //     réelles voyagent : -1 (illimité) ou NULL n'est pas un quota.
+    const { data: plan } = await admin
+      .from("subscription_plans")
+      .select("max_students, max_staff, max_schools")
+      .eq("id", group.plan_id).maybeSingle();
+    const quotas: Record<string, number> = {};
+    for (const [cle, col] of [
+      ["students", "max_students"], ["staff", "max_staff"], ["schools", "max_schools"],
+    ] as const) {
+      const v = (plan as any)?.[col];
+      if (typeof v === "number" && v >= 0) quotas[cle] = v;
+    }
+
     // 3b) Politique de HARD-LOCK (ADR-0009) : UNIFORME pour tous les groupes,
     //     public comme privé. À l'échéance (au-delà de la grâce), les modules
     //     deviennent inaccessibles. Pas d'exception par type de plan.
@@ -116,7 +133,7 @@ Deno.serve(async (req: Request) => {
       group_id: groupId,
       plan: group.plan_id,
       modules,
-      quotas: {},
+      quotas,
       valid_from: nowIso,
       valid_to: validToIso,
       offline_window: computeOfflineWindowSeconds(

@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sqlite_async/sqlite_async.dart' show SqliteWriteContext;
+import 'package:sqlite_async/sqlite_async.dart'
+    show SqliteReadContext, SqliteWriteContext;
 import 'package:uuid/uuid.dart';
 
 import '../../../data/models/student_model.dart';
+import '../../../licensing/domain/entitlement.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../features/navigation/providers/permissions_provider.dart';
 import '../../../services/powersync/powersync_service.dart';
@@ -199,6 +201,38 @@ Future<String?> checkStudentQuota({
   return null;
 }
 
+/// Refuse, AVANT toute écriture, un élève de plus que la formule n'en permet.
+///
+/// ⚠️ Le serveur ne refuse plus (migration 0207) : sur le chemin hors ligne, un
+/// refus serveur (23514) est fatal pour le connecteur et JETTE l'élève avec
+/// tout son lot. La barrière est donc ici, où l'agent peut encore lire la
+/// phrase et choisir. Le serveur, lui, constate et prévient l'administrateur.
+///
+/// Le quota vient de la licence signée ([LicenseEnforcement.current]) : pas de
+/// licence, ou plan illimité ⇒ rien à vérifier. Le compte porte sur les élèves
+/// présents dans la base LOCALE ; seule la formule gratuite a un plafond, et
+/// elle ne couvre qu'une école — dont le poste détient tous les élèves.
+Future<void> verifierQuotaEleves(SqliteReadContext lecteur, String groupId) async {
+  final max = LicenseEnforcement.current.quota('students');
+  if (max == null) return;
+  final ligne = await lecteur.get(
+    'SELECT count(*) AS n FROM students '
+    'WHERE group_id = ? AND COALESCE(is_active, 1) <> 0',
+    [groupId],
+  );
+  exigerPlaceDansLeQuota(max: max, inscrits: (ligne['n'] as int?) ?? 0);
+}
+
+/// Décision pure (testée) : y a-t-il encore une place sous le plafond ?
+/// `max` nul = aucun plafond.
+void exigerPlaceDansLeQuota({required int? max, required int inscrits}) {
+  if (max == null || inscrits < max) return;
+  throw ErreurMetier(
+      'Votre formule autorise $max élèves et l\'établissement en compte '
+      '$inscrits. Passez à une formule supérieure pour inscrire de nouveaux '
+      'élèves.');
+}
+
 /// Crée un élève dans SQLite local — PowerSync synchronise vers Supabase.
 /// Retourne l'ID généré.
 Future<String> createStudent({
@@ -259,6 +293,8 @@ Future<String> createStudent({
           'Cet INE est déjà rattaché à un élève de l\'établissement.');
     }
   }
+
+  await verifierQuotaEleves(ecrire, groupId);
 
   final matricule  = await _matriculeLibre(groupId, tx: tx);
   final now        = DateTime.now().toIso8601String();

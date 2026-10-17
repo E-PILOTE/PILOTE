@@ -51,6 +51,18 @@ class Entitlement {
   /// Hard-lock actif ? ⇒ les modules (hors zone neutre) deviennent inaccessibles
   /// (clic mort, mur de renouvellement). Fail-soft : non-enforcé ⇒ `false`.
   bool isHardLockedAt(DateTime now) => phaseAt(now) == LicensePhase.hardLock;
+
+  /// Limite signée du plan pour [cle] (`students`, `staff`, `schools`), ou
+  /// `null` quand il n'y en a pas : aucune licence, plan illimité, ou licence
+  /// émise avant que l'émetteur ne porte les quotas (migration 0207).
+  ///
+  /// ⚠️ C'est ICI que le quota s'applique, pas au serveur : un refus serveur
+  /// sur le chemin hors ligne (23514) est fatal pour le connecteur PowerSync
+  /// et JETTERAIT l'écriture — l'élève serait perdu, et son lot avec lui.
+  int? quota(String cle) {
+    final v = license?.quotas[cle];
+    return (v != null && v >= 0) ? v : null;
+  }
 }
 
 /// Miroir global de l'entitlement courant, lisible au MOMENT de l'écriture
