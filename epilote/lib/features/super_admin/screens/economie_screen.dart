@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/licence_statut.dart';
-import '../../../core/constants/tutelle.dart';
-import '../../../core/services/licence_pdf_service.dart';
 import '../../../core/utils/billing_period.dart';
 import '../../../core/utils/message_erreur.dart';
 import '../../../core/widgets/admin_ui.dart';
@@ -12,10 +9,7 @@ import '../../../core/widgets/fiche_detail.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../providers/economie_provider.dart';
 import 'economie/economie_chrome.dart';
-import 'economie/licence_form_dialog.dart';
 
-part 'economie/licence_statut_dialog.dart';
-part 'economie/licence_detail.dart';
 part 'economie/economie_kpi_detail.dart';
 part 'economie/cout_form_dialog.dart';
 
@@ -31,9 +25,8 @@ part 'economie/cout_form_dialog.dart';
 //  phrase que tout le monde comprend.
 //
 //  ── ⚠️ CE N'EST PAS UNE COMPTABILITÉ ──────────────────────────────────────
-//  L'écran le DIT. Il ignore les impayés, les délais d'encaissement — un
-//  marché public se règle en mois, parfois en année — et tout ce qui n'a pas
-//  été saisi. Un tableau qui se donnerait pour un résultat comptable ferait
+//  L'écran le DIT. Il ignore les impayés, les délais d'encaissement et tout
+//  ce qui n'a pas été saisi. Un tableau qui se donnerait pour un résultat comptable ferait
 //  prendre des décisions sur un chiffre faux.
 //
 //  ⚠️ Écran de FONDATEUR. `platform_costs` est fermée au super_admin par RLS ;
@@ -72,8 +65,6 @@ class _Corps extends ConsumerWidget {
             const SizedBox(height: 12),
             const _Avertissement(),
             const SizedBox(height: 24),
-            _SectionLicences(data: d),
-            const SizedBox(height: 24),
             _SectionCouts(data: d),
           ],
         ),
@@ -94,16 +85,6 @@ class _Corps extends ConsumerWidget {
         icon: Icons.school_rounded,
         color: kNavy,
         onTap: () => _ouvrirDetailRevenu(context, d),
-      ),
-      KpiData(
-        label: 'Licences de tutelle',
-        value: fmtXaf(d.mrrLicencesXaf),
-        sub: d.soldeDuXaf > 0
-            ? '${fmtXaf(d.soldeDuXaf)} restant à encaisser'
-            : 'par mois, licences actives',
-        icon: Icons.account_balance_rounded,
-        color: kListPurple,
-        onTap: () => _ouvrirDetailLicences(context, d),
       ),
       KpiData(
         label: 'Coût d\'exploitation',
@@ -146,294 +127,12 @@ class _Avertissement extends StatelessWidget {
           Expanded(
             child: Text(
               'Ordre de grandeur d\'exploitation, pas une comptabilité : les '
-              'impayés et les délais d\'encaissement ne sont pas comptés — un '
-              'marché public se règle en mois, parfois en année.',
+              'impayés et les délais d\'encaissement ne sont pas comptés.',
               style: TextStyle(fontSize: 11.5, color: kTextMuted, height: 1.4),
             ),
           ),
         ]),
       );
-}
-
-// ─── Licences ───────────────────────────────────────────────────────────────
-
-class _SectionLicences extends ConsumerWidget {
-  const _SectionLicences({required this.data});
-  final EconomieData data;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _EnTeteSection(
-            titre: 'Licences annuelles de tutelle',
-            sousTitre: 'Ce qu\'un ministère achète pour SUPERVISER son réseau — '
-                'distinct de l\'abonnement de ses propres écoles.',
-            boutonLabel: 'Nouvelle licence',
-            onAjouter: () => _ouvrirLicence(context, ref),
-          ),
-          const SizedBox(height: 12),
-          if (data.licences.isEmpty)
-            const _VideSection(
-                texte: 'Aucune licence enregistrée. Les montants sont libres et '
-                    'modifiables à tout moment : un marché se négocie, se révise '
-                    'par avenant et se règle en tranches.')
-          else
-            for (final l in data.licences) ...[
-              _CarteLicence(licence: l),
-              const SizedBox(height: 10),
-            ],
-        ],
-      );
-}
-
-class _CarteLicence extends ConsumerWidget {
-  const _CarteLicence({required this.licence});
-  final LicenceTutelle licence;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l = licence;
-    final couleur = couleurStatutLicence(l.statut);
-    // ⚠️ La carte OUVRE la fiche ; elle ne porte plus les gestes. Résilier un
-    // marché de quarante millions ne doit pas être à un clic dans une liste
-    // qu'on parcourt : il faut avoir ouvert le dossier, donc avoir vu le
-    // montant, la période et le solde.
-    return InkWell(
-      onTap: () => _ouvrirDetailLicence(context, ref, l),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: kCardBg,
-        border: Border.all(
-            color: l.accesSuspendu ? kRed.withValues(alpha: 0.45) : kBorder),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Expanded(
-          flex: 3,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              PuceEconomie(
-                  texte: libelleStatutLicenceOuTiret(l.statut).toUpperCase(),
-                  couleur: couleur),
-              if (l.referenceMarche != null) ...[
-                const SizedBox(width: 8),
-                Text(l.referenceMarche!,
-                    style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                        color: kTextMuted)),
-              ],
-            ]),
-            const SizedBox(height: 6),
-            Text(l.groupeNom,
-                style: const TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 3),
-            Text(
-              '${l.intitule} · du ${_d(l.dateDebut)} au ${_d(l.dateFin)}'
-              '${l.estActive && l.joursRestants >= 0 ? ' · ${l.joursRestants} j restants' : ''}',
-              style: TextStyle(fontSize: 11.5, color: kTextMuted),
-            ),
-          ]),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          flex: 2,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text(fmtXaf(l.montantXaf),
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w800)),
-            Text('${fmtXaf(l.mensuelXaf)} / mois',
-                style: TextStyle(fontSize: 11, color: kTextMuted)),
-            const SizedBox(height: 6),
-            // ⚠️ Le solde est AFFICHÉ même à zéro : « réglé » est une
-            // information, et son absence se lirait comme un oubli de saisie.
-            Text(
-              l.soldeXaf == 0
-                  ? 'Intégralement réglée'
-                  : 'Reste ${fmtXaf(l.soldeXaf)}',
-              style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                  color: l.soldeXaf == 0 ? kGreen : const Color(0xFFFF6B35)),
-            ),
-          ]),
-        ),
-        const SizedBox(width: 4),
-        Icon(Icons.chevron_right_rounded, size: 20, color: kTextMuted),
-      ]),
-      // ── Le motif, quand il y en a un ────────────────────────────────────
-      //  Il se lit SANS ouvrir le journal, et le ministère lit le même texte
-      //  sur sa propre page. Une décision cachée dans un log est une décision
-      //  qu'on ne peut pas défendre.
-      if (l.motifStatut != null && l.motifStatut!.trim().isNotEmpty) ...[
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-          decoration: BoxDecoration(
-            color: couleur.withValues(alpha: 0.07),
-            border: Border.all(color: couleur.withValues(alpha: 0.22)),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Icon(Icons.sticky_note_2_rounded, size: 14, color: couleur),
-            const SizedBox(width: 7),
-            Expanded(
-              child: Text(
-                  l.statutChangeLe == null
-                      ? l.motifStatut!
-                      : '${l.motifStatut!}  ·  ${_d(l.statutChangeLe!)}',
-                  style: TextStyle(
-                      fontSize: 11.5, color: kTextPrimary, height: 1.4)),
-            ),
-          ]),
-        ),
-      ],
-      // ── L'état du RÈGLEMENT, en une barre ───────────────────────────────
-      //  Le seul chiffre qu'on veut voir en parcourant la liste : est-ce que
-      //  ce marché est à jour ? Le reste s'ouvre.
-      if (l.partReglee != null) ...[
-        const SizedBox(height: 12),
-        _BarreCarte(licence: l),
-      ],
-      // ⚠️ ACCÈS COUPÉ — le seul état qui doit se voir SANS ouvrir la fiche.
-      if (l.accesSuspendu) ...[
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          decoration: BoxDecoration(
-            color: kRed.withValues(alpha: 0.09),
-            border: Border.all(color: kRed.withValues(alpha: 0.35)),
-            borderRadius: BorderRadius.circular(7),
-          ),
-          child: Row(children: [
-            Icon(Icons.lock_rounded, size: 14, color: kRed),
-            const SizedBox(width: 7),
-            Expanded(
-              child: Text(
-                  l.accesSuspenduMotif == null
-                      ? 'Accès de ce ministère coupé'
-                      : 'Accès coupé — ${l.accesSuspenduMotif}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                      color: kRed)),
-            ),
-          ]),
-        ),
-      ],
-      ]),
-      ),
-    );
-  }
-}
-
-/// La barre de règlement de la carte, avec la période écoulée en repère.
-///
-/// ⚠️ Deux repères sur UNE barre : le remplissage est ce qui est réglé, le
-/// trait vertical est où on en est dans le temps. Le trait à droite du
-/// remplissage = du retard. C'est lisible d'un coup d'œil dans une liste, là
-/// où deux barres superposées demanderaient de comparer.
-class _BarreCarte extends StatelessWidget {
-  const _BarreCarte({required this.licence});
-
-  final LicenceTutelle licence;
-
-  @override
-  Widget build(BuildContext context) {
-    final regle = licence.partReglee ?? 0;
-    final ecoule = licence.partEcoulee;
-    final enRetard = ecoule - regle > 0.15;
-    final couleur = enRetard ? kListOrange : kGreen;
-    return Row(children: [
-      Expanded(
-        child: SizedBox(
-          height: 8,
-          child: LayoutBuilder(builder: (_, c) {
-            return Stack(children: [
-              Positioned.fill(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: regle,
-                    minHeight: 8,
-                    backgroundColor: kSurface,
-                    valueColor: AlwaysStoppedAnimation(couleur),
-                  ),
-                ),
-              ),
-              Positioned(
-                left: (c.maxWidth * ecoule).clamp(0.0, c.maxWidth - 2),
-                top: 0,
-                bottom: 0,
-                child: Container(width: 2, color: kTextPrimary),
-              ),
-            ]);
-          }),
-        ),
-      ),
-      const SizedBox(width: 10),
-      Text('${(regle * 100).round()} % réglé',
-          style: TextStyle(
-              fontSize: 11, fontWeight: FontWeight.w700, color: couleur)),
-      const SizedBox(width: 8),
-      Text('· ${(ecoule * 100).round()} % écoulé',
-          style: TextStyle(fontSize: 11, color: kTextMuted)),
-    ]);
-  }
-}
-
-/// Un geste = un verbe. Jamais « statut = suspendue ».
-class _BoutonTransition extends ConsumerWidget {
-  const _BoutonTransition({required this.licence, required this.vers});
-
-  final LicenceTutelle licence;
-  final String vers;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final couleur = couleurStatutLicence(vers);
-    // Seule l'action « en avant » est pleine : résilier ne doit pas se cliquer
-    // aussi facilement qu'activer.
-    final principale = vers == 'active';
-    return OutlinedButton.icon(
-      onPressed: () => _changerStatutLicence(context, ref, licence, vers),
-      icon: Icon(_icone(vers, licence.statut), size: 15),
-      label: Text(verbeTransitionLicence(vers, depuis: licence.statut)),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: couleur,
-        backgroundColor:
-            principale ? couleur.withValues(alpha: 0.10) : Colors.transparent,
-        side: BorderSide(
-            color: couleur.withValues(alpha: principale ? 0.45 : 0.28)),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
-  }
-
-  static IconData _icone(String vers, String depuis) => switch (vers) {
-        'active' => depuis == 'suspendue'
-            ? Icons.play_arrow_rounded
-            : Icons.check_circle_rounded,
-        'suspendue' => Icons.pause_circle_rounded,
-        'echue' => Icons.event_busy_rounded,
-        'resiliee' => Icons.gavel_rounded,
-        _ => Icons.help_outline_rounded,
-      };
-}
-
-Future<void> _ouvrirLicence(BuildContext context, WidgetRef ref,
-    {LicenceTutelle? edition}) async {
-  await ouvrirFormulaireLicence(context, edition: edition);
-  ref.invalidate(economieProvider);
 }
 
 // ─── Coûts ──────────────────────────────────────────────────────────────────
@@ -637,6 +336,3 @@ IconData _iconeCategorie(String c) => switch (c) {
       'boutique' => Icons.store_rounded,
       _ => Icons.receipt_long_rounded,
     };
-
-String _d(DateTime d) => '${d.day.toString().padLeft(2, '0')}/'
-    '${d.month.toString().padLeft(2, '0')}/${d.year}';

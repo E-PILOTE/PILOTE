@@ -14,11 +14,10 @@ class SubCardGrid extends StatelessWidget {
     required this.subs,
     required this.onView,
     required this.onEdit,
-    required this.onLicence,
   });
 
   final List<SubscriptionDetail> subs;
-  final ValueChanged<SubscriptionDetail> onView, onEdit, onLicence;
+  final ValueChanged<SubscriptionDetail> onView, onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +36,6 @@ class SubCardGrid extends StatelessWidget {
         sub:       subs[i],
         onView:    () => onView(subs[i]),
         onEdit:    () => onEdit(subs[i]),
-        onLicence: () => onLicence(subs[i]),
       ),
     );
   }
@@ -48,10 +46,9 @@ class _SubCard extends StatefulWidget {
     required this.sub,
     required this.onView,
     required this.onEdit,
-    required this.onLicence,
   });
   final SubscriptionDetail sub;
-  final VoidCallback onView, onEdit, onLicence;
+  final VoidCallback onView, onEdit;
 
   @override
   State<_SubCard> createState() => _SubCardState();
@@ -103,10 +100,7 @@ class _SubCardState extends State<_SubCard> {
             )),
           ]),
           const SizedBox(height: 12),
-          Wrap(spacing: 6, runSpacing: 6, children: [
-            SubStatusBadge(status: s.status),
-            SubTypeBadge(type: s.groupType),
-          ]),
+          SubStatusBadge(status: s.status),
           const Spacer(),
           Row(children: [
             _miniStat(Icons.school_rounded, '${s.schoolsCount} écoles', kSubNavy),

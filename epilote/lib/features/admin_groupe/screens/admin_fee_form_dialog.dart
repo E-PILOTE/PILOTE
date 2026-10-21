@@ -192,13 +192,7 @@ class _AdminFeeFormState extends ConsumerState<_AdminFeeForm> {
         : (ref.watch(adminNationalExamsProvider).valueOrNull ??
             const <OptionRef>[]);
 
-    // Secteur du groupe, lu en base. La mensualité disparaît du choix dans le
-    // public — la loi 25-95 (art. 1) pose la gratuité de l'enseignement public.
-    final groupePublic = ref.watch(adminGroupePublicProvider);
-    final types = typesDeFraisProposables(
-      groupePublic: groupePublic,
-      typeActuel: widget.fee?.feeType,
-    );
+    const types = kAdminFeeTypes;
 
     return AdminFormDialog(
       icon: Icons.request_quote_rounded,
@@ -240,17 +234,6 @@ class _AdminFeeFormState extends ConsumerState<_AdminFeeForm> {
           ],
           onChanged: (v) => setState(() => _feeType = v),
         ),
-        // Expliquer une ABSENCE : sans ce mot, « où est passée la mensualité ? »
-        // devient un ticket de support.
-        if (groupePublic == true) ...[
-          const SizedBox(height: 8),
-          _note(
-            'Réseau public : la mensualité n\'est pas proposée. La loi 25-95 '
-            '(art. 1) pose que l\'enseignement public est gratuit. '
-            'L\'inscription, les frais d\'examen et la cotisation APE restent '
-            'possibles.',
-          ),
-        ],
         const SizedBox(height: 12),
         TextField(
           controller: _nom,

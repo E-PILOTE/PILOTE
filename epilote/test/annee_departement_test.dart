@@ -26,14 +26,12 @@ void main() {
     required String dept,
     required int eleves,
     int classes = 10,
-    String type = 'public',
     String? nom,
   }) =>
       YearSchoolStat(
         id: id,
         name: nom ?? 'Lycée $id',
         department: dept,
-        type: type,
         classes: classes,
         eleves: eleves,
       );
@@ -41,7 +39,6 @@ void main() {
   AdminYearAnalytics analytics(List<YearSchoolStat> ecoles) =>
       AdminYearAnalytics(
         byDepartment: const [],
-        byType: const [],
         bySchool: ecoles,
         ecolesTotal: ecoles.length,
         ecolesPreparees: ecoles.where((s) => s.adopted).length,

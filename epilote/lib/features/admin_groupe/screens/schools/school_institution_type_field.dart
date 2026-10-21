@@ -3,12 +3,11 @@ part of '../admin_schools_screen.dart';
 // ════════════════════════════════════════════════════════════════════════════
 //  CE QUE L'ÉCOLE EST — type d'établissement, et le ministère dont il découle
 //
-//  ⚠️ TROIS NOTIONS QUE LA FICHE NE DOIT PAS MÉLANGER :
-//   • le SECTEUR       — public / privé   → hérité du groupe (mig. 0060)
+//  ⚠️ DEUX NOTIONS QUE LA FICHE NE DOIT PAS MÉLANGER :
 //   • le MINISTÈRE     — MEPSA / METP     → hérité du groupe (mig. 0153)
 //   • le TYPE D'ÉTABL. — CEG, CET, lycée… → déclaré ICI      (mig. 0151)
 //
-//  Les deux premiers s'affichent, verrouillés. Le troisième se choisit — et
+//  Le premier s'affiche, verrouillé. Le second se choisit — et
 //  seuls les types du ministère du groupe sont proposés : offrir « lycée
 //  technique » à un groupe MEPSA n'aurait aucun sens administratif, chaque
 //  ministère agréant ses propres établissements par sa propre commission.
@@ -16,27 +15,6 @@ part of '../admin_schools_screen.dart';
 //  ⚠️ ET LE TYPE N'EST PAS UN DIPLÔME. CET ≠ CAP, CET ≠ BET : le CET est
 //  l'établissement, le BET est ce qu'on y prépare.
 // ════════════════════════════════════════════════════════════════════════════
-
-/// Le SECTEUR juridique, hérité du groupe et non modifiable : une école ne
-/// peut pas être d'un autre secteur que son propriétaire (verrou en base,
-/// migration 0060). Il vit ici, avec le ministère et le type, parce que les
-/// trois répondent à la même question — ce que l'école EST — et que deux
-/// d'entre eux sont hérités pour la même raison.
-class SchoolSecteurHerite extends ConsumerWidget {
-  const SchoolSecteurHerite({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final secteur =
-        ref.watch(adminSchoolsProvider).valueOrNull?.groupType ?? 'prive';
-    return TextFormField(
-      enabled: false,
-      key: ValueKey('secteur_$secteur'),
-      initialValue: secteur == 'public' ? 'Public' : 'Privé',
-      decoration: schoolInputDec('Secteur (hérité du groupe)'),
-    );
-  }
-}
 
 class SchoolInstitutionTypeField extends ConsumerWidget {
   const SchoolInstitutionTypeField({

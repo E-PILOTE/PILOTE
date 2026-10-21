@@ -64,10 +64,6 @@ IconData subStatusIcon(String s) => switch (s) {
 
 String subStatusLabel(String s) => kSubStatusLabels[s] ?? s;
 
-Color subTypeColor(String t) => t == 'public' ? kSubNavy : kSubPurple;
-IconData subTypeIcon(String t) =>
-    t == 'public' ? Icons.account_balance_rounded : Icons.business_rounded;
-
 // ─── Monnaie / dates ─────────────────────────────────────────────────────
 
 String subMoney(int v) {

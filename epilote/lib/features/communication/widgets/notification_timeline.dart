@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/widgets/admin_tokens.dart' show couleurTutelle;
-import '../../../core/widgets/badge_ministere.dart';
 import '../providers/notifications_provider.dart';
 import 'comm_text.dart' show fmtRelativeFr;
 import 'notification_types.dart';
@@ -167,36 +165,13 @@ class NotifCard extends ConsumerWidget {
                       ),
                       if (notif.groupName != null) ...[
                         const SizedBox(width: 6),
-                        // ⚠️ Une notification de la TUTELLE ne se lit pas comme
-                        // celle d'un groupe scolaire. Elle portait pourtant la
-                        // même icône « école » et la raison sociale brute.
-                        Icon(
-                          notif.groupEstMinistere
-                              ? Icons.account_balance_rounded
-                              : Icons.school_outlined,
-                          size: 10,
-                          color: notif.groupEstMinistere
-                              ? couleurTutelle(notif.groupTutelle)
-                              : kCommSub,
-                        ),
+                        Icon(Icons.school_outlined, size: 10, color: kCommSub),
                         const SizedBox(width: 3),
                         Flexible(
-                          child: Text(
-                              nomAffichableGroupe(
-                                nom: notif.groupName!,
-                                estMinistere: notif.groupEstMinistere,
-                                tutelle: notif.groupTutelle,
-                              ),
+                          child: Text(notif.groupName!,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: notif.groupEstMinistere
-                                      ? FontWeight.w700
-                                      : FontWeight.w400,
-                                  color: notif.groupEstMinistere
-                                      ? couleurTutelle(notif.groupTutelle)
-                                      : kCommSub)),
+                              style: TextStyle(fontSize: 10, color: kCommSub)),
                         ),
                       ] else
                         const Spacer(),

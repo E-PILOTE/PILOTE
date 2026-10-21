@@ -127,7 +127,6 @@ class ReportSchoolRow {
   const ReportSchoolRow({
     required this.id,
     required this.name,
-    required this.type,
     required this.department,
     required this.isActive,
     required this.students,
@@ -143,7 +142,6 @@ class ReportSchoolRow {
 
   final String id;
   final String name;
-  final String type; // public / prive
   final String department;
   final bool isActive;
   final int students, studentsM, studentsF;
@@ -196,8 +194,6 @@ class ReportData {
     required this.scopeLabel,
     required this.schoolsTotal,
     required this.schoolsActives,
-    required this.publicCount,
-    required this.priveCount,
     required this.elevesTotal,
     required this.elevesNouveaux,
     required this.studentsM,
@@ -234,7 +230,6 @@ class ReportData {
 
   // Établissements
   final int schoolsTotal, schoolsActives;
-  final int publicCount, priveCount;
 
   // Effectifs (période)
   final int elevesTotal; // effectif total scopé (école)
@@ -301,8 +296,6 @@ class ReportData {
     scopeLabel: 'Toutes les écoles',
     schoolsTotal: 0,
     schoolsActives: 0,
-    publicCount: 0,
-    priveCount: 0,
     elevesTotal: 0,
     elevesNouveaux: 0,
     studentsM: 0,
@@ -333,12 +326,11 @@ class SchoolRaw {
   SchoolRaw({
     required this.id,
     required this.name,
-    required this.type,
     required this.department,
     required this.isActive,
     this.city,
   });
-  final String id, name, type, department;
+  final String id, name, department;
   final bool isActive;
   final String? city;
 }
@@ -474,7 +466,7 @@ final reportsSnapshotProvider =
     try {
       final rows = await fetchAllRows(() => client
           .from('schools')
-          .select('id, name, school_type, city, department, is_active')
+          .select('id, name, city, department, is_active')
           .eq('group_id', groupId)
           .order('name', ascending: true)
           // Deux écoles homonymes existent (« CEG de Kinkala ») : `id` clôt le
@@ -486,7 +478,6 @@ final reportsSnapshotProvider =
         schools.add(SchoolRaw(
           id: s['id'] as String,
           name: s['name'] as String? ?? '—',
-          type: s['school_type'] as String? ?? 'prive',
           department: (dept == null || dept.isEmpty) ? 'Non précisé' : dept,
           isActive: s['is_active'] as bool? ?? true,
           city: s['city'] as String?,
@@ -760,20 +751,12 @@ ReportData _aggregate(ReportsSnapshot s, ReportFilter f) {
   }
 
   // ── Écoles (scope appliqué pour les compteurs d'établissements) ─────────────
-  int schoolsTotal = 0, schoolsActives = 0, publicCount = 0, priveCount = 0;
+  int schoolsTotal = 0, schoolsActives = 0;
   final Map<String, int> schoolsByDept = {};
   for (final sc in s.schools) {
     if (!keepSchool(sc.id)) continue;
     schoolsTotal++;
     if (sc.isActive) schoolsActives++;
-    switch (sc.type) {
-      case 'public':
-        publicCount++;
-        break;
-      case 'prive':
-        priveCount++;
-        break;
-    }
     schoolsByDept[sc.department] = (schoolsByDept[sc.department] ?? 0) + 1;
   }
 
@@ -785,7 +768,6 @@ ReportData _aggregate(ReportsSnapshot s, ReportFilter f) {
       out.add(ReportSchoolRow(
         id: sc.id,
         name: sc.name,
-        type: sc.type,
         department: sc.department,
         isActive: sc.isActive,
         city: sc.city,
@@ -817,8 +799,6 @@ ReportData _aggregate(ReportsSnapshot s, ReportFilter f) {
     scopeLabel: scopeLabel,
     schoolsTotal: schoolsTotal,
     schoolsActives: schoolsActives,
-    publicCount: publicCount,
-    priveCount: priveCount,
     elevesTotal: elevesTotal,
     elevesNouveaux: elevesNouveaux,
     studentsM: studentsM,

@@ -1,16 +1,13 @@
 import 'dart:convert';
 
 import 'package:epilote/core/services/official_pdf_kit.dart';
-import 'package:epilote/features/admin_groupe/providers/admin_regional_provider.dart';
 import 'package:epilote/features/admin_groupe/providers/admin_reports_provider.dart';
-import 'package:epilote/features/admin_groupe/services/regional_pdf_service.dart';
 import 'package:epilote/features/admin_groupe/services/reports_pdf_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:latlong2/latlong.dart';
 
-/// GÉNÉRATION RÉELLE des deux rapports de l'espace groupe — celui que la
-/// direction des statistiques recroise, et celui qu'on remet à une préfecture.
+/// GÉNÉRATION RÉELLE du rapport analytique de l'espace groupe. (Le rapport
+/// territorial a été retiré avec la carte nationale, le 2026-10-21.)
 ///
 /// ── CE QUE CES TESTS VERROUILLENT ────────────────────────────────────────────
 ///
@@ -71,7 +68,6 @@ void main() {
             ? "Collège d'Enseignement Technique et Professionnel "
                 'de Nkayi-Bouenza n° $i'
             : 'Lycée de Madingou $i',
-        type: i.isEven ? 'public' : 'prive',
         department: long ? 'Cuvette-Ouest' : 'Bouenza',
         isActive: i % 7 != 0,
         students: 430,
@@ -85,16 +81,14 @@ void main() {
       );
 
   ReportData rapport(List<ReportSchoolRow> ecoles) => ReportData(
-        groupName: "Ministère de l'Enseignement Technique et Professionnel",
-        planName: 'National',
+        groupName: 'Groupe Scolaire Les Bâtisseurs',
+        planName: 'Premium',
         periodLabel: 'Année scolaire en cours',
         periodStart: DateTime(2025, 9, 1),
         periodEnd: DateTime(2026, 7, 31),
         scopeLabel: 'Toutes les écoles du groupe',
         schoolsTotal: ecoles.length,
         schoolsActives: ecoles.where((e) => e.isActive).length,
-        publicCount: ecoles.where((e) => e.type == 'public').length,
-        priveCount: ecoles.where((e) => e.type == 'prive').length,
         elevesTotal: ecoles.fold(0, (a, e) => a + e.students),
         elevesNouveaux: 1240,
         studentsM: ecoles.fold(0, (a, e) => a + e.studentsM),
@@ -174,118 +168,6 @@ void main() {
   });
 
   // ══════════════════════════════════════════════════════════════════════════
-  //  RAPPORT TERRITORIAL
-  // ══════════════════════════════════════════════════════════════════════════
-  AdminSchoolPin pin(int i, {bool long = false}) => AdminSchoolPin(
-        id: 'p-$i',
-        name: long
-            ? 'Complexe Scolaire Départemental Étoile du Nord de Ouesso n° $i'
-            : 'CEG de Dolisie $i',
-        type: i.isEven ? 'public' : 'prive',
-        isActive: i % 5 != 0,
-        students: 380,
-        department: long ? 'Sangha' : 'Niari',
-        city: 'Dolisie',
-        latitude: -4.2 + i * 0.001,
-        longitude: 12.6 + i * 0.001,
-        locationSource: const ['gps', 'geocoded', 'manual'][i % 3],
-      );
-
-  AdminProjectPin projet(int i) => AdminProjectPin(
-        id: 'pr-$i',
-        name: "Construction d'un collège d'enseignement général — lot $i",
-        status: const [
-          'etude',
-          'validation',
-          'budgetisation',
-          'construction',
-          'acheve'
-        ][i % 5],
-        latitude: -4.3,
-        longitude: 13.2,
-        department: 'Pool',
-        city: 'Kinkala',
-        budgetXaf: 185000000 + i,
-        beneficiariesEst: 640,
-      );
-
-  AdminDeptEntry dept(String nom, int n) => AdminDeptEntry(
-        dept: nom,
-        coords: const LatLng(-4.26, 15.28),
-        schoolCount: n,
-        studentCount: n * 380,
-        activeCount: (n * 0.8).round(),
-        schools: const [],
-      );
-
-  AdminRegionalData territoire({
-    required List<AdminSchoolPin> gps,
-    required List<AdminDeptEntry> depts,
-  }) =>
-      AdminRegionalData(
-        depts: depts,
-        allDepts: depts,
-        gpsSchools: gps,
-        totalSchools: gps.length + 120,
-        totalStudents: gps.fold(0, (a, p) => a + p.students),
-        coveredDepts: depts.length,
-        activeSchools: gps.where((p) => p.isActive).length,
-      );
-
-  Future<List<int>> territorial({
-    required int ecoles,
-    required int projets,
-    int departements = 12,
-    bool long = false,
-  }) =>
-      RegionalPdfService.buildPdf(
-        groupName: "Ministère de l'Enseignement Technique et Professionnel",
-        data: territoire(
-          gps: [for (var i = 0; i < ecoles; i++) pin(i, long: long)],
-          depts: [
-            for (var i = 0; i < departements; i++) dept('Département $i', 40 + i)
-          ],
-        ),
-        projects: [for (var i = 0; i < projets; i++) projet(i)],
-      );
-
-  group('Rapport territorial — le document sort', () {
-    test('sur un groupe vide', () async {
-      expect((await territorial(ecoles: 0, projets: 0, departements: 0)).length,
-          greaterThan(0));
-    });
-
-    test('avec 1 000 écoles géolocalisées', () async {
-      final pdf = await territorial(ecoles: 1000, projets: 0);
-      expect(pdf.length, greaterThan(0));
-      expect(pagesDe(pdf), greaterThan(40));
-    });
-
-    test('avec 300 projets scolaires — une liste sans borne', () async {
-      // Un plan quinquennal de constructions n'a aucun plafond structurel :
-      // c'est la seule des trois tables dont rien ne limite la longueur.
-      expect((await territorial(ecoles: 0, projets: 300)).length, greaterThan(0));
-    });
-
-    test('avec 50 départements — saisie libre, donc orthographes fautives',
-        () async {
-      // `schools.department` est du texte libre : « Pool », « pool » et
-      // « Le Pool » lèvent trois lignes. Le Congo en compte quinze ; la table
-      // doit survivre à trois fois plus.
-      expect((await territorial(ecoles: 0, projets: 0, departements: 50)).length,
-          greaterThan(0));
-    });
-
-    test('tout à la fois, aux libellés à rallonge', () async {
-      expect(
-        (await territorial(ecoles: 1000, projets: 300, departements: 50, long: true))
-            .length,
-        greaterThan(0),
-      );
-    });
-  });
-
-  // ══════════════════════════════════════════════════════════════════════════
   //  POLICES ET ÉMETTEUR
   // ══════════════════════════════════════════════════════════════════════════
   group('les polices sont embarquées, pas téléchargées', () {
@@ -298,13 +180,6 @@ void main() {
           reason: 'polices trouvées : $polices');
     });
 
-    test("le rapport territorial n'embarque PAS Helvetica", () async {
-      final polices = policesDe(await territorial(ecoles: 3, projets: 2));
-      expect(polices.where((f) => f.contains('Helvetica')), isEmpty,
-          reason: 'polices trouvées : $polices');
-      expect(polices.any((f) => f.contains('NotoSans')), isTrue,
-          reason: 'polices trouvées : $polices');
-    });
   });
 
   group("l'émetteur du document atteint bien la page", () {
@@ -324,17 +199,6 @@ void main() {
       expect(ministere.length, isNot(equals(defaut.length)),
           reason: "l'en-tête doit porter le nom du groupe connecté, pas un "
               'libellé codé en dur');
-    });
-
-    test('le rapport territorial change quand le groupe change', () async {
-      OfficialPdfKit.setIssuer(null);
-      final defaut = await territorial(ecoles: 3, projets: 2);
-
-      OfficialPdfKit.setIssuer(const PdfIssuer(
-          name: "Ministère de l'Enseignement Technique et Professionnel"));
-      final ministere = await territorial(ecoles: 3, projets: 2);
-
-      expect(ministere.length, isNot(equals(defaut.length)));
     });
   });
 }

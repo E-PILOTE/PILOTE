@@ -8,7 +8,6 @@ class SchoolGroupModel {
     required this.id,
     required this.name,
     this.slug,
-    required this.groupType,
     this.tutelle,
     this.department,
     required this.planId,
@@ -32,7 +31,6 @@ class SchoolGroupModel {
       id:                 map['id']                  as String,
       name:               map['name']                as String,
       slug:               map['slug']                as String?,
-      groupType:          map['group_type']          as String? ?? 'prive',
       tutelle:            map['tutelle']             as String?,
       department:         map['department']          as String?,
       planId:             map['plan_id']             as String,
@@ -65,11 +63,6 @@ class SchoolGroupModel {
   final String id;
   final String name;
   final String? slug;
-  /// SECTEUR : `public` ou `prive`, et rien d'autre — l'enum n'a que ces
-  /// deux valeurs. Ce commentaire a longtemps annoncé « catholique »,
-  /// « islamique »… : la confession vit dans `caractere` (migration 0180).
-  final String groupType;
-
   /// Ministère de tutelle (`mepsa` | `metp`), migration 0153. Le groupe le
   /// porte, l'école en hérite. `null` tant qu'un groupe ancien n'a pas été
   /// renseigné — ne jamais retomber sur `mepsa` par défaut : ce serait ranger
@@ -108,7 +101,6 @@ class SchoolGroupModel {
   Map<String, dynamic> toInsertMap() => {
     'name':                name,
     'slug':                slug,
-    'group_type':          groupType,
     'tutelle':             tutelle,
     'department':          department,
     'plan_id':             planId,

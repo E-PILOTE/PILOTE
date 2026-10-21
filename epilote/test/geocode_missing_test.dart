@@ -6,7 +6,6 @@ void main() {
     const pin = AdminSchoolPin(
       id: '1',
       name: 'EP Test',
-      type: 'public',
       isActive: true,
       students: 0,
       city: 'Ouésso',
@@ -20,7 +19,6 @@ void main() {
     const pin = AdminSchoolPin(
       id: '2',
       name: 'EP GPS',
-      type: 'public',
       isActive: true,
       students: 10,
       latitude: -4.26,

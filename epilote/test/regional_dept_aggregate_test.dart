@@ -12,7 +12,6 @@ AdminSchoolPin _pin(
     AdminSchoolPin(
       id: id,
       name: 'EP $id',
-      type: 'public',
       isActive: active,
       students: students,
       department: dept,

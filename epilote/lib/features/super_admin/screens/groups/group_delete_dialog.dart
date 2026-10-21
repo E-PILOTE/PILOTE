@@ -1,6 +1,6 @@
 part of '../school_groups_screen.dart';
 
-// Suppression : confirmation, refus ministère, avertissements.
+// Suppression : confirmation et avertissements.
 
 class _DeleteConfirmDialog extends StatefulWidget {
   const _DeleteConfirmDialog({required this.group});
@@ -12,12 +12,6 @@ class _DeleteConfirmDialog extends StatefulWidget {
 
 class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
   bool _confirmed = false;
-
-  /// ⚠️ CE DIALOGUE NE PROPOSE PAS DE SUPPRIMER UN MINISTÈRE. La base refuse
-  /// (déclencheur `trg_ministere_ne_seffce_pas`, migration 0179) ; l'écran doit
-  /// le dire AVANT le clic, pas laisser cocher « je comprends que cette action
-  /// est irréversible » pour finir sur un refus.
-  bool get _estMinistere => widget.group.administreReferentielNational;
 
   @override
   Widget build(BuildContext context) {
@@ -54,25 +48,16 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
                   shape: BoxShape.circle,
                   border: Border.all(color: _kRed.withValues(alpha: 0.2), width: 2),
                 ),
-                child: Icon(
-                    _estMinistere
-                        ? Icons.block_rounded
-                        : Icons.delete_forever_rounded,
+                child: const Icon(Icons.delete_forever_rounded,
                     color: _kRed, size: 30),
               ),
               const SizedBox(height: 14),
-              Text(
-                  _estMinistere
-                      ? 'Suppression impossible'
-                      : 'Supprimer définitivement',
-                  style: const TextStyle(
+              const Text('Supprimer définitivement',
+                  style: TextStyle(
                       color: _kRed, fontSize: 17,
                       fontWeight: FontWeight.w900, letterSpacing: 0.2)),
               const SizedBox(height: 6),
-              Text(
-                  _estMinistere
-                      ? 'Ce groupe est un ministère de tutelle'
-                      : 'Cette action est irréversible',
+              Text('Cette action est irréversible',
                   style: TextStyle(
                       color: _kRed.withValues(alpha: 0.7),
                       fontSize: 12, fontWeight: FontWeight.w500)),
@@ -102,7 +87,7 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
                           fontWeight: FontWeight.w800),
                           overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 2),
-                      Text('${g.groupTypeLabel}  •  ${g.adminEmail}',
+                      Text(g.adminEmail,
                           style: TextStyle(
                               color: _kMuted, fontSize: 11),
                           overflow: TextOverflow.ellipsis),
@@ -112,10 +97,7 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
               ),
               const SizedBox(height: 16),
 
-              // ── Le refus, ou les avertissements ────────────────────
-              if (_estMinistere)
-                _RefusMinistere(nom: g.name, tutelle: g.tutelle)
-              else ...[
+              ...[
                 // Avertissement données
                 Text('Seront également supprimées :',
                     style: TextStyle(
@@ -208,13 +190,13 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
               // Supprimer
               Expanded(child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 200),
-                opacity: _confirmed && !_estMinistere ? 1.0 : 0.4,
+                opacity: _confirmed ? 1.0 : 0.4,
                 child: MouseRegion(
                   cursor: _confirmed
                       ? SystemMouseCursors.click
                       : SystemMouseCursors.forbidden,
                   child: GestureDetector(
-                    onTap: _confirmed && !_estMinistere
+                    onTap: _confirmed
                         ? () => Navigator.pop(context, true)
                         : null,
                     child: Container(
@@ -247,76 +229,6 @@ class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
           ),
         ]),
       ),
-    );
-  }
-}
-
-/// Le refus opposé à la suppression d'un ministère de tutelle.
-///
-/// ⚠️ IL NE S'AJOUTE PAS AUX QUATRE AVERTISSEMENTS, IL LES REMPLACE. Le
-/// dialogue énumérait déjà « écoles, élèves, paiements, archives » et faisait
-/// cocher « je comprends ». Un cinquième point dans la même liste se serait lu
-/// comme les quatre autres — et ici il n'y a rien à comprendre : il n'y aura
-/// pas de suppression. Ce qu'il faut donner, c'est le chemin sûr.
-class _RefusMinistere extends StatelessWidget {
-  const _RefusMinistere({required this.nom, required this.tutelle});
-
-  final String nom;
-  final String? tutelle;
-
-  @override
-  Widget build(BuildContext context) {
-    final sigle = sigleTutelle(tutelle);
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
-      decoration: BoxDecoration(
-        color: _kRed.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _kRed.withValues(alpha: 0.30)),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          const Icon(Icons.account_balance_rounded, size: 15, color: _kRed),
-          const SizedBox(width: 8),
-          Expanded(child: Text(
-            sigle == null
-                ? '« $nom » est un ministère de tutelle.'
-                : '« $nom » est le ministère de tutelle $sigle.',
-            style: TextStyle(
-                fontSize: 12.5, height: 1.4,
-                fontWeight: FontWeight.w700, color: _kText),
-          )),
-        ]),
-        const SizedBox(height: 9),
-        Text(
-          'Les établissements de son ministère en dépendent pour leurs '
-          'examens d’État et leurs circulaires — y compris ceux qu’il ne '
-          'possède pas. La base refuse cette suppression.',
-          style: TextStyle(fontSize: 11.5, height: 1.45, color: _kMuted),
-        ),
-        const SizedBox(height: 11),
-        Container(
-          padding: const EdgeInsets.fromLTRB(11, 9, 11, 9),
-          decoration: BoxDecoration(
-            color: _kSurface,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: _kBorder),
-          ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-            Text('Pour supprimer ce groupe malgré tout :',
-                style: TextStyle(
-                    fontSize: 11, fontWeight: FontWeight.w800, color: _kText)),
-            const SizedBox(height: 6),
-            Text(
-              '1.  Modifier le groupe et lui retirer le rôle de ministère de '
-              'tutelle — vous devrez alors dire qui le reprend.\n'
-              '2.  Revenir ici et supprimer.',
-              style: TextStyle(fontSize: 11.5, height: 1.5, color: _kMuted),
-            ),
-          ]),
-        ),
-      ]),
     );
   }
 }

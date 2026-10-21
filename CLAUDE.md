@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Projet
 
-**E-PILOTE CONGO v3.0** — SaaS national de gestion scolaire offline-first pour la République du Congo (commande MEPSA + METP). Multi-tenant, plus de 1000 écoles publiques et privées visées.
+**E-PILOTE CONGO v3.0** — SaaS de gestion scolaire offline-first pour la République du Congo, **destiné UNIQUEMENT aux groupes scolaires privés** (clients payants). Multi-tenant.
+
+⚠️ **Recentrage du 2026-10-17/21** : la commande ministérielle (MEPSA + METP) a été annulée. Il n'y a plus ni groupe public, ni ministère utilisateur, ni licence de tutelle, ni circulaires, ni cockpit national. La base a été remise à zéro (mig. 0208) et le code ministériel retiré de l'app (`docs/analyse-2026-10/recentrage-prive.md`). Le ministère reste un **fait réglementaire** : `tutelle` (`mepsa` | `metp`) = ordre d'enseignement d'un groupe privé (agrément, examens d'État) ; le catalogue d'examens est tenu par le **super_admin**. Ne jamais réintroduire de secteur public/privé dans l'UI.
 
 ## Layout du dépôt (monorepo)
 
@@ -81,7 +83,7 @@ du code correct.
 - `main.dart` — init Supabase → `initPowerSync()` → `ProviderScope`.
 - `core/` — `router/app_router.dart` (GoRouter avec `redirect` gardé par rôle ; `_dashboardForRole`), `constants/` (routes, app_constants), `theme/`, `widgets/` (dont `app_shell.dart` = sidebar), `extensions/`, `utils/`.
 - `data/models/` — modèles immuables (ex. `ProfileModel`).
-- `features/<domaine>/` — organisation **feature-first** : sous-dossiers `screens/`, `providers/` (Riverpod), `services/`, `widgets/`. Domaines : `auth`, `super_admin`, `admin_groupe`, `students`, `classes`, `structure`, `navigation`, `user`, `staff`, `communication`, `audit`, `examens`, `finance`, `vie_scolaire`, `evaluation`, `stages`, `cartes`, `tutelle`, `profil`…
+- `features/<domaine>/` — organisation **feature-first** : sous-dossiers `screens/`, `providers/` (Riverpod), `services/`, `widgets/`. Domaines : `auth`, `super_admin`, `admin_groupe`, `students`, `classes`, `structure`, `navigation`, `user`, `staff`, `communication`, `audit`, `examens`, `finance`, `vie_scolaire`, `evaluation`, `stages`, `cartes`, `profil`…
   ⚠️ **Modules transverses scope-aware** (un seul code, périmètre déduit du rôle) : `communication/` et `profil/` (« Mon profil » : les routes `/super/profil`, `/admin/profil` et `/user/profil` mènent au MÊME écran). Ne jamais en refaire une copie par espace.
 - `services/` — `supabase_service.dart` + `powersync/`.
 - `licensing/` — **module transverse** (îlot hexagonal : `domain/`/`application/`/`infrastructure/`/`presentation/`) du système de licence offline-first. ⚠️ **Enforcement ACTIF depuis le 2026-07-04** (go-live pilote) : `licensePinnedKeysProvider` porte la clé `2026-07`, il n'est plus vide. Le périmètre est borné **côté serveur** par `LICENSE_PILOT_GROUP_IDS` (Edge Function `license-issuer`) : hors pilote → 403 → aucune licence → le groupe reste dormant. Vider ce map ramène tout le parc à dormant (`docs/LICENCE_GOLIVE.md`). Décisions gelées : `docs/adr/ADR-licence.md` ; org. code : `docs/ABONNEMENT_ARCHITECTURE_LOGICIELLE.md`. Ne JAMAIS gater la synchro PowerSync sur la licence (C4).
@@ -107,7 +109,7 @@ Navigation : ajouter un écran = créer screen + provider, déclarer la route da
 - **Syncfusion `BarSeries`** : `primaryXAxis: CategoryAxis` ← `xValueMapper` (String) ; `primaryYAxis: NumericAxis` ← `yValueMapper` (double). Ne jamais inverser (crash `String is not a subtype of num`).
 - ⚠️ **Ne JAMAIS ajouter `42703` (ni `42P01`, `42804`) à `_fatalResponseCodes`.** Un code fatal fait *compléter* la transaction : les écritures de l'école seraient **jetées**. Un désaccord de schéma doit rester rejoué (rien n'est perdu) et se SIGNALER — `sync_failures.kind = 'blocage'`, cf. `docs/memoire/blocage-de-file-visible.md`.
 - ⚠️ **DEUX instances PowerSync.** Le parc utilise **`6a185943234fa2bf51a66759` (Production)** ; `6a185941234fa2bf51a66757` est **Development** — c'est pourtant celle que citent toutes les vieilles notes. Déployer sur la mauvaise réussit et ne touche personne. Voir `docs/memoire/powersync-deux-instances.md`.
-- **`school_type_enum` ≠ `group_type`** : deux énumérations distinctes aux MÊMES libellés (`public` | `prive`) — l'une sur `school_groups.group_type`, l'autre sur `schools.school_type`. Les confondre ne lève `42883` qu'à l'exécution de la comparaison.
+- **`school_type_enum` ≠ `group_type`** : deux énumérations distinctes aux MÊMES libellés (`public` | `prive`) — l'une sur `school_groups.group_type`, l'autre sur `schools.school_type`. Les confondre ne lève `42883` qu'à l'exécution de la comparaison. Depuis le recentrage privé, l'app ne lit ni n'écrit plus ces colonnes ; elles (et `administre_referentiel_national`, `acces_suspendu*`, `tutelle_licences`, `circulaires`, plans `licence`/`institutionnel`) attendent le **chantier 4** — suppression en base APRÈS diffusion de la version qui ne les lit plus.
 - **Le prix d'un groupe suit son NOMBRE D'ÉCOLES** (mig 0159) : `plan_price_xaf(plan, n)` en base, miroir `lib/core/utils/tarif_ecoles.dart`. Ne JAMAIS afficher `price_xaf` seul — c'est la base d'UNE école. Ne jamais calculer un MRR par `tarif × abonnés`.
 - **`REVOKE EXECUTE ... FROM anon, authenticated` ne fait rien** si `PUBLIC` détient encore le droit (grant par défaut de PostgreSQL). Retirer `FROM PUBLIC`, puis re-`GRANT` aux rôles qui en ont besoin (une fonction appelée dans une politique RLS doit rester exécutable par `authenticated`).
 - `service_role` JAMAIS dans Flutter (Edge Functions uniquement). Clé anon dans `lib/core/constants/supabase_constants.dart`.

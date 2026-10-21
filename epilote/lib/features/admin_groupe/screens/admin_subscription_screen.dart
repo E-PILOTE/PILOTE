@@ -8,8 +8,6 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../super_admin/providers/invoices_provider.dart' show InvoiceDetail;
 import '../providers/admin_subscription_provider.dart';
-import 'admin_licence_card.dart';
-import 'admin_licence_couverture.dart';
 import 'admin_subscription_billing.dart';
 import 'admin_subscription_renew_dialog.dart';
 import '../../../core/widgets/admin_ui.dart';
@@ -27,18 +25,8 @@ class AdminSubscriptionScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // ⚠️ Le titre suit la NATURE du groupe, pas la route. Un ministère de
-    // tutelle n'a pas d'abonnement : il exécute un marché (0182/0183). Lire
-    // « Abonnement » en tête de la page qui décrit sa licence nationale, c'est
-    // déjà lui dire qu'on le range parmi les clients mensuels.
-    final estMinistere = ref
-            .watch(adminSubscriptionProvider)
-            .valueOrNull
-            ?.subscription
-            ?.estMinistere ??
-        false;
     return AppShell(
-      title: estMinistere ? 'Licence de tutelle' : 'Abonnement',
+      title: 'Abonnement',
       child: ref.watch(adminSubscriptionProvider).when(
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,
@@ -175,50 +163,23 @@ class _Body extends ConsumerWidget {
                   // et on ne l'apprend pas après avoir lu les montants.
                   if (data.mesuresManquantes.isNotEmpty)
                     _MesuresManquantesAbonnement(data: data),
-                  if (sub.estMinistere)
-                    LicenceDeTutelleSection(sub: sub)
-                  else
-                    _CurrentPlanCard(
-                      sub: sub,
-                      enAttente: data.factureEnAttente,
-                    ),
+                  _CurrentPlanCard(
+                    sub: sub,
+                    enAttente: data.factureEnAttente,
+                  ),
                   const SizedBox(height: 20),
-                  if (!sub.estMinistere)
-                    const AdminSectionTitle('Consommation',
-                        icon: Icons.speed_rounded,
-                        subtitle: 'Utilisation des quotas de votre plan'),
-
-                  // Ce que la licence ACHÈTE : le réseau couvert en KPI
-                  // cliquables, deux graphes d'utilisation, les droits ouverts,
-                  // et le montant DIVISÉ — seul chiffre qui se défend en
-                  // réunion.
-                  //
-                  // ⚠️ PAS de `_QuotaGrid` ici, et c'est le correctif : ses
-                  // trois jauges affichaient « Illimité » pour un ministère, et
-                  // ses cartes (110 px) ne tombaient pas au même gabarit que
-                  // le `KpiGrid` du reste de l'application (118 px). Deux
-                  // gabarits sur une page se voient, même sans savoir pourquoi.
-                  if (sub.estMinistere)
-                    LicenceCouvertureSection(sub: sub)
-                  else ...[
-                    const SizedBox(height: 12),
-                    _QuotaGrid(sub: sub),
-                    const SizedBox(height: 16),
-                    _QuotaChart(sub: sub),
-                  ],
-                  // ⚠️ Comparer des offres, en demander une autre, suivre
-                  // ses demandes : la base refuse les trois à un ministère
-                  // depuis 0182. Un écran qui les propose quand même envoie
-                  // l'utilisateur se faire refuser.
-                  if (!sub.estMinistere)
-                    _MecaniqueAbonnement(data: data, sub: sub),
+                  const AdminSectionTitle('Consommation',
+                      icon: Icons.speed_rounded,
+                      subtitle: 'Utilisation des quotas de votre plan'),
+                  const SizedBox(height: 12),
+                  _QuotaGrid(sub: sub),
+                  const SizedBox(height: 16),
+                  _QuotaChart(sub: sub),
+                  _MecaniqueAbonnement(data: data, sub: sub),
                   const SizedBox(height: 24),
-                  AdminSectionTitle(
-                      sub.estMinistere ? 'Historique de facturation' : 'Facturation',
+                  AdminSectionTitle('Facturation',
                       icon: Icons.receipt_long_rounded,
-                      subtitle: sub.estMinistere
-                          ? 'Pièces émises avant le rattachement à la licence'
-                          : "Vos factures et reçus d'abonnement",
+                      subtitle: "Vos factures et reçus d'abonnement",
                       trailing: AdminBadge(
                           '${data.invoices.length} facture${data.invoices.length > 1 ? 's' : ''}',
                           color: kNavy)),
@@ -235,7 +196,4 @@ class _Body extends ConsumerWidget {
   }
 }
 
-// ─── Ce qui n'existe QUE pour un abonnement mensuel ───────────────────────────
-//  Extrait du corps de page pour que la lecture de `_Body` montre d'un coup
-//  d'œil ce qui sépare les deux natures de client : le ministère lit sa
-//  licence et son réseau, le groupe privé lit tout ce bloc en plus.
+// ─── Comparer les offres, en demander une autre, suivre ses demandes ─────────

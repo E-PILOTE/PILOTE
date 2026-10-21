@@ -116,7 +116,6 @@ void main() {
     test('un statut contractuel n’est pas gardé aussi longtemps qu’une table '
         'de référence', () {
       for (final chemin in [
-        'lib/features/admin_groupe/providers/admin_licence_provider.dart',
         'lib/features/admin_groupe/providers/subscription_access_provider.dart',
       ]) {
         final src = _sansCommentaires(_lire(chemin));

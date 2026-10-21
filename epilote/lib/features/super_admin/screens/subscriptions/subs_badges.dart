@@ -6,8 +6,8 @@ import 'subs_style.dart';
 
 // ─── Glyphe de groupe & pastilles ──────────────────────────────────────
 //  Les trois vues (tableau, cartes, fiche) montrent le MÊME groupe : même
-//  logo, même statut, même type. Un badge redéclaré par vue, c'est trois
-//  vérités qui divergent au premier changement de couleur.
+//  logo, même statut. Un badge redéclaré par vue, c'est trois vérités qui
+//  divergent au premier changement de couleur.
 
 class SubGroupGlyph extends StatelessWidget {
   const SubGroupGlyph({super.key, required this.sub, this.size = 38});
@@ -16,7 +16,7 @@ class SubGroupGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = subTypeColor(sub.groupType);
+    final color = kSubPurple;
     final logo = sub.groupLogo;
     if (logo != null && logo.trim().isNotEmpty) {
       return ClipRRect(
@@ -62,29 +62,6 @@ class SubStatusBadge extends StatelessWidget {
         Icon(subStatusIcon(status), size: 11, color: color),
         const SizedBox(width: 4),
         Text(subStatusLabel(status),
-            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: color)),
-      ]),
-    );
-  }
-}
-
-class SubTypeBadge extends StatelessWidget {
-  const SubTypeBadge({super.key, required this.type});
-  final String type;
-  @override
-  Widget build(BuildContext context) {
-    final color = subTypeColor(type);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.30)),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(subTypeIcon(type), size: 11, color: color),
-        const SizedBox(width: 4),
-        Text(type == 'public' ? 'Public' : 'Privé',
             style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: color)),
       ]),
     );

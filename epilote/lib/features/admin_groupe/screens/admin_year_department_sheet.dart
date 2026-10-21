@@ -166,9 +166,8 @@ class _FocusBand extends StatelessWidget {
                       color: kTextPrimary)),
               Text(
                   rang == null
-                      ? _typeLabel(school.type)
-                      : '${_typeLabel(school.type)} · '
-                          '${rangOrdinal(rang)} sur '
+                      ? detail.department
+                      : '${rangOrdinal(rang)} sur '
                           '${detail.ecolesTotal} par effectif',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -440,7 +439,6 @@ class _DeptHeaderRow extends StatelessWidget {
       SizedBox(width: 34, child: txt('Rg', TextAlign.left)),
       const SizedBox(width: 8),
       h('Établissement', 7),
-      h('Type', 2, align: TextAlign.center),
       h('Classes', 2, align: TextAlign.center),
       h('Élèves', 2, align: TextAlign.center),
       h('État', 3, align: TextAlign.right),
@@ -529,14 +527,6 @@ class _DeptSchoolRowState extends State<_DeptSchoolRow> {
                 ),
               ),
             ]),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(_typeLabel(s.type),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11.5, color: _typeColor(s.type))),
           ),
           Expanded(
             flex: 2,

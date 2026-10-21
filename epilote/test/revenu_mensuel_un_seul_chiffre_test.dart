@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:epilote/features/super_admin/providers/subscriptions_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'ecran_abonnements_source.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LE REVENU MENSUEL — UN SEUL CHIFFRE, DEUX ÉCRANS
@@ -192,13 +191,6 @@ void main() {
         expect(_lire(f).contains('mensualiteGroupe('), isTrue,
             reason: '$f a repris un calcul de revenu à lui.');
       }
-    });
-
-    test('la carte dit ce qu’elle ne compte pas', () {
-      // Le plan « Licence de tutelle » est un support à 0 F : les ministères
-      // pèsent zéro dans ce total. Sans le dire, ce zéro passe pour un oubli.
-      final src = sourceEcranAbonnements();
-      expect(src.contains("sub:   'Abonnements — hors licences',"), isTrue);
     });
   });
 }

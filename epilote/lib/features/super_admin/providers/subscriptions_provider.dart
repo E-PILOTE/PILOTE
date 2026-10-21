@@ -9,7 +9,6 @@ import '../../../core/utils/tarif_ecoles.dart'
     show ecolesParGroupe, tarifPlanRow;
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../core/providers/identite_etablissement.dart';
-import 'economie_provider.dart' show LicenceTutelle;
 import 'plans_provider.dart' show moneyXaf;
 
 // ─── Modèle SubscriptionDetail (un groupe scolaire = un abonnement) ───────────
@@ -19,7 +18,6 @@ class SubscriptionDetail {
     required this.id,
     required this.groupName,
     required this.adminEmail,
-    required this.groupType,
     required this.status,
     required this.priceXaf,
     required this.schoolsCount,
@@ -36,16 +34,11 @@ class SubscriptionDetail {
     this.planSlug,
     this.start,
     this.end,
-    this.estMinistere = false,
-    this.tutelle,
-    this.accesSuspendu = false,
-    this.licence,
   });
 
   factory SubscriptionDetail.fromMap(
     Map<String, dynamic> m, {
     int schoolsCount = 0,
-    LicenceTutelle? licence,
   }) {
     final plan = m['plan'];
     final planMap = plan is Map ? Map<String, dynamic>.from(plan) : const {};
@@ -62,7 +55,6 @@ class SubscriptionDetail {
       groupLogo:   m['logo_url']      as String?,
       adminEmail:  m['admin_email']   as String? ?? '',
       phone:       m['phone']         as String?,
-      groupType:   m['group_type']    as String? ?? 'prive',
       department:  m['department']    as String?,
       planId:      m['plan_id']       as String?,
       planName:    planMap['name']    as String?,
@@ -78,15 +70,10 @@ class SubscriptionDetail {
       schoolsCount: schoolsCount,
       createdAt:   DateTime.parse(m['created_at'] as String),
       updatedAt:   DateTime.parse(m['updated_at'] as String),
-      estMinistere:
-          m['administre_referentiel_national'] as bool? ?? false,
-      tutelle:       m['tutelle'] as String?,
-      accesSuspendu: m['acces_suspendu'] as bool? ?? false,
-      licence:       licence,
     );
   }
 
-  final String  id, groupName, adminEmail, groupType, status;
+  final String  id, groupName, adminEmail, status;
   final String? groupLogo, phone, department, planId, planName, planSlug;
   /// Ce que le groupe paie REELLEMENT par periode : bareme du plan applique
   /// a son assiette d'ecoles, ou le tarif negocie s'il y en a un.
@@ -110,31 +97,6 @@ class SubscriptionDetail {
   final String  billingPeriod;
   final DateTime  createdAt, updatedAt;
   final DateTime? start, end;
-
-  /// Ce groupe est un ministère de tutelle (0155). Il ne porte PAS un
-  /// abonnement mensuel mais une licence (0182).
-  final bool estMinistere;
-  final String? tutelle;
-
-  /// Accès coupé pour impayé (0187) — distinct du statut de la licence.
-  final bool accesSuspendu;
-
-  /// ⚠️ LA LICENCE, LUE ICI ET PLUS SEULEMENT DANS « ÉCONOMIE ».
-  ///
-  /// C'est le défaut que le fondateur a rencontré : il a activé une licence,
-  /// puis il est allé la voir sur la page où il gère les abonnements — et elle
-  /// n'y était pas. Le contrat vivait dans un autre écran, qu'il faut savoir
-  /// chercher. Un ministère affichait « Licence de tutelle · Gratuit », ce qui
-  /// est exactement l'inverse de la vérité : 40 millions.
-  final LicenceTutelle? licence;
-
-  /// Ce que la ligne doit afficher à la place du tarif.
-  String get montantLabel {
-    if (!estMinistere) return priceLabel;
-    final l = licence;
-    if (l == null) return 'Aucune licence';
-    return '${moneyXaf(l.montantXaf)} FCFA';
-  }
 
   /// Tarif avec sa période — « 120 000 FCFA / an ». Un montant nu laissait
   /// chaque écran inventer son suffixe : l'espace admin_groupe affichait
@@ -160,8 +122,6 @@ class SubscriptionDetail {
     'cancelled' => 'Annulé',
     _           => status,
   };
-
-  String get groupTypeLabel => groupType == 'public' ? 'Public' : 'Privé';
 
   /// Jours restants avant la fin de l'abonnement (null si pas de date de fin).
   ///
@@ -201,17 +161,6 @@ DateTime? _date(dynamic v) {
 }
 
 // ─── Modèle PlanOption (sélecteur de plan dans le formulaire) ─────────────────
-
-/// ⚠️ `LicenceResume` a été SUPPRIMÉE. Elle ne portait que quatre champs —
-/// assez pour AFFICHER la ligne, pas assez pour l'OUVRIR. Le bouton « Gérer la
-/// licence » rouvrait donc un formulaire de CRÉATION sur un ministère qui avait
-/// déjà son marché : on aurait saisi une seconde licence, et la garde
-/// anti-chevauchement (0186) l'aurait refusée au dernier moment. Un résumé qui
-/// ne permet pas d'agir n'est pas un résumé, c'est une impasse.
-///
-/// La page charge désormais le contrat complet — `LicenceTutelle`, le même
-/// objet qu'en Économie. Une seule définition pour les deux écrans : deux
-/// modèles du même marché finissent par en montrer deux versions.
 
 class PlanOption {
   const PlanOption({
@@ -300,47 +249,14 @@ final subscriptionsProvider =
     schoolsByGroup = ecolesParGroupe(rows);
   } catch (_) {}
 
-  // ── Licence de tutelle par groupe ───────────────────────────────────────────
-  //  ⚠️ On garde la PLUS PERTINENTE, pas la dernière : une licence active qui
-  //  couvre aujourd'hui passe avant un brouillon signé pour l'an prochain.
-  //  Même règle que `licenceAMontrer` côté ministère — deux écrans qui
-  //  choisiraient différemment afficheraient deux contrats pour un seul.
-  final Map<String, LicenceTutelle> licencesByGroup = {};
-  try {
-    // Les mêmes colonnes qu'en Économie : la ligne AFFICHE le contrat et le
-    // bouton l'OUVRE. Deux requêtes différentes pour le même objet finiraient
-    // par montrer deux vérités.
-    final rows = await client
-        .from('tutelle_licences')
-        .select('id, group_id, tutelle, intitule, date_debut, date_fin, '
-            'montant_xaf, avance_xaf, montant_regle_xaf, statut, '
-            'reference_marche, signataire, notes, motif_statut, '
-            'statut_change_le, school_groups!group_id(name, acces_suspendu, '
-            'acces_suspendu_motif)')
-        .order('date_fin', ascending: false) as List;
-    final aujourdhui = DateTime.now();
-    for (final r in rows) {
-      final m = Map<String, dynamic>.from(r as Map);
-      final gid = m['group_id'] as String?;
-      if (gid == null) continue;
-      final resume = LicenceTutelle.fromRow(m);
-      final deja = licencesByGroup[gid];
-      final couvre = resume.estActive && resume.dateFin.isAfter(aujourdhui);
-      if (deja == null || (couvre && !deja.estActive)) {
-        licencesByGroup[gid] = resume;
-      }
-    }
-  } catch (_) {}
-
   // ── Abonnements (groupes + plan joint) ──────────────────────────────────────
   List<SubscriptionDetail> subs = [];
   try {
     final rows = await fetchAllRows(() => client
         .from('school_groups')
-        .select('id, name, logo_url, admin_email, phone, group_type, '
+        .select('id, name, logo_url, admin_email, phone, '
             'department, plan_id, subscription_status, subscription_start, '
-            'subscription_end, created_at, updated_at, tutelle, '
-            'administre_referentiel_national, acces_suspendu, '
+            'subscription_end, created_at, updated_at, '
             'price_override_xaf, billed_schools, '
             'plan:subscription_plans(name, slug, price_xaf, billing_period, '
             'extra_school_2_5_xaf, extra_school_6_10_xaf, '
@@ -352,7 +268,6 @@ final subscriptionsProvider =
       return SubscriptionDetail.fromMap(
         m,
         schoolsCount: schoolsByGroup[m['id']] ?? 0,
-        licence: licencesByGroup[m['id']],
       );
     }).toList();
   } catch (_) {}
@@ -362,10 +277,15 @@ final subscriptionsProvider =
   try {
     final rows = await client
         .from('subscription_plans')
-        .select('id, name, price_xaf, billing_period')
+        .select('id, name, slug, price_xaf, billing_period')
         .eq('is_active', true)
         .order('price_xaf', ascending: true) as List;
-    plans = rows.map((r) {
+    // « Licence de tutelle » et « Institutionnel » appartiennent au projet
+    // ministériel annulé : ils ne se proposent plus à aucun groupe.
+    plans = rows
+        .where((r) => !const {'licence', 'institutionnel'}
+            .contains((r as Map)['slug']))
+        .map((r) {
       final m = Map<String, dynamic>.from(r as Map);
       return PlanOption(
         id:       m['id']   as String,

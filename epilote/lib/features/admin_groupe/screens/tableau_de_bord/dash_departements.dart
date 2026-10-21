@@ -166,8 +166,6 @@ class _DeptSchools extends StatelessWidget {
                         style: TextStyle(
                             fontSize: 12.5, color: kTextPrimary)),
                   ),
-                  _TypeChip(s.type),
-                  const SizedBox(width: 8),
                   Text('${s.students} él.',
                       style: TextStyle(
                           fontSize: 11.5,
@@ -178,25 +176,6 @@ class _DeptSchools extends StatelessWidget {
             ),
         ],
       ),
-    );
-  }
-}
-
-class _TypeChip extends StatelessWidget {
-  const _TypeChip(this.type);
-  final String type;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = _typeColor(type);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-          color: c.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(6)),
-      child: Text(_typeLabel(type),
-          style: TextStyle(
-              fontSize: 10.5, fontWeight: FontWeight.w700, color: c)),
     );
   }
 }

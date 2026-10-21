@@ -87,11 +87,6 @@ class _ResultatDialog extends StatelessWidget {
   /// écrits pour quelqu'un qui vend.
   String get _messageErreur {
     final brut = erreur.toString();
-    if (brut.contains('ministere de tutelle')) {
-      return 'Ce groupe est un ministère de tutelle : son marché se renégocie '
-          "par avenant, il ne se renouvelle pas d'un clic. Passez par sa fiche "
-          'de licence.';
-    }
     if (brut.contains('Aucun plan')) {
       return "Aucun plan n'est attribué à ce groupe : il n'y a rien à "
           "facturer. Attribuez-lui un plan d'abord.";

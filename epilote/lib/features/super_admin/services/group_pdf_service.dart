@@ -384,9 +384,8 @@ class GroupPdfService {
             ),
           ]),
           pw.SizedBox(height: 8),
-          // Badges type + plan + fondé
+          // Badges plan + fondé
           pw.Wrap(spacing: 6, runSpacing: 4, children: [
-            _badge(g.groupTypeLabel, _navy, fontMedium),
             _badge('Plan ${g.planName}', _gold, fontMedium),
             if (g.foundedYear != null)
               _badge('Fondé en ${g.foundedYear}', _muted, fontMedium),

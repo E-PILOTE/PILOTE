@@ -106,10 +106,11 @@ void main() {
 
   test('le type d\'établissement n\'est pas confondu avec le secteur', () {
     final src = _lire(providerEcoles);
-    // `school_type` (public/privé) et `institution_type_id` (CEG, CET…) sont
-    // deux colonnes distinctes. Le jour où l'une remplacerait l'autre, la
-    // question « combien d'élèves en CET ? » redeviendrait insoluble.
-    expect(src.contains("'school_type'"), isTrue);
+    // `school_type` (public/privé) n'est plus écrit depuis le recentrage sur
+    // le privé (2026-10-21) ; `institution_type_id` (CEG, CET…) porte seul la
+    // NATURE de l'établissement. Le jour où le secteur reviendrait s'y
+    // substituer, « combien d'élèves en CET ? » redeviendrait insoluble.
+    expect(src.contains("'school_type'"), isFalse);
     expect(src.contains("'institution_type_id'"), isTrue);
   });
   test('un SEUL écran écrit l\'agrément, et c\'est celui du groupe', () {

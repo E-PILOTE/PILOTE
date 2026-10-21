@@ -70,20 +70,13 @@ class SubKpiGrid extends StatelessWidget {
         trend: data.expiringSoon > 0 ? '⚠️ À relancer' : 'OK',
         trendUp: data.expiringSoon == 0,
       ),
-      // ⚠️ Ce chiffre annonçait 120 000 F là où « Économie & licences » en
-      // calculait 184 000 : il additionnait le tarif de BASE des plans et
-      // perdait les écoles supplémentaires ainsi que les tarifs négociés.
-      // Deux écrans du même logiciel se contredisaient de 35 % sur le chiffre
-      // d'affaires — et c'est CETTE page, celle qu'on ouvre en premier, qui
-      // sous-estimait. Le calcul est maintenant partagé (`tarifPlanRow`).
-      //
-      // Les licences de tutelle restent hors de ce total, et c'est voulu : le
-      // plan « Licence de tutelle » est un support à 0 F, le marché se compte
-      // dans Économie. Le sous-titre le dit, pour qu'un zéro apparent ne passe
-      // pas pour un oubli.
+      // ⚠️ Ce chiffre annonçait 120 000 F là où « Économie » en calculait
+      // 184 000 : il additionnait le tarif de BASE des plans et perdait les
+      // écoles supplémentaires ainsi que les tarifs négociés. Le calcul est
+      // maintenant partagé (`tarifPlanRow`).
       _KD(
         label: 'Revenu mensuel', value: '${subMoney(data.mrr)} F',
-        sub:   'Abonnements — hors licences',
+        sub:   'Abonnements actifs',
         icon:  Icons.payments_rounded, color: kSubPurple,
         progressValue: data.mrr > 0 ? 1 : 0,
         trend: data.mrr > 0 ? '📈 Récurrent' : '—',

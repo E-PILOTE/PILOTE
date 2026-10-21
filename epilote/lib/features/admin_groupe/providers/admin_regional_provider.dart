@@ -43,7 +43,6 @@ class AdminSchoolPin {
   const AdminSchoolPin({
     required this.id,
     required this.name,
-    required this.type,
     required this.isActive,
     required this.students,
     this.city,
@@ -56,7 +55,6 @@ class AdminSchoolPin {
   });
   final String id;
   final String name;
-  final String type;
   final bool isActive;
   final int students;
   final String? city;
@@ -78,7 +76,6 @@ class AdminProjectPin {
     required this.status,
     required this.latitude,
     required this.longitude,
-    this.schoolType,
     this.department,
     this.city,
     this.budgetXaf,
@@ -94,7 +91,6 @@ class AdminProjectPin {
   final String status; // etude|validation|budgetisation|construction|acheve
   final double latitude;
   final double longitude;
-  final String? schoolType;
   final String? department;
   final String? city;
   final int? budgetXaf;
@@ -231,7 +227,7 @@ final adminRegionalProvider =
   final results = await Future.wait([
     fetchAllRows(() => client
         .from('schools')
-        .select('id, name, school_type, department, city, is_active, logo_url, '
+        .select('id, name, department, city, is_active, logo_url, '
                 'latitude, longitude, location_source, location_captured_at')
         .eq('group_id', groupId)
         .order('id')),
@@ -269,7 +265,6 @@ final adminRegionalProvider =
     final pin = AdminSchoolPin(
       id:                 id,
       name:               m['name'] as String? ?? '—',
-      type:               m['school_type'] as String? ?? 'prive',
       isActive:           m['is_active'] as bool? ?? true,
       city:               m['city'] as String?,
       department:         (m['department'] as String?)?.trim(),
@@ -330,7 +325,6 @@ final adminProjectsProvider =
       status:           m['status'] as String? ?? 'etude',
       latitude:         (m['latitude'] as num).toDouble(),
       longitude:        (m['longitude'] as num).toDouble(),
-      schoolType:       m['school_type'] as String?,
       department:       m['department'] as String?,
       city:             m['city'] as String?,
       budgetXaf:        (m['budget_xaf'] as num?)?.toInt(),
@@ -356,7 +350,6 @@ class AdminProjectService {
     required double longitude,
     required String status,
     String? description,
-    String? schoolType,
     String? department,
     String? city,
     int? budgetXaf,
@@ -371,7 +364,6 @@ class AdminProjectService {
       'longitude':         longitude,
       'status':            status,
       'description':       description,
-      'school_type':       schoolType,
       'department':        department,
       'city':              city,
       'budget_xaf':        budgetXaf,
@@ -387,7 +379,6 @@ class AdminProjectService {
     required String name,
     required String status,
     String? description,
-    String? schoolType,
     String? department,
     String? city,
     int? budgetXaf,
@@ -401,7 +392,6 @@ class AdminProjectService {
       'name':              name,
       'status':            status,
       'description':       description,
-      'school_type':       schoolType,
       'department':        department,
       'city':              city,
       'budget_xaf':        budgetXaf,

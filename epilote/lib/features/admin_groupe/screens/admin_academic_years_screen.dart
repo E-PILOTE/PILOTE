@@ -56,18 +56,6 @@ const double _kGapChapitre = 30;
   return (label: 'Passée', color: kTextMuted, icon: Icons.history_rounded);
 }
 
-String _typeLabel(String t) => switch (t) {
-      'public' => 'Public',
-      'prive' => 'Privé',
-      _ => t.isEmpty ? 'Autre' : '${t[0].toUpperCase()}${t.substring(1)}',
-    };
-
-Color _typeColor(String t) => switch (t) {
-      'public' => kNavy,
-      'prive' => kGreen,
-      _ => kTextMuted,
-    };
-
 List<Color> get _palette => <Color>[
   kNavy,
   kGreen,

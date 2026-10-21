@@ -245,7 +245,6 @@ void main() {
         etablissement: const EnTeteEtablissement(
           nom: 'CEG de Moungali',
           code: 'CEG-042',
-          type: 'public',
           tutelle: 'mepsa',
           departement: 'Brazzaville',
           arrondissement: 'Moungali',

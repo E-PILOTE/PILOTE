@@ -173,14 +173,7 @@ class _ReportsBody extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(flex: 2, child: _InvoiceStatusChart(data: data)),
-              const SizedBox(width: 16),
-              Expanded(flex: 3, child: _GroupTypeSection(data: data)),
-            ],
-          ),
+          _InvoiceStatusChart(data: data),
           const SizedBox(height: 16),
           _TopGroupsTable(data: data),
           const SizedBox(height: 16),
@@ -214,7 +207,7 @@ class _KpiGrid extends StatelessWidget {
       _KpiDef(
         icon: Icons.corporate_fare_rounded, label: 'Groupes Scolaires',
         value: _fmtNum.format(data.totalGroupes),
-        sub: '${data.totalPublic} publics · ${data.totalPrivate} privés',
+        sub: 'groupes scolaires privés',
         color: _kNavy,
       ),
       _KpiDef(
@@ -497,107 +490,6 @@ class _InvoiceStatusChart extends StatelessWidget {
   }
 }
 
-// ─── Group type public/privé ──────────────────────────────────────────────────
-
-class _GroupTypeSection extends StatelessWidget {
-  const _GroupTypeSection({required this.data});
-  final ReportsData data;
-
-  @override
-  Widget build(BuildContext context) {
-    final total   = data.totalPublic + data.totalPrivate;
-    final pctPub  = total > 0 ? data.totalPublic  / total : 0.0;
-    final pctPriv = total > 0 ? data.totalPrivate / total : 0.0;
-
-    return _ChartCard(
-      title: 'Public vs Privé',
-      subtitle: 'Répartition des ${data.totalGroupes} groupes',
-      height: 250,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _BigStat(label: 'Public',  value: data.totalPublic,  color: _kNavy),
-              Container(width: 1, height: 60, color: Colors.grey.shade200),
-              _BigStat(label: 'Privé',   value: data.totalPrivate, color: _kPurple),
-              Container(width: 1, height: 60, color: Colors.grey.shade200),
-              _BigStat(label: 'Total',   value: total,             color: _kSub),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Row(
-                children: [
-                  if (pctPub > 0)
-                    Flexible(
-                      flex: (pctPub * 100).round(),
-                      child: Container(
-                        height: 24, color: _kNavy,
-                        child: Center(child: Text('${(pctPub * 100).round()}%',
-                            style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w700))),
-                      ),
-                    ),
-                  if (pctPriv > 0)
-                    Flexible(
-                      flex: (pctPriv * 100).round(),
-                      child: Container(
-                        height: 24, color: _kPurple,
-                        child: Center(child: Text('${(pctPriv * 100).round()}%',
-                            style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w700))),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _LegendDot(color: _kNavy,   label: 'Établissements publics'),
-              const SizedBox(width: 24),
-              const _LegendDot(color: _kPurple, label: 'Établissements privés'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BigStat extends StatelessWidget {
-  const _BigStat({required this.label, required this.value, required this.color});
-  final String label; final int value; final Color color;
-  @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      Text(_fmtNum.format(value),
-          style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: color)),
-      const SizedBox(height: 2),
-      Text(label, style: TextStyle(fontSize: 11, color: _kSub, fontWeight: FontWeight.w500)),
-    ],
-  );
-}
-
-class _LegendDot extends StatelessWidget {
-  const _LegendDot({required this.color, required this.label});
-  final Color color; final String label;
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-      const SizedBox(width: 6),
-      Text(label, style: TextStyle(fontSize: 11, color: _kSub)),
-    ],
-  );
-}
-
 // ─── Top 5 Groups ─────────────────────────────────────────────────────────────
 
 class _TopGroupsTable extends StatelessWidget {
@@ -619,9 +511,8 @@ class _TopGroupsTable extends StatelessWidget {
                 0: FlexColumnWidth(3),
                 1: FlexColumnWidth(2),
                 2: FlexColumnWidth(1),
-                3: FlexColumnWidth(1.5),
-                4: FlexColumnWidth(2.5),
-                5: FlexColumnWidth(1.5),
+                3: FlexColumnWidth(2.5),
+                4: FlexColumnWidth(1.5),
               },
               children: [
                 TableRow(
@@ -630,7 +521,7 @@ class _TopGroupsTable extends StatelessWidget {
                   ),
                   children: const [
                     _Th('Groupe'), _Th('Département'), _Th('Écoles'),
-                    _Th('Type'), _Th('Revenus'), _Th('Statut'),
+                    _Th('Revenus'), _Th('Statut'),
                   ],
                 ),
                 ...data.topGroups.asMap().entries.map((e) {
@@ -658,7 +549,6 @@ class _TopGroupsTable extends StatelessWidget {
                           style: TextStyle(fontSize: 11, color: _kSub))),
                       _Td(child: Text('${g.schoolCount}',
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _kNavy))),
-                      _Td(child: _TypeBadge(type: g.groupType)),
                       _Td(child: Text(_fmtXaf.format(g.revenueXaf),
                           style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _kGreen))),
                       _Td(child: _StatusChip(status: g.status)),
@@ -689,25 +579,6 @@ class _Td extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
     child: child,
   );
-}
-
-class _TypeBadge extends StatelessWidget {
-  const _TypeBadge({required this.type});
-  final String type;
-  @override
-  Widget build(BuildContext context) {
-    final isPublic = type == 'public';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: (isPublic ? _kNavy : _kPurple).withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(isPublic ? 'Public' : 'Privé',
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
-              color: isPublic ? _kNavy : _kPurple)),
-    );
-  }
 }
 
 class _StatusChip extends StatelessWidget {

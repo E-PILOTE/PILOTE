@@ -6,8 +6,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/routes.dart';
 import '../../../core/constants/caractere_groupe.dart';
-import '../../../core/constants/tutelle.dart';
-import '../../../core/widgets/badge_ministere.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../core/widgets/admin_ui.dart';

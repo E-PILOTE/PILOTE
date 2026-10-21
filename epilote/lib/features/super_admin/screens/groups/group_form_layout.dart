@@ -139,19 +139,24 @@ extension _GroupFormLayout on _GroupFormModalState {
                         ],
                       )),
                     ]),
+                    // Tout groupe est PRIVÉ (recentrage du 2026-10-21) : plus
+                    // de champ « Secteur ». Le caractère, lui, décrit le
+                    // promoteur — catholique, protestant, laïc…
                     const SizedBox(height: 14),
                     Row(children: [
-                      Expanded(child: DropdownButtonFormField<String>(
-                        initialValue: _groupType,
-                        decoration: _inputDeco('Secteur *'),
-                        items: kSecteursGroupe.map((code) => DropdownMenuItem(
-                            value: code,
-                            child: Row(children: [
-                              Icon(_typeIcon(code), size: 15, color: _kNavy),
-                              const SizedBox(width: 8),
-                              Text(libelleSecteur(code)),
-                            ]))).toList(),
-                        onChanged: (v) => rafraichir(() => _groupType = v!),
+                      Expanded(child: DropdownButtonFormField<String?>(
+                        initialValue:
+                            caractereConnu(_caractere) ? _caractere : null,
+                        decoration: _inputDeco('Caractère du groupe'),
+                        items: [
+                          const DropdownMenuItem(
+                              value: null, child: Text('— Non renseigné —')),
+                          ...kCaracteresGroupe.map((code) => DropdownMenuItem(
+                                value: code,
+                                child: Text(libelleCaractere(code) ?? code),
+                              )),
+                        ],
+                        onChanged: (v) => rafraichir(() => _caractere = v),
                       )),
                       const SizedBox(width: 12),
                       Expanded(child: DropdownButtonFormField<String?>(
@@ -167,58 +172,18 @@ extension _GroupFormLayout on _GroupFormModalState {
                       )),
                     ]),
 
-                    // ── CARACTÈRE ──────────────────────────────────────
-                    // ⚠️ Un champ à part, et pas une valeur de plus dans le
-                    // secteur : une école catholique EST une école privée.
-                    // Les deux informations sont vraies en même temps, et
-                    // c'est faute d'avoir ce champ que « Catholique » s'était
-                    // posé dans celui du secteur — où la base le refusait.
-                    // Proposé sur un groupe PRIVÉ seulement : un établissement
-                    // public n'a pas de caractère propre.
-                    if (caractereSeSaisit(_groupType)) ...[
-                      const SizedBox(height: 14),
-                      DropdownButtonFormField<String?>(
-                        initialValue:
-                            caractereConnu(_caractere) ? _caractere : null,
-                        decoration: _inputDeco('Caractère du groupe'),
-                        items: [
-                          const DropdownMenuItem(
-                              value: null, child: Text('— Non renseigné —')),
-                          ...kCaracteresGroupe.map((code) => DropdownMenuItem(
-                                value: code,
-                                child: Text(libelleCaractere(code) ?? code),
-                              )),
-                        ],
-                        onChanged: (v) => rafraichir(() => _caractere = v),
-                      ),
-                    ],
-
                     const _FormDivider(),
 
-                    // ─ TUTELLE ────────────────────────────────────────
-                    const _FormLabel('MINISTÈRE DE TUTELLE'),
+                    // ─ ORDRE D'ENSEIGNEMENT ───────────────────────────
+                    // Fait RÉGLEMENTAIRE, pas un compte : le ministère qui
+                    // agrée les écoles du groupe et dont elles passent les
+                    // examens d'État (général : MEPSA ; technique : METP).
+                    const _FormLabel("ORDRE D'ENSEIGNEMENT"),
                     _TutelleSelector(
                       value: _tutelle,
                       onChanged: (v) => rafraichir(() => _tutelle = v),
                       ecolesConcernees: widget.existing?.schoolCount ?? 0,
                       valeurInitiale: widget.existing?.tutelle,
-                    ),
-
-                    const SizedBox(height: 12),
-                    _RoleDeTutelle(
-                      actif: _estTutelle,
-                      tutelle: _tutelle,
-                      detenteur: detenteurDuRoleDeTutelle(
-                        widget.groupes, _tutelle,
-                        saufId: widget.existing?.id,
-                      ),
-                      valeurInitiale:
-                          widget.existing?.administreReferentielNational ??
-                              false,
-                      onChanged: (v) => rafraichir(() {
-                        _estTutelle = v;
-                        _alignerLePlan();
-                      }),
                     ),
 
                     _AgrementFields(

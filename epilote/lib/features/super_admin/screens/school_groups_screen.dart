@@ -22,7 +22,6 @@ import '../widgets/plan_change_notice.dart';
 import '../../../core/utils/message_erreur.dart';
 import '../../../core/constants/caractere_groupe.dart';
 import '../../../core/constants/tutelle.dart';
-import '../../../core/widgets/badge_ministere.dart';
 import '../../../core/providers/identite_etablissement.dart';
 
 part 'groups/group_delete_dialog.dart';
@@ -47,7 +46,6 @@ part 'groups/groups_table.dart';
 part 'groups/group_form_modal.dart';
 part 'groups/group_form_layout.dart';
 part 'groups/group_tutelle_selector.dart';
-part 'groups/group_tutelle_role.dart';
 part 'groups/group_logo_upload.dart';
 part 'groups/group_form_footer.dart';
 part 'groups/group_agrement_fields.dart';
@@ -91,7 +89,6 @@ class _GroupsBodyState extends ConsumerState<_GroupsBody> {
   // Filtres
   final _searchCtrl  = TextEditingController();
   String  _filterStatus = 'tous';
-  String  _filterType   = 'tous';
   String  _filterPlan   = 'tous';
   String  _filterDept   = 'tous';
   // Vue
@@ -117,7 +114,6 @@ class _GroupsBodyState extends ConsumerState<_GroupsBody> {
         if (!match) return false;
       }
       if (_filterStatus != 'tous' && g.subscriptionStatus != _filterStatus) return false;
-      if (_filterType   != 'tous' && g.groupType          != _filterType  ) return false;
       if (_filterPlan   != 'tous' && g.planName           != _filterPlan  ) return false;
       if (_filterDept   != 'tous' && (g.department ?? '') != _filterDept  ) return false;
       return true;
@@ -287,7 +283,6 @@ class _GroupsBodyState extends ConsumerState<_GroupsBody> {
                 contentWidth:   w - 48,
                 searchCtrl:     _searchCtrl,
                 filterStatus:   _filterStatus,
-                filterType:     _filterType,
                 filterPlan:     _filterPlan,
                 filterDept:     _filterDept,
                 departments:    data.departments,
@@ -295,13 +290,12 @@ class _GroupsBodyState extends ConsumerState<_GroupsBody> {
                 isTableView:    _isTableView,
                 onSearchChange: (_) => setState(() {}),
                 onStatus:       (v) => setState(() => _filterStatus = v),
-                onType:         (v) => setState(() => _filterType   = v),
                 onPlan:         (v) => setState(() => _filterPlan   = v),
                 onDept:         (v) => setState(() => _filterDept   = v),
                 onToggleView:   ()  => setState(() => _isTableView  = !_isTableView),
                 onReset: () => setState(() {
                   _searchCtrl.clear();
-                  _filterStatus = _filterType = _filterPlan = _filterDept = 'tous';
+                  _filterStatus = _filterPlan = _filterDept = 'tous';
                 }),
                 onAdd: () => _openCreate(data),
               ),

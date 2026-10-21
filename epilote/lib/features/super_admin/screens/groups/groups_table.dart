@@ -92,7 +92,6 @@ class _TableHeader extends StatelessWidget {
       const SizedBox(width: 12),
       _col('NOM DU GROUPE',   'name',    flex: 3),
       _col('DÉPARTEMENT',     'dept'),
-      _col('TYPE',            'type'),
       _col('PLAN',            'plan'),
       _col('STATUT',          'status'),
       _col('ÉCOLES',          'schools'),
@@ -172,8 +171,6 @@ class _TableRowState extends ConsumerState<_TableRow> {
             Expanded(child: Text(g.department ?? '—',
                 style: TextStyle(color: _kText, fontSize: 12.5),
                 overflow: TextOverflow.ellipsis)),
-            // Type
-            Expanded(child: _TypeBadge(type: g.groupType, label: g.groupTypeLabel)),
             // Plan
             Expanded(child: _PlanBadge(plan: g.planName, price: g.priceXaf)),
             // Statut

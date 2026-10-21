@@ -20,7 +20,6 @@ import '../../../core/utils/erreur_metier.dart';
 class GroupProfile {
   const GroupProfile({
     required this.name,
-    required this.groupType,
     required this.planName,
     required this.subscriptionStatus,
     this.slug,
@@ -34,11 +33,9 @@ class GroupProfile {
     this.logoUrl,
     this.isActive = true,
     this.tutelle,
-    this.estMinistere = false,
     this.caractere,
   });
   final String name;
-  final String groupType;
   final String planName;
   final String subscriptionStatus;
   final String? slug;
@@ -51,17 +48,11 @@ class GroupProfile {
   final DateTime? subscriptionStart;
   final String? logoUrl;
 
-  /// Ministère de tutelle du groupe, et — surtout — s'il EST ce ministère.
-  ///
-  /// ⚠️ Sans ça, la fiche du MEPSA affichait « Public » et rien d'autre :
-  /// l'administration de tutelle se lisait comme n'importe quel groupe public.
-  /// C'est son PROPRE écran ; s'il ne dit pas ce qu'elle est, aucun autre ne
-  /// le fera.
+  /// Ministère dont relèvent les établissements (fait réglementaire :
+  /// agrément, examens d'État). Le groupe n'est jamais lui-même un ministère.
   final String? tutelle;
-  final bool    estMinistere;
 
-  /// Caractère du groupe (migration 0180) — indépendant du secteur porté par
-  /// [groupType]. `null` = non renseigné.
+  /// Caractère du groupe (migration 0180). `null` = non renseigné.
   final String? caractere;
   final bool isActive;
 }
@@ -74,17 +65,16 @@ final adminGroupProfileProvider =
   if (groupId == null) return null;
   try {
     final g = await client.from('school_groups')
-        .select('name, slug, group_type, department, admin_email, phone, address, '
+        .select('name, slug, department, admin_email, phone, address, '
             'founded_year, logo_url, subscription_status, subscription_start, '
             'subscription_end, is_active, tutelle, caractere, '
-            'administre_referentiel_national, subscription_plans!plan_id(name)')
+            'subscription_plans!plan_id(name)')
         .eq('id', groupId)
         .maybeSingle();
     if (g == null) return null;
     final plan = g['subscription_plans'] as Map<String, dynamic>?;
     return GroupProfile(
       name:               g['name'] as String? ?? '—',
-      groupType:          g['group_type'] as String? ?? '—',
       slug:               g['slug'] as String?,
       department:         g['department'] as String?,
       adminEmail:         g['admin_email'] as String?,
@@ -98,8 +88,6 @@ final adminGroupProfileProvider =
       subscriptionEnd:    DateTime.tryParse(g['subscription_end'] as String? ?? ''),
       isActive:           g['is_active'] as bool? ?? true,
       tutelle:            g['tutelle'] as String?,
-      estMinistere:
-          g['administre_referentiel_national'] as bool? ?? false,
       caractere:          g['caractere'] as String?,
     );
   } catch (_) {

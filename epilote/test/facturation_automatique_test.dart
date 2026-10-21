@@ -212,19 +212,6 @@ void main() {
               'il ne peut que marquer payée celle que le client a demandée.');
     });
 
-    test('⚠️ il n’est pas proposé sur un ministère', () {
-      // La base refuserait — un écran qui le propose envoie l'utilisateur se
-      // faire jeter.
-      // ⚠️ Sonde de PROXIMITÉ : elle compare des positions. Elle lit la pièce,
-      // jamais le dossier concaténé — sinon elle comparerait deux fichiers.
-      final src = sourcePieceAbonnements(_ficheFondateur);
-      final i = src.indexOf('emettreFactureDeRenouvellement(');
-      final avant = src.substring(0, i);
-      expect(avant.lastIndexOf('if (!s.estMinistere)') > avant.lastIndexOf('Row(children: ['),
-          isTrue,
-          reason: 'Le bouton d’émission n’est plus gardé par estMinistere.');
-    });
-
     test('émettre n’encaisse pas', () {
       // Le paiement reste un second geste, explicite, dans l'écran Factures.
       final src = _lire(_boutonFondateur);

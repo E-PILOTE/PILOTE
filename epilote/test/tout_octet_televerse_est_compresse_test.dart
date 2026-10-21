@@ -50,11 +50,6 @@ const _kExceptions = <String, String>{
       'La file d’attente. Elle renvoie des octets DÉJÀ compressés au moment où '
           'ils y ont été déposés ; les recompresser au vol les dégraderait une '
           'seconde fois, sans rien gagner.',
-  'lib/features/admin_groupe/providers/exam_archives_provider.dart':
-      'Pièce opposable. L’empreinte SHA-256 est calculée sur les octets '
-          'déposés : ré-encoder le scan d’un procès-verbal changerait '
-          'l’empreinte, donc la seule chose qui prouve qu’on regarde bien le '
-          'document déposé ce jour-là.',
   'lib/features/communication/providers/messages_provider.dart':
       'La compression a lieu en amont, dans `comm_attachments.dart`, AVANT le '
           'contrôle de taille — une photo de 8 Mo tombe à ~400 Ko et repasse '
@@ -150,19 +145,6 @@ void main() {
           reason: 'La compression doit précéder l’envoi ET le contrôle de '
               'taille : c’est ce qui fait passer une photo de 8 Mo sous la '
               'limite au lieu de la refuser.');
-    });
-  });
-
-  group('Les archives d’examen expliquent leur exception dans le code', () {
-    test('la raison est écrite là où quelqu’un la lira', () {
-      final src = File(
-        'lib/features/admin_groupe/providers/exam_archives_provider.dart',
-      ).readAsStringSync().replaceAll('\r\n', '\n');
-      expect(src.contains('ON NE COMPRESSE PAS'), isTrue,
-          reason: 'La seule exception permanente du dépôt doit se justifier '
-              'sur place. Un lecteur qui trouve un envoi non compressé et '
-              'aucune explication le « corrigera » — et cassera la valeur '
-              'probante de l’archive.');
     });
   });
 }

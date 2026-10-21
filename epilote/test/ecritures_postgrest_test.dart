@@ -51,8 +51,6 @@ const _kEcrituresConnues = <String, Set<String>>{
     'education_levels',
     'education_programs',
     'exam_eligibility_rules',
-    'exam_official_results',
-    'exam_publications',
     'exam_sessions',
     'fee_structures',
     'group_settings',
@@ -77,10 +75,9 @@ const _kEcrituresConnues = <String, Set<String>>{
     'payment_configs',
     'plan_modules',
     // Donnees de FONDATEUR (migration 0160). RLS : super_admin seul, en
-    // lecture comme en ecriture. Verifie : `platform_costs_super_admin`
-    // et `tutelle_licences_super_admin`, FOR ALL, USING + WITH CHECK.
+    // lecture comme en ecriture. Verifie : `platform_costs_super_admin`,
+    // FOR ALL, USING + WITH CHECK.
     'platform_costs',
-    'tutelle_licences',
     'platform_partners',
     'platform_service_messages',
     'platform_settings',

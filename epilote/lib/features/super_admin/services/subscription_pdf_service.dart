@@ -93,7 +93,6 @@ class SubscriptionPdfService {
               fontRegular: fontRegular,
               rows: [
                 _Row('Nom', s.groupName),
-                _Row('Type', s.groupTypeLabel),
                 _Row('Département', s.department ?? '—'),
                 _Row('Écoles', '${s.schoolsCount}'),
               ],
@@ -305,7 +304,6 @@ class SubscriptionPdfService {
             _badge(s.planName ?? 'Aucun plan', _navy, fontMedium),
             _badge(s.priceXaf <= 0 ? 'Gratuit' : '${_money(s.priceXaf)} FCFA / mois',
                 _green, fontMedium),
-            _badge(s.groupTypeLabel, _gold, fontMedium),
             _badge('${s.schoolsCount} école(s)', _blue, fontMedium),
           ]),
           pw.SizedBox(height: 12),

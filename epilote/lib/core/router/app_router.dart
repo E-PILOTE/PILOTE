@@ -43,9 +43,7 @@ import '../../features/admin_groupe/screens/admin_access_screen.dart';
 import '../../features/admin_groupe/screens/admin_reports_screen.dart';
 import '../../features/admin_groupe/screens/admin_exams_screen.dart';
 import '../../features/admin_groupe/screens/exam_referential_screen.dart';
-import '../../features/tutelle/screens/tutelle_reseau_screen.dart';
 import '../../features/admin_groupe/screens/exam_sessions_screen.dart';
-import '../../features/admin_groupe/screens/admin_exam_results_screen.dart';
 import '../../features/admin_groupe/screens/admin_merit_screen.dart';
 import '../../features/admin_groupe/screens/admin_students_screen.dart';
 import '../../features/admin_groupe/screens/admin_subscription_screen.dart';
@@ -472,14 +470,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.adminProfils,
         builder: (_, _) => const AdminAccessScreen(),
       ),
-      // ⚠️ Route PUBLIQUE au sein de l'espace admin_groupe : c'est l'écran
-      // lui-même qui refuse à un groupe sans tutelle, et les RPC refusent en
-      // base (42501). Garder la route ouverte évite un 404 déroutant si le
-      // droit est accordé pendant la session.
-      GoRoute(
-        path: Routes.adminTutelle,
-        builder: (_, _) => const TutelleReseauScreen(),
-      ),
       GoRoute(
         path: Routes.adminReferentiel,
         builder: (_, _) => const ExamReferentialScreen(),
@@ -491,10 +481,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.adminExamens,
         builder: (_, _) => const AdminExamsScreen(),
-      ),
-      GoRoute(
-        path: Routes.adminResultats,
-        builder: (_, _) => const AdminExamResultsScreen(),
       ),
       GoRoute(
         path: Routes.adminPalmares,

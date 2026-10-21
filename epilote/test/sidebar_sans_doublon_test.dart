@@ -166,12 +166,8 @@ void _plurielCompose() {
         reason: 'Sans échappatoire, « groupe scolaire » redevient '
             '« groupe scolaires ».');
 
-    final ecran =
-        _lire('lib/features/tutelle/screens/tutelle_reseau_screen.dart');
-    final i = ecran.indexOf("noun: 'groupe scolaire'");
-    expect(i, greaterThan(0));
-    expect(ecran.substring(i, i + 120).contains("nounPlural: 'groupes scolaires'"),
-        isTrue,
-        reason: 'Le seul appel du dépôt à nom composé doit donner son pluriel.');
+    // Le seul appelant à nom composé était l'écran « Réseau sous tutelle »,
+    // retiré avec le recentrage privé (2026-10-21). Le mécanisme reste : tout
+    // futur `noun` composé doit passer son `nounPlural`.
   });
 }

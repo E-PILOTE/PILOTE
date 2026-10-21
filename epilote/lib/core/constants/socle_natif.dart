@@ -121,21 +121,6 @@ const List<EntreeNative> kSocleNatif = [
       EspaceNav.etablissement: PlaceNav(Routes.userDashboard, ZoneNav.tete),
     },
   ),
-  // ⚠️ UNE SECTION NE SE JUSTIFIE QU'À PARTIR DE DEUX ENTRÉES : « Réseau sous
-  // tutelle » a d'abord eu sa propre section « TUTELLE » — un titre, un
-  // séparateur et une seule ligne dessous. Un ministère sait qu'il est un
-  // ministère. L'entrée rejoint le bloc de tête, là où elle est de toute façon
-  // la première question du jour. Elle n'existe que pour un ministère : à un
-  // groupe ordinaire, les RPC répondent 42501, et l'entrée lui laisserait
-  // croire qu'il lui manque un droit.
-  EntreeNative(
-    libelle: 'Réseau sous tutelle',
-    icone: Icons.hub_rounded,
-    places: {
-      EspaceNav.groupe: PlaceNav(Routes.adminTutelle, ZoneNav.tete),
-    },
-  ),
-
   // ── Configs natives de l'établissement (direction seulement) ─────────────
   EntreeNative(
     libelle: 'Calendrier scolaire',
@@ -174,11 +159,6 @@ const List<EntreeNative> kSocleNatif = [
           PlaceNav(Routes.annonces, ZoneNav.communication),
     },
   ),
-  // ⚠️ LA MESSAGERIE PORTE AUSSI LA PAROLE DE LA TUTELLE. Il y a eu ici une
-  // entrée « Circulaires », quatrième canal pour un objet dont la base ne
-  // comptait AUCUNE ligne. Un ministère qui veut écrire à un groupe qu'il
-  // supervise le sélectionne dans « Réseau sous tutelle » et lui envoie un
-  // message : le même geste que pour n'importe quel destinataire.
   EntreeNative(
     libelle: 'Messagerie',
     icone: Icons.forum_rounded,
@@ -243,7 +223,7 @@ const Set<String> kSlugsSansEntree = {'evenements'};
 /// Les entrées d'une [zone] dans un [espace], dans l'ordre de déclaration.
 ///
 /// [sans] retire des entrées par libellé — la sauvegarde des mineurs retire la
-/// messagerie privée aux élèves, un groupe ordinaire ne voit pas la tutelle.
+/// messagerie privée aux élèves.
 /// On FILTRE la déclaration au lieu d'en écrire une seconde : une seconde liste
 /// finit toujours par diverger de celle-ci.
 List<EntreeNative> socleDe(

@@ -109,7 +109,6 @@ class _TableHeader extends StatelessWidget {
       const SizedBox(width: 46),
       const SizedBox(width: 12),
       _col('NOM DE L\'ÉCOLE', 'name', flex: 3),
-      _col('TYPE',            'type'),
       _col('DÉPARTEMENT',     'dept'),
       _col('ÉLÈVES',          'students'),
       _col('PERSONNEL',       'staff'),
@@ -194,7 +193,6 @@ class _TableRowState extends State<_TableRow> {
                 overflow: TextOverflow.ellipsis,
               ),
           ])),
-          Expanded(child: _TypeBadge(type: s.type)),
           Expanded(child: Text(s.department ?? '—',
               style: TextStyle(color: kTextPrimary, fontSize: 12.5),
               overflow: TextOverflow.ellipsis)),
@@ -260,29 +258,6 @@ class _ActionBtn extends StatelessWidget {
       ),
     ),
   );
-}
-
-class _TypeBadge extends StatelessWidget {
-  const _TypeBadge({required this.type});
-  final String type;
-
-  @override
-  Widget build(BuildContext context) {
-    final (label, color) = switch (type) {
-      'public' => ('Public', _kBlue),
-      _        => ('Privé',  _kGold),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Text(label,
-          style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700)),
-    );
-  }
 }
 
 // ─── Vue Cartes ───────────────────────────────────────────────────────────────
@@ -404,7 +379,6 @@ class _SchoolCardState extends State<_SchoolCard> {
               ]),
               const SizedBox(height: 12),
               Wrap(spacing: 8, runSpacing: 8, children: [
-                _TypeBadge(type: s.type),
                 if (s.institutionTypeShort != null)
                   AdminBadge(s.institutionTypeShort!,
                       color: _kPurple, icon: Icons.school_outlined),

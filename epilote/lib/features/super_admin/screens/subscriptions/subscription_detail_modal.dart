@@ -80,10 +80,7 @@ class _SubDetailModalState extends ConsumerState<SubDetailModal>
                     color: kSubText, fontSize: 17, fontWeight: FontWeight.w800),
                     overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 5),
-                Wrap(spacing: 6, runSpacing: 4, children: [
-                  SubStatusBadge(status: s.status),
-                  SubTypeBadge(type: s.groupType),
-                ]),
+                SubStatusBadge(status: s.status),
                 const SizedBox(height: 5),
                 Row(children: [
                   Icon(Icons.email_outlined, size: 12, color: color),
@@ -103,23 +100,20 @@ class _SubDetailModalState extends ConsumerState<SubDetailModal>
               Row(children: [
                 // ⚠️ Émettre ≠ encaisser. Ce bouton crée la SOMME DUE de la
                 // période suivante ; le paiement reste un second geste, dans
-                // l'écran Factures. Un ministère n'en a pas : son marché se
-                // renégocie par avenant (0182/0183), et la base le refuserait.
-                if (!s.estMinistere) ...[
-                  SubModalIconBtn(
-                    icon: Icons.receipt_long_rounded,
-                    color: kSubGreen,
-                    tooltip: 'Émettre la facture de renouvellement',
-                    onTap: () async {
-                      final cree = await emettreFactureDeRenouvellement(
-                        context, ref,
-                        groupId: s.id, groupName: s.groupName,
-                      );
-                      if (cree) ref.invalidate(subscriptionsProvider);
-                    },
-                  ),
-                  const SizedBox(width: 4),
-                ],
+                // l'écran Factures.
+                SubModalIconBtn(
+                  icon: Icons.receipt_long_rounded,
+                  color: kSubGreen,
+                  tooltip: 'Émettre la facture de renouvellement',
+                  onTap: () async {
+                    final cree = await emettreFactureDeRenouvellement(
+                      context, ref,
+                      groupId: s.id, groupName: s.groupName,
+                    );
+                    if (cree) ref.invalidate(subscriptionsProvider);
+                  },
+                ),
+                const SizedBox(width: 4),
                 SubModalIconBtn(icon: Icons.edit_rounded, color: kSubNavy, tooltip: 'Modifier', onTap: widget.onEdit),
                 const SizedBox(width: 4),
                 SubModalIconBtn(icon: Icons.print_rounded, color: kSubMuted, tooltip: 'Imprimer', onTap: widget.onPrint),

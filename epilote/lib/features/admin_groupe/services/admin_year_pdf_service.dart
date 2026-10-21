@@ -74,7 +74,6 @@ class AcademicYearPdfService {
         pw.SizedBox(height: 14),
         ..._parDepartement(analytics, f),
         pw.SizedBox(height: 14),
-        ..._parType(analytics, f),
         pw.SizedBox(height: 14),
         ..._parEtablissement(analytics, f),
         pw.SizedBox(height: 26),
@@ -254,30 +253,6 @@ class AcademicYearPdfService {
             .toList(),
         emptyLabel: 'Aucune donnée par département.',
       );
-
-  static List<pw.Widget> _parType(AdminYearAnalytics a, PdfFonts f) {
-    String label(String t) => switch (t) {
-          'public' => 'Public',
-          'prive' => 'Privé',
-          _ => t.isEmpty ? 'Autre' : t,
-        };
-    return OfficialPdfKit.tableSection(
-      title: "TYPE D'ÉTABLISSEMENT",
-      color: kPdfGold,
-      fonts: f,
-      headers: const ['Type', 'Écoles', 'Classes', 'Élèves'],
-      flex: const [4, 2, 2, 2],
-      rows: a.byType
-          .map((t) => [
-                label(t.type),
-                '${t.ecoles}',
-                '${t.classes}',
-                '${t.eleves}',
-              ])
-          .toList(),
-      emptyLabel: 'Aucune donnée par type.',
-    );
-  }
 
   // ── Préparation par établissement ───────────────────────────────────────────
   //  La liste qui dicte la taille du document : une ligne par établissement du

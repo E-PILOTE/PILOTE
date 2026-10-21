@@ -11,9 +11,7 @@ import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../../core/widgets/staff_ui.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../../core/widgets/badge_ministere.dart';
 import '../providers/communication_scope.dart';
-import '../providers/correspondants_ministere_provider.dart';
 import '../providers/conversation_read_provider.dart';
 import '../providers/group_chat_provider.dart';
 import '../providers/messages_provider.dart';
@@ -282,12 +280,6 @@ class _StaffMessagesScreenState extends ConsumerState<StaffMessagesScreen> {
         ref.watch(conversationReadProvider).valueOrNull ?? ConvReadState.empty;
     final online =
         ref.watch(onlinePresenceProvider).valueOrNull ?? const <String>{};
-    // Qui, parmi mes correspondants, EST un ministère de tutelle. Vide pour la
-    // quasi-totalité des utilisateurs : deux groupes sur tout le pays.
-    // Fail-soft — pas de pastille plutôt qu'une pastille fausse (0184).
-    final ministeres =
-        ref.watch(correspondantsMinistereProvider).valueOrNull ??
-            const <String, CorrespondantMinistere>{};
 
     return AppShell(
       title: 'Messagerie',
@@ -322,7 +314,7 @@ class _StaffMessagesScreenState extends ConsumerState<StaffMessagesScreen> {
                     ? Row(children: [
                         SizedBox(
                             width: 340,
-                            child: _inboxPane(convs, filtered, uid, online, ministeres)),
+                            child: _inboxPane(convs, filtered, uid, online)),
                         VerticalDivider(width: 1, color: kBorder),
                         Expanded(
                           child: selected == null
@@ -334,14 +326,13 @@ class _StaffMessagesScreenState extends ConsumerState<StaffMessagesScreen> {
                                   groupId: me?.groupId ?? '',
                                   reads: reads,
                                   online: online,
-                                  ministere: ministeres[selected.otherId],
                                   onDeselect: () =>
                                       setState(() => _selectedOther = null),
                                 ),
                         ),
                       ])
                     : (selected == null
-                        ? _inboxPane(convs, filtered, uid, online, ministeres)
+                        ? _inboxPane(convs, filtered, uid, online)
                         : _ThreadView(
                             key: ValueKey(selected.otherId),
                             conv: selected,
@@ -349,7 +340,6 @@ class _StaffMessagesScreenState extends ConsumerState<StaffMessagesScreen> {
                             groupId: me?.groupId ?? '',
                             reads: reads,
                             online: online,
-                            ministere: ministeres[selected.otherId],
                             onDeselect: () =>
                                 setState(() => _selectedOther = null),
                             onBack: () =>
@@ -367,8 +357,7 @@ class _StaffMessagesScreenState extends ConsumerState<StaffMessagesScreen> {
       List<_Conversation> all,
       List<_Conversation> filtered,
       String me,
-      Set<String> online,
-      Map<String, CorrespondantMinistere> ministeres) {
+      Set<String> online) {
     return Stack(children: [
       Column(children: [
       Padding(
@@ -481,7 +470,6 @@ class _StaffMessagesScreenState extends ConsumerState<StaffMessagesScreen> {
                   return _ConvTile(
                     conv: c,
                     me: me,
-                    ministere: ministeres[c.otherId],
                     online: !c.isGroup && online.contains(c.otherId),
                     selected: c.otherId == _selectedOther,
                     checked: _checked.contains(c.otherId),

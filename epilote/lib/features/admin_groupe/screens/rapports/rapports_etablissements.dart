@@ -76,8 +76,7 @@ class _SchoolsTable extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             color: kSurface,
             child: Row(children: [
-              Expanded(flex: 5, child: Text('ÉTABLISSEMENT', style: _kHeaderSt)),
-              Expanded(flex: 2, child: Text('TYPE', style: _kHeaderSt)),
+              Expanded(flex: 7, child: Text('ÉTABLISSEMENT', style: _kHeaderSt)),
               Expanded(
                   flex: 3,
                   child: Text('ÉLÈVES (F/G)',
@@ -157,17 +156,17 @@ class _SchoolRowState extends State<_SchoolRow> {
           ),
           child: Row(children: [
             Expanded(
-              flex: 5,
+              flex: 7,
               child: Row(children: [
                 Container(
                   width: 30,
                   height: 30,
                   decoration: BoxDecoration(
-                    color: _typeColor(s.type).withValues(alpha: 0.12),
+                    color: kNavy.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(7),
                   ),
                   child: Icon(Icons.account_balance_rounded,
-                      size: 15, color: _typeColor(s.type)),
+                      size: 15, color: kNavy),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -190,13 +189,6 @@ class _SchoolRowState extends State<_SchoolRow> {
                   ),
                 ),
               ]),
-            ),
-            Expanded(
-              flex: 2,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: AdminBadge(_typeLabel(s.type), color: _typeColor(s.type)),
-              ),
             ),
             Expanded(
               flex: 3,

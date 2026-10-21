@@ -54,9 +54,6 @@ class SubGroupTab extends ConsumerWidget {
         const SizedBox(height: 14),
         Row(children: [
           Expanded(child: SubMetaChip(
-            icon: subTypeIcon(s.groupType), label: s.groupTypeLabel, color: subTypeColor(s.groupType))),
-          const SizedBox(width: 8),
-          Expanded(child: SubMetaChip(
             icon: Icons.school_rounded, label: '${s.schoolsCount} école(s)', color: kSubNavy)),
           const SizedBox(width: 8),
           Expanded(child: SubMetaChip(

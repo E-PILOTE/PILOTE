@@ -158,7 +158,7 @@ void main() {
     test('il est posé avant la carte de plan', () {
       final src = _sansCommentaires(sourceAbonnementGroupe());
       final bandeau = src.indexOf('_MesuresManquantesAbonnement(data: data)');
-      final carte = src.indexOf('LicenceDeTutelleSection(sub: sub)');
+      final carte = src.indexOf('_CurrentPlanCard(');
       expect(bandeau, greaterThan(-1));
       expect(carte, greaterThan(-1));
       expect(bandeau, lessThan(carte),

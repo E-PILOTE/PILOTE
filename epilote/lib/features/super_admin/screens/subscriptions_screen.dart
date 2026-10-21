@@ -7,7 +7,6 @@ import '../../../core/utils/message_erreur.dart';
 import '../../../core/widgets/app_shell.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/subscriptions_provider.dart';
-import 'economie/licence_form_dialog.dart';
 import 'subscriptions/subs_card_grid.dart';
 import 'subscriptions/subs_filter_bar.dart';
 import 'subscriptions/subs_kpis.dart';
@@ -50,7 +49,6 @@ class _SubsBody extends ConsumerStatefulWidget {
 class _SubsBodyState extends ConsumerState<_SubsBody> {
   final _searchCtrl   = TextEditingController();
   String _filterStatus = 'tous';
-  String _filterType   = 'tous';
   String _sort         = 'recent';
   bool   _isTableView  = true;
 
@@ -71,7 +69,6 @@ class _SubsBodyState extends ConsumerState<_SubsBody> {
         if (!match) return false;
       }
       if (_filterStatus != 'tous' && s.status != _filterStatus) return false;
-      if (_filterType   != 'tous' && s.groupType != _filterType) return false;
       return true;
     }).toList()..sort((a, b) => switch (_sort) {
       'az'       => a.groupName.compareTo(b.groupName),
@@ -88,29 +85,6 @@ class _SubsBodyState extends ConsumerState<_SubsBody> {
       barrierColor: Colors.black.withValues(alpha: 0.45),
       barrierDismissible: false,
       builder: (_) => SubFormModal(editing: editing),
-    ).then((_) => ref.invalidate(subscriptionsProvider));
-  }
-
-  /// La licence, créée ou gérée SANS quitter la page des abonnements.
-  ///
-  /// ⚠️ C'est le correctif de fond. Le fondateur gère les abonnements ici ; les
-  /// licences vivaient dans « Économie », un écran qu'il faut savoir chercher.
-  /// Il a activé une licence, puis est venu la voir ici — et n'a rien vu.
-  /// « La création et l'affectation de la licence devrait être simple comme
-  /// pour les mensuelles. » C'est le MÊME formulaire qu'en Économie, ouvert
-  /// depuis la ligne du ministère, avec le groupe déjà choisi.
-  ///
-  /// ⚠️ Et le bouton OUVRE le marché existant. Il rouvrait un formulaire de
-  /// création sur un ministère qui avait déjà sa licence — l'infobulle disait
-  /// « Gérer la licence », l'écran proposait d'en créer une seconde, et la
-  /// garde anti-chevauchement (0186) l'aurait refusée après la saisie. Vu à
-  /// l'écran le 2026-09-04.
-  void _openLicence(SubscriptionDetail s) {
-    final l = s.licence;
-    ouvrirFormulaireLicence(
-      context,
-      edition: l,
-      groupeImpose: l == null ? s.id : null,
     ).then((_) => ref.invalidate(subscriptionsProvider));
   }
 
@@ -203,17 +177,15 @@ class _SubsBodyState extends ConsumerState<_SubsBody> {
                 contentWidth:   w - 48,
                 searchCtrl:     _searchCtrl,
                 filterStatus:   _filterStatus,
-                filterType:     _filterType,
                 sort:           _sort,
                 isTableView:    _isTableView,
                 onSearchChange: (_) => setState(() {}),
                 onStatus:       (v) => setState(() => _filterStatus = v),
-                onType:         (v) => setState(() => _filterType   = v),
                 onSort:         (v) => setState(() => _sort         = v),
                 onToggleView:   ()  => setState(() => _isTableView  = !_isTableView),
                 onReset: () => setState(() {
                   _searchCtrl.clear();
-                  _filterStatus = _filterType = 'tous';
+                  _filterStatus = 'tous';
                   _sort = 'recent';
                 }),
                 // ⚠️ NE CRÉE PLUS DE GROUPE ICI. Ce dialogue en créait un sans
@@ -233,14 +205,12 @@ class _SubsBodyState extends ConsumerState<_SubsBody> {
                   subs:      filtered,
                   onView:    _openDetail,
                   onEdit:    (s) => _openForm(editing: s),
-                  onLicence: _openLicence,
                 )
               else
                 SubCardGrid(
                   subs:      filtered,
                   onView:    _openDetail,
                   onEdit:    (s) => _openForm(editing: s),
-                  onLicence: _openLicence,
                 ),
             ]),
           ),

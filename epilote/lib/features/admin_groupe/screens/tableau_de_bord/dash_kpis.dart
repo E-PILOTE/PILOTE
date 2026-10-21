@@ -15,8 +15,7 @@ class _KpiSection extends ConsumerWidget {
         rawValue: data.ecolesTotal,
         fmt: fmtInt,
         label: 'Écoles',
-        sub: '${data.ecolesActives} active(s) · '
-            '${data.publicCount} pub · ${data.priveCount} priv',
+        sub: '${data.ecolesActives} active(s)',
         spark: _Spark.progress,
         progress: data.ecolesTotal == 0 ? 0 : data.ecolesActives / data.ecolesTotal,
         onTap: () => context.go(Routes.adminEcoles),
@@ -63,7 +62,6 @@ class _KpiSection extends ConsumerWidget {
         sub: 'sur 15 au Congo',
         spark: _Spark.bars,
         bars: data.schoolsByDept.entries.toList(),
-        onTap: () => ref.read(_adminTabProv.notifier).state = 1,
       ),
       _Kpi(
         icon: Icons.verified_rounded,

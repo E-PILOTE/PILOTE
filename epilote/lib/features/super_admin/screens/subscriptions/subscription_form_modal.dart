@@ -26,7 +26,6 @@ class _SubFormModalState extends ConsumerState<SubFormModal> {
   final _phoneCtrl  = TextEditingController();
   final _deptCtrl   = TextEditingController();
 
-  String    _groupType = 'prive';
   String    _status    = 'trial';
   String?   _planId;
   DateTime? _start;
@@ -44,7 +43,6 @@ class _SubFormModalState extends ConsumerState<SubFormModal> {
       _emailCtrl.text = s.adminEmail;
       _phoneCtrl.text = s.phone ?? '';
       _deptCtrl.text  = s.department ?? '';
-      _groupType      = s.groupType;
       _status         = s.status;
       _planId         = s.planId;
       _start          = s.start;
@@ -87,7 +85,6 @@ class _SubFormModalState extends ConsumerState<SubFormModal> {
         'admin_email':         _emailCtrl.text.trim(),
         'phone':               _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
         'department':          _deptCtrl.text.trim().isEmpty ? null : _deptCtrl.text.trim(),
-        'group_type':          _groupType,
         'plan_id':             _planId,
         'subscription_status': _status,
         'subscription_start':  _start?.toIso8601String(),
@@ -97,12 +94,11 @@ class _SubFormModalState extends ConsumerState<SubFormModal> {
       };
 
       // Ce formulaire MODIFIE l'abonnement d'un groupe existant. Il ne le crée
-      // pas : il ne demande ni la tutelle, ni l'agrément, ni le secteur, et un
-      // groupe amputé de sa tutelle n'apparaît dans le réseau d'aucun ministère.
+      // pas : il ne demande ni l'ordre d'enseignement, ni l'agrément.
       if (!_isEditing) {
         throw StateError(
             'Ce formulaire ne crée pas de groupe : passer par « Groupes '
-            'Scolaires », seul endroit qui demande la tutelle.');
+            'Scolaires ».');
       }
       await client.from('school_groups')
           .update(payload).eq('id', widget.editing!.id);
@@ -225,15 +221,6 @@ class _SubFormModalState extends ConsumerState<SubFormModal> {
                       icon: Icons.location_on_rounded,
                     )),
                   ]),
-                  const SizedBox(height: 14),
-                  const SubFormSectionTitle('Type d\'établissement'),
-                  const SizedBox(height: 10),
-                  SubFormDropdown<String>(
-                    value: _groupType,
-                    icon: subTypeIcon(_groupType),
-                    items: const {'public': 'Public', 'prive': 'Privé'},
-                    onChanged: (v) => setState(() => _groupType = v),
-                  ),
                   const SizedBox(height: 14),
                   const SubFormSectionTitle('Plan d\'abonnement'),
                   const SizedBox(height: 10),

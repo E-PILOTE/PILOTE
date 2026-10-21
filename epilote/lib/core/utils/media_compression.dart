@@ -36,10 +36,6 @@ import 'package:video_compress/video_compress.dart';
 //     ne distingue pas le 4:2:0 sur une photo, qui pèse 20 à 30 % de moins.
 //     Les PHOTOS y passent ; les LOGOS restent en 4:4:4, parce qu'un aplat de
 //     couleur et un texte fin y gagnent des franges visibles.
-//
-//  ⚠️ Ce qui NE change pas : une pièce d'archive d'examen n'est jamais
-//  compressée (`exam_archives_provider`) — ré-encoder son scan changerait son
-//  empreinte SHA-256, donc sa valeur probante.
 // ════════════════════════════════════════════════════════════════════════════
 
 /// Plus long côté (px) cible pour une image partagée.

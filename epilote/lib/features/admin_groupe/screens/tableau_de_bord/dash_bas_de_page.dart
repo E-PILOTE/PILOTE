@@ -111,8 +111,6 @@ class _SchoolRankRow extends StatelessWidget {
                                   fontWeight: FontWeight.w700,
                                   color: kTextPrimary)),
                         ),
-                        const SizedBox(width: 8),
-                        _TypeChip(s.type),
                       ],
                     ),
                     const SizedBox(height: 7),

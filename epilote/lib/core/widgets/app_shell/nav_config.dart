@@ -9,7 +9,6 @@ import '../../../features/admin_groupe/providers/admin_nav_provider.dart';
 import '../../../features/navigation/module_routes.dart';
 import '../../../features/navigation/providers/module_navigation_provider.dart';
 import '../../../features/navigation/providers/permissions_provider.dart';
-import '../../../features/admin_groupe/providers/referentiel_national_provider.dart';
 import 'nav_models.dart';
 
 /// Construit les sections de navigation pour le profil donné.
@@ -182,25 +181,13 @@ List<NavSection> _adminGroupeSections(WidgetRef ref) {
   final catalog = ref.watch(adminModulesCatalogProvider).valueOrNull;
   final hasModules = catalog != null && catalog.categories.isNotEmpty;
 
-  // Un MINISTÈRE reçoit une section de plus. Un groupe ordinaire ne doit pas
-  // même voir l'entrée : elle ne lui rendrait rien (les RPC refusent en 42501)
-  // et lui laisserait croire qu'il lui manque un droit.
-  final estTutelle =
-      ref.watch(groupeAdministreReferentielProvider).valueOrNull ?? false;
-
   return [
     // Le bloc de tête est natif : il se lit dans `socle_natif.dart`, qui
-    // porte aussi le pourquoi de chaque entrée. Un groupe ordinaire ne doit
-    // pas même VOIR « Réseau sous tutelle » : elle ne lui rendrait rien (les
-    // RPC refusent en 42501) et lui laisserait croire qu'il lui manque un droit.
+    // porte aussi le pourquoi de chaque entrée.
     NavSection(
       title: '',
       pinnedTop: true,
-      entries: _entreesNatives(
-        EspaceNav.groupe,
-        ZoneNav.tete,
-        sans: estTutelle ? const {} : const {'Réseau sous tutelle'},
-      ),
+      entries: _entreesNatives(EspaceNav.groupe, ZoneNav.tete),
     ),
     // Ordre workflow : créer les écoles → les profils → assigner les utilisateurs.
     NavSection(title: 'GESTION', entries: [
@@ -256,31 +243,13 @@ List<NavSection> _adminGroupeSections(WidgetRef ref) {
         route: Routes.adminEleves,
       ),
     ]),
-    // ── EXAMENS, dans l'ordre du CYCLE ────────────────────────────────────────
+    // ── EXAMENS D'ÉTAT, dans l'ordre du CYCLE ─────────────────────────────────
     //
-    // Cette section s'appelait « PILOTAGE » et contenait huit entrées : cinq
-    // d'examens, une de rapports, et deux contractuelles (modules, abonnement).
-    // Trois défauts, corrigés ici :
-    //
-    //  1. Le titre ne décrivait pas son contenu. Personne ne cherche son
-    //     abonnement sous « Pilotage » — il fallait ouvrir pour savoir.
-    //  2. L'ordre ne suivait pas le cycle : la campagne EN COURS venait avant
-    //     le référentiel et le calendrier qui la rendent possible. La section
-    //     GESTION, elle, revendique son ordre workflow ; celle-ci ne l'avait pas.
-    //  3. « Examens nationaux » était un titre-parapluie posé au même niveau que
-    //     ses quatre voisines — il semblait les englober. Il nomme maintenant ce
-    //     que la page FAIT : suivre la campagne en cours.
-    //
-    // Les cinq pages restent CINQ pages. Ce n'est pas de la redondance :
-    // « Campagne en cours » lit NOS écoles pendant la campagne, « Résultats &
-    // archives » lit ce que la DEC a proclamé, une fois l'an. Deux questions,
-    // deux sources — les fusionner perdrait l'une des deux.
-    //
-    // Le mot « examen » a disparu de quatre libellés sur cinq : la section le
-    // porte déjà.
+    // Le référentiel et le calendrier sont tenus par la plateforme : le groupe
+    // les CONSULTE. La campagne et les meilleurs élèves, eux, lisent ses
+    // propres écoles. « Résultats & archives » (les publications de la DEC,
+    // saisies par un ministère) a été retiré le 2026-10-21.
     const NavSection(title: 'EXAMENS', entries: [
-      // AMONT — c'est le ministère qui connaît les examens et reçoit les
-      // arrêtés, pas l'opérateur de la plateforme.
       NavEntry.item(
         icon: Icons.rule_rounded,
         label: 'Référentiel',
@@ -292,21 +261,14 @@ List<NavSection> _adminGroupeSections(WidgetRef ref) {
         label: 'Calendrier des sessions',
         route: Routes.adminSessions,
       ),
-      // Cœur du METP : la couverture des examens sur tout le réseau, pendant
-      // que la campagne tourne. La page qu'on ouvre tous les jours.
+      // La couverture des examens sur toutes les écoles du groupe, pendant
+      // que la campagne tourne.
       NavEntry.item(
         icon: Icons.workspace_premium_rounded,
         label: 'Campagne en cours',
         route: Routes.adminExamens,
       ),
-      // Le RETOUR de la DEC : résultats proclamés et pièces archivées.
-      NavEntry.item(
-        icon: Icons.verified_rounded,
-        label: 'Résultats & archives',
-        route: Routes.adminResultats,
-      ),
-      // Les meilleurs lauréats du réseau : la matière première d'une commission
-      // de bourses. Adossé aux résultats, donc juste après eux.
+      // Les meilleurs lauréats du réseau.
       NavEntry.item(
         icon: Icons.emoji_events_rounded,
         label: 'Meilleurs élèves',
@@ -316,21 +278,15 @@ List<NavSection> _adminGroupeSections(WidgetRef ref) {
     // Gérer son contrat n'est pas piloter son réseau : l'abonnement quitte la
     // section des examens et rejoint les rapports, qui sont l'autre chose qu'un
     // cabinet consulte sans qu'elle appartienne à un métier précis.
-    NavSection(title: 'RAPPORTS', entries: [
-      const NavEntry.item(
+    const NavSection(title: 'RAPPORTS', entries: [
+      NavEntry.item(
         icon: Icons.bar_chart_rounded,
         label: 'Rapports',
         route: Routes.adminRapports,
       ),
-      // ⚠️ Même route, deux mots — parce que ce ne sont pas la même chose.
-      // Un ministère n'a pas d'abonnement mensuel : il exécute un marché, et
-      // la page lui montre sa licence (0182/0183). Lire « Abonnement » dans sa
-      // barre latérale le rangerait parmi les clients qu'on relance.
       NavEntry.item(
-        icon: estTutelle
-            ? Icons.workspace_premium_rounded
-            : Icons.credit_card_rounded,
-        label: estTutelle ? 'Licence' : 'Abonnement',
+        icon: Icons.credit_card_rounded,
+        label: 'Abonnement',
         route: Routes.adminAbonnement,
       ),
     ]),

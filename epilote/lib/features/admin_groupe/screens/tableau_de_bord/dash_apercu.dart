@@ -121,13 +121,8 @@ class _PageHeader extends ConsumerWidget {
               _HeaderChip(
                   label: statusLabel(data.subscriptionStatus),
                   color: statusColor(data.subscriptionStatus)),
-              // Un ministère ne porte pas un « Plan » : il porte sa licence.
-              // Le mot vient du slug, pas d'un drapeau de plus — c'est le plan
-              // lui-même qui dit la nature de la relation (0182).
               _HeaderChip(
-                  label: estPlanDeLicence(data.planSlug)
-                      ? data.planName
-                      : 'Plan ${data.planName}',
+                  label: 'Plan ${data.planName}',
                   color: planColor(data.planSlug)),
               Tooltip(
                 message: 'Actualiser',
@@ -203,18 +198,12 @@ class _QuickActions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Même route, deux mots — un ministère n'a pas d'abonnement, il exécute un
-    // marché (0182/0183). Le raccourci porte donc le nom de la page qu'il
-    // ouvre réellement, comme la barre latérale.
-    final estTutelle =
-        ref.watch(groupeAdministreReferentielProvider).valueOrNull ?? false;
-    final items = <(String, IconData, String)>[
+    const items = <(String, IconData, String)>[
       ('Mes écoles', Icons.account_balance_rounded, Routes.adminEcoles),
       ('Utilisateurs', Icons.people_alt_rounded, Routes.adminUtilisateurs),
       ("Profils d'accès", Icons.admin_panel_settings_rounded, Routes.adminProfils),
       ('Rapports', Icons.assessment_rounded, Routes.adminRapports),
-      (estTutelle ? 'Licence' : 'Abonnement', Icons.workspace_premium_rounded,
-          Routes.adminAbonnement),
+      ('Abonnement', Icons.workspace_premium_rounded, Routes.adminAbonnement),
     ];
     return Wrap(
       spacing: 10,

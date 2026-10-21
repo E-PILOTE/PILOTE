@@ -9,22 +9,19 @@ import '../../../core/widgets/list_chrome.dart';
 import '../../../core/widgets/pdf_preview_dialog.dart';
 import '../providers/admin_dashboard_provider.dart';
 import '../providers/admin_exams_provider.dart';
-import '../providers/exam_archives_provider.dart';
 import '../providers/ministry_exam_rows.dart';
-import '../providers/national_reference.dart';
 import '../services/exam_axis_pdf_service.dart';
 import '../widgets/admin_exams_breakdown.dart';
 import '../widgets/admin_exams_views.dart';
 import '../widgets/exam_axis_drilldown_modal.dart';
-import '../widgets/exam_national_reference_strip.dart';
 import '../widgets/exam_scope_chips.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
-//  EXAMENS NATIONAUX — cockpit du MINISTÈRE (espace admin_groupe, online).
+//  EXAMENS D'ÉTAT — la campagne en cours sur le réseau du groupe (online).
 //
-//  Ce que l'espace ministère ne montrait PAS : la couverture des examens sur
-//  TOUT le réseau. Une école voit ses candidats ; le ministère voit lesquelles
-//  de ses écoles ont inscrit, déposé, obtenu des résultats — et lesquelles ont
+//  La couverture des examens sur TOUTES les écoles du groupe. Une école voit
+//  ses candidats ; le promoteur voit lesquelles de ses écoles ont inscrit,
+//  déposé, obtenu des résultats — et lesquelles ont
 //  des candidats SANS aucune transmission (le point chaud, irrattrapable après
 //  la clôture). Même grammaire visuelle que les listes super_admin (chrome
 //  partagé `core/widgets/list_chrome.dart`) pour un système cohérent.
@@ -91,11 +88,6 @@ class _State extends ConsumerState<AdminExamsScreen> {
                   const SizedBox(height: 18),
                 ],
                 KpiGrid(items: _kpis(d)),
-                // L'étalon national, quand on regarde UN examen et que le
-                // chiffre de la DEC a été relevé. Il transforme « 50,6 % » en
-                // « 50,6 % contre 51,6 % au national » — la seule forme sous
-                // laquelle un taux de réseau se défend devant un ministère.
-                ?_nationalStrip(d, code),
                 const SizedBox(height: 20),
                 ExamChart(
                   // Sur « Tous », un groupe par examen : on voit où la
@@ -234,31 +226,6 @@ class _State extends ConsumerState<AdminExamsScreen> {
           yearLabel: d.yearLabel,
           schools: schools,
         ),
-      ),
-    );
-  }
-
-  /// La bande « réseau vs national ». `null` — donc rien à l'écran — sur
-  /// « Tous les examens » (aucun taux national ne les agrège) et tant que le
-  /// chiffre officiel n'a pas été relevé sur « Résultats & archives ».
-  Widget? _nationalStrip(MinistryExamsData d, String? code) {
-    if (code == null) return null;
-    final figures = ref.watch(officialFiguresProvider).valueOrNull;
-    if (figures == null) return null;
-    final reference = nationalReferenceFor(
-      figures,
-      examCode: code,
-      currentYearLabel: d.yearLabel,
-    );
-    if (reference == null) return null;
-    return Padding(
-      padding: const EdgeInsets.only(top: 14),
-      child: ExamNationalReferenceStrip(
-        reference: reference,
-        examLabel: _examLabel(d, code),
-        networkRate: d.successRate,
-        admitted: d.totalAdmitted,
-        known: d.totalWithResult,
       ),
     );
   }

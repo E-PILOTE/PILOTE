@@ -92,12 +92,14 @@ class _SyntheseSection extends StatelessWidget {
             icon: Icons.show_chart_rounded,
           );
           final donut = _CategoryDonut(
-            title: 'Types d\'établissement',
-            subtitle: 'Public · Privé',
+            title: 'État des établissements',
+            subtitle: 'Actifs · Inactifs',
             icon: Icons.pie_chart_rounded,
             slices: [
-              _Slice('Public', d.publicCount, _kBlue),
-              _Slice('Privé', d.priveCount, kGreen),
+              _Slice('Actifs',
+                  d.schoolRows.where((s) => s.isActive).length, kGreen),
+              _Slice('Inactifs',
+                  d.schoolRows.where((s) => !s.isActive).length, kTextMuted),
             ],
             centerValue: fmtInt(d.schoolsTotal),
             centerLabel: 'écoles',

@@ -90,7 +90,7 @@ class _PrintPreviewModalState extends State<_PrintPreviewModal> {
       '════════════════════════════════════════',
       '',
       '  ${g.name.toUpperCase()}',
-      '  Statut : ${g.statusLabel}  |  Type : ${g.groupTypeLabel}  |  Plan : ${g.planName}',
+      '  Statut : ${g.statusLabel}  |  Plan : ${g.planName}',
       if (g.foundedYear != null) '  Fondé en : ${g.foundedYear}',
       '',
       '── COORDONNÉES ──────────────────────────',
@@ -356,12 +356,7 @@ Color _planDotColor(String plan) => switch (plan.toLowerCase()) {
   _                                          => _kGreen,
 };
 
-/// Icône du SECTEUR. Deux valeurs, comme l'enum.
-IconData _typeIcon(String secteur) =>
-    secteur == 'public' ? Icons.account_balance_rounded : Icons.business_rounded;
-
-/// Icône du CARACTÈRE — l'autre axe. Les trois symboles confessionnels
-/// vivaient dans `_typeIcon`, pour des valeurs de secteur qui n'existaient pas.
+/// Icône du CARACTÈRE du groupe (catholique, protestant, islamique…).
 IconData iconeCaractere(String? c) => switch (c) {
       'catholique' => Icons.church_rounded,
       'islamique'  => Icons.mosque_rounded,

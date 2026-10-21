@@ -169,19 +169,6 @@ void main() {
               'disque d\'un poste partagé.');
     });
 
-    test('l\'archive d\'examen n\'est PAS compressée', () {
-      // L'exception, et elle est délibérée : son empreinte SHA-256 est ce qui
-      // prouve, des années plus tard, que la pièce opposable n'a pas bougé.
-      // Ré-encoder changerait les octets, donc l'empreinte, donc la valeur
-      // probante. Ce test existe pour qu'un futur « on compresse tout » ne
-      // l'emporte pas par mégarde.
-      final src = _lire(
-          'lib/features/admin_groupe/providers/exam_archives_provider.dart');
-      expect(src.contains('sha256.convert(bytes)'), isTrue,
-          reason: 'L\'empreinte doit porter sur les octets DÉPOSÉS.');
-      expect(src.contains('compressForUpload('), isFalse,
-          reason: 'Compresser ici détruirait la valeur probante de l\'archive.');
-    });
   });
 
   group('Un seul chemin, et il est unique', () {

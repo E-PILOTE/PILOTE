@@ -7,7 +7,6 @@ class _FilterBar extends StatelessWidget {
     required this.contentWidth,
     required this.searchCtrl,
     required this.filterStatus,
-    required this.filterType,
     required this.filterPlan,
     required this.filterDept,
     required this.departments,
@@ -15,7 +14,6 @@ class _FilterBar extends StatelessWidget {
     required this.isTableView,
     required this.onSearchChange,
     required this.onStatus,
-    required this.onType,
     required this.onPlan,
     required this.onDept,
     required this.onToggleView,
@@ -25,11 +23,11 @@ class _FilterBar extends StatelessWidget {
 
   final double contentWidth;
   final TextEditingController searchCtrl;
-  final String  filterStatus, filterType, filterPlan, filterDept;
+  final String  filterStatus, filterPlan, filterDept;
   final List<String> departments, planNames;
   final bool    isTableView;
   final ValueChanged<String> onSearchChange;
-  final ValueChanged<String> onStatus, onType, onPlan, onDept;
+  final ValueChanged<String> onStatus, onPlan, onDept;
   final VoidCallback onToggleView, onReset, onAdd;
 
   @override
@@ -146,22 +144,6 @@ class _FilterBar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           _FilterDropdown(
-            icon: Icons.business_rounded,
-            label: 'Type',
-            // ⚠️ Trois de ces entrées ne pouvaient RIEN rendre : l'enum
-            // `group_type` n'accepte que `public` et `prive`, aucune ligne
-            // n'a donc jamais porté « catholique ». Le filtre proposait de
-            // chercher ce qui ne pouvait pas exister.
-            items: {
-              'tous': 'Tous les secteurs',
-              for (final code in kSecteursGroupe) code: libelleSecteur(code),
-            },
-            value: filterType,
-            onChanged: onType,
-            active: filterType != 'tous',
-          ),
-          const SizedBox(width: 8),
-          _FilterDropdown(
             icon: Icons.inventory_2_rounded,
             label: 'Plan',
             items: {
@@ -187,7 +169,7 @@ class _FilterBar extends StatelessWidget {
             ),
           ],
           const Spacer(),
-          if (filterStatus != 'tous' || filterType != 'tous' ||
+          if (filterStatus != 'tous' ||
               filterPlan != 'tous' || filterDept != 'tous')
             MouseRegion(
               cursor: SystemMouseCursors.click,

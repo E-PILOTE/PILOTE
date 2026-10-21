@@ -27,10 +27,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
   late final TextEditingController _founded;
   late final TextEditingController _capacity;
   late final TextEditingController _motto;
-  String  _type       = 'prive';
-
-  /// Type d'établissement (CEG, CET, lycée technique…). ⚠️ Rien à voir avec
-  /// [_type], qui est le statut juridique public/privé.
+  /// Type d'établissement (CEG, CET, lycée technique…).
   String? _institutionTypeId;
   String? _department;
   bool    _saving     = false;
@@ -72,7 +69,6 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
     _capacity       = TextEditingController(text: s?.capacity?.toString() ?? '');
     _motto          = TextEditingController(text: s?.motto ?? '');
     _logoUrl        = s?.logoUrl;
-    _type = s?.type ?? 'prive';
     _institutionTypeId = s?.institutionTypeId;
     _department = (s?.department != null && _kDepartements.contains(s!.department))
         ? s.department
@@ -154,10 +150,6 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    // Le secteur d'une école suit TOUJOURS celui de son groupe (public XOR
-    // privé) — il n'est pas saisi. La base le verrouille (migration 0060) ;
-    // on envoie la valeur héritée pour rester cohérent côté client.
-    _type = ref.read(adminSchoolsProvider).valueOrNull?.groupType ?? _type;
     setState(() { _saving = true; _error = null; });
     try {
       final svc    = ref.read(adminSchoolsServiceProvider);
@@ -168,7 +160,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
       if (_isEdit) {
         await svc.update(
           id: widget.school!.id,
-          name: _name.text.trim(), type: _type, code: _code.text.trim(),
+          name: _name.text.trim(), code: _code.text.trim(),
           address: _address.text.trim(), city: _city.text.trim(),
           province: _province.text.trim(), arrondissement: _arrondissement.text.trim(),
           department: _department, phone: _phone.text.trim(),
@@ -179,7 +171,7 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
         schoolId = widget.school!.id;
       } else {
         schoolId = await svc.create(
-          name: _name.text.trim(), type: _type, code: _code.text.trim(),
+          name: _name.text.trim(), code: _code.text.trim(),
           address: _address.text.trim(), city: _city.text.trim(),
           province: _province.text.trim(), arrondissement: _arrondissement.text.trim(),
           department: _department, phone: _phone.text.trim(),
@@ -357,14 +349,10 @@ class _SchoolFormDialogState extends ConsumerState<SchoolFormDialog>
                         decoration: _inputDec('Nom de l\'établissement *'),
                       ),
                       const SizedBox(height: 12),
-                      Row(children: [
-                        const Expanded(child: SchoolSecteurHerite()),
-                        const SizedBox(width: 12),
-                        Expanded(child: TextFormField(
-                          controller: _code,
-                          decoration: _inputDec('Code établissement'),
-                        )),
-                      ]),
+                      TextFormField(
+                        controller: _code,
+                        decoration: _inputDec('Code établissement'),
+                      ),
                     ],
                   )),
                 ]),

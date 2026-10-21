@@ -31,7 +31,6 @@ class EnTeteEtablissement {
   const EnTeteEtablissement({
     required this.nom,
     this.code,
-    this.type,
     this.tutelle,
     this.departement,
     this.arrondissement,
@@ -39,14 +38,8 @@ class EnTeteEtablissement {
   });
 
   final String nom;
-  final String? code, type, tutelle, departement, arrondissement, ville;
+  final String? code, tutelle, departement, arrondissement, ville;
 }
-
-String _libelleType(String? t) => switch (t) {
-      'public' => 'Public',
-      'prive' => 'Privé',
-      _ => '—',
-    };
 
 /// Libellés des rôles, pour le tableau du personnel.
 String libelleRolePersonnel(String role) => switch (role) {
@@ -174,7 +167,9 @@ class EtatRentreePdfService {
         pw.Row(children: [
           champ('Établissement', e.nom),
           champ('Code', e.code),
-          champ('Statut', _libelleType(e.type)),
+          // La plateforme ne sert que l'enseignement privé : le statut
+          // n'est plus une donnée lue, c'est le périmètre du produit.
+          champ('Statut', 'Privé'),
           champ('Tutelle', sigleTutelleOuTiret(e.tutelle)),
         ]),
         pw.SizedBox(height: 8),

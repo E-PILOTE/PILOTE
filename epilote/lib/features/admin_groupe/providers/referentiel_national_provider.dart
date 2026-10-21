@@ -26,50 +26,18 @@ import '../../../core/utils/garder_au_chaud.dart';
 
 /// VRAI si l'utilisateur courant peut écrire dans le référentiel national.
 ///
-/// Deux cas : le super_admin (qui n'a pas de groupe), et l'admin d'un groupe
-/// marqué `administre_referentiel_national` — les deux ministères.
+/// ⚠️ Le SUPER_ADMIN seul, depuis le recentrage privé (2026-10-21). Le
+/// référentiel des examens d'État (CEPE, BEPC, BAC, CAP, BET…) est la donnée
+/// de référence du produit : c'est l'opérateur de la plateforme qui le tient,
+/// et les groupes privés le CONSULTENT. Plus aucun groupe n'est un ministère.
 ///
-/// ⚠️ Retombe sur FAUX en cas d'erreur ou d'absence : un droit qu'on n'a pas
-/// pu établir n'est pas un droit acquis. Se tromper dans ce sens retire un
-/// bouton ; se tromper dans l'autre laisse détruire un diplôme d'État.
+/// ⚠️ Retombe sur FAUX en cas d'absence : un droit qu'on n'a pas pu établir
+/// n'est pas un droit acquis.
 final groupeAdministreReferentielProvider =
     FutureProvider.autoDispose<bool>((ref) async {
   garderAuChaud(ref, pendant: kChaudReferentiel);
   final profil = ref.watch(authNotifierProvider).valueOrNull;
-  if (profil == null) return false;
-  if (profil.isSuperAdmin) return true;
-  return ref.watch(groupeEstMinistereProvider.future);
-});
-
-/// VRAI si le GROUPE de l'utilisateur est un ministère de tutelle.
-///
-/// ⚠️ À ne pas confondre avec `groupeAdministreReferentielProvider`, qui
-/// répond OUI au super_admin : lui n'a pas de groupe. La question posée ici
-/// est celle de la NATURE du groupe, et c'est elle qu'il faut poser pour
-/// décider ce qu'un espace client contient — un fondateur n'est pas un
-/// ministère, et lui donner les écrans de supervision par cette porte serait
-/// un accident.
-///
-/// Même repli prudent : au doute, FAUX. Se tromper dans ce sens retire un
-/// outil de supervision à qui y avait droit — visible, corrigible. Se tromper
-/// dans l'autre met la carte nationale entre les mains d'un client privé.
-final groupeEstMinistereProvider =
-    FutureProvider.autoDispose<bool>((ref) async {
-  garderAuChaud(ref, pendant: kChaudReferentiel);
-  final profil = ref.watch(authNotifierProvider).valueOrNull;
-  final groupId = profil?.groupId;
-  if (groupId == null || groupId.isEmpty) return false;
-  try {
-    final g = await ref
-        .watch(supabaseClientProvider)
-        .from('school_groups')
-        .select('administre_referentiel_national')
-        .eq('id', groupId)
-        .maybeSingle();
-    return g?['administre_referentiel_national'] as bool? ?? false;
-  } catch (_) {
-    return false;
-  }
+  return profil?.isSuperAdmin ?? false;
 });
 
 /// Bandeau de lecture seule, à placer en tête d'un écran du référentiel.
@@ -106,8 +74,8 @@ class ReferentielLectureSeuleBandeau extends ConsumerWidget {
             const SizedBox(height: 3),
             Text(
               '$quoi relèvent du référentiel NATIONAL : ils sont les mêmes pour '
-              'toutes les écoles du pays, et seul le ministère de tutelle les '
-              'modifie. Vous les consultez tels qu\'ils s\'appliquent à vos '
+              'toutes les écoles du pays, et la plateforme les tient à jour. '
+              'Vous les consultez tels qu\'ils s\'appliquent à vos '
               'établissements.',
               style: TextStyle(fontSize: 11.5, color: kTextMuted, height: 1.45),
             ),

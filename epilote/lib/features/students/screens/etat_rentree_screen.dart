@@ -52,7 +52,6 @@ class _Body extends ConsumerWidget {
         etablissement: EnTeteEtablissement(
           nom: nom == null || nom.isEmpty ? 'Établissement' : nom,
           code: school?['school_code'] as String?,
-          type: school?['school_type'] as String?,
           tutelle: school?['tutelle'] as String?,
           departement: school?['department'] as String?,
           arrondissement: school?['arrondissement'] as String?,

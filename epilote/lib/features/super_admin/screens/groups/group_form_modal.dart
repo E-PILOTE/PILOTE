@@ -11,8 +11,7 @@ class _GroupFormModal extends ConsumerStatefulWidget {
   });
   final List<PlanInfo> plans;
 
-  /// Les groupes déjà chargés par l'écran. Sert à dire, sans une requête de
-  /// plus, quel groupe détient déjà le rôle de tutelle d'un ministère.
+  /// Les groupes déjà chargés par l'écran.
   final List<GroupDetail> groupes;
   final GroupDetail?   existing;
   final VoidCallback   onSaved;
@@ -30,27 +29,14 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
   final _notes          = TextEditingController();
   final _foundedYearCtrl = TextEditingController();
 
-  String  _groupType    = 'prive';
-
-  /// Caractère du groupe — indépendant du secteur (migration 0180).
-  ///
-  /// ⚠️ CES TROIS VALEURS ÉTAIENT DANS LE CHAMP « TYPE ». « Catholique »,
-  /// « Islamique » et « Protestant » y côtoyaient « Public » et « Privé »,
-  /// alors que l'enum `group_type` n'accepte que les deux derniers : les
-  /// choisir faisait échouer la création sur un 22P02. Elles cherchaient un
-  /// champ qui n'existait pas. Il existe.
+  /// Caractère du groupe (migration 0180) : laïc, catholique, protestant…
   String? _caractere;
 
-  /// Ministère de tutelle du groupe. Jamais prérempli à la création : deviner
-  /// « MEPSA » parce que c'est le cas le plus fréquent rangerait en silence
+  /// Ordre d'enseignement : le ministère qui agrée les écoles du groupe.
+  /// Jamais prérempli à la création : deviner « MEPSA » rangerait en silence
   /// un lycée technique sous le mauvais ministère, et personne ne le verrait
   /// avant l'inscription aux examens d'État.
   String? _tutelle;
-
-  /// Ce groupe EST-IL le ministère de tutelle ? Faux par défaut : le rôle
-  /// s'accorde, il ne se suppose pas. Un seul groupe le porte par ministère
-  /// (index unique de la migration 0178).
-  bool _estTutelle = false;
 
   /// Agrément : SAISI, jamais instruit. Trois champs, aucun workflow.
   final _agrementNum = TextEditingController();
@@ -82,10 +68,8 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
       _address.text       = g.address     ?? '';
       _notes.text         = g.notes       ?? '';
       _uploadedLogoUrl    = g.logoUrl;
-      _groupType          = g.groupType;
       _caractere          = g.caractere;
       _tutelle            = g.tutelle;
-      _estTutelle         = g.administreReferentielNational;
       _agrementNum.text   = g.agrementNumero ?? '';
       _agrementType       = g.agrementType;
       _agrementDate       = g.agrementDate;
@@ -95,10 +79,6 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
         _foundedYearCtrl.text = g.foundedYear.toString();
       }
     } else {
-      // ⚠️ `plans.first` triait par prix : « Découverte » et « Licence de
-      // tutelle » sont tous deux à 0 XAF, l'ordre entre eux n'est pas garanti.
-      // Un groupe ordinaire serait né sur le plan des ministères, et la base
-      // l'aurait refusé sans que personne comprenne pourquoi.
       _alignerLePlan();
     }
   }
@@ -112,23 +92,13 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
     super.dispose();
   }
 
-  /// Les plans proposables pour ce groupe.
-  ///
-  /// ⚠️ DEUX NATURES DE CLIENT, DEUX RELATIONS (migration 0182). Un ministère
-  /// de tutelle est rattaché au plan « Licence de tutelle », dont les
-  /// conditions réelles vivent dans `tutelle_licences` ; un groupe privé est
-  /// rattaché à une formule mensuelle, qui est le revenu de la plateforme.
-  /// La base refuse le mélange dans les deux sens — l'écran ne doit même pas
-  /// l'offrir.
+  /// Les plans proposables : les formules des groupes privés, et elles seules.
   List<PlanInfo> get _plansOfferts => [
         for (final p in widget.plans)
-          if (p.estLicence == _estTutelle) p,
+          if (!p.horsOffrePrivee) p,
       ];
 
-  /// Aligne le plan sur la nature du groupe quand l'interrupteur bascule.
-  ///
-  /// Sans ça, cocher « ce groupe est un ministère » laisserait « Standard »
-  /// sélectionné et l'enregistrement partirait se faire refuser par la base.
+  /// Sélectionne d'office une formule de l'offre privée à la création.
   void _alignerLePlan() {
     final offerts = _plansOfferts;
     if (offerts.any((p) => p.id == _planId)) return;
@@ -171,23 +141,14 @@ class _GroupFormModalState extends ConsumerState<_GroupFormModal> {
 
       final payload = {
         'name':         _name.text.trim(),
-        // SECTEUR — public ou privé, et rien d'autre. L'école en hérite
-        // (0060) et le barème de frais en dépend.
-        'group_type':   _groupType,
-        // CARACTÈRE — descriptif, indépendant du secteur (0180). Remis à
-        // `null` si le groupe repasse en public : un établissement public n'a
-        // pas de caractère propre, et laisser l'ancienne valeur en base ferait
-        // réapparaître « Catholique » sur un groupe devenu public.
-        'caractere':    caractereSeSaisit(_groupType) ? _caractere : null,
+        // ⚠️ Plus de `group_type` envoyé : tout groupe est privé, et la base
+        // pose `prive` par défaut. L'écrire ici retarderait le retrait de la
+        // colonne — un client qui l'envoie casse le jour où elle disparaît.
+        'caractere':    _caractere,
         // ⚠️ La tutelle est écrite SUR LE GROUPE, jamais sur l'école : un
         // déclencheur (migration 0153) la propage à toutes ses écoles. Envoyer
         // `schools.tutelle` depuis ici serait écrire dans une copie.
         'tutelle':      _tutelle,
-        // ⚠️ Le rôle de tutelle, pas un réglage d'affichage : il ouvre le
-        // référentiel national, le réseau du ministère et les circulaires.
-        // La base n'en accepte qu'un par ministère (index unique, 0178) et
-        // refuse le second avec une phrase écrite pour l'agent.
-        'administre_referentiel_national': _estTutelle,
         // ⚠️ Écrit sur le GROUPE seulement : un déclencheur le recopie sur
         // toutes ses écoles (migration 0158). L'écrire sur `schools` depuis
         // ici serait écrire dans une copie.

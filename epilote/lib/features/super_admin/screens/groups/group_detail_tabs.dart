@@ -40,28 +40,13 @@ class _InfoTab extends ConsumerWidget {
         const _SectionTitle('Paramètres'),
         const SizedBox(height: 8),
         _DetailCard([
-          // ⚠️ « Nature » AVANT « Type ». La fiche d'un ministère annonçait
-          // « Type : Public » — exact, et trompeur : c'est ce qu'affiche aussi
-          // une école publique ordinaire. La première ligne doit dire ce que
-          // la chose EST.
-          _DetailRow(
-              g.administreReferentielNational
-                  ? Icons.account_balance_rounded
-                  : Icons.corporate_fare_outlined,
-              'Nature',
-              natureGroupe(estTutelle: g.administreReferentielNational)),
-          _DetailRow(Icons.business_outlined, 'Secteur', g.groupTypeLabel),
-          // ⚠️ Sur un groupe PUBLIC, on n'affiche pas la ligne du tout : la
-          // question ne se pose pas. Sur un groupe privé, « Non renseigné »
-          // DIT le manque — c'est une case qu'on peut encore remplir.
-          if (caractereSeSaisit(g.groupType))
-            _DetailRow(iconeCaractere(g.caractere), 'Caractère',
-                libelleCaractereOuManque(g.caractere)),
-          // « Non renseignée » plutôt qu'un tiret : l'absence de tutelle est
-          // une lacune à combler, pas une case vide sans conséquence — un
-          // groupe sans ministère ne remonte dans aucun état ministériel.
-          _DetailRow(Icons.account_balance_outlined, 'Tutelle',
-              g.tutelleLabel ?? 'Non renseignée'),
+          // « Non renseigné » DIT le manque : c'est une case à remplir.
+          _DetailRow(iconeCaractere(g.caractere), 'Caractère',
+              libelleCaractereOuManque(g.caractere)),
+          // « Non renseigné » plutôt qu'un tiret : sans ordre d'enseignement,
+          // les examens d'État proposés aux écoles ne sont pas les bons.
+          _DetailRow(Icons.account_balance_outlined, "Ordre d'enseignement",
+              g.tutelleLabel ?? 'Non renseigné'),
           // ⚠️ « Non déclaré », jamais « non agréé » : E-PILOTE enregistre une
           // mention, elle n'instruit aucun dossier.
           _DetailRow(Icons.verified_outlined, 'Agrément',

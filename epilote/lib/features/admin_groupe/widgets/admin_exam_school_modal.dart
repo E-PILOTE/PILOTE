@@ -4,24 +4,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/admin_ui.dart';
 import '../../../core/widgets/list_chrome.dart';
 import '../providers/admin_exams_provider.dart';
-import '../providers/exam_archives_provider.dart';
 import 'school_candidates_section.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
-//  FICHE D'ÉTABLISSEMENT — le détail derrière une ligne du cockpit.
+//  FICHE D'ÉTABLISSEMENT — le détail derrière une ligne de la campagne.
 //
 //  Le tableau du réseau dit « 12 candidats, 8 complets, aucune transmission ».
-//  Il ne disait pas de QUELS examens il s'agit, ni ce que la DEC a proclamé
-//  pour cette école — deux questions qu'on se pose immédiatement après. Les
-//  lignes étaient des culs-de-sac : on repartait vers un autre écran, ou on
-//  téléphonait.
-//
-//  Trois strates, dans l'ordre où on les lit :
+//  Il ne disait pas de QUELS examens il s'agit — la question qu'on se pose
+//  immédiatement après. Trois strates, dans l'ordre où on les lit :
 //   1. l'état de la campagne (dossiers, dépôts, transmission) ;
 //   2. la ventilation par examen — c'est là qu'un retard se localise ;
-//   3. les chiffres OFFICIELS de la DEC pour cet établissement, quand elle en
-//      publie (elle publie par école, avec son code). Absents ≠ nuls : l'écran
-//      le dit.
+//   3. les candidats, nominativement, avec les pièces qui manquent.
 // ════════════════════════════════════════════════════════════════════════════
 void showSchoolExamModal(BuildContext context, MinistrySchoolExam row) {
   showAdminBottomModal<void>(
@@ -37,13 +30,6 @@ class _SchoolSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final risk = row.hasCandidatesNotTransmitted;
-    // Chiffres officiels de CET établissement — le troisième niveau de
-    // publication de la DEC, à côté du national et du départemental.
-    final official = (ref.watch(officialFiguresProvider).valueOrNull ?? const [])
-        .where((f) =>
-            f.scope == PubScope.etablissement && f.schoolId == row.schoolId)
-        .toList()
-      ..sort((a, b) => (b.yearLabel ?? '').compareTo(a.yearLabel ?? ''));
 
     return AdminBottomModal(
       icon: Icons.account_balance_rounded,
@@ -77,19 +63,6 @@ class _SchoolSheet extends ConsumerWidget {
         const AdminModalSectionTitle('Candidats de l\'établissement'),
         const SizedBox(height: 10),
         SchoolCandidatesSection(schoolId: row.schoolId),
-        const SizedBox(height: 22),
-        const AdminModalSectionTitle('Ce que la DEC a proclamé pour cette école'),
-        const SizedBox(height: 10),
-        if (official.isEmpty)
-          const _Muted(
-            'Aucune publication de la DEC n\'a été relevée pour cet '
-            'établissement. La DEC publie école par école, avec un code '
-            'établissement : dès qu\'une de ces listes est archivée et ses '
-            'chiffres relevés, ils s\'affichent ici. Leur absence ne veut pas '
-            'dire zéro.',
-          )
-        else
-          for (final f in official) _OfficialRow(figure: f),
       ]),
     );
   }
@@ -342,48 +315,6 @@ class _ExamRow extends StatelessWidget {
                 fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
                 color: color ?? (muted ? kTextMuted : kTextPrimary))),
       );
-}
-
-// ─── Chiffres officiels de l'école ──────────────────────────────────────────
-class _OfficialRow extends StatelessWidget {
-  const _OfficialRow({required this.figure});
-  final OfficialFigure figure;
-
-  @override
-  Widget build(BuildContext context) {
-    final rate = figure.passRate;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: kBorder),
-        borderRadius: BorderRadius.circular(9),
-      ),
-      child: Row(children: [
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('${figure.examShortName ?? '—'} · ${figure.yearLabel ?? '—'}',
-                style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: kTextPrimary)),
-            Text(
-                figure.hasCounts
-                    ? '${figure.admitted} admis sur ${figure.present} présents'
-                    : 'taux publié, sans effectifs',
-                style: TextStyle(fontSize: 11, color: kTextMuted)),
-          ]),
-        ),
-        if (rate != null)
-          Text('${rate.toStringAsFixed(2)} %',
-              style: TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.w900, color: kGreen)),
-        const SizedBox(width: 10),
-        AdminBadge(figure.hasSource ? 'OFFICIEL DEC' : 'sans source',
-            color: figure.hasSource ? kGreen : kListOrange),
-      ]),
-    );
-  }
 }
 
 // ─── Pied : relance ─────────────────────────────────────────────────────────

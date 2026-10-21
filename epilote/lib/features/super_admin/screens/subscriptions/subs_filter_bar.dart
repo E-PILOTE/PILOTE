@@ -14,12 +14,10 @@ class SubFilterBar extends StatelessWidget {
     required this.contentWidth,
     required this.searchCtrl,
     required this.filterStatus,
-    required this.filterType,
     required this.sort,
     required this.isTableView,
     required this.onSearchChange,
     required this.onStatus,
-    required this.onType,
     required this.onSort,
     required this.onToggleView,
     required this.onReset,
@@ -28,9 +26,9 @@ class SubFilterBar extends StatelessWidget {
 
   final double contentWidth;
   final TextEditingController searchCtrl;
-  final String filterStatus, filterType, sort;
+  final String filterStatus, sort;
   final bool   isTableView;
-  final ValueChanged<String> onSearchChange, onStatus, onType, onSort;
+  final ValueChanged<String> onSearchChange, onStatus, onSort;
   final VoidCallback onToggleView, onReset, onAdd;
 
   @override
@@ -141,19 +139,6 @@ class SubFilterBar extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             _FilterDropdown(
-              icon: Icons.category_rounded,
-              label: 'Type',
-              items: const {
-                'tous':   'Tous les types',
-                'public': 'Public',
-                'prive':  'Privé',
-              },
-              value: filterType,
-              onChanged: onType,
-              active: filterType != 'tous',
-            ),
-            const SizedBox(width: 8),
-            _FilterDropdown(
               icon: Icons.sort_rounded,
               label: 'Trier',
               items: const {
@@ -168,7 +153,7 @@ class SubFilterBar extends StatelessWidget {
               active: sort != 'recent',
             ),
             const Spacer(),
-            if (filterStatus != 'tous' || filterType != 'tous' || sort != 'recent')
+            if (filterStatus != 'tous' || sort != 'recent')
               MouseRegion(
                 cursor: SystemMouseCursors.click,
                 child: GestureDetector(

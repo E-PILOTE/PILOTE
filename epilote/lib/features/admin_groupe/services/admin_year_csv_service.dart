@@ -26,12 +26,6 @@ class AcademicYearCsvService {
   static String _esc(Object? v) =>
       '"${(v?.toString() ?? '').replaceAll('"', '""')}"';
 
-  static String _typeLabel(String t) => switch (t) {
-        'public' => 'Public',
-        'prive' => 'Prive',
-        _ => t.isEmpty ? 'Autre' : t,
-      };
-
   /// Bilan d'une année, une ligne par établissement.
   ///
   /// ⚠️ LES TOTAUX VIENNENT DU SERVEUR, PAS DE LA SOMME DES LIGNES.
@@ -82,7 +76,6 @@ class AcademicYearCsvService {
       ..writeln([
         'Etablissement',
         'Departement',
-        'Type',
         'Classes',
         'Eleves',
         'Etat',
@@ -92,7 +85,6 @@ class AcademicYearCsvService {
       b.writeln([
         _esc(s.name),
         _esc(s.department),
-        _esc(_typeLabel(s.type)),
         _esc(s.classes),
         _esc(s.eleves),
         _esc(s.adopted ? 'Preparee' : 'En attente'),

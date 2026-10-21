@@ -8,13 +8,11 @@ class _FilterBar extends StatelessWidget {
   const _FilterBar({
     required this.contentWidth,
     required this.searchCtrl,
-    required this.filterType,
     required this.filterStatus,
     required this.filterDept,
     required this.isTableView,
     required this.quotaReached,
     required this.onSearchChange,
-    required this.onType,
     required this.onStatus,
     required this.onDept,
     required this.onToggleView,
@@ -24,14 +22,13 @@ class _FilterBar extends StatelessWidget {
 
   final double contentWidth;
   final TextEditingController searchCtrl;
-  final String filterType, filterStatus, filterDept;
+  final String filterStatus, filterDept;
   final bool   isTableView;
   final bool   quotaReached;
-  final ValueChanged<String> onSearchChange, onType, onStatus, onDept;
+  final ValueChanged<String> onSearchChange, onStatus, onDept;
   final VoidCallback onToggleView, onReset, onAdd;
 
-  bool get _hasFilters =>
-      filterType != 'tous' || filterStatus != 'tous' || filterDept != 'tous';
+  bool get _hasFilters => filterStatus != 'tous' || filterDept != 'tous';
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -130,16 +127,6 @@ class _FilterBar extends StatelessWidget {
         ]),
         const SizedBox(height: 10),
         Row(children: [
-          _FilterDropdown(
-            icon: Icons.category_outlined, label: 'Type',
-            items: const {
-              'tous': 'Tous les types',
-              'public': 'Public',
-              'prive': 'Privé',
-            },
-            value: filterType, onChanged: onType, active: filterType != 'tous',
-          ),
-          const SizedBox(width: 8),
           _FilterDropdown(
             icon: Icons.radio_button_checked_rounded, label: 'Statut',
             items: const {

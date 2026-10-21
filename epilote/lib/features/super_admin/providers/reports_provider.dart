@@ -48,7 +48,6 @@ class TopGroupEntry {
     required this.status,
     required this.department,
     required this.revenueXaf,
-    required this.groupType,
   });
   final String name;
   final int    schoolCount;
@@ -56,7 +55,6 @@ class TopGroupEntry {
   final String status;
   final String department;
   final int    revenueXaf;
-  final String groupType;
 }
 
 class FinancialSummaryRow {
@@ -83,8 +81,6 @@ class ReportsData {
     required this.mrr,
     required this.arr,
     required this.paymentRate,
-    required this.totalPublic,
-    required this.totalPrivate,
     required this.groupsByPlan,
     required this.monthly,
     required this.topGroups,
@@ -104,8 +100,6 @@ class ReportsData {
   final int                     mrr;
   final int                     arr;
   final double                  paymentRate;
-  final int                     totalPublic;
-  final int                     totalPrivate;
   final List<ReportsByPlan>     groupsByPlan;
   final List<ReportMonthly>     monthly;
   final List<TopGroupEntry>     topGroups;
@@ -148,7 +142,7 @@ final reportsProvider = FutureProvider.autoDispose<ReportsData>((ref) async {
   // `profiles`, pas dans `staff_members` — table vide que rien n'écrit.
   final results = await Future.wait([
     fetchAllRows(() => client.from('school_groups').select(
-        'id, name, department, subscription_status, plan_id, group_type, '
+        'id, name, department, subscription_status, plan_id, '
         'price_override_xaf, billed_schools, subscription_plans!plan_id(name, price_xaf, billing_period, extra_school_2_5_xaf, extra_school_6_10_xaf, extra_school_11_20_xaf, extra_school_21p_xaf)').order('id')),
     // ⚠️ Les trois sont paginées (2026-09-09), pas seulement les élèves : la
     // cible est 1 000 écoles, et les factures s'accumulent tous les mois. Un
@@ -189,18 +183,6 @@ final reportsProvider = FutureProvider.autoDispose<ReportsData>((ref) async {
       .fold<int>(0, (s, g) {
         return s + mensualiteGroupe(g as Map);
       });
-
-  // Public / Privé
-  int totalPublic  = 0;
-  int totalPrivate = 0;
-  for (final g in groups) {
-    final t = (g as Map)['group_type'] as String? ?? '';
-    if (t == 'public') {
-      totalPublic++;
-    } else {
-      totalPrivate++;
-    }
-  }
 
   // ── Groups by plan ─────────────────────────────────────────────────────────
   const planColors = [0xFF1E3A5F, 0xFF009A44, 0xFFFBBC04, 0xFFFF6B35, 0xFF7C3AED];
@@ -252,7 +234,6 @@ final reportsProvider = FutureProvider.autoDispose<ReportsData>((ref) async {
       status:      m['subscription_status'] as String? ?? 'unknown',
       department:  m['department'] as String? ?? '—',
       revenueXaf:  revByGroup[m['id'] as String] ?? 0,
-      groupType:   m['group_type'] as String? ?? 'private',
     );
   }).toList()
     ..sort((a, b) => b.schoolCount.compareTo(a.schoolCount));
@@ -312,8 +293,6 @@ final reportsProvider = FutureProvider.autoDispose<ReportsData>((ref) async {
     mrr:                   mrr,
     arr:                   mrr * 12,
     paymentRate:           paymentRate,
-    totalPublic:           totalPublic,
-    totalPrivate:          totalPrivate,
     groupsByPlan:          groupsByPlan,
     monthly:               monthly,
     topGroups:             topGroups.take(5).toList(),

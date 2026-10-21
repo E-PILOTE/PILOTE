@@ -32,8 +32,6 @@ class _KpiGrid extends StatelessWidget {
     final n        = data.schools.length;
     final actives  = data.schools.where((s) => s.isActive).length;
     final inactive = n - actives;
-    final publics  = data.schools.where((s) => s.type == 'public').length;
-    final privees  = data.schools.where((s) => s.type == 'prive').length;
     final maxS     = data.maxSchools;
     final maxStu   = data.maxStudents;
 
@@ -70,22 +68,6 @@ class _KpiGrid extends StatelessWidget {
         icon: Icons.groups_rounded, color: _kPurple,
         progressValue: maxStu > 0 ? data.totalStudents / maxStu : 0,
         trend: maxStu > 0 ? '${data.totalStudents}/$maxStu' : '${data.totalStudents} inscrits',
-      ),
-      _KD(
-        label: 'Établ. Publics',
-        value: '$publics',
-        sub: n > 0 ? '${(publics * 100 / n).round()}% du groupe' : '—',
-        icon: Icons.account_balance_rounded, color: _kBlue,
-        progressValue: n > 0 ? publics / n : 0,
-        trend: publics > 0 ? '$publics public${publics > 1 ? 's' : ''}' : 'Aucun',
-      ),
-      _KD(
-        label: 'Établ. Privés',
-        value: '$privees',
-        sub: n > 0 ? '${(privees * 100 / n).round()}% du groupe' : '—',
-        icon: Icons.business_rounded, color: _kGold,
-        progressValue: n > 0 ? privees / n : 0,
-        trend: privees > 0 ? '$privees privé${privees > 1 ? 's' : ''}' : 'Aucun',
       ),
     ];
 

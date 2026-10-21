@@ -43,7 +43,6 @@ part 'schools/school_institution_type_field.dart';
 const _kPurple = Color(0xFF7C3AED);
 const _kBlue   = Color(0xFF0EA5E9);
 const _kOrange = Color(0xFFFF6B35);
-Color get _kGold => kAccent;
 
 // 15 départements — réforme territoriale du 8 octobre 2024
 const _kDepartements = [
@@ -135,7 +134,6 @@ class _SchoolsBody extends ConsumerStatefulWidget {
 
 class _SchoolsBodyState extends ConsumerState<_SchoolsBody> {
   final _searchCtrl  = TextEditingController();
-  String _filterType   = 'tous';
   String _filterStatus = 'tous';
   String _filterDept   = 'tous';
   bool   _isTableView  = true;
@@ -159,7 +157,6 @@ class _SchoolsBodyState extends ConsumerState<_SchoolsBody> {
             || (s.department?.toLowerCase().contains(q) ?? false);
         if (!ok) return false;
       }
-      if (_filterType   != 'tous' && s.type != _filterType) return false;
       if (_filterStatus == 'active'   && !s.isActive) return false;
       if (_filterStatus == 'inactive' &&  s.isActive) return false;
       if (_filterDept   != 'tous' && (s.department ?? '') != _filterDept) return false;
@@ -271,13 +268,11 @@ class _SchoolsBodyState extends ConsumerState<_SchoolsBody> {
                 _FilterBar(
                   contentWidth:   w - 48,
                   searchCtrl:     _searchCtrl,
-                  filterType:     _filterType,
                   filterStatus:   _filterStatus,
                   filterDept:     _filterDept,
                   isTableView:    _isTableView,
                   quotaReached:   data.quotaReached,
                   onSearchChange: (_) => setState(() {}),
-                  onType:         (v) => setState(() => _filterType   = v),
                   onStatus:       (v) => setState(() => _filterStatus = v),
                   onDept:         (v) => setState(() => _filterDept   = v),
                   onToggleView:   ()  => setState(() {
@@ -286,7 +281,7 @@ class _SchoolsBodyState extends ConsumerState<_SchoolsBody> {
                   }),
                   onReset: () => setState(() {
                     _searchCtrl.clear();
-                    _filterType = _filterStatus = _filterDept = 'tous';
+                    _filterStatus = _filterDept = 'tous';
                   }),
                   onAdd: _openCreate,
                 ),

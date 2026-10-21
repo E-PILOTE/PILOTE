@@ -89,16 +89,12 @@ class _GroupDetailModalState extends State<_GroupDetailModal>
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 5),
                   Wrap(spacing: 6, runSpacing: 4, children: [
-                    if (g.administreReferentielNational)
-                      BadgeMinistere(estMinistere: true, tutelle: g.tutelle),
                     _StatusBadge(status: g.subscriptionStatus,
                         label: g.statusLabel),
-                    _TypeBadge(type: g.groupType, label: g.groupTypeLabel),
                     if (g.caractereLabel != null)
                       _CaractereBadge(caractere: g.caractere!,
                           label: g.caractereLabel!),
-                    if (!g.administreReferentielNational)
-                      _TutelleBadge(tutelle: g.tutelle),
+                    _TutelleBadge(tutelle: g.tutelle),
                     _PlanBadge(plan: g.planName, price: g.priceXaf),
                   ]),
                   const SizedBox(height: 5),

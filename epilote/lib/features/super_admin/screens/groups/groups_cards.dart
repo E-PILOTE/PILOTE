@@ -99,14 +99,7 @@ class _GroupCardState extends State<_GroupCard> {
 
             // ─ Badges ─────────────────────────────────────────────────────────
             Wrap(spacing: 6, runSpacing: 4, children: [
-              // ⚠️ Un ministère porte SA pastille et pas celle de la tutelle :
-              // « MINISTÈRE · MEPSA » dit déjà le sigle, et deux pastilles
-              // côte à côte laisseraient croire à deux informations.
-              if (g.administreReferentielNational)
-                BadgeMinistere(estMinistere: true, tutelle: g.tutelle)
-              else
-                _TutelleBadge(tutelle: g.tutelle),
-              _TypeBadge(type: g.groupType, label: g.groupTypeLabel),
+              _TutelleBadge(tutelle: g.tutelle),
               if (g.caractereLabel != null)
                 _CaractereBadge(caractere: g.caractere!,
                     label: g.caractereLabel!),

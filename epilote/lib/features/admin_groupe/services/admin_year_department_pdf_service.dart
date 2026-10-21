@@ -148,17 +148,15 @@ class YearDepartmentPdfService {
         headers: const [
           'Établissement',
           'Rang',
-          'Type',
           'Classes',
           'Élèves',
           'État',
         ],
-        flex: const [9, 2, 3, 2, 2, 3],
+        flex: const [12, 2, 2, 2, 3],
         rows: d.ecoles
             .map((s) => [
                   s.name,
                   '${d.rangDe(s.id) ?? '—'}',
-                  _type(s.type),
                   '${s.classes}',
                   '${s.eleves}',
                   s.adopted ? 'Préparée' : 'En attente',
@@ -169,12 +167,6 @@ class YearDepartmentPdfService {
         maxLines: 2,
         rowHeight: OfficialPdfKit.kTallRowHeight,
       );
-
-  static String _type(String t) => switch (t) {
-        'public' => 'Public',
-        'prive' => 'Privé',
-        _ => t.isEmpty ? 'Autre' : t,
-      };
 
   static String _slug(String s) =>
       s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');

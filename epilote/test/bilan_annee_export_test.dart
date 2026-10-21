@@ -49,7 +49,6 @@ void main() {
             ? 'Complexe Scolaire Départemental Étoile du Nord de Ouesso $i'
             : 'Lycée de Madingou $i',
         department: long ? 'Cuvette-Ouest' : 'Bouenza',
-        type: i.isEven ? 'public' : 'prive',
         classes: 12,
         eleves: 430,
       );
@@ -68,19 +67,6 @@ void main() {
             ecolesPreparees: e.value.where((s) => s.adopted).length,
             classes: e.value.fold(0, (a, s) => a + s.classes),
             eleves: e.value.fold(0, (a, s) => a + s.eleves),
-          ),
-      ],
-      byType: [
-        for (final t in {for (final s in ecoles) s.type})
-          YearTypeStat(
-            type: t,
-            ecoles: ecoles.where((s) => s.type == t).length,
-            classes: ecoles
-                .where((s) => s.type == t)
-                .fold(0, (a, s) => a + s.classes),
-            eleves: ecoles
-                .where((s) => s.type == t)
-                .fold(0, (a, s) => a + s.eleves),
           ),
       ],
       bySchool: ecoles,

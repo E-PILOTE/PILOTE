@@ -115,38 +115,11 @@ class _GroupInfoCard extends StatelessWidget {
             _GroupLogo(logoUrl: g.logoUrl, name: g.name),
             const SizedBox(width: 16),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(
-                  nomAffichableGroupe(
-                    nom: g.name,
-                    estMinistere: g.estMinistere,
-                    tutelle: g.tutelle,
-                  ),
+              Text(g.name,
                   style: TextStyle(
                       fontSize: 18, fontWeight: FontWeight.w800, color: kTextPrimary)),
-              // ⚠️ CETTE LIGNE MANQUAIT, ET C'EST LA PLUS IMPORTANTE DE
-              // L'ÉCRAN. La fiche du MEPSA annonçait « Public · Institutionnel
-              // · Actif » : trois pastilles exactes, et pas une qui dise qu'on
-              // regarde un MINISTÈRE DE TUTELLE. C'est son propre écran — si
-              // lui ne le dit pas, aucun autre ne le fera.
-              if (g.estMinistere) ...[
-                const SizedBox(height: 6),
-                Text(natureGroupe(estTutelle: true),
-                    style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: couleurTutelle(g.tutelle))),
-              ],
               const SizedBox(height: 8),
               Wrap(spacing: 6, runSpacing: 6, children: [
-                if (g.estMinistere)
-                  BadgeMinistere(estMinistere: true, tutelle: g.tutelle),
-                // ⚠️ Ce libellé avait un TROISIÈME vocabulaire à lui seul —
-                // « confessionnel », « ministere », « reseau » —, qu'aucune
-                // base n'a jamais accepté : l'enum ne connaît que `public` et
-                // `prive`. Il lit maintenant le même référentiel que tout le
-                // monde.
-                AdminBadge(libelleSecteur(g.groupType), color: kNavy,
-                    icon: Icons.category_outlined),
                 if (libelleCaractere(g.caractere) != null)
                   AdminBadge(libelleCaractere(g.caractere)!, color: kAccent,
                       icon: Icons.groups_rounded),
@@ -187,19 +160,17 @@ class _GroupInfoCard extends StatelessWidget {
               _InfoRow(label: 'Email', value: g.adminEmail!, icon: Icons.email_outlined),
             if (g.phone != null)
               _InfoRow(label: 'Téléphone', value: g.phone!, icon: Icons.phone_outlined),
-            // ⚠️ « Abonnement » est le mot d'un client mensuel. Un ministère
-            // exécute un marché : ses libellés le disent, sur la même ligne.
             _InfoRow(
-                label: g.estMinistere ? 'Licence' : 'Plan',
+                label: 'Plan',
                 value: g.planName,
                 icon: Icons.workspace_premium_outlined),
             _InfoRow(
-                label: g.estMinistere ? 'Statut' : 'Statut abonnement',
+                label: 'Statut abonnement',
                 value: statusLabel(g.subscriptionStatus),
                 icon: Icons.verified_outlined),
             if (g.subscriptionStart != null)
               _InfoRow(
-                  label: g.estMinistere ? 'Début' : 'Début abonnement',
+                  label: 'Début abonnement',
                   value: _fmtDate(g.subscriptionStart),
                   icon: Icons.play_circle_outline_rounded),
             if (g.subscriptionEnd != null)

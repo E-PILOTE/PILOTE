@@ -44,7 +44,6 @@ import 'package:flutter_test/flutter_test.dart';
 const _espacesEnLigne = [
   'lib/features/super_admin',
   'lib/features/admin_groupe',
-  'lib/features/tutelle',
   'lib/features/audit',
   'lib/features/profil',
 ];

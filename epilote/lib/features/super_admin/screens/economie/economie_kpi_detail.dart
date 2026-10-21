@@ -4,13 +4,13 @@ part of '../economie_screen.dart';
 //  LE DÉTAIL DERRIÈRE CHAQUE KPI
 //
 //  ── LE DÉFAUT ─────────────────────────────────────────────────────────────
-//  Quatre nombres en haut de l'écran — abonnements, licences, coût, marge — et
+//  Trois nombres en haut de l'écran — abonnements, coût, marge — et
 //  rien derrière. « 245 000 F par mois » ne se vérifie pas, ne se conteste pas
 //  et ne se corrige pas : on ne sait pas de QUI il vient. Le fondateur : « les
 //  KPI doivent être bien disponibles, cliquables si possible, on a besoin de
 //  voir le détail ».
 //
-//  ── LA RÈGLE DE CES QUATRE FICHES ─────────────────────────────────────────
+//  ── LA RÈGLE DE CES FICHES ────────────────────────────────────────────────
 //  Chacune montre la DÉCOMPOSITION du nombre affiché, ligne par ligne, et la
 //  somme se retrouve en bas. Rien d'autre : ce ne sont pas des tableaux de
 //  bord, ce sont des justificatifs. Un chiffre qu'on ne peut pas décomposer
@@ -19,8 +19,7 @@ part of '../economie_screen.dart';
 //  ── CE QUI A CHANGÉ ───────────────────────────────────────────────────────
 //  Ces fiches sont devenues des `FicheDetail` — la même donnée à l'écran et
 //  sur le papier. Trois conséquences :
-//   • elles S'IMPRIMENT, avec aperçu avant impression, comme celles du
-//     ministère ;
+//   • elles S'IMPRIMENT, avec aperçu avant impression ;
 //   • elles se cherchent et n'ont plus de plafond de longueur ;
 //   • ⚠️ le revenu des abonnements MONTRE ENFIN SES GROUPES. La fiche la plus
 //     ancienne était la seule à ne décomposer rien du tout : elle expliquait
@@ -71,70 +70,9 @@ void _ouvrirDetailRevenu(BuildContext context, EconomieData d) {
             '208 333 F de revenu mensuel, pas 2 500 000.',
         '⚠️ Le tarif suit le nombre d’écoles facturées (grille dégressive, '
             'migration 0159), et un tarif négocié le remplace quand il existe.',
-        'Les deux ministères n’y sont PAS : depuis 0182 ils portent le plan '
-            '« Licence de tutelle » à 0 F. Leurs montants réels comptent dans '
-            'la carte voisine — les additionner ici les compterait deux fois.',
         if (d.groupesInactifs > 0)
           '${d.groupesInactifs} groupe(s) hors abonnement actif ne figurent '
               'pas dans cette liste : ils pèsent zéro.',
-      ],
-    ),
-  );
-}
-
-void _ouvrirDetailLicences(BuildContext context, EconomieData d) {
-  final actives = [
-    for (final l in d.licences)
-      if (l.estActive) l,
-  ];
-
-  ouvrirFicheDetail(
-    context,
-    FicheDetail(
-      titre: 'Revenu des licences de tutelle',
-      sousTitre: actives.isEmpty
-          ? 'Aucune licence active'
-          : '${actives.length} marché${actives.length > 1 ? 's' : ''} en cours',
-      icone: Icons.account_balance_rounded,
-      couleur: kListPurple,
-      total: fmtXaf(d.mrrLicencesXaf),
-      totalLabel: 'Total mensuel',
-      nomFichier: 'Economie_Revenu_licences',
-      chiffres: [
-        ('marchés actifs', '${actives.length}'),
-        if (d.soldeDuXaf > 0) ('reste à encaisser', fmtXaf(d.soldeDuXaf)),
-      ],
-      sections: [
-        SectionFiche(
-          titre: 'Par marché',
-          enTetes: const ['Ministère', 'Marché', 'Compté / mois'],
-          flex: const [4, 3, 3],
-          lignes: [
-            for (final l in d.licences)
-              LigneFiche(
-                titre: l.groupeNom,
-                sousTitre: '${l.intitule} · '
-                    '${libelleStatutLicenceOuTiret(l.statut)}'
-                    // ⚠️ Une licence non active pèse ZÉRO. On la montre quand
-                    // même, avec son montant théorique : une ligne absente se
-                    // lit comme un oubli de saisie, une ligne à zéro se lit
-                    // comme une décision.
-                    '${l.estActive ? '' : ' · théorique ${fmtXaf(l.mensuelXaf)}'}',
-                colonnes: [fmtXaf(l.montantXaf)],
-                valeur: fmtXaf(l.mensuelCompte),
-              ),
-          ],
-          note: 'Somme : ${fmtXaf(d.mrrLicencesXaf)} par mois.',
-          videLabel: 'Aucune licence enregistrée. Tant qu’un marché n’est pas '
-              'saisi ET activé, le revenu de licence est ZÉRO.',
-        ),
-      ],
-      notes: [
-        if (d.soldeDuXaf > 0)
-          'Reste à encaisser sur les marchés actifs : ${fmtXaf(d.soldeDuXaf)}. '
-              'Ce n’est pas du revenu mensuel — c’est de la trésorerie '
-              'attendue.',
-        'Seules les licences ACTIVES comptent dans le revenu mensuel.',
       ],
     ),
   );
@@ -227,10 +165,6 @@ void _ouvrirDetailMarge(BuildContext context, EconomieData d) {
                 titre: 'Abonnements',
                 sousTitre: '${d.abonnements.length} groupe(s) actif(s)',
                 valeur: fmtXaf(d.mrrAbonnementsXaf)),
-            LigneFiche(
-                titre: 'Licences de tutelle',
-                sousTitre: 'marchés actifs, ramenés au mois',
-                valeur: fmtXaf(d.mrrLicencesXaf)),
             LigneFiche(
                 titre: 'Coût d’exploitation',
                 sousTitre: 'postes actifs',

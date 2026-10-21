@@ -1,6 +1,6 @@
 part of '../admin_dashboard_screen.dart';
 
-// Courbe des effectifs, camembert des types, répartition.
+// Courbe des effectifs et parité des élèves.
 
 class _ChartsRow extends StatelessWidget {
   const _ChartsRow({required this.data});
@@ -11,9 +11,9 @@ class _ChartsRow extends StatelessWidget {
     return LayoutBuilder(
       builder: (ctx, c) {
         final ench = _EnrollmentChart(data: data);
-        final donut = _TypeDonut(data: data);
+        final parite = _PariteCard(data: data);
         if (c.maxWidth < 840) {
-          return Column(children: [ench, const SizedBox(height: 18), donut]);
+          return Column(children: [ench, const SizedBox(height: 18), parite]);
         }
         // IntrinsicHeight borne la hauteur (sinon « stretch » dans un ListView
         // vertical = contrainte infinie → le contenu disparaît sur grand écran).
@@ -23,7 +23,7 @@ class _ChartsRow extends StatelessWidget {
             children: [
               Expanded(flex: 3, child: ench),
               const SizedBox(width: 18),
-              Expanded(flex: 2, child: donut),
+              Expanded(flex: 2, child: parite),
             ],
           ),
         );
@@ -143,118 +143,36 @@ class _EnrollmentChartState extends State<_EnrollmentChart> {
   }
 }
 
-class _Pt {
-  const _Pt(this.label, this.y, this.color);
-  final String label;
-  final int y;
-  final Color color;
-}
-
-class _TypeDonut extends StatefulWidget {
-  const _TypeDonut({required this.data});
+class _PariteCard extends StatelessWidget {
+  const _PariteCard({required this.data});
   final AdminDashboardData data;
 
-  @override
-  State<_TypeDonut> createState() => _TypeDonutState();
-}
-
-class _TypeDonutState extends State<_TypeDonut> {
-  late final TooltipBehavior _tt =
-      TooltipBehavior(enable: true, format: 'point.x : point.y');
-
+  // ⚠️ Le camembert « écoles par type » (public / privé) a été retiré le
+  // 2026-10-21 : tout groupe est privé, il n'avait plus qu'une part.
   @override
   Widget build(BuildContext context) {
-    final d = widget.data;
-    final all = <_Pt>[
-      _Pt('Public', d.publicCount, _kBlue),
-      _Pt('Privé', d.priveCount, kGreen),
-    ];
-    final pts = all.where((p) => p.y > 0).toList();
+    final d = data;
     return AdminCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const AdminSectionTitle(
-            'Répartition & parité',
+            'Parité élèves',
             icon: Icons.pie_chart_rounded,
-            subtitle: 'Écoles par type · élèves par sexe',
+            subtitle: 'Élèves par sexe',
           ),
           const SizedBox(height: 14),
-          if (d.ecolesTotal == 0)
-            const SizedBox(
-              height: 150,
-              child: _ChartEmpty(
-                  message: 'Ajoutez vos écoles pour visualiser leur répartition.'),
-            )
-          else ...[
-            SizedBox(
-              height: 168,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  SfCircularChart(
-                    backgroundColor: Colors.transparent,
-                    margin: EdgeInsets.zero,
-                    tooltipBehavior: _tt,
-                    series: <CircularSeries<_Pt, String>>[
-                      DoughnutSeries<_Pt, String>(
-                        dataSource: pts,
-                        xValueMapper: (p, _) => p.label,
-                        yValueMapper: (p, _) => p.y,
-                        pointColorMapper: (p, _) => p.color,
-                        animationDuration: 1100,
-                        innerRadius: '64%',
-                        radius: '92%',
-                        strokeColor: kCardBg,
-                        strokeWidth: 2.5,
-                        dataLabelSettings:
-                            const DataLabelSettings(isVisible: false),
-                      ),
-                    ],
-                  ),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(fmtInt(d.ecolesTotal),
-                          style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: kTextPrimary)),
-                      Text('écoles',
-                          style: TextStyle(fontSize: 11, color: kTextMuted)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 14,
-              runSpacing: 6,
-              children: [
-                for (final p in all)
-                  _LegendDot(color: p.color, text: '${p.label} ${p.y}'),
-              ],
-            ),
-            Divider(height: 26, color: kBorder),
-            Text('Parité élèves',
-                style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: kTextPrimary)),
-            const SizedBox(height: 10),
-            _GenderRow(
-                label: 'Garçons',
-                count: d.studentsM,
-                total: d.elevesTotal,
-                color: _kBlue),
-            const SizedBox(height: 8),
-            _GenderRow(
-                label: 'Filles',
-                count: d.studentsF,
-                total: d.elevesTotal,
-                color: _kPink),
-          ],
+          _GenderRow(
+              label: 'Garçons',
+              count: d.studentsM,
+              total: d.elevesTotal,
+              color: _kBlue),
+          const SizedBox(height: 8),
+          _GenderRow(
+              label: 'Filles',
+              count: d.studentsF,
+              total: d.elevesTotal,
+              color: _kPink),
         ],
       ),
     );

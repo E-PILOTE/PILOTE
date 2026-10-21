@@ -4,26 +4,8 @@ part of '../admin_schools_screen.dart';
 
 // ─── Modal détails école (style super_admin) ─────────────────────────────────
 
-String _schoolTypeLabel(String t) => switch (t) {
-  'public' => 'Public',
-  _        => 'Privé',
-};
-
-Color _schoolTypeColor(String t) => switch (t) {
-  'public' => _kBlue,
-  _        => _kGold,
-};
-
-// ─── API publique réutilisable (Vue régionale → tableau analytique) ──────────
-/// Libellé du type d'établissement (Public / Privé).
-String schoolTypeLabel(String t) => _schoolTypeLabel(t);
-
-/// Couleur associée au type d'établissement.
-Color schoolTypeColor(String t) => _schoolTypeColor(t);
-
 /// Ouvre la fiche détaillée d'une école (4 onglets : Infos / Cycles /
-/// Utilisateurs / Stats) depuis n'importe quel écran admin_groupe. Réutilisée
-/// par le tableau analytique de la Vue régionale pour éviter toute duplication.
+/// Utilisateurs / Stats) depuis n'importe quel écran admin_groupe.
 Future<void> openSchoolDetailDialog(
     BuildContext context, WidgetRef ref, SchoolDetail s) {
   return showDialog(
@@ -76,7 +58,7 @@ class _SchoolDetailModalState extends State<_SchoolDetailModal>
   @override
   Widget build(BuildContext context) {
     final s = widget.school;
-    final typeColor = _schoolTypeColor(s.type);
+    final typeColor = kNavy;
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -114,7 +96,6 @@ class _SchoolDetailModalState extends State<_SchoolDetailModal>
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 6),
                   Wrap(spacing: 6, runSpacing: 4, children: [
-                    _TypeBadge(type: s.type),
                     AdminBadge(s.isActive ? 'Active' : 'Inactive',
                         color: s.isActive ? kGreen : kRed,
                         icon: s.isActive ? Icons.check_circle : Icons.block_rounded),

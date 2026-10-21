@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/licence_statut.dart';
-import '../../../../core/widgets/admin_ui.dart';
 import '../../providers/comptes_admin_provider.dart';
 import '../../providers/subscriptions_provider.dart';
 import 'subs_badges.dart';
 import 'subs_style.dart';
 
 // ─── Vue tableau ─────────────────────────────────────────────────────
-//  La ligne porte DEUX corrections vues à l'écran le 2026-09-04 : l'adresse
-//  affichée est le compte de connexion (pas l'e-mail de contact), et la
-//  colonne « contrat » montre le marché d'un ministère, pas le tarif à 0 F de
-//  son plan support.
+//  L'adresse affichée sous le nom est le COMPTE de connexion, pas l'e-mail
+//  de contact (correction du 2026-09-04).
 
 class SubTableView extends StatelessWidget {
   const SubTableView({
@@ -20,11 +16,10 @@ class SubTableView extends StatelessWidget {
     required this.subs,
     required this.onView,
     required this.onEdit,
-    required this.onLicence,
   });
 
   final List<SubscriptionDetail> subs;
-  final ValueChanged<SubscriptionDetail> onView, onEdit, onLicence;
+  final ValueChanged<SubscriptionDetail> onView, onEdit;
 
   static const _iconW    = 48.0;
   static const _statusW  = 100.0;
@@ -64,7 +59,6 @@ class SubTableView extends StatelessWidget {
               const SizedBox(width: _iconW),
               _hdr('Groupe scolaire', 3),
               _hdr('Plan',            2),
-              _hdr('Type',            2),
               _hdr('Échéance',        3),
               _hdr('Écoles',          1),
               SizedBox(width: _statusW,
@@ -86,7 +80,6 @@ class SubTableView extends StatelessWidget {
             actionsW: _actionsW,
             onView:    () => onView(e.value),
             onEdit:    () => onEdit(e.value),
-            onLicence: () => onLicence(e.value),
           )),
         ]),
       ),
@@ -103,12 +96,11 @@ class _TableRow extends ConsumerStatefulWidget {
     required this.actionsW,
     required this.onView,
     required this.onEdit,
-    required this.onLicence,
   });
   final SubscriptionDetail sub;
   final bool         isOdd;
   final double       iconW, statusW, actionsW;
-  final VoidCallback onView, onEdit, onLicence;
+  final VoidCallback onView, onEdit;
 
   @override
   ConsumerState<_TableRow> createState() => _TableRowState();
@@ -161,14 +153,11 @@ class _TableRowState extends ConsumerState<_TableRow> {
                   Text(s.groupName,
                       style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kSubText),
                       overflow: TextOverflow.ellipsis),
-                  // ⚠️ CE QU'ON LIT ICI, C'EST UN IDENTIFIANT.
-                  // C'était `admin_email`, une colonne de CONTACT saisie dans
-                  // le formulaire du groupe — jamais un compte. Le fondateur
-                  // a lu cette ligne pour ouvrir l'espace d'un client, et la
-                  // connexion a échoué : sur les huit administrateurs de la
-                  // base, AUCUNE des deux adresses ne coïncidait. C'est
-                  // pourtant cet écran qu'on ouvre quand un client appelle
-                  // parce qu'il n'arrive pas à se connecter.
+                  // ⚠️ CE QU'ON LIT ICI, C'EST UN IDENTIFIANT : le compte de
+                  // connexion de l'administrateur, pas `admin_email` (une
+                  // adresse de contact qui ne coïncidait avec aucun compte).
+                  // C'est cet écran qu'on ouvre quand un client appelle parce
+                  // qu'il n'arrive pas à se connecter.
                   Text(compteAdmin ?? s.adminEmail,
                       style: TextStyle(fontSize: 10.5, color: kSubMuted),
                       overflow: TextOverflow.ellipsis),
@@ -176,12 +165,12 @@ class _TableRowState extends ConsumerState<_TableRow> {
               ),
             ),
           )),
-          // ⚠️ Un ministère affichait « Licence de tutelle · Gratuit » — soit
-          // l'inverse exact de la vérité : quarante millions. Et sa licence
-          // n'était visible que dans Économie, un autre écran. Ici, la ligne
-          // porte l'état RÉEL du contrat.
-          Expanded(flex: 2, child: _ColonneContrat(sub: s)),
-          Expanded(flex: 2, child: SubTypeBadge(type: s.groupType)),
+          Expanded(flex: 2, child: Text(s.planName ?? '—',
+              style: TextStyle(
+                  fontSize: 12.5,
+                  color: s.planName == null ? kSubMuted : kSubText,
+                  fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis)),
           Expanded(flex: 3, child: Row(children: [
             Icon(Icons.schedule_rounded, size: 13,
                 color: s.isOverdue ? kSubRed : (s.isExpiringSoon ? kSubOrange : kSubMuted)),
@@ -211,87 +200,12 @@ class _TableRowState extends ConsumerState<_TableRow> {
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               _ActionBtn(icon: Icons.visibility_rounded, color: kSubBlue, tooltip: 'Voir la fiche', onTap: widget.onView),
               const SizedBox(width: 4),
-              if (s.estMinistere)
-                _ActionBtn(
-                    icon: Icons.gavel_rounded,
-                    color: kSubPurple,
-                    tooltip: s.licence == null
-                        ? 'Créer la licence'
-                        : 'Gérer la licence',
-                    onTap: widget.onLicence)
-              else
-                _ActionBtn(icon: Icons.edit_rounded, color: kSubNavy, tooltip: 'Modifier', onTap: widget.onEdit),
+              _ActionBtn(icon: Icons.edit_rounded, color: kSubNavy, tooltip: 'Modifier', onTap: widget.onEdit),
             ]),
           ),
         ]),
       ),
     );
-  }
-}
-
-/// Ce que le groupe porte VRAIMENT : un plan mensuel, ou une licence.
-///
-/// ⚠️ Un ministère affichait « Licence de tutelle » avec le tarif du plan —
-/// c'est-à-dire « Gratuit », soit l'inverse exact de la vérité : quarante
-/// millions. Le montant du plan support ne veut rien dire pour lui ; celui de
-/// son marché, si.
-class _ColonneContrat extends StatelessWidget {
-  const _ColonneContrat({required this.sub});
-
-  final SubscriptionDetail sub;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!sub.estMinistere) {
-      return Text(sub.planName ?? '—',
-          style: TextStyle(
-              fontSize: 12.5,
-              color: sub.planName == null ? kSubMuted : kSubText,
-              fontWeight: FontWeight.w600),
-          overflow: TextOverflow.ellipsis);
-    }
-    final l = sub.licence;
-    // Sans licence, la ligne le DIT en ambre : un ministère sans marché saisi
-    // est une facturation qui n'existe pas, pas un détail de présentation.
-    if (l == null) {
-      return const Row(children: [
-        Icon(Icons.gavel_rounded, size: 13, color: kSubOrange),
-        SizedBox(width: 5),
-        Flexible(
-          child: Text('Aucune licence',
-              style: TextStyle(
-                  fontSize: 12.5, color: kSubOrange, fontWeight: FontWeight.w700),
-              overflow: TextOverflow.ellipsis),
-        ),
-      ]);
-    }
-    final couleur = couleurStatutLicence(l.statut);
-    return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text('${subMoney(l.montantXaf)} F',
-              style: TextStyle(
-                  fontSize: 12.5,
-                  color: kSubText,
-                  fontWeight: FontWeight.w700),
-              overflow: TextOverflow.ellipsis),
-          Row(children: [
-            Container(
-              width: 6,
-              height: 6,
-              decoration:
-                  BoxDecoration(color: couleur, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 5),
-            Flexible(
-              child: Text(
-                  'Licence ${libelleStatutLicenceOuTiret(l.statut).toLowerCase()}',
-                  style: TextStyle(fontSize: 10.5, color: couleur),
-                  overflow: TextOverflow.ellipsis),
-            ),
-          ]),
-        ]);
   }
 }
 

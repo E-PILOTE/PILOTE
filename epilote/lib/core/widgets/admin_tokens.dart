@@ -47,31 +47,14 @@ void applyPalette(EpilotePalette p) {
   kBorder = p.border;
 }
 
-/// Couleur du ministère de tutelle. METP en violet, MEPSA au bleu de la
-/// marque : c'est déjà le code que lisent les tableaux de bord d'examens, on
-/// le conserve pour ne pas réapprendre au lecteur ce qu'il sait déjà lire.
+/// Couleur de l'ordre d'enseignement (technique METP en violet, général
+/// MEPSA au bleu de la marque). Les libellés vivent dans
+/// `core/constants/tutelle.dart`.
 ///
 /// ⚠️ Fonction et non constante : `kNavy` change avec le thème (voir
-/// l'avertissement en tête de fichier). Les libellés, eux, vivent dans
-/// `core/constants/tutelle.dart`.
+/// l'avertissement en tête de fichier).
 Color couleurTutelle(String? t) =>
     (t ?? '').toLowerCase().contains('metp') ? const Color(0xFF7C3AED) : kNavy;
-
-/// Couleur du statut d'une licence de tutelle. Les LIBELLÉS vivent dans
-/// `core/constants/licence_statut.dart` — même partage que `couleurTutelle`.
-///
-/// ⚠️ Un brouillon est GRIS, pas ambre : il n'alerte de rien, il n'est pas
-/// encore un marché. C'est « échue » qui doit attirer l'oeil.
-Color couleurStatutLicence(String? s) => switch (s) {
-      'active' => kGreen,
-      // ⚠️ « Suspendue » est ROUGE et « échue » ambre, pas l'inverse. L'ambre
-      // dit « ça arrive » ; le rouge dit « quelqu'un l'a arrêté ». Une
-      // suspension est une décision, et elle doit se voir comme telle.
-      'suspendue' => kRed,
-      'echue' => kAccent,
-      'resiliee' => kTextPrimary,
-      _ => kTextMuted,
-    };
 
 // ─── Formateurs ─────────────────────────────────────────────────────────────
 

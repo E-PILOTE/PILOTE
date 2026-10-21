@@ -1,7 +1,7 @@
 part of 'admin_academic_years_screen.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
-//  ANALYSES — ventilation département / type d'établissement.
+//  ANALYSES — ventilation par département.
 //
 //  L'évolution pluriannuelle vit dans `admin_year_evolution.dart`.
 // ════════════════════════════════════════════════════════════════════════════
@@ -87,7 +87,7 @@ class _ChartError extends StatelessWidget {
       );
 }
 
-// ─── Ligne : département (barres) + type d'établissement (donut) ───────────────
+// ─── Répartition par département (barres) ────────────────────────────────────
 class _AnalyticsRow extends ConsumerWidget {
   const _AnalyticsRow({required this.year});
   final AdminYear year;
@@ -98,40 +98,12 @@ class _AnalyticsRow extends ConsumerWidget {
     final a = async.valueOrNull;
     void recharger() => ref.invalidate(adminYearAnalyticsProvider(year.id));
 
-    return LayoutBuilder(
-      builder: (context, c) {
-        // 720 et non 820 : à 150 % d'agrandissement Windows, la colonne de
-        // contenu tombe sous 800 px logiques et les deux cartes s'empilaient —
-        // un anneau de 230 px seul au milieu d'une carte large de huit cents.
-        final wide = c.maxWidth >= 720;
-        final dept = _DepartmentChart(
-            year: year,
-            analytics: a,
-            loading: async.isLoading,
-            enErreur: async.hasError,
-            onRetry: recharger);
-        final type = _TypeDonut(
-            analytics: a,
-            loading: async.isLoading,
-            enErreur: async.hasError,
-            onRetry: recharger);
-        if (wide) {
-          // ⚠️ Pas de CrossAxisAlignment.stretch ici : la Row est dans un
-          // ListView (hauteur non bornée) → stretch force h=∞ et casse le rendu.
-          // Les cartes s'auto-dimensionnent (alignées en haut) — Syncfusion ne
-          // supporte pas les intrinsèques, donc IntrinsicHeight est exclu.
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(flex: 3, child: dept),
-              const SizedBox(width: 16),
-              Expanded(flex: 2, child: type),
-            ],
-          );
-        }
-        return Column(children: [dept, const SizedBox(height: 16), type]);
-      },
-    );
+    return _DepartmentChart(
+        year: year,
+        analytics: a,
+        loading: async.isLoading,
+        enErreur: async.hasError,
+        onRetry: recharger);
   }
 }
 
@@ -307,177 +279,3 @@ class _DepartmentChart extends StatelessWidget {
 /// chevauchent et le graphe cesse d'être lisible ; le nombre exclu est écrit
 /// sous le graphe plutôt que passé sous silence.
 const int _kMaxBarres = 8;
-
-// ════════════════════════════════════════════════════════════════════════════
-//  TYPE D'ÉTABLISSEMENT — anneau fin, extrémités arrondies, total au centre.
-//
-//  L'anneau précédent était un beignet épais d'un seul bleu plat qui occupait
-//  toute la carte pour dire « 100 % public ». Il est aminci, ses extrémités
-//  arrondies (sauf sur un anneau plein, où deux arrondis qui se rejoignent
-//  produisent une encoche), et la légende porte désormais la PART de chaque
-//  statut — c'est ce qu'on vient chercher dans un anneau.
-// ════════════════════════════════════════════════════════════════════════════
-class _TypeDonut extends StatelessWidget {
-  const _TypeDonut({
-    required this.analytics,
-    required this.loading,
-    required this.enErreur,
-    required this.onRetry,
-  });
-  final AdminYearAnalytics? analytics;
-  final bool loading;
-  final bool enErreur;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final data = (analytics?.byType ?? const <YearTypeStat>[])
-        .where((t) => t.eleves > 0)
-        .toList();
-    final total = data.fold<int>(0, (a, t) => a + t.eleves);
-
-    return AdminCard(
-      hoverable: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _CardHead("Type d'établissement",
-              icon: Icons.account_balance_rounded,
-              tint: kAccent,
-              subtitle: 'Part des effectifs par statut'),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 216,
-            child: loading
-                ? Center(child: CircularProgressIndicator(color: kNavy))
-                : enErreur
-                    ? _ChartError(
-                        quoi: "la ventilation par type d'établissement",
-                        onRetry: onRetry)
-                    : total == 0
-                        ? const _ChartEmpty(message: 'Aucune donnée.')
-                        : _anneau(data, total),
-          ),
-          const SizedBox(height: 10),
-          ...data.map((t) => _LigneType(stat: t, total: total)),
-        ],
-      ),
-    );
-  }
-
-  Widget _anneau(List<YearTypeStat> data, int total) {
-    return SfCircularChart(
-      margin: EdgeInsets.zero,
-      tooltipBehavior: TooltipBehavior(
-        enable: true,
-        color: kNavyDark,
-        borderWidth: 0,
-        textStyle: const TextStyle(fontSize: 12, color: Colors.white),
-      ),
-      annotations: <CircularChartAnnotation>[
-        CircularChartAnnotation(
-          widget: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(fmtInt(total),
-                  style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                      color: kTextPrimary)),
-              Text('élèves',
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: kTextMuted)),
-              const SizedBox(height: 4),
-              Text(
-                '${data.length} statut${data.length > 1 ? 's' : ''}',
-                style: TextStyle(fontSize: 10.5, color: kTextMuted),
-              ),
-            ],
-          ),
-        ),
-      ],
-      series: <CircularSeries<YearTypeStat, String>>[
-        DoughnutSeries<YearTypeStat, String>(
-          dataSource: data,
-          xValueMapper: (t, _) => _typeLabel(t.type),
-          yValueMapper: (t, _) => t.eleves,
-          pointColorMapper: (t, _) => _typeColor(t.type),
-          radius: '86%',
-          innerRadius: '76%',
-          // Deux arrondis qui se rejoignent sur un anneau plein créent une
-          // encoche : on ne les demande qu'à partir de deux secteurs.
-          cornerStyle:
-              data.length > 1 ? CornerStyle.bothCurve : CornerStyle.bothFlat,
-          strokeColor: kCardBg,
-          strokeWidth: 2,
-          animationDuration: 900,
-          selectionBehavior: SelectionBehavior(
-            enable: true,
-            selectedOpacity: 1,
-            unselectedOpacity: 0.35,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Une ligne de légende : pastille, libellé, part, et le détail à droite.
-class _LigneType extends StatelessWidget {
-  const _LigneType({required this.stat, required this.total});
-  final YearTypeStat stat;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    final couleur = _typeColor(stat.type);
-    final part = total == 0 ? 0.0 : stat.eleves / total;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                    color: couleur, borderRadius: BorderRadius.circular(3)),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(_typeLabel(stat.type),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: kTextPrimary)),
-              ),
-              Text('${(part * 100).round()} %',
-                  style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
-                      color: couleur)),
-            ],
-          ),
-          const SizedBox(height: 5),
-          // La jauge occupe TOUTE la ligne. Partagée avec le détail chiffré,
-          // elle ne faisait qu'un dixième de la carte : une part de 100 % s'y
-          // lisait comme une part minoritaire.
-          AdminProgressBar(value: part, max: 1, height: 5, color: couleur),
-          const SizedBox(height: 4),
-          Text(
-              '${fmtInt(stat.eleves)} élèves · ${stat.ecoles} écoles · '
-              '${stat.classes} classes',
-              style: TextStyle(fontSize: 11, color: kTextMuted)),
-        ],
-      ),
-    );
-  }
-}

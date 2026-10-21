@@ -13,8 +13,8 @@ import '../../../core/utils/garder_au_chaud.dart';
 //  pour les compter en Dart — intenable à 1 000 écoles, et surtout exposé à la
 //  troncature silencieuse de PostgREST.
 //
-//  Les regroupements par département et par type restent côté client : ils
-//  portent sur la liste des écoles (37 aujourd'hui, 1 000 à la cible), c'est-à-
+//  Le regroupement par département reste côté client : il
+//  porte sur la liste des écoles (37 aujourd'hui, 1 000 à la cible), c'est-à-
 //  dire une poignée de lignes déjà en mémoire — pas la peine d'un aller-retour
 //  de plus.
 // ══════════════════════════════════════════════════════════════════════════════
@@ -35,27 +35,15 @@ class YearDeptStat {
   final int ecoles, ecolesPreparees, classes, eleves;
 }
 
-class YearTypeStat {
-  const YearTypeStat({
-    required this.type,
-    required this.ecoles,
-    required this.classes,
-    required this.eleves,
-  });
-  final String type;
-  final int ecoles, classes, eleves;
-}
-
 class YearSchoolStat {
   const YearSchoolStat({
     required this.id,
     required this.name,
     required this.department,
-    required this.type,
     required this.classes,
     required this.eleves,
   });
-  final String id, name, department, type;
+  final String id, name, department;
   final int classes, eleves;
   bool get adopted => classes > 0;
 }
@@ -63,7 +51,6 @@ class YearSchoolStat {
 class AdminYearAnalytics {
   const AdminYearAnalytics({
     required this.byDepartment,
-    required this.byType,
     required this.bySchool,
     required this.ecolesTotal,
     required this.ecolesPreparees,
@@ -72,7 +59,6 @@ class AdminYearAnalytics {
   });
 
   final List<YearDeptStat> byDepartment;
-  final List<YearTypeStat> byType;
   final List<YearSchoolStat> bySchool;
   final int ecolesTotal, ecolesPreparees, classes, eleves;
 
@@ -91,7 +77,6 @@ class AdminYearAnalytics {
 
   static const empty = AdminYearAnalytics(
     byDepartment: [],
-    byType: [],
     bySchool: [],
     ecolesTotal: 0,
     ecolesPreparees: 0,
@@ -176,7 +161,7 @@ class YearDepartmentDetail {
   }
 }
 
-/// Ventilation d'une année par département / type d'établissement / école.
+/// Ventilation d'une année par département et par école.
 final adminYearAnalyticsProvider = FutureProvider.autoDispose
     .family<AdminYearAnalytics, String>((ref, yearId) async {
   garderAuChaud(ref);
@@ -192,7 +177,6 @@ final adminYearAnalyticsProvider = FutureProvider.autoDispose
             id: r['school_id'] as String,
             name: (r['school_name'] as String?) ?? '—',
             department: (r['department'] as String?) ?? 'Non précisé',
-            type: (r['school_type'] as String?) ?? 'autre',
             classes: (r['classes'] as num?)?.toInt() ?? 0,
             eleves: (r['eleves'] as num?)?.toInt() ?? 0,
           ))
@@ -215,24 +199,8 @@ final adminYearAnalyticsProvider = FutureProvider.autoDispose
       .toList()
     ..sort((a, b) => b.eleves.compareTo(a.eleves));
 
-  // ── Agrégation par type d'établissement ──────────────────────────────────
-  final typeMap = <String, List<YearSchoolStat>>{};
-  for (final s in bySchool) {
-    (typeMap[s.type] ??= []).add(s);
-  }
-  final byType = typeMap.entries
-      .map((e) => YearTypeStat(
-            type: e.key,
-            ecoles: e.value.length,
-            classes: e.value.fold(0, (a, s) => a + s.classes),
-            eleves: e.value.fold(0, (a, s) => a + s.eleves),
-          ))
-      .toList()
-    ..sort((a, b) => b.eleves.compareTo(a.eleves));
-
   return AdminYearAnalytics(
     byDepartment: byDepartment,
-    byType: byType,
     bySchool: bySchool,
     ecolesTotal: bySchool.length,
     ecolesPreparees: bySchool.where((s) => s.adopted).length,

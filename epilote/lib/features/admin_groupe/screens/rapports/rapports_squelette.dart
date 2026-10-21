@@ -52,18 +52,6 @@ class _ShimmerSkeleton extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════════════════
 Color _rateColor(double v) => v >= 70 ? kGreen : v >= 40 ? kAccent : kRed;
 
-Color _typeColor(String type) => switch (type) {
-      'public' => _kBlue,
-      'prive' => kGreen,
-      _ => kNavy,
-    };
-
-String _typeLabel(String type) => switch (type) {
-      'public' => 'Public',
-      'prive' => 'Privé',
-      _ => type,
-    };
-
 String _fmtD(DateTime d) =>
     '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 

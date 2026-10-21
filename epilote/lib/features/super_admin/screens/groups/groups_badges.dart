@@ -82,27 +82,9 @@ class _StatusBadge extends StatelessWidget {
   );
 }
 
-class _TypeBadge extends StatelessWidget {
-  const _TypeBadge({required this.type, required this.label});
-  final String type, label;
-
-  Color get _color => type == 'public' ? _kNavy : _kGold;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-    decoration: BoxDecoration(
-      color: _color.withValues(alpha: 0.1),
-      borderRadius: BorderRadius.circular(6),
-    ),
-    child: Text(label, style: TextStyle(
-        color: _color, fontSize: 11, fontWeight: FontWeight.w700)),
-  );
-}
-
-/// Pastille du ministère de tutelle.
+/// Pastille de l'ordre d'enseignement (MEPSA / METP).
 ///
-/// ⚠️ Elle NE DISPARAÎT PAS quand la tutelle manque : elle affiche « Sans
+/// ⚠️ Elle NE DISPARAÎT PAS quand il manque : elle affiche « Sans
 /// ministère » en rouge. Une pastille absente se confond avec un écran qui n'en
 /// affiche pas ; une pastille qui dit le manque se voit dans une liste de
 /// mille groupes, et c'est le seul endroit où la lacune peut encore être

@@ -135,15 +135,3 @@ String _deptKeyOf(SchoolSummary s) {
   final d = s.department?.trim();
   return (d == null || d.isEmpty) ? 'Non précisé' : d;
 }
-
-String _typeLabel(String t) => switch (t) {
-      'public' => 'Public',
-      'prive' => 'Privé',
-      _ => t,
-    };
-
-Color _typeColor(String t) => switch (t) {
-      'public' => _kBlue,
-      'prive' => kGreen,
-      _ => kTextMuted,
-    };

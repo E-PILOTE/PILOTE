@@ -33,7 +33,6 @@ class _FakeEntitlement extends EntitlementNotifier {
 SchoolGroupModel _group({DateTime? end, int? alertDays}) => SchoolGroupModel(
       id: 'g1',
       name: 'Groupe de test',
-      groupType: 'prive',
       planId: 'p1',
       subscriptionStatus: 'active',
       subscriptionEnd: end,

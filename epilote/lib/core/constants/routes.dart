@@ -46,21 +46,9 @@ class Routes {
   // ── Admin Groupe ─────────────────────────────────────────────────────────
   static const String adminDashboard    = '/admin/dashboard';
   static const String adminEcoles       = '/admin/ecoles';
-  /// Le réseau SOUS TUTELLE — à ne pas confondre avec `adminEcoles`, qui
-  /// montre les écoles que le groupe POSSÈDE. Pour un ministère les deux
-  /// nombres diffèrent (le MEPSA possède 14 des 25 écoles de sa tutelle).
-  static const String adminTutelle      = '/admin/tutelle';
-  // ⚠️ `adminCirculairesEmises` et `adminCirculaires` ont été retirés le
-  // 2026-09-02. La plateforme portait DÉJÀ trois canaux (annonces, messagerie,
-  // tickets) ; la circulaire en ajoutait un quatrième, avec ses écrans et son
-  // vocabulaire, pour un objet dont la base ne comptait aucune ligne. Un
-  // ministère qui veut écrire à un groupe supervisé le sélectionne dans
-  // « Réseau sous tutelle » et lui envoie un MESSAGE.
-  //
-  // Les tables `circulaires` / `circulaire_destinataires` restent en base,
-  // dormantes : les retirer suppose de défaire cinq migrations et des règles
-  // de synchronisation PowerSync, chantier plus risqué que ce qu'il rapporte
-  // tant qu'aucune ligne n'existe.
+  // ⚠️ `/admin/tutelle` (« Réseau sous tutelle ») a été retiré le 2026-10-21 :
+  // la plateforme ne sert plus que des groupes PRIVÉS, et plus aucun groupe
+  // n'est un ministère qui en supervise d'autres.
   static const String adminEcoleDetail  = '/admin/ecoles/:id';
   static const String adminUtilisateurs = '/admin/utilisateurs';
   static const String adminEleves       = '/admin/eleves';
@@ -78,7 +66,6 @@ class Routes {
   // reçoit les arrêtés. Le super_admin exploite le SaaS, il ne le peuple pas.
   static const String adminReferentiel  = '/admin/referentiel-examens';
   static const String adminSessions     = '/admin/sessions-examen';
-  static const String adminResultats    = '/admin/resultats';
   static const String adminPalmares     = '/admin/palmares';
   static const String adminRapports     = '/admin/rapports';
   static const String adminAbonnement   = '/admin/abonnement';

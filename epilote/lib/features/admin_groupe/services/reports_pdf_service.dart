@@ -132,8 +132,7 @@ class ReportsPdfService {
           '${d.ratioEncadrement.toStringAsFixed(1)} élève(s)  •  '
           '${d.coveredDepts} département(s) couvert(s)',
       lignes: [
-        ('Établissements publics', '${d.publicCount}', kPdfNavy),
-        ('Établissements privés', '${d.priveCount}', kPdfNavy),
+        ('Établissements', '${d.schoolRows.length}', kPdfNavy),
         null,
         ('Élèves — garçons', '${_n(d.studentsM)}  ($pctG %)', _kBlue),
         ('Élèves — filles', '${_n(d.studentsF)}  ($pctF %)', _kPurple),
@@ -208,18 +207,16 @@ class ReportsPdfService {
         fonts: f,
         headers: const [
           'Établissement',
-          'Type',
           'Élèves',
           'Personnel',
           'Classes',
           'Revenus',
           'Statut',
         ],
-        flex: const [9, 3, 2, 3, 2, 4, 3],
+        flex: const [12, 2, 3, 2, 4, 3],
         rows: d.schoolRows
             .map((s) => [
                   s.name,
-                  _type(s.type),
                   '${s.students}',
                   '${s.staff}',
                   '${s.classes}',
@@ -339,12 +336,6 @@ String _n(int v) {
 }
 
 String _slug(String s) => s.replaceAll(RegExp(r'[^\w]+'), '_');
-
-String _type(String t) => switch (t) {
-      'public' => 'Public',
-      'prive' => 'Privé',
-      _ => t,
-    };
 
 String _contrat(String c) => switch (c) {
       'permanent' => 'Titulaires (permanents)',

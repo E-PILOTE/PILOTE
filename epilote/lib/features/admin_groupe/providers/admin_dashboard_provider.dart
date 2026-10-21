@@ -24,7 +24,6 @@ class SchoolSummary {
   const SchoolSummary({
     required this.id,
     required this.name,
-    required this.type,
     required this.isActive,
     required this.students,
     required this.staff,
@@ -34,7 +33,6 @@ class SchoolSummary {
   });
   final String id;
   final String name;
-  final String type;
   final bool isActive;
   final int students;
   final int staff;
@@ -105,8 +103,6 @@ class AdminDashboardData {
     required this.elevesAJour,
     required this.schools,
     required this.recentActivity,
-    required this.publicCount,
-    required this.priveCount,
     required this.studentsM,
     required this.studentsF,
     required this.enseignantsTotal,
@@ -146,7 +142,6 @@ class AdminDashboardData {
   final List<AdminActivity> recentActivity;
 
   // ── Indicateurs stratégiques ──
-  final int publicCount, priveCount;
   final int studentsM, studentsF;
   final int enseignantsTotal, adminsTotal;
   final Map<String, int> schoolsByDept;
@@ -217,7 +212,6 @@ class AdminDashboardData {
     personnelTotal: 0, classesTotal: 0,
     revenusMois: 0, paiementsMoisCount: 0, elevesAJour: 0,
     schools: [], recentActivity: [],
-    publicCount: 0, priveCount: 0,
     studentsM: 0, studentsF: 0,
     enseignantsTotal: 0, adminsTotal: 0,
     schoolsByDept: {}, studentsByDept: {},
@@ -326,12 +320,11 @@ final adminDashboardProvider =
   final List<Map<String, dynamic>> schoolRows = [];
   final Map<String, String> schoolDept = {};
   final Map<String, int> schoolsByDept = {};
-  int publicCount = 0, priveCount = 0;
   Future<void> lireEcoles() async {
     try {
       final rows = await fetchAllRows(() => client
           .from('schools')
-          .select('id, name, school_type, city, department, is_active')
+          .select('id, name, city, department, is_active')
           .eq('group_id', groupId)
           .order('name', ascending: true)
           .order('id'));
@@ -342,10 +335,6 @@ final adminDashboardProvider =
         final deptKey = (dept == null || dept.isEmpty) ? 'Non précisé' : dept;
         schoolDept[id] = deptKey;
         schoolsByDept[deptKey] = (schoolsByDept[deptKey] ?? 0) + 1;
-        switch (s['school_type'] as String?) {
-          case 'public': publicCount++; break;
-          case 'prive':  priveCount++;  break;
-        }
       }
     } catch (e) {
       manquantes.note(MesuresTableauGroupe.ecoles, e, ecran: 'Tableau de bord groupe');
@@ -590,7 +579,6 @@ final adminDashboardProvider =
     return SchoolSummary(
       id:         id,
       name:       s['name'] as String? ?? '—',
-      type:       s['school_type'] as String? ?? 'prive',
       city:       s['city'] as String?,
       department: s['department'] as String?,
       isActive:   s['is_active'] as bool? ?? true,
@@ -623,8 +611,6 @@ final adminDashboardProvider =
     elevesAJour:        studentsPaid.length,
     schools:            schools,
     recentActivity:     activity,
-    publicCount:        publicCount,
-    priveCount:         priveCount,
     studentsM:          studentsM,
     studentsF:          studentsF,
     enseignantsTotal:   enseignantsTotal,

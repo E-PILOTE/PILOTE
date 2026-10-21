@@ -44,7 +44,7 @@ class _QuotaGrid extends StatelessWidget {
         label: 'Modules', value: '${sub.moduleCount}',
         sub: 'Modules actifs',
         icon: Icons.extension_rounded, color: const Color(0xFF7C3AED),
-        trend: sub.estMinistere ? 'Inclus à la licence' : 'Inclus au plan',
+        trend: 'Inclus au plan',
       ),
     ];
 

@@ -16,7 +16,6 @@ class SchoolDetail {
   const SchoolDetail({
     required this.id,
     required this.name,
-    required this.type,
     required this.isActive,
     required this.students,
     required this.staff,
@@ -44,7 +43,6 @@ class SchoolDetail {
   });
   final String id;
   final String name;
-  final String type;
   final bool isActive;
   final int students;
   final int staff;
@@ -67,10 +65,8 @@ class SchoolDetail {
   final double? longitude;
   final String? locationSource; // 'gps' | 'geocoded' | 'manual'
 
-  /// Type d'établissement (CEG, CET, lycée technique…) — migration 0151.
-  ///
-  /// ⚠️ Rien à voir avec [type], qui vaut `public` ou `prive` : celui-là est le
-  /// STATUT JURIDIQUE, celui-ci dit ce que l'école EST. `null` tant que
+  /// Type d'établissement (CEG, CET, lycée technique…) — migration 0151 : ce
+  /// que l'école EST. `null` tant que
   /// l'administrateur ne l'a pas déclaré, et c'est volontaire : le deviner
   /// d'après le nom (« CEG de Moungali ») marcherait le plus souvent et se
   /// tromperait parfois — et une école mal typée remonte ses effectifs dans la
@@ -83,8 +79,6 @@ class SchoolDetail {
   final String? institutionTypeName, institutionTypeShort;
 
   /// Libellé affichable du type d'établissement — `null` si non déclaré.
-  /// ⚠️ Volontairement distinct de [type] (public / privé) : les confondre est
-  /// exactement l'erreur que la migration 0151 est venue rendre impossible.
   String? get institutionTypeLabel => institutionTypeName;
 
   /// Taux d'occupation = effectif / capacité. null si capacité non renseignée.
@@ -101,7 +95,6 @@ class AdminSchoolsData {
     required this.maxStudents,
     required this.planName,
     required this.totalStudents,
-    required this.groupType,
     this.tutelle,
   });
   final List<SchoolDetail> schools;
@@ -110,13 +103,8 @@ class AdminSchoolsData {
   final int totalStudents;
   final String planName;
 
-  /// Secteur du groupe (`public` | `prive`). Une école en hérite : son secteur
-  /// n'est jamais saisi, il suit celui du groupe (verrou en base, migration 0060).
-  final String groupType;
-
-  /// Ministère de tutelle du groupe (`mepsa` | `metp`) — migration 0153.
-  /// Même logique que [groupType] : l'école en hérite par déclencheur, elle ne
-  /// le saisit pas. Il sert ici à ne proposer QUE les types d'établissement de
+  /// Ordre d'enseignement du groupe (`mepsa` | `metp`) — migration 0153.
+  /// L'école en hérite par déclencheur, elle ne le saisit pas. Il sert ici à ne proposer QUE les types d'établissement de
   /// ce ministère. `null` = groupe pas encore renseigné : la fiche le dit au
   /// lieu de choisir à sa place.
   final String? tutelle;
@@ -124,8 +112,7 @@ class AdminSchoolsData {
   bool get quotaReached => maxSchools > 0 && schools.length >= maxSchools;
 
   static const empty = AdminSchoolsData(
-    schools: [], maxSchools: 0, maxStudents: 0, planName: '—', totalStudents: 0,
-    groupType: 'prive');
+    schools: [], maxSchools: 0, maxStudents: 0, planName: '—', totalStudents: 0);
 }
 
 // ─── Provider liste ─────────────────────────────────────────────────────────
@@ -173,14 +160,12 @@ final adminSchoolsProvider =
   //  ÉCHOUE, elle, doit faire échouer la page — l'écran sait le dire.
   int maxSchools = 0, maxStudents = 0;
   String planName = '—';
-  String groupType = 'prive';
   final g = await client
       .from('school_groups')
-      .select('group_type, tutelle, '
+      .select('tutelle, '
           'subscription_plans!plan_id(name, max_schools, max_students)')
       .eq('id', groupId)
       .maybeSingle();
-  groupType = g?['group_type'] as String? ?? 'prive';
   final tutelle = g?['tutelle'] as String?;
   final plan = g?['subscription_plans'] as Map<String, dynamic>?;
   planName    = plan?['name'] as String? ?? '—';
@@ -225,7 +210,7 @@ final adminSchoolsProvider =
   final List<SchoolDetail> schools = [];
   {
     final rows = await fetchAllRows(() => client.from('schools').select(
-            'id, name, school_type, school_code, address, city, province, '
+            'id, name, school_code, address, city, province, '
             'arrondissement, department, phone, email, website, motto, '
             'founded_year, director_id, logo_url, is_active, capacity, '
             'latitude, longitude, location_source, institution_type_id, '
@@ -244,7 +229,6 @@ final adminSchoolsProvider =
       schools.add(SchoolDetail(
         id:             id,
         name:           s['name'] as String? ?? '—',
-        type:           s['school_type'] as String? ?? 'prive',
         code:           s['school_code'] as String?,
         address:        s['address'] as String?,
         city:           s['city'] as String?,
@@ -281,7 +265,6 @@ final adminSchoolsProvider =
     maxStudents: maxStudents,
     totalStudents: totalStudents,
     planName: planName,
-    groupType: groupType,
     tutelle: tutelle,
   );
 });
@@ -302,7 +285,6 @@ class AdminSchoolsService {
   /// l'offre éducative — cycles/filières/niveaux — dans la foulée).
   Future<String> create({
     required String name,
-    required String type,
     String? code,
     String? address,
     String? city,
@@ -324,7 +306,6 @@ class AdminSchoolsService {
     final row = await client.from('schools').insert({
       'group_id': groupId,
       'name': name,
-      'school_type': type,
       if (code != null && code.isNotEmpty) 'school_code': code,
       if (address != null && address.isNotEmpty) 'address': address,
       if (city != null && city.isNotEmpty) 'city': city,
@@ -351,7 +332,6 @@ class AdminSchoolsService {
   Future<void> update({
     required String id,
     required String name,
-    required String type,
     String? code,
     String? address,
     String? city,
@@ -370,7 +350,6 @@ class AdminSchoolsService {
     final client = _ref.read(supabaseClientProvider);
     await client.from('schools').update({
       'name': name,
-      'school_type': type,
       'school_code': (code != null && code.isNotEmpty) ? code : null,
       'address': (address != null && address.isNotEmpty) ? address : null,
       'city': (city != null && city.isNotEmpty) ? city : null,
