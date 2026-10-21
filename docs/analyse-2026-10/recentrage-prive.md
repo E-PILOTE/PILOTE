@@ -226,6 +226,12 @@ il faudra retirer le rôle, puis supprimer.
 | 6 | **UX « une école »** | quand le modèle est stable |
 | 7 | **Documentation** : `CLAUDE.md`, `ANALYSE.md`, mémoire | `CLAUDE.md` parle encore de « commande MEPSA + METP » |
 
+**État au 2026-10-21** : 0 ✅ (mig. 0207) · base remise à zéro ✅ (mig. 0208,
+qui rend la purge du chantier 4 sans objet pour les données) · 2 ✅ (commit
+`b899262`, en UN seul commit et non par bloc : les blocs se croisaient dans
+le routeur, la sidebar et les sondes) · 7 ✅ pour `CLAUDE.md`. Restent : 3
+(diffusion), 4 (schéma), 5 (décisions métier), 6, et `ANALYSE.md`.
+
 ### 5.4 Les garde-fous
 - Chaque suppression de base passe d'abord par une **transaction annulée**
   qui montre ce qui serait touché.
