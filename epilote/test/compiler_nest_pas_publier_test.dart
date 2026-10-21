@@ -1,5 +1,6 @@
 import 'package:epilote/features/super_admin/providers/releases_provider.dart';
 import 'package:epilote/features/super_admin/widgets/version_non_publiee.dart';
+import 'package:epilote/features/updates/providers/update_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,16 +35,24 @@ import 'package:package_info_plus/package_info_plus.dart';
 //  permanent ne s'avertit plus de rien.
 // ════════════════════════════════════════════════════════════════════════════
 
+// ⚠️ L'encart ne compte que les builds publiés pour la plateforme QUI
+// L'EXÉCUTE. Écrire 'windows' en dur rendait ces tests verts sur le poste de
+// développement et rouges sur la CI Linux (PR 18) : les releases fabriquées
+// devenaient toutes « d'une autre plateforme ». On suit donc la plateforme
+// réelle, et l'« autre » est choisie pour être toujours différente.
+final String _ici = plateformeCourante();
+final String _ailleurs = _ici == 'linux' ? 'windows' : 'linux';
+
 ReleasePubliee _publiee({
   required int build,
-  String platform = 'windows',
+  String? platform,
   String channel = 'stable',
 }) =>
     ReleasePubliee(
       id: 'r$build',
       version: '3.x.$build',
       buildNumber: build,
-      platform: platform,
+      platform: platform ?? _ici,
       channel: channel,
       downloadUrl: 'https://example.invalid/e.exe',
       sha256: 'a' * 64,
@@ -109,7 +118,7 @@ void main() {
     // La table est indexée par plateforme : un poste Windows ne reçoit jamais
     // une ligne Linux, si haute soit-elle.
     await _poser(tester, version: '3.5.14', build: '48', publiees: [
-      _publiee(build: 60, platform: 'linux'),
+      _publiee(build: 60, platform: _ailleurs),
       _publiee(build: 27),
     ]);
     expect(find.textContaining('que le parc ne connaît pas'), findsOneWidget);
